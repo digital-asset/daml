@@ -9,7 +9,6 @@ import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSock
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.daml.http.json.SprayJson
-import com.daml.http.util.TestUtil
 import HttpServiceTestFixture.UseTls
 import akka.actor.ActorSystem
 import com.daml.jwt.domain.Jwt
@@ -289,7 +288,7 @@ class WebsocketServiceIntegrationTest
             ContractDelta(Vector((ctid, _)), Vector(), None) <- readOne
             _ = (ctid: String) shouldBe (iouCid.unwrap: String)
             _ <- liftF(
-              TestUtil.postJsonRequest(
+              HttpServiceTestFixture.postJsonRequest(
                 uri.withPath(Uri.Path("/v1/exercise")),
                 exercisePayload(domain.ContractId(ctid)),
                 headersWithAuth) map {
@@ -365,13 +364,13 @@ class WebsocketServiceIntegrationTest
 
       val f1 =
         postCreateCommand(
-          accountCreateCommand(domain.Party("Alice"), "abc123"),
+          HttpServiceTestFixture.accountCreateCommand(domain.Party("Alice"), "abc123"),
           encoder,
           uri,
           headers = headersWithPartyAuth(List("Alice")))
       val f2 =
         postCreateCommand(
-          accountCreateCommand(domain.Party("Bob"), "def456"),
+          HttpServiceTestFixture.accountCreateCommand(domain.Party("Bob"), "def456"),
           encoder,
           uri,
           headers = headersWithPartyAuth(List("Bob")))
@@ -395,7 +394,7 @@ class WebsocketServiceIntegrationTest
             ContractDelta(Vector(), _, Some(liveStartOffset)) <- readOne
             _ <- liftF(
               postCreateCommand(
-                accountCreateCommand(domain.Party("Alice"), "abc234"),
+                HttpServiceTestFixture.accountCreateCommand(domain.Party("Alice"), "abc234"),
                 encoder,
                 uri,
                 headers = headersWithPartyAuth(List("Alice"))))
@@ -410,7 +409,7 @@ class WebsocketServiceIntegrationTest
             }
             _ <- liftF(
               postCreateCommand(
-                accountCreateCommand(domain.Party("Bob"), "def567"),
+                HttpServiceTestFixture.accountCreateCommand(domain.Party("Bob"), "def567"),
                 encoder,
                 uri,
                 headers = headersWithPartyAuth(List("Bob"))))
@@ -447,9 +446,10 @@ class WebsocketServiceIntegrationTest
         _ = r2._1 shouldBe 'success
         cid2 = getContractId(getResult(r2._2))
 
-        lastState <- singleClientQueryStream(jwtForParties(List("Alice", "Bob")), uri, query) via parseResp runWith resp(
-          cid1,
-          cid2)
+        lastState <- singleClientQueryStream(
+          HttpServiceTestFixture.jwtForParties(List("Alice", "Bob"), testId),
+          uri,
+          query) via parseResp runWith resp(cid1, cid2)
         liveOffset = inside(lastState) {
           case ShouldHaveEnded(liveStart, 5, lastSeen) =>
             lastSeen.unwrap should be > liveStart.unwrap
@@ -475,9 +475,15 @@ class WebsocketServiceIntegrationTest
               .toList).toJson.compactPrint
       }
       val f1 =
-        postCreateCommand(accountCreateCommand(domain.Party("Alice"), "abc123"), encoder, uri)
+        postCreateCommand(
+          HttpServiceTestFixture.accountCreateCommand(domain.Party("Alice"), "abc123"),
+          encoder,
+          uri)
       val f2 =
-        postCreateCommand(accountCreateCommand(domain.Party("Alice"), "def456"), encoder, uri)
+        postCreateCommand(
+          HttpServiceTestFixture.accountCreateCommand(domain.Party("Alice"), "def456"),
+          encoder,
+          uri)
 
       def resp(
           cid1: domain.ContractId,
@@ -558,7 +564,10 @@ class WebsocketServiceIntegrationTest
   "fetch multiple keys should work" in withHttpService { (uri, encoder, _) =>
     def create(account: String): Future[domain.ContractId] =
       for {
-        r <- postCreateCommand(accountCreateCommand(domain.Party("Alice"), account), encoder, uri)
+        r <- postCreateCommand(
+          HttpServiceTestFixture.accountCreateCommand(domain.Party("Alice"), account),
+          encoder,
+          uri)
       } yield {
         assert(r._1.isSuccess)
         getContractId(getResult(r._2))
@@ -620,13 +629,13 @@ class WebsocketServiceIntegrationTest
 
       val f1 =
         postCreateCommand(
-          accountCreateCommand(domain.Party("Alice"), "abc123"),
+          HttpServiceTestFixture.accountCreateCommand(domain.Party("Alice"), "abc123"),
           encoder,
           uri,
           headers = headersWithPartyAuth(List("Alice")))
       val f2 =
         postCreateCommand(
-          accountCreateCommand(domain.Party("Bob"), "def456"),
+          HttpServiceTestFixture.accountCreateCommand(domain.Party("Bob"), "def456"),
           encoder,
           uri,
           headers = headersWithPartyAuth(List("Bob")))
@@ -685,16 +694,17 @@ class WebsocketServiceIntegrationTest
         _ = r2._1 shouldBe 'success
         cid2 = getContractId(getResult(r2._2))
 
-        lastState <- singleClientFetchStream(jwtForParties(List("Alice", "Bob")), uri, query) via parseResp runWith resp(
-          cid1,
-          cid2)
+        lastState <- singleClientFetchStream(
+          HttpServiceTestFixture.jwtForParties(List("Alice", "Bob"), testId),
+          uri,
+          query) via parseResp runWith resp(cid1, cid2)
         liveOffset = inside(lastState) {
           case ShouldHaveEnded(liveStart, 5, lastSeen) =>
             lastSeen.unwrap should be > liveStart.unwrap
             liveStart
         }
         rescan <- (singleClientFetchStream(
-          jwtForParties(List("Alice", "Bob")),
+          HttpServiceTestFixture.jwtForParties(List("Alice", "Bob"), testId),
           uri,
           query,
           Some(liveOffset))
@@ -749,7 +759,7 @@ class WebsocketServiceIntegrationTest
       case Node(_, l, r) =>
         for {
           (StatusCodes.OK, _) <- liftF(
-            TestUtil.postJsonRequest(
+            HttpServiceTestFixture.postJsonRequest(
               serviceUri.withPath(Uri.Path("/v1/exercise")),
               exercisePayload(createdCid, l.x),
               headersWithAuth))
@@ -780,7 +790,7 @@ class WebsocketServiceIntegrationTest
     }
     for {
       (StatusCodes.OK, _) <- liftF(
-        TestUtil.postJsonRequest(
+        HttpServiceTestFixture.postJsonRequest(
           serviceUri.withPath(Uri.Path("/v1/create")),
           initialPayload,
           headersWithAuth))

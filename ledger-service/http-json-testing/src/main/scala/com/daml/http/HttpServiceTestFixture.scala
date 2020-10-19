@@ -4,20 +4,30 @@
 package com.daml.http
 
 import java.io.File
+import java.time.Instant
 
 import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import akka.http.scaladsl.model._
 import akka.stream.Materializer
+import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.dbbackend.ContractDao
-import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
+import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
+import com.daml.http.util.ClientUtil.boxedRecord
+import com.daml.http.util.TestUtil.getResponseDataBytes
 import com.daml.http.util.{FutureUtil, NewBoolean}
-import com.daml.ledger.api.auth.AuthService
+import com.daml.jwt.JwtSigner
+import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.ledger.api.auth.{AuthService, AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -30,21 +40,27 @@ import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
+import com.typesafe.scalalogging.LazyLogging
 import scalaz._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
+import scalaz.syntax.show._
+import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
+import spray.json._
 
 import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
-object HttpServiceTestFixture {
+object HttpServiceTestFixture extends LazyLogging {
+
+  import json.JsonProtocol._
 
   private val doNotReloadPackages = FiniteDuration(100, DAYS)
 
   def withHttpService[A](
       testName: String,
-      dars: List[File],
+      ledgerPort: Port,
       jdbcConfig: Option[JdbcConfig],
       staticContentConfig: Option[StaticContentConfig],
       leakPasswords: LeakPasswords = LeakPasswords.FiresheepStyle,
@@ -56,19 +72,11 @@ object HttpServiceTestFixture {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext): Future[A] = {
 
-    val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
 
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
 
-    val ledgerF = for {
-      ledger <- Future(
-        new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, useTls = useTls), mat))
-      port <- ledger.portF
-    } yield (ledger, port)
-
     val httpServiceF: Future[ServerBinding] = for {
-      (_, ledgerPort) <- ledgerF
       contractDao <- contractDaoF
       config = Config(
         ledgerHost = "localhost",
@@ -91,7 +99,6 @@ object HttpServiceTestFixture {
     } yield httpService
 
     val clientF: Future[LedgerClient] = for {
-      (_, ledgerPort) <- ledgerF
       client <- LedgerClient.singleHost(
         "localhost",
         ledgerPort.value,
@@ -116,7 +123,6 @@ object HttpServiceTestFixture {
       Future
         .sequence(
           Seq(
-            ledgerF.map(_._1.close()),
             httpServiceF.flatMap(_.unbind()),
           ) map (_ fallbackTo Future.unit))
         .transform(_ => ta)
@@ -127,7 +133,8 @@ object HttpServiceTestFixture {
       dars: List[File],
       testName: String,
       token: Option[String] = None,
-      authService: Option[AuthService] = None)(testFn: LedgerClient => Future[A])(
+      useTls: UseTls = UseTls.NoTls,
+      authService: Option[AuthService] = None)(testFn: (Port, LedgerClient) => Future[A])(
       implicit mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext): Future[A] = {
@@ -137,7 +144,7 @@ object HttpServiceTestFixture {
 
     val ledgerF = for {
       ledger <- Future(
-        new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, authService), mat))
+        new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, authService, useTls), mat))
       port <- ledger.portF
     } yield (ledger, port)
 
@@ -146,12 +153,13 @@ object HttpServiceTestFixture {
       client <- LedgerClient.singleHost(
         "localhost",
         ledgerPort.value,
-        clientConfig(applicationId, token))
+        clientConfig(applicationId, token, useTls))
     } yield client
 
     val fa: Future[A] = for {
+      (_, ledgerPort) <- ledgerF
       client <- clientF
-      a <- testFn(client)
+      a <- testFn(ledgerPort, client)
     } yield a
 
     fa.onComplete { _ =>
@@ -165,8 +173,8 @@ object HttpServiceTestFixture {
       ledgerPort: Port,
       dars: List[File],
       ledgerId: LedgerId,
-      authService: Option[AuthService] = None,
-      useTls: UseTls = UseTls.NoTls
+      authService: Option[AuthService],
+      useTls: UseTls,
   ): SandboxConfig =
     sandbox.DefaultConfig.copy(
       port = ledgerPort,
@@ -180,7 +188,7 @@ object HttpServiceTestFixture {
   private def clientConfig[A](
       applicationId: ApplicationId,
       token: Option[String] = None,
-      useTls: UseTls = UseTls.NoTls): LedgerClientConfiguration =
+      useTls: UseTls): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
@@ -235,4 +243,145 @@ object HttpServiceTestFixture {
   private val serverTlsConfig = TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)
   private val clientTlsConfig = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt)
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
+
+  def jwtForParties(parties: List[String], ledgerId: String) = {
+    import AuthServiceJWTCodec.JsonImplicits._
+    val decodedJwt = DecodedJwt(
+      """{"alg": "HS256", "typ": "JWT"}""",
+      AuthServiceJWTPayload(
+        ledgerId = Some(ledgerId),
+        applicationId = Some("test"),
+        actAs = parties,
+        participantId = None,
+        exp = None,
+        admin = false,
+        readAs = List()
+      ).toJson.prettyPrint
+    )
+    JwtSigner.HMAC256
+      .sign(decodedJwt, "secret")
+      .fold(e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.shows}"), identity)
+  }
+
+  def headersWithPartyAuth(parties: List[String], ledgerId: String) =
+    authorizationHeader(jwtForParties(parties, ledgerId))
+
+  def authorizationHeader(token: Jwt): List[Authorization] =
+    List(Authorization(OAuth2BearerToken(token.value)))
+
+  def postRequest(uri: Uri, json: JsValue, headers: List[HttpHeader] = Nil)(
+      implicit as: ActorSystem,
+      ec: ExecutionContext,
+      mat: Materializer): Future[(StatusCode, JsValue)] = {
+    Http()
+      .singleRequest(
+        HttpRequest(
+          method = HttpMethods.POST,
+          uri = uri,
+          headers = headers,
+          entity = HttpEntity(ContentTypes.`application/json`, json.prettyPrint))
+      )
+      .flatMap { resp =>
+        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
+        bodyF.map(body => {
+          (resp.status, body.parseJson)
+        })
+      }
+  }
+
+  def postJsonStringRequest(uri: Uri, jsonString: String, headers: List[HttpHeader])(
+      implicit as: ActorSystem,
+      ec: ExecutionContext,
+      mat: Materializer): Future[(StatusCode, JsValue)] = {
+    logger.info(s"postJson: ${uri.toString} json: ${jsonString: String}")
+    Http()
+      .singleRequest(
+        HttpRequest(
+          method = HttpMethods.POST,
+          uri = uri,
+          headers = headers,
+          entity = HttpEntity(ContentTypes.`application/json`, jsonString))
+      )
+      .flatMap { resp =>
+        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
+        bodyF.map(body => (resp.status, body.parseJson))
+      }
+  }
+
+  def postJsonRequest(uri: Uri, json: JsValue, headers: List[HttpHeader])(
+      implicit as: ActorSystem,
+      ec: ExecutionContext,
+      mat: Materializer): Future[(StatusCode, JsValue)] =
+    postJsonStringRequest(uri, json.prettyPrint, headers)
+
+  def postCreateCommand(
+      cmd: domain.CreateCommand[v.Record],
+      encoder: DomainJsonEncoder,
+      uri: Uri,
+      headers: List[HttpHeader])(
+      implicit as: ActorSystem,
+      ec: ExecutionContext,
+      mat: Materializer): Future[(StatusCode, JsValue)] = {
+    import encoder.implicits._
+    for {
+      json <- FutureUtil.toFuture(SprayJson.encode1(cmd)): Future[JsValue]
+      result <- postJsonRequest(uri.withPath(Uri.Path("/v1/create")), json, headers = headers)
+    } yield result
+  }
+
+  def postArchiveCommand(
+      templateId: domain.TemplateId.OptionalPkg,
+      contractId: domain.ContractId,
+      encoder: DomainJsonEncoder,
+      uri: Uri,
+      headers: List[HttpHeader])(
+      implicit as: ActorSystem,
+      ec: ExecutionContext,
+      mat: Materializer): Future[(StatusCode, JsValue)] = {
+    val ref = domain.EnrichedContractId(Some(templateId), contractId)
+    val cmd = archiveCommand(ref)
+    for {
+      json <- FutureUtil.toFuture(encoder.encodeExerciseCommand(cmd)): Future[JsValue]
+      result <- postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), json, headers)
+    } yield result
+  }
+
+  def getRequest(uri: Uri, headers: List[HttpHeader])(
+      implicit as: ActorSystem,
+      ec: ExecutionContext,
+      mat: Materializer): Future[(StatusCode, JsValue)] = {
+    Http()
+      .singleRequest(
+        HttpRequest(method = HttpMethods.GET, uri = uri, headers = headers)
+      )
+      .flatMap { resp =>
+        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
+        bodyF.map(body => (resp.status, body.parseJson))
+      }
+  }
+
+  def archiveCommand[Ref](reference: Ref): domain.ExerciseCommand[v.Value, Ref] = {
+    val arg: v.Record = v.Record()
+    val choice = lar.Choice("Archive")
+    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
+  }
+
+  def accountCreateCommand(
+      owner: domain.Party,
+      number: String,
+      time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now))
+    : domain.CreateCommand[v.Record] = {
+    val templateId = domain.TemplateId(None, "Account", "Account")
+    val timeValue = v.Value(time)
+    val enabledVariantValue =
+      v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
+    val arg = v.Record(
+      fields = List(
+        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(owner.unwrap)))),
+        v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
+        v.RecordField("status", Some(enabledVariantValue))
+      ))
+
+    domain.CreateCommand(templateId, arg, None)
+  }
 }

@@ -9,7 +9,6 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Source, StreamConverters}
 import akka.util.ByteString
@@ -27,7 +26,6 @@ import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.{FutureUtil, TestUtil}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.daml.ledger.api.auth.{AuthServiceJWTPayload, AuthServiceJWTCodec}
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.client.LedgerClient
@@ -90,26 +88,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected val metdata2: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
-  protected def jwtForParties(parties: List[String]) = {
-    import AuthServiceJWTCodec.JsonImplicits._
-    val decodedJwt = DecodedJwt(
-      """{"alg": "HS256", "typ": "JWT"}""",
-      AuthServiceJWTPayload(
-        ledgerId = Some(testId),
-        applicationId = Some("test"),
-        actAs = parties,
-        participantId = None,
-        exp = None,
-        admin = false,
-        readAs = List()
-      ).toJson.prettyPrint
-    )
-    JwtSigner.HMAC256
-      .sign(decodedJwt, "secret")
-      .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
-  }
-
-  protected val jwt: Jwt = jwtForParties(List("Alice"))
+  protected val jwt: Jwt = HttpServiceTestFixture.jwtForParties(List("Alice"), testId)
 
   protected val jwtAdminNoParty: Jwt = {
     val decodedJwt = DecodedJwt(
@@ -129,75 +108,49 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   import tag.@@ // used for subtyping to make `AHS ec` beat executionContext
   implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](`AHS asys`.dispatcher)
 
-  protected def withHttpServiceAndClient[A]
-    : ((Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A]) => Future[A] =
-    HttpServiceTestFixture
-      .withHttpService[A](
-        testId,
-        List(dar1, dar2),
-        jdbcConfig,
-        staticContentConfig,
-        useTls = useTls,
-        wsConfig = wsConfig)
+  protected def withHttpServiceAndClient[A](
+      testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A]): Future[A] =
+    HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId, None, useTls) {
+      case (ledgerPort, _) =>
+        HttpServiceTestFixture.withHttpService[A](
+          testId,
+          ledgerPort,
+          jdbcConfig,
+          staticContentConfig,
+          useTls = useTls,
+          wsConfig = wsConfig)(testFn)
+    }
 
   protected def withHttpService[A](
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]): Future[A] =
     withHttpServiceAndClient((a, b, c, _) => f(a, b, c))
 
-  protected def withLedger[A]: (LedgerClient => Future[A]) => Future[A] =
-    HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId)
+  protected def withLedger[A](testFn: LedgerClient => Future[A]): Future[A] =
+    HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId) {
+      case (_, client) => testFn(client)
+    }
 
-  protected def accountCreateCommand(
-      owner: domain.Party,
-      number: String,
-      time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now))
-    : domain.CreateCommand[v.Record] = {
-    val templateId = domain.TemplateId(None, "Account", "Account")
-    val timeValue = v.Value(time)
-    val enabledVariantValue =
-      v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
-    val arg = v.Record(
-      fields = List(
-        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(owner.unwrap)))),
-        v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
-        v.RecordField("status", Some(enabledVariantValue))
-      ))
-
-    domain.CreateCommand(templateId, arg, None)
-  }
-
-  protected val headersWithAuth = authorizationHeader(jwt)
+  protected val headersWithAuth = HttpServiceTestFixture.authorizationHeader(jwt)
 
   protected def headersWithPartyAuth(parties: List[String]) =
-    authorizationHeader(jwtForParties(parties))
-
-  protected def authorizationHeader(token: Jwt): List[Authorization] =
-    List(Authorization(OAuth2BearerToken(token.value)))
+    HttpServiceTestFixture.headersWithPartyAuth(parties, testId)
 
   protected def postJsonStringRequest(
       uri: Uri,
       jsonString: String
   ): Future[(StatusCode, JsValue)] =
-    TestUtil.postJsonStringRequest(uri, jsonString, headersWithAuth)
+    HttpServiceTestFixture.postJsonStringRequest(uri, jsonString, headersWithAuth)
 
   protected def postJsonRequest(
       uri: Uri,
       json: JsValue,
       headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] =
-    TestUtil.postJsonStringRequest(uri, json.prettyPrint, headers)
+    HttpServiceTestFixture.postJsonRequest(uri, json, headers)
 
   protected def getRequest(
       uri: Uri,
-      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] = {
-    Http()
-      .singleRequest(
-        HttpRequest(method = HttpMethods.GET, uri = uri, headers = headers)
-      )
-      .flatMap { resp =>
-        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
-        bodyF.map(body => (resp.status, body.parseJson))
-      }
-  }
+      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] =
+    HttpServiceTestFixture.getRequest(uri, headers)
 
   protected def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false): Future[String] = {
     val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
@@ -209,27 +162,16 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       cmd: domain.CreateCommand[v.Record],
       encoder: DomainJsonEncoder,
       uri: Uri,
-      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] = {
-    import encoder.implicits._
-    for {
-      json <- toFuture(SprayJson.encode1(cmd)): Future[JsValue]
-      result <- postJsonRequest(uri.withPath(Uri.Path("/v1/create")), json, headers = headers)
-    } yield result
-  }
+      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] =
+    HttpServiceTestFixture.postCreateCommand(cmd, encoder, uri, headers)
 
   protected def postArchiveCommand(
       templateId: domain.TemplateId.OptionalPkg,
       contractId: domain.ContractId,
       encoder: DomainJsonEncoder,
       uri: Uri,
-      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] = {
-    val ref = domain.EnrichedContractId(Some(templateId), contractId)
-    val cmd = archiveCommand(ref)
-    for {
-      json <- toFuture(encoder.encodeExerciseCommand(cmd)): Future[JsValue]
-      result <- postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), json, headers)
-    } yield result
-  }
+      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] =
+    HttpServiceTestFixture.postArchiveCommand(templateId, contractId, encoder, uri, headers)
 
   protected def lookupContractAndAssert(contractLocator: domain.ContractLocator[JsValue])(
       contractId: ContractId,
@@ -304,12 +246,6 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       choice = choice,
       argument = boxedRecord(arg),
       meta = None)
-  }
-
-  protected def archiveCommand[Ref](reference: Ref): domain.ExerciseCommand[v.Value, Ref] = {
-    val arg: v.Record = v.Record()
-    val choice = lar.Choice("Archive")
-    domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
   }
 
   protected def assertStatus(jsObj: JsValue, expectedStatus: StatusCode): Assertion = {
@@ -459,7 +395,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected def initialIouCreate(serviceUri: Uri): Future[(StatusCode, JsValue)] = {
     val payload = TestUtil.readFile("it/iouCreateCommand.json")
-    TestUtil.postJsonStringRequest(
+    HttpServiceTestFixture.postJsonStringRequest(
       serviceUri.withPath(Uri.Path("/v1/create")),
       payload,
       headersWithAuth)
@@ -468,7 +404,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected def initialAccountCreate(
       serviceUri: Uri,
       encoder: DomainJsonEncoder): Future[(StatusCode, JsValue)] = {
-    val command = accountCreateCommand(domain.Party("Alice"), "abc123")
+    val command = HttpServiceTestFixture.accountCreateCommand(domain.Party("Alice"), "abc123")
     postCreateCommand(command, encoder, serviceUri)
   }
 }
@@ -522,11 +458,11 @@ abstract class AbstractHttpServiceIntegrationTest
   "multi-party query GET" in withHttpService { (uri, encoder, _) =>
     for {
       _ <- postCreateCommand(
-        accountCreateCommand(owner = domain.Party("Alice"), number = "42"),
+        HttpServiceTestFixture.accountCreateCommand(owner = domain.Party("Alice"), number = "42"),
         encoder,
         uri).map(r => r._1 shouldBe StatusCodes.OK)
       _ <- postCreateCommand(
-        accountCreateCommand(owner = domain.Party("Bob"), number = "23"),
+        HttpServiceTestFixture.accountCreateCommand(owner = domain.Party("Bob"), number = "23"),
         encoder,
         uri,
         headers = headersWithPartyAuth(List("Bob"))).map(r => r._1 shouldBe StatusCodes.OK)
@@ -553,12 +489,12 @@ abstract class AbstractHttpServiceIntegrationTest
   "multi-party query POST with empty query" in withHttpService { (uri, encoder, _) =>
     for {
       aliceAccountResp <- postCreateCommand(
-        accountCreateCommand(owner = domain.Party("Alice"), number = "42"),
+        HttpServiceTestFixture.accountCreateCommand(owner = domain.Party("Alice"), number = "42"),
         encoder,
         uri)
       _ = aliceAccountResp._1 shouldBe StatusCodes.OK
       bobAccountResp <- postCreateCommand(
-        accountCreateCommand(owner = domain.Party("Bob"), number = "23"),
+        HttpServiceTestFixture.accountCreateCommand(owner = domain.Party("Bob"), number = "23"),
         encoder,
         uri,
         headers = headersWithPartyAuth(List("Bob")))
@@ -934,7 +870,7 @@ abstract class AbstractHttpServiceIntegrationTest
           val contractId = getContractId(getResult(createOutput))
           val templateId = domain.TemplateId(None, "Iou", "Iou")
           val reference = domain.EnrichedContractId(Some(templateId), contractId)
-          val exercise = archiveCommand(reference)
+          val exercise = HttpServiceTestFixture.archiveCommand(reference)
           val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
           postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
@@ -1142,7 +1078,7 @@ abstract class AbstractHttpServiceIntegrationTest
     postJsonRequest(
       uri = uri.withPath(Uri.Path("/v1/parties/allocate")),
       json = json,
-      headers = authorizationHeader(jwtAdminNoParty))
+      headers = HttpServiceTestFixture.authorizationHeader(jwtAdminNoParty))
       .flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.OK
@@ -1250,7 +1186,8 @@ abstract class AbstractHttpServiceIntegrationTest
   "fetch by key" in withHttpService { (uri, encoder, _) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
-    val command: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber)
+    val command: domain.CreateCommand[v.Record] =
+      HttpServiceTestFixture.accountCreateCommand(owner, accountNumber)
 
     postCreateCommand(command, encoder, uri).flatMap {
       case (status, output) =>
@@ -1268,7 +1205,8 @@ abstract class AbstractHttpServiceIntegrationTest
   "commands/exercise Archive by key" in withHttpService { (uri, encoder, _) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
-    val create: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber)
+    val create: domain.CreateCommand[v.Record] =
+      HttpServiceTestFixture.accountCreateCommand(owner, accountNumber)
 
     val keyRecord = v.Record(
       fields = Seq(
@@ -1280,7 +1218,7 @@ abstract class AbstractHttpServiceIntegrationTest
       v.Value(v.Value.Sum.Record(keyRecord))
     )
     val archive: domain.ExerciseCommand[v.Value, domain.EnrichedContractKey[v.Value]] =
-      archiveCommand(locator)
+      HttpServiceTestFixture.archiveCommand(locator)
     val archiveJson: JsValue = encodeExercise(encoder)(archive)
 
     postCreateCommand(create, encoder, uri).flatMap {
@@ -1357,7 +1295,8 @@ abstract class AbstractHttpServiceIntegrationTest
     val accountNumber = "abc123"
     val now = TimestampConversion.instantToMicros(Instant.now)
     val nowStr = TimestampConversion.microsToInstant(now).toString
-    val command: domain.CreateCommand[v.Record] = accountCreateCommand(owner, accountNumber, now)
+    val command: domain.CreateCommand[v.Record] =
+      HttpServiceTestFixture.accountCreateCommand(owner, accountNumber, now)
 
     val packageId: Ref.PackageId = MetadataReader
       .templateByName(metdata2)(Ref.QualifiedName.assertFromString("Account:Account"))
@@ -1413,7 +1352,7 @@ abstract class AbstractHttpServiceIntegrationTest
                 HttpRequest(
                   method = HttpMethods.GET,
                   uri = uri.withPath(Uri.Path(s"/v1/packages/$packageId")),
-                  headers = authorizationHeader(jwtAdminNoParty),
+                  headers = HttpServiceTestFixture.authorizationHeader(jwtAdminNoParty),
                 )
               )
               .map { resp =>
@@ -1435,7 +1374,7 @@ abstract class AbstractHttpServiceIntegrationTest
           HttpRequest(
             method = HttpMethods.POST,
             uri = uri.withPath(Uri.Path("/v1/packages")),
-            headers = authorizationHeader(jwtAdminNoParty),
+            headers = HttpServiceTestFixture.authorizationHeader(jwtAdminNoParty),
             entity = HttpEntity.fromFile(ContentTypes.`application/octet-stream`, newDar)
           )
         )
