@@ -22,11 +22,11 @@ Clarity is often in the eye of the beholder and short code is not per se good co
 
 ## Van Laarhoven lenses
 
-Before we delve into a series of benchmarks, let's quickly recap [von Laarhoven lenses](https://www.twanvl.nl/blog/haskell/cps-functional-references). The type of a lens for accessing a field of type `a` in a record of type `s` is
+Before we delve into a series of benchmarks, let's quickly recap [van Laarhoven lenses](https://www.twanvl.nl/blog/haskell/cps-functional-references). The type of a lens for accessing a field of type `a` in a record of type `s` is
 ```haskell
 type Lens s a = forall f. Functor f => (a -> f a) -> (s -> f s)
 ```
-If it wasn't for everything related to `f` in there, the type would be the rather simple `(a -> a) -> (s -> s)`. This looks like the type of a higher-order function that turns a function for changing the value of the field into a function for changing the whole record. That sounds pretty useful in its own right and is also something that could easily be used to implement a setter for the field: just use `\_ -> x` as the function for changing the field in order to set its value to `x`. Alas, it seems totally unclear how we could use such a higher-order function to produce a getter for the field. That's where the `f` comes into play. But before we go into the details of how to get a getter, let's implement a few lenses first.
+If it wasn't for everything related to `f` in this type, it would be the rather simple `(a -> a) -> (s -> s)`. This looks like the type of a higher-order function that turns a function for changing the value of the field into a function for changing the whole record. That sounds pretty useful in its own right and can also easily be used to implement a setter for the field: just use `\_ -> x` as the function for changing the field in order to set its value to `x`. Alas, it seems totally unclear how we could use such a higher-order function to produce a getter for the field. That's where the `f` comes into play. But before we go into the details of how to implement a getter, let's implement a few lenses first.
 
 Given a record type
 ```haskell
@@ -75,7 +75,7 @@ get: Lens s a -> s -> a
 get l r = (l Const r).unConst
 ```
 With this function, we can get the value of `field1` from an arbitrary record `r` by calling
-```haskell
+```
 get (lens @"field1") r
 ```
 
@@ -92,7 +92,7 @@ set l x r = (l (\_ -> Identity x) r).unIdentity
 
 ## How to micro-benchmark DAML
 
-Micro-benchmarking DAML code is unfortunately still a bit of an art form. We will use the scenario based benchmarking approach described in a [readme](https://github.com/digital-asset/daml/blob/master/daml-lf/README.md#benchmarking) somewhere in the `daml` repo. To this end we need to write a scenario that runs `get (lens @"field") r` for some record `r`. The benchmark runner will then tell use how long the scenario runs on average.
+Micro-benchmarking DAML code is unfortunately still a bit of an art form. We will use the scenario-based benchmarking approach described in the [DAML-LF readme](https://github.com/digital-asset/daml/blob/master/daml-lf/README.md#benchmarking). To this end, we need to write a scenario that runs `get (lens @"field") r` for some record `r`. The benchmark runner will then tell us how long the scenario runs on average.
 
 In order to write such a scenario, we need to take quite a few things into consideration. Let's have a look at the code first and explain the details afterward:
 ```haskell
@@ -108,13 +108,13 @@ benchLens = scenario do
 
 The explanations for the marked lines are as follows:
 
-* **(D)** Running a scenario has some constant overhead. Buy running the getter 100,000 times, we make this overhead per individual run of the getter negligible. However, folding over a list has some overhead too, including some overhead for each step of the fold. In order to account for this overhead, we use a technique that could be called "differential benchmarking": We run a slightly modified version of the benchmark above, where line (C) is replaced by `acc + r` and line (A) by `records = [1..100_00]`. The difference between both benchmarks will tell us how long it takes to execute line (C) 100,000 times.
+* **(D)** Running a scenario has some constant overhead. By running the getter 100,000 times, we make this overhead per individual run of the getter negligible. However, folding over a list has some overhead too, including some overhead for each step of the fold. In order to account for this overhead, we use a technique that could be called "differential benchmarking": We run a slightly modified version of the benchmark above, where line (C) is replaced by `acc + r` and line (A) by `records = [1..100_000]`. The difference between both benchmarks will tell us how long it takes to execute `get (lens @"field1") r` 100,000 times.
 
 * **(A)** In order for the differential benchmarking technique to work, we need to compute the value of `records` outside of the actual measurements since allocating a list of 100,000 records takes significantly longer than allocating a list of 100,000 numbers. To this end, we move the definition of `records` to the top-level. The DAML interpreter computes top-level values the first time their value is requested and then caches this value for future requests. The benchmark runner fills these caches by executing the scenario once _before_ measuring.
 
 * **(B)** Due to the aforementioned caching of top-level values and some quirks around the semantics of `do` notation, we need to put our benchmark after at least one `<-` binding. Otherwise, the result of the benchmark would be cached and we would only measure the time for accessing the cache.
 
-* **(C)** We put the code we want to benchmark into a non-trivial context to reflect its expected usage. If we dropped the `acc +`, then `get (lens @"field1") r` would be in tail position of the `step` function and hence not cause a stack allocation. However, in most use cases the `get` function will be part of a more complex expression and its result will be pushed onto the stack. Thus, it seems fair to benchmark the cost of running the `get` plus the pushing onto the stack. The additional cost of the addition is removed by the differential benchmarking technique.
+* **(C)** We put the code we want to benchmark into a non-trivial context to reflect its expected usage. If we dropped the `acc +`, then `get (lens @"field1") r` would be in tail position of the `step` function and hence not cause a stack allocation. However, in most use cases the `get` function will be part of a more complex expression and its result will be pushed onto the stack. Thus, it seems fair to benchmark the cost of running `get` _plus_ pushing onto the stack. The extra cost of the addition is removed by the differential benchmarking technique.
 
 ## First numbers
 
@@ -124,7 +124,7 @@ Recall that the objective of this blog post is to compare lenses to the builtin 
 2. `benchNoop`, the variant of `benchLens` described under **(D)** above,
 3. `benchBuiltin`, a variant of `benchLens` where line (C) is replaced by `acc + r.field1`.
 
-If `T(x)` denotes the time it takes to run a benchmark `x`, then we can compute the time a single `get (field @"field1") r` takes by
+If `T(x)` denotes the time it takes to run benchmark `x`, then we can compute the time a single `get (lens @"field1") r` takes by
 ```
 (T(benchLens) - T(benchNoop)) / 100,000
 ```
@@ -145,15 +145,15 @@ Wow! That means a single record field access using the builtin syntax takes 46 n
 
 ## Why are lenses so slow as getters?
 
-This is almost a death sentence for lenses as getters. But where are these huge differences coming from? If we look through the definitions of `lens` and `get`, we find that there are quite a few function calls going on and that the two typeclasses `Functor` and `HasField` are involved in this as well. Calling more functions is obviously slower. Typeclasses do have a significant runtime overhead in DAML since instances are passed around as dictionary records at runtime and calling a method selects the right field from this dictionary.
+This is almost a death sentence for lenses as getters. But where are these huge differences coming from? If we look through the definitions of `lens` and `get`, we find that there are quite a few function calls going on and that the two typeclasses `Functor` and `HasField` are involved in this as well. Calling more functions is obviously slower. On top of that, typeclasses have a significant runtime overhead in DAML since instances are passed around as dictionary records at runtime and calling a method selects the right field from this dictionary.
 
-If we don't want to abandon the idea of van Laarhoven lenses, we cannot get rid of the `Functor` typeclass. But what about `HasField`? If we want to be able construct lenses in a way that is polymorphic in the field name, there's no way around `HasField`. However, if we were willing to write plenty of boilerplate like the monomorphic `_field1` lens above, we could do away with `HasField`. Benchmarking this approach yields:
+If we don't want to abandon the idea of van Laarhoven lenses, we cannot eschew the  `Functor` typeclass. But what about `HasField`? If we want to be able construct lenses in a way that is polymorphic in the field name, there's no way around `HasField`. However, if we were willing to write plenty of boilerplate like the monomorphic `_field1` lens above, we could do away with `HasField`. Benchmarking this monomorphic approach yields:
 
 |`x`|`T(x)`|`(T(x) - T(benchNoop)) / 100,000`|
 |-|-|-|
 |`benchMono`|92.5 ms|814 ns|
 
-Accessing fields with monomorphic lenses is twice as fast as with their polymorphic counterparts but still more than an order of magnitude slower than using the builtin syntax. This implies that no matter how much better we make the implementation of `lens`, even if we used compile time specialization for it, we wouln't get better than a 17x slowdown compared to the builtin syntax.
+Accessing fields with monomorphic lenses is twice as fast as with their polymorphic counterparts but still 17x slower than using the builtin syntax. This implies that no matter how much better we make the implementation of `lens`, even if we used compile time specialization for it, we wouldn't get better than a 17x slowdown compared to the builtin syntax.
 
 ## Temporary stop-gap measures
 
@@ -178,7 +178,7 @@ So far, our benchmarks were only concerned with accessing one field in one recor
 ```
 r.field1.field2.field3
 ```
-With the builtin syntax, every record access you attach to the chain is as expensive as the first record access. Benchmarks confirm this linear progression. However, we could _easily_ make every record access after the first one in a chain _significantly_ faster in the DAML interpreter.
+With the builtin syntax, every record access you attach to the chain is as (in)expensive as the first record access. Benchmarks confirm this linear progression. However, we could _easily_ make every record access after the first one in a chain _significantly_ faster in the DAML interpreter.
 
 There's a similar linear progression when using `get` and `fastLens`. Unfortunately, we have _no chance_ of optimizing chains of record accesses in any way since they are completely intransparent to the compiler and the interpreter.
 
@@ -199,7 +199,7 @@ Only focussing on getters might be modestly controversial since lenses also serv
 ```
 r with field1 = newValue
 ```
-and using `set` and a lens to be in the same ballpark as for setters when updating a single field in a single record. When updating multiple fields in the same record, the DAML interpreter already performs some optimizations to avoid allocating intermediate records. Such optimizations are impossible with lense.
+and using `set` and a lens to update a single field in a single record to be in the same ballpark as for getters. When using the builtin syntax to updat multiple fields in the same record, the DAML interpreter already performs some optimizations to avoid allocating intermediate records. Such optimizations are impossible with lenses.
 
 However, when it comes to updating fields in nested records, DAML's builtin syntax is not particularly helpful:
 ```
@@ -210,7 +210,7 @@ It gets even worse when you want to update the value of a field depending on its
 ```
 over (lens @"field1" . lens @"field2") f r
 ```
-Expressing the same with DAML's builtin syntax feels rather clumsy
+Expressing the same with DAML's builtin syntax feels rather clumsy:
 ```
 r with field1 = r.field1 with field2 = f r.field1.field2
 ```
