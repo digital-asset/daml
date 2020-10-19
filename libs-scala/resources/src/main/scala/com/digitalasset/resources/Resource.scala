@@ -3,7 +3,9 @@
 
 package com.daml.resources
 
-import scala.concurrent.{ExecutionContext, Future}
+import com.daml.resources.HasExecutionContext.executionContext
+
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -17,9 +19,6 @@ abstract class Resource[Context: HasExecutionContext, +A] {
   private type R[+T] = Resource[Context, T]
 
   private val Resource = new ResourceFactories[Context]
-
-  protected implicit def executionContext(implicit context: Context): ExecutionContext =
-    HasExecutionContext.executionContext
 
   /**
     * Every [[Resource]] has an underlying [[Future]] representation.

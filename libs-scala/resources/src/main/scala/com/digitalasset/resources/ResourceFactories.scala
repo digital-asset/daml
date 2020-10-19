@@ -5,11 +5,14 @@ package com.daml.resources
 
 import java.util.concurrent.atomic.AtomicBoolean
 
+import com.daml.resources.HasExecutionContext.executionContext
+
 import scala.collection.generic.CanBuildFrom
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
 final class ResourceFactories[Context: HasExecutionContext] {
+
   import scala.language.higherKinds
 
   private type R[+T] = Resource[Context, T]
