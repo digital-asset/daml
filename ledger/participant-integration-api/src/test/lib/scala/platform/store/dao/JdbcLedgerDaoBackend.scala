@@ -15,10 +15,10 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.{DbType, FlywayMigrations}
-import org.scalatest.Suite
+import org.scalatest.AsyncTestSuite
 
+import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
 
 object JdbcLedgerDaoBackend {
 
@@ -30,9 +30,11 @@ object JdbcLedgerDaoBackend {
 
 }
 
-private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Suite =>
+private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
+  this: AsyncTestSuite =>
 
   protected def dbType: DbType
+
   protected def jdbcUrl: String
 
   protected def daoOwner(eventsPageSize: Int)(
@@ -53,8 +55,8 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    implicit val executionContext: ExecutionContext = system.dispatcher
-    implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
+    // We use the dispatcher here because the default Scalatest execution context is too slow.
+    implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     resource = newLoggingContext { implicit loggingContext =>
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
@@ -70,5 +72,4 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
     Await.result(resource.release(), 10.seconds)
     super.afterAll()
   }
-
 }
