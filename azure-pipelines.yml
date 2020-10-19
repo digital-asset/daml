@@ -74,13 +74,17 @@ jobs:
       - git_sha
     variables:
       fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+      pr_commit: $[ dependencies.git_sha.outputs['out.branch'] ]
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
       demands: assignment -equals default
     steps:
       - checkout: self
-      - bash: ci/check-changelog.sh $(fork_sha)
+      - bash: |
+          set -euo pipefail
+          git checkout $(pr_commit)
+          ci/check-changelog.sh $(fork_sha)
 
   - template: ci/da-ghc-lib/compile.yml
     parameters:
