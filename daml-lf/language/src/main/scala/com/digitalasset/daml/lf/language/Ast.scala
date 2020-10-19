@@ -84,13 +84,17 @@ object Ast {
   /** Struct construction. */
   final case class EStructCon(fields: ImmArray[(FieldName, Expr)]) extends Expr
 
-  /** Struct projection. The value for `fieldIndex` is fillen in by the type checker. */
+  /** Struct projection. */
   final case class EStructProj(field: FieldName, struct: Expr) extends Expr {
+    // The actual index is filled in by the type checker.
     private[lf] var fieldIndex: Option[Int] = None
   }
 
   /** Non-destructive struct update. */
-  final case class EStructUpd(field: FieldName, struct: Expr, update: Expr) extends Expr
+  final case class EStructUpd(field: FieldName, struct: Expr, update: Expr) extends Expr {
+    // The actual index is filled in by the type checker.
+    private[lf] var fieldIndex: Option[Int] = None
+  }
 
   /** Expression application. Function can be an abstraction or a builtin function. */
   final case class EApp(fun: Expr, arg: Expr) extends Expr
