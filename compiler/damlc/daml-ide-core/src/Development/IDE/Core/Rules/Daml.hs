@@ -260,11 +260,11 @@ generateRawDalfRule =
                     -- GHC Core to DAML LF
                     case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core of
                         Left e -> return ([e], Nothing)
-                        Right v -> do
+                        Right (v, warnings) -> do
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
                             pkgs <- getExternalPackages file
                             let world = LF.initWorldSelf pkgs pkg
-                            return ([], Just $ LF.simplifyModule world lfVersion v)
+                            return (warnings, Just $ LF.simplifyModule world lfVersion v)
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
 getExternalPackages file = do
@@ -408,7 +408,7 @@ generateSerializedDalfRule options =
                             DamlEnv{envIsGenerated} <- getDamlServiceEnv
                             case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core of
                                 Left e -> pure ([e], Nothing)
-                                Right rawDalf -> do
+                                Right (rawDalf, warnings) -> fmap (first (warnings ++)) $ do
                                     -- LF postprocessing
                                     pkgs <- getExternalPackages file
                                     let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps
