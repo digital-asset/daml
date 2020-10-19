@@ -40,12 +40,12 @@ constantLiftingTests = testGroup "Constant Lifting"
                     `ETmApp` EBuiltin (BEInt64 10)
                     `ETmApp` EBuiltin (BEInt64 10)))
         ]
-        [ dval "$sc_foo_1" TInt64
+        [ dval "$$sc_foo_1" TInt64
             (EBuiltin BEAddInt64
                 `ETmApp` EBuiltin (BEInt64 10)
                 `ETmApp` EBuiltin (BEInt64 10))
         , dval "foo" (TInt64 :-> TInt64)
-            (ETmLam (ExprVarName "x", TInt64) (exprVal "$sc_foo_1"))
+            (ETmLam (ExprVarName "x", TInt64) (exprVal "$$sc_foo_1"))
         ]
     , mkTestCase "\\xy.y" -- test that we aren't breaking up λxy.y into two lambdas.
         [ dval "foo" (TInt64 :-> TInt64 :-> TInt64)
@@ -67,14 +67,14 @@ constantLiftingTests = testGroup "Constant Lifting"
                             (EVar (ExprVarName "y"))))
                     (EVar (ExprVarName "z"))))
         ]
-        [ dval "$sc_foo_1" (TInt64 :-> TInt64 :-> TInt64)
+        [ dval "$$sc_foo_1" (TInt64 :-> TInt64 :-> TInt64)
             (ETmLam (ExprVarName "x", TInt64)
                 (ETmLam (ExprVarName "y", TInt64)
                     (EVar (ExprVarName "y"))))
         , dval "foo" (TInt64 :-> TInt64 :-> TInt64)
             (ETmLam (ExprVarName "z", TInt64)
                 (ETmApp
-                    (exprVal "$sc_foo_1")
+                    (exprVal "$$sc_foo_1")
                     (EVar (ExprVarName "z"))))
             -- NOTE: this is a candidate for eta reduction, may be optimized in the future
         ]

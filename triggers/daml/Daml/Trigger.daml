@@ -71,7 +71,7 @@ getContracts (ACS tpls pending) = mapOptional fromAny
 query : forall a m. (Template a, ActionTriggerAny m) => m [(ContractId a, a)]
 query = implQuery
 
-instance ActionTriggerAny TriggerA where
+instance ActionTriggerAny (TriggerA s) where
   implQuery = TriggerA $ pure . getContracts
 
 instance ActionTriggerAny (TriggerUpdateA s) where
@@ -89,7 +89,7 @@ data Trigger s = Trigger
   -- ^ Update the user-defined state based on a transaction or
   -- completion message.  It can manipulate the state with `get`, `put`,
   -- and `modify`, or query the ACS with `query`.
-  , rule : Party -> s -> TriggerA ()
+  , rule : Party -> TriggerA s ()
   -- ^ The rule defines the main logic of your trigger. It can send commands
   -- to the ledger using `emitCommands` to change the ACS.
   -- The rule depends on the following arguments:
@@ -113,7 +113,7 @@ data Trigger s = Trigger
 -- These contracts will automatically be filtered from getContracts until we
 -- either get the corresponding transaction event for this command or
 -- a failing completion.
-emitCommands : [Command] -> [AnyContractId] -> TriggerA CommandId
+emitCommands : [Command] -> [AnyContractId] -> TriggerA s CommandId
 emitCommands cmds pending = do
   id <- liftTriggerRule $ submitCommands cmds
   let commands = Commands id cmds
@@ -129,7 +129,7 @@ emitCommands cmds pending = do
 -- Note that this will send the create as a single-command transaction.
 -- If you need to send multiple commands in one transaction, use
 -- `emitCommands` with `createCmd` and handle filtering yourself.
-dedupCreate : (Eq t, Template t) => t -> TriggerA ()
+dedupCreate : (Eq t, Template t) => t -> TriggerA s ()
 dedupCreate t = do
   aState <- liftTriggerRule get
   -- This is a very naive approach that is linear in the number of commands in flight.
@@ -146,7 +146,7 @@ dedupCreate t = do
 -- single-command transaction.  If you need to send multiple commands
 -- in one transaction, use `emitCommands` with `createAndExerciseCmd`
 -- and handle filtering yourself.
-dedupCreateAndExercise : (Eq t, Eq c, Template t, Choice t c r) => t -> c -> TriggerA ()
+dedupCreateAndExercise : (Eq t, Eq c, Template t, Choice t c r) => t -> c -> TriggerA s ()
 dedupCreateAndExercise t c = do
   aState <- liftTriggerRule get
   -- This is a very naive approach that is linear in the number of
@@ -166,7 +166,7 @@ dedupCreateAndExercise t c = do
 --
 -- If you are calling a consuming choice, you might be better off by using
 -- `emitCommands` and adding the contract id to the pending set.
-dedupExercise : (Eq c, Choice t c r) => ContractId t -> c -> TriggerA ()
+dedupExercise : (Eq c, Choice t c r) => ContractId t -> c -> TriggerA s ()
 dedupExercise cid c = do
   aState <- liftTriggerRule get
   -- This is a very naive approach that is linear in the number of commands in flight.
@@ -182,7 +182,7 @@ dedupExercise cid c = do
 -- Note that this will send the exercise as a single-command transaction.
 -- If you need to send multiple commands in one transaction, use
 -- `emitCommands` with `exerciseCmd` and handle filtering yourself.
-dedupExerciseByKey : forall t c r k. (Eq c, Eq k, Choice t c r, TemplateKey t k) => k -> c -> TriggerA ()
+dedupExerciseByKey : forall t c r k s. (Eq c, Eq k, Choice t c r, TemplateKey t k) => k -> c -> TriggerA s ()
 dedupExerciseByKey k c = do
   aState <- liftTriggerRule get
   -- This is a very naive approach that is linear in the number of commands in flight.
@@ -196,7 +196,7 @@ dedupExerciseByKey k c = do
 -- completed.  If the trigger has restarted, it will not contain
 -- commands from before the restart; therefore, this should be treated
 -- as an optimization rather than an absolute authority on ledger state.
-getCommandsInFlight : TriggerA (Map CommandId [Command])
+getCommandsInFlight : TriggerA s (Map CommandId [Command])
 getCommandsInFlight = do
   liftTriggerRule $ get <&> \s -> s.commandsInFlight
 

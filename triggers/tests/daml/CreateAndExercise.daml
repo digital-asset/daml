@@ -17,9 +17,8 @@ createAndExerciseTrigger = Trigger
 
 -- Create a T template and immediately call choice C on it to create a
 -- U.
-createAndExerciseRule : Party -> ()
-  -> TriggerA ()
-createAndExerciseRule party _ = query @T >>= \case
+createAndExerciseRule : Party -> TriggerA () ()
+createAndExerciseRule party = query @T >>= \case
   [] -> dedupCreateAndExercise (T { p = party }) (C {})
   otherwise -> pure ()
 

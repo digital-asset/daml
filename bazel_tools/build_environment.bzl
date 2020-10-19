@@ -12,8 +12,8 @@ def _impl(ctx):
     # Generates a simple Bazel file that just sets a bunch of Bazel variables,
     # so they can be used in our main Bazel BUILD files.
     semver = ctx.os.environ.get("DAML_SDK_RELEASE_VERSION", default = "0.0.0")
-    if semver.find("-snapshot.") > 0:
-        ghc = semver[:-9].replace("-snapshot.", ".")
+    if semver.find("-") > 0:
+        ghc = ".".join([segment for segment in semver.replace("-", ".").split(".") if segment.isdigit()])
     else:
         ghc = semver
     ctx.file(

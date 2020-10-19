@@ -2,6 +2,7 @@
 -- All rights reserved.
 
 {-# LANGUAGE PatternSynonyms #-}
+-- @WARN Modules compiled with the PatternSynonyms language extension might not work properly with data-dependencies.
 
 module PatternSynonyms where
 

@@ -8,6 +8,7 @@ da_haskell_binary(
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
         "aeson",
+        "async",
         "base",
         "case-insensitive",
         "containers",

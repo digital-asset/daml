@@ -127,7 +127,6 @@ object Queries {
       )
     }
 
-  @silent("pls .* never used")
   def lastOffset(parties: OneAnd[Set, String], tpid: SurrogateTpId)(
       implicit log: LogHandler,
       pls: Put[Vector[String]]): ConnectionIO[Map[String, String]] = {
@@ -153,7 +152,6 @@ object Queries {
     * If A inserts but B updates, the transactions are sufficiently serialized that
     * there are no logical conflicts.
     */
-  @silent(" pls .* never used")
   private[http] def updateOffset[F[_]: cats.Foldable](
       parties: F[String],
       tpid: SurrogateTpId,
@@ -221,7 +219,6 @@ object Queries {
   }
 
   @silent(" gvs .* never used")
-  @silent(" pvs .* never used")
   private[http] def selectContracts(
       parties: OneAnd[Set, String],
       tpid: SurrogateTpId,

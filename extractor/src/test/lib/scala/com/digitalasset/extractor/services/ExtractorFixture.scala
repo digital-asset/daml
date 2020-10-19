@@ -66,6 +66,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAroundSuite with Type
   )
 
   protected def getTransactions: List[TransactionResult] = {
+    import doobie.implicits.javasql._
     getResultList[TransactionResult](sql"SELECT * FROM transaction")
   }
 

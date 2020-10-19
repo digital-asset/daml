@@ -4,8 +4,9 @@
 package com.daml.navigator.data
 
 import java.sql.DriverManager
+import java.util.concurrent.Executors.newWorkStealingPool
 
-import cats.effect.{ContextShift, IO}
+import cats.effect.{Blocker, ContextShift, IO}
 import cats.implicits._
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.model._
@@ -29,6 +30,10 @@ class DatabaseActions extends LazyLogging {
   //  implicit private val lh: LogHandler = doobie.util.log.LogHandler.jdkLogHandler
   implicit private val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
+  // How many transactions can be executed in parallel.
+  // 256 comes from https://github.com/scala/scala/blob/v2.12.12/src/library/scala/concurrent/impl/ExecutionContextImpl.scala#L115-L116
+  private val maxConnections = 256
+
   /**
     * Initializing a new database.
     * Every :memory: database is distinct from every other.
@@ -38,7 +43,7 @@ class DatabaseActions extends LazyLogging {
     */
   private val xa = Transactor.fromConnection[IO](
     DriverManager.getConnection("jdbc:sqlite::memory:"),
-    ExecutionContext.global)
+    Blocker liftExecutorService newWorkStealingPool(maxConnections))
 
   /**
     * Creating the tables when initializing the DatabaseActions object

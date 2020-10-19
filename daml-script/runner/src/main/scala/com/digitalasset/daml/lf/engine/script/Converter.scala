@@ -11,10 +11,10 @@ import scala.annotation.tailrec
 import scala.concurrent.Future
 import scalaz.std.either._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
+import scalaz.{-\/, OneAnd, \/-}
 import spray.json._
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{FrontStackCons, Ref, Struct, Time}
+import com.daml.lf.data.{FrontStack, FrontStackCons, Ref, Struct, Time}
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -71,8 +71,7 @@ object Converter {
       DA_TYPES_PKGID,
       QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString(s)))
 
-  // Duplicated from com.daml.http.util since I’m not sure where to move it so it can be shared
-  private def toNonEmptySet[A](as: NonEmptyList[A]): OneAnd[Set, A] = {
+  private def toNonEmptySet[A](as: OneAnd[FrontStack, A]): OneAnd[Set, A] = {
     import scalaz.syntax.foldable._
     OneAnd(as.head, as.tail.toSet - as.head)
   }
@@ -381,7 +380,7 @@ object Converter {
   def toParties(v: SValue): Either[String, OneAnd[Set, Ref.Party]] =
     v match {
       case SList(FrontStackCons(x, xs)) =>
-        NonEmptyList(x, xs.toList: _*).traverse(toParty(_)).map(toNonEmptySet(_))
+        OneAnd(x, xs).traverse(toParty(_)).map(toNonEmptySet(_))
       case SParty(p) =>
         Right(OneAnd(p, Set())) // For backwards compatibility, we support a single part here as well.
       case _ => Left(s"Expected non-empty SList but got $v")

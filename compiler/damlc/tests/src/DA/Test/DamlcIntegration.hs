@@ -102,7 +102,7 @@ main = do
   todoRef <- newIORef DList.empty
   let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
   integrationTests <- getIntegrationTests registerTODO scenarioService
-  let tests = testGroup "All" [uniqueUniques, integrationTests]
+  let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
   defaultMainWithIngredients ingredients tests
     `finally` (do
     todos <- readIORef todoRef
@@ -110,6 +110,21 @@ main = do
   where ingredients =
           includingOptions [Option (Proxy :: Proxy PackageDb), Option (Proxy @LfVersionOpt)] :
           defaultIngredients
+
+parseRenderRangeTest :: TestTree
+parseRenderRangeTest =
+    let s = "1:1-1:1"
+        r = parseRange s
+    in
+    testGroup "parseRange roundtrips with..."
+        [ HUnit.testCase "renderRange" $ renderRange r @?= s
+        , HUnit.testCase "showDiagnostics" $ do
+            let d = D.Diagnostic r Nothing Nothing Nothing "" Nothing Nothing
+            let x = showDiagnostics [("", D.ShowDiag, d)]
+            unless (T.pack s `T.isInfixOf` x) $
+              HUnit.assertFailure $ "Cannot find range " ++ s ++ " in diagnostic:\n" ++ T.unpack x
+
+        ]
 
 uniqueUniques :: TestTree
 uniqueUniques = HUnit.testCase "Uniques" $
@@ -237,7 +252,26 @@ data DiagnosticField
   | DSeverity !DiagnosticSeverity
   | DSource !String
   | DMessage !String
-  deriving (Eq, Show)
+
+renderRange :: Range -> String
+renderRange r = p (_start r) ++ "-" ++ p (_end r)
+  where
+    p x = show (_line x + 1) ++ ":" ++ show (_character x + 1)
+
+renderDiagnosticField :: DiagnosticField -> String
+renderDiagnosticField f = case f of
+    DFilePath fp -> "file=" ++ fp ++ ";"
+    DRange r -> "range=" ++ renderRange r ++ ";"
+    DSeverity s -> case s of
+        DsError -> "@ERROR"
+        DsWarning -> "@WARN"
+        DsInfo -> "@INFO"
+        DsHint -> "@HINT"
+    DSource s -> "source=" ++ s ++ ";"
+    DMessage m -> m
+
+renderDiagnosticFields :: [DiagnosticField] -> String
+renderDiagnosticFields fs = unwords ("--" : map renderDiagnosticField fs)
 
 checkDiagnostics :: (String -> IO ()) -> [[DiagnosticField]] -> [D.FileDiagnostic] -> IO (Maybe String)
 checkDiagnostics log expected got
@@ -248,7 +282,7 @@ checkDiagnostics log expected got
         pure $ Just $ "Wrong number of diagnostics, expected " ++ show (length expected) ++ ", but got " ++ show (length got)
     | notNull bad = do
         logDiags
-        pure $ Just $ unlines ("Could not find matching diagnostics:" : map show bad)
+        pure $ Just $ unlines ("Could not find matching diagnostics:" : map renderDiagnosticFields bad)
     | otherwise = pure Nothing
     where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool
           checkField (fp, _, D.Diagnostic{..}) f = case f of
@@ -290,7 +324,6 @@ data Ann
     | DiagnosticFields [DiagnosticField] -- I expect a diagnostic that has the given fields
     | QueryLF String                       -- The jq query against the produced DAML-LF returns "true"
     | Todo String                        -- Just a note that is printed out
-      deriving Eq
 
 
 readFileAnns :: FilePath -> IO [Ann]
@@ -332,40 +365,14 @@ parseRange :: String -> Range
 parseRange s =
   case traverse readMaybe (wordsBy (`elem` (":-" :: String)) s) of
     Just [rowStart, colStart, rowEnd, colEnd] ->
-      -- When specifying ranges:
-      --  * lines are 1-based
-      --  * columns are 0-based
-      --  * the column span is open, that is, the end column is "one
-      --    past the end" of the span.
-      --
-      -- Positions in these ranges are matched against LSP coordinates
-      -- which are 0-based in both line and column and also open. Error
-      -- messages are formatted by GHC and are 1-based in line, 0-based
-      -- in column and closed (so add one to column start, one to
-      -- column end to make them 1-based, then subtract one from column
-      -- end to convert to closed!)
-      --
-      -- 'showDiagnostics' reports ranges such that lines are 1-based,
-      -- columns are 0-based and open.
-      --
-      -- Example:
-      --   If @INFO 'range=8:13-8:47':
-      --   then the actual (LSP) range is
-      --      { _start = Position {_line = 7, _character = 13}
-      --      ,   _end = Position {_line = 7, _character = 47}}
-      --   and 'showDiagnostics' reports:
-      --     Hidden:   no
-      --     Range:    8:13-8:47
-      --     Source:   linter
-      --     Severity: DsInfo
-      --     Message:  RangeTest.daml:8:14-47: Some error message.
-      --
-      -- TL;DR: To mark a diagnostic as "expected" paste the range as it
-      -- appears in 'showDiagnostics' e.g. '@INFO range=8:13-8:47; Some
-      -- error message'.
       Range
-        (Position (rowStart - 1) colStart)
-        (Position (rowEnd - 1) colEnd)
+        -- NOTE(MH): The locations/ranges in dagnostics are zero-based
+        -- internally but are pretty-printed one-based, both by our command
+        -- line tools and in vscode. In our test files, we want to specify them
+        -- the way they are printed to be able to just copy & paste them. Thus,
+        -- we need to subtract 1 from all coordinates here.
+        (Position (rowStart - 1) (colStart - 1))
+        (Position (rowEnd - 1) (colEnd - 1))
     _ -> error $ "Failed to parse range, got " ++ s
 
 mainProj :: TestArguments -> IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package

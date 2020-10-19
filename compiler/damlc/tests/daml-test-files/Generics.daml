@@ -2,6 +2,38 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE EmptyCase #-}
+-- @WARN range=39:8-39:16; Modules compiled with the EmptyCase language extension
+-- @WARN range=41:1-41:19; Modules importing DA.Generics do not work with data-dependencies.
+-- @WARN range=47:6-47:10; Using the type 'MetaData in combination with type classes
+-- @WARN range=49:6-49:20; Using the type 'MetaCons in combination with type classes
+-- @WARN range=49:6-49:20; Using the type 'MetaData in combination with type classes
+-- @WARN range=49:6-49:20; Using the type 'MetaSel in combination with type classes
+-- @WARN range=51:6-51:13; Using the type 'MetaCons in combination with type classes
+-- @WARN range=51:6-51:13; Using the type 'MetaData in combination with type classes
+-- @WARN range=53:6-53:63; Using the type 'MetaCons in combination with type classes
+-- @WARN range=53:6-53:63; Using the type 'MetaData in combination with type classes
+-- @WARN range=53:6-53:63; Using the type 'MetaSel in combination with type classes
+-- @WARN range=53:6-53:63; Using the type 'MetaSel in combination with type classes
+-- @WARN range=55:6-55:40; Using the type 'MetaCons in combination with type classes
+-- @WARN range=55:6-55:40; Using the type 'MetaData in combination with type classes
+-- @WARN range=55:6-55:40; Using the type 'MetaSel in combination with type classes
+-- @WARN range=57:6-57:39; Using the type 'MetaCons in combination with type classes
+-- @WARN range=57:6-57:39; Using the type 'MetaCons in combination with type classes
+-- @WARN range=57:6-57:39; Using the type 'MetaData in combination with type classes
+-- @WARN range=57:6-57:39; Using the type 'MetaSel in combination with type classes
+-- @WARN range=63:6-63:38; Using the type 'MetaCons in combination with type classes
+-- @WARN range=63:6-63:38; Using the type 'MetaCons in combination with type classes
+-- @WARN range=63:6-63:38; Using the type 'MetaData in combination with type classes
+-- @WARN range=63:6-63:38; Using the type 'MetaSel in combination with type classes
+-- @WARN range=63:6-63:38; Using the type 'MetaSel in combination with type classes
+-- @WARN range=64:6-64:45; Using the type 'MetaCons in combination with type classes
+-- @WARN range=64:6-64:45; Using the type 'MetaData in combination with type classes
+-- @WARN range=64:6-64:45; Using the type 'MetaSel in combination with type classes
+-- @WARN range=64:6-64:45; Using the type 'MetaSel in combination with type classes
+
+
+
+-- Some extra space for more warnings here...
 
 
 module Generics where

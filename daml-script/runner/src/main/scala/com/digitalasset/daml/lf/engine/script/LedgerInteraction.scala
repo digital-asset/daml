@@ -875,13 +875,14 @@ class JsonLedgerClient(
 
   // Check that the parties in the token are a superset of the given parties.
   private def validateTokenParties(parties: OneAnd[Set, Ref.Party], what: String): Future[Unit] = {
+    import scalaz.std.string._
     val tokenParties = Set(tokenPayload.readAs ++ tokenPayload.actAs: _*)
     // First check is just for a nicer error message and would be covered by the second
     if (tokenParties.isEmpty) {
       Future.failed(
         new RuntimeException(
           s"Tried to $what as ${parties.toList.mkString(" ")} but token contains no parties."))
-    } else if (tokenParties == Set[String](parties.toList: _*)) {
+    } else if (tokenParties === parties.toSet.toSet[String]) {
       Future.unit
     } else {
       Future.failed(new RuntimeException(s"Tried to $what as ${parties.toList

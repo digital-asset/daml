@@ -35,14 +35,81 @@ import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, Tra
 import com.daml.ledger.client.LedgerClient
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
 import com.daml.testing.postgresql.PostgresAroundAll
+import com.typesafe.scalalogging.StrictLogging
 import eu.rekawek.toxiproxy._
 
-abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually with Matchers {
+import scala.collection.concurrent.TrieMap
+import scala.util.Success
+
+/**
+  * A test-fixture that persists cookies between http requests for each test-case.
+  */
+trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
+  private val cookieJar = TrieMap[String, String]()
+
+  override protected def afterEach(): Unit = {
+    try super.afterEach()
+    finally cookieJar.clear()
+  }
+
+  /**
+    * Adds a Cookie header for the currently stored cookies and performs the given http request.
+    */
+  def httpRequest(request: HttpRequest)(
+      implicit system: ActorSystem,
+      ec: ExecutionContext): Future[HttpResponse] = {
+    Http()
+      .singleRequest {
+        if (cookieJar.nonEmpty) {
+          val cookies = headers.Cookie(values = cookieJar.to[Seq]: _*)
+          request.addHeader(cookies)
+        } else {
+          request
+        }
+      }
+      .andThen {
+        case Success(resp) =>
+          resp.headers.foreach {
+            case headers.`Set-Cookie`(cookie) =>
+              cookieJar.update(cookie.name, cookie.value)
+            case _ =>
+          }
+      }
+  }
+
+  /**
+    * Same as [[httpRequest]] but will follow redirections.
+    */
+  def httpRequestFollow(request: HttpRequest, maxRedirections: Int = 10)(
+      implicit system: ActorSystem,
+      ec: ExecutionContext): Future[HttpResponse] = {
+    httpRequest(request).flatMap {
+      case resp @ HttpResponse(StatusCodes.Redirection(_), _, _, _) =>
+        if (maxRedirections == 0) {
+          throw new RuntimeException("Too many redirections")
+        } else {
+          val uri = resp.header[headers.Location].get.uri
+          httpRequestFollow(HttpRequest(uri = uri), maxRedirections - 1)
+        }
+      case resp => Future(resp)
+    }
+  }
+}
+
+abstract class AbstractTriggerServiceTest
+    extends AsyncFlatSpec
+    with HttpCookies
+    with Eventually
+    with Matchers
+    with StrictLogging {
 
   import AbstractTriggerServiceTest.CompatAssertion
 
   // Abstract member for testing with and without a database
   def jdbcConfig: Option[JdbcConfig]
+
+  // Abstract member for testing with and without authentication/authorization
+  def authTestConfig: Option[AuthTestConfig]
 
   // Default retry config for `eventually`
   override implicit def patienceConfig: PatienceConfig =
@@ -77,7 +144,12 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
 
   def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])(
       testFn: (Uri, LedgerClient, Proxy) => Future[A])(implicit pos: source.Position): Future[A] =
-    TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig)(testFn)
+    TriggerServiceFixture.withTriggerService(
+      testId,
+      List(darPath),
+      encodedDar,
+      jdbcConfig,
+      authTestConfig)(testFn)
 
   def startTrigger(uri: Uri, triggerName: String, party: Party): Future[HttpResponse] = {
     val req = HttpRequest(
@@ -88,7 +160,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
         s"""{"triggerName": "$triggerName", "party": "$party"}"""
       )
     )
-    Http().singleRequest(req)
+    httpRequestFollow(req)
   }
 
   def listTriggers(uri: Uri, party: Party): Future[HttpResponse] = {
@@ -446,6 +518,7 @@ object AbstractTriggerServiceTest {
 class TriggerServiceTestInMem extends AbstractTriggerServiceTest {
 
   override def jdbcConfig: Option[JdbcConfig] = None
+  override def authTestConfig: Option[AuthTestConfig] = None
 
 }
 
@@ -456,6 +529,7 @@ class TriggerServiceTestWithDb
     with PostgresAroundAll {
 
   override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
+  override def authTestConfig: Option[AuthTestConfig] = None
 
   // Lazy because the postgresDatabase is only available once the tests start
   private lazy val jdbcConfig_ = JdbcConfig(postgresDatabase.url, "operator", "password")
@@ -528,5 +602,18 @@ class TriggerServiceTestWithDb
       } yield succeed
     }
   } yield succeed)
+
+}
+
+// Tests for auth mode only go here
+class TriggerServiceTestAuth extends AbstractTriggerServiceTest {
+
+  override def jdbcConfig: Option[JdbcConfig] = None
+  override def authTestConfig: Option[AuthTestConfig] =
+    Some(
+      AuthTestConfig(
+        jwtSecret = "secret",
+        parties = List(alice, bob),
+      ))
 
 }

@@ -19,8 +19,9 @@ exerciseByKeyTrigger = Trigger
   }
 
 -- Create one T template and then call a choice by key to create T_.
-retryRule : Party -> Int -> TriggerA ()
-retryRule party allowedRetries = do
+retryRule : Party -> TriggerA Int ()
+retryRule party = do
+  allowedRetries <- get
   ts <- query @T
   t_s <- query @T_
   case (ts, t_s) of

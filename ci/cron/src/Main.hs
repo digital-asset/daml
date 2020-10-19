@@ -7,8 +7,11 @@ import Data.Function ((&))
 import Data.Semigroup ((<>))
 import System.FilePath.Posix ((</>))
 
+import qualified Control.Concurrent.Async
+import qualified Control.Concurrent.QSem
 import qualified Control.Exception
 import qualified Control.Monad as Control
+import qualified Control.Monad.Extra
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString.UTF8 as BS
 import qualified Data.ByteString.Lazy.UTF8 as LBS
@@ -21,11 +24,11 @@ import qualified Data.Ord
 import qualified Data.SemVer
 import qualified Data.Set as Set
 import qualified Data.Text as Text
-import qualified Options.Applicative as Opt
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
 import qualified Network.URI
+import qualified Options.Applicative as Opt
 import qualified System.Directory as Directory
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as IO
@@ -268,21 +271,18 @@ docs = do
 
 download_assets :: FilePath -> GitHubRelease -> IO ()
 download_assets tmp release = do
-    shell_ $ unlines ["bash -c '",
-        "set -euo pipefail",
-        "eval \"$(dev-env/bin/dade assist)\"",
-        "cd \"" <> tmp <> "\"",
-        "PIDS=\"\"",
-        "for ass in " <> unwords (map (show . uri) $ assets release) <> "; do",
-            "{",
-                "wget --quiet \"$ass\" &",
-            "}",
-            "PIDS=\"$PIDS $!\"",
-        "done",
-        "for pid in $PIDS; do",
-            "wait $pid",
-        "done",
-        "'"]
+    tokens <- Control.Concurrent.QSem.newQSem 20
+    Control.Concurrent.Async.forConcurrently_ (map uri $ assets release) (\url ->
+        Control.Exception.bracket_
+          (Control.Concurrent.QSem.waitQSem tokens)
+          (Control.Concurrent.QSem.signalQSem tokens)
+          (do
+        shell_ $ unlines ["bash -c '",
+            "set -euo pipefail",
+            "eval \"$(dev-env/bin/dade assist)\"",
+            "cd \"" <> tmp <> "\"",
+            "wget --quiet \"" <> show url <> "\"",
+            "'"]))
 
 verify_signatures :: FilePath -> FilePath -> String -> IO String
 verify_signatures bash_lib tmp version_tag = do
@@ -341,26 +341,33 @@ push_to_gcp gcp_credentials bash_lib local_path remote_path = do
         "gcs \"$GCRED\" cp \"" <> local_path <> "\" \"" <> remote_path <> "\"",
         "'"]
 
-check_releases :: String -> String -> IO ()
-check_releases gcp_credentials bash_lib = do
-    releases <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
+check_releases :: Maybe String -> String -> Maybe Int -> IO ()
+check_releases gcp_credentials bash_lib max_releases = do
+    releases' <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
+    let releases = case max_releases of
+                     Nothing -> releases'
+                     Just n -> take n releases'
     Data.Foldable.for_ releases (\release -> do
         let v = show $ tag release
         putStrLn $ "Checking release " <> v <> " ..."
         IO.withTempDir $ \temp_dir -> do
             download_assets temp_dir release
             verify_signatures bash_lib temp_dir v >>= putStrLn
-            Directory.listDirectory temp_dir >>= Data.Foldable.traverse_ (\f -> do
-                let gcp_path = "gs://daml-data/releases/" <> v <> "/github/" <> f
-                exists <- does_backup_exist gcp_credentials bash_lib gcp_path
-                if exists then do
-                    putStrLn $ gcp_path <> " already exists."
-                else do
-                    putStr $ gcp_path <> " does not exist; pushing..."
-                    push_to_gcp gcp_credentials bash_lib (temp_dir </> f) gcp_path
-                    putStrLn " done."))
+            Control.Monad.Extra.whenJust gcp_credentials $ \gcred ->
+                Directory.listDirectory temp_dir >>= Data.Foldable.traverse_ (\f -> do
+                  let gcp_path = "gs://daml-data/releases/" <> v <> "/github/" <> f
+                  exists <- does_backup_exist gcred bash_lib gcp_path
+                  if exists then do
+                      putStrLn $ gcp_path <> " already exists."
+                  else do
+                      putStr $ gcp_path <> " does not exist; pushing..."
+                      push_to_gcp gcred bash_lib (temp_dir </> f) gcp_path
+                      putStrLn " done."))
 
-data CliArgs = Docs | Check { bash_lib :: String, gcp_credentials :: String }
+data CliArgs = Docs
+             | Check { bash_lib :: String,
+                       gcp_credentials :: Maybe String,
+                       max_releases :: Maybe Int }
 
 parser :: Opt.ParserInfo CliArgs
 parser = info "This program is meant to be run by CI cron. You probably don't have sufficient access rights to run it locally."
@@ -373,9 +380,14 @@ parser = info "This program is meant to be run by CI cron. You probably don't ha
                      (Check <$> Opt.strOption (Opt.long "bash-lib"
                                          <> Opt.metavar "PATH"
                                          <> Opt.help "Path to Bash library file.")
-                            <*> Opt.strOption (Opt.long "gcp-creds"
+                            <*> (Opt.optional $
+                                  Opt.strOption (Opt.long "gcp-creds"
                                          <> Opt.metavar "CRED_STRING"
                                          <> Opt.help "GCP credentials as a string."))
+                            <*> (Opt.optional $
+                                  Opt.option Opt.auto (Opt.long "max-releases"
+                                         <> Opt.metavar "INT"
+                                         <> Opt.help "Max number of releases to check.")))
 
 main :: IO ()
 main = do
@@ -384,4 +396,4 @@ main = do
     opts <- Opt.execParser parser
     case opts of
       Docs -> docs
-      Check { bash_lib, gcp_credentials } -> check_releases gcp_credentials bash_lib
+      Check { bash_lib, gcp_credentials, max_releases } -> check_releases gcp_credentials bash_lib max_releases
