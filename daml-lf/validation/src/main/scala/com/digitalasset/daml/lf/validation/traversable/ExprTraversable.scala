@@ -27,7 +27,7 @@ private[validation] object ExprTraversable {
         f(arg)
       case EStructCon(fields) =>
         fields.values.foreach(f)
-      case EStructProj(field @ _, fieldIndex @_, struct) =>
+      case EStructProj(field @ _, struct) =>
         f(struct)
       case EStructUpd(field @ _, struct, update) =>
         f(struct)

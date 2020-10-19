@@ -374,10 +374,10 @@ private[lf] final class Compiler(
           SEBuiltin(SBStructCon(fieldsInputOrder)),
           fields.iterator.map { case (_, e) => compile(e) }.toArray
         )
-      case EStructProj(field @ _, fieldIndex, struct) =>
-        fieldIndex match {
+      case strucProj: EStructProj =>
+        strucProj.fieldIndex match {
           case None => throw CompilationError(s"structural record projection for field ${field} has no index")
-          case Some(index) => SBStructProj(index)(compile(struct))
+          case Some(index) => SBStructProj(index)(compile(strucProj.struct))
         }
       case EStructUpd(field, struct, update) =>
         SBStructUpd(field)(compile(struct), compile(update))

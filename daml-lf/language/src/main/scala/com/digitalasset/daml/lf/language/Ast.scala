@@ -85,7 +85,9 @@ object Ast {
   final case class EStructCon(fields: ImmArray[(FieldName, Expr)]) extends Expr
 
   /** Struct projection. The value for `fieldIndex` is fillen in by the type checker. */
-  final case class EStructProj(field: FieldName, var fieldIndex: Option[Int], struct: Expr) extends Expr
+  final case class EStructProj(field: FieldName, struct: Expr) extends Expr {
+    private[lf] var fieldIndex: Option[Int] = None
+  }
 
   /** Non-destructive struct update. */
   final case class EStructUpd(field: FieldName, struct: Expr, update: Expr) extends Expr
