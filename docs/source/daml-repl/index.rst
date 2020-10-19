@@ -21,7 +21,7 @@ template. Take a look at the documentation for
    cd script-example # switch to the new project
 
 Now, build the project and start :doc:`/tools/sandbox`, the in-memory
-ledger included in the DAML SDK. Note that we are starting Sandbox in
+ledger included in the SDK. Note that we are starting Sandbox in
 wallclock mode. Static time is not supported in ``daml repl``.
 
 .. code-block:: sh

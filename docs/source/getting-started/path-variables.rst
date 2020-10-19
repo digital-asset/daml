@@ -19,7 +19,7 @@ Setting the JAVA_HOME variable
 
 Setting the PATH variable
 =========================
-If you have downloaded and installed the DAML SDK using our `Windows installer <https://github.com/digital-asset/daml/releases/latest>`_ your ``PATH`` variable is already set up.
+If you have downloaded and installed the SDK using our `Windows installer <https://github.com/digital-asset/daml/releases/latest>`_ your ``PATH`` variable is already set up.
 
 Mac OS
 ******
@@ -58,7 +58,7 @@ Next, please verify the PATH variable by running::
 
         echo $PATH
 
-You should see a series of paths which includes the path to the DAML SDK,
+You should see a series of paths which includes the path to the SDK,
 which is something like ``/Users/your_username/.daml/bin``.
 
 If you do not see the changes, you may be using ``bash`` as your default shell instead of ``zsh``.
@@ -101,5 +101,5 @@ Next, please verify the PATH variable by running::
 
         echo $PATH
 
-You should see a series of paths which includes the path to the DAML SDK,
+You should see a series of paths which includes the path to the SDK,
 which is something like ``/home/your_username/.daml/bin``.

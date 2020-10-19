@@ -1,8 +1,8 @@
 .. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML SDK Documentation
-======================
+DAML Documentation
+==================
 
 Getting started
 ---------------
@@ -11,7 +11,7 @@ Getting started
    :titlesonly:
    :maxdepth: 2
 
-   Installing the SDK <getting-started/installation>
+   Installing DAML Connect <getting-started/installation>
    Building Your App <getting-started/index>
    getting-started/testing
 
@@ -56,8 +56,8 @@ Deploying to DAML ledgers
    deploy/generic_ledger
    deploy/ledger-topologies
 
-SDK tools
----------
+Developer Tools
+---------------
 
 .. toctree::
    :titlesonly:

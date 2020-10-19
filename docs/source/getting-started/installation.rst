@@ -7,7 +7,7 @@ Installing the SDK
 1. Install the dependencies
 ***************************
 
-The SDK currently runs on Windows, macOS and Linux.
+The DAML Connect SDK currently runs on Windows, macOS and Linux.
 
 You need to install:
 

@@ -13,7 +13,7 @@ DAML Assistant (``daml``)
 
   This builds the DAML project according to the project config file ``daml.yaml`` (see `Configuration files`_ below).
 
-  In particular, it will download and install the specified version of the SDK (the ``sdk-version`` field in ``daml.yaml``) if missing, and use that SDK version to resolve dependencies and compile the DAML project.
+  In particular, it will download and install the specified version of the DAML Connect SDK (the ``sdk-version`` field in ``daml.yaml``) if missing, and use that SDK version to resolve dependencies and compile the DAML project.
 
 - Launch the tools in the SDK:
 
@@ -42,10 +42,10 @@ To see information about any command, run it with ``--help``.
 Configuration files
 *******************
 
-The DAML assistant and the DAML SDK are configured using two files:
+The DAML assistant and the SDK are configured using two files:
 
 - The global config file, one per installation, which controls some options regarding SDK installation and updates
-- The project config file, one per DAML project, which controls how the DAML SDK builds and interacts with the project
+- The project config file, one per DAML project, which controls how the SDK builds and interacts with the project
 
 Global config file (``daml-config.yaml``)
 =========================================
@@ -184,12 +184,12 @@ The generated ``.dar`` file is created in ``.daml/dist/${name}.dar`` by default.
 
 .. _assistant-manual-managing-releases:
 
-Managing SDK releases
-*********************
+Managing releases
+*****************
 
-You can manage SDK releases manually by using ``daml install``.
+You can manage SDK versions manually by using ``daml install``.
 
-To download and install the latest stable SDK release::
+To download and install SDK of the latest stable DAML Connect version::
 
   daml install latest
 
@@ -199,7 +199,7 @@ To download and install the latest snapshot release::
 
 Please note that snapshot releases are not intended for production usage.
 
-To install the SDK release specified in the project config, run::
+To install the SDK version specified in the project config, run::
 
   daml install project
 
