@@ -13,6 +13,7 @@ import qualified Control.Exception
 import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
 import qualified Data.Aeson as JSON
+import qualified Data.ByteString
 import qualified Data.ByteString.UTF8 as BS
 import qualified Data.ByteString.Lazy.UTF8 as LBS
 import qualified Data.CaseInsensitive as CI
@@ -271,18 +272,25 @@ docs = do
 
 download_assets :: FilePath -> GitHubRelease -> IO ()
 download_assets tmp release = do
+    manager <- HTTP.newManager TLS.tlsManagerSettings
     tokens <- Control.Concurrent.QSem.newQSem 20
     Control.Concurrent.Async.forConcurrently_ (map uri $ assets release) (\url ->
         Control.Exception.bracket_
           (Control.Concurrent.QSem.waitQSem tokens)
           (Control.Concurrent.QSem.signalQSem tokens)
           (do
-        shell_ $ unlines ["bash -c '",
-            "set -euo pipefail",
-            "eval \"$(dev-env/bin/dade assist)\"",
-            "cd \"" <> tmp <> "\"",
-            "wget --quiet \"" <> show url <> "\"",
-            "'"]))
+              req' <- HTTP.parseRequest (show url)
+              let req = req' { HTTP.requestHeaders = [("User-Agent", "DAML cron (team-daml-language@digitalasset.com)")] }
+              HTTP.withResponse req manager (\resp -> do
+                  let body = HTTP.responseBody resp
+                  IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode (\handle -> do
+                      let loop = do
+                          bs <- HTTP.brRead body
+                          if Data.ByteString.null bs then return ()
+                          else do
+                              Data.ByteString.hPut handle bs
+                              loop
+                      loop))))
 
 verify_signatures :: FilePath -> FilePath -> String -> IO String
 verify_signatures bash_lib tmp version_tag = do
