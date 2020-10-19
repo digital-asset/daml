@@ -10,6 +10,7 @@ da_haskell_binary(
         "aeson",
         "async",
         "base",
+        "bytestring",
         "case-insensitive",
         "containers",
         "directory",
