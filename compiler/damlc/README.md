@@ -83,6 +83,30 @@ work via `bazel run`. For testing, install the SDK with
 `daml-sdk-head` and then use `daml-head damlc`.
 
 
+## Updating expected diagnostics in the damlc integration tests
+
+Most of the `.daml` files in `tests/daml-test-files` contain comments of the
+form
+```haskell
+-- @WARN range=1:1-1:10; Something to warn about
+```
+These comments specify the diagnostics we expect when compiling the file.
+Sometimes these expectations change for various reasons and updating the
+comments can be quite tedious, particularly when there are many of them.
+You can extract the comments reflecting the updated expectations from the
+compiler output by copying the output into the clipboard and running
+```sh
+# On MacOS
+pbpaste | sed -n -r -f compiler/damlc/tests/extract-diagnostics.sed
+
+# On Linux
+xclip -out -selection clipboard | sed -n -r -f compiler/damlc/tests/extract-diagnostics.sed
+```
+If a test case in the `damlc` intgration tests fails, it will print the
+compiler output. Alternative, you can run `damlc` as described above to get
+the output.
+
+
 ## Updating daml-doc's golden tests
 
 Run

@@ -282,6 +282,15 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
     -- used in daml-stdlib and triggers and a very reasonable
     -- extension in general in the presence of TypeApplications
   , AllowAmbiguousTypes
+    -- helpful for documentation purposes
+  , InstanceSigs
+    -- convenient syntactic sugar that does not impact the type level at all
+  , MultiWayIf
+    -- there's no way for our users to actually use this and listing it here
+    -- removes a lot of warning from out stdlib, script and trigger builds
+    -- NOTE: This should not appear on any list of extensions that are
+    -- compatible with data-dependencies since this would spur wrong hopes.
+  , Cpp
   ]
 
 -- | Language settings _disabled_ ($-XNo...$) in the DAML-1.2 compilation
