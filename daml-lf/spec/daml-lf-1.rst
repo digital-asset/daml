@@ -300,6 +300,8 @@ Version: 1.dev
 
   + **Add** ``TO_TEXT_CONTRACT_ID`` builtin.
 
+  + **Add** `exercise_by_key` Update.
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -700,6 +702,7 @@ Then we can define our kinds, types, and expressions::
        |  'fetch' @Mod:T e                          -- UpdateFetch
        |  'exercise' @Mod:T Ch e₁ e₂ e₃             -- UpdateExercise
        |  'exercise_without_actors' @Mod:T Ch e₁ e₂ -- UpdateExerciseWithoutActors
+       |  'exercise_by_key' @Mod:T Ch e₁ e₂         -- UpdateExerciseByKey
        |  'get_time'                                -- UpdateGetTime
        |  'fetch_by_key' @τ e                       -- UpdateFecthByKey
        |  'lookup_by_key' @τ e                      -- UpdateLookUpByKey
@@ -1247,6 +1250,14 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  e₂  :  τ
     ——————————————————————————————————————————————————————————————— UpdExerciseWithouActors
       Γ  ⊢  'exercise_without_actors' @Mod:T Ch e₁ e₂  : 'Update' σ
+
+      'tpl' (x : T)
+          ↦ { …, 'choices' { …, 'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' … ↦ …, … }, 'key' τₖ … }
+        ∈ 〚Ξ〛Mod
+      Γ  ⊢  e₁  :  τₖ
+      Γ  ⊢  e₂  :  τ
+    ——————————————————————————————————————————————————————————————— UpdExerciseByKey
+      Γ  ⊢  'exercise_by_key' @Mod:T Ch e₁ e₂  : 'Update' σ
 
       'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
       Γ  ⊢  e₁  :  'ContractId' Mod:T
@@ -1801,6 +1812,11 @@ need to be evaluated further. ::
      ⊢ᵥ  e₂
    ——————————————————————————————————————————————————— ValUpdateExerciseWithoutActors
      ⊢ᵥᵤ  'exercise_without_actors' @Mod:T Ch e₁ e₂
+
+     ⊢ᵥ  e₁
+     ⊢ᵥ  e₂
+   ——————————————————————————————————————————————————— ValUpdateExerciseByKey
+     ⊢ᵥᵤ  'exercise_by_key' @Mod:T Ch e₁ e₂
 
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValUpdateFetchByKey
@@ -2367,6 +2383,22 @@ exact output.
         ⇓
       Ok ('exercise_without_actors' @Mod:T Ch v₁ v₂)
 
+      e₁  ⇓  Err t
+    —————————————————————————————————————————————————————————————————————— EvExpUpExerciseByKeyErr1
+      'exercise_by_key' @Mod:T Ch e₁ e₂  ⇓  Err t
+
+      e₁  ⇓  Ok v₁
+      e₂  ⇓  Err t
+    —————————————————————————————————————————————————————————————————————— EvExpUpExerciseByKeyErr2
+      'exercise_by_key' @Mod:T Ch e₁ e₂  ⇓  Err t
+
+      e₁  ⇓  Ok v₁
+      e₂  ⇓  Ok v₂
+    —————————————————————————————————————————————————————————————————————— EvExpUpExerciseByKey
+      'exercise_by_key' @Mod:T Ch e₁ e₂
+        ⇓
+      Ok ('exercise_by_key' @Mod:T Ch v₁ v₂)
+
       e  ⇓  Err t
     —————————————————————————————————————————————————————————————————————— EvExpUpFetchByKeyErr
       'fetch_by_key' @Mod:T e  ⇓  Err t
@@ -2835,7 +2867,6 @@ as described by the ledger model::
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈ 〚Ξ〛Mod
      (eₘ vₖ)  ⇓  Err t
-     (Mod:T, vₖ) ∉ dom(keys₀)
     —————————————————————————————————————————————————————————————————————— EvUpdFetchByKeyErr
      'fetch_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  Err t
 
@@ -2865,7 +2896,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdFetchByKeyFound
      'fetch_by_key' @Mod:T vₖ ‖ (st; keys)
         ⇓ᵤ
-     Ok ⟨'ContractId': cid, 'contract': vₜ⟩ ‖ (st; keys)
+     Ok ⟨'contractId': cid, 'contract': vₜ⟩ ‖ (st; keys)
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈  〚Ξ〛Mod
      (eₘ vₖ)  ⇓  Err t
@@ -2888,6 +2919,17 @@ as described by the ledger model::
      'lookup_by_key' @Mod:T vₖ ‖ (st; keys)
        ⇓ᵤ
      Ok ('Some' @('ContractId' Mod:T) cid, ε) ‖ (st; keys)
+
+     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈ 〚Ξ〛Mod
+     'fetch_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  Err t
+   —————————————————————————————————————————————————————————————————————— EvUpdExercByKeyFetchErr
+     'exercise_by_key' Mod:T.Ch vₖ v₁ ‖ (st; keys)  ⇓ᵤ  Err t
+
+     'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈ 〚Ξ〛Mod
+     'fetch_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  Ok ⟨'contractId': cid, 'contract': vₜ⟩ ‖ (st'; keys')
+     'exercise_without_actor' Mod:T.Ch cid v₁ ‖ (st'; keys')  ⇓ᵤ  ur
+   —————————————————————————————————————————————————————————————————————— EvUpdExercByKeyExercise
+     'exercise_by_key' Mod:T.Ch vₖ v₁ ‖ (st; keys)  ⇓ᵤ  ur
 
      LitTimestamp is the current ledger time
    —————————————————————————————————————————————————————————————————————— EvUpdGetTime
