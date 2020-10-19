@@ -531,9 +531,10 @@ private[validation] object Typing {
         val index = structType.indexOf(proj.field)
         if (index < 0)
           throw EUnknownField(ctx, proj.field)
-        else
+        else {
           proj.fieldIndex = Some(index)
           structType.toImmArray(index)._2
+        }
       case typ =>
         throw EExpectedStructType(ctx, typ)
     }
