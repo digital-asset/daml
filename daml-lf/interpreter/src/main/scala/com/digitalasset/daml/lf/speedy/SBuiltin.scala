@@ -786,11 +786,11 @@ private[lf] object SBuiltin {
   }
 
   /** $tproj[field] :: Struct -> a */
-  final case class SBStructProj(field: Ast.FieldName) extends SBuiltinPure(1) {
+  final case class SBStructProj(fieldIndex: Int) extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SStruct(fields, values) =>
-          values.get(fields.indexOf(field))
+        case SStruct(fields @ _, values) =>
+          values.get(fieldIndex)
         case v =>
           crash(s"StructProj on non-struct: $v")
       }

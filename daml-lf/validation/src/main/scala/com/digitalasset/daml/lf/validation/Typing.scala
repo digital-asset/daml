@@ -526,9 +526,14 @@ private[validation] object Typing {
         .fromSeq(fields.iterator.map { case (f, x) => f -> typeOf(x) }.toSeq)
         .fold(name => throw EDuplicateField(ctx, name), TStruct)
 
-    private def typeOfStructProj(field: FieldName, expr: Expr): Type = typeOf(expr) match {
+    private def typeOfStructProj(proj: EStructProj): Type = typeOf(proj.struct) match {
       case TStruct(structType) =>
-        structType.lookup(field).getOrElse(throw EUnknownField(ctx, field))
+        val index = structType.indexOf(proj.field)
+        if (index < 0)
+          throw EUnknownField(ctx, proj.field)
+        else
+          proj.fieldIndex = Some(index)
+          structType.toImmArray(index)._2
       case typ =>
         throw EExpectedStructType(ctx, typ)
     }
@@ -872,8 +877,8 @@ private[validation] object Typing {
         TTyCon(tyCon)
       case EStructCon(fields) =>
         typeOfStructCon(fields)
-      case EStructProj(field, struct) =>
-        typeOfStructProj(field, struct)
+      case proj: EStructProj =>
+        typeOfStructProj(proj)
       case EStructUpd(field, struct, update) =>
         typeOfStructUpd(field, struct, update)
       case EApp(fun, arg) =>

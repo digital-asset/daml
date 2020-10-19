@@ -835,6 +835,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
               structProj.getFieldInternedStr,
               "Expr.StructProj.field.field"
             ),
+            fieldIndex = None,  // This will be filled in by the type checker.
             struct = decodeExpr(structProj.getStruct, definition)
           )
 
