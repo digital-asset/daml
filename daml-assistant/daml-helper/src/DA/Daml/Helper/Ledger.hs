@@ -32,6 +32,7 @@ import Data.String (IsString)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
+import Data.Maybe
 import GHC.Generics
 import Network.HTTP.Simple
 import System.Environment
@@ -249,7 +250,9 @@ newtype Path = Path
 
 -- | Run a request against the HTTP JSON API.
 httpJsonRequest :: A.FromJSON a => LedgerArgs -> Method -> Path -> IO (Response a)
-httpJsonRequest LedgerArgs {..} method path = do
+httpJsonRequest LedgerArgs {sslConfigM,tokM,port,host} method path = do
+  when (isJust sslConfigM) $
+    fail "The HTTP JSON API doesn't support TLS requests, but a TLS flag was set."
   resp <-
     httpJSON $
     setRequestPort port $
