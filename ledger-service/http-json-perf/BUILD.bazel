@@ -32,6 +32,7 @@ da_scala_library(
         "//ledger-service/http-json-testing",
         "//ledger-service/jwt",
         "//libs-scala/gatling-utils",
+        "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/scala-utils",
         "@maven//:com_fasterxml_jackson_core_jackson_core",

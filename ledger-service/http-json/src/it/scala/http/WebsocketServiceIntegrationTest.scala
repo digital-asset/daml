@@ -9,7 +9,6 @@ import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSock
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.daml.http.json.SprayJson
-import com.daml.http.util.TestUtil
 import HttpServiceTestFixture.UseTls
 import akka.actor.ActorSystem
 import com.daml.jwt.domain.Jwt
@@ -38,6 +37,7 @@ class WebsocketServiceIntegrationTest
     with AbstractHttpServiceIntegrationTestFuns
     with BeforeAndAfterAll {
 
+  import HttpServiceTestFixture._
   import WebsocketServiceIntegrationTest._
 
   override def jdbcConfig: Option[JdbcConfig] = None
@@ -289,7 +289,7 @@ class WebsocketServiceIntegrationTest
             ContractDelta(Vector((ctid, _)), Vector(), None) <- readOne
             _ = (ctid: String) shouldBe (iouCid.unwrap: String)
             _ <- liftF(
-              TestUtil.postJsonRequest(
+              postJsonRequest(
                 uri.withPath(Uri.Path("/v1/exercise")),
                 exercisePayload(domain.ContractId(ctid)),
                 headersWithAuth) map {
@@ -447,9 +447,10 @@ class WebsocketServiceIntegrationTest
         _ = r2._1 shouldBe 'success
         cid2 = getContractId(getResult(r2._2))
 
-        lastState <- singleClientQueryStream(jwtForParties(List("Alice", "Bob")), uri, query) via parseResp runWith resp(
-          cid1,
-          cid2)
+        lastState <- singleClientQueryStream(
+          jwtForParties(List("Alice", "Bob"), testId),
+          uri,
+          query) via parseResp runWith resp(cid1, cid2)
         liveOffset = inside(lastState) {
           case ShouldHaveEnded(liveStart, 5, lastSeen) =>
             lastSeen.unwrap should be > liveStart.unwrap
@@ -685,16 +686,17 @@ class WebsocketServiceIntegrationTest
         _ = r2._1 shouldBe 'success
         cid2 = getContractId(getResult(r2._2))
 
-        lastState <- singleClientFetchStream(jwtForParties(List("Alice", "Bob")), uri, query) via parseResp runWith resp(
-          cid1,
-          cid2)
+        lastState <- singleClientFetchStream(
+          jwtForParties(List("Alice", "Bob"), testId),
+          uri,
+          query) via parseResp runWith resp(cid1, cid2)
         liveOffset = inside(lastState) {
           case ShouldHaveEnded(liveStart, 5, lastSeen) =>
             lastSeen.unwrap should be > liveStart.unwrap
             liveStart
         }
         rescan <- (singleClientFetchStream(
-          jwtForParties(List("Alice", "Bob")),
+          jwtForParties(List("Alice", "Bob"), testId),
           uri,
           query,
           Some(liveOffset))
@@ -749,7 +751,7 @@ class WebsocketServiceIntegrationTest
       case Node(_, l, r) =>
         for {
           (StatusCodes.OK, _) <- liftF(
-            TestUtil.postJsonRequest(
+            postJsonRequest(
               serviceUri.withPath(Uri.Path("/v1/exercise")),
               exercisePayload(createdCid, l.x),
               headersWithAuth))
@@ -780,7 +782,7 @@ class WebsocketServiceIntegrationTest
     }
     for {
       (StatusCodes.OK, _) <- liftF(
-        TestUtil.postJsonRequest(
+        postJsonRequest(
           serviceUri.withPath(Uri.Path("/v1/create")),
           initialPayload,
           headersWithAuth))
