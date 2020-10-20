@@ -36,7 +36,7 @@ object TestHelpers {
           observers Cons @Party [Simple:SimpleTemplate {observer} this] (Nil @Party),
           agreement "",
           choices {
-            choice Consume (self) (x: Unit) : Unit by Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party) to upure @Unit ()
+            choice Consume (self) (x: Unit) : Unit, controllers Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party) to upure @Unit ()
           },
           key @Party (Simple:SimpleTemplate {owner} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party))
         } ;
