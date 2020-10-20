@@ -28,14 +28,14 @@ Stable versions are released once a month. See :ref:`release_process` below for 
 
 No more than one major version is released every six months, barring exceptional circumstances.
 
-Individual DAML Drivers follow their own release cadence, using already released Integration Components as a dependency.
+Individual DAML drivers follow their own release cadence, using already released Integration Components as a dependency.
 
 .. _support_duration:
 
 Support Duration
 ----------------
 
-Major versions of DAML Connect and individual DAML Drivers are supported for at least 12 months from the release of the terminal minor version. The fact that a released minor version is the terminal one will be communicated. Within a major version, only the latest minor version receives security and bug fixes.
+Major versions of DAML Connect and individual DAML drivers are supported for at least 12 months from the release of the terminal minor version. The fact that a released minor version is the terminal one will be communicated. Within a major version, only the latest minor version receives security and bug fixes.
 
 .. _release-notes:
 
