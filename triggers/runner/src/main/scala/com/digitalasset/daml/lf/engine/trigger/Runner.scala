@@ -12,7 +12,7 @@ import io.grpc.StatusRuntimeException
 import java.time.Instant
 import java.util.UUID
 
-import scalaz.Functor
+import scalaz.{-\/, Functor, \/, \/-}
 import scalaz.\/.fromTryCatchThrowable
 import scalaz.std.option._
 import scalaz.syntax.functor._
@@ -245,13 +245,18 @@ class Runner(
     (commandUUID, SubmitRequest(commands = Some(commandsArg)))
   }
 
-  import Runner.DamlFun
+  import Runner.{DamlFun, UnfoldState}
 
   // Handles the value of update.
   private def handleStepFreeResult(
       clientTime: Timestamp,
       v: SValue,
-      submit: SubmitRequest => Unit): SValue = {
+      submit: SubmitRequest => Unit): SValue =
+    freeTriggerSubmits(clientTime, v) foreach submit
+
+  private def freeTriggerSubmits(
+      clientTime: Timestamp,
+      v: SValue): UnfoldState[SValue, SubmitRequest] = {
     def evaluate(se: SExpr) = {
       val machine: Speedy.Machine =
         Speedy.Machine.fromPureSExpr(compiledPackages, se)
@@ -259,7 +264,7 @@ class Runner(
       machine.setExpressionToEvaluate(se)
       Machine.stepToValue(machine)
     }
-    @tailrec def go(v: SValue): SValue = {
+    @tailrec def go(v: SValue): SValue \/ (SubmitRequest, SValue) = {
       val resumed = unrollFree(v) match {
         case Right(Right(vvv @ (variant, vv))) =>
           vvv.match2 {
@@ -270,15 +275,15 @@ class Runner(
               case DamlTuple2(sCommands, DamlFun(textA)) =>
                 val commands = converter.toCommands(sCommands).orConverterException
                 val (commandUUID, submitRequest) = handleCommands(commands)
-                submit(submitRequest)
-                Right(evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))))
+                Left(\/-(
+                  (submitRequest, evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))))))
             }
             case _ =>
               val msg = s"unrecognized TriggerF step $variant"
               logger.error(msg)
               throw new ConverterException(msg)
           }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
-        case Right(Left(newState)) => Left(newState)
+        case Right(Left(newState)) => Left(-\/(newState))
         case Left(e) => throw new ConverterException(e)
       }
       resumed match {
@@ -287,7 +292,7 @@ class Runner(
       }
     }
 
-    go(v)
+    UnfoldState(v)(go)
   }
 
   // This function produces a pair of a source of trigger messages
@@ -533,6 +538,35 @@ object Runner extends StrictLogging {
 
   private object DamlFun {
     def unapply(v: SPAP): Some[SPAP] = Some(v)
+  }
+
+  /** A variant of [[scalaz.CorecursiveList]] that emits a final state
+    * at the end of the list.
+    */
+  private sealed abstract class UnfoldState[+T, +A] {
+    type S
+    val init: S
+    val step: S => T \/ (A, S)
+
+    def foreach(f: A => Unit): T = {
+      @tailrec def go(s: S): T = step(s) match {
+        case -\/(t) => t
+        case \/-((a, s2)) =>
+          f(a)
+          go(s2)
+      }
+      go(init)
+    }
+  }
+
+  private object UnfoldState {
+    def apply[S, T, A](init: S)(step: S => T \/ (A, S)): UnfoldState[T, A] = {
+      type S0 = S
+      final case class UnfoldStateImpl(init: S, step: S => T \/ (A, S)) extends UnfoldState[T, A] {
+        type S = S0
+      }
+      UnfoldStateImpl(init, step)
+    }
   }
 
   private def alterF[K, V, F[_]: Functor](m: Map[K, V], k: K)(
