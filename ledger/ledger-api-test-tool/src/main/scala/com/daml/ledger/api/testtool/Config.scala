@@ -27,6 +27,7 @@ final case class Config(
     shuffleParticipants: Boolean,
     partyAllocation: PartyAllocationConfiguration,
     ledgerClockGranularityMs: Int,
+    uploadDars: Boolean,
 )
 
 object Config {
@@ -48,5 +49,6 @@ object Config {
     shuffleParticipants = false,
     partyAllocation = PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants,
     ledgerClockGranularityMs = 10000,
+    uploadDars = true,
   )
 }
