@@ -4,7 +4,7 @@
 
 ## Introduction
 
-I guess it is no secret that I'm not the biggest fan of lenses, particularly not in DAML. I wouldn't go as far as saying that lenses, prisms, and the other optics make my eyes bleed but there are definitely better ways to handle records is most cases. One case where the builtin syntax of DAML has a clear advantage over lenses is record access, getting the value of a field from a record:
+I guess it is no secret that I'm not the biggest fan of lenses, particularly not in DAML. I wouldn't go as far as saying that lenses, prisms, and the other optics make my eyes bleed but there are definitely better ways to handle records in most cases. One case where the builtin syntax of DAML has a clear advantage over lenses is record access, getting the value of a field from a record:
 ```
 record.field1.field2
 ```
