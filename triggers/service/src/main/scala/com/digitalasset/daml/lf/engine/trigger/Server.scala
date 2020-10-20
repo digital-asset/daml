@@ -52,6 +52,8 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
 
+import com.daml.oauth.middleware.Request.Claims
+
 import scala.collection.concurrent.TrieMap
 
 class Server(
@@ -266,6 +268,21 @@ class Server(
         }
     }
 
+  // This directive requires authorization for the party of the given running trigger via the auth middleware, if configured.
+  // If no auth middleware is configured, then the request will proceed without attempting authorization.
+  // If the trigger does not exist, then the request will also proceed without attempting authorization.
+  private def authorizeForTrigger(
+      uuid: UUID)(implicit ec: ExecutionContext, system: ActorSystem): Directive1[Option[String]] =
+    authConfig match {
+      case NoAuth => provide(None)
+      case AuthMiddleware(_) =>
+        triggerDao.getRunningTrigger(uuid) match {
+          case Left(err) => complete(errorResponse(StatusCodes.InternalServerError, err))
+          case Right(None) => provide(None)
+          case Right(Some(trigger)) => authorize(Claims(actAs = List(trigger.triggerParty)))
+        }
+    }
+
   private def authCallback(requestId: UUID): Route =
     authCallbacks.remove(requestId) match {
       case None => complete(StatusCodes.NotFound)
@@ -352,16 +369,19 @@ class Server(
     },
     // Stop a trigger given its UUID
     delete {
-      pathPrefix("v1" / "stop" / JavaUUID) { uuid =>
-        stopTrigger(uuid) match {
-          case Left(err) =>
-            complete(errorResponse(StatusCodes.InternalServerError, err))
-          case Right(None) =>
-            val err = s"No trigger running with id $uuid"
-            complete(errorResponse(StatusCodes.NotFound, err))
-          case Right(Some(stoppedTriggerId)) =>
-            complete(successResponse(stoppedTriggerId))
-        }
+      pathPrefix("v1" / "stop" / JavaUUID) {
+        uuid =>
+          authorizeForTrigger(uuid)(ec, system) { _ =>
+            stopTrigger(uuid) match {
+              case Left(err) =>
+                complete(errorResponse(StatusCodes.InternalServerError, err))
+              case Right(None) =>
+                val err = s"No trigger running with id $uuid"
+                complete(errorResponse(StatusCodes.NotFound, err))
+              case Right(Some(stoppedTriggerId)) =>
+                complete(successResponse(stoppedTriggerId))
+            }
+          }
       }
     },
     // Authorization callback endpoint

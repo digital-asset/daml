@@ -193,7 +193,7 @@ abstract class AbstractTriggerServiceTest
       method = HttpMethods.DELETE,
       uri = uri.withPath(Uri.Path(s"/v1/stop/$id")),
     )
-    Http().singleRequest(req)
+    httpRequestFollow(req)
   }
 
   def uploadDar(uri: Uri, file: File): Future[HttpResponse] = {

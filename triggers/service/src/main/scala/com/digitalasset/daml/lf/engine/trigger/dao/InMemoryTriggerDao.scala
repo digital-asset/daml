@@ -21,6 +21,10 @@ final class InMemoryTriggerDao extends RunningTriggerDao {
     Right(())
   }
 
+  override def getRunningTrigger(triggerInstance: UUID): Either[String, Option[RunningTrigger]] = {
+    Right(triggers.get(triggerInstance))
+  }
+
   override def removeRunningTrigger(triggerInstance: UUID): Either[String, Boolean] = {
     triggers.get(triggerInstance) match {
       case None => Right(false)

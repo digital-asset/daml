@@ -14,6 +14,7 @@ import com.daml.lf.engine.trigger.RunningTrigger
 
 trait RunningTriggerDao extends Closeable {
   def addRunningTrigger(t: RunningTrigger): Either[String, Unit]
+  def getRunningTrigger(triggerInstance: UUID): Either[String, Option[RunningTrigger]]
   def removeRunningTrigger(triggerInstance: UUID): Either[String, Boolean]
   def listRunningTriggers(party: Party): Either[String, Vector[UUID]]
   def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit]
