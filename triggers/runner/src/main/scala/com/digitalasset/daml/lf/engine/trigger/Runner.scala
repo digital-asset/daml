@@ -245,7 +245,7 @@ class Runner(
     (commandUUID, SubmitRequest(commands = Some(commandsArg)))
   }
 
-  import Runner.{DamlFun, UnfoldState}
+  import Runner.DamlFun
 
   // Handles the value of update.
   private def handleStepFreeResult(
@@ -538,35 +538,6 @@ object Runner extends StrictLogging {
 
   private object DamlFun {
     def unapply(v: SPAP): Some[SPAP] = Some(v)
-  }
-
-  /** A variant of [[scalaz.CorecursiveList]] that emits a final state
-    * at the end of the list.
-    */
-  private sealed abstract class UnfoldState[+T, +A] {
-    type S
-    val init: S
-    val step: S => T \/ (A, S)
-
-    def foreach(f: A => Unit): T = {
-      @tailrec def go(s: S): T = step(s) match {
-        case -\/(t) => t
-        case \/-((a, s2)) =>
-          f(a)
-          go(s2)
-      }
-      go(init)
-    }
-  }
-
-  private object UnfoldState {
-    def apply[S, T, A](init: S)(step: S => T \/ (A, S)): UnfoldState[T, A] = {
-      type S0 = S
-      final case class UnfoldStateImpl(init: S, step: S => T \/ (A, S)) extends UnfoldState[T, A] {
-        type S = S0
-      }
-      UnfoldStateImpl(init, step)
-    }
   }
 
   private def alterF[K, V, F[_]: Functor](m: Map[K, V], k: K)(
