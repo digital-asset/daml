@@ -12,6 +12,7 @@ import qualified Control.Concurrent.QSem
 import qualified Control.Exception
 import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
+import qualified Control.Monad.Loops
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString
 import qualified Data.ByteString.UTF8 as BS
@@ -285,13 +286,11 @@ download_assets tmp release = do
               HTTP.withResponse req manager (\resp -> do
                   let body = HTTP.responseBody resp
                   IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode (\handle -> do
-                      let loop = do
-                          bs <- HTTP.brRead body
-                          if Data.ByteString.null bs then return ()
-                          else do
-                              Data.ByteString.hPut handle bs
-                              loop
-                      loop))))
+                      while (readFrom body) (writeTo handle)))))
+  where while = Control.Monad.Loops.whileJust_
+        readFrom body = ifNotEmpty <$> HTTP.brRead body
+        ifNotEmpty bs = if Data.ByteString.null bs then Nothing else Just bs
+        writeTo = Data.ByteString.hPut
 
 verify_signatures :: FilePath -> FilePath -> String -> IO String
 verify_signatures bash_lib tmp version_tag = do
