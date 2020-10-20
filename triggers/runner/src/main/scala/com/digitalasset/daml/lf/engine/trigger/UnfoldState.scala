@@ -6,6 +6,8 @@ import akka.stream.scaladsl.Flow
 
 import scala.annotation.tailrec
 
+import com.daml.scalautil.Statement.discard
+
 /** A variant of [[scalaz.CorecursiveList]] that emits a final state
   * at the end of the list.
   */
@@ -58,13 +60,40 @@ private[trigger] object UnfoldState {
       new GraphStageLogic(shape) {
         private[this] var state: T \/ UnfoldState[T, B] = -\/(zero)
 
-        setHandler(in, new InHandler {
-          override def onPush() = ()
-        })
+        setHandler(
+          in,
+          new InHandler {
+            override def onPush() =
+              state fold ({ t =>
+                state = \/-(f(t, grab(in)))
+              // TODO push?
+              }, _ => throw new IllegalStateException("no buffer space for elements"))
 
-        setHandler(out, new OutHandler {
-          override def onPull() = ()
-        })
+            override def onUpstreamFinish() = {
+              state fold (_ => (), { tbs =>
+                discard(tbs.foreach(push(out, _)))
+              })
+              complete(out)
+            }
+          }
+        )
+
+        setHandler(
+          out,
+          new OutHandler {
+            override def onPull() =
+              state fold (_ => pull(in), { tbs =>
+                tbs.step(tbs.init) fold ({ newT =>
+                  state = -\/(newT)
+                  pull(in)
+                }, {
+                  case (b, s) =>
+                    state = \/-(tbs withInit s)
+                    push(out, b)
+                })
+              })
+          }
+        )
       }
   }
 }
