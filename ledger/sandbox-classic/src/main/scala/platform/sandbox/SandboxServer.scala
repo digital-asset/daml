@@ -353,7 +353,8 @@ final class SandboxServer(
           AuthorizationInterceptor(authService, executionContext),
           resetService,
         ),
-        metrics
+        servicesExecutionContext,
+        metrics,
       ).acquire()
       _ <- Resource.fromFuture(writePortFile(apiServer.port))
     } yield {

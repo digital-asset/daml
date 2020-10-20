@@ -113,7 +113,8 @@ final class StandaloneApiServer(
         config.address,
         config.tlsConfig.flatMap(_.server),
         AuthorizationInterceptor(authService, executionContext) :: otherInterceptors,
-        metrics
+        servicesExecutionContext,
+        metrics,
       )
     } yield {
       writePortFile(apiServer.port)
