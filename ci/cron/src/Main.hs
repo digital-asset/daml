@@ -18,6 +18,7 @@ import qualified Data.ByteString.UTF8 as BS
 import qualified Data.ByteString.Lazy.UTF8 as LBS
 import qualified Data.CaseInsensitive as CI
 import qualified Data.Foldable
+import qualified Data.Function
 import qualified Data.HashMap.Strict as H
 import qualified Data.List
 import qualified Data.List.Split as Split
@@ -284,14 +285,13 @@ download_assets tmp release = do
               req <- add_github_contact_header <$> HTTP.parseRequest (show url)
               HTTP.withResponse req manager (\resp -> do
                   let body = HTTP.responseBody resp
-                  IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode (\handle -> do
-                      let loop = do
+                  IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode (\handle ->
+                      Data.Function.fix (\loop -> do
                           bs <- HTTP.brRead body
                           if Data.ByteString.null bs then return ()
                           else do
                               Data.ByteString.hPut handle bs
-                              loop
-                      loop))))
+                              loop)))))
 
 verify_signatures :: FilePath -> FilePath -> String -> IO String
 verify_signatures bash_lib tmp version_tag = do
