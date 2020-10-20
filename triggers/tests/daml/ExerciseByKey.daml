@@ -22,12 +22,12 @@ exerciseByKeyTrigger = Trigger
 retryRule : Party -> TriggerA Int ()
 retryRule party = do
   allowedRetries <- get
-  ts <- query @T
+  ts <- queryContractKey @T party
   t_s <- query @T_
   case (ts, t_s) of
-    ([], _) ->
+    (None, _) ->
       dedupCreate T { p = party }
-    ((_, T { p = party' } ) :: _, []) | party == party' ->
+    (Some _, []) ->
       dedupExerciseByKey @T party C
     otherwise -> pure ()
 

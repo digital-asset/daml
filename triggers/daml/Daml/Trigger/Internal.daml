@@ -103,6 +103,9 @@ class ActionTriggerAny m where
   -- type parameters are in the 'm a' order, so it is not exported.)
   implQuery : forall a. Template a => m [(ContractId a, a)]
 
+  -- | Find the contract with the given `id` in the ACS, if present.
+  queryContractId : Template a => ContractId a -> m (Optional a)
+
 -- Internal API
 
 addCommands : Map CommandId [Command] -> Commands -> Map CommandId [Command]
