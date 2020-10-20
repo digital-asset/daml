@@ -118,7 +118,7 @@ import           Safe.Exact (zipExact, zipExactMay)
 import           SdkVersion
 
 ---------------------------------------------------------------------
--- FAILURE and WARNING REPORTING
+-- FAILURE REPORTING
 
 conversionError :: String -> ConvertM e
 conversionError msg = do
@@ -149,29 +149,6 @@ unknown unitId pkgMap = conversionError errMsg
 
 unhandled :: (HasCallStack, Data a, Outputable a) => String -> a -> ConvertM e
 unhandled typ x = unsupported (typ ++ " with " ++ lower (show (toConstr x))) x
-
-warn :: String -> ConvertM ()
-warn msg = do
-    ConversionEnv{..} <- ask
-    let diag = (convModuleFilePath, ShowDiag, Diagnostic
-            { _range = maybe noRange sourceLocToRange convRange
-            , _severity = Just DsWarning
-            , _source = Just "Core to DAML-LF"
-            , _message = T.pack msg
-            , _code = Nothing
-            , _relatedInformation = Nothing
-            , _tags = Nothing
-            })
-    modify' $ \st -> ConversionState (diag : convWarnings st)
-
-warnNotDataDependable :: String -> ConvertM ()
-warnNotDataDependable what =
-    warn $ unlines
-        [ "Using " ++ what ++ " in combination with type classes"
-        , "does not work properly with data-dependencies. This will stop the"
-        , "whole package from being extensible or upgradable using other versions"
-        , "of the SDK. Use this feature at your own risk."
-        ]
 
 ---------------------------------------------------------------------
 -- FUNCTIONS ON THE ENVIRONMENT
@@ -257,23 +234,16 @@ data ConversionError
 data ConversionEnv = ConversionEnv
   { convModuleFilePath :: !NormalizedFilePath
   , convRange :: !(Maybe SourceLoc)
-  , convWarnOnTypeErasure :: Bool
   }
 
-newtype ConversionState = ConversionState { convWarnings :: [FileDiagnostic] }
-
-newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Except FileDiagnostic)) a)
-  deriving (Functor, Applicative, Monad, MonadError FileDiagnostic, MonadReader ConversionEnv, MonadState ConversionState)
+newtype ConvertM a = ConvertM (ReaderT ConversionEnv (Except FileDiagnostic) a)
+  deriving (Functor, Applicative, Monad, MonadError FileDiagnostic, MonadReader ConversionEnv)
 
 instance MonadFail ConvertM where
     fail = conversionError
 
-runConvertM :: ConversionEnv -> ConvertM a -> Either FileDiagnostic (a, [FileDiagnostic])
-runConvertM env (ConvertM act) = case runExcept (runStateT (runReaderT act env) st0) of
-    Left err -> Left err
-    Right (res, st) -> Right (res, reverse (convWarnings st))
-  where
-    st0 = ConversionState []
+runConvertM :: ConversionEnv -> ConvertM a -> Either FileDiagnostic a
+runConvertM s (ConvertM a) = runExcept (runReaderT a s)
 
 withRange :: Maybe SourceLoc -> ConvertM a -> ConvertM a
 withRange r = local (\s -> s { convRange = r })
@@ -385,18 +355,13 @@ convertModule
     -> Bool
     -> NormalizedFilePath
     -> CoreModule
-    -> Either FileDiagnostic (LF.Module, [FileDiagnostic])
-convertModule lfVersion pkgMap stablePackages isGenerated file x = runConvertM convEnv0 $ do
+    -> Either FileDiagnostic LF.Module
+convertModule lfVersion pkgMap stablePackages isGenerated file x = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (convertBind env) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     templates <- convertTemplateDefs env
     pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ definitions))
     where
-        convEnv0 = ConversionEnv
-            { convModuleFilePath = file
-            , convRange = Nothing
-            , convWarnOnTypeErasure = False
-            }
         ghcModName = GHC.moduleName $ cm_module x
         thisUnitId = GHC.moduleUnitId $ cm_module x
         lfModName = convertModuleName ghcModName
@@ -541,8 +506,7 @@ convertClassDef env tycon
         labels = ctorLabels con
         (_, theta, args, _) = dataConSig con
 
-    (env', tyVars) <- local (\convEnv -> convEnv{convWarnOnTypeErasure = True}) $ do
-        bindTypeVars env (tyConTyVars tycon)
+    (env', tyVars) <- bindTypeVars env (tyConTyVars tycon)
     fieldTypes <- mapM (convertType env') (theta ++ args)
 
     let fields = zipExact labels (map sanitize fieldTypes)
@@ -765,36 +729,21 @@ convertBind env (name, x)
     | ConstraintTupleProjectionName _ _ <- name
     = pure []
 
-    -- Typeclass instance dictionaries
-    | DFunId isNewtype <- idDetails name
-    = withRange (convNameLoc name) $ do
-    x' <- convertExpr env x
-    -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
-    -- The sanitization for newtype dictionaries is done in `convertCoercion`.
-    let sanitized_x'
-          | isNewtype = x'
-          | otherwise =
-            let fieldsPrism
-                  | envLfVersion env `supports` featureTypeSynonyms = _EStructCon
-                  | otherwise = _ERecCon . _2
-            in over (_ETyLams . _2 . _ETmLams . _2 . fieldsPrism . each . _2) (ETmLam (mkVar "_", TUnit)) x'
-    -- NOTE(MH): We don't warn on advanced kinds for `HasField` instances
-    -- because they need to use type-level strings and are handled special
-    -- in data-dependencies.
-    let isHasFieldDict
-          | (_, ty) <- splitForAllTys (varType name)
-          , Just (NameIn DA_Internal_Record "HasField", _) <- splitTyConApp_maybe ty = True
-          | otherwise = False
-    name' <- local (\convEnv -> convEnv{convWarnOnTypeErasure = not isHasFieldDict}) $ do
-        convValWithType env name
-    pure [defValue name name' sanitized_x']
-
-    -- Regular functions
     | otherwise
     = withRange (convNameLoc name) $ do
     x' <- convertExpr env x
+    let sanitize = case idDetails name of
+          -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
+          -- NOTE (drsk): We only want to do the sanitization for non-newtypes. The sanitization
+          -- step 3 for newtypes is done in the convertCoercion function.
+          DFunId False ->
+              let fieldsPrism
+                    | envLfVersion env `supports` featureTypeSynonyms = _EStructCon
+                    | otherwise = _ERecCon . _2
+              in over (_ETyLams . _2 . _ETmLams . _2 . fieldsPrism . each . _2) (ETmLam (mkVar "_", TUnit))
+          _ -> id
     name' <- convValWithType env name
-    pure [defValue name name' x']
+    pure [defValue name name' (sanitize x')]
 
 -- NOTE(MH): These are the names of the builtin DAML-LF types whose Surface
 -- DAML counterpart is not defined in 'GHC.Types'. They are all defined in
@@ -1544,22 +1493,11 @@ qDA_Types env a = do
 
 -- | Types of a kind not supported in DAML-LF, e.g., the DataKinds stuff from GHC.Generics
 -- are translated to a special uninhabited Erased type. This allows us to easily catch these
--- cases in data-dependencies. In combination with typeclasses causes trouble.
-erasedTy :: Env -> GHC.TyCon -> ConvertM LF.Type
-erasedTy env t = do
-    whenM (asks convWarnOnTypeErasure) $ do
-        warnNotDataDependable ("the type " ++ prettyPrint t)
+-- cases in data-dependencies.
+erasedTy :: Env -> ConvertM LF.Type
+erasedTy env = do
     pkgRef <- packageNameToPkgRef env primUnitId
     pure $ TCon $ rewriteStableQualified env (Qualified pkgRef (mkModName ["DA", "Internal", "Erased"]) (mkTypeCon ["Erased"]))
-
--- | Kinds not supported in DAML-LF, like the `Symbol` kind or the stuff in
--- `DA.Generics`, are translated to `KStar`. In combination with typeclasses
--- this does not work with data-dependencies.
-erasedKind :: GHC.TyCon -> ConvertM LF.Kind
-erasedKind k = do
-    whenM (asks convWarnOnTypeErasure) $ do
-        warnNotDataDependable ("the kind " ++ prettyPrint k)
-    pure KStar
 
 -- | Type-level strings are represented in DAML-LF via the PromotedText type. This is
 -- For example, the type-level string @"foo"@ will be represented by the type
@@ -1626,8 +1564,8 @@ convertTyCon env t
     | t == boolTyCon = pure TBool
     | t == intTyCon || t == intPrimTyCon = pure TInt64
     | t == charTyCon = unsupported "Type GHC.Types.Char" t
-    | t == liftedRepDataConTyCon = erasedTy env t
-    | t == typeSymbolKindCon = erasedTy env t
+    | t == liftedRepDataConTyCon = erasedTy env
+    | t == typeSymbolKindCon = erasedTy env
     | NameIn GHC_Types n <- t =
         case n of
             "Text" -> pure TText
@@ -1681,14 +1619,14 @@ convertType env = go env
             pure TText
         | NameIn DA_Generics n <- t
         , n `elementOfUniqSet` metadataTys
-        , [_] <- ts = erasedTy env t
+        , [_] <- ts = erasedTy env
         | t == anyTyCon, [_] <- ts =
             -- used for type-zonking
             -- We translate this to Erased instead of TUnit since we do
             -- not want to translate this back to `()` for `data-dependencies`
             -- and because we never actually have values of type `Any xs` which
             -- is made explicit by translating it to an uninhabited type.
-            erasedTy env t
+            erasedTy env
 
         | t == funTyCon, _:_:ts' <- ts =
             foldl TApp TArrow <$> mapM (go env) ts'
@@ -1720,10 +1658,7 @@ convertType env = go env
         = TVar . fst <$> convTypeVar env v
 
     go env t | Just s <- isStrLitTy t
-        = do
-            whenM (asks convWarnOnTypeErasure) $
-                warnNotDataDependable "type-level strings"
-            promotedTextTy env (fsToText s)
+        = promotedTextTy env (fsToText s)
 
     go env t | Just m <- isNumLitTy t
         = case typeLevelNatE m of
@@ -1740,10 +1675,11 @@ convertType env = go env
 
 convertKind :: GHC.Kind -> ConvertM LF.Kind
 convertKind x@(TypeCon t ts)
-    | t == tYPETyCon, [_] <- ts = pure KStar  -- This is the actual `*` kind.
-    | t == typeSymbolKindCon, null ts = erasedKind t
-    | t == runtimeRepTyCon, null ts = erasedKind t
-    | NameIn DA_Generics "Meta" <- t, null ts = erasedKind t
+    | t == typeSymbolKindCon, null ts = pure KStar
+    | t == tYPETyCon, [_] <- ts = pure KStar
+    | t == runtimeRepTyCon, null ts = pure KStar
+    -- TODO (drsk): We want to check that the 'Meta' constructor really comes from GHC.Generics.
+    | getOccFS t == "Meta", null ts = pure KStar
     | Just m <- nameModule_maybe (getName t)
     , GHC.moduleName m == mkModuleName "GHC.Types"
     , getOccFS t == "Nat", null ts = pure KNat
