@@ -48,7 +48,7 @@ For example, an application built and compiled with SDK, Libraries and Runtime C
 Ledger API Support Duration
 ---------------------------
 
-Major Ledger API versions behave like stable features in :doc:`status-definitions`. They are supported from the time they are first released as "stable" to the point where they are removed from Integration Components and SDK following a 12 month deprecation cycle. The earliest point a major Ledger API version can be deprecated is with the release of the next major version. The earliest it can be removed is 12 months later with a major version release of the Integration Components.
+Major Ledger API versions behave like stable features in :doc:`status-definitions`. They are supported from the time they are first released as "stable" to the point where they are removed from Integration Components and DAML Connect following a 12 month deprecation cycle. The earliest point a major Ledger API version can be deprecated is with the release of the next major version. The earliest it can be removed is 12 months later with a major version release of the Integration Components.
 
 Other than for hotfix releases, new releases of the Integration Components will only support the latest minor/patch version of each major Ledger API version.
 
