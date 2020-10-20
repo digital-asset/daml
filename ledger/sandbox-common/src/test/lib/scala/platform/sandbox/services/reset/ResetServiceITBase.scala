@@ -44,6 +44,7 @@ import com.daml.ledger.api.v1.testing.time_service.{
   TimeServiceGrpc
 }
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
+import com.daml.ledger.resources.TestResourceContext
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.AbstractSandboxFixture
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -65,6 +66,7 @@ abstract class ResetServiceITBase
     with AsyncTimeLimitedTests
     with Matchers
     with ScalaFutures
+    with TestResourceContext
     with AbstractSandboxFixture
     with SuiteResourceManagementAroundEach
     with TestCommands {

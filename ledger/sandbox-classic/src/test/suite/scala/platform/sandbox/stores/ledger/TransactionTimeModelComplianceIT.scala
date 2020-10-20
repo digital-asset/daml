@@ -23,6 +23,7 @@ import com.daml.ledger.participant.state.v1.{
   TimeModel,
   TransactionMeta
 }
+import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -32,7 +33,6 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{Assertion, AsyncWordSpec, Matchers, OptionValues}
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 class TransactionTimeModelComplianceIT
@@ -53,17 +53,12 @@ class TransactionTimeModelComplianceIT
     Set(BackendType.InMemory, BackendType.Postgres)
 
   override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] = {
-    implicit val executionContext: ExecutionContext = system.dispatcher
+    implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     fixtureId match {
       case BackendType.InMemory =>
         LedgerResource.inMemory(ledgerId, timeProvider)
       case BackendType.Postgres =>
-        LedgerResource.postgres(
-          getClass,
-          ledgerId,
-          timeProvider,
-          metrics,
-        )
+        LedgerResource.postgres(getClass, ledgerId, timeProvider, metrics)
     }
   }
 

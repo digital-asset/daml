@@ -16,6 +16,7 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.{SeedService, WriteService}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -43,7 +44,6 @@ import com.daml.platform.server.api.services.grpc.{
   GrpcTransactionService
 }
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import scalaz.syntax.tag._
@@ -85,7 +85,7 @@ private[daml] object ApiServices {
       seedService: SeedService,
       managementServiceTimeout: Duration,
   )(
-      implicit mat: Materializer,
+      implicit materializer: Materializer,
       esf: ExecutionSequencerFactory,
       loggingContext: LoggingContext,
   ) extends ResourceOwner[ApiServices] {
@@ -100,7 +100,7 @@ private[daml] object ApiServices {
     private val configManagementService: IndexConfigManagementService = indexService
     private val submissionService: IndexSubmissionService = indexService
 
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServices] =
+    override def acquire()(implicit context: ResourceContext): Resource[ApiServices] =
       Resource(
         for {
           ledgerId <- identityService.getLedgerId()
@@ -109,7 +109,7 @@ private[daml] object ApiServices {
             optWriteService,
             timeProvider,
             ledgerConfiguration)
-          services = createServices(ledgerId, ledgerConfigProvider)(mat.system.dispatcher)
+          services = createServices(ledgerId, ledgerConfigProvider)(materializer.system.dispatcher)
           _ <- ledgerConfigProvider.ready
         } yield (ledgerConfigProvider, services)
       ) {
@@ -185,9 +185,10 @@ private[daml] object ApiServices {
         ledgerId: LedgerId,
         ledgerConfigProvider: LedgerConfigProvider,
         apiCompletionService: GrpcCommandCompletionService,
-        apiTransactionService: GrpcTransactionService)(
-        implicit mat: Materializer,
-        ec: ExecutionContext,
+        apiTransactionService: GrpcTransactionService,
+    )(
+        implicit materializer: Materializer,
+        executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): List[BindableService] = {
       optWriteService.toList.flatMap { writeService =>

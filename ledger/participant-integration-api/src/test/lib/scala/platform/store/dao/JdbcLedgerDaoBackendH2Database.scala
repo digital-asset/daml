@@ -4,11 +4,12 @@
 package com.daml.platform.store.dao
 
 import com.daml.platform.store.DbType
-import org.scalatest.Suite
+import org.scalatest.AsyncTestSuite
 
-private[dao] trait JdbcLedgerDaoBackendH2Database extends JdbcLedgerDaoBackend { this: Suite =>
+private[dao] trait JdbcLedgerDaoBackendH2Database extends JdbcLedgerDaoBackend {
+  this: AsyncTestSuite =>
 
-  override protected val jdbcUrl = "jdbc:h2:mem:static_time;db_close_delay=-1"
-  override protected val dbType = DbType.H2Database
+  override protected val dbType: DbType = DbType.H2Database
 
+  override protected val jdbcUrl: String = "jdbc:h2:mem:static_time;db_close_delay=-1"
 }

@@ -10,10 +10,10 @@ import com.daml.concurrent.{ExecutionContext, Future}
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.on.sql.Database._
 import com.daml.ledger.on.sql.queries._
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.resources.ProgramResource.StartupException
-import com.daml.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 import org.flywaydb.core.Flyway

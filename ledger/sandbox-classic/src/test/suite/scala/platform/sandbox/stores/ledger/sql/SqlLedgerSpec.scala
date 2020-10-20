@@ -12,6 +12,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.resources.{Resource, ResourceContext, TestResourceContext}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.LegacyTransactionCommitter
@@ -26,7 +27,6 @@ import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
 import com.daml.platform.store.IndexMetadata
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.resources.Resource
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
 import org.scalatest.time.{Minute, Seconds, Span}
@@ -43,6 +43,7 @@ final class SqlLedgerSpec
     with AsyncTimeLimitedTests
     with ScaledTimeSpans
     with Eventually
+    with TestResourceContext
     with AkkaBeforeAndAfterAll
     with PostgresAroundEach
     with MetricsAround {
@@ -241,7 +242,7 @@ final class SqlLedgerSpec
         eventsPageSize = 100,
         metrics = new Metrics(metrics),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
-      ).acquire()(system.dispatcher)
+      ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger
     ledger.asFuture
   }

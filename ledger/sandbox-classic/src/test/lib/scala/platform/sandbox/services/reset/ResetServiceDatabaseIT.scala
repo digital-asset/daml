@@ -8,12 +8,12 @@ import java.sql.{Connection, DriverManager}
 import anorm.SqlParser._
 import anorm.{SQL, SqlStringInterpolation}
 import com.daml.ledger.api.testing.utils.MockMessages
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.platform.sandbox.services.reset.ResetServiceDatabaseIT.countRowsOfAllTables
 import com.daml.platform.sandbox.services.{DbInfo, SandboxFixture}
 import com.daml.platform.store.DbType
-import com.daml.resources.ResourceOwner
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.Try
 
 abstract class ResetServiceDatabaseIT extends ResetServiceITBase with SandboxFixture {
@@ -84,9 +84,16 @@ abstract class ResetServiceDatabaseIT extends ResetServiceITBase with SandboxFix
 
 object ResetServiceDatabaseIT {
 
+  def countRowsOfAllTables(
+      ignored: Set[String],
+      dbInfoOwner: ResourceOwner[DbInfo],
+  )(implicit resourceContext: ResourceContext): Future[Map[String, Int]] =
+    runQuery(dbInfoOwner)(countRowsOfAllTables(ignored))
+
   // Very naive helper, supposed to be used exclusively for testing
-  private def runQuery[A](dbInfoOwner: ResourceOwner[DbInfo])(sql: DbType => Connection => A)(
-      implicit ec: ExecutionContext): Future[A] = {
+  private def runQuery[A](dbInfoOwner: ResourceOwner[DbInfo])(
+      sql: DbType => Connection => A,
+  )(implicit resourceContext: ResourceContext): Future[A] = {
     val dbTypeAndConnection =
       for {
         dbInfo <- dbInfoOwner
@@ -116,9 +123,5 @@ object ResetServiceDatabaseIT {
     listTables(dbType)(connection).collect {
       case table if !ignored(table) => table.toLowerCase -> countRows(table)(connection)
     }.toMap
-
-  def countRowsOfAllTables(ignored: Set[String], dbInfoOwner: ResourceOwner[DbInfo])(
-      implicit ec: ExecutionContext): Future[Map[String, Int]] =
-    runQuery(dbInfoOwner)(countRowsOfAllTables(ignored))
 
 }

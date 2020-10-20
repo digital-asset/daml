@@ -16,6 +16,7 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -28,9 +29,8 @@ import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
-import com.daml.resources.{Resource, ResourceOwner}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.control.NonFatal
 
 object JdbcIndexer {
@@ -46,22 +46,19 @@ object JdbcIndexer {
     private val logger = ContextualizedLogger.get(this.getClass)
 
     def validateSchema()(
-        implicit executionContext: ExecutionContext
-    ): Future[ResourceOwner[JdbcIndexer]] =
+        implicit resourceContext: ResourceContext): Future[ResourceOwner[JdbcIndexer]] =
       new FlywayMigrations(config.jdbcUrl)
         .validate()
-        .map(_ => initialized())
+        .map(_ => initialized())(resourceContext.executionContext)
 
-    def migrateSchema(allowExistingSchema: Boolean)(
-        implicit executionContext: ExecutionContext
-    ): Future[ResourceOwner[JdbcIndexer]] =
+    def migrateSchema(
+        allowExistingSchema: Boolean,
+    )(implicit resourceContext: ResourceContext): Future[ResourceOwner[JdbcIndexer]] =
       new FlywayMigrations(config.jdbcUrl)
         .migrate(allowExistingSchema)
-        .map(_ => initialized())
+        .map(_ => initialized())(resourceContext.executionContext)
 
-    def resetSchema()(
-        implicit executionContext: ExecutionContext
-    ): Future[ResourceOwner[JdbcIndexer]] =
+    def resetSchema(): Future[ResourceOwner[JdbcIndexer]] =
       Future.successful(for {
         ledgerDao <- JdbcLedgerDao.writeOwner(
           serverRole,
@@ -71,12 +68,10 @@ object JdbcIndexer {
           lfValueTranslationCache,
         )
         _ <- ResourceOwner.forFuture(() => ledgerDao.reset())
-        initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
+        initialLedgerEnd <- initializeLedger(ledgerDao)
       } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics))
 
-    private def initialized()(
-        implicit executionContext: ExecutionContext
-    ): ResourceOwner[JdbcIndexer] =
+    private def initialized(): ResourceOwner[JdbcIndexer] =
       for {
         ledgerDao <- JdbcLedgerDao.writeOwner(
           serverRole,
@@ -85,21 +80,22 @@ object JdbcIndexer {
           metrics,
           lfValueTranslationCache,
         )
-        initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
+        initialLedgerEnd <- initializeLedger(ledgerDao)
       } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics)
 
-    private def initializeLedger(dao: LedgerDao)(
-        implicit executionContext: ExecutionContext,
-    ): Future[Option[Offset]] =
-      for {
-        initialConditions <- readService.getLedgerInitialConditions().runWith(Sink.head)
-        existingLedgerId <- dao.lookupLedgerId()
-        providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
-        _ <- existingLedgerId.fold(initializeLedgerData(providedLedgerId, dao))(
-          checkLedgerIds(_, providedLedgerId))
-        _ <- initOrCheckParticipantId(dao)
-        initialLedgerEnd <- dao.lookupInitialLedgerEnd()
-      } yield initialLedgerEnd
+    private def initializeLedger(dao: LedgerDao)(): ResourceOwner[Option[Offset]] =
+      new ResourceOwner[Option[Offset]] {
+        override def acquire()(implicit context: ResourceContext): Resource[Option[Offset]] =
+          Resource.fromFuture(for {
+            initialConditions <- readService.getLedgerInitialConditions().runWith(Sink.head)
+            existingLedgerId <- dao.lookupLedgerId()
+            providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
+            _ <- existingLedgerId.fold(initializeLedgerData(providedLedgerId, dao))(
+              checkLedgerIds(_, providedLedgerId))
+            _ <- initOrCheckParticipantId(dao)
+            initialLedgerEnd <- dao.lookupInitialLedgerEnd()
+          } yield initialLedgerEnd)
+      }
 
     private def checkLedgerIds(
         existingLedgerId: domain.LedgerId,
@@ -120,9 +116,9 @@ object JdbcIndexer {
       ledgerDao.initializeLedger(providedLedgerId)
     }
 
-    private def initOrCheckParticipantId(dao: LedgerDao)(
-        implicit executionContext: ExecutionContext,
-    ): Future[Unit] = {
+    private def initOrCheckParticipantId(
+        dao: LedgerDao,
+    )(implicit resourceContext: ResourceContext): Future[Unit] = {
       val id = ParticipantId(Ref.ParticipantId.assertFromString(config.participantId))
       dao
         .lookupParticipantId()
@@ -133,12 +129,12 @@ object JdbcIndexer {
             case retrievedLedgerId =>
               Future.failed(new common.MismatchException.ParticipantId(retrievedLedgerId, id))
           }
-        )
+        )(resourceContext.executionContext)
     }
 
   }
 
-  private def contextFor(update: Update): Map[String, String] =
+  private def loggingContextFor(update: Update): Map[String, String] =
     update match {
       case ConfigurationChanged(_, submissionId, participantId, newConfiguration) =>
         Map(
@@ -210,8 +206,8 @@ object JdbcIndexer {
         )
     }
 
-  private def contextFor(offset: Offset, update: Update): Map[String, String] =
-    contextFor(update)
+  private def loggingContextFor(offset: Offset, update: Update): Map[String, String] =
+    loggingContextFor(update)
       .updated("updateRecordTime", update.recordTime.toInstant.toString)
       .updated("updateOffset", offset.toHexString)
 
@@ -346,16 +342,14 @@ private[indexer] class JdbcIndexer private[indexer] (
       readService: ReadService,
   )(implicit loggingContext: LoggingContext)
       extends ResourceOwner[IndexFeedHandle] {
-    override def acquire()(
-        implicit executionContext: ExecutionContext
-    ): Resource[IndexFeedHandle] =
+    override def acquire()(implicit context: ResourceContext): Resource[IndexFeedHandle] =
       Resource(Future {
         val (killSwitch, completionFuture) = readService
           .stateUpdates(startExclusive)
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .mapAsync(1) {
             case (offset, update) =>
-              withEnrichedLoggingContext(JdbcIndexer.contextFor(offset, update)) {
+              withEnrichedLoggingContext(JdbcIndexer.loggingContextFor(offset, update)) {
                 implicit loggingContext =>
                   Timed.future(
                     metrics.daml.indexer.stateUpdateProcessing,

@@ -10,6 +10,7 @@ import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.testing.utils.Resource
+import com.daml.ledger.resources.ResourceContext
 import org.openjdk.jmh.annotations._
 
 import scala.concurrent.Await
@@ -32,7 +33,8 @@ abstract class PerfBenchState extends InfiniteRetries {
   def setup(): Unit = {
     akkaState = new AkkaState()
     akkaState.setup()
-    server = LedgerFactories.createSandboxResource(store, List(darFile))(mat.executionContext)
+    server = LedgerFactories.createSandboxResource(store, List(darFile))(
+      ResourceContext(mat.executionContext))
     server.setup()
   }
 

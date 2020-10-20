@@ -22,12 +22,12 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.DbInfo
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
-import com.daml.resources.ResourceOwner
 import io.grpc.Channel
 import org.scalatest.Suite
 import scalaz.syntax.tag._

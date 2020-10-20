@@ -3,11 +3,9 @@
 
 package com.daml.platform.apiserver
 
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import io.grpc.netty.NettyServerBuilder
 import io.netty.channel.{EventLoopGroup, ServerChannel}
-
-import scala.concurrent.ExecutionContext
 
 private[apiserver] case class ServerEventLoopGroups(
     worker: EventLoopGroup,
@@ -27,9 +25,7 @@ private[apiserver] object ServerEventLoopGroups {
 
   final class Owner(name: String, workerParallelism: Int, bossParallelism: Int)
       extends ResourceOwner[ServerEventLoopGroups] {
-    override def acquire()(
-        implicit executionContext: ExecutionContext
-    ): Resource[ServerEventLoopGroups] =
+    override def acquire()(implicit context: ResourceContext): Resource[ServerEventLoopGroups] =
       Resource
         .sequence(
           Seq(
