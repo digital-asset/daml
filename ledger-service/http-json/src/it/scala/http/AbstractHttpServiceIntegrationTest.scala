@@ -74,6 +74,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   this: AsyncFreeSpec with Matchers with Inside with StrictLogging =>
   import AbstractHttpServiceIntegrationTestFuns._
   import json.JsonProtocol._
+  import HttpServiceTestFixture._
 
   def jdbcConfig: Option[JdbcConfig]
 
@@ -88,7 +89,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected val metdata2: MetadataReader.LfMetadata =
     MetadataReader.readFromDar(dar2).valueOr(e => fail(s"Cannot read dar2 metadata: $e"))
 
-  protected val jwt: Jwt = HttpServiceTestFixture.jwtForParties(List("Alice"), testId)
+  protected val jwt: Jwt = jwtForParties(List("Alice"), testId)
 
   protected val jwtAdminNoParty: Jwt = {
     val decodedJwt = DecodedJwt(
@@ -130,7 +131,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       case (_, client) => testFn(client)
     }
 
-  protected val headersWithAuth = HttpServiceTestFixture.authorizationHeader(jwt)
+  protected val headersWithAuth = authorizationHeader(jwt)
 
   protected def headersWithPartyAuth(parties: List[String]) =
     HttpServiceTestFixture.headersWithPartyAuth(parties, testId)
@@ -404,7 +405,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected def initialAccountCreate(
       serviceUri: Uri,
       encoder: DomainJsonEncoder): Future[(StatusCode, JsValue)] = {
-    val command = HttpServiceTestFixture.accountCreateCommand(domain.Party("Alice"), "abc123")
+    val command = accountCreateCommand(domain.Party("Alice"), "abc123")
     postCreateCommand(command, encoder, serviceUri)
   }
 }
@@ -418,6 +419,7 @@ abstract class AbstractHttpServiceIntegrationTest
     with AbstractHttpServiceIntegrationTestFuns {
 
   import json.JsonProtocol._
+  import HttpServiceTestFixture._
 
   override final def useTls = UseTls.NoTls
 
@@ -458,11 +460,11 @@ abstract class AbstractHttpServiceIntegrationTest
   "multi-party query GET" in withHttpService { (uri, encoder, _) =>
     for {
       _ <- postCreateCommand(
-        HttpServiceTestFixture.accountCreateCommand(owner = domain.Party("Alice"), number = "42"),
+        accountCreateCommand(owner = domain.Party("Alice"), number = "42"),
         encoder,
         uri).map(r => r._1 shouldBe StatusCodes.OK)
       _ <- postCreateCommand(
-        HttpServiceTestFixture.accountCreateCommand(owner = domain.Party("Bob"), number = "23"),
+        accountCreateCommand(owner = domain.Party("Bob"), number = "23"),
         encoder,
         uri,
         headers = headersWithPartyAuth(List("Bob"))).map(r => r._1 shouldBe StatusCodes.OK)
@@ -489,12 +491,12 @@ abstract class AbstractHttpServiceIntegrationTest
   "multi-party query POST with empty query" in withHttpService { (uri, encoder, _) =>
     for {
       aliceAccountResp <- postCreateCommand(
-        HttpServiceTestFixture.accountCreateCommand(owner = domain.Party("Alice"), number = "42"),
+        accountCreateCommand(owner = domain.Party("Alice"), number = "42"),
         encoder,
         uri)
       _ = aliceAccountResp._1 shouldBe StatusCodes.OK
       bobAccountResp <- postCreateCommand(
-        HttpServiceTestFixture.accountCreateCommand(owner = domain.Party("Bob"), number = "23"),
+        accountCreateCommand(owner = domain.Party("Bob"), number = "23"),
         encoder,
         uri,
         headers = headersWithPartyAuth(List("Bob")))
@@ -870,7 +872,7 @@ abstract class AbstractHttpServiceIntegrationTest
           val contractId = getContractId(getResult(createOutput))
           val templateId = domain.TemplateId(None, "Iou", "Iou")
           val reference = domain.EnrichedContractId(Some(templateId), contractId)
-          val exercise = HttpServiceTestFixture.archiveCommand(reference)
+          val exercise = archiveCommand(reference)
           val exerciseJson: JsValue = encodeExercise(encoder)(exercise)
 
           postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
@@ -1078,7 +1080,7 @@ abstract class AbstractHttpServiceIntegrationTest
     postJsonRequest(
       uri = uri.withPath(Uri.Path("/v1/parties/allocate")),
       json = json,
-      headers = HttpServiceTestFixture.authorizationHeader(jwtAdminNoParty))
+      headers = authorizationHeader(jwtAdminNoParty))
       .flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.OK
@@ -1187,7 +1189,7 @@ abstract class AbstractHttpServiceIntegrationTest
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
     val command: domain.CreateCommand[v.Record] =
-      HttpServiceTestFixture.accountCreateCommand(owner, accountNumber)
+      accountCreateCommand(owner, accountNumber)
 
     postCreateCommand(command, encoder, uri).flatMap {
       case (status, output) =>
@@ -1206,7 +1208,7 @@ abstract class AbstractHttpServiceIntegrationTest
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
     val create: domain.CreateCommand[v.Record] =
-      HttpServiceTestFixture.accountCreateCommand(owner, accountNumber)
+      accountCreateCommand(owner, accountNumber)
 
     val keyRecord = v.Record(
       fields = Seq(
@@ -1218,7 +1220,7 @@ abstract class AbstractHttpServiceIntegrationTest
       v.Value(v.Value.Sum.Record(keyRecord))
     )
     val archive: domain.ExerciseCommand[v.Value, domain.EnrichedContractKey[v.Value]] =
-      HttpServiceTestFixture.archiveCommand(locator)
+      archiveCommand(locator)
     val archiveJson: JsValue = encodeExercise(encoder)(archive)
 
     postCreateCommand(create, encoder, uri).flatMap {
@@ -1296,7 +1298,7 @@ abstract class AbstractHttpServiceIntegrationTest
     val now = TimestampConversion.instantToMicros(Instant.now)
     val nowStr = TimestampConversion.microsToInstant(now).toString
     val command: domain.CreateCommand[v.Record] =
-      HttpServiceTestFixture.accountCreateCommand(owner, accountNumber, now)
+      accountCreateCommand(owner, accountNumber, now)
 
     val packageId: Ref.PackageId = MetadataReader
       .templateByName(metdata2)(Ref.QualifiedName.assertFromString("Account:Account"))
@@ -1352,7 +1354,7 @@ abstract class AbstractHttpServiceIntegrationTest
                 HttpRequest(
                   method = HttpMethods.GET,
                   uri = uri.withPath(Uri.Path(s"/v1/packages/$packageId")),
-                  headers = HttpServiceTestFixture.authorizationHeader(jwtAdminNoParty),
+                  headers = authorizationHeader(jwtAdminNoParty),
                 )
               )
               .map { resp =>
@@ -1374,7 +1376,7 @@ abstract class AbstractHttpServiceIntegrationTest
           HttpRequest(
             method = HttpMethods.POST,
             uri = uri.withPath(Uri.Path("/v1/packages")),
-            headers = HttpServiceTestFixture.authorizationHeader(jwtAdminNoParty),
+            headers = authorizationHeader(jwtAdminNoParty),
             entity = HttpEntity.fromFile(ContentTypes.`application/octet-stream`, newDar)
           )
         )
