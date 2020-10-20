@@ -187,5 +187,6 @@ object LedgerApiTestTool {
       identifierSuffix,
       config.timeoutScaleFactor,
       concurrencyOverride.getOrElse(config.concurrentTestRuns),
+      uploadDars = config.uploadDars,
     )
 }
