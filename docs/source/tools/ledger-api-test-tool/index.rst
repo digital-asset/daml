@@ -69,6 +69,7 @@ Use the following command line flags to select which tests to run:
 - ``--include``: only run the tests that match the argument
 - ``--exclude``: do not run the tests that match the argument
 - ``--perf-tests``: list performance tests to run; cannot be combined with normal tests
+- ``--skip-dar-upload``: skip upload of DAR files into ledger. DAR files should be uploaded manually before the tests.
 
 Include and exclude are matched as prefixes, e.g. ``--exclude=SemanticTests``
 will exclude all tests whose name starts with ``SemanticTests``. Test names
