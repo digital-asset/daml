@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver
 
 import java.time.Duration
-import java.util.concurrent.Executors
 
 import akka.stream.Materializer
 import com.daml.api.util.TimeProvider
@@ -69,7 +68,7 @@ private[daml] object ApiServices {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  class Owner(
+  final class Owner(
       participantId: Ref.ParticipantId,
       optWriteService: Option[WriteService],
       indexService: IndexService,
@@ -81,6 +80,7 @@ private[daml] object ApiServices {
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
+      servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       healthChecks: HealthChecks,
       seedService: SeedService,
@@ -114,10 +114,6 @@ private[daml] object ApiServices {
             ledgerConfiguration,
           )
           .acquire()
-        servicesExecutionContext <- ResourceOwner
-          .forExecutorService(() => Executors.newWorkStealingPool())
-          .acquire()
-          .map(ExecutionContext.fromExecutorService)
         services <- Resource(
           Future(createServices(ledgerId, ledgerConfigProvider)(servicesExecutionContext)))(
           services =>

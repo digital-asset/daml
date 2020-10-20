@@ -6,6 +6,7 @@ package com.daml.platform.apiserver
 import java.io.File
 import java.nio.file.Files
 import java.time.{Clock, Instant}
+import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -35,6 +36,7 @@ import io.grpc.{BindableService, ServerInterceptor}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable
+import scala.concurrent.ExecutionContext
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
@@ -80,6 +82,9 @@ final class StandaloneApiServer(
       authorizer = new Authorizer(Clock.systemUTC.instant _, ledgerId, participantId)
       healthChecksWithIndexService = healthChecks + ("index" -> indexService)
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
+      servicesExecutionContext <- ResourceOwner
+        .forExecutorService(() => Executors.newWorkStealingPool())
+        .map(ExecutionContext.fromExecutorService)
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
         optWriteService = optWriteService,
@@ -94,6 +99,7 @@ final class StandaloneApiServer(
         commandConfig = commandConfig,
         partyConfig = partyConfig,
         optTimeServiceBackend = timeServiceBackend,
+        servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         healthChecks = healthChecksWithIndexService,
         seedService = SeedService(config.seeding),
