@@ -199,7 +199,7 @@ Only focussing on getters might be modestly controversial since lenses also serv
 ```
 r with field1 = newValue
 ```
-and using `set` and a lens to update a single field in a single record to be in the same ballpark as for getters. When using the builtin syntax to updat multiple fields in the same record, the DAML interpreter already performs some optimizations to avoid allocating intermediate records. Such optimizations are impossible with lenses.
+and using `set` and a lens to update a single field in a single record to be in the same ballpark as for getters. When using the builtin syntax to update multiple fields in the same record, the DAML interpreter already performs some optimizations to avoid allocating intermediate records. Such optimizations are impossible with lenses.
 
 However, when it comes to updating fields in nested records, DAML's builtin syntax is not particularly helpful:
 ```
@@ -215,7 +215,7 @@ Expressing the same with DAML's builtin syntax feels rather clumsy:
 r with field1 = r.field1 with field2 = f r.field1.field2
 ```
 
-If we ever want to make lenses significantly less appealing in DAML than they are today, we need to innovate and make the builtin syntax competitive when it comes to nested record updates. Who would still want to use lense if you could simply write
+If we ever want to make lenses significantly less appealing in DAML than they are today, we need to innovate and make the builtin syntax competitive when it comes to nested record updates. Who would still want to use lenses if you could simply write
 ```
 r.field1.field2 ~= f
 ```
