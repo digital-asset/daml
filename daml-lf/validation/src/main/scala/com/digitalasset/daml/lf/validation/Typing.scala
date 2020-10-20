@@ -539,11 +539,17 @@ private[validation] object Typing {
         throw EExpectedStructType(ctx, typ)
     }
 
-    private def typeOfStructUpd(field: FieldName, struct: Expr, update: Expr): Type =
-      typeOf(struct) match {
+    private def typeOfStructUpd(upd: EStructUpd): Type =
+      typeOf(upd.struct) match {
         case typ @ TStruct(structType) =>
-          checkExpr(update, structType.lookup(field).getOrElse(throw EUnknownField(ctx, field)))
-          typ
+          val index = structType.indexOf(upd.field)
+          if (index < 0)
+            throw EUnknownField(ctx, upd.field)
+          else {
+            upd.fieldIndex = Some(index)
+            checkExpr(upd.update, structType.toImmArray(index)._2)
+            typ
+          }
         case typ =>
           throw EExpectedStructType(ctx, typ)
       }
@@ -880,8 +886,8 @@ private[validation] object Typing {
         typeOfStructCon(fields)
       case proj: EStructProj =>
         typeOfStructProj(proj)
-      case EStructUpd(field, struct, update) =>
-        typeOfStructUpd(field, struct, update)
+      case upd: EStructUpd =>
+        typeOfStructUpd(upd)
       case EApp(fun, arg) =>
         typeOfTmApp(fun, arg)
       case ETyApp(expr, typ) =>
