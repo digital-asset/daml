@@ -14,10 +14,14 @@ import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter.
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
+import com.daml.lf.transaction.TransactionOuterClass
+import com.daml.lf.transaction.TransactionOuterClass.Transaction
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
+
+import scala.collection.JavaConverters._
 
 class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar {
   private val metrics = new Metrics(new MetricRegistry)
@@ -66,6 +70,72 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
       }
     }
 
+    "removeUnnnecessaryNodes" should {
+      "remove `Fetch` and `LookupByKey` nodes from transaction tree" in {
+        def createNode(nodeId: String)(nodeImpl: TransactionOuterClass.Node.Builder => TransactionOuterClass.Node.Builder) =
+          nodeImpl(TransactionOuterClass.Node.newBuilder().setNodeId(nodeId)).build()
+
+        def fetchNodeBuilder = TransactionOuterClass.NodeFetch.newBuilder()
+
+        def exerciseNodeBuilder = TransactionOuterClass.NodeExercise.newBuilder()
+
+        def createNodeBuilder = TransactionOuterClass.NodeCreate.newBuilder()
+
+        def lookupByKeyNodeBuilder = TransactionOuterClass.NodeLookupByKey.newBuilder()
+
+        val context = new FakeCommitContext(recordTime = None)
+
+        val roots = Seq("E-1", "F-1", "LK-1", "E-2")
+        val nodes: Seq[TransactionOuterClass.Node] = Seq(
+          createNode("F-1")(_.setFetch(fetchNodeBuilder)),
+          createNode("LK-1")(_.setLookupByKey(lookupByKeyNodeBuilder)),
+          createNode("LK-2")(_.setLookupByKey(lookupByKeyNodeBuilder)),
+          createNode("F-2")(_.setFetch(fetchNodeBuilder)),
+          createNode("C-1")(_.setCreate(createNodeBuilder)),
+          createNode("E-1")(_.setExercise(exerciseNodeBuilder.addAllChildren(
+            Seq("LK-2", "F-2", "C-1").asJava
+          ))),
+          createNode("F-3")(_.setFetch(fetchNodeBuilder)),
+          createNode("E-6")(_.setExercise(exerciseNodeBuilder.addAllChildren(Seq("F-3").asJava))),
+          createNode("C-3")(_.setCreate(createNodeBuilder)),
+          createNode("LK-3")(_.setLookupByKey(lookupByKeyNodeBuilder)),
+          createNode("E-5")(_.setExercise(exerciseNodeBuilder.addAllChildren(Seq("LK-3").asJava))),
+          createNode("C-2")(_.setCreate(createNodeBuilder)),
+          createNode("E-4")(_.setExercise(exerciseNodeBuilder.addAllChildren(Seq("E-5", "C-2").asJava))),
+          createNode("F-2")(_.setFetch(fetchNodeBuilder)),
+          createNode("E-3")(_.setExercise(exerciseNodeBuilder.addAllChildren(Seq("E-4", "F-2").asJava))),
+          createNode("E-2")(_.setExercise(exerciseNodeBuilder.addAllChildren(Seq("E-3", "C-3", "E-6").asJava))),
+        )
+        val tx = Transaction.newBuilder()
+          .addAllRoots(roots.asJava)
+          .addAllNodes(nodes.asJava)
+          .build()
+        val outTx = aDamlTransactionEntry.toBuilder.setTransaction(tx).build()
+        val aTransactionEntrySummary = DamlTransactionEntrySummary(outTx)
+        outTx.getTransaction.getNodesList.asScala.forall(
+          node => !(node.hasFetch || node.hasLookupByKey)
+        ) shouldBe false
+
+        instance.removeUnnecessaryNodes(context, aTransactionEntrySummary) match {
+          case StepContinue(_) => fail("should be step stop")
+          case StepStop(logEntry) =>
+            val transaction = logEntry.getTransactionEntry.getTransaction
+            transaction.getRootsList.asScala should contain theSameElementsInOrderAs Seq("E-1", "E-2")
+            val nodes = transaction.getNodesList.asScala
+            nodes.map(_.getNodeId) should contain theSameElementsInOrderAs Seq("C-1", "E-1", "E-6", "C-3", "E-5", "C-2", "E-4", "E-3", "E-2")
+            nodes.head.hasCreate shouldBe true
+            nodes(1).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq("C-1")
+            nodes(2).getExercise.getChildrenList.asScala shouldBe empty
+            nodes(3).hasCreate shouldBe true
+            nodes(4).getExercise.getChildrenList.asScala shouldBe empty
+            nodes(5).hasCreate shouldBe true
+            nodes(6).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq("E-5", "C-2")
+            nodes(7).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq("E-4")
+            nodes(8).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq("E-3", "C-3", "E-6")
+        }
+      }
+    }
+
     "continue if record time is available but no deduplication entry could be found" in {
       val inputs = Map(dedupKey -> None)
       val context =
@@ -95,8 +165,8 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
     "produce rejection log entry in case record time is on or before deduplication time" in {
       for ((recordTime, deduplicationTime) <- Iterable(
-          (aRecordTime, aRecordTime),
-          (aRecordTime, aRecordTime.addMicros(1)))) {
+        (aRecordTime, aRecordTime),
+        (aRecordTime, aRecordTime.addMicros(1)))) {
         val dedupValue = newDedupValue(deduplicationTime)
         val inputs = Map(dedupKey -> Some(dedupValue))
         val context =
