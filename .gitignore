@@ -12,6 +12,7 @@ target
 .daml/
 
 # dev-env
+/dev-env/jdk
 /dev-env/var/
 
 # Bazel
