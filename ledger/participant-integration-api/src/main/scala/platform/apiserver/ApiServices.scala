@@ -112,7 +112,7 @@ private[daml] object ApiServices {
             optWriteService,
             timeProvider,
             ledgerConfiguration,
-          )
+          )(materializer, servicesExecutionContext, loggingContext)
           .acquire()
         services <- Resource(
           Future(createServices(ledgerId, ledgerConfigProvider)(servicesExecutionContext)))(
@@ -243,32 +243,28 @@ private[daml] object ApiServices {
           ledgerConfigProvider,
           metrics,
         )
-        val apiPartyManagementService =
-          ApiPartyManagementService
-            .createApiService(
-              partyManagementService,
-              transactionsService,
-              writeService,
-              managementServiceTimeout,
-            )
 
-        val apiPackageManagementService =
-          ApiPackageManagementService
-            .createApiService(
-              indexService,
-              transactionsService,
-              writeService,
-              managementServiceTimeout,
-              engine,
-            )
+        val apiPartyManagementService = ApiPartyManagementService.createApiService(
+          partyManagementService,
+          transactionsService,
+          writeService,
+          managementServiceTimeout,
+        )
 
-        val apiConfigManagementService =
-          ApiConfigManagementService
-            .createApiService(
-              configManagementService,
-              writeService,
-              timeProvider,
-              ledgerConfiguration)
+        val apiPackageManagementService = ApiPackageManagementService.createApiService(
+          indexService,
+          transactionsService,
+          writeService,
+          managementServiceTimeout,
+          engine,
+        )
+
+        val apiConfigManagementService = ApiConfigManagementService.createApiService(
+          configManagementService,
+          writeService,
+          timeProvider,
+          ledgerConfiguration,
+        )
 
         List(
           new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),

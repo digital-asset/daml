@@ -10,7 +10,6 @@ import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import akka.{Done, NotUsed}
 import com.daml.api.util.TimeProvider
-import com.daml.dec.{DirectExecutionContext => DE}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
@@ -27,7 +26,7 @@ import com.daml.platform.configuration.LedgerConfiguration
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.{DurationInt, DurationLong}
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /**
   * Subscribes to ledger configuration updates coming from the index,
@@ -42,7 +41,7 @@ private[apiserver] final class LedgerConfigProvider private (
     timeProvider: TimeProvider,
     config: LedgerConfiguration,
     materializer: Materializer,
-)(implicit loggingContext: LoggingContext)
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends AutoCloseable {
 
   private[this] val logger = ContextualizedLogger.get(this.getClass)
@@ -85,8 +84,8 @@ private[apiserver] final class LedgerConfigProvider private (
         case None =>
           logger.info(s"Initial ledger configuration lookup did not find any configuration")
           state.set(None -> None)
-      }(DE)
-      .map(_ => startStreamingUpdates())(DE)
+      }
+      .map(_ => startStreamingUpdates())
 
   private[this] def configFound(offset: LedgerOffset.Absolute, config: Configuration): Unit = {
     state.set(Some(offset) -> Some(config))
@@ -146,7 +145,7 @@ private[apiserver] final class LedgerConfigProvider private (
           logger.warn(
             s"Initial configuration submission $submissionId failed. Reason: ${result.description}")
           ()
-      }(DE)
+      }
   }
 
   /** The latest configuration found so far.
@@ -174,6 +173,7 @@ private[apiserver] object LedgerConfigProvider {
       config: LedgerConfiguration,
   )(
       implicit materializer: Materializer,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ResourceOwner[LedgerConfigProvider] =
     ResourceOwner.forCloseable(() =>

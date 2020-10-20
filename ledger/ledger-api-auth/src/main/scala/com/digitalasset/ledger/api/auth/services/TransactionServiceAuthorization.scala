@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.auth.services
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.transaction_service
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
@@ -13,11 +12,12 @@ import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 private[daml] final class TransactionServiceAuthorization(
     protected val service: TransactionService with AutoCloseable,
-    private val authorizer: Authorizer)
+    private val authorizer: Authorizer,
+)(implicit executionContext: ExecutionContext)
     extends TransactionService
     with ProxyCloseable
     with GrpcApiService {
@@ -65,7 +65,7 @@ private[daml] final class TransactionServiceAuthorization(
     authorizer.requirePublicClaims(service.getLedgerEnd)(request)
 
   override def bindService(): ServerServiceDefinition =
-    TransactionServiceGrpc.bindService(this, DirectExecutionContext)
+    TransactionServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
 }

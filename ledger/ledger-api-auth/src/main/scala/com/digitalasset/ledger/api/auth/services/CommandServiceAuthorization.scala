@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.auth.services
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service._
@@ -12,14 +11,15 @@ import com.daml.platform.server.api.ProxyCloseable
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Note: the command service internally uses calls to the CommandSubmissionService and CommandCompletionService.
   * These calls already require authentication, but it is better to check authorization here as well.
   */
 private[daml] final class CommandServiceAuthorization(
     protected val service: CommandService with AutoCloseable,
-    private val authorizer: Authorizer)
+    private val authorizer: Authorizer,
+)(implicit executionContext: ExecutionContext)
     extends CommandService
     with ProxyCloseable
     with GrpcApiService {
@@ -56,7 +56,7 @@ private[daml] final class CommandServiceAuthorization(
     )(request)
 
   override def bindService(): ServerServiceDefinition =
-    CommandServiceGrpc.bindService(this, DirectExecutionContext)
+    CommandServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
 

@@ -8,14 +8,13 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
-import com.daml.dec.DirectExecutionContext
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, LedgerOffset}
 import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.validation.PartyNameChecker
+import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
@@ -28,9 +27,9 @@ import scala.concurrent.{ExecutionContext, Future}
 private[apiserver] final class ApiCommandCompletionService private (
     completionsService: IndexCompletionsService,
 )(
-    implicit ec: ExecutionContext,
-    protected val mat: Materializer,
+    implicit protected val materializer: Materializer,
     protected val esf: ExecutionSequencerFactory,
+    executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends CommandCompletionService {
 
@@ -64,9 +63,9 @@ private[apiserver] final class ApiCommandCompletionService private (
 private[apiserver] object ApiCommandCompletionService {
 
   def create(ledgerId: LedgerId, completionsService: IndexCompletionsService)(
-      implicit ec: ExecutionContext,
-      mat: Materializer,
+      implicit materializer: Materializer,
       esf: ExecutionSequencerFactory,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): GrpcCommandCompletionService with GrpcApiService = {
     val impl: CommandCompletionService =
@@ -75,7 +74,7 @@ private[apiserver] object ApiCommandCompletionService {
     new GrpcCommandCompletionService(ledgerId, impl, PartyNameChecker.AllowAllParties)
     with GrpcApiService {
       override def bindService(): ServerServiceDefinition =
-        CommandCompletionServiceGrpc.bindService(this, DirectExecutionContext)
+        CommandCompletionServiceGrpc.bindService(this, executionContext)
     }
   }
 }

@@ -3,7 +3,6 @@
 
 package com.daml.platform.server.api.validation
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.daml.ledger.api.v1.ledger_configuration_service.{
@@ -17,9 +16,12 @@ import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.concurrent.ExecutionContext
+
 class LedgerConfigurationServiceValidation(
     protected val service: LedgerConfigurationService with GrpcApiService,
-    protected val ledgerId: LedgerId)
+    protected val ledgerId: LedgerId,
+)(implicit executionContext: ExecutionContext)
     extends LedgerConfigurationService
     with ProxyCloseable
     with GrpcApiService
@@ -36,5 +38,5 @@ class LedgerConfigurationServiceValidation(
     )
 
   override def bindService(): ServerServiceDefinition =
-    LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)
+    LedgerConfigurationServiceGrpc.bindService(this, executionContext)
 }

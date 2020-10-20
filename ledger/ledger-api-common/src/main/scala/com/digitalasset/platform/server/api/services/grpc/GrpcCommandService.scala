@@ -10,13 +10,12 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitAndWaitRequestValidator}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.dec.DirectExecutionContext
 import com.daml.platform.server.api.ProxyCloseable
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcCommandService(
     protected val service: CommandService with AutoCloseable,
@@ -24,7 +23,8 @@ class GrpcCommandService(
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration]
-) extends CommandService
+)(implicit executionContext: ExecutionContext)
+    extends CommandService
     with GrpcApiService
     with ProxyCloseable {
 
@@ -57,6 +57,6 @@ class GrpcCommandService(
       .fold(Future.failed, _ => service.submitAndWaitForTransactionTree(request))
 
   override def bindService(): ServerServiceDefinition =
-    CommandServiceGrpc.bindService(this, DirectExecutionContext)
+    CommandServiceGrpc.bindService(this, executionContext)
 
 }

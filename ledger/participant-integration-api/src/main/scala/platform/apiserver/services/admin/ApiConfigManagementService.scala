@@ -8,7 +8,6 @@ import java.time.{Duration => JDuration}
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.{DurationConversion, TimeProvider, TimestampConversion}
-import com.daml.dec.{DirectExecutionContext => DE}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
@@ -40,9 +39,11 @@ private[apiserver] final class ApiConfigManagementService private (
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
     ledgerConfiguration: LedgerConfiguration,
-    materializer: Materializer
-)(implicit loggingContext: LoggingContext)
-    extends ConfigManagementService
+)(
+    implicit materializer: Materializer,
+    executionContext: ExecutionContext,
+    loggingContext: LoggingContext,
+) extends ConfigManagementService
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -53,13 +54,13 @@ private[apiserver] final class ApiConfigManagementService private (
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
-    ConfigManagementServiceGrpc.bindService(this, DE)
+    ConfigManagementServiceGrpc.bindService(this, executionContext)
 
   override def getTimeModel(request: GetTimeModelRequest): Future[GetTimeModelResponse] =
     index
       .lookupConfiguration()
-      .map(_.fold(defaultConfigResponse) { case (_, conf) => configToResponse(conf) })(DE)
-      .andThen(logger.logErrorsOnCall[GetTimeModelResponse])(DE)
+      .map(_.fold(defaultConfigResponse) { case (_, conf) => configToResponse(conf) })
+      .andThen(logger.logErrorsOnCall[GetTimeModelResponse])
 
   private def configToResponse(config: Configuration): GetTimeModelResponse = {
     val tm = config.timeModel
@@ -75,9 +76,6 @@ private[apiserver] final class ApiConfigManagementService private (
   }
 
   override def setTimeModel(request: SetTimeModelRequest): Future[SetTimeModelResponse] = {
-    // Execute subsequent transforms in the thread of the previous operation.
-    implicit val executionContext: ExecutionContext = DE
-
     val response = for {
       // Validate and convert the request parameters
       params <- validateParameters(request).fold(Future.failed(_), Future.successful)
@@ -169,8 +167,10 @@ private[apiserver] object ApiConfigManagementService {
       readBackend: IndexConfigManagementService,
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
-      ledgerConfiguration: LedgerConfiguration)(
-      implicit mat: Materializer,
+      ledgerConfiguration: LedgerConfiguration,
+  )(
+      implicit materializer: Materializer,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ConfigManagementServiceGrpc.ConfigManagementService with GrpcApiService =
     new ApiConfigManagementService(
@@ -178,7 +178,7 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend,
       timeProvider,
       ledgerConfiguration,
-      mat)
+    )
 
   private final class SynchronousResponseStrategy(
       writeConfigService: WriteConfigService,

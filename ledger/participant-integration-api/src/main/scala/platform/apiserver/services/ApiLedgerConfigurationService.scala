@@ -6,22 +6,24 @@ package com.daml.platform.apiserver.services
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.IndexConfigurationService
 import com.daml.api.util.DurationConversion._
-import com.daml.dec.DirectExecutionContext
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_configuration_service._
+import com.daml.ledger.participant.state.index.v2.IndexConfigurationService
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.LedgerConfigurationServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
+
+import scala.concurrent.ExecutionContext
 
 private[apiserver] final class ApiLedgerConfigurationService private (
     configurationService: IndexConfigurationService,
 )(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
+    executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends LedgerConfigurationServiceAkkaGrpc
     with GrpcApiService {
@@ -42,19 +44,20 @@ private[apiserver] final class ApiLedgerConfigurationService private (
       .via(logger.logErrorsOnStream)
 
   override def bindService(): ServerServiceDefinition =
-    LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)
+    LedgerConfigurationServiceGrpc.bindService(this, executionContext)
 }
 
 private[apiserver] object ApiLedgerConfigurationService {
   def create(ledgerId: LedgerId, configurationService: IndexConfigurationService)(
       implicit esf: ExecutionSequencerFactory,
-      mat: Materializer,
+      materializer: Materializer,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): LedgerConfigurationServiceGrpc.LedgerConfigurationService with GrpcApiService =
     new LedgerConfigurationServiceValidation(
       new ApiLedgerConfigurationService(configurationService),
       ledgerId) with BindableService {
       override def bindService(): ServerServiceDefinition =
-        LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)
+        LedgerConfigurationServiceGrpc.bindService(this, executionContext)
     }
 }
