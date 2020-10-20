@@ -244,18 +244,18 @@ object HttpServiceTestFixture extends LazyLogging {
   private val clientTlsConfig = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt)
   private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
 
-  def jwtForParties(parties: List[String], ledgerId: String) = {
+  def jwtForParties(actAs: List[String], readAs: List[String], ledgerId: String) = {
     import AuthServiceJWTCodec.JsonImplicits._
     val decodedJwt = DecodedJwt(
       """{"alg": "HS256", "typ": "JWT"}""",
       AuthServiceJWTPayload(
         ledgerId = Some(ledgerId),
         applicationId = Some("test"),
-        actAs = parties,
+        actAs = actAs,
         participantId = None,
         exp = None,
         admin = false,
-        readAs = List()
+        readAs = readAs
       ).toJson.prettyPrint
     )
     JwtSigner.HMAC256
@@ -263,8 +263,8 @@ object HttpServiceTestFixture extends LazyLogging {
       .fold(e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.shows}"), identity)
   }
 
-  def headersWithPartyAuth(parties: List[String], ledgerId: String) =
-    authorizationHeader(jwtForParties(parties, ledgerId))
+  def headersWithPartyAuth(actAs: List[String], readAs: List[String], ledgerId: String) =
+    authorizationHeader(jwtForParties(actAs, readAs, ledgerId))
 
   def authorizationHeader(token: Jwt): List[Authorization] =
     List(Authorization(OAuth2BearerToken(token.value)))
