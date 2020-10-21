@@ -271,15 +271,19 @@ class Server(
   // This directive requires authorization for the party of the given running trigger via the auth middleware, if configured.
   // If no auth middleware is configured, then the request will proceed without attempting authorization.
   // If the trigger does not exist, then the request will also proceed without attempting authorization.
-  private def authorizeForTrigger(
-      uuid: UUID)(implicit ec: ExecutionContext, system: ActorSystem): Directive1[Option[String]] =
+  private def authorizeForTrigger(uuid: UUID, readOnly: Boolean = false)(
+      implicit ec: ExecutionContext,
+      system: ActorSystem): Directive1[Option[String]] =
     authConfig match {
       case NoAuth => provide(None)
       case AuthMiddleware(_) =>
         triggerDao.getRunningTrigger(uuid) match {
           case Left(err) => complete(errorResponse(StatusCodes.InternalServerError, err))
           case Right(None) => provide(None)
-          case Right(Some(trigger)) => authorize(Claims(actAs = List(trigger.triggerParty)))
+          case Right(Some(trigger)) =>
+            val parties = List(trigger.triggerParty)
+            val claims = if (readOnly) Claims(readAs = parties) else Claims(actAs = parties)
+            authorize(claims)
         }
     }
 
@@ -354,16 +358,21 @@ class Server(
         // List triggers currently running for the given party.
         path("v1" / "list") {
           entity(as[ListParams]) { params =>
-            listTriggers(params.party) match {
-              case Left(err) =>
-                complete(errorResponse(StatusCodes.InternalServerError, err))
-              case Right(triggerInstances) => complete(successResponse(triggerInstances))
+            val claims = Claims(readAs = List(params.party))
+            authorize(claims)(ec, system) { _ =>
+              listTriggers(params.party) match {
+                case Left(err) =>
+                  complete(errorResponse(StatusCodes.InternalServerError, err))
+                case Right(triggerInstances) => complete(successResponse(triggerInstances))
+              }
             }
           }
         },
         // Produce logs for the given trigger.
         pathPrefix("v1" / "status" / JavaUUID) { uuid =>
-          complete(successResponse(JsObject(("logs", getTriggerStatus(uuid).toJson))))
+          authorizeForTrigger(uuid, readOnly = true)(ec, system) { _ =>
+            complete(successResponse(JsObject(("logs", getTriggerStatus(uuid).toJson))))
+          }
         }
       )
     },
