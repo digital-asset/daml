@@ -328,7 +328,7 @@ object ValueGenerators {
         chosenValue,
         stakeholders,
         signatories,
-        choiceObservers = Set.empty, //NICK: extend Gen to test non-empty choice-observers
+        choiceObservers = Set.empty, //FIXME #7709: extend Gen to test non-empty choice-observers
         false,
         children,
         Some(exerciseResultValue),
