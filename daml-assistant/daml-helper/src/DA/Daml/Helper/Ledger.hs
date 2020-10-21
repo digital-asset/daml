@@ -35,6 +35,7 @@ import qualified Data.Text.Lazy.IO as TL
 import Data.Maybe
 import GHC.Generics
 import Network.HTTP.Simple
+import Network.HTTP.Types (statusCode)
 import System.Environment
 import System.Exit
 import System.FilePath
@@ -263,8 +264,8 @@ httpJsonRequest LedgerArgs {sslConfigM,tokM,port,host} method path = do
       "authorization"
       [BSC.pack $ sanitizeToken tok | Just (L.Token tok) <- [tokM]]
       defaultRequest
-  let status = getResponseStatusCode resp
-  unless (status == 200) $
+  let status = getResponseStatus resp
+  unless (statusCode status == 200) $
     fail $ "Request failed with error code " <> show status
   pure resp
 
