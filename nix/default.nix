@@ -123,8 +123,6 @@ in rec {
     sphinx-build      = sphinx183;
     sphinx-quickstart = sphinx183;
 
-    sphinx-autobuild = pkgs.python37Packages.sphinx-autobuild;
-
     sphinx183 = bazel_dependencies.sphinx183-exts;
 
     convert = bazel_dependencies.imagemagick;
