@@ -108,6 +108,7 @@ import           Data.Tuple.Extra
 import           Data.Ratio
 import           "ghc-lib" GHC
 import           "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
+import           "ghc-lib-parser" InstEnv (ClsInst(..), OverlapFlag(..), OverlapMode(..))
 import           "ghc-lib-parser" Pair hiding (swap)
 import           "ghc-lib-parser" PrelNames
 import           "ghc-lib-parser" TysPrim
@@ -174,6 +175,7 @@ data Env = Env
     ,envTypeVarNames :: !(S.Set TypeVarName)
         -- ^ The set of LF type variable names in scope (i.e. the set of
         -- values of 'envTypeVars').
+    , envModInstanceInfo :: !ModInstanceInfo
     }
 
 data ChoiceData = ChoiceData
@@ -348,6 +350,12 @@ scrapeTemplateBinds binds = MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
         _ -> Nothing
     ]
 
+type ModInstanceInfo = MS.Map DFunId OverlapMode
+
+modInstanceInfoFromDetails :: ModDetails -> ModInstanceInfo
+modInstanceInfoFromDetails ModDetails{..} = MS.fromList
+    [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
+
 convertModule
     :: LF.Version
     -> MS.Map UnitId DalfPackage
@@ -355,8 +363,9 @@ convertModule
     -> Bool
     -> NormalizedFilePath
     -> CoreModule
+    -> ModDetails
     -> Either FileDiagnostic LF.Module
-convertModule lfVersion pkgMap stablePackages isGenerated file x = runConvertM (ConversionEnv file Nothing) $ do
+convertModule lfVersion pkgMap stablePackages isGenerated file x details = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (convertBind env) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     templates <- convertTemplateDefs env
@@ -397,6 +406,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x = runConvertM (
           , envIsGenerated = isGenerated
           , envTypeVars = MS.empty
           , envTypeVarNames = S.empty
+          , envModInstanceInfo = modInstanceInfoFromDetails details
           }
 
 data Consuming = PreConsuming
@@ -730,21 +740,44 @@ convertBind env (name, x)
     | ConstraintTupleProjectionName _ _ <- name
     = pure []
 
+    -- Typeclass instance dictionaries
+    | DFunId isNewtype <- idDetails name
+    = withRange (convNameLoc name) $ do
+    x' <- convertExpr env x
+    -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
+    -- The sanitization for newtype dictionaries is done in `convertCoercion`.
+    let sanitized_x'
+          | isNewtype = x'
+          | otherwise =
+            let fieldsPrism
+                  | envLfVersion env `supports` featureTypeSynonyms = _EStructCon
+                  | otherwise = _ERecCon . _2
+            in over (_ETyLams . _2 . _ETmLams . _2 . fieldsPrism . each . _2) (ETmLam (mkVar "_", TUnit)) x'
+    name' <- convValWithType env name
+
+    -- OVERLAP* annotations
+    let overlapModeName = ExprValName ("$$om" <> getOccText name)
+        overlapModeValueM =
+            case MS.lookup name (envModInstanceInfo env) of
+                Nothing -> Nothing
+                Just (NoOverlap _) -> Nothing
+                Just (Overlappable _) -> Just "OVERLAPPABLE"
+                Just (Overlapping _) -> Just "OVERLAPPING"
+                Just (Overlaps _) -> Just "OVERLAPS"
+                Just (Incoherent _) -> Just "INCOHERENT"
+        overlapModeDef =
+            [ defValue name (overlapModeName, TText) (EBuiltin (BEText mode))
+            | Just mode <- [overlapModeValueM]
+            ]
+
+    pure $ [defValue name name' sanitized_x'] ++ overlapModeDef
+
+    -- Regular functions
     | otherwise
     = withRange (convNameLoc name) $ do
     x' <- convertExpr env x
-    let sanitize = case idDetails name of
-          -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
-          -- NOTE (drsk): We only want to do the sanitization for non-newtypes. The sanitization
-          -- step 3 for newtypes is done in the convertCoercion function.
-          DFunId False ->
-              let fieldsPrism
-                    | envLfVersion env `supports` featureTypeSynonyms = _EStructCon
-                    | otherwise = _ERecCon . _2
-              in over (_ETyLams . _2 . _ETmLams . _2 . fieldsPrism . each . _2) (ETmLam (mkVar "_", TUnit))
-          _ -> id
     name' <- convValWithType env name
-    pure [defValue name name' (sanitize x')]
+    pure [defValue name name' x']
 
 -- NOTE(MH): These are the names of the builtin DAML-LF types whose Surface
 -- DAML counterpart is not defined in 'GHC.Types'. They are all defined in

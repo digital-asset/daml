@@ -258,7 +258,7 @@ generateRawDalfRule =
                     stablePkgs <- useNoFile_ GenerateStablePackages
                     DamlEnv{envIsGenerated} <- getDamlServiceEnv
                     -- GHC Core to DAML LF
-                    case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core of
+                    case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core details of
                         Left e -> return ([e], Nothing)
                         Right v -> do
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
@@ -406,7 +406,8 @@ generateSerializedDalfRule options =
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
                             DamlEnv{envIsGenerated} <- getDamlServiceEnv
-                            case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core of
+                            let details = hm_details (tmrModInfo tm)
+                            case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core details of
                                 Left e -> pure ([e], Nothing)
                                 Right rawDalf -> do
                                     -- LF postprocessing
