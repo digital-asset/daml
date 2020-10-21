@@ -414,25 +414,7 @@ class Runner(
     // of this process.
     Flow[TriggerMsg]
       .wireTap(logReceivedMsg _)
-      .mapConcat[TriggerMsg]({
-        case msg @ CompletionMsg(c) =>
-          // This happens for invalid UUIDs which we might get for
-          // completions not emitted by the trigger.
-          val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
-            UUID.fromString(c.commandId)).toOption
-          ouuid.flatMap { uuid =>
-            useCommandId(uuid, SeenMsgs.Completion) option msg
-          }.toList
-        case msg @ TransactionMsg(t) =>
-          // This happens for invalid UUIDs which we might get for
-          // transactions not emitted by the trigger.
-          val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
-            UUID.fromString(t.commandId)).toOption
-          List(ouuid flatMap { uuid =>
-            useCommandId(uuid, SeenMsgs.Transaction) option msg
-          } getOrElse TransactionMsg(t.copy(commandId = "")))
-        case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
-      })
+      .via(hideIrrelevantMsgs)
       .toMat(Sink.fold[SValue, TriggerMsg](evaluatedInitialState)((state, message) => {
         val messageVal = message match {
           case TransactionMsg(transaction) => {
@@ -474,6 +456,27 @@ class Runner(
           .orConverterException
       }))(Keep.right[NotUsed, Future[SValue]])
   }
+
+  private[this] def hideIrrelevantMsgs: Flow[TriggerMsg, TriggerMsg, NotUsed] =
+    Flow[TriggerMsg].mapConcat[TriggerMsg] {
+      case msg @ CompletionMsg(c) =>
+        // This happens for invalid UUIDs which we might get for
+        // completions not emitted by the trigger.
+        val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
+          UUID.fromString(c.commandId)).toOption
+        ouuid.flatMap { uuid =>
+          useCommandId(uuid, SeenMsgs.Completion) option msg
+        }.toList
+      case msg @ TransactionMsg(t) =>
+        // This happens for invalid UUIDs which we might get for
+        // transactions not emitted by the trigger.
+        val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
+          UUID.fromString(t.commandId)).toOption
+        List(ouuid flatMap { uuid =>
+          useCommandId(uuid, SeenMsgs.Transaction) option msg
+        } getOrElse TransactionMsg(t.copy(commandId = "")))
+      case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
+    }
 
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
     SEApp(func, values.map(SEValue(_)))
