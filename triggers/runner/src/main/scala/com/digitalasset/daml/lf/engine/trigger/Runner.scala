@@ -415,26 +415,18 @@ class Runner(
     Flow[TriggerMsg]
       .wireTap(logReceivedMsg _)
       .via(hideIrrelevantMsgs)
-      .toMat(Sink.fold[SValue, TriggerMsg](evaluatedInitialState)((state, message) => {
-        val messageVal = message match {
-          case TransactionMsg(transaction) => {
-            converter.fromTransaction(transaction) match {
-              case Left(err) => throw new ConverterException(err)
-              case Right(x) => x
-            }
+      .map {
+        case TransactionMsg(transaction) =>
+          converter.fromTransaction(transaction).orConverterException
+        case CompletionMsg(completion) =>
+          val status = completion.getStatus
+          if (status.code != 0) {
+            logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
           }
-          case CompletionMsg(completion) => {
-            val status = completion.getStatus
-            if (status.code != 0) {
-              logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
-            }
-            converter.fromCompletion(completion) match {
-              case Left(err) => throw new ConverterException(err)
-              case Right(x) => x
-            }
-          }
-          case HeartbeatMsg() => converter.fromHeartbeat
-        }
+          converter.fromCompletion(completion).orConverterException
+        case HeartbeatMsg() => converter.fromHeartbeat
+      }
+      .toMat(Sink.fold[SValue, SValue](evaluatedInitialState) { (state, messageVal) =>
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
         machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
@@ -454,7 +446,7 @@ class Runner(
               newState
           })
           .orConverterException
-      }))(Keep.right[NotUsed, Future[SValue]])
+      })(Keep.right[NotUsed, Future[SValue]])
   }
 
   private[this] def hideIrrelevantMsgs: Flow[TriggerMsg, TriggerMsg, NotUsed] =
