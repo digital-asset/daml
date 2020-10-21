@@ -246,7 +246,7 @@ class Runner(
     (commandUUID, SubmitRequest(commands = Some(commandsArg)))
   }
 
-  import Runner.DamlFun
+  import Runner.{DamlFun, maxParallelSubmissionsPerTrigger}
 
   // Handles the value of update.
   private def handleStepFreeResult(
@@ -368,7 +368,7 @@ class Runner(
   private def getTriggerSink(
       name: String,
       acs: Seq[CreatedEvent],
-      submit: SubmitRequest => Future[Empty],
+      submit: SubmitRequest => Future[None.type],
   ): Sink[TriggerMsg, Future[SValue]] = {
     logger.info(s"Trigger ${name} is running as ${party}")
 
@@ -471,6 +471,15 @@ class Runner(
       case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
     }
 
+  private[this] def submitAndRemoveSubmissions[T, SR](
+      submit: SR => Future[None.type]): Flow[T \/ SR, T, NotUsed] =
+    Flow[T \/ SR]
+      .mapAsync(maxParallelSubmissionsPerTrigger) {
+        case -\/(t) => Future successful Some(t)
+        case \/-(sr) => submit(sr)
+      }
+      .collect { case Some(t) => t }
+
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
     SEApp(func, values.map(SEValue(_)))
   }
@@ -505,7 +514,7 @@ class Runner(
       executionContext: ExecutionContext): (T, Future[SValue]) = {
     val (source, postFailure) =
       msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
-    def submit(req: SubmitRequest): Future[Empty] = {
+    def submit(req: SubmitRequest): Future[None.type] = {
       val f: Future[Empty] = client.commandClient
         .submitSingleCommand(req)
       f.failed.foreach({
@@ -514,7 +523,7 @@ class Runner(
         case e =>
           logger.error(s"Unexpected exception: $e")
       })
-      f
+      f map (_ => None)
     }
     source
       .viaMat(msgFlow)(Keep.right[NotUsed, T])
@@ -524,6 +533,14 @@ class Runner(
 }
 
 object Runner extends StrictLogging {
+
+  /** The number of submitSingleCommand invocations each trigger will
+    * attempt to execute in parallel.  Note that this does not in any
+    * way bound the number of already-submitted, but not completed,
+    * commands that may be pending.
+    */
+  val maxParallelSubmissionsPerTrigger = 8
+
   // Return the time provider for a given time provider type.
   def getTimeProvider(ty: TimeProviderType): TimeProvider = {
     ty match {
