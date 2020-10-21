@@ -51,6 +51,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.Converter.{DamlTuple2, DamlAnyModuleRecord, unrollFree}
 import com.daml.script.converter.Converter.Implicits._
 import com.daml.script.converter.ConverterException
@@ -251,8 +252,8 @@ class Runner(
   private def handleStepFreeResult(
       clientTime: Timestamp,
       v: SValue,
-      submit: SubmitRequest => Unit): SValue =
-    freeTriggerSubmits(clientTime, v) foreach submit
+      submit: SubmitRequest => Any): SValue =
+    freeTriggerSubmits(clientTime, v) foreach (sr => discard(submit(sr)))
 
   private def freeTriggerSubmits(
       clientTime: Timestamp,
@@ -367,7 +368,7 @@ class Runner(
   private def getTriggerSink(
       name: String,
       acs: Seq[CreatedEvent],
-      submit: SubmitRequest => Unit,
+      submit: SubmitRequest => Future[Empty],
   ): Sink[TriggerMsg, Future[SValue]] = {
     logger.info(s"Trigger ${name} is running as ${party}")
 
@@ -504,7 +505,7 @@ class Runner(
       executionContext: ExecutionContext): (T, Future[SValue]) = {
     val (source, postFailure) =
       msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
-    def submit(req: SubmitRequest): Unit = {
+    def submit(req: SubmitRequest): Future[Empty] = {
       val f: Future[Empty] = client.commandClient
         .submitSingleCommand(req)
       f.failed.foreach({
@@ -513,6 +514,7 @@ class Runner(
         case e =>
           logger.error(s"Unexpected exception: $e")
       })
+      f
     }
     source
       .viaMat(msgFlow)(Keep.right[NotUsed, T])
