@@ -8,6 +8,10 @@ import scala.annotation.tailrec
 
 import com.daml.scalautil.Statement.discard
 
+import scala.collection.compat._
+import scala.collection.generic.CanBuildFrom
+import scala.collection.immutable.{IndexedSeq, LinearSeq}
+
 /** A variant of [[scalaz.CorecursiveList]] that emits a final state
   * at the end of the list.
   */
@@ -16,7 +20,9 @@ private[trigger] sealed abstract class UnfoldState[+T, +A] {
   val init: S
   val step: S => T \/ (A, S)
 
-  def foreach(f: A => Unit): T = {
+  def withInit(init: S): UnfoldState.Aux[S, T, A]
+
+  final def foreach(f: A => Unit): T = {
     @tailrec def go(s: S): T = step(s) match {
       case -\/(t) => t
       case \/-((a, s2)) =>
@@ -26,7 +32,11 @@ private[trigger] sealed abstract class UnfoldState[+T, +A] {
     go(init)
   }
 
-  def withInit(init: S): UnfoldState.Aux[S, T, A]
+  final def runTo[FA](implicit cbf: CanBuildFrom[Nothing, A, FA]): (FA, T) = {
+    val b = cbf()
+    val t = foreach(a => discard(b += a))
+    (b.result(), t)
+  }
 }
 
 private[trigger] object UnfoldState {
@@ -40,6 +50,18 @@ private[trigger] object UnfoldState {
     }
     UnfoldStateImpl(init, step)
   }
+
+  def fromLinearSeq[A](list: LinearSeq[A]): UnfoldState[Unit, A] =
+    apply(list) {
+      case hd +: tl => \/-((hd, tl))
+      case _ => -\/(())
+    }
+
+  def fromIndexedSeq[A](vector: IndexedSeq[A]): UnfoldState[Unit, A] =
+    apply(0) { n =>
+      if (vector.sizeIs > n) \/-((vector(n), n + 1))
+      else -\/(())
+    }
 
   def flatMapConcat[T, A, B](zero: T)(f: (T, A) => UnfoldState[T, B]): Flow[A, B, NotUsed] =
     Flow fromGraph (new AsFlow(zero, f))

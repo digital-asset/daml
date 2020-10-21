@@ -116,10 +116,14 @@ da_scala_library(
     da_scala_test(
         name = "trigger-integration-tests" + suffix,
         srcs = [
-            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsStaticTime.scala",
-            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsWallClock.scala",
-            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Jwt.scala",
-            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Tls.scala",
+            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/%s.scala" % f
+            for f in [
+                "FuncTestsStaticTime",
+                "FuncTestsWallClock",
+                "Jwt",
+                "Tls",
+                "UnfoldStateSpec",
+            ]
         ],
         data = [
             ":acs%s.dar" % suffix,
@@ -153,6 +157,7 @@ da_scala_library(
             "//libs-scala/resources",
             "//triggers/runner:trigger-runner-lib",
             "@maven//:com_typesafe_akka_akka_stream_2_12",
+            "@maven//:org_scalacheck_scalacheck_2_12",
             "@maven//:org_scalaz_scalaz_core_2_12",
         ],
     )
