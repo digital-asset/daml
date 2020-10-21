@@ -76,6 +76,7 @@ private[trigger] object UnfoldState {
           import bs.step
           override def iterator = new Iterator[B] {
             private[this] var last: T \/ (B, bs.S) = step(bs.init)
+            last fold (newT => t = newT, _ => ())
 
             // this stream is "odd", i.e. we are always evaluating 1 step ahead
             // of what the client sees.  We could improve laziness by making it
