@@ -73,10 +73,18 @@ private[trigger] object UnfoldState {
       else -\/(())
     }
 
+  /** A stateful but pure version of built-in flatMapConcat.
+    * (flatMapMerge does not make sense, because parallelism
+    * with linear state does not make sense.)
+    */
   def flatMapConcat[T, A, B](zero: T)(f: (T, A) => UnfoldState[T, B]): Flow[A, B, NotUsed] =
     flatMapConcatStates(zero)(f) collect { case \/-(b) => b }
 
-  private def flatMapConcatStates[T, A, B](zero: T)(
+  /** Like `flatMapConcat` but emit the new state after each unfolded list.
+    * The pattern you will see is a bunch of right Bs, followed by a single
+    * left T, then repeat until close, with a final T unless aborted.
+    */
+  def flatMapConcatStates[T, A, B](zero: T)(
       f: (T, A) => UnfoldState[T, B]): Flow[A, T \/ B, NotUsed] =
     Flow[A].statefulMapConcat { () =>
       var t = zero

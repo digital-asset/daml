@@ -10,9 +10,10 @@ import org.scalacheck.Gen
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{AsyncWordSpec, Matchers}
-import scalaz.{-\/, \/-}
+import scalaz.{\/, -\/, \/-}
 import scalaz.std.list._
 import scalaz.std.scalaFuture._
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.traverse._
 
 class UnfoldStateSpec
@@ -57,6 +58,33 @@ class UnfoldStateSpec
             .map { ran =>
               ran should ===(flattened)
               escape should ===((flattened.sum, run.size))
+            }
+        }
+        .map(_.foldLeft(succeed)((_, result) => result))
+    }
+  }
+
+  "flatMapConcatStates" should {
+    "emit every state after the list elements" in {
+      val trials = 10
+      val runs = Gen
+        .listOfN(trials, arbitrary[List[List[Int]]])
+        .sample
+        .getOrElse(sys error "random Gen failed")
+
+      runs
+        .traverse { run =>
+          val (_, expected) = run.mapAccumL(0) { (sum, ns) =>
+            val newSum = sum + ns.sum
+            (newSum, (ns map \/.right) :+ -\/(newSum))
+          }
+          Source(run)
+            .via(flatMapConcatStates(0) { (sum, ns) =>
+              fromLinearSeq(ns) leftMap (_ => sum + ns.sum)
+            })
+            .runWith(Sink.seq)
+            .map { ran =>
+              ran should ===(expected.flatten)
             }
         }
         .map(_.foldLeft(succeed)((_, result) => result))
