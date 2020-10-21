@@ -456,8 +456,17 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
             observers Cons @Party ['Alice'] (Nil @Party),
             agreement "Agreement",
             choices {
-              choice Sleep (self) (u:Unit) : ContractId Mod:Person , controllers Cons @Party [person] (Nil @Party) to upure @(ContractId Mod:Person) self,
-              choice @nonConsuming Nap (self) (i : Int64): Int64 , controllers Cons @Party [person] (Nil @Party) to upure @Int64 i
+              choice Sleep (self) (u:Unit) : ContractId Mod:Person
+                , controllers Cons @Party [person] (Nil @Party)
+                to upure @(ContractId Mod:Person) self,
+              choice @nonConsuming Nap (self) (i : Int64): Int64
+                , controllers Cons @Party [person] (Nil @Party)
+                , observers Nil @Party
+                to upure @Int64 i,
+              choice @nonConsuming PowerNap (self) (i : Int64): Int64
+                , controllers Cons @Party [person] (Nil @Party)
+                , observers Cons @Party [person] (Nil @Party)
+                to upure @Int64 i
             },
             key @Party (Mod:Person {name} this) (\ (p: Party) -> p)
           } ;
@@ -475,6 +484,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
               name = n"Sleep",
               consuming = true,
               controllers = e"Cons @Party [person] (Nil @Party)",
+              choiceObservers = None,
               selfBinder = n"self",
               argBinder = n"u" -> TUnit,
               returnType = t"ContractId Mod:Person",
@@ -484,6 +494,17 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
               name = n"Nap",
               consuming = false,
               controllers = e"Cons @Party [person] (Nil @Party)",
+              choiceObservers = Some(e"Nil @Party"),
+              selfBinder = n"self",
+              argBinder = n"i" -> TInt64,
+              returnType = t"Int64",
+              update = e"upure @Int64 i"
+            ),
+            n"PowerNap" -> TemplateChoice(
+              name = n"PowerNap",
+              consuming = false,
+              controllers = e"Cons @Party [person] (Nil @Party)",
+              choiceObservers = Some(e"Cons @Party [person] (Nil @Party)"),
               selfBinder = n"self",
               argBinder = n"i" -> TInt64,
               returnType = t"Int64",

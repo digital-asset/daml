@@ -891,13 +891,14 @@ private[lf] object SBuiltin {
   }
 
   /** $beginExercise
-    *    :: arg                                           (choice argument)
-    *    -> ContractId arg                                (contract to exercise)
-    *    -> List Party                                    (actors)
-    *    -> List Party                                    (signatories)
-    *    -> List Party                                    (observers)
-    *    -> List Party                                    (choice controllers)
-    *    -> Optional {key: key, maintainers: List Party}  (template key, if present)
+    *    :: arg                                           0 (choice argument)
+    *    -> ContractId arg                                1 (contract to exercise)
+    *    -> List Party                                    2 (actors)
+    *    -> List Party                                    3 (signatories)
+    *    -> List Party                                    4 (template observers)
+    *    -> List Party                                    5 (choice controllers)
+    *    -> List Party                                    6 (choice observers)
+    *    -> Optional {key: key, maintainers: List Party}  7 (template key, if present)
     *    -> ()
     */
   final case class SBUBeginExercise(
@@ -905,7 +906,7 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-  ) extends OnLedgerBuiltin(7) {
+  ) extends OnLedgerBuiltin(8) {
 
     override protected final def execute(
         args: util.ArrayList[SValue],
@@ -922,10 +923,11 @@ private[lf] object SBuiltin {
         case v => crash(s"expect optional parties, got: $v")
       }
       val sigs = extractParties(args.get(3))
-      val obs = extractParties(args.get(4))
+      val templateObservers = extractParties(args.get(4))
       val ctrls = extractParties(args.get(5))
+      val choiceObservers = extractParties(args.get(6))
 
-      val mbKey = extractOptionalKeyWithMaintainers(args.get(6))
+      val mbKey = extractOptionalKeyWithMaintainers(args.get(7))
       val auth = machine.auth
 
       onLedger.ptx = onLedger.ptx
@@ -938,8 +940,9 @@ private[lf] object SBuiltin {
           consuming = consuming,
           actingParties = optActors.getOrElse(ctrls),
           signatories = sigs,
-          stakeholders = sigs union obs,
+          stakeholders = sigs union templateObservers,
           controllers = ctrls,
+          choiceObservers = choiceObservers,
           mbKey = mbKey,
           byKey = byKey,
           chosenValue = arg,

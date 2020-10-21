@@ -94,6 +94,7 @@ message NodeExercise {
     com.daml.lf.value.VersionedValue return_value = 12;
     com.daml.lf.value.VersionedValue contract_key = 13; // optional
     KeyWithMaintainers key_with_maintainers = 14; // optional
+    repeated string observers = 15; // optional
 }
 
 message NodeLookupByKey {

@@ -475,7 +475,17 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               observers Cons @Party ['Alice'] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+                choice Ch1 (self) (i : Unit) : Unit
+                    , controllers Cons @Party ['Alice'] (Nil @Party)
+                    to upure @Unit (),
+                choice Ch2 (self) (i : Unit) : Unit
+                    , controllers Cons @Party ['Alice'] (Nil @Party)
+                    , observers Nil @Party
+                    to upure @Unit (),
+                choice Ch3 (self) (i : Unit) : Unit
+                    , controllers Cons @Party ['Alice'] (Nil @Party)
+                    , observers Cons @Party ['Alice'] (Nil @Party)
+                    to upure @Unit ()
               },
               key @NegativeTestCase:TBis
                   (NegativeTestCase:TBis { person = (NegativeTestCase:T {name} this), party = (NegativeTestCase:T {person} this) })
@@ -507,6 +517,39 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
               agreement "Agreement",
               choices {
                 choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
+              }
+            } ;
+          }
+
+          module PositiveTestCase_ControllersMustBeListParty {
+            record @serializable T = {};
+
+            template (this : T) =  {
+              precondition True,
+              signatories Cons @Party ['Bob'] (Nil @Party),
+              observers Cons @Party ['Bob'] (Nil @Party),
+              agreement "Agreement",
+              choices {
+                choice Ch (self) (i : Unit) : Unit
+                  , controllers ()                                  // should be of type (List Party)
+                  to upure @Unit ()
+              }
+            } ;
+          }
+
+          module PositiveTestCase_ChoiceObserversMustBeListParty {
+            record @serializable T = {};
+
+            template (this : T) =  {
+              precondition True,
+              signatories Cons @Party ['Bob'] (Nil @Party),
+              observers Cons @Party ['Bob'] (Nil @Party),
+              agreement "Agreement",
+              choices {
+                choice Ch (self) (i : Unit) : Unit
+                  , controllers Cons @Party ['Alice'] (Nil @Party)
+                  , observers ()                                  // should be of type (List Party)
+                  to upure @Unit ()
               }
             } ;
           }
@@ -657,11 +700,12 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         } ;
       }
       """
-
       val typeMismatchCases = Table(
         "moduleName",
         "PositiveTestCase1",
         "PositiveTestCase2",
+        "PositiveTestCase_ControllersMustBeListParty",
+        "PositiveTestCase_ChoiceObserversMustBeListParty",
         "PositiveTestCase3",
         "PositiveTestCase7",
         "PositiveTestCase8"

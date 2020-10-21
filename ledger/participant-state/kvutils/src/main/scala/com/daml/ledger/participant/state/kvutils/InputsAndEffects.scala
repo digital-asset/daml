@@ -92,7 +92,7 @@ private[kvutils] object InputsAndEffects {
                 GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key.value)))
             }
 
-          case exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+          case exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
             addContractInput(exe.targetCoid)
 
           case lookup @ Node.NodeLookupByKey(_, _, _, _) =>
@@ -141,7 +141,7 @@ private[kvutils] object InputsAndEffects {
                 )
             )
 
-          case exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+          case exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
             if (exe.consuming) {
               effects.copy(
                 consumedContracts = contractIdToStateKey(exe.targetCoid) :: effects.consumedContracts,
