@@ -26,6 +26,14 @@ resource "google_project_iam_custom_role" "periodic-killer" {
   ]
 }
 
+resource "google_project_iam_binding" "machine_managers" {
+  role = "${google_project_iam_custom_role.periodic-killer.id}"
+  members = [
+    "user:gary.verhaegen@digitalasset.com",
+    "user:moritz.kiefer@digitalasset.com",
+  ]
+}
+
 resource "google_compute_instance" "periodic-killer" {
   name         = "periodic-killer"
   machine_type = "g1-small"
