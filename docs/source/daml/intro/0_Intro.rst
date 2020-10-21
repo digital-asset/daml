@@ -12,7 +12,7 @@ This introduction is structured such that each section presents a new self-conta
 
 Prerequisites:
 
-- You have installed the :doc:`DAML Connect SDK <getting-started/installation>`
+- You have installed the :doc:`DAML Connect SDK </getting-started/installation>`
 
 Next: :doc:`1_Token`.
 
