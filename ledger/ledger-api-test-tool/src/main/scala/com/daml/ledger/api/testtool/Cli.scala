@@ -12,6 +12,8 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import scopt.Read.{intRead, stringRead}
 import scopt.{OptionParser, Read}
 
+import scala.concurrent.duration.Duration
+
 object Cli {
 
   private def reportUsageOfDeprecatedOption[B](
@@ -197,10 +199,10 @@ object Cli {
       .action((_, _) => { println(BuildInfo.Version); sys.exit(0) })
       .text("Prints the version on stdout and exit.")
 
-    opt[Int]("ledger-clock-granularity")
+    opt[Duration]("ledger-clock-granularity")
       .optional()
-      .action((interval, c) => c.copy(ledgerClockGranularityMs = interval))
-      .text("Specify the largest interval in ms that you will see between clock ticks on the ledger under test.  The default is 10000ms")
+      .action((x, c) => c.copy(ledgerClockGranularity = x))
+      .text("Specify the largest interval that you will see between clock ticks on the ledger under test. The default is \"10s\" (10 seconds).")
 
     opt[Unit]("skip-dar-upload")
       .optional()
