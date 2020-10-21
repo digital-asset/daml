@@ -172,7 +172,7 @@ abstract class AbstractTriggerServiceTest
         s"""{"party": "$party"}"""
       )
     )
-    Http().singleRequest(req)
+    httpRequestFollow(req)
   }
 
   def triggerStatus(uri: Uri, triggerInstance: UUID): Future[HttpResponse] = {
@@ -181,7 +181,7 @@ abstract class AbstractTriggerServiceTest
       method = HttpMethods.GET,
       uri = uri.withPath(Uri.Path(s"/v1/status/$id")),
     )
-    Http().singleRequest(req)
+    httpRequestFollow(req)
   }
 
   def stopTrigger(uri: Uri, triggerInstance: UUID, party: Party): Future[HttpResponse] = {
