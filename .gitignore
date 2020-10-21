@@ -1,6 +1,3 @@
-# private configuration
-.envrc.private
-
 # Artifacts
 dist
 .interfaces
@@ -10,6 +7,10 @@ target
 
 # DAML
 .daml/
+
+# direnv
+.direnv
+.envrc.private
 
 # dev-env
 /dev-env/jdk

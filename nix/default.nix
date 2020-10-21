@@ -1,8 +1,9 @@
-{ system ? builtins.currentSystem }:
+{
+  system ? builtins.currentSystem,
+  pkgs ? import ./nixpkgs.nix { inherit system; },
+}:
 
 let
-  pkgs = import ./nixpkgs.nix { inherit system; };
-
   # Selects "bin" output from multi-output derivations which are has it. For
   # other multi-output derivations, select only the first output. For
   # single-output generation, do nothing.
@@ -27,10 +28,20 @@ in rec {
 
   ghc = bazel_dependencies.ghc;
 
-  # Tools used in the dev-env. These are invoked through wrappers
-  # in dev-env/bin. See the development guide for more information:
-  # https://digitalasset.atlassian.net/wiki/spaces/DEL/pages/104431683/Maintaining+the+Nix+Development+Environment
-  tools = pkgs.lib.mapAttrs (_: pkg: selectBin pkg) (rec {
+  # wrap the .bazelrc to automate the configuration of
+  # `build --config <kernel>`
+  bazelrc =
+    let
+      kernel =
+        if pkgs.stdenv.targetPlatform.isLinux then "linux"
+        else if pkgs.stdenv.targetPlatform.isDarwin then "darwin"
+        else throw "unsupported system";
+    in
+      pkgs.writeText "daml-bazelrc" ''
+        build --config ${kernel}
+      '';
+
+  toolAttrs = rec {
     # Code generators
 
     make            = pkgs.gnumake;
@@ -139,24 +150,7 @@ in rec {
 
     # Build tools
 
-    # wrap the .bazelrc to automate the configuration of
-    # `build --config <kernel>`
-    bazelrc =
-      let
-        kernel =
-          if pkgs.stdenv.targetPlatform.isLinux then "linux"
-          else if pkgs.stdenv.targetPlatform.isDarwin then "darwin"
-          else throw "unsupported system";
-      in
-        pkgs.writeText "daml-bazelrc" ''
-          build --config ${kernel}
-        '';
-
     bazel = pkgs.writeScriptBin "bazel" (''
-      if [ -z "''${DADE_REPO_ROOT:-}" ]; then
-          >&2 echo "Please run bazel inside of the dev-env"
-          exit 1
-      fi
       # Set the JAVA_HOME to our JDK
       export JAVA_HOME=${jdk.home}
       export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
@@ -218,7 +212,12 @@ in rec {
       template
     ]);
     nix-store-gcs-proxy = pkgs.callPackage ./tools/nix-store-gcs-proxy {};
-  });
+  };
+
+  # Tools used in the dev-env. These are invoked through wrappers
+  # in dev-env/bin. See the development guide for more information:
+  # https://digitalasset.atlassian.net/wiki/spaces/DEL/pages/104431683/Maintaining+the+Nix+Development+Environment
+  tools = pkgs.lib.mapAttrs (_: pkg: selectBin pkg) toolAttrs;
 
   # Set of packages that we want Hydra to build for us
   cached = bazel_dependencies // {
