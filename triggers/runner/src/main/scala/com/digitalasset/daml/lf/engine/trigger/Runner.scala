@@ -15,6 +15,7 @@ import java.util.UUID
 import scalaz.{-\/, Functor, \/, \/-}
 import scalaz.\/.fromTryCatchThrowable
 import scalaz.std.option._
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.functor._
 import scalaz.syntax.tag._
 import scalaz.syntax.std.boolean._
@@ -427,7 +428,7 @@ class Runner(
           converter.fromCompletion(completion).orConverterException
         case HeartbeatMsg() => converter.fromHeartbeat
       }
-      .toMat(Sink.fold[SValue, SValue](evaluatedInitialState) { (state, messageVal) =>
+      .via(UnfoldState.flatMapConcatStates(evaluatedInitialState) { (state, messageVal) =>
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
         machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
@@ -440,13 +441,16 @@ class Runner(
         machine.setExpressionToEvaluate(makeAppD(stateFun, state))
         val updateWithNewState = Machine.stepToValue(machine)
 
-        handleStepFreeResult(clientTime, v = updateWithNewState, submit = submit)
-          .expect("TriggerRule new state", {
+        freeTriggerSubmits(clientTime, v = updateWithNewState)
+          .leftMap(_.expect("TriggerRule new state", {
             case DamlTuple2(SUnit, newState) =>
               logger.debug(s"New state: $newState")
               newState
-          })
-          .orConverterException
+          }).orConverterException)
+      })
+      .via(submitAndRemoveSubmissions(submit))
+      .toMat(Sink.fold[SValue, SValue](evaluatedInitialState) { (_, newState) =>
+        newState
       })(Keep.right[NotUsed, Future[SValue]])
   }
 
