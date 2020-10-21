@@ -40,20 +40,20 @@ class UnfoldStateSpec
       runs
         .traverse { run =>
           val flattened = run.flatten
-          var escape = 0
+          var escape = (0, 0)
           Source(run)
-            .via(flatMapConcat(0) { (sum, ns) =>
-              UnfoldState((sum, ns)) {
-                case (sum, hd +: tl) => \/-((hd, (sum + hd, tl)))
-                case (sum, _) =>
-                  escape = sum
-                  -\/(sum)
+            .via(flatMapConcat(escape) { (sums, ns) =>
+              UnfoldState((sums, ns)) {
+                case ((sum, ct), hd +: tl) => \/-((hd, ((sum + hd, ct), tl)))
+                case ((sum, ct), _) =>
+                  escape = (sum, ct + 1)
+                  -\/(escape)
               }
             })
             .runWith(Sink.seq)
             .map { ran =>
               ran should ===(flattened)
-              escape should ===(flattened.sum)
+              escape should ===((flattened.sum, run.size))
             }
         }
         .map(_.foldLeft(succeed)((_, result) => result))
