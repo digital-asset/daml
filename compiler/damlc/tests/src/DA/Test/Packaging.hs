@@ -1802,6 +1802,20 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
         -- cannot determine the output type for 'foo'.
         ]
 
+    , simpleImportTest "Using overlapping instances"
+        [ "module Lib where"
+        , "class MyShow t where myShow : t -> Text"
+        , "instance MyShow t where myShow _ = \"_\""
+        , "instance {-# OVERLAPPING #-} Show t => MyShow [t] where myShow = show"
+        ]
+        [ "module Main where"
+        , "import Lib"
+        , "useMyShow : [Int] -> Text"
+        , "useMyShow = myShow"
+          -- Without the OVERLAPPING pragma carrying over data-dependencies, this usage
+          -- of myShow fails.
+        ]
+
     , testCaseSteps "Implicit parameters" $ \step -> withTempDir $ \tmpDir -> do
         step "building project with implicit parameters"
         createDirectoryIfMissing True (tmpDir </> "dep")
