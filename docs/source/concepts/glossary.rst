@@ -245,13 +245,13 @@ A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of 
 
 .. TODO ask Robin
 
-SDK tools
-*********
+Developer tools
+***************
 
 Assistant
 =========
 
-**DAML Assistant** is a command-line tool for many tasks related to DAML. Using it, you can create DAML projects, compile DAML projects into `.dar files <#dar-file-dalf-file>`__, launch other SDK tools, and download new SDK versions.
+**DAML Assistant** is a command-line tool for many tasks related to DAML. Using it, you can create DAML projects, compile DAML projects into `.dar files <#dar-file-dalf-file>`__, launch other developer tools, and download new SDK versions.
 
 See :doc:`/tools/assistant`.
 
@@ -403,7 +403,7 @@ DAML-LF
 
 When you compile DAML source code into a `.dar file <#dar-file-dalf-file>`__, the underlying format is **DAML-LF**. DAML-LF is similar to DAML, but is stripped down to a core set of features. The relationship between the surface DAML syntax and DAML-LF is loosely similar to that between Java and JVM bytecode.
 
-As a user, you don't need to interact with DAML-LF directly. But inside the DAML SDK, it's used for:
+As a user, you don't need to interact with DAML-LF directly. But internally, it's used for:
 
 - executing DAML code on the Sandbox or on another platform
 - sending and receiving values via the Ledger API (using a protocol such as gRPC)

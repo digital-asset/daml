@@ -57,7 +57,7 @@ DAML-LF
 
 When you :ref:`compile DAML source into a .dar file <assistant-manual-building-dars>`, the underlying format is DAML-LF. DAML-LF is similar to DAML, but is stripped down to a core set of features. The relationship between the surface DAML syntax and DAML-LF is loosely similar to that between Java and JVM bytecode.
 
-As a user, you don't need to interact with DAML-LF directly. But inside the DAML SDK, it's used for:
+As a user, you don't need to interact with DAML-LF directly. But internally, it's used for:
 
 - Executing DAML code on the Sandbox or on another platform
 - Sending and receiving values via the Ledger API (using a protocol such as gRPC)

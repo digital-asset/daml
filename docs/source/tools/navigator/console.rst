@@ -123,13 +123,13 @@ There are lots of other things you can do with the Navigator Console.
 Installing and starting Navigator Console
 *****************************************
 
-Navigator Console is installed as part of the DAML SDK. See :doc:`/getting-started/installation` for instructions on how to install the DAML SDK.
+Navigator Console is installed as part of the SDK. See :doc:`/getting-started/installation` for instructions on how to install the SDK.
 
 If you want to use Navigator Console independent of the SDK, see the :ref:`navigator-console-advanced-usage` section.
 
 To run Navigator Console:
 
-1. Open a terminal window and navigate to your DAML SDK project folder.
+1. Open a terminal window and navigate to your SDK project folder.
 
 2. If the Sandbox isn't already running, run it with the command ``daml start``.
 
@@ -455,7 +455,7 @@ Using Navigator outside the SDK
 
 This section explains how to work with the Navigator if you have a project created outside of the normal SDK workflow and want to use the Navigator to inspect the ledger and interact with it.
 
-.. note:: If you are using the Navigator as part of the DAML SDK, you do not need to read this section.
+.. note:: If you are using the Navigator as part of the SDK, you do not need to read this section.
 
 The Navigator is released as a "fat" Java `.jar` file that bundles all required dependencies. This JAR is part of the SDK release and can be found using the SDK Assistant's ``path`` command::
 

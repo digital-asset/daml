@@ -9,7 +9,7 @@ DAML Studio is an integrated development environment (IDE) for DAML. It is an ex
 Installing
 **********
 
-DAML Studio is included in the :doc:`DAML SDK </getting-started/installation>`.
+DAML Studio is included in :doc:`the DAML Connect SDK </getting-started/installation>`.
 
 Creating your first DAML file
 *****************************

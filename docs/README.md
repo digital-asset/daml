@@ -1,4 +1,4 @@
-# DAML SDK documentation
+# DAML Documentation
 
 This directory contains all of the documentation that gets published to docs.daml.com.
 

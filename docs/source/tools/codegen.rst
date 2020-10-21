@@ -117,4 +117,4 @@ For **Java**, add the following **Maven** dependency::
 
 .. note::
 
-  Replace ``YOUR_SDK_VERSION`` with the version of your DAML SDK
+  Replace ``YOUR_SDK_VERSION`` with the version of your SDK

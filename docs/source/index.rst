@@ -1,8 +1,8 @@
 .. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML SDK documentation
-######################
+DAML Documentation
+##################
 
 .. toctree::
    :titlesonly:
@@ -66,7 +66,7 @@ DAML SDK documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: SDK tools
+   :caption: Developer Tools
 
    tools/assistant
    daml/daml-studio

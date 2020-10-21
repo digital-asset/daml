@@ -59,7 +59,7 @@ We recommend separating generated code and application code into different modul
 Generating Scala code
 =====================
 
-1) Install :doc:`the latest version of the DAML SDK </getting-started/installation>`.
+1) Install :doc:`the latest version of the SDK </getting-started/installation>`.
 
 2) Build a **DAR** file from a **DAML** model. Refer to :ref:`assistant-manual-building-dars` for more instructions.
 

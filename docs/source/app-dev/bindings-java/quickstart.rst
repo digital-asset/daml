@@ -6,7 +6,7 @@
 IOU Quickstart Tutorial
 #######################
 
-In this guide, you will learn about the SDK tools and DAML applications by:
+In this guide, you will learn about DAML Connect developer tools and DAML applications by:
 
 - developing a simple ledger application for issuing, managing, transferring and trading IOUs ("I Owe You!")
 - developing an integration layer that exposes some of the functionality via custom REST services
@@ -14,7 +14,7 @@ In this guide, you will learn about the SDK tools and DAML applications by:
 Prerequisites:
 
 - You understand what an IOU is. If you are not sure, read the :ref:`IOU tutorial overview<tutorials-iou-overview>`.
-- You have installed the DAML SDK. See :doc:`installation </getting-started/installation>`.
+- You have installed the SDK. See :doc:`installation </getting-started/installation>`.
 
 On this page:
 
@@ -473,7 +473,7 @@ Integrate with the ledger
 
 A distributed ledger only forms the core of a full DAML application.
 
-To build automations and integrations around the ledger, the SDK has :doc:`language bindings </app-dev/bindings-java/index>` for the Ledger API in several programming languages.
+To build automations and integrations around the ledger, DAML Connect has :doc:`language bindings </app-dev/bindings-java/index>` for the Ledger API in several programming languages.
 
 
 To compile the Java integration for the quickstart application, we first need to run the Java codegen on the DAR we built before::
