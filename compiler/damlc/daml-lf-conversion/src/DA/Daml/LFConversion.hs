@@ -776,18 +776,8 @@ convertBind env (name, x)
     | otherwise
     = withRange (convNameLoc name) $ do
     x' <- convertExpr env x
-    let sanitize = case idDetails name of
-          -- NOTE(MH): This is DICTIONARY SANITIZATION step (3).
-          -- NOTE (drsk): We only want to do the sanitization for non-newtypes. The sanitization
-          -- step 3 for newtypes is done in the convertCoercion function.
-          DFunId False ->
-              let fieldsPrism
-                    | envLfVersion env `supports` featureTypeSynonyms = _EStructCon
-                    | otherwise = _ERecCon . _2
-              in over (_ETyLams . _2 . _ETmLams . _2 . fieldsPrism . each . _2) (ETmLam (mkVar "_", TUnit))
-          _ -> id
     name' <- convValWithType env name
-    pure [defValue name name' (sanitize x')]
+    pure [defValue name name' x']
 
 -- NOTE(MH): These are the names of the builtin DAML-LF types whose Surface
 -- DAML counterpart is not defined in 'GHC.Types'. They are all defined in
