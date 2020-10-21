@@ -10,7 +10,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.collection.compat._
 import scala.collection.generic.CanBuildFrom
-import scala.collection.immutable.{IndexedSeq, LinearSeq}
+import scala.collection.immutable.{IndexedSeq, Iterable, LinearSeq}
 
 /** A variant of [[scalaz.CorecursiveList]] that emits a final state
   * at the end of the list.
@@ -64,58 +64,33 @@ private[trigger] object UnfoldState {
     }
 
   def flatMapConcat[T, A, B](zero: T)(f: (T, A) => UnfoldState[T, B]): Flow[A, B, NotUsed] =
-    Flow fromGraph (new AsFlow(zero, f))
+    Flow[A].statefulMapConcat { () =>
+      var t = zero
+      // statefulMapConcat only uses 'iterator'.  We preserve the Iterable's
+      // immutability by making one strict reference to the 't' var at creation
+      // time, meaning any later 'iterator' call uses the same start state, no matter
+      // whether the above 't' has been updated
+      a =>
+        new Iterable[B] {
+          private[this] val bs = f(t, a)
+          import bs.step
+          override def iterator = new Iterator[B] {
+            private[this] var last: T \/ (B, bs.S) = step(bs.init)
 
-  import akka.stream.FlowShape
-  import akka.stream.stage.GraphStage
+            override def hasNext() = last.isRight
 
-  private[this] class AsFlow[T, A, B](zero: T, f: (T, A) => UnfoldState[T, B])
-      extends GraphStage[FlowShape[A, B]] {
-    import akka.stream.{Attributes, Inlet, Outlet}
-    import akka.stream.stage.{GraphStageLogic, InHandler, OutHandler}
-
-    val in: Inlet[A] = Inlet("UnfoldState in")
-    val out: Outlet[B] = Outlet("UnfoldState out")
-    override val shape = FlowShape(in, out)
-
-    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
-      new GraphStageLogic(shape) {
-        private[this] var state: T \/ UnfoldState[T, B] = -\/(zero)
-
-        setHandler(
-          in,
-          new InHandler {
-            override def onPush() =
-              state fold ({ t =>
-                state = \/-(f(t, grab(in)))
-              // TODO push?
-              }, _ => throw new IllegalStateException("no buffer space for elements"))
-
-            override def onUpstreamFinish() = {
-              state fold (_ => (), { tbs =>
-                discard(tbs.foreach(push(out, _)))
-              })
-              complete(out)
-            }
-          }
-        )
-
-        setHandler(
-          out,
-          new OutHandler {
-            override def onPull() =
-              state fold (_ => pull(in), { tbs =>
-                tbs.step(tbs.init) fold ({ newT =>
-                  state = -\/(newT)
-                  pull(in)
-                }, {
+            override def next() =
+              last fold (
+                _ => throw new IllegalStateException("iterator read past end"), {
                   case (b, s) =>
-                    state = \/-(tbs withInit s)
-                    push(out, b)
-                })
-              })
+                    last = step(s)
+                    // The assumption here is that statefulMapConcat's implementation
+                    // will always read iterator to end before invoking on the next A
+                    last fold (newT => t = newT, _ => ())
+                    b
+                }
+              )
           }
-        )
-      }
-  }
+        }
+    }
 }
