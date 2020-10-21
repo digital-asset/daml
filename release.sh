@@ -93,8 +93,7 @@ fi
 
 commit_belongs_to_release_branch() {
     git branch --all --format='%(refname:short)' --contains="$1" \
-      | grep -E '^origin/(master$|release/)' \
-      > /dev/null
+      | grep -q -E '^origin/(master$|release/)'
 }
 
 new_snapshot () {
