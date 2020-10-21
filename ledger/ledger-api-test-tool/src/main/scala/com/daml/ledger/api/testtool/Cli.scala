@@ -202,6 +202,11 @@ object Cli {
       .action((interval, c) => c.copy(ledgerClockGranularityMs = interval))
       .text("Specify the largest interval in ms that you will see between clock ticks on the ledger under test.  The default is 10000ms")
 
+    opt[Unit]("skip-dar-upload")
+      .optional()
+      .action((_, c) => c.copy(uploadDars = false))
+      .text("Skip DARs upload into ledger before running tests")
+
     help("help").text("Prints this usage text")
 
   }

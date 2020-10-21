@@ -11,7 +11,10 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestCasesRunner._
 import com.daml.ledger.api.testtool.infrastructure.Result.Retired
-import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionManager
+import com.daml.ledger.api.testtool.infrastructure.participant.{
+  ParticipantSessionManager,
+  ParticipantTestContext
+}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.{Duration, DurationInt}
@@ -39,6 +42,7 @@ final class LedgerTestCasesRunner(
     identifierSuffix: String,
     suiteTimeoutScale: Double,
     concurrentTestRuns: Int,
+    uploadDars: Boolean,
 ) {
   private[this] val verifyRequirements: Try[Unit] =
     Try {
@@ -112,27 +116,33 @@ final class LedgerTestCasesRunner(
   ): Future[Either[Result.Failure, Result.Success]] =
     result(start(test, session))
 
+  private def uploadDarsIfRequired(participantSessionManager: ParticipantSessionManager)(
+      implicit ec: ExecutionContext): Future[Unit] =
+    if (uploadDars) {
+      def uploadDar(context: ParticipantTestContext, name: String): Future[Unit] = {
+        logger.info(s"""Uploading DAR "$name"...""")
+        context.uploadDarFile(Dars.read(name)).andThen {
+          case _ => logger.info(s"""Uploaded DAR "$name".""")
+        }
+      }
+
+      Future
+        .sequence(participantSessionManager.allSessions.map { session =>
+          for {
+            context <- session.createInitContext("upload-dars", identifierSuffix)
+            _ <- Future.sequence(Dars.resources.map(uploadDar(context, _)))
+          } yield ()
+        })
+        .map(_ => ())
+    } else {
+      Future.successful(logger.info("DAR files upload skipped."))
+    }
+
   private def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
 
     val system: ActorSystem = ActorSystem(classOf[LedgerTestCasesRunner].getSimpleName)
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = materializer.executionContext
-
-    def uploadDars(participantSessionManager: ParticipantSessionManager): Future[Unit] =
-      Future
-        .sequence(participantSessionManager.allSessions.map { session =>
-          for {
-            context <- session.createInitContext("upload-dars", identifierSuffix)
-            _ <- Future.sequence(Dars.resources.map { name =>
-              logger.info("Uploading DAR \"{}\"...", name)
-              context.uploadDarFile(Dars.read(name)).andThen {
-                case _ =>
-                  logger.info("Uploaded DAR \"{}\".", name)
-              }
-            })
-          } yield ()
-        })
-        .map(_ => ())
 
     def runTestCases(
         ledgerSession: LedgerSession,
@@ -156,7 +166,7 @@ final class LedgerTestCasesRunner(
         val ledgerSession = LedgerSession(participantSessionManager, config.shuffleParticipants)
         val testResults =
           for {
-            _ <- uploadDars(participantSessionManager)
+            _ <- uploadDarsIfRequired(participantSessionManager)
             concurrentTestResults <- runTestCases(
               ledgerSession,
               concurrentTestCases,
