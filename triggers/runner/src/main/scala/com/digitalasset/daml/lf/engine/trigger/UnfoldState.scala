@@ -1,6 +1,8 @@
 package com.daml.lf.engine.trigger
 
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, Bifunctor, \/, \/-}
+import scalaz.syntax.bifunctor._
+import scalaz.std.tuple._
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
 
@@ -49,6 +51,11 @@ private[trigger] object UnfoldState {
       override def withInit(init: S) = copy(init = init)
     }
     UnfoldStateImpl(init, step)
+  }
+
+  implicit def `US bifunctor instance`: Bifunctor[UnfoldState] = new Bifunctor[UnfoldState] {
+    override def bimap[A, B, C, D](fab: UnfoldState[A, B])(f: A => C, g: B => D) =
+      UnfoldState(fab.init)(fab.step andThen (_ bimap (f, (_ leftMap g))))
   }
 
   def fromLinearSeq[A](list: LinearSeq[A]): UnfoldState[Unit, A] =
