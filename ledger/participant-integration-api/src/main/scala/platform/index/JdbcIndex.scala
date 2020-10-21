@@ -7,11 +7,11 @@ import akka.stream.Materializer
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.resources.ResourceOwner
 
 private[platform] object JdbcIndex {
   def owner(

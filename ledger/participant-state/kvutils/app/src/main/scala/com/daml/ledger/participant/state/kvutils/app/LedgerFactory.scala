@@ -8,6 +8,7 @@ import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.participant.state.kvutils.api.{KeyValueLedger, KeyValueParticipantState}
 import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -18,7 +19,6 @@ import com.daml.platform.configuration.{
   PartyConfiguration
 }
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
-import com.daml.resources.ResourceOwner
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 

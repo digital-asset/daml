@@ -3,34 +3,31 @@
 
 package com.daml.lf.engine.script.test
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http.ServerBinding
-import akka.stream.Materializer
-import io.grpc.Channel
 import java.io.File
 import java.nio.file.Files
 
-import org.scalatest._
-
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration.DurationInt
-import scala.util.control.NonFatal
-import scalaz.{-\/, \/-}
-import scalaz.syntax.traverse._
-import spray.json._
+import akka.actor.ActorSystem
+import akka.http.scaladsl.Http.ServerBinding
+import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles._
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.http.HttpService
+import com.daml.jwt.domain.DecodedJwt
+import com.daml.jwt.{HMAC256Verifier, JwtSigner}
+import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.lf.archive.{Dar, DarReader}
-import com.daml.lf.archive.Decode
-import com.daml.lf.data.Ref._
-import com.daml.lf.engine.script.{
-  ApiParameters,
-  Participant,
-  Participants,
-  Runner,
-  ScriptLedgerClient,
-  ScriptTimeMode,
+import com.daml.ledger.api.testing.utils.{
+  OwnedResource,
+  SuiteResource,
+  SuiteResourceManagementAroundAll,
+  Resource => TestResource
 }
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.data.Ref._
+import com.daml.lf.engine.script._
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
@@ -38,26 +35,21 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.json.ApiCodecCompressed
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.http.HttpService
-import com.daml.jwt.{JwtSigner, HMAC256Verifier}
-import com.daml.jwt.domain.DecodedJwt
-import com.daml.ledger.api.domain.LedgerId
-import com.daml.ledger.api.testing.utils.{
-  OwnedResource,
-  SuiteResource,
-  SuiteResourceManagementAroundAll,
-  Resource => TestResource
-}
-import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
-import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.TestCommands
+import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
 import com.daml.ports.Port
-import com.daml.resources.{Resource, ResourceOwner}
+import io.grpc.Channel
+import org.scalatest._
+import scalaz.syntax.traverse._
+import scalaz.{-\/, \/-}
+import spray.json._
+
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, Future}
+import scala.util.control.NonFatal
 
 trait JsonApiFixture
     extends AbstractSandboxFixture
@@ -65,8 +57,11 @@ trait JsonApiFixture
   self: Suite =>
 
   override protected def darFile = new File(rlocation("daml-script/test/script-test.dar"))
+
   protected val darFileNoLedger = new File(rlocation("daml-script/test/script-test-no-ledger.dar"))
+
   protected def server: SandboxServer = suiteResource.value._1
+
   override protected def serverPort: Port = server.port
   override protected def channel: Channel = suiteResource.value._2
   override protected def config: SandboxConfig =
@@ -119,8 +114,8 @@ trait JsonApiFixture
 
   override protected lazy val suiteResource
     : TestResource[(SandboxServer, Channel, ServerBinding)] = {
-    implicit val ec: ExecutionContext = system.dispatcher
-    new OwnedResource[(SandboxServer, Channel, ServerBinding)](
+    implicit val context: ResourceContext = ResourceContext(system.dispatcher)
+    new OwnedResource[ResourceContext, (SandboxServer, Channel, ServerBinding)](
       for {
         jdbcUrl <- database
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(info =>
@@ -128,7 +123,7 @@ trait JsonApiFixture
         server <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(server.port)
         httpService <- new ResourceOwner[ServerBinding] {
-          override def acquire()(implicit ec: ExecutionContext): Resource[ServerBinding] = {
+          override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
             Resource[ServerBinding] {
               Files.write(jsonAccessTokenFile, getToken(List(), false).getBytes())
               val config = new HttpService.DefaultStartSettings {

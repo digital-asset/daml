@@ -786,11 +786,11 @@ private[lf] object SBuiltin {
   }
 
   /** $tproj[field] :: Struct -> a */
-  final case class SBStructProj(field: Ast.FieldName) extends SBuiltinPure(1) {
+  final case class SBStructProj(fieldIndex: Int) extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SStruct(fields, values) =>
-          values.get(fields.indexOf(field))
+        case SStruct(fields @ _, values) =>
+          values.get(fieldIndex)
         case v =>
           crash(s"StructProj on non-struct: $v")
       }
@@ -798,12 +798,12 @@ private[lf] object SBuiltin {
   }
 
   /** $tupd[field] :: Struct -> a -> Struct */
-  final case class SBStructUpd(field: Ast.FieldName) extends SBuiltinPure(2) {
+  final case class SBStructUpd(fieldIndex: Int) extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
         case SStruct(fields, values) =>
           val values2 = values.clone.asInstanceOf[util.ArrayList[SValue]]
-          values2.set(fields.indexOf(field), args.get(1))
+          values2.set(fieldIndex, args.get(1))
           SStruct(fields, values2)
         case v =>
           crash(s"StructUpd on non-struct: $v")

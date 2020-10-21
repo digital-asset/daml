@@ -16,7 +16,7 @@ import com.daml.ledger.client.LedgerClient
 import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with Matchers {
@@ -57,9 +57,11 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
     }
   }
 
-  protected def withLedger[A] =
+  protected def withLedger[A](testFn: LedgerClient => Future[A]): Future[A] =
     HttpServiceTestFixture
-      .withLedger[A](List(dar), testId, Option(publicToken), mockedAuthService) _
+      .withLedger[A](List(dar), testId, Option(publicToken), authService = mockedAuthService) {
+        case (_, client) => testFn(client)
+      }
 
   private def packageService(client: LedgerClient): PackageService =
     new PackageService(HttpService.loadPackageStoreUpdates(client.packageClient, tokenHolder))

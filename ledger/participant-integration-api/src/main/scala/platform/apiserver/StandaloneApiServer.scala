@@ -16,6 +16,7 @@ import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService, WriteService}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.Engine
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
@@ -30,12 +31,10 @@ import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
-import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.{BindableService, ServerInterceptor}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable
-import scala.concurrent.ExecutionContext
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
@@ -62,7 +61,7 @@ final class StandaloneApiServer(
   // Name of this participant,
   val participantId: ParticipantId = config.participantId
 
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServer] = {
+  override def acquire()(implicit context: ResourceContext): Resource[ApiServer] = {
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
 

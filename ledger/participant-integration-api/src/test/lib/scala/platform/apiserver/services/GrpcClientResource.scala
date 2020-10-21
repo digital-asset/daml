@@ -6,14 +6,14 @@ package com.daml.platform.apiserver.services
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.TimeUnit
 
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.platform.apiserver.EventLoopGroupOwner
 import com.daml.ports.Port
-import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
 import io.netty.channel.EventLoopGroup
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 object GrpcClientResource {
   def owner(port: Port): ResourceOwner[Channel] =
@@ -28,7 +28,7 @@ object GrpcClientResource {
       eventLoopGroup: EventLoopGroup,
   ): ResourceOwner[Channel] =
     new ResourceOwner[Channel] {
-      override def acquire()(implicit executionContext: ExecutionContext): Resource[Channel] = {
+      override def acquire()(implicit context: ResourceContext): Resource[Channel] = {
         Resource(Future {
           NettyChannelBuilder
             .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, port.value))

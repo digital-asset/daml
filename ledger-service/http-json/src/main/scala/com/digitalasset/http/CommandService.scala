@@ -142,7 +142,7 @@ class CommandService(
       jwtPayload.ledgerId,
       jwtPayload.applicationId,
       commandId,
-      jwtPayload.party,
+      jwtPayload.actAs,
       command
     )
   }

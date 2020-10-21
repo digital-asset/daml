@@ -456,8 +456,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
             observers Cons @Party ['Alice'] (Nil @Party),
             agreement "Agreement",
             choices {
-              choice Sleep (self) (u:Unit) : ContractId Mod:Person by Cons @Party [person] (Nil @Party) to upure @(ContractId Mod:Person) self,
-              choice @nonConsuming Nap (self) (i : Int64): Int64 by Cons @Party [person] (Nil @Party) to upure @Int64 i
+              choice Sleep (self) (u:Unit) : ContractId Mod:Person , controllers Cons @Party [person] (Nil @Party) to upure @(ContractId Mod:Person) self,
+              choice @nonConsuming Nap (self) (i : Int64): Int64 , controllers Cons @Party [person] (Nil @Party) to upure @Int64 i
             },
             key @Party (Mod:Person {name} this) (\ (p: Party) -> p)
           } ;
@@ -588,7 +588,6 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
     "create",
     "fetch",
     "exercise",
-    "by",
     "to",
   )
 

@@ -18,11 +18,11 @@ import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.postgres.implicits._
-import doobie.util.log
+import doobie.util.{Get, log}
 import doobie.{Fragment, Put, Transactor}
 import scalaz.Tag
-
 import java.io.{Closeable, IOException}
+
 import javax.sql.DataSource
 
 import scala.concurrent.ExecutionContext
@@ -71,7 +71,12 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   implicit val partyPut: Put[Party] = Tag.subst(implicitly[Put[String]])
 
+  implicit val partyGet: Get[Party] = Tag.subst(implicitly[Get[String]])
+
   implicit val identifierPut: Put[Identifier] = implicitly[Put[String]].contramap(_.toString)
+
+  implicit val identifierGet: Get[Identifier] =
+    implicitly[Get[String]].map(Identifier.assertFromString(_))
 
   private implicit val logHandler: log.LogHandler = log.LogHandler.jdkLogHandler
 
@@ -92,6 +97,21 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
         insert into running_triggers values (${t.triggerInstance}, ${t.triggerParty}, ${t.triggerName})
       """
     insert.update.run.void
+  }
+
+  private def queryRunningTrigger(triggerInstance: UUID): ConnectionIO[Option[RunningTrigger]] = {
+    val select: Fragment = sql"""
+        select (trigger_instance, trigger_name, trigger_party) from running_triggers
+        where trigger_instance = $triggerInstance
+      """
+    select
+      .query[(UUID, Identifier, Party)]
+      .map {
+        case (instance, name, party) =>
+          // TODO[AH] use query.to[RunningTrigger] once the token is persisted.
+          RunningTrigger(instance, name, party, None)
+      }
+      .option
   }
 
   // trigger_instance is the primary key on running_triggers so this deletes
@@ -173,6 +193,9 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   override def addRunningTrigger(t: RunningTrigger): Either[String, Unit] =
     run(insertRunningTrigger(t))
+
+  override def getRunningTrigger(triggerInstance: UUID): Either[String, Option[RunningTrigger]] =
+    run(queryRunningTrigger(triggerInstance))
 
   override def removeRunningTrigger(triggerInstance: UUID): Either[String, Boolean] =
     run(deleteRunningTrigger(triggerInstance))

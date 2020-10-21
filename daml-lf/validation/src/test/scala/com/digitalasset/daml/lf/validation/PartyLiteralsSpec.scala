@@ -39,7 +39,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party [party] (Nil @Party),
                 agreement "Agreement",
                 choices {
-                  choice Ch (self) (i : Unit) : Unit by party to
+                  choice Ch (self) (i : Unit) : Unit, controllers party to
                     upure @Unit ()
                 }
             } ;
@@ -63,7 +63,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party [party] (Nil @Party),
                 agreement "Agreement",
                 choices {
-                  choice Ch (self) (i : Mod:R): Unit by party to
+                  choice Ch (self) (i : Mod:R): Unit, controllers party to
                     upure @Unit ()
                 }
             } ;
@@ -77,7 +77,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party [party] (Nil @Party),
                 agreement "Agreement",
                 choices {
-                  choice Ch (self) (i : Mod:R): Unit by party to
+                  choice Ch (self) (i : Mod:R): Unit, controllers party to
                     upure @Unit ()
                 }
             } ;
@@ -91,7 +91,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party ['Alice'] (Nil @Party),    // disallowed party literal 'Alice'
                 agreement "Agreement",
                 choices {
-                  choice Ch (self) (i : Mod:R): Unit by 'Alice' to
+                  choice Ch (self) (i : Mod:R): Unit, controllers 'Alice' to
                     upure @Unit ()
                 }
             } ;
@@ -105,7 +105,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                   observers Cons @Party [party] (Nil @Party),
                   agreement TO_TEXT_PARTY 'Alice',               // disallowed party literal 'Alice'
                   choices {
-                    choice Ch (self) (i : Mod:R): Unit by 'Alice' to
+                    choice Ch (self) (i : Mod:R): Unit, controllers 'Alice' to
                       upure @Unit ()
                   }
               } ;
@@ -119,7 +119,7 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
                 observers Cons @Party [party] (Nil @Party),
                 agreement "Agreement",
                 choices {
-                  choice Ch (self) (i : Mod:R): Party by party to
+                  choice Ch (self) (i : Mod:R): Party, controllers party to
                      upure @Party 'Alice'                        // disallowed party literal 'Alice'
                 }
             } ;

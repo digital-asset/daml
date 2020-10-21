@@ -6,28 +6,32 @@ package com.daml.resources
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.resources.ResettableResourceOwner.Reset
+import com.daml.resources.{Resource => AbstractResource}
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.mutable
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContext, Future}
 import scala.ref.WeakReference
 
 class ResettableResourceOwnerSpec extends AsyncWordSpec with AsyncTimeLimitedTests with Matchers {
 
   override def timeLimit: Span = 10.seconds
 
+  private implicit val context: TestContext = new TestContext(executionContext)
+
+  private type Resource[+T] = AbstractResource[TestContext, T]
+  private val Resource = new ResourceFactories[TestContext]
+
   "resetting a resource" should {
     "reconstruct everything" in {
       val acquisitionCounter = new AtomicInteger(0)
       val releaseCounter = new AtomicInteger(0)
       val owner = ResettableResourceOwner(reset =>
-        new ResourceOwner[(Reset, Int)] {
-          override def acquire()(
-              implicit executionContext: ExecutionContext
-          ): Resource[(Reset, Int)] =
+        new AbstractResourceOwner[TestContext, (Reset, Int)] {
+          override def acquire()(implicit context: TestContext): Resource[(Reset, Int)] =
             Resource(Future.successful((reset, acquisitionCounter.incrementAndGet()))) { _ =>
               releaseCounter.incrementAndGet()
               Future.unit
@@ -75,10 +79,8 @@ class ResettableResourceOwnerSpec extends AsyncWordSpec with AsyncTimeLimitedTes
       val acquisitionCounter = new AtomicInteger(0)
       val releaseCounter = new AtomicInteger(0)
       val owner = ResettableResourceOwner(reset =>
-        new ResourceOwner[(Reset, Int)] {
-          override def acquire()(
-              implicit executionContext: ExecutionContext
-          ): Resource[(Reset, Int)] =
+        new AbstractResourceOwner[TestContext, (Reset, Int)] {
+          override def acquire()(implicit context: TestContext): Resource[(Reset, Int)] =
             Resource(Future.successful((reset, acquisitionCounter.incrementAndGet()))) { _ =>
               releaseCounter.incrementAndGet()
               Future.unit
@@ -101,14 +103,12 @@ class ResettableResourceOwnerSpec extends AsyncWordSpec with AsyncTimeLimitedTes
       val releaseCounter = new AtomicInteger(0)
       val resetCounter = new AtomicInteger(0)
       val resetOperationInputs = mutable.Buffer[Int]()
-      val owner = ResettableResourceOwner[(Reset, Int), Unit](
+      val owner = ResettableResourceOwner[TestContext, (Reset, Int), Unit](
         initialValue = {},
         owner = reset =>
           _ =>
-            new ResourceOwner[(Reset, Int)] {
-              override def acquire()(
-                  implicit executionContext: ExecutionContext
-              ): Resource[(Reset, Int)] =
+            new AbstractResourceOwner[TestContext, (Reset, Int)] {
+              override def acquire()(implicit context: TestContext): Resource[(Reset, Int)] =
                 Resource(Future.successful((reset, acquisitionCounter.incrementAndGet()))) { _ =>
                   releaseCounter.incrementAndGet()
                   Future.unit
@@ -147,14 +147,12 @@ class ResettableResourceOwnerSpec extends AsyncWordSpec with AsyncTimeLimitedTes
     }
 
     "pass reset operation values through" in {
-      val owner = ResettableResourceOwner[(Reset, Int), Int](
+      val owner = ResettableResourceOwner[TestContext, (Reset, Int), Int](
         initialValue = 0,
         owner = reset =>
           value =>
-            new ResourceOwner[(Reset, Int)] {
-              override def acquire()(
-                  implicit executionContext: ExecutionContext
-              ): Resource[(Reset, Int)] = {
+            new AbstractResourceOwner[TestContext, (Reset, Int)] {
+              override def acquire()(implicit context: TestContext): Resource[(Reset, Int)] = {
                 Resource.fromFuture(Future.successful((reset, value + 1)))
               }
         },
@@ -183,10 +181,8 @@ class ResettableResourceOwnerSpec extends AsyncWordSpec with AsyncTimeLimitedTes
     "not hold on to old values" in {
       val acquisitions = mutable.Buffer[WeakReference[Object]]()
       val owner = ResettableResourceOwner(reset =>
-        new ResourceOwner[(Reset, Object)] {
-          override def acquire()(
-              implicit executionContext: ExecutionContext
-          ): Resource[(Reset, Object)] = {
+        new AbstractResourceOwner[TestContext, (Reset, Object)] {
+          override def acquire()(implicit context: TestContext): Resource[(Reset, Object)] = {
             val obj = new Object
             acquisitions += new WeakReference(obj)
             Resource.fromFuture(Future.successful((reset, obj)))

@@ -4,7 +4,7 @@
 package com.daml.ledger.on.memory
 
 import com.daml.ledger.participant.state.kvutils.app.{Config, Runner}
-import com.daml.resources.ResourceOwner
+import com.daml.ledger.resources.ResourceOwner
 
 object Owner {
   // Utily if you want to spin this up as a library.

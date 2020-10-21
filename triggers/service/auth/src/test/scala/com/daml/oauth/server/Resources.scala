@@ -5,19 +5,17 @@ package com.daml.oauth.server
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
-import com.daml.resources.{Resource, ResourceOwner}
-
-import scala.concurrent.ExecutionContext
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 
 object Resources {
   def authServer(config: Config)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
-      override def acquire()(implicit executionContext: ExecutionContext): Resource[ServerBinding] =
+      override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
         Resource(Server.start(config))(_.unbind().map(_ => ()))
     }
   def authClient(config: Client.Config)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
-      override def acquire()(implicit ec: ExecutionContext): Resource[ServerBinding] =
+      override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
         Resource(Client.start(config))(_.unbind().map(_ => ()))
     }
 }

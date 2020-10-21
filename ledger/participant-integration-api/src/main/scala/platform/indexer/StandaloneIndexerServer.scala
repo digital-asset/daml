@@ -5,13 +5,11 @@ package com.daml.platform.indexer
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.v1.ReadService
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.resources.{Resource, ResourceOwner}
-
-import scala.concurrent.ExecutionContext
 
 final class StandaloneIndexerServer(
     readService: ReadService,
@@ -23,7 +21,7 @@ final class StandaloneIndexerServer(
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
+  override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
     val indexerFactory = new JdbcIndexer.Factory(
       ServerRole.Indexer,
       config,
@@ -62,7 +60,7 @@ final class StandaloneIndexerServer(
   private def startIndexer(
       indexer: RecoveringIndexer,
       initializedIndexerFactory: ResourceOwner[JdbcIndexer],
-  )(implicit executionContext: ExecutionContext): Resource[Unit] =
+  )(implicit context: ResourceContext): Resource[Unit] =
     indexer
       .start(() => initializedIndexerFactory.flatMap(_.subscription(readService)).acquire())
       .map(_ => ())

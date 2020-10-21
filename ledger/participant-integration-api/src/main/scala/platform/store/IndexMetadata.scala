@@ -7,6 +7,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
@@ -20,7 +21,8 @@ import scala.concurrent.{ExecutionContext, Future}
 object IndexMetadata {
 
   def read(jdbcUrl: String)(
-      implicit executionContext: ExecutionContext,
+      implicit resourceContext: ResourceContext,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[IndexMetadata] =
     ownDao(jdbcUrl).use { dao =>

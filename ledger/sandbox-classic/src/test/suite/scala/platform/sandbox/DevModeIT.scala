@@ -15,19 +15,17 @@ import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.resources.TestResourceContext
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.ports.Port
 import com.google.protobuf
+import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.util.{Failure, Success}
 
-class DevModeIT
-    extends org.scalatest.AsyncWordSpec
-    with org.scalatest.Matchers
-    with SandboxFixture {
-
+class DevModeIT extends AsyncWordSpec with Matchers with TestResourceContext with SandboxFixture {
   private[this] implicit val esf: ExecutionSequencerFactory =
     new SingleThreadExecutionSequencerPool("testSequencerPool")
 

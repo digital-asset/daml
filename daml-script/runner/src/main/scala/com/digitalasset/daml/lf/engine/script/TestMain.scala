@@ -11,6 +11,7 @@ import akka.stream.Materializer
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
@@ -58,7 +59,8 @@ object TestMain extends StrictLogging {
         implicit val sequencer: ExecutionSequencerFactory =
           new AkkaExecutionSequencerPool("ScriptTestPool")(system)
         implicit val materializer: Materializer = Materializer(system)
-        implicit val ec: ExecutionContext = system.dispatcher
+        implicit val executionContext: ExecutionContext = system.dispatcher
+        implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
         val (participantParams, participantCleanup) = config.participantConfig match {
           case Some(file) =>

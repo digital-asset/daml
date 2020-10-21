@@ -3,8 +3,8 @@
 
 package com.daml.ledger.on
 
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.resources.ResourceOwner
 
 package object memory {
   type Index = Int

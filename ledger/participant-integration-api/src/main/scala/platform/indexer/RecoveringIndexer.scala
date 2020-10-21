@@ -10,8 +10,8 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.actor.Scheduler
 import akka.pattern.after
 import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.resources.Resource
 
 import scala.concurrent.duration.{Duration, DurationLong, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -28,6 +28,7 @@ private[indexer] final class RecoveringIndexer(
     restartDelay: FiniteDuration,
 )(implicit loggingContext: LoggingContext) {
   private implicit val executionContext: ExecutionContext = DirectExecutionContext
+  private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private val logger = ContextualizedLogger.get(this.getClass)
   private val clock = Clock.systemUTC()
 
