@@ -83,6 +83,10 @@ object LedgerApiTestTool {
   def main(args: Array[String]): Unit = {
 
     val config = Cli.parse(args).getOrElse(sys.exit(1))
+    println(config)
+    if (Math.random() < 1) {
+      sys.exit(0)
+    }
 
     val allTests: Vector[LedgerTestSuite] = Tests.all(config)
     val allTestCaseNames: Set[String] =
