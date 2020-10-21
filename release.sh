@@ -92,15 +92,9 @@ if [ -z "${1+x}" ]; then
 fi
 
 commit_belongs_to_release_branch() {
-    local sha branches
-    sha=$1
-    branches="$(git branch --contains $sha --format='%(refname:short)')"
-    for branch in $branches; do
-        if [ "$branch" = "master" ] || [ "${branch:0:8}" = "release/" ]; then
-            return 0
-        fi
-    done
-    return 1
+    git branch --all --format='%(refname:short)' --contains="$1" \
+      | grep -E '^origin/(master$|release/)' \
+      > /dev/null
 }
 
 new_snapshot () {
