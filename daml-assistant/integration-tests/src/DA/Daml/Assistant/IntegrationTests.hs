@@ -9,8 +9,8 @@ import Control.Exception.Extra
 import Control.Monad
 import qualified Data.Aeson as Aeson
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
-import Data.List.Extra
 import qualified Data.HashMap.Strict as HashMap
+import Data.List.Extra
 import qualified Data.Map as Map
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
@@ -31,9 +31,11 @@ import Test.Tasty.HUnit
 import qualified Web.JWT as JWT
 
 import DA.Bazel.Runfiles
-import DA.Daml.Assistant.FreePort (getFreePort,socketHints)
+import DA.Daml.Assistant.FreePort (getFreePort, socketHints)
 import DA.Daml.Assistant.IntegrationTestUtils
-import DA.Daml.Helper.Util (waitForHttpServer,waitForConnectionOnPort)
+import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer)
+import DA.Ledger.Services.PartyManagementService (PartyDetails(..))
+import DA.Ledger.Types (Party(..))
 import DA.PortFile
 import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent)
@@ -402,9 +404,11 @@ packagingTests = testGroup "packaging"
                           }
                 writeFileUTF8 (tmpDir </> "token.txt") $ T.unpack token
                 let headers =
-                      [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
-                      ] :: RequestHeaders
-                waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
+                      [("Authorization", "Bearer " <> T.encodeUtf8 token)] :: RequestHeaders
+                waitForHttpServer
+                  (threadDelay 100000)
+                  ("http://localhost:" <> show jsonApiPort <> "/v1/query")
+                  headers
                 callCommand $
                   unwords
                     [ "daml"
@@ -414,17 +418,21 @@ packagingTests = testGroup "packaging"
                     , show sandboxPort
                     , "alice"
                     ]
-                callCommand $
-                  unwords
-                    [ "daml"
-                    , "ledger"
-                    , "list-parties"
-                    , "--json-api"
-                    , "--port"
-                    , show jsonApiPort
-                    , "--access-token-file"
-                    , "token.txt"
-                    ]
+                out <-
+                  readCreateProcess
+                    (shell $
+                     unwords
+                       [ "daml"
+                       , "ledger"
+                       , "list-parties"
+                       , "--json-api"
+                       , "--port"
+                       , show jsonApiPort
+                       , "--access-token-file"
+                       , "token.txt"
+                       ])
+                    ""
+                lines out !! 1 @?= (show $ PartyDetails (Party "alice") "alice" True)
                 -- waitForProcess' will block on Windows so we explicitly kill the process.
                 terminateProcess startPh
       , testCase "daml start invokes codegen" $ withTempDir $ \tmpDir -> do
