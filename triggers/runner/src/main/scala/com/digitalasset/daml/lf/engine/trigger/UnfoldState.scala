@@ -77,6 +77,10 @@ private[trigger] object UnfoldState {
           override def iterator = new Iterator[B] {
             private[this] var last: T \/ (B, bs.S) = step(bs.init)
 
+            // this stream is "odd", i.e. we are always evaluating 1 step ahead
+            // of what the client sees.  We could improve laziness by making it
+            // "even", but it would be a little trickier, as `hasNext` would have
+            // a forcing side-effect
             override def hasNext() = last.isRight
 
             override def next() =
