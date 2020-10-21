@@ -139,6 +139,7 @@ da_haskell_test(
         "jwt",
         "network",
         "process",
+        "safe",
         "tar",
         "tar-conduit",
         "tasty",

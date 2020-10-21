@@ -19,6 +19,7 @@ import Data.Typeable (Typeable)
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket
+import Safe
 import System.Directory.Extra
 import System.Environment.Blank
 import System.Exit
@@ -432,7 +433,7 @@ packagingTests = testGroup "packaging"
                        , "token.txt"
                        ])
                     ""
-                lines out !! 1 @?= (show $ PartyDetails (Party "alice") "alice" True)
+                lines out `atMay` 1 @?= Just (show $ PartyDetails (Party "alice") "alice" True)
                 -- waitForProcess' will block on Windows so we explicitly kill the process.
                 terminateProcess startPh
       , testCase "daml start invokes codegen" $ withTempDir $ \tmpDir -> do
