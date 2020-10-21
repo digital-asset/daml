@@ -17,7 +17,7 @@ DAML Documentation
    :hidden:
    :caption: Getting started
 
-   Installing DAML Connect <getting-started/installation>
+   Installing the SDK <getting-started/installation>
    Building Your App <getting-started/index>
    getting-started/app-architecture
    getting-started/first-feature

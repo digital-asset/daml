@@ -11,7 +11,7 @@ Getting started
    :titlesonly:
    :maxdepth: 2
 
-   Installing DAML Connect <getting-started/installation>
+   Installing the SDK <getting-started/installation>
    Building Your App <getting-started/index>
    getting-started/testing
 
