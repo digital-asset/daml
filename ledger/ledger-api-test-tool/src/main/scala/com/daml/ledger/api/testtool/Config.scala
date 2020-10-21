@@ -50,7 +50,7 @@ object Config {
     listTestSuites = false,
     shuffleParticipants = false,
     partyAllocation = PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants,
-    ledgerClockGranularity = 10.seconds,
+    ledgerClockGranularity = 1.second,
     uploadDars = true,
   )
 }

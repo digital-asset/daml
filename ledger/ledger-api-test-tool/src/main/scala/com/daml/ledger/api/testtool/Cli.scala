@@ -202,7 +202,7 @@ object Cli {
     opt[Duration]("ledger-clock-granularity")
       .optional()
       .action((x, c) => c.copy(ledgerClockGranularity = x))
-      .text("Specify the largest interval that you will see between clock ticks on the ledger under test. The default is \"10s\" (10 seconds).")
+      .text("Specify the largest interval that you will see between clock ticks on the ledger under test. The default is \"1s\" (1 second).")
 
     opt[Unit]("skip-dar-upload")
       .optional()
