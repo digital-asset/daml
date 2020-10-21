@@ -453,7 +453,7 @@ generateSrcFromLf env = noLoc mod
                     , cid_sigs = []
                     , cid_tyfam_insts = []
                     , cid_datafam_insts = []
-                    , cid_overlap_mode = Nothing
+                    , cid_overlap_mode = getOverlapMode (fst dvalBinder)
                     }
       where
         -- Split a DefValue's name, into the lexical part and the numeric part
@@ -470,6 +470,21 @@ generateSrcFromLf env = noLoc mod
             let name = LF.unExprValName (fst (LF.dvalBinder dval))
                 (intR,tagR) = T.span isDigit (T.reverse name)
             in (T.reverse tagR, readMay (T.unpack (T.reverse intR)))
+
+        getOverlapMode :: LF.ExprValName -> Maybe (Located OverlapMode)
+        getOverlapMode (LF.ExprValName name) = do
+            dval <- NM.lookup (overlapModeName name) (LF.moduleValues (envMod env))
+            LF.EBuiltin (LF.BEText mode) <- Just (LF.dvalBody dval)
+            modeFn <- MS.lookup mode overlapModeFns
+            Just (noLoc (modeFn NoSourceText))
+
+        overlapModeFns :: MS.Map T.Text (SourceText -> OverlapMode)
+        overlapModeFns = MS.fromList
+            [ ("OVERLAPPING", Overlapping)
+            , ("OVERLAPPABLE", Overlappable)
+            , ("OVERLAPS", Overlaps)
+            , ("INCOHERENT", Incoherent)
+            ]
 
     hiddenRefMap :: HMS.HashMap Ref Bool
     hiddenRefMap = envHiddenRefMap env
@@ -1118,6 +1133,9 @@ defaultMethodName name = LF.ExprValName ("$dm" <> name)
 
 funDepName :: T.Text -> LF.ExprValName
 funDepName x = LF.ExprValName ("$$fd" <> x)
+
+overlapModeName :: T.Text -> LF.ExprValName
+overlapModeName x = LF.ExprValName ("$$om" <> x)
 
 -- | Signature data for a dictionary function.
 data DFunSig = DFunSig

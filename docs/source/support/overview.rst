@@ -48,7 +48,6 @@ Runtime Components
 
 Runtime components are standalone components that run alongside Participant Nodes or Applications and expose additional services like query endpoints, automations, or integrations. Each Runtime Component has public APIs, which are covered in :doc:`component-statuses`. Typically there is a command line interface, and one or more "Runtime APIs" as indicated in the above diagram.
 
-
 Libraries
 .........
 
@@ -57,9 +56,9 @@ Libraries naturally provide public APIs in their target language, be it DAML, or
 Generated Code
 ..............
 
-The developer tools in the SDK allow the generation of code for some languages from a DAML Model. This generated code has public APIs, but is not independently versioned, but depends on the SDK version and source of the generated code, like a DAML package. In this case, the version of the SDK used covers changes to the public API of the generated code.
+The SDK allows the generation of code for some languages from a DAML Model. This generated code has public APIs, which are not independently versioned, but depend on the DAML Connect version and source of the generated code, like a DAML package. In this case, the version of the DAML Connect SDK used covers changes to the public API of the generated code.
 
-SDK
-...
+Developer Tools / SDK
+.....................
 
 The SDK consists of the developer tools used to develop user code, both DAML and in secondary languages, to generate code, and to interact with running applications via Runtime, and Ledger API. The SDK has a broad public API covering the DAML Language, CLIs, IDE, and Developer tools, but few of those APIs are intended for runtime use in a production environment. Exceptions to that are called out on :doc:`component-statuses`.

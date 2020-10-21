@@ -66,14 +66,15 @@ object NodeInfo {
     def signatories: Set[Party]
     def stakeholders: Set[Party]
     def actingParties: Set[Party]
+    def choiceObservers: Set[Party]
 
     final def requiredAuthorizers(): Set[Party] = actingParties
 
     final def informeesOfNode: Set[Party] =
       if (consuming)
-        stakeholders | actingParties
+        stakeholders | actingParties | choiceObservers
       else
-        signatories | actingParties
+        signatories | actingParties | choiceObservers
   }
 
   trait LookupByKey extends NodeInfo {

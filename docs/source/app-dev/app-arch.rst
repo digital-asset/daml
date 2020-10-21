@@ -108,7 +108,7 @@ form of the required tokens is described in the :ref:`Authorization <authorizati
 Developer workflow
 ~~~~~~~~~~~~~~~~~~
 
-The DAML SDK enables a local development environment with fast iteration cycles. If you run
+DAML Connect enables a local development environment with fast iteration cycles. If you run
 ``daml-reload-on-change.sh`` of the ``create-daml-app``, a local DAML sandbox ledger is started that
 is updated with your most recent DAML code on any change. Next, you can start your frontend in
 development mode by changing to your ``ui`` directory and run ``npm start``. This will reload your

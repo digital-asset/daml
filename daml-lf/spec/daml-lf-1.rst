@@ -4163,6 +4163,12 @@ The type checker will reject any DAML-LF < 1.2 program that tries to access
 the choice argument in a controller expression.
 
 
+Choice observers
+................
+
+  FIXME: https://github.com/digital-asset/daml/issues/7709
+
+
 Validation
 ~~~~~~~~~~
 

@@ -187,21 +187,22 @@ in rec {
     # System tools
     shellcheck = pkgs.shellcheck;
     curl = bazel_dependencies.curl;
-    findutils = pkgs.findutils;
 
     patch = pkgs.patch;
     wget = pkgs.wget;
     grpcurl = pkgs.grpcurl;
 
     # String mangling tooling.
-    jq   = bazel_dependencies.jq;
-    gawk = bazel_dependencies.gawk;
-    sed = pkgs.gnused;
     base64 = pkgs.coreutils;
-    sha1sum = pkgs.coreutils;
-    xmlstarlet = pkgs.xmlstarlet;
-    grep = pkgs.gnugrep;
     bc = pkgs.bc;
+    find = pkgs.findutils;
+    gawk = bazel_dependencies.gawk;
+    grep = pkgs.gnugrep;
+    jq = bazel_dependencies.jq;
+    sed = pkgs.gnused;
+    sha1sum = pkgs.coreutils;
+    xargs = pkgs.findutils;
+    xmlstarlet = pkgs.xmlstarlet;
 
     # Cryptography tooling
     gnupg = pkgs.gnupg;

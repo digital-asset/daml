@@ -6,7 +6,7 @@ Navigator
 
 The Navigator is a front-end that you can use to connect to any DAML Ledger and inspect and modify the ledger. You can use it during DAML development to explore the flow and implications of the DAML models.
 
-The first sections of this guide cover use of the Navigator with the DAML SDK. Refer to :ref:`navigator-manual-advanced-usage` for information on using Navigator outside the context of the SDK.
+The first sections of this guide cover use of the Navigator with the SDK. Refer to :ref:`navigator-manual-advanced-usage` for information on using Navigator outside the context of the SDK.
 
 Navigator functionality
 ***********************
@@ -21,9 +21,9 @@ Connect Navigator to any DAML Ledger and use it to:
 Installing and starting Navigator
 *********************************
 
-Navigator ships with the DAML SDK. To launch it:
+Navigator ships with the SDK. To launch it:
 
-1. Start Navigator via a terminal window running :doc:`SDK Assistant </tools/assistant>` by typing ``daml start``
+1. Start Navigator via a terminal window running :doc:`DAML Assistant </tools/assistant>` by typing ``daml start``
 
 2. The Navigator web-app is automatically started in your browser. If it fails to start,
    open a browser window and point it to the Navigator URL

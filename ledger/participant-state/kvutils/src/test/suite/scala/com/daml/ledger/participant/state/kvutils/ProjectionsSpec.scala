@@ -48,6 +48,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
       chosenValue = ValueText("foo"),
       stakeholders = stakeholders,
       signatories = signatories,
+      choiceObservers = Set.empty,
       children = ImmArray.empty,
       exerciseResult = None,
       key = None,

@@ -52,6 +52,8 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
 
+import com.daml.oauth.middleware.Request.Claims
+
 import scala.collection.concurrent.TrieMap
 
 class Server(
@@ -266,6 +268,25 @@ class Server(
         }
     }
 
+  // This directive requires authorization for the party of the given running trigger via the auth middleware, if configured.
+  // If no auth middleware is configured, then the request will proceed without attempting authorization.
+  // If the trigger does not exist, then the request will also proceed without attempting authorization.
+  private def authorizeForTrigger(uuid: UUID, readOnly: Boolean = false)(
+      implicit ec: ExecutionContext,
+      system: ActorSystem): Directive1[Option[String]] =
+    authConfig match {
+      case NoAuth => provide(None)
+      case AuthMiddleware(_) =>
+        triggerDao.getRunningTrigger(uuid) match {
+          case Left(err) => complete(errorResponse(StatusCodes.InternalServerError, err))
+          case Right(None) => provide(None)
+          case Right(Some(trigger)) =>
+            val parties = List(trigger.triggerParty)
+            val claims = if (readOnly) Claims(readAs = parties) else Claims(actAs = parties)
+            authorize(claims)
+        }
+    }
+
   private def authCallback(requestId: UUID): Route =
     authCallbacks.remove(requestId) match {
       case None => complete(StatusCodes.NotFound)
@@ -337,31 +358,39 @@ class Server(
         // List triggers currently running for the given party.
         path("v1" / "list") {
           entity(as[ListParams]) { params =>
-            listTriggers(params.party) match {
-              case Left(err) =>
-                complete(errorResponse(StatusCodes.InternalServerError, err))
-              case Right(triggerInstances) => complete(successResponse(triggerInstances))
+            val claims = Claims(readAs = List(params.party))
+            authorize(claims)(ec, system) { _ =>
+              listTriggers(params.party) match {
+                case Left(err) =>
+                  complete(errorResponse(StatusCodes.InternalServerError, err))
+                case Right(triggerInstances) => complete(successResponse(triggerInstances))
+              }
             }
           }
         },
         // Produce logs for the given trigger.
         pathPrefix("v1" / "status" / JavaUUID) { uuid =>
-          complete(successResponse(JsObject(("logs", getTriggerStatus(uuid).toJson))))
+          authorizeForTrigger(uuid, readOnly = true)(ec, system) { _ =>
+            complete(successResponse(JsObject(("logs", getTriggerStatus(uuid).toJson))))
+          }
         }
       )
     },
     // Stop a trigger given its UUID
     delete {
-      pathPrefix("v1" / "stop" / JavaUUID) { uuid =>
-        stopTrigger(uuid) match {
-          case Left(err) =>
-            complete(errorResponse(StatusCodes.InternalServerError, err))
-          case Right(None) =>
-            val err = s"No trigger running with id $uuid"
-            complete(errorResponse(StatusCodes.NotFound, err))
-          case Right(Some(stoppedTriggerId)) =>
-            complete(successResponse(stoppedTriggerId))
-        }
+      pathPrefix("v1" / "stop" / JavaUUID) {
+        uuid =>
+          authorizeForTrigger(uuid)(ec, system) { _ =>
+            stopTrigger(uuid) match {
+              case Left(err) =>
+                complete(errorResponse(StatusCodes.InternalServerError, err))
+              case Right(None) =>
+                val err = s"No trigger running with id $uuid"
+                complete(errorResponse(StatusCodes.NotFound, err))
+              case Right(Some(stoppedTriggerId)) =>
+                complete(successResponse(stoppedTriggerId))
+            }
+          }
       }
     },
     // Authorization callback endpoint

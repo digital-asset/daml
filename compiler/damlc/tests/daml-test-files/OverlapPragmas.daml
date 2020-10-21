@@ -1,0 +1,21 @@
+
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- This test checks that we produce annotations in LF for the various overlap modes.
+
+-- @QUERY-LF [ .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["$$fFooOptional0"]) ] | length == 1
+-- @QUERY-LF [ .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["$$$$om$$fFooOptional0"]) ] == []
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["$$$$om$$fFooOptional"]) | .expr.prim_lit | lf::get_text($pkg) == "OVERLAPPING"
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["$$$$om$$fFoof"]) | .expr.prim_lit | lf::get_text($pkg) == "OVERLAPPABLE"
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["$$$$om$$fFoox"]) | .expr.prim_lit | lf::get_text($pkg) == "OVERLAPS"
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["$$$$om$$fFooBool"]) | .expr.prim_lit | lf::get_text($pkg) == "INCOHERENT"
+
+module OverlapPragmas where
+
+class Foo t where foo : t -> Int
+instance Foo (Optional t) where foo _ = 1
+instance {-# OVERLAPPING #-} Foo (Optional Int) where foo _ = 2
+instance {-# OVERLAPPABLE #-} Foo (f t) where foo _ = 3
+instance {-# OVERLAPS #-} Foo x where foo _ = 4
+instance {-# INCOHERENT #-} Foo Bool where foo _ = 5

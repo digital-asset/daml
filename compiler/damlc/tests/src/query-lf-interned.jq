@@ -15,3 +15,5 @@ def get_dotted_name(pkg): .name_interned_dname | resolve_interned_dname(pkg);
 def get_field(pkg): .field_interned_str | resolve_interned_string(pkg);
 
 def get_name(pkg): .name_interned_str | resolve_interned_string(pkg);
+
+def get_text(pkg): .text_interned_str | resolve_interned_string(pkg);

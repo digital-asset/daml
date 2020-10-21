@@ -25,7 +25,7 @@ In your terminal, navigate to the root ``create-daml-app`` directory and run::
   daml studio
 
 This should open the Visual Studio Code editor at the root of the project.
-(You may get a new tab pop up with release notes for the latest SDK - just close this.)
+(You may get a new tab pop up with release notes for the latest version of DAML Connect - just close this.)
 Using the file *Explorer* on the left sidebar, navigate to the ``daml`` folder and double-click on the ``User.daml`` file.
 
 The DAML code defines the *data* and *workflow* of the application.
@@ -86,7 +86,7 @@ The user interface for our app is written in `TypeScript <https://www.typescript
 TypeScript is a variant of JavaScript that provides more support during development through its type system.
 
 In order to build an application on top of DAML, we need a way to refer to our DAML templates and choices in TypeScript.
-We do this using a DAML to TypeScript code generation tool in the DAML SDK.
+We do this using a DAML to TypeScript code generation tool in the SDK.
 
 To run code generation, we first need to compile the DAML model to an archive format (a ``.dar`` file).
 The ``daml codegen js`` command then takes this file as argument to produce a number of TypeScript packages in the output folder.

@@ -43,6 +43,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_tpolecat_doobie_core_2_12",
         "@maven//:org_tpolecat_doobie_free_2_12",
         "@maven//:org_typelevel_cats_core_2_12",

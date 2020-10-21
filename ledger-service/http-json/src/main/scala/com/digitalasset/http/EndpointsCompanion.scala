@@ -5,13 +5,13 @@ package com.daml.http
 
 import akka.http.scaladsl.model._
 import akka.util.ByteString
-import com.daml.http.domain.{JwtWritePayload, JwtPayload}
+import com.daml.http.domain.{JwtPayload, JwtWritePayload}
 import com.daml.http.json.SprayJson
 import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import scalaz.syntax.std.option._
-import scalaz.{-\/, Show, \/}
+import scalaz.{-\/, Show, \/, \/-}
 import spray.json.JsValue
 
 import scala.concurrent.Future
@@ -61,13 +61,16 @@ object EndpointsCompanion {
                     Unauthorized("ledgerId missing in access token"))
                   applicationId <- payload.applicationId.toRightDisjunction(
                     Unauthorized("applicationId missing in access token"))
-                  party <- payload.party.toRightDisjunction(
-                    Unauthorized("party missing or not unique in access token"))
+                  actAs <- payload.actAs match {
+                    case p :: Nil => \/-(p)
+                    case ps => -\/(Unauthorized(s"Expected exactly one party in actAs but got $ps"))
+                  }
                 } yield
                   JwtWritePayload(
                     lar.LedgerId(ledgerId),
                     lar.ApplicationId(applicationId),
-                    lar.Party(party)
+                    lar.Party(actAs),
+                    payload.readAs.map(lar.Party(_))
                 )
             )
         }

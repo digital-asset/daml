@@ -57,9 +57,10 @@ _PRSelfModule modName = prism (Qualified PRSelf modName) $ \case
   q -> Left q
 
 templateChoiceExpr :: Traversal' TemplateChoice Expr
-templateChoiceExpr f (TemplateChoice loc name consuming actor selfBinder argBinder typ update) =
+templateChoiceExpr f (TemplateChoice loc name consuming controllers observers selfBinder argBinder typ update) =
   TemplateChoice loc name consuming
-  <$> f actor
+  <$> f controllers
+  <*> traverse f observers
   <*> pure selfBinder
   <*> pure argBinder
   <*> pure typ
