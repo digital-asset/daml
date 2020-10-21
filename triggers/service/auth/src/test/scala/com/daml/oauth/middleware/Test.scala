@@ -25,7 +25,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       .withScheme("http")
       .withAuthority(middlewareBinding.getHostString, middlewareBinding.getPort)
   }
-  private def makeToken(claims: Request.Claims): OAuthResponse.Token = {
+  private def makeToken(claims: Request.Claims, secret: String = "secret"): OAuthResponse.Token = {
     val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
     val jwtPayload = AuthServiceJWTPayload(
       ledgerId = Some("test-ledger"),
@@ -38,7 +38,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     )
     OAuthResponse.Token(
       accessToken = JwtSigner.HMAC256
-        .sign(DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(jwtPayload)), "secret")
+        .sign(DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(jwtPayload)), secret)
         .getOrElse(
           throw new IllegalArgumentException("Failed to sign a token")
         )
@@ -90,6 +90,22 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
           .withPath(Path./("auth"))
           .withQuery(
             Query(("claims", Request.Claims(actAs = List(ApiTypes.Party("Bob"))).toQueryString))),
+        headers = List(cookieHeader)
+      )
+      for {
+        resp <- Http().singleRequest(req)
+      } yield {
+        assert(resp.status == StatusCodes.Unauthorized)
+      }
+    }
+    "return unauthorized on an invalid token" in {
+      val claims = Request.Claims(actAs = List(ApiTypes.Party("Alice")))
+      val token = makeToken(claims, "wrong-secret")
+      val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
+      val req = HttpRequest(
+        uri = middlewareUri
+          .withPath(Path./("auth"))
+          .withQuery(Query(("claims", claims.toQueryString))),
         headers = List(cookieHeader)
       )
       for {
