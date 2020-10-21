@@ -111,7 +111,7 @@ run dade-copyright-headers "$dade_copyright_arg" .
 # to get linting failures early.
 if [ "$hlint_diff" = "true" ]; then
   #  We do not run on deleted files, or files that have been added since we last rebased onto trunk.
-  changed_haskell_files="$(git diff --name-only --diff-filter=d "$(git merge-base origin/master HEAD)" | grep '\.hs$' || [[ $? == 1 ]])"
+  changed_haskell_files="$(git diff --name-only --diff-filter=ACMRT "$(git merge-base origin/master HEAD)" | grep '\.hs$' || [[ $? == 1 ]])"
   if [[ -n "$changed_haskell_files" ]]; then
     hlint -j4 $changed_haskell_files
   fi
