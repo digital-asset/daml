@@ -1,7 +1,11 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE RankNTypes #-}
+
 module DA.Daml.Helper.Ledger (
     LedgerFlags(..),
+    LedgerApi(..),
     L.ClientSSLConfig(..),
     L.ClientSSLKeyCertPair(..),
     L.TimeoutSeconds,
@@ -11,20 +15,27 @@ module DA.Daml.Helper.Ledger (
     runLedgerAllocateParties,
     runLedgerUploadDar,
     runLedgerFetchDar,
-    runLedgerNavigator
+    runLedgerNavigator,
     ) where
 
-import Control.Exception.Safe (SomeException,Exception,catch,throw)
+import Control.Exception.Safe (Exception,SomeException,catch,throw)
 import Control.Monad.Extra hiding (fromMaybeM)
-import DA.Ledger (LedgerService,PartyDetails(..),Party(..),Token)
-import Data.Aeson
-import Data.Aeson.Text
-import Data.List.Extra as List
+import DA.Ledger (LedgerService,Party(..),PartyDetails(..),Token)
 import qualified DA.Ledger as L
+import Data.Aeson ((.=))
+import qualified Data.Aeson as A
+import Data.Aeson.Text
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BSC
+import Data.List.Extra as List
+import Data.String (IsString)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
+import Data.Maybe
+import GHC.Generics
+import Network.HTTP.Simple
+import Network.HTTP.Types (statusCode)
 import System.Environment
 import System.Exit
 import System.FilePath
@@ -32,13 +43,19 @@ import System.IO.Extra
 import System.Process.Typed
 
 import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.Compiler.Fetch (LedgerArgs(..),runWithLedgerArgs, fetchDar)
+import DA.Daml.Compiler.Fetch (LedgerArgs(..),runWithLedgerArgs,fetchDar)
 
 import DA.Daml.Helper.Util
 import DA.Daml.Project.Util (fromMaybeM)
 
+data LedgerApi
+  = Grpc
+  | HttpJson
+  deriving (Show, Eq)
+
 data LedgerFlags = LedgerFlags
-  { hostM :: Maybe String
+  { api :: LedgerApi
+  , hostM :: Maybe String
   , portM :: Maybe Int
   , tokFileM :: Maybe FilePath
   , sslConfigM :: Maybe L.ClientSSLConfig
@@ -82,10 +99,10 @@ runLedgerListParties :: LedgerFlags -> JsonFlag -> IO ()
 runLedgerListParties flags (JsonFlag json) = do
     hp <- getHostAndPortDefaults flags
     unless json . putStrLn $ "Listing parties at " <> show hp
-    xs <- listParties hp
+    xs <- listParties (api flags) hp
     if json then do
-        TL.putStrLn . encodeToLazyText . toJSON $
-            [ object
+        TL.putStrLn . encodeToLazyText . A.toJSON $
+            [ A.object
                 [ "party" .= TL.toStrict (unParty party)
                 , "display_name" .= TL.toStrict displayName
                 , "is_local" .= isLocal
@@ -151,12 +168,15 @@ runLedgerFetchDar flags pidString saveAs = do
 run :: LedgerArgs -> LedgerService a -> IO a
 run = runWithLedgerArgs
 
-listParties :: LedgerArgs -> IO [PartyDetails]
-listParties hp = run hp L.listKnownParties
+listParties :: LedgerApi -> LedgerArgs -> IO [PartyDetails]
+listParties api la =
+  case api of
+    Grpc -> run la L.listKnownParties
+    HttpJson -> listPartiesJson la
 
 lookupParty :: LedgerArgs -> String -> IO (Maybe Party)
 lookupParty hp name = do
-    xs <- listParties hp
+    xs <- listParties Grpc hp
     let text = TL.pack name
     let pred PartyDetails{displayName,party} = if text == displayName then Just party else Nothing
     return $ List.firstJust pred xs
@@ -182,7 +202,7 @@ runLedgerNavigator flags remainingArguments = do
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "navigator-logback.xml")
     hostAndPort <- getHostAndPortDefaults flags
     putStrLn $ "Opening navigator at " <> show hostAndPort
-    partyDetails <- listParties hostAndPort
+    partyDetails <- listParties Grpc hostAndPort
 
     withTempDir $ \confDir -> do
         let navigatorConfPath = confDir </> "ui-backend.conf"
@@ -216,3 +236,54 @@ runLedgerNavigator flags remainingArguments = do
           ]
         , ["  }"]
         ]
+
+----------------
+-- HTTP JSON API
+----------------
+
+newtype Method = Method
+  { unMethod :: BS.ByteString
+  } deriving IsString
+
+newtype Path = Path
+  { unPath :: BS.ByteString
+  } deriving IsString
+
+-- | Run a request against the HTTP JSON API.
+httpJsonRequest :: A.FromJSON a => LedgerArgs -> Method -> Path -> IO (Response a)
+httpJsonRequest LedgerArgs {sslConfigM,tokM,port,host} method path = do
+  when (isJust sslConfigM) $
+    fail "The HTTP JSON API doesn't support TLS requests, but a TLS flag was set."
+  resp <-
+    httpJSON $
+    setRequestPort port $
+    setRequestHost (BSC.pack host) $
+    setRequestMethod (unMethod method) $
+    setRequestPath (unPath path) $
+    setRequestHeader
+      "authorization"
+      [BSC.pack $ sanitizeToken tok | Just (L.Token tok) <- [tokM]]
+      defaultRequest
+  let status = getResponseStatus resp
+  unless (statusCode status == 200) $
+    fail $ "Request failed with error code " <> show status
+  pure resp
+
+-- This matches how the com.daml.ledger.api.auth.client.LedgerCallCredentials
+-- behaves.
+sanitizeToken :: String -> String
+sanitizeToken tok
+  | "Bearer " `isPrefixOf` tok = tok
+  | otherwise = "Bearer " <> tok
+
+listPartiesJson :: LedgerArgs -> IO [PartyDetails]
+listPartiesJson args = do
+  body <- getResponseBody <$> httpJsonRequest args "GET" "/v1/parties"
+  pure $ result body
+
+data HttpJsonResponseBody = HttpJsonResponseBody
+  { status :: Int
+  , result :: [PartyDetails]
+  } deriving (Generic)
+
+instance A.FromJSON HttpJsonResponseBody

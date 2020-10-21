@@ -58,6 +58,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
 
     ) where
 
+import qualified Data.Aeson as A
 import Data.Fixed
 import Data.Int (Int64)
 import Data.Map (Map)
@@ -281,5 +282,7 @@ newtype Choice = Choice { unChoice :: Text } deriving (Eq,Ord,Show)
 
 newtype Party = Party { unParty :: Text } deriving (Eq,Ord)
 instance Show Party where show p = "'" <> Text.unpack (unParty p) <> "'"
+instance A.FromJSON Party where
+  parseJSON v = Party <$> A.parseJSON v
 
 newtype Verbosity = Verbosity { unVerbosity :: Bool } deriving (Eq,Ord,Show)
