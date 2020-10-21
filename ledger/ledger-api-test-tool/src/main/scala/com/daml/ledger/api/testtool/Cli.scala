@@ -9,8 +9,10 @@ import java.nio.file.{Path, Paths}
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.ledger.api.tls.TlsConfiguration
-import scopt.Read.{intRead, stringRead}
 import scopt.{OptionParser, Read}
+
+import scala.concurrent.duration.{Duration, DurationInt}
+import scala.util.Try
 
 object Cli {
 
@@ -26,7 +28,7 @@ object Cli {
     val arity = 2
     val reads: String => (String, Int) = { s: String =>
       splitAddress(s) match {
-        case (k, v) => stringRead.reads(k) -> intRead.reads(v)
+        case (k, v) => Read.stringRead.reads(k) -> Read.intRead.reads(v)
       }
     }
   }
@@ -194,13 +196,16 @@ object Cli {
 
     opt[Unit]("version")
       .optional()
-      .action((_, _) => { println(BuildInfo.Version); sys.exit(0) })
+      .action((_, _) => {
+        println(BuildInfo.Version); sys.exit(0)
+      })
       .text("Prints the version on stdout and exit.")
 
-    opt[Int]("ledger-clock-granularity")
+    opt[Duration]("ledger-clock-granularity")(
+      oneOfRead(Read.durationRead, Read.intRead.map(_.millis)))
       .optional()
-      .action((interval, c) => c.copy(ledgerClockGranularityMs = interval))
-      .text("Specify the largest interval in ms that you will see between clock ticks on the ledger under test.  The default is 10000ms")
+      .action((x, c) => c.copy(ledgerClockGranularity = x))
+      .text("Specify the largest interval that you will see between clock ticks on the ledger under test. The default is \"1s\" (1 second).")
 
     opt[Unit]("skip-dar-upload")
       .optional()
@@ -213,4 +218,13 @@ object Cli {
 
   def parse(args: Array[String]): Option[Config] =
     argParser.parse(args, Config.default)
+
+  private def oneOfRead[T](readersHead: Read[T], readersTail: Read[T]*): Read[T] = Read.reads {
+    str =>
+      val results = (readersHead #:: Stream(readersTail: _*)).map(reader => Try(reader.reads(str)))
+      results.find(_.isSuccess) match {
+        case Some(value) => value.get
+        case None => results.head.get // throw the first failure
+      }
+  }
 }
