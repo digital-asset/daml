@@ -14,7 +14,7 @@ import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMatchers with Inside {
+final class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMatchers with Inside {
 
   "RetryStrategy.constant" should {
     "try a number of times, with a constant delay" in {
@@ -131,7 +131,7 @@ object RetryStrategySpec {
     final class AroundDurationMatcher(expectedDuration: Duration) extends Matcher[time.Duration] {
       def apply(left: time.Duration): MatchResult = {
         val actual = left.toMillis
-        val lowerBound = expectedDuration.toMillis - 5 // Delays can sometimes be too fast.
+        val lowerBound = expectedDuration.toMillis - 20 // Delays can sometimes be too fast.
         val upperBound = expectedDuration.toMillis * 10 // Tests can run slowly in parallel.
         val result = actual >= lowerBound && actual < upperBound
         MatchResult(
