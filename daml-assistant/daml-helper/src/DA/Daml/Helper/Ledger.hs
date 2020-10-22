@@ -30,8 +30,7 @@ import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
 import Data.Maybe
-import Data.String (IsString)
-import Data.String (fromString)
+import Data.String (IsString, fromString)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
@@ -65,7 +64,7 @@ data LedgerFlags = LedgerFlags
   , fSslConfigM :: Maybe L.ClientSSLConfig
   , fTimeout :: L.TimeoutSeconds
   -----------------------------------------
-  -- The following values get defaults by
+  -- The following values get defaults from the project config by
   -- running `getDefaultArgs`
   , fHostM :: Maybe String
   , fPortM :: Maybe Int
@@ -363,7 +362,7 @@ runWithLedgerArgs LedgerArgs{host,port,tokM,timeout, sslConfigM} ls = do
             L.configOfHostAndPort
                 (L.Host $ fromString host)
                 (L.Port port)
-                (sslConfigM)
+                sslConfigM
     L.runLedgerService ls' timeout ledgerClientConfig
 
 --
