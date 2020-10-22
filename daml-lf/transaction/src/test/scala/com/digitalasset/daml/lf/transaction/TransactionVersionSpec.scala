@@ -76,8 +76,8 @@ class TransactionVersionSpec extends WordSpec with Matchers with TableDrivenProp
         Table(
           "supported Versions",
           VersionRange(TransactionVersion("10"), TransactionVersion("10")),
-          VersionRange(TransactionVersion("10"), TransactionVersion("11")),
-          VersionRange(TransactionVersion("11"), TransactionVersion("11")),
+          VersionRange(TransactionVersion("10"), TransactionVersion("dev")),
+          VersionRange(TransactionVersion("dev"), TransactionVersion("dev")),
         )
 
       forEvery(supportedVersionRanges) { supportedTxVersions =>
@@ -95,12 +95,12 @@ class TransactionVersionSpec extends WordSpec with Matchers with TableDrivenProp
       val supportedVersionRanges =
         Table(
           "supported Versions",
-          VersionRange(TransactionVersion("10"), TransactionVersion("11")),
-          VersionRange(TransactionVersion("11"), TransactionVersion("11")),
+          VersionRange(TransactionVersion("10"), TransactionVersion("dev")),
+          VersionRange(TransactionVersion("dev"), TransactionVersion("dev")),
         )
 
       forEvery(supportedVersionRanges) { supportedTxVersions =>
-        val expectedTxVersion = TransactionVersion("11")
+        val expectedTxVersion = TransactionVersion("dev")
         val expectedOutput = Right(expectedTxVersion)
 
         TransactionVersions.assignVersions(supportedTxVersions, Seq(v1_dev)) shouldBe expectedOutput
@@ -129,7 +129,7 @@ class TransactionVersionSpec extends WordSpec with Matchers with TableDrivenProp
       val testCases = Table(
         "input" -> "output",
         TransactionVersion("10") -> ValueVersion("6"),
-        TransactionVersion("11") -> ValueVersion("7")
+        TransactionVersion("dev") -> ValueVersion("dev")
       )
 
       forEvery(testCases) { (input, expectedOutput) =>
