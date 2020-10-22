@@ -525,6 +525,7 @@ jobs:
 
   - job: compat_versions_pr
     dependsOn:
+    - git_sha
     - release
     - check_for_release
     pool:
@@ -532,6 +533,7 @@ jobs:
       demands: assignment -equals default
     variables:
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     steps:
     - checkout: self
       persistCredentials: true
@@ -562,6 +564,7 @@ jobs:
 
         AUTH="$(get_gh_auth_header)"
 
+        trap "git checkout $(branch_sha)" EXIT
         git checkout origin/master
         BRANCH=update-compat-versions-for-$(release_tag)
         # if this is a rerun, branch might already exist
