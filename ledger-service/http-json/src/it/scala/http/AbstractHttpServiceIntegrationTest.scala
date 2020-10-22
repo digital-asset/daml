@@ -288,23 +288,6 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       .valueOr(e => fail(e.shows))
   }
 
-  protected def getResult(output: JsValue): JsValue = getChild(output, "result")
-
-  protected def getWarnings(output: JsValue): JsValue = getChild(output, "warnings")
-
-  protected def getChild(output: JsValue, field: String): JsValue = {
-    def errorMsg = s"Expected JsObject with '$field' field, got: $output"
-    output
-      .asJsObject(errorMsg)
-      .fields
-      .getOrElse(field, fail(errorMsg))
-  }
-
-  protected def getContractId(result: JsValue): domain.ContractId =
-    inside(result.asJsObject.fields.get("contractId")) {
-      case Some(JsString(contractId)) => domain.ContractId(contractId)
-    }
-
   protected def asContractId(a: JsValue): domain.ContractId = inside(a) {
     case JsString(x) => domain.ContractId(x)
   }

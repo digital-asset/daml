@@ -29,7 +29,7 @@ class WebsocketServiceOffsetTickIntTest
   override def wsConfig: Option[WebsocketConfig] =
     Some(Config.DefaultWsConfig.copy(heartBeatPer = 0.second))
 
-  import WebsocketServiceIntegrationTest._
+  import WebsocketTestFixture._
 
   "Given empty ACS, JSON API should emit only offset ticks" in withHttpService { (uri, _, _) =>
     for {
