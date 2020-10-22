@@ -5,6 +5,7 @@ package com.daml.oauth.middleware
 
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
+import com.daml.jwt.HMAC256Verifier
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   OwnedResource,
@@ -40,7 +41,8 @@ trait TestFixture extends AkkaBeforeAndAfterAll with SuiteResource[(ServerBindin
             oauthAuth = serverUri.withPath(Uri.Path./("authorize")),
             oauthToken = serverUri.withPath(Uri.Path./("token")),
             clientId = "middleware",
-            clientSecret = "middleware-secret"
+            clientSecret = "middleware-secret",
+            tokenVerifier = HMAC256Verifier(jwtSecret).toOption.get,
           ))
       } yield { (server, client) }
     )
