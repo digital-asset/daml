@@ -19,6 +19,8 @@ module DA.Date
   , datetime
   , toDateUTC
   , passToDate
+  , daysSinceEpochToDate
+  , dateToDaysSinceEpoch
   ) where
 
 import DA.Text (implode)

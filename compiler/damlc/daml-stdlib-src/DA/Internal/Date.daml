@@ -10,12 +10,12 @@ import DA.Internal.Prelude
 import DA.Internal.LF
 import GHC.Types (primitive)
 
--- | HIDE Convert from number of days since epoch (i.e. the number of days since
+-- | Convert from number of days since epoch (i.e. the number of days since
 -- January 1, 1970) to a date.
 daysSinceEpochToDate : Int -> Date
 daysSinceEpochToDate = primitive @"BEUnixDaysToDate"
 
--- | HIDE Convert from a date to number of days from epoch (i.e. the number of days
+-- | Convert from a date to number of days from epoch (i.e. the number of days
 -- since January 1, 1970).
 dateToDaysSinceEpoch : Date -> Int
 dateToDaysSinceEpoch = primitive @"BEDateToUnixDays"
