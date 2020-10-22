@@ -287,8 +287,8 @@ downloadPackage args pid = do
     convPid (LF.PackageId text) = L.PackageId $ TL.fromStrict text
 
 listParties :: LedgerArgs -> IO [PartyDetails]
-listParties args@LedgerArgs {api} =
-  case api of
+listParties args =
+  case api args of
     Grpc -> runWithLedgerArgs args L.listKnownParties
     HttpJson -> httpJsonRequest args "GET" "/v1/parties"
 
