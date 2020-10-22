@@ -87,6 +87,18 @@ instance IsOption LfVersionOpt where
   optionName = Tagged "daml-lf-version"
   optionHelp = Tagged "DAML-LF version to test"
 
+newtype SkipValidationOpt = SkipValidationOpt Bool
+  deriving (Eq)
+
+instance IsOption SkipValidationOpt where
+  defaultValue = SkipValidationOpt False
+  -- Tasty seems to force the value somewhere so we cannot just set this
+  -- to `error`. However, this will always be set.
+  parseValue = fmap SkipValidationOpt . safeReadBool
+  optionName = Tagged "skip-validation"
+  optionHelp = Tagged "Skip package validation in scenario service (true|false)"
+
+
 main :: IO ()
 main = do
  let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"] }
@@ -108,7 +120,11 @@ main = do
     todos <- readIORef todoRef
     putStr (unlines (DList.toList todos)))
   where ingredients =
-          includingOptions [Option (Proxy :: Proxy PackageDb), Option (Proxy @LfVersionOpt)] :
+          includingOptions
+            [ Option (Proxy @PackageDb)
+            , Option (Proxy @LfVersionOpt)
+            , Option (Proxy @SkipValidationOpt)
+            ] :
           defaultIngredients
 
 parseRenderRangeTest :: TestTree
@@ -161,11 +177,12 @@ getIntegrationTests registerTODO scenarioService = do
     vfs <- makeVFSHandle
     -- We use a separate service for generated files so that we can test files containing internal imports.
     let tree :: TestTree
-        tree = askOption $ \(LfVersionOpt version) ->
+        tree = askOption $ \(LfVersionOpt version) -> askOption $ \(SkipValidationOpt skipValidation) ->
           let opts = (defaultOptions (Just version))
                 { optThreads = 0
                 , optCoreLinting = True
                 , optDlintUsage = DlintEnabled dlintDataDir False
+                , optSkipScenarioValidation = SkipScenarioValidation skipValidation
                 }
           in
           withResource (mkDamlEnv opts (Just scenarioService)) (\_damlEnv -> pure ()) $ \getDamlEnv ->
