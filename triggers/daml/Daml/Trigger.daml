@@ -92,6 +92,15 @@ queryContractKey : forall a k m. (Template a, HasKey a k, Eq k, ActionTriggerAny
     => k -> m (Optional (ContractId a, a))
 queryContractKey k = find (\(_, a) -> k == key a) <$> query
 
+-- | Features possible in `initialize`, `updateState`, and `rule`.
+class ActionTriggerAny m where
+  -- | Extract the contracts of a given template from the ACS.  (However, the
+  -- type parameters are in the 'm a' order, so it is not exported.)
+  implQuery : forall a. Template a => m [(ContractId a, a)]
+
+  -- | Find the contract with the given `id` in the ACS, if present.
+  queryContractId : Template a => ContractId a -> m (Optional a)
+
 instance ActionTriggerAny (TriggerA s) where
   implQuery = TriggerA $ pure . getContracts
   queryContractId id = TriggerA $ pure . getContractById id
