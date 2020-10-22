@@ -44,13 +44,10 @@ instance Enum Date where
     toEnum n = daysSinceEpochToDate (n - 719162)
     fromEnum d = 719162 + dateToDaysSinceEpoch d
     enumFrom     x   = enumFromTo     x maxBound
-    enumFromThen x y = enumFromThenTo x y bound
-        where
-            bound | fromEnum y >= fromEnum x = maxBound
-                  | otherwise                = minBound
+    enumFromThen x y = enumFromThenTo x y (if y >= x then maxBound else minBound)
   
 instance Bounded Date where
-    minBound = toEnum 0
+    minBound = date 1 Jan 1
     maxBound = date 9999 Dec 31
 
 -- | Add the given number of days to a date.

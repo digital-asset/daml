@@ -36,8 +36,8 @@
 -- @INFO range=319:13-319:20; Evaluate
 -- @ERROR range=386:1-386:17; Day 29 falls outside of valid day range (1 .. 28) for Feb 2100.
 -- @ERROR range=390:1-390:18; Day 0 falls outside of valid day range (1 .. 31) for Jan 2000.
--- @ERROR range=402:1-402:21; Could not convert Int64 -719163 to Date.
--- @ERROR range=405:1-405:21; Could not convert Int64 2932897 to Date.
+-- @ERROR range=405:1-405:21; Could not convert Int64 -719163 to Date.
+-- @ERROR range=408:1-408:21; Could not convert Int64 2932897 to Date.
 
 module PreludeTest where
 
@@ -393,14 +393,14 @@ testDateUnderflow = scenario do
 testDateRange = scenario do
     length [date 2019 Jan 1 .. date 2020 Dec 31] === 731
     [date 1 Jan 6, date 1 Jan 4 ..] === [date 1 Jan 6, date 1 Jan 4, date 1 Jan 2]
-    [date 9999 Dec 24, date 9998 Dec 27 ..] === [date 9999 Dec 24, date 9999 Dec 27, date 9999 30]
+    [date 9999 Dec 24, date 9998 Dec 27 ..] === [date 9999 Dec 24, date 9999 Dec 27, date 9999 Dec 31]
     [date 9999 Dec 30 ..] === [date 9999 Dec 30, date 9999 Dec 21]
 
-testDateMinBound : Scenario Date = do
-    fromEnum minBound === 0
+testDateMinBound = scenario do
+    fromEnum (minBound : Date) === 0
 
-testDateMaxBound : Scenario Date =  do
-    fromEnum maxBound === <whatever the right number is>
+testDateMaxBound = scenario do
+    fromEnum (maxBound : Date) === 3652058
 
 testDateMinBoundPred : Scenario Date = do
     return (pred minBound)
