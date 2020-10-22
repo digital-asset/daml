@@ -41,14 +41,18 @@ deriving instance Enum Month
 deriving instance Bounded Month
 
 instance Enum Date where
-    toEnum n = daysSinceEpochToDate (n - 719162)
-    fromEnum d = 719162 + dateToDaysSinceEpoch d
+    toEnum n = daysSinceEpochToDate (n + fromEnumOffset)
+    fromEnum d = dateToDaysSinceEpoch d - fromEnumOffset
     enumFrom     x   = enumFromTo     x maxBound
     enumFromThen x y = enumFromThenTo x y (if y >= x then maxBound else minBound)
   
 instance Bounded Date where
     minBound = date 1 Jan 1
     maxBound = date 9999 Dec 31
+
+-- | Hide the nummber of days between unix epoch and minBound
+fromEnumOffset : Int
+fromEnumOffset = dateToDaysSinceEpoch minBound
 
 -- | Add the given number of days to a date.
 addDays : Date -> Int -> Date
