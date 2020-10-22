@@ -77,7 +77,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           coid = create2,
           templateId = someTemplateId,
           optLocation = None,
-          actingParties = Some(Set(bob)),
+          actingParties = Set(bob),
           signatories = Set(bob),
           stakeholders = Set(bob),
           key = Some(

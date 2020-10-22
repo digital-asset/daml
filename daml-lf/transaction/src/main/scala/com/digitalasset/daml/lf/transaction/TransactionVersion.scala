@@ -24,14 +24,7 @@ private[lf] object TransactionVersions
   import VersionTimeline._
   import VersionTimeline.Implicits._
 
-  private[transaction] val minVersion = TransactionVersion("1")
-  private[transaction] val minKeyOrLookupByKey = TransactionVersion("3")
-  private[transaction] val minFetchActors = TransactionVersion("5")
-  private[transaction] val minNoControllers = TransactionVersion("6")
-  private[transaction] val minExerciseResult = TransactionVersion("7")
-  private[transaction] val minContractKeyInExercise = TransactionVersion("8")
-  private[transaction] val minMaintainersInExercise = TransactionVersion("9")
-  private[transaction] val minContractKeyInFetch = TransactionVersion("10")
+  private[transaction] val minVersion = TransactionVersion("10")
   private[transaction] val minChoiceObservers = TransactionVersion("dev")
 
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220

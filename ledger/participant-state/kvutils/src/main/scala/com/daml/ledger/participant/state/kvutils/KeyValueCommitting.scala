@@ -18,7 +18,7 @@ import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
+import com.daml.lf.transaction.TransactionOuterClass
 import com.daml.lf.value.ValueOuterClass
 import com.daml.metrics.Metrics
 import org.slf4j.LoggerFactory
@@ -210,9 +210,6 @@ object KeyValueCommitting {
       transactionEntry: DamlTransactionEntry
   ): Set[DamlStateKey] = {
     val transaction = transactionEntry.getTransaction
-    val transactionVersion = TransactionCoder
-      .decodeVersion(transaction.getVersion)
-      .fold(err => throw Err.InvalidSubmission(err.errorMessage), identity)
     transaction.getNodesList.asScala.flatMap { node: TransactionOuterClass.Node =>
       node.getNodeTypeCase match {
         case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
@@ -226,8 +223,6 @@ object KeyValueCommitting {
 
           Conversions
             .contractIdStructOrStringToStateKey(
-              transactionVersion,
-              create.getContractId,
               create.getContractIdStruct,
             ) :: contractKeyStateKeyOrEmpty
 
@@ -241,8 +236,6 @@ object KeyValueCommitting {
 
           Conversions
             .contractIdStructOrStringToStateKey(
-              transactionVersion,
-              exe.getContractId,
               exe.getContractIdStruct,
             ) :: contractKeyStateKeyOrEmpty
 
@@ -251,8 +244,6 @@ object KeyValueCommitting {
           List(
             Conversions
               .contractIdStructOrStringToStateKey(
-                transactionVersion,
-                node.getFetch.getContractId,
                 node.getFetch.getContractIdStruct,
               ),
           )

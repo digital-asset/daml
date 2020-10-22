@@ -89,8 +89,8 @@ final case class ExerciseEvent[Nid, Cid, Val](
     children: ImmArray[Nid],
     stakeholders: Set[Party],
     witnesses: Set[Party],
-    exerciseResult: Option[Val])
-    extends Event[Nid, Cid, Val]
+    exerciseResult: Option[Val],
+) extends Event[Nid, Cid, Val]
 
 object Event extends value.CidContainer3[Event] {
 

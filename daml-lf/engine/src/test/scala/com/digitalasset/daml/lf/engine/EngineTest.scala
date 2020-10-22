@@ -1096,7 +1096,6 @@ class EngineTest
             _,
             _,
             _,
-            _,
             children,
             _,
             _,
@@ -1248,8 +1247,7 @@ class EngineTest
 
     def actFetchActors[Nid, Cid, Val](n: Node.GenNode[Nid, Cid, Val]): Set[Party] = {
       n match {
-        case Node.NodeFetch(_, _, _, actingParties, _, _, _, _) =>
-          actingParties.getOrElse(Set.empty)
+        case Node.NodeFetch(_, _, _, actingParties, _, _, _, _) => actingParties
         case _ => Set()
       }
     }
@@ -1360,7 +1358,7 @@ class EngineTest
         coid = fetchedCid,
         templateId = fetchedTid,
         optLocation = None,
-        actingParties = None,
+        actingParties = Set.empty,
         signatories = Set.empty,
         stakeholders = Set.empty,
         key = None,
@@ -1695,7 +1693,7 @@ class EngineTest
     "be partially reinterpretable" in {
       val Right((tx, txMeta)) = run(3)
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, children, _, _, _) =
+      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
@@ -1937,8 +1935,7 @@ object EngineTest {
                       _,
                       _,
                       _,
-                      true,
-                      _,
+                      consuming @ true,
                       _,
                       _,
                       _,
