@@ -29,6 +29,8 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Data.String (IsString, fromString)
 import qualified Data.Text as T
@@ -224,18 +226,18 @@ runLedgerFetchDar flags pidString saveAs = do
 -- | Reconstruct a DAR file by downloading packages from a ledger. Returns how many packages fetched.
 fetchDar :: LedgerArgs -> LF.PackageId -> FilePath -> IO Int
 fetchDar args rootPid saveAs = do
-  xs <- downloadAllReachablePackages args rootPid
-  [pkg] <- pure [ pkg | (pid,pkg) <- xs, pid == rootPid ]
-  let (dalf,pkgId) = LFArchive.encodeArchiveAndHash pkg
+  pkgs <- downloadAllReachablePackages args rootPid
+  let rootPkg = pkgs Map.! rootPid
+  let (dalf,pkgId) = LFArchive.encodeArchiveAndHash rootPkg
   let dalfDependencies :: [(T.Text,BS.ByteString,LF.PackageId)] =
         [ (txt,bs,pkgId)
-        | (pid,pkg) <- xs, pid /= rootPid
+        | (pid,pkg) <- Map.toList pkgs, pid /= rootPid
         , let txt = recoverPackageName pkg ("dep",pid)
         , let (bsl,pkgId) = LFArchive.encodeArchiveAndHash pkg
         , let bs = BSL.toStrict bsl
         ]
   let (pName,pVersion) = do
-        let LF.Package {packageMetadata} = pkg
+        let LF.Package {packageMetadata} = rootPkg
         case packageMetadata of
           Nothing -> (LF.PackageName $ T.pack "reconstructed",Nothing)
           Just LF.PackageMetadata{packageName,packageVersion} -> (packageName,Just packageVersion)
@@ -243,7 +245,7 @@ fetchDar args rootPid saveAs = do
   let srcRoot = error "unexpected use of srcRoot when there are no sources"
   let za = createArchive pName pVersion pSdkVersion pkgId dalf dalfDependencies srcRoot [] [] []
   createDarFile saveAs za
-  return $ length xs
+  return $ Map.size pkgs
 
 recoverPackageName :: LF.Package -> (String,LF.PackageId) -> T.Text
 recoverPackageName pkg (tag,pid)= do
@@ -254,18 +256,18 @@ recoverPackageName pkg (tag,pid)= do
     Nothing -> T.pack (tag <> "-" <> T.unpack (LF.unPackageId pid))
 
 -- | Download all Packages reachable from a PackageId; fail if any don't exist or can't be decoded.
-downloadAllReachablePackages :: LedgerArgs -> LF.PackageId -> IO [(LF.PackageId,LF.Package)]
-downloadAllReachablePackages args pid = loop [] [pid]
+downloadAllReachablePackages :: LedgerArgs -> LF.PackageId -> IO (Map LF.PackageId LF.Package)
+downloadAllReachablePackages args pid = loop Map.empty [pid]
   where
-    loop :: [(LF.PackageId,LF.Package)] -> [LF.PackageId] -> IO [(LF.PackageId,LF.Package)]
+    loop :: Map LF.PackageId LF.Package -> [LF.PackageId] -> IO (Map LF.PackageId LF.Package)
     loop acc = \case
       [] -> return acc
       pid:morePids ->
-        if pid `elem` [ pid | (pid,_) <- acc ]
+        if pid `Map.member` acc
         then loop acc morePids
         else do
           pkg <- downloadPackage args pid
-          loop ((pid,pkg):acc) (packageRefs pkg ++ morePids)
+          loop (Map.insert pid pkg acc) (packageRefs pkg ++ morePids)
 
     packageRefs pkg = nubSort [ pid | LF.PRImport pid <- toListOf LF.packageRefs pkg ]
 
