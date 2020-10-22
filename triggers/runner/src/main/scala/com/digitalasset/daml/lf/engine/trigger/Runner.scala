@@ -364,6 +364,36 @@ class Runner(
     case HeartbeatMsg() => ()
   }
 
+  private[this] def getInitialStateFreeAndUpdate(acs: Seq[CreatedEvent]): (SValue, SValue) = {
+    // Compile the trigger initialState and Update LF functions to
+    // speedy expressions.
+    val update: SExpr =
+      compiler.unsafeCompile(
+        ERecProj(trigger.expr.ty, Name.assertFromString("update"), trigger.expr.expr))
+    val getInitialState: SExpr =
+      compiler.unsafeCompile(
+        ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
+    // Convert the ACS to a speedy value.
+    val createdValue: SValue = converter.fromACS(acs).orConverterException
+    // Setup an application expression of initialState on the ACS.
+    val initialState: SExpr =
+      makeApp(getInitialState, Array(SParty(Party.assertFromString(party)), createdValue))
+    // Prepare a speedy machine for evaluating expressions.
+    val machine: Speedy.Machine =
+      Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
+    // Evaluate it.
+    machine.setExpressionToEvaluate(initialState)
+    val initialStateFree = Machine
+      .stepToValue(machine)
+      .expect("TriggerSetup", {
+        case DamlAnyModuleRecord("TriggerSetup", fts) => fts
+      })
+      .orConverterException
+    machine.setExpressionToEvaluate(update)
+    val evaluatedUpdate: SValue = Machine.stepToValue(machine)
+    (initialStateFree, evaluatedUpdate)
+  }
+
   // A sink for trigger messages representing a process for the
   // accumulated state changes resulting from application of the
   // messages given the starting state represented by the ACS
@@ -375,41 +405,19 @@ class Runner(
   ): Sink[TriggerMsg, Future[SValue]] = {
     logger.info(s"Trigger ${name} is running as ${party}")
 
-    // Compile the trigger initialState and Update LF functions to
-    // speedy expressions.
-    val update: SExpr =
-      compiler.unsafeCompile(
-        ERecProj(trigger.expr.ty, Name.assertFromString("update"), trigger.expr.expr))
-    val getInitialState: SExpr =
-      compiler.unsafeCompile(
-        ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
-    // Convert the ACS to a speedy value.
-    val createdValue: SValue = converter.fromACS(acs) match {
-      case Left(err) => throw new ConverterException(err)
-      case Right(x) => x
-    }
     val clientTime: Timestamp =
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-    // Setup an application expression of initialState on the ACS.
-    val initialState: SExpr =
-      makeApp(getInitialState, Array(SParty(Party.assertFromString(party)), createdValue))
-    // Prepare a speedy machine for evaluating expressions.
-    val machine: Speedy.Machine =
-      Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
-    // Evaluate it.
-    machine.setExpressionToEvaluate(initialState)
-    val value = Machine
-      .stepToValue(machine)
-      .expect("TriggerSetup", {
-        case DamlAnyModuleRecord("TriggerSetup", fts) => fts
-      })
-      .orConverterException
+    val (initialStateFree, evaluatedUpdate) = getInitialStateFreeAndUpdate(acs)
+
     // NB: the SubmitRequests produced here are submitted out-of-band; they
     // do not flow into the stream, so are not subject to backpressure or throttling
-    val evaluatedInitialState: SValue = handleStepFreeResult(clientTime, v = value, submit)
+    val evaluatedInitialState: SValue =
+      handleStepFreeResult(clientTime, v = initialStateFree, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
-    machine.setExpressionToEvaluate(update)
-    val evaluatedUpdate: SValue = Machine.stepToValue(machine)
+
+    // Prepare another speedy machine for evaluating expressions.
+    val machine: Speedy.Machine =
+      Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
 
     // The flow that we return:
     //  - Maps incoming trigger messages to new trigger messages
