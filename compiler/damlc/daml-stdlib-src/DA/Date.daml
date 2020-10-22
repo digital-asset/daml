@@ -43,6 +43,11 @@ deriving instance Bounded Month
 instance Enum Date where
   toEnum = daysSinceEpochToDate
   fromEnum = dateToDaysSinceEpoch
+  enumFrom     x   = enumFromTo     x maxBound
+  enumFromThen x y = enumFromThenTo x y bound
+     where
+         bound | fromEnum y >= fromEnum x = maxBound
+                    | otherwise                = minBound
   
 instance Bounded Date where
   minBound = date 1 Jan 1
