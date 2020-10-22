@@ -5,6 +5,7 @@
 
 module DA.Daml.Helper.Ledger (
     LedgerFlags(..),
+    defaultLedgerFlags,
     LedgerApi(..),
     L.ClientSSLConfig(..),
     L.ClientSSLKeyCertPair(..),
