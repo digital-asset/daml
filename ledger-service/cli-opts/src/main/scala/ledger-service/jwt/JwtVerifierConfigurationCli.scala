@@ -6,14 +6,12 @@ package com.daml.jwt
 import java.nio.file.Paths
 
 import com.auth0.jwt.algorithms.Algorithm
-import com.daml.cliopts.Setter
 
 import scala.util.Try
 
 object JwtVerifierConfigurationCli {
-  def parse[C](parser: scopt.OptionParser[C])(setter: Setter[C, JwtVerifierBase]): Unit = {
-    def setJwtVerifier(jwtVerifier: JwtVerifierBase, c: C): C =
-      setter(_ => jwtVerifier, c)
+  def parse[C](parser: scopt.OptionParser[C])(setter: (JwtVerifierBase, C) => C): Unit = {
+    def setJwtVerifier(jwtVerifier: JwtVerifierBase, c: C): C = setter(jwtVerifier, c)
 
     import parser.opt
 

@@ -67,7 +67,7 @@ object Config {
           if (x.isEmpty) failure("Environment variable DAML_CLIENT_SECRET must not be empty")
           else success)
 
-      JwtVerifierConfigurationCli.parse(this)((f, c) => c.copy(tokenVerifier = f(c.tokenVerifier)))
+      JwtVerifierConfigurationCli.parse(this)((v, c) => c.copy(tokenVerifier = v))
 
       checkConfig { cfg =>
         if (cfg.tokenVerifier == null)
