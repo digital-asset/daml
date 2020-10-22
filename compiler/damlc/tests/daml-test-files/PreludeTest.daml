@@ -36,6 +36,8 @@
 -- @INFO range=317:13-317:20; Evaluate
 -- @ERROR range=384:1-384:17; Day 29 falls outside of valid day range (1 .. 28) for Feb 2100.
 -- @ERROR range=388:1-388:18; Day 0 falls outside of valid day range (1 .. 31) for Jan 2000.
+-- @ERROR range=400:1-400:21; Could not convert Int64 -719163 to Date.
+-- @ERROR range=403:1-403:21; Could not convert Int64 2932897 to Date.
 
 module PreludeTest where
 
