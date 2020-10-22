@@ -71,6 +71,16 @@ data LedgerFlags = LedgerFlags
   , fTokFileM :: Maybe FilePath
   }
 
+defaultLedgerFlags :: LedgerApi -> LedgerFlags
+defaultLedgerFlags api = LedgerFlags
+  { fApi = api
+  , fSslConfigM = Nothing
+  , fTimeout = 10
+  , fHostM = Nothing
+  , fPortM = Nothing
+  , fTokFileM = Nothing
+  }
+
 data LedgerArgs = LedgerArgs
   { api :: LedgerApi
   , sslConfigM :: Maybe L.ClientSSLConfig
