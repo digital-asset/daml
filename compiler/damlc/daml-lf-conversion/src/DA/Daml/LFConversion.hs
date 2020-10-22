@@ -837,18 +837,18 @@ convertExpr env0 e = do
             mkFieldProj i (name, _typ) = (mkIndexedField i, EStructProj name (EVar varV1))
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
-    go env (VarIs "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
+    go env (VarIn DA_Internal_Record "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
         record' <- convertType env record
         withTmArg env (varV1, record') args $ \x args ->
             pure (ERecProj (fromTCon record') (mkField $ fsToText name) x, args)
     -- NOTE(MH): We only inline `getField` for record types. This is required
     -- for contract keys. Projections on sum-of-records types have to through
     -- the type class for `getField`.
-    go env (VarIn DA_Internal_Record "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : LExpr record : args)
-        | isSingleConType recordTyCon = fmap (, args) $ do
+    go env (VarIn DA_Internal_Record "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : args)
+        | isSingleConType recordTyCon = do
             recordType <- convertType env recordType
-            record <- convertExpr env record
-            pure $ ERecProj (fromTCon recordType) (mkField $ fsToText name) record
+            withTmArg env (varV1, recordType) args $ \record args ->
+                pure (ERecProj (fromTCon recordType) (mkField $ fsToText name) record, args)
     -- NOTE(SF): We also need to inline `setField` in order to get the correct
     -- evaluation order (record first, then fields in order).
     go env (VarIn DA_Internal_Record "setField") (LType (isStrLitTy -> Just name) : LType record@(TypeCon recordTyCon _) : LType field : _dict : args)
