@@ -8,6 +8,8 @@ module Daml.Trigger
  , queryContractId
  , queryContractKey
  , ActionTriggerAny
+ , getCommandsInFlight
+ , ActionTriggerUpdate
  , Trigger(..)
  , TriggerA
  , TriggerUpdateA
@@ -30,7 +32,6 @@ module Daml.Trigger
  , dedupCreate
  , dedupExerciseByKey
  , dedupCreateAndExercise
- , getCommandsInFlight
  , Message(..)
  , Completion(..)
  , Transaction(..)
@@ -112,6 +113,20 @@ instance ActionTriggerAny (TriggerUpdateA s) where
 instance ActionTriggerAny TriggerInitializeA where
   implQuery = TriggerInitializeA getContracts
   queryContractId = TriggerInitializeA . getContractById
+
+-- | Features possible in `updateState` and `rule`.
+class ActionTriggerAny m => ActionTriggerUpdate m where
+  -- | Retrieve command submissions made by this trigger that have not yet
+  -- completed.  If the trigger has restarted, it will not contain commands from
+  -- before the restart; therefore, this should be treated as an optimization
+  -- rather than an absolute authority on ledger state.
+  getCommandsInFlight : m (Map CommandId [Command])
+
+instance ActionTriggerUpdate (TriggerUpdateA s) where
+  getCommandsInFlight = TriggerUpdateA $ \(cif, _) -> pure cif
+
+instance ActionTriggerUpdate (TriggerA s) where
+  getCommandsInFlight = liftTriggerRule $ get <&> \s -> s.commandsInFlight
 
 -- | This is the type of your trigger. `s` is the user-defined state type which
 -- you can often leave at `()`.
@@ -224,14 +239,6 @@ dedupExerciseByKey k c = do
   let cmds = concat $ map snd (Map.toList aState.commandsInFlight)
   unless (any ((Some (k, c) ==) . fromExerciseByKey @t) cmds) $
     void $ emitCommands [exerciseByKeyCmd @t k c] []
-
--- | Retrieve command submissions made by this trigger that have not yet
--- completed.  If the trigger has restarted, it will not contain
--- commands from before the restart; therefore, this should be treated
--- as an optimization rather than an absolute authority on ledger state.
-getCommandsInFlight : TriggerA s (Map CommandId [Command])
-getCommandsInFlight = do
-  liftTriggerRule $ get <&> \s -> s.commandsInFlight
 
 -- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
