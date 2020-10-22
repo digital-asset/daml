@@ -106,8 +106,8 @@ instance ActionTriggerAny (TriggerA s) where
   queryContractId id = TriggerA $ pure . getContractById id
 
 instance ActionTriggerAny (TriggerUpdateA s) where
-  implQuery = TriggerUpdateA $ pure . getContracts
-  queryContractId id = TriggerUpdateA $ pure . getContractById id
+  implQuery = TriggerUpdateA $ pure . getContracts . snd
+  queryContractId id = TriggerUpdateA $ pure . getContractById id . snd
 
 instance ActionTriggerAny TriggerInitializeA where
   implQuery = TriggerInitializeA getContracts
@@ -247,13 +247,15 @@ runTrigger userTrigger = LowLevel.Trigger
           userState = runTriggerInitializeA userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
-    utUpdateState acs msg = execState $ flip runTriggerUpdateA acs $ userTrigger.updateState msg
+    utUpdateState commandsInFlight acs msg = execState $ flip runTriggerUpdateA (commandsInFlight, acs) $ userTrigger.updateState msg
     update msg = do
       time <- getTime
       state <- get
       case msg of
         MCompletion completion ->
-          let userState = utUpdateState state.acs (MCompletion completion) state.userState
+          -- NB: the commands-in-flight and ACS updateState sees are those
+          -- *prior* to updates incurred by the msg
+          let userState = utUpdateState state.commandsInFlight state.acs (MCompletion completion) state.userState
           in case completion.status of
             Succeeded {} ->
               -- We delete successful completions when we receive the corresponding transaction
@@ -266,7 +268,8 @@ runTrigger userTrigger = LowLevel.Trigger
                 runRule userTrigger.rule
         MTransaction transaction -> do
           let acs = applyTransaction transaction state.acs
-              userState = utUpdateState acs (MTransaction transaction) state.userState
+              -- again, we use the commands-in-flight and ACS before the update below
+              userState = utUpdateState state.commandsInFlight acs (MTransaction transaction) state.userState
               -- See the comment above for why we delete this here instead of when we receive the completion.
               (acs', commandsInFlight) = case transaction.commandId of
                 None -> (acs, state.commandsInFlight)
@@ -274,6 +277,6 @@ runTrigger userTrigger = LowLevel.Trigger
           put $ state { acs = acs', userState, commandsInFlight }
           runRule userTrigger.rule
         MHeartbeat -> do
-          let userState = utUpdateState state.acs MHeartbeat state.userState
+          let userState = utUpdateState state.commandsInFlight state.acs MHeartbeat state.userState
           put $ state { userState }
           runRule userTrigger.rule
