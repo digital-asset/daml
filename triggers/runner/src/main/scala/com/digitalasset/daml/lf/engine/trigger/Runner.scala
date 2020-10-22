@@ -521,13 +521,15 @@ class Runner(
     def submit(req: SubmitRequest): Future[None.type] = {
       val f: Future[Empty] = client.commandClient
         .submitSingleCommand(req)
-      f.failed.foreach({
+      f.map(_ => None).recover {
         case s: StatusRuntimeException =>
+          // XXX It would be better to split the stream and feed failures back
+          // into the msgSource directly.  As it stands we fire-and-forget
+          // the (async) queuing done here, ignoring failure
           postFailure(req.getCommands.commandId, s)
-        case e =>
-          logger.error(s"Unexpected exception: $e")
-      })
-      f map (_ => None)
+          None
+        // any other error will cause the trigger's stream to fail
+      }
     }
     source
       .viaMat(msgFlow)(Keep.right[NotUsed, T])
