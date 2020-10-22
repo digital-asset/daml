@@ -313,7 +313,9 @@ class Runner(
     val (completionQueue, completionQueueSource): (
         SourceQueue[Completion],
         Source[Completion, NotUsed]) =
-      Source.queue[Completion](10, OverflowStrategy.backpressure).preMaterialize()
+      Source
+        .queue[Completion](10 + maxParallelSubmissionsPerTrigger, OverflowStrategy.backpressure)
+        .preMaterialize()
     // This function, given a command ID and a runtime exception,
     // posts to the completion queue.
     def postSubmitFailure(commandId: String, s: StatusRuntimeException) = {
