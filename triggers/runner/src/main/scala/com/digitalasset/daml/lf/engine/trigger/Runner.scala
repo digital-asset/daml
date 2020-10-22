@@ -402,6 +402,8 @@ class Runner(
         case DamlAnyModuleRecord("TriggerSetup", fts) => fts
       })
       .orConverterException
+    // NB: the SubmitRequests produced here are submitted out-of-band; they
+    // do not flow into the stream, so are not subject to backpressure or throttling
     val evaluatedInitialState: SValue = handleStepFreeResult(clientTime, v = value, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
     machine.setExpressionToEvaluate(update)
