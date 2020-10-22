@@ -307,11 +307,11 @@ commandParser = subparser $ fold
 
     ledgerFlags showJsonApi = LedgerFlags
         <$> httpJsonFlag showJsonApi
+        <*> sslConfig
+        <*> timeoutOption
         <*> hostFlag
         <*> portFlag
         <*> accessTokenFileFlag
-        <*> sslConfig
-        <*> timeoutOption
 
     sslConfig :: Parser (Maybe ClientSSLConfig)
     sslConfig = do

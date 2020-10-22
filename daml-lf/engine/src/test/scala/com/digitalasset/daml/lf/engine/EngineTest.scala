@@ -1792,7 +1792,7 @@ class EngineTest
     val submissionSeed = crypto.Hash.hashPrivateKey("engine check the version of input value")
     def contracts = Map(
       cidV6 -> ContractInst(templateId, VersionedValue(ValueVersion("6"), contract), ""),
-      cidV7 -> ContractInst(templateId, VersionedValue(ValueVersion("7"), contract), ""),
+      cidV7 -> ContractInst(templateId, VersionedValue(ValueVersion("dev"), contract), ""),
     )
 
     def run(

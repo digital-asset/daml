@@ -117,6 +117,7 @@ object TriggerServiceFixture extends StrictLogging {
               oauthToken = serverUri.withPath(Path./("token")),
               clientId = "oauth-middleware-id",
               clientSecret = "oauth-middleware-secret",
+              tokenVerifier = HMAC256Verifier(secret).toOption.get,
             ))
           middlewareUri = Uri()
             .withScheme("http")
