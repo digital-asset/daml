@@ -261,7 +261,7 @@ runTrigger userTrigger = LowLevel.Trigger
       case msg of
         MCompletion completion ->
           -- NB: the commands-in-flight and ACS updateState sees are those
-          -- *prior* to updates incurred by the msg
+          -- prior to updates incurred by the msg
           let userState = utUpdateState state.commandsInFlight state.acs (MCompletion completion) state.userState
           in case completion.status of
             Succeeded {} ->
