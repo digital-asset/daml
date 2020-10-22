@@ -387,3 +387,18 @@ testDateOverflow = scenario do
 
 testDateUnderflow = scenario do
     pure $ date 2000 Jan 0
+
+testDateRange = scenario do
+    assert (length [(date 2019 Jan 1)..(date 2020 Dec 31)] == 731)
+
+testDateMinBound : Scenario Date = do
+    return minBound
+
+testDateMaxBound : Scenario Date =  do
+    return maxBound
+
+testDateMinBoundPred : Scenario Date = do
+    return (pred minBound)
+
+testDateMaxBoundSucc : Scenario Date = do
+    return (succ maxBound)

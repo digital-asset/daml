@@ -38,6 +38,14 @@ deriving instance Show Month
 deriving instance Enum Month
 deriving instance Bounded Month
 
+instance Enum Date where
+  toEnum = daysSinceEpochToDate
+  fromEnum = dateToDaysSinceEpoch
+  
+instance Bounded Date where
+  minBound = date 1 Jan 1
+  maxBound = date 9999 Dec 31
+
 -- | Add the given number of days to a date.
 addDays : Date -> Int -> Date
 addDays d r =
