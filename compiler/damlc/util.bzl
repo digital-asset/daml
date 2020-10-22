@@ -10,9 +10,11 @@ load("@os_info//:os_info.bzl", "is_windows")
 # and the tarball produced by package_app in the resources of damlc-dist.
 ghc_pkg = "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.6.5/bin/ghc-pkg"
 
+LATEST_STABLE_DAML_LF_VERSION = "1.8"
+
 DAML_LF_VERSIONS = [
     "1.6",
     "1.7",
-    "1.8",
+    LATEST_STABLE_DAML_LF_VERSION,
     "1.dev",
 ]
