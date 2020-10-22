@@ -391,13 +391,16 @@ testDateUnderflow = scenario do
     pure $ date 2000 Jan 0
 
 testDateRange = scenario do
-    assert (length [(date 2019 Jan 1)..(date 2020 Dec 31)] == 731)
+    length [date 2019 Jan 1 .. date 2020 Dec 31] === 731
+    [date 1 Jan 6, date 1 Jan 4 ..] === [date 1 Jan 6, date 1 Jan 4, date 1 Jan 2]
+    [date 9999 Dec 24, date 9998 Dec 27 ..] === [date 9999 Dec 24, date 9999 Dec 27, date 9999 30]
+    [date 9999 Dec 30 ..] === [date 9999 Dec 30, date 9999 Dec 21]
 
 testDateMinBound : Scenario Date = do
-    return minBound
+    fromEnum minBound === 0
 
 testDateMaxBound : Scenario Date =  do
-    return maxBound
+    fromEnum maxBound === <whatever the right number is>
 
 testDateMinBoundPred : Scenario Date = do
     return (pred minBound)
