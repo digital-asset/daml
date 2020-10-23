@@ -27,5 +27,10 @@ trait HttpFailureTestFixture extends ToxicSandboxFixture { self: Suite =>
 
   protected def withHttpService[A]
     : ((Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A]) => Future[A] =
-    HttpServiceTestFixture.withHttpService(this.getClass.getSimpleName, proxiedPort, None, None)
+    HttpServiceTestFixture.withHttpService(
+      this.getClass.getSimpleName,
+      proxiedPort,
+      None,
+      None,
+      wsConfig = Some(Config.DefaultWsConfig))
 }
