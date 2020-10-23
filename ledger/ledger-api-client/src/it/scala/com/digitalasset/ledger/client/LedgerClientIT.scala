@@ -64,6 +64,15 @@ final class LedgerClientIT
       }
     }
 
+    "get api version" in {
+      for {
+        client <- LedgerClient(channel, ClientConfiguration)
+        version <- client.versionClient.getApiVersion()
+      } yield {
+        version shouldBe a[String]
+      }
+    }
+
     "shut down the channel when closed" in {
       for {
         client <- LedgerClient(channel, ClientConfiguration)
