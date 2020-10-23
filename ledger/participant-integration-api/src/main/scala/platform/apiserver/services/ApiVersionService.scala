@@ -1,3 +1,6 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.apiserver.services
 
 import com.daml.dec.DirectExecutionContext
@@ -5,25 +8,31 @@ import com.daml.ledger.api.v1.version_service.GetApiVersionRequest
 import com.daml.ledger.api.v1.version_service.GetApiVersionResponse
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
-import com.daml.logging.ContextualizedLogger
-import com.daml.logging.LoggingContext
 import com.daml.platform.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.Future
+import scala.io.Source
 
-private[apiserver] final class ApiVersionService private(implicit loggingContext: LoggingContext)
-  extends VersionService with GrpcApiService {
+private[apiserver] final class ApiVersionService private
+    extends VersionService
+    with GrpcApiService {
 
   @volatile var closed = false
+  private val versionFile: String = "ledger-api/VERSION"
+  private lazy val apiVersion: String = readVersion(versionFile)
 
-  private val logger = ContextualizedLogger.get(this.getClass)
-
-  override def getApiVersion(request: GetApiVersionRequest): Future[GetApiVersionResponse] = {
+  override def getApiVersion(request: GetApiVersionRequest): Future[GetApiVersionResponse] =
     Future.successful {
-      logger.warn(s"VERSION: 6.6.6")
-      GetApiVersionResponse("6.6.6")
+      GetApiVersionResponse(apiVersion)
     }
+
+  private def readVersion(versionFileName: String): String = {
+    Source
+      .fromResource(versionFileName)
+      .getLines()
+      .toList
+      .head
   }
 
   override def bindService(): ServerServiceDefinition =
@@ -34,7 +43,6 @@ private[apiserver] final class ApiVersionService private(implicit loggingContext
 }
 
 private[apiserver] object ApiVersionService {
-  def create()(implicit loggingContext: LoggingContext): ApiVersionService = {
+  def create(): ApiVersionService =
     new ApiVersionService
-  }
 }
