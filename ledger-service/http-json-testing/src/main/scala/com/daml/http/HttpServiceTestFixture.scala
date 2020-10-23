@@ -313,9 +313,9 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       implicit as: ActorSystem,
       ec: ExecutionContext,
       mat: Materializer): Future[(StatusCode, JsValue)] =
-    postJsonStringRequestString(uri, jsonString, headers).map({
+    postJsonStringRequestString(uri, jsonString, headers).map {
       case (status, body) => (status, body.parseJson)
-    })
+    }
 
   def postJsonRequest(uri: Uri, json: JsValue, headers: List[HttpHeader])(
       implicit as: ActorSystem,
