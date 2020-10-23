@@ -376,16 +376,13 @@ private[lf] final class Compiler(
         )
       case structProj: EStructProj =>
         structProj.fieldIndex match {
-          case None =>
-            throw CompilationError(
-              s"structural record projection for field ${structProj.field} has no index")
+          case None => SBStructProjByName(structProj.field)(compile(structProj.struct))
           case Some(index) => SBStructProj(index)(compile(structProj.struct))
         }
       case structUpd: EStructUpd =>
         structUpd.fieldIndex match {
           case None =>
-            throw CompilationError(
-              s"structural record projection for field ${structUpd.field} has no index")
+            SBStructUpdByName(structUpd.field)(compile(structUpd.struct), compile(structUpd.update))
           case Some(index) =>
             SBStructUpd(index)(compile(structUpd.struct), compile(structUpd.update))
         }
