@@ -290,7 +290,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       }
   }
 
-  def postJsonStringRequestString(uri: Uri, jsonString: String, headers: List[HttpHeader])(
+  def postJsonStringRequestEncoded(uri: Uri, jsonString: String, headers: List[HttpHeader])(
       implicit as: ActorSystem,
       ec: ExecutionContext,
       mat: Materializer): Future[(StatusCode, String)] = {
