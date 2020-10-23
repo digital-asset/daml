@@ -69,7 +69,7 @@ final class LedgerClientIT
         client <- LedgerClient(channel, ClientConfiguration)
         version <- client.versionClient.getApiVersion()
       } yield {
-        version shouldBe a[String]
+        version should fullyMatch regex """1\.\d+\.\d+"""
       }
     }
 
