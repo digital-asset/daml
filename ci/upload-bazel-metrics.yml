@@ -10,7 +10,7 @@ steps:
       if [[ $(Agent.OS) = Windows* ]]; then
         export PATH="$PATH:$(cygpath "$(powershell "./dev-env/windows/bin/dadew.ps1 enable >\$2; dadew where")/scoop/shims")"
       else
-        eval "$(dev-env/bin/dade assist)"
+        source dev-env/load.sh
       fi
       source $(bash_lib)
       jq -nc >job-md.json '{

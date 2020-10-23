@@ -47,7 +47,7 @@ steps:
 
   - bash: |
       set -euo pipefail
-      eval "$(./dev-env/bin/dade-assist)"
+      source dev-env/load.sh
       ./bazel-bin/release/release --release-dir "$(mktemp -d)" --upload
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
@@ -68,7 +68,7 @@ steps:
       var_name: bash-lib
   - bash: |
       set -euo pipefail
-      eval "$(./dev-env/bin/dade-assist)"
+      source dev-env/load.sh
       mkdir -p $(Build.StagingDirectory)/release
       ./ci/copy-unix-release-artifacts.sh ${{parameters.release_tag}} ${{parameters.name}} $(Build.StagingDirectory)/release
     env:

@@ -4,7 +4,8 @@
 
 set -euo pipefail
 
-eval "$("$(dirname "$0")/dev-env/bin/dade-assist")"
+cd "$(dirname "${BASH_SOURCE[0]}")"
+source dev-env/load.sh
 
 execution_log_postfix=${1:-}
 
@@ -24,7 +25,7 @@ fi
 # Note that lsof returns a non-zero exit code if there is no match.
 SANDBOX_PID="$(lsof -ti tcp:6865 || true)"
 if [ -n "$SANDBOX_PID" ]; then
-    echo $SANDBOX_PID | xargs kill
+  echo "$SANDBOX_PID" | xargs kill
 fi
 
 # Temporary until all nodes have been reset
@@ -49,7 +50,7 @@ export POSTGRESQL_PASSWORD=''
 function start_postgresql() {
   mkdir -p "$POSTGRESQL_DATA_DIR"
   bazel run -- @postgresql_dev_env//:initdb --auth=trust --encoding=UNICODE --locale=en_US.UTF-8 --username="$POSTGRESQL_USERNAME" "$POSTGRESQL_DATA_DIR"
-  eval "echo \"$(cat ci/postgresql.conf)\"" > "$POSTGRESQL_DATA_DIR/postgresql.conf"
+  eval "echo \"$(cat ci/postgresql.conf)\"" >"$POSTGRESQL_DATA_DIR/postgresql.conf"
   bazel run -- @postgresql_dev_env//:pg_ctl -w --pgdata="$POSTGRESQL_DATA_DIR" --log="$POSTGRESQL_LOG_FILE" start || {
     if [[ -f "$POSTGRESQL_LOG_FILE" ]]; then
       echo >&2 'PostgreSQL logs:'
@@ -89,11 +90,11 @@ bazel query 'deps(//...)' >/dev/null
 # Disabled on darwin since it sometimes seem to hang and this only
 # tests our dev setup rather than our code so issues are not critical.
 if [[ "$(uname)" != "Darwin" ]]; then
-  da-ghci --data yes //compiler/damlc:damlc -e ':main --help'
+  ./dev-env/bin/da-ghci --data yes //compiler/damlc:damlc -e ':main --help'
 fi
 
 # Test that ghcide at least builds starts, we don’t run it since it
 # adds 2-5 minutes to each CI run with relatively little benefit. If
 # you want to test it manually on upgrades, run
 # ghcide compiler/damlc/exe/Main.hs.
-ghcide --help
+./dev-env/bin/ghcide --help

@@ -18,7 +18,7 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
-        eval "$(dev-env/bin/dade assist)"
+        source dev-env/load.sh
 
         bazel build //ci/cron:cron
 
@@ -97,7 +97,7 @@ jobs:
     - template: upload-bazel-metrics.yml
     - bash: |
         set -euo pipefail
-        eval "$(./dev-env/bin/dade-assist)"
+        source dev-env/load.sh
         bazel build //release:release
         ./bazel-bin/release/release --release-dir "$(mktemp -d)"
       condition: and(succeeded(), ne(variables['is_release'], 'true'))
@@ -284,7 +284,7 @@ jobs:
         GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - bash: |
         set -euo pipefail
-        eval "$(./dev-env/bin/dade-assist)"
+        source dev-env/load.sh
         docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
         IMAGE=digitalasset/oracle:enterprise-19.3.0-preloaded-20210325-22-be14fb7
         docker pull $IMAGE
@@ -376,7 +376,7 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
-        eval "$(./dev-env/bin/dade-assist)"
+        source dev-env/load.sh
         source $(bash-lib)
 
         ./release.sh check
@@ -487,7 +487,7 @@ jobs:
     - bash: |
         set -euo pipefail
 
-        eval "$(./dev-env/bin/dade-assist)"
+        source dev-env/load.sh
         source $(bash_lib)
 
         REPORT=$(mktemp)

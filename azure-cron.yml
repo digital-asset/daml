@@ -39,7 +39,7 @@ jobs:
         displayName: 'Build/Install the Developer Environment'
       - bash: |
           set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
+          source dev-env/load.sh
 
           bazel build //ci/cron:cron
           ./bazel-bin/ci/cron/cron docs
@@ -58,7 +58,7 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          eval "$(dev-env/bin/dade-assist)"
+          source dev-env/load.sh
           HEAD=$(git rev-parse HEAD)
           while ! nix-build -A tools.sed -A tools.jq -A tools.curl -A tools.base64 nix; do :; done
 
@@ -113,7 +113,7 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          eval "$(dev-env/bin/dade-assist)"
+          source dev-env/load.sh
 
           AUTH=$(echo -n "OAuth:${MARKETPLACE_TOKEN}" | base64 -w0)
           MARKET=$(curl -H "Authorization: Basic $AUTH" \
@@ -181,7 +181,7 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          eval "$(dev-env/bin/dade-assist)"
+          source dev-env/load.sh
 
           STATS=$(mktemp)
           curl https://api.github.com/repos/digital-asset/daml/releases -sSfL | gzip -9 > $STATS

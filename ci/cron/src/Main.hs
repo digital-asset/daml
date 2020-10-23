@@ -344,6 +344,7 @@ verify_signatures :: FilePath -> FilePath -> String -> IO ()
 verify_signatures bash_lib tmp version_tag = do
     System.callCommand $ unlines ["bash -c '",
         "set -euo pipefail",
+        "source dev-env/load.sh",
         "source \"" <> bash_lib <> "\"",
         "shopt -s extglob", -- enable !() pattern: things that _don't_ match
         "cd \"" <> tmp <> "\"",
@@ -369,6 +370,7 @@ does_backup_exist :: String -> FilePath -> FilePath -> IO Bool
 does_backup_exist gcp_credentials bash_lib path = do
     out <- shell $ unlines ["bash -c '",
         "set -euo pipefail",
+        "source dev-env/load.sh",
         "source \"" <> bash_lib <> "\"",
         "GCRED=$(cat <<END",
         gcp_credentials,
@@ -386,6 +388,7 @@ gcs_cp :: String -> FilePath -> FilePath  -> FilePath -> IO ()
 gcs_cp gcp_credentials bash_lib local_path remote_path = do
     shell_ $ unlines ["bash -c '",
         "set -euo pipefail",
+        "source dev-env/load.sh",
         "source \"" <> bash_lib <> "\"",
         "GCRED=$(cat <<END",
         gcp_credentials,

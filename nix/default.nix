@@ -151,11 +151,12 @@ in rec {
     # Build tools
 
     bazel = pkgs.writeScriptBin "bazel" (''
+      #!/usr/bin/env bash
       # Set the JAVA_HOME to our JDK
-      export JAVA_HOME=${jdk.home}
-      export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+      export JAVA_HOME='${jdk.home}'
+      export GIT_SSL_CAINFO='${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt'
     '' + pkgs.lib.optionalString (pkgs.buildPlatform.libc == "glibc") ''
-      export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive"
+      export LOCALE_ARCHIVE='${pkgs.glibcLocales}/lib/locale/locale-archive'
     '' + ''
       exec ${pkgs.bazel_4}/bin/bazel --bazelrc "${bazelrc}" "$@"
     '');
@@ -168,6 +169,9 @@ in rec {
     patch = pkgs.patch;
     wget = pkgs.wget;
     grpcurl = pkgs.grpcurl;
+
+    # Version control
+    git = pkgs.git;
 
     # String mangling tooling.
     base64 = pkgs.coreutils;

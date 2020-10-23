@@ -45,11 +45,11 @@ Our builds require various development dependencies (e.g. Java, Bazel, Python), 
 
 On Linux and Mac `dev-env` can be installed with:
 
-1. Install Nix by running: `bash <(curl -sSfL https://nixos.org/nix/install)`
-2. Enter `dev-env` by running: `eval "$(dev-env/bin/dade assist)"`
+1. Install Nix by running: `bash <(curl -sSfL https://nixos.org/nix/install)`.
+2. Enter `dev-env` by running: `source dev-env/load.sh`.
 
-If you don't want to enter `dev-env` manually each time using `eval "$(dev-env/bin/dade assist)"`,
-you can also install [direnv](https://direnv.net). This repo already provides a `.envrc`
+If you don't want to enter `dev-env` manually each time, you can also install [direnv](https://direnv.net),
+which will load it for you when you enter the repository directory. This repo already provides a `.envrc`
 file, with an option to add more in a `.envrc.private` file.
 
 #### Windows

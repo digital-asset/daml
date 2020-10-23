@@ -5,7 +5,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-eval "$(../dev-env/bin/dade-assist)"
+source ../dev-env/load.sh
 
 # Note: not using Bazel run so we actually have access to local files to run
 # `git tag`
