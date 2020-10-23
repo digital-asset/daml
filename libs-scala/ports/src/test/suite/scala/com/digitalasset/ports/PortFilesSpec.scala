@@ -20,14 +20,13 @@ class PortFilesSpec extends FreeSpec with Matchers with Inside {
     path.toFile.exists() shouldBe true
   }
 
-  "Cannot create a port file with a nonunique file name" in {
+  "Can create a port file with a nonunique file name" in {
     val path = uniquePath()
     inside(PortFiles.write(path, Port(1024))) {
       case \/-(()) =>
     }
     inside(PortFiles.write(path, Port(1024))) {
-      case -\/(FileAlreadyExists(p)) =>
-        p shouldBe path
+      case -\/-(()) =>
     }
   }
 
