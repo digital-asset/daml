@@ -9,17 +9,23 @@ option java_outer_classname = "VersionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
+// Allows clients to retrieve information about the ledger API version
 service VersionService {
 
+  // Read the API version
   rpc GetApiVersion (GetApiVersionRequest) returns (GetApiVersionResponse);
 }
 
 message GetApiVersionRequest {
 
+  // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
   string ledger_id = 1;
 }
 
 message GetApiVersionResponse {
 
+  // The version of the ledger API
   string version = 1;
 }
