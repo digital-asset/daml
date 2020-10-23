@@ -17,7 +17,7 @@ import scala.io.Source
 private[apiserver] final class ApiVersionService private
     extends VersionService
     with GrpcApiService {
-  
+
   private val versionFile: String = "ledger-api/VERSION"
   private lazy val apiVersion: String = readVersion(versionFile)
 
