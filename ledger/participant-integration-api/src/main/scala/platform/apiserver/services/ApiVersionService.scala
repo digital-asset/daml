@@ -27,13 +27,12 @@ private[apiserver] final class ApiVersionService private
       GetApiVersionResponse(apiVersion)
     }
 
-  private def readVersion(versionFileName: String): String = {
+  private def readVersion(versionFileName: String): String =
     Source
       .fromResource(versionFileName)
       .getLines()
       .toList
       .head
-  }
 
   override def bindService(): ServerServiceDefinition =
     VersionServiceGrpc.bindService(this, DirectExecutionContext)
