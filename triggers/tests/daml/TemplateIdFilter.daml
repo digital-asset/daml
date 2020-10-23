@@ -5,12 +5,15 @@
 module TemplateIdFilter where
 
 import Prelude hiding (test)
+import qualified DA.Next.Map as Map
 import Daml.Trigger
 
 test : RegisteredTemplates -> Trigger ()
 test registered = Trigger
   { initialize = pure ()
-  , updateState = \_message -> pure ()
+  , updateState = \_message -> do
+      cifs <- Map.size <$> getCommandsInFlight
+      if cifs < 2 then pure () else error "should have 1 command at a time"
   , registeredTemplates = registered
   , rule = \party -> do
       ones <- query @One
