@@ -88,7 +88,7 @@ final class FailureTests
       // Client -> Server connection
       _ = proxy.toxics().timeout("timeout", ToxicDirection.UPSTREAM, 0)
       body <- FutureUtil.toFuture(SprayJson.encode1(accountCreateCommand(p, "24"))): Future[JsValue]
-      (status, output) <- postJsonStringRequestString(
+      (status, output) <- postJsonStringRequestEncoded(
         uri.withPath(Uri.Path("/v1/create")),
         body.compactPrint,
         headersWithParties(List(p.unwrap)))
@@ -104,7 +104,7 @@ final class FailureTests
       _ = status shouldBe StatusCodes.OK
       // Server -> Client connection
       _ = proxy.toxics().timeout("timeout", ToxicDirection.DOWNSTREAM, 0)
-      (status, output) <- postJsonStringRequestString(
+      (status, output) <- postJsonStringRequestEncoded(
         uri.withPath(Uri.Path("/v1/create")),
         body.compactPrint,
         headersWithParties(List(p.unwrap)))
