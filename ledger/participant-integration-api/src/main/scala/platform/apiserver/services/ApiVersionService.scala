@@ -17,8 +17,7 @@ import scala.io.Source
 private[apiserver] final class ApiVersionService private
     extends VersionService
     with GrpcApiService {
-
-  @volatile var closed = false
+  
   private val versionFile: String = "ledger-api/VERSION"
   private lazy val apiVersion: String = readVersion(versionFile)
 
@@ -37,7 +36,7 @@ private[apiserver] final class ApiVersionService private
   override def bindService(): ServerServiceDefinition =
     VersionServiceGrpc.bindService(this, DirectExecutionContext)
 
-  override def close(): Unit = closed = true
+  override def close(): Unit = ()
 
 }
 
