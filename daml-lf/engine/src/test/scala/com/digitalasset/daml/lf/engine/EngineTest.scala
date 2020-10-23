@@ -755,6 +755,39 @@ class EngineTest
             "Update failed due to a contract key with an empty sey of maintainers")
       }
     }
+
+    "crash if the contract key does not exists" in {
+      val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
+
+      val cmds = ImmArray(
+        speedy.Command.FetchByKey(
+          templateId = templateId,
+          key = SRecord(
+            BasicTests_WithKey,
+            ImmArray("p", "k"),
+            ArrayList(SParty(alice), SInt64(43))
+          )
+        )
+      )
+
+      val result = engine
+        .interpretCommands(
+          validating = false,
+          submitters = Set(alice),
+          commands = cmds,
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.TransactionSeed(seed),
+          globalCids = Set.empty,
+        )
+        .consume(_ => None, lookupPackage, lookupKey)
+
+      inside(result) {
+        case Left(err) =>
+          err.msg should include(
+            s"couldn't find key GlobalKey($basicTestsPkgId:BasicTests:WithKey, ValueRecord(Some($basicTestsPkgId:BasicTests:WithKey),ImmArray((Some(p),ValueParty(Alice)),(Some(k),ValueInt64(43)))))")
+      }
+    }
   }
 
   "create-and-exercise command" should {
