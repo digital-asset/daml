@@ -97,6 +97,12 @@ testSetOnProj = scenario do
 testUpdOnProj = scenario do
     (outer.inner # int ~= (/ 2)).int === 21
 
+testSetToProj = scenario do
+    (outer # text .= (outer.inner.text)).text === "world"
+
+testUpWithProj = scenario do
+    (outer # int ~= (+ outer.inner.int)).int === 55
+
 testNestedSetOnComplexRecord = scenario do
     (mkOuter () # inner.text .= "blub").inner.text === "blub"
 
@@ -111,3 +117,11 @@ testSetSection = scenario do
 testUpdSection = scenario do
     let change = (# inner.int ~= (/ 3))
     (change outer).inner.int === 14
+
+testSetSectionWithProj = scenario do
+    let change = (# inner.text .= (outer.text))
+    (change outer).inner.text === "hello"
+
+testUpdSectionWithProj = scenario do
+    let change = (# inner.int ~= (/ outer.int))
+    (change outer).inner.int === 3

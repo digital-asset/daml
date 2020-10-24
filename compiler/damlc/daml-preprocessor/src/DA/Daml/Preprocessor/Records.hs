@@ -181,7 +181,7 @@ onExp (L o upd@RecordUpd{rupd_expr,rupd_flds=L _ (HsRecField (fmap rdrNameAmbigu
 -- TODO: Make location information better.
 onExp (L o (OpApp _ lhs TildeEquals rhs))
     | Just (rec, sels) <- getRecAndSelectors lhs
-    = onExp $ mkParen $ setL o $ foldr (\sel acc -> mkVar var_updField `mkAppType` sel `mkApp` acc) rhs sels `mkApp` rec
+    = mkParen $ setL o $ foldr (\sel acc -> mkVar var_updField `mkAppType` sel `mkApp` acc) (onExp rhs) sels `mkApp` onExp rec
 
 -- Turn `r # a.b.c .= v` into `updField @a (updField @b (setField @c v)) r`.
 -- TODO: This doesn't work yet if `v = u § w` for some operator `§`.
@@ -189,7 +189,7 @@ onExp (L o (OpApp _ lhs TildeEquals rhs))
 onExp (L o (OpApp _ lhs DotEquals rhs))
     | Just (rec, sels) <- getRecAndSelectors lhs
     , Just (sels, lastSel) <- unsnoc sels
-    = onExp $ mkParen $ setL o $ foldr (\sel acc -> mkVar var_updField `mkAppType` sel `mkApp` acc) (mkVar var_setField `mkAppType` lastSel `mkApp` rhs) sels `mkApp` rec
+    = mkParen $ setL o $ foldr (\sel acc -> mkVar var_updField `mkAppType` sel `mkApp` acc) (mkVar var_setField `mkAppType` lastSel `mkApp` (onExp rhs)) sels `mkApp` onExp rec
 
 -- Turn `(# a.b.c ~= f)` into `updField @a (updField @b (updField @c f))`
 onExp (L o (SectionR _ hash@Hash (L _ (OpApp _ lhs TildeEquals rhs))))
@@ -197,7 +197,7 @@ onExp (L o (SectionR _ hash@Hash (L _ (OpApp _ lhs TildeEquals rhs))))
     , Just sels <- getSelectors lhs
     -- Don't bracket here. The argument came in as a section so it's
     -- already enclosed in brackets.
-    = setL o $ foldr (\sel acc -> mkVar var_updField `mkAppType` sel `mkApp` acc) rhs sels
+    = setL o $ foldr (\sel acc -> mkVar var_updField `mkAppType` sel `mkApp` acc) (onExp rhs) sels
 
 -- Turn `(# a.b.c .= v)` into `updField @a (updField @b (setField @c v))`
 onExp (L o (SectionR _ hash@Hash (L _ (OpApp _ lhs DotEquals rhs))))
@@ -206,7 +206,7 @@ onExp (L o (SectionR _ hash@Hash (L _ (OpApp _ lhs DotEquals rhs))))
     , Just (sels, lastSel) <- unsnoc sels
     -- Don't bracket here. The argument came in as a section so it's
     -- already enclosed in brackets.
-    = setL o $ foldr (\sel acc -> mkVar var_updField `mkAppType` sel `mkApp` acc) (mkVar var_setField `mkAppType` lastSel `mkApp` rhs) sels
+    = setL o $ foldr (\sel acc -> mkVar var_updField `mkAppType` sel `mkApp` acc) (mkVar var_setField `mkAppType` lastSel `mkApp` onExp rhs) sels
 
 onExp x = descend onExp x
 
