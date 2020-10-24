@@ -176,13 +176,20 @@ onExp (L o upd@RecordUpd{rupd_expr,rupd_flds=L _ (HsRecField (fmap rdrNameAmbigu
     , let expr = mkParen $ mkVar var_setField `mkAppType` sel `mkApp` arg2 `mkApp` rupd_expr -- 'rupd_expr' never needs bracketing.
     = onExp $ if null flds then expr else L o upd{rupd_expr=expr,rupd_flds=flds}
 
-onExp (L o (OpApp _ (L _ (OpApp _ rec Hash fld)) TildeEquals fun))
-    | Just sel <- getSelector fld
-    = onExp $ mkParen $ setL o $ mkVar var_updField `mkAppType` sel `mkApp` fun `mkApp` rec
+-- Turn `r # a.b.c ~= f` into `updField @a (updField @b (updField @c f)) r`.
+-- TODO: This doesn't work yet if `f = g § h` for some operator `§`.
+-- TODO: Make location information better.
+onExp (L o (OpApp _ lhs TildeEquals rhs))
+    | Just (rec, sels) <- getRecAndSelectors lhs
+    = onExp $ mkParen $ setL o $ foldr (\sel acc -> mkVar var_updField `mkAppType` sel `mkApp` acc) rhs sels `mkApp` rec
 
-onExp (L o (OpApp _ (L _ (OpApp _ rec Hash fld)) DotEquals val))
-    | Just sel <- getSelector fld
-    = onExp $ mkParen $ setL o $ mkVar var_setField `mkAppType` sel `mkApp` val `mkApp` rec
+-- Turn `r # a.b.c .= v` into `updField @a (updField @b (setField @c v)) r`.
+-- TODO: This doesn't work yet if `v = u § w` for some operator `§`.
+-- TODO: Make location information better.
+onExp (L o (OpApp _ lhs DotEquals rhs))
+    | Just (rec, sels) <- getRecAndSelectors lhs
+    , Just (sels, lastSel) <- unsnoc sels
+    = onExp $ mkParen $ setL o $ foldr (\sel acc -> mkVar var_updField `mkAppType` sel `mkApp` acc) (mkVar var_setField `mkAppType` lastSel `mkApp` rhs) sels `mkApp` rec
 
 onExp x = descend onExp x
 
@@ -204,6 +211,18 @@ getSelectors (L _ (OpApp _ lhs mid@(isDot -> True) rhs))
     , Just pre <- getSelectors lhs
     = Just $ pre ++ [post]
 getSelectors x = (:[]) <$> getSelector x
+
+-- | Turn `r # a.b.c` into `(r, [a, b, c])`.
+getRecAndSelectors :: LHsExpr GhcPs -> Maybe (LHsExpr GhcPs, [LHsType GhcPs])
+getRecAndSelectors = go []
+  where
+    go :: [LHsType GhcPs] -> LHsExpr GhcPs -> Maybe (LHsExpr GhcPs, [LHsType GhcPs])
+    go acc (L _ (OpApp _ lhs Hash rhs))
+        | Just sel <- getSelector rhs = Just (lhs, sel:acc)
+    go acc (L _ (OpApp _ lhs mid@Dot rhs))
+        | adjacent lhs mid, adjacent mid rhs
+        , Just sel <- getSelector rhs = go (sel:acc) lhs
+    go _ _ = Nothing
 
 -- | Lens on: f [x]
 getAppRHS :: LHsExpr GhcPs -> (LHsExpr GhcPs -> LHsExpr GhcPs, LHsExpr GhcPs)
@@ -229,6 +248,10 @@ getRec x = (id, x)
 isDot :: LHsExpr GhcPs -> Bool
 isDot (L _ (HsVar _ (L _ op))) = op == var_dot
 isDot _ = False
+
+-- | Is it equal to: .
+pattern Dot :: LHsExpr GhcPs
+pattern Dot <- L _ (HsVar _ (L _ ((== var_dot) -> True)))
 
 -- | Is it equal to: #
 pattern Hash :: LHsExpr GhcPs
