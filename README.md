@@ -48,9 +48,14 @@ On Linux and Mac `dev-env` can be installed with:
 1. Install Nix by running: `bash <(curl -sSfL https://nixos.org/nix/install)`.
 2. Enter `dev-env` by running: `source dev-env/load.sh`.
 
-If you don't want to enter `dev-env` manually each time, you can also install [direnv](https://direnv.net),
-which will load it for you when you enter the repository directory. This repo already provides a `.envrc`
-file, with an option to add more in a `.envrc.private` file.
+If you don't want to enter `dev-env` manually each time, you can also install [direnv][], which will
+load it for you when you enter the repository directory. This repo already provides a `.envrc` file,
+with an option to add more in a `.envrc.private` file.
+
+To improve Nix caching, install [nix-direnv][], which improves upon the Nix support built into direnv.
+
+[direnv]: https://direnv.net
+[nix-direnv]: https://github.com/nix-community/nix-direnv
 
 #### Windows
 
