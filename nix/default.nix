@@ -275,11 +275,4 @@ in rec {
     ghc = bazel_dependencies.ghc;
     cabal2nix = tools.cabal2nix;
   };
-
-  dade = {
-    tools-list = pkgs.runCommand "tools-list" {
-      ts = builtins.concatStringsSep " " (builtins.attrNames tools);
-      preferLocalBuild = true;
-    } "echo $ts > $out";
-  };
 }
