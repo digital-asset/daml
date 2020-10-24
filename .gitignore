@@ -13,9 +13,7 @@ target
 .envrc.private
 
 # dev-env
-/dev-env/jdk
 /dev-env/out
-/dev-env/var/
 
 # Bazel
 .bazel-cache
