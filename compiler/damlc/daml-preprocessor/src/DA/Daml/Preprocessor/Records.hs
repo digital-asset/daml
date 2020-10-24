@@ -1,5 +1,6 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE PatternSynonyms #-}
 
 -- Code lifted from <https://github.com/ndmitchell/record-dot-preprocessor/blob/master/plugin/RecordDotPlugin.hs>.
 module DA.Daml.Preprocessor.Records
@@ -37,14 +38,18 @@ setL l (L _ x) = L l x
 mod_records :: GHC.ModuleName
 mod_records = GHC.mkModuleName "DA.Internal.Record"
 
-var_HasField, var_getField, var_setField, var_getFieldPrim, var_setFieldPrim, var_dot :: GHC.RdrName
+var_HasField, var_getField, var_setField, var_updField, var_getFieldPrim, var_setFieldPrim :: GHC.RdrName
 var_HasField = GHC.mkRdrQual mod_records $ GHC.mkClsOcc "HasField"
 var_getField = GHC.mkRdrQual mod_records $ GHC.mkVarOcc "getField"
 var_setField = GHC.mkRdrQual mod_records $ GHC.mkVarOcc "setField"
+var_updField = GHC.mkRdrQual mod_records $ GHC.mkVarOcc "updField"
 var_getFieldPrim = GHC.mkRdrQual mod_records $ GHC.mkVarOcc "getFieldPrim"
 var_setFieldPrim = GHC.mkRdrQual mod_records $ GHC.mkVarOcc "setFieldPrim"
-var_dot = GHC.mkRdrUnqual $ GHC.mkVarOcc "."
 
+var_dot, var_hash, var_tildeEquals :: GHC.RdrName
+var_dot = GHC.mkRdrUnqual $ GHC.mkVarOcc "."
+var_hash = GHC.mkRdrUnqual $ GHC.mkVarOcc "#"
+var_tildeEquals = GHC.mkRdrUnqual $ GHC.mkVarOcc "~="
 
 recordDotPreprocessor :: GHC.ParsedSource -> GHC.ParsedSource
 recordDotPreprocessor = fmap onModule
@@ -170,6 +175,10 @@ onExp (L o upd@RecordUpd{rupd_expr,rupd_flds=L _ (HsRecField (fmap rdrNameAmbigu
     , let expr = mkParen $ mkVar var_setField `mkAppType` sel `mkApp` arg2 `mkApp` rupd_expr -- 'rupd_expr' never needs bracketing.
     = onExp $ if null flds then expr else L o upd{rupd_expr=expr,rupd_flds=flds}
 
+onExp (L o (OpApp _ (L _ (OpApp _ rec Hash fld)) TildeEquals fun))
+    | Just sel <- getSelector fld
+    = onExp $ mkParen $ setL o $ mkVar var_updField `mkAppType` sel `mkApp` fun `mkApp` rec
+
 onExp x = descend onExp x
 
 
@@ -215,6 +224,14 @@ getRec x = (id, x)
 isDot :: LHsExpr GhcPs -> Bool
 isDot (L _ (HsVar _ (L _ op))) = op == var_dot
 isDot _ = False
+
+-- | Is it equal to: #
+pattern Hash :: LHsExpr GhcPs
+pattern Hash <- L _ (HsVar _ (L _ ((== var_hash) -> True)))
+
+-- | Is it equal to: ~=
+pattern TildeEquals :: LHsExpr GhcPs
+pattern TildeEquals <- L _ (HsVar _ (L _ ((== var_tildeEquals) -> True)))
 
 mkVar :: GHC.RdrName -> LHsExpr GhcPs
 mkVar = noL . HsVar noE . noL

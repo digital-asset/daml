@@ -6,7 +6,7 @@
 
 
 -- | MOVE DA.Record
-module DA.Internal.Record(HasField(..), Symbol, getFieldPrim, setFieldPrim) where
+module DA.Internal.Record(HasField(..), Symbol, getFieldPrim, setFieldPrim, updField) where
 
 import GHC.Types
 import GHC.Tuple() -- reqired for Tuple's themselves
@@ -15,6 +15,9 @@ import GHC.Integer.Type() -- required for Integer primitives
 class HasField (x : Symbol) r a | x r -> a where
     getField : r -> a
     setField : a -> r -> r
+
+updField : forall x r a. HasField x r a => (a -> a) -> r -> r
+updField f r = setField @x (f (getField @x r)) r
 
 -- | HIDE Not re-exported in DA.Record
 getFieldPrim : forall (f : Symbol) rec fld. rec -> fld
