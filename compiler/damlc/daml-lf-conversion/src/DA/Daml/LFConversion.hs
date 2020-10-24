@@ -872,14 +872,21 @@ convertExpr env0 e = do
             t_field <- convertType env field
             withTmArg env (varV1, t_field :-> t_field) args $ \x_func args ->
                 withTmArg env (varV2, t_record) args $ \x_record args -> do
-                    let (v_record, context) = case x_record of
-                            EVar{} -> (x_record, id)
-                            -- TODO(MH): We need to use fresh names here since
-                            -- `x_func` could have free variables.
-                            _ -> (EVar varV3, ELet (Binding (varV3, t_record) x_record))
-                    let c_record = fromTCon t_record
                     let n_field = mkField (fsToText name)
-                    pure (context (ERecUpd c_record n_field v_record (ETmApp x_func (ERecProj c_record n_field v_record))), args)
+                    let (x_write, (x_read, context)) = followRecUpds t_record n_field x_record
+                    let c_record = fromTCon t_record
+                    pure (context (ERecUpd c_record n_field x_write (ETmApp x_func (ERecProj c_record n_field x_read))), args)
+      where
+        followRecUpds :: LF.Type -> LF.FieldName -> LF.Expr -> (LF.Expr, (LF.Expr, LF.Expr -> LF.Expr))
+        followRecUpds typ field = \case
+            -- NOTE(MH): Preserve location information.
+            ELocation _ e -> followRecUpds typ field e
+            ERecUpd t n r v
+              | n /= field -> first (\r' -> ERecUpd t n r' v) (followRecUpds typ field r)
+            e@EVar{} -> (e, (e, id))
+            -- TODO(MH): We need to use fresh names here since `x_func` abive
+            -- could have free variables.
+            e -> let v = EVar varV3 in (v, (v, ELet (Binding (varV3, typ) e)))
     go env (VarIn GHC_Real "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRationalDecimal env top bot
     go env (VarIn GHC_Real "fromRational") (LType (isNumLitTy -> Just n) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
