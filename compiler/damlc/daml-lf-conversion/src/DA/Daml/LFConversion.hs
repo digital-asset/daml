@@ -866,6 +866,20 @@ convertExpr env0 e = do
                 withTmArg env (varV2, record') args $ \x2 args ->
                     pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
         -- TODO: Also fix evaluation order for sum-of-record types.
+    go env (VarIn DA_Internal_Record "updField") (LType (isStrLitTy -> Just name) : LType record@(TypeCon recordTyCon _) : LType field : _dict : args)
+        | isSingleConType recordTyCon = do
+            t_record <- convertType env record
+            t_field <- convertType env field
+            withTmArg env (varV1, t_field :-> t_field) args $ \x_func args ->
+                withTmArg env (varV2, t_record) args $ \x_record args -> do
+                    let (v_record, context) = case x_record of
+                            EVar{} -> (x_record, id)
+                            -- TODO(MH): We need to use fresh names here since
+                            -- `x_func` could have free variables.
+                            _ -> (EVar varV3, ELet (Binding (varV3, t_record) x_record))
+                    let c_record = fromTCon t_record
+                    let n_field = mkField (fsToText name)
+                    pure (context (ERecUpd c_record n_field v_record (ETmApp x_func (ERecProj c_record n_field v_record))), args)
     go env (VarIn GHC_Real "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRationalDecimal env top bot
     go env (VarIn GHC_Real "fromRational") (LType (isNumLitTy -> Just n) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)

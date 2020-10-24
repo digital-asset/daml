@@ -18,6 +18,8 @@ outer = Outer with
         int = 42
         text = "world"
 
+mkOuter () = outer
+
 testSimpleSet = scenario do
     (outer # text .= "bye").text === "bye"
 
@@ -94,3 +96,10 @@ testSetOnProj = scenario do
 
 testUpdOnProj = scenario do
     (outer.inner # int ~= (/ 2)).int === 21
+
+testNestedSetOnComplexRecord = scenario do
+    (mkOuter () # inner.text .= "blub").inner.text === "blub"
+
+testNestedUpdOnComplexRecord = scenario do
+    _ <- pure ()
+    (mkOuter () # inner.int ~= (1+)).inner.int === 43
