@@ -1,0 +1,96 @@
+module RecordUpdatePrototype where
+
+import DA.Assert
+
+data Outer = Outer with
+    int: Int
+    text: Text
+    inner: Inner
+
+data Inner = Inner with
+    int: Int
+    text: Text
+
+outer = Outer with
+    int = 13
+    text = "hello"
+    inner = Inner with
+        int = 42
+        text = "world"
+
+testSimpleSet = scenario do
+    (outer # text .= "bye").text === "bye"
+
+testSimpleUpd = scenario do
+    (outer # int ~= (2*)).int === 26
+
+testNestedSet = scenario do
+    (outer # inner.int .= 5).inner.int === 5
+
+testNestedUpd = scenario do
+    (outer # inner.text ~= ("hello " <>)).inner.text === "hello world"
+
+testSimpleSetAndUpdDifferent = scenario do
+    let outer2 = outer
+            # int .= 7
+            # text ~= (<> " world")
+    outer2.int === 7
+    outer2.text === "hello world"
+
+testSimpleUpdAndSetDifferent = scenario do
+    let outer2 = outer
+            # text ~= (<> " world")
+            # int .= 7
+    outer2.int === 7
+    outer2.text === "hello world"
+
+testSimpleSetAndUpdSame = scenario do
+    let outer2 = outer
+            # int .= 7
+            # int ~= (2*)
+    outer2.int === 14
+
+testSimpleUpdAndSetSame = scenario do
+    let outer2 = outer
+            # text ~= (<> " world")
+            # text .= "cheers"
+    outer2.text === "cheers"
+
+testNestedSetAndUpdDifferent = scenario do
+    let outer2 = outer
+            # inner.int .= 7
+            # inner.text ~= ("hello " <>)
+    outer2.inner.int === 7
+    outer2.inner.text === "hello world"
+
+testNestedUpdAndSetDifferent = scenario do
+    let outer2 = outer
+            # inner.text ~= ("hello " <>)
+            # inner.int .= 7
+    outer2.inner.int === 7
+    outer2.inner.text === "hello world"
+
+testNestedSetAndUpdSame = scenario do
+    let outer2 = outer
+            # inner.int .= 7
+            # inner.int ~= (2*)
+    outer2.inner.int === 14
+
+testNestedUpdAndSetSame = scenario do
+    let outer2 = outer
+            # inner.text ~= (<> " world")
+            # inner.text .= "cheers"
+    outer2.inner.text === "cheers"
+
+testMixedSetAndUpd = scenario do
+    let outer2 = outer
+            # inner .= Inner with int = 3; text = "hi"
+            # inner.int ~= (1+)
+    outer2.inner.int === 4
+    outer2.inner.text === "hi"
+
+testSetOnProj = scenario do
+    (outer.inner # text .= "bla").text === "bla"
+
+testUpdOnProj = scenario do
+    (outer.inner # int ~= (/ 2)).int === 21
