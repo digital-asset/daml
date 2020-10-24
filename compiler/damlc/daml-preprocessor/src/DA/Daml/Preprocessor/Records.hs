@@ -191,6 +191,23 @@ onExp (L o (OpApp _ lhs DotEquals rhs))
     , Just (sels, lastSel) <- unsnoc sels
     = onExp $ mkParen $ setL o $ foldr (\sel acc -> mkVar var_updField `mkAppType` sel `mkApp` acc) (mkVar var_setField `mkAppType` lastSel `mkApp` rhs) sels `mkApp` rec
 
+-- Turn `(# a.b.c ~= f)` into `updField @a (updField @b (updField @c f))`
+onExp (L o (SectionR _ hash@Hash (L _ (OpApp _ lhs TildeEquals rhs))))
+    | srcSpanStart o == srcSpanStart (getLoc hash)
+    , Just sels <- getSelectors lhs
+    -- Don't bracket here. The argument came in as a section so it's
+    -- already enclosed in brackets.
+    = setL o $ foldr (\sel acc -> mkVar var_updField `mkAppType` sel `mkApp` acc) rhs sels
+
+-- Turn `(# a.b.c .= v)` into `updField @a (updField @b (setField @c v))`
+onExp (L o (SectionR _ hash@Hash (L _ (OpApp _ lhs DotEquals rhs))))
+    | srcSpanStart o == srcSpanStart (getLoc hash)
+    , Just sels <- getSelectors lhs
+    , Just (sels, lastSel) <- unsnoc sels
+    -- Don't bracket here. The argument came in as a section so it's
+    -- already enclosed in brackets.
+    = setL o $ foldr (\sel acc -> mkVar var_updField `mkAppType` sel `mkApp` acc) (mkVar var_setField `mkAppType` lastSel `mkApp` rhs) sels
+
 onExp x = descend onExp x
 
 

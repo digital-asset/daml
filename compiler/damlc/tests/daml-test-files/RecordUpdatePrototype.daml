@@ -103,3 +103,11 @@ testNestedSetOnComplexRecord = scenario do
 testNestedUpdOnComplexRecord = scenario do
     _ <- pure ()
     (mkOuter () # inner.int ~= (1+)).inner.int === 43
+
+testSetSection = scenario do
+    let change = (# inner.text .= "yay")
+    (change outer).inner.text === "yay"
+
+testUpdSection = scenario do
+    let change = (# inner.int ~= (/ 3))
+    (change outer).inner.int === 14
