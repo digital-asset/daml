@@ -46,10 +46,11 @@ var_updField = GHC.mkRdrQual mod_records $ GHC.mkVarOcc "updField"
 var_getFieldPrim = GHC.mkRdrQual mod_records $ GHC.mkVarOcc "getFieldPrim"
 var_setFieldPrim = GHC.mkRdrQual mod_records $ GHC.mkVarOcc "setFieldPrim"
 
-var_dot, var_hash, var_tildeEquals :: GHC.RdrName
+var_dot, var_hash, var_tildeEquals, var_dotEquals :: GHC.RdrName
 var_dot = GHC.mkRdrUnqual $ GHC.mkVarOcc "."
 var_hash = GHC.mkRdrUnqual $ GHC.mkVarOcc "#"
 var_tildeEquals = GHC.mkRdrUnqual $ GHC.mkVarOcc "~="
+var_dotEquals = GHC.mkRdrUnqual $ GHC.mkVarOcc ".="
 
 recordDotPreprocessor :: GHC.ParsedSource -> GHC.ParsedSource
 recordDotPreprocessor = fmap onModule
@@ -179,6 +180,10 @@ onExp (L o (OpApp _ (L _ (OpApp _ rec Hash fld)) TildeEquals fun))
     | Just sel <- getSelector fld
     = onExp $ mkParen $ setL o $ mkVar var_updField `mkAppType` sel `mkApp` fun `mkApp` rec
 
+onExp (L o (OpApp _ (L _ (OpApp _ rec Hash fld)) DotEquals val))
+    | Just sel <- getSelector fld
+    = onExp $ mkParen $ setL o $ mkVar var_setField `mkAppType` sel `mkApp` val `mkApp` rec
+
 onExp x = descend onExp x
 
 
@@ -232,6 +237,10 @@ pattern Hash <- L _ (HsVar _ (L _ ((== var_hash) -> True)))
 -- | Is it equal to: ~=
 pattern TildeEquals :: LHsExpr GhcPs
 pattern TildeEquals <- L _ (HsVar _ (L _ ((== var_tildeEquals) -> True)))
+
+-- | Is it equal to: .=
+pattern DotEquals :: LHsExpr GhcPs
+pattern DotEquals <- L _ (HsVar _ (L _ ((== var_dotEquals) -> True)))
 
 mkVar :: GHC.RdrName -> LHsExpr GhcPs
 mkVar = noL . HsVar noE . noL
