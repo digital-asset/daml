@@ -1,0 +1,7 @@
+module Test where
+
+template T
+  with
+    p : Party
+  where
+    signatory p
