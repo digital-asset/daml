@@ -202,6 +202,59 @@ final class FailureTests
       } yield succeed
   }
 
+  "/v1/query POST succeeds after reconnect to DB" in withHttpService { (uri, encoder, _, client) =>
+    for {
+      p <- allocateParty(client, "Alice")
+      (status, _) <- postCreateCommand(
+        accountCreateCommand(p, "23"),
+        encoder,
+        uri,
+        headersWithParties(List(p.unwrap)))
+      _ = status shouldBe StatusCodes.OK
+      query = jsObject("""{"templateIds": ["Account:Account"]}""")
+      (status, output) <- postRequest(
+        uri = uri.withPath(Uri.Path("/v1/query")),
+        query,
+        headersWithParties(List(p.unwrap)))
+      _ = status shouldBe StatusCodes.OK
+      _ <- inside(output) {
+        case JsObject(fields) =>
+          inside(fields.get("result")) {
+            case Some(JsArray(rs)) => rs.size shouldBe 1
+          }
+      }
+      _ = dbProxy.disable()
+      (status, output) <- postRequest(
+        uri = uri.withPath(Uri.Path("/v1/query")),
+        query,
+        headersWithParties(List(p.unwrap)))
+      _ <- inside(output) {
+        case JsObject(fields) =>
+          inside(fields.get("status")) {
+            case Some(JsNumber(code)) => code shouldBe 501
+          }
+      }
+      // TODO Document this properly or adjust it
+      _ = status shouldBe StatusCodes.OK
+      _ = dbProxy.enable()
+      // eventually doesn’t handle Futures in the version of scalatest we’re using.
+      _ <- RetryStrategy.constant(5, 2.seconds)((_, _) =>
+        for {
+          (status, output) <- postRequest(
+            uri = uri.withPath(Uri.Path("/v1/query")),
+            query,
+            headersWithParties(List(p.unwrap)))
+          _ = status shouldBe StatusCodes.OK
+          _ <- inside(output) {
+            case JsObject(fields) =>
+              inside(fields.get("result")) {
+                case Some(JsArray(rs)) => rs.size shouldBe 1
+              }
+          }
+        } yield succeed)
+    } yield succeed
+  }
+
   "/v1/stream/query can reconnect" in withHttpService { (uri, encoder, _, client) =>
     val query =
       """[
