@@ -124,8 +124,9 @@ private[trigger] object UnfoldState {
       new FanOutShape2(split.in, as.out, bs.out)
     }
 
-  private[this] def statefulMapConcatFun[T, A, B](
-      f: (T, A) => UnfoldState[T, B]): T \/ A => Iterable[T \/ B] = {
+  private[this] type FoldL[T, -A, +B] = (T, A) => UnfoldState[T, B]
+
+  private[this] def statefulMapConcatFun[T, A, B](f: FoldL[T, A, B]): T \/ A => Iterable[T \/ B] = {
     var mcFun: A => Iterable[T \/ B] = null
     _ fold (zeroT => {
       mcFun = mkMapConcatFun(zeroT, f)
@@ -135,9 +136,7 @@ private[trigger] object UnfoldState {
     })
   }
 
-  private[this] def mkMapConcatFun[T, A, B](
-      zero: T,
-      f: (T, A) => UnfoldState[T, B]): A => Iterable[T \/ B] = {
+  private[this] def mkMapConcatFun[T, A, B](zero: T, f: FoldL[T, A, B]): A => Iterable[T \/ B] = {
     var t = zero
     // statefulMapConcat only uses 'iterator'.  We preserve the Iterable's
     // immutability by making one strict reference to the 't' var at 'Iterable' creation
