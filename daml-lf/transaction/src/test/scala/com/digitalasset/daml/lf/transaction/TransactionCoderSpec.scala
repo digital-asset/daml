@@ -18,7 +18,6 @@ import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Inside, Matchers, WordSpec}
 
 import scala.collection.immutable.HashMap
-import scala.collection.JavaConverters._
 
 class TransactionCoderSpec
     extends WordSpec
@@ -124,46 +123,6 @@ class TransactionCoderSpec
             TransactionCoder
               .protoNodeInfo(defaultTransactionVersion, encodedNode)
               .map(_.informeesOfNode)
-      }
-    }
-
-    "do transactions with default versions" in {
-      forAll(noDanglingRefGenTransaction, minSuccessful(50)) { genT_ =>
-        val genT = genT_.copy(nodes = genT_.nodes.transform((_, n) => withoutByKeyFlag(n)))
-        val t = TransactionVersions.assertAsVersionedTransaction(genT)
-        val encodedTx: proto.Transaction =
-          assertRight(
-            TransactionCoder
-              .encodeTransaction(TransactionCoder.NidEncoder, ValueCoder.CidEncoder, t),
-          )
-
-        val decodedVersionedTx: VersionedTransaction[NodeId, Value.ContractId] =
-          assertRight(
-            TransactionCoder
-              .decodeTransaction(
-                TransactionCoder.NidDecoder,
-                ValueCoder.CidDecoder,
-                encodedTx,
-              ),
-          )
-
-        decodedVersionedTx shouldEqual t
-
-        // Verify that we can compute the informees for all nodes, for both
-        // the deserialized and serialized form.
-        val encodedNodes = encodedTx.getNodesList.asScala.map(n => n.getNodeId -> n).toMap
-        decodedVersionedTx.transaction.nodes.foreach {
-          case (nodeId, node) =>
-            val encodedNodeId = TransactionCoder.NidEncoder.asString(nodeId)
-            val encodedNode = encodedNodes(encodedNodeId)
-
-            node.informeesOfNode shouldBe 'nonEmpty
-
-            Right(node.informeesOfNode) shouldEqual
-              TransactionCoder
-                .protoNodeInfo(decodedVersionedTx.version, encodedNode)
-                .map(_.informeesOfNode)
-        }
       }
     }
 
@@ -356,6 +315,53 @@ class TransactionCoderSpec
     }
   }
 
+  "encode" should {
+    // FIXME: https://github.com/digital-asset/daml/issues/7709
+    // replace all occurrences of "dev" by "11", once "11" is released
+    "fail iff try to encode choice observers in version < dev" in {
+      forAll(noDanglingRefGenTransaction) { tx =>
+        val shouldFail = hasChoiceObserves(tx)
+
+        val fails = TransactionCoder
+          .encodeTransaction(
+            TransactionCoder.NidEncoder,
+            ValueCoder.CidEncoder,
+            VersionedTransaction(
+              TransactionVersion("10"),
+              minimalistTx(TransactionVersion("dev"), tx)),
+          )
+          .isLeft
+
+        fails shouldBe shouldFail
+      }
+    }
+  }
+
+  "decode" should {
+    // FIXME: https://github.com/digital-asset/daml/issues/7709
+    // replace all occurrences of "dev" by "11", once "11" is released
+    "fail if try to decode choice observers in version < dev" in {
+      forAll(noDanglingRefGenTransaction) { tx =>
+        whenever(hasChoiceObserves(tx)) {
+
+          val encoded = TransactionCoder.encodeTransaction(
+            TransactionCoder.NidEncoder,
+            ValueCoder.CidEncoder,
+            VersionedTransaction(
+              TransactionVersion("dev"),
+              minimalistTx(TransactionVersion("dev"), tx)),
+          )
+
+          TransactionCoder.decodeTransaction(
+            TransactionCoder.NidDecoder,
+            ValueCoder.CidDecoder,
+            encoded.right.get.toBuilder.setVersion("10").build()
+          ) shouldBe 'left
+        }
+      }
+    }
+  }
+
   private def isTransactionWithAtLeastOneVersionedValue(
       tx: GenTransaction.WithTxValue[NodeId, Value.ContractId],
   ): Boolean =
@@ -405,6 +411,19 @@ class TransactionCoderSpec
       case _ => gn
     }
 
+  def withoutChoiceObservers[Nid, Cid, Val](gn: GenNode[Nid, Cid, Val]): GenNode[Nid, Cid, Val] =
+    gn match {
+      case ne: NodeExercises[Nid, Cid, Val] =>
+        ne.copy(choiceObservers = Set.empty)
+      case _ => gn
+    }
+
+  def hasChoiceObserves(tx: GenTransaction[_, _, _]): Boolean =
+    tx.nodes.values.exists {
+      case ne: NodeExercises[_, _, _] => ne.choiceObservers.nonEmpty
+      case _ => false
+    }
+
   def transactionWithout[Nid, Cid, Val](
       t: GenTransaction[Nid, Cid, Val],
       f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val],
@@ -426,6 +445,7 @@ class TransactionCoderSpec
       condApply(minMaintainersInExercise, withoutMaintainersInExercise)
         .compose(condApply(minContractKeyInExercise, withoutContractKeyInExercise))
         .compose(condApply(minExerciseResult, withoutExerciseResult))
+        .compose(condApply(minChoiceObservers, withoutChoiceObservers))
         .compose(withoutByKeyFlag[Nid, Cid, Val]),
     )
   }

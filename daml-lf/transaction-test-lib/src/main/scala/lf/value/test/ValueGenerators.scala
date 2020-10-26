@@ -309,6 +309,7 @@ object ValueGenerators {
       chosenValue <- versionedValueGen
       stakeholders <- genNonEmptyParties
       signatories <- genNonEmptyParties
+      choiceObservers <- genMaybeEmptyParties
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
@@ -328,7 +329,7 @@ object ValueGenerators {
         chosenValue,
         stakeholders,
         signatories,
-        choiceObservers = Set.empty, //FIXME #7709: extend Gen to test non-empty choice-observers
+        choiceObservers = choiceObservers,
         false,
         children,
         Some(exerciseResultValue),
