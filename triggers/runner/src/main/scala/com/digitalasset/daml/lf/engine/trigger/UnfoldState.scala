@@ -102,9 +102,9 @@ private[trigger] object UnfoldState {
       f: (T, A) => UnfoldState[T, B]): Flow[A, T \/ B, NotUsed] =
     Flow[A].statefulMapConcat(() => mkMapConcatFun(zero, f))
 
-  /** Accept 1 initial state on in0, fold over in1 elements, emitting the output
-    * elements on out0, and each result state after each result of `f` is unfolded
-    * on out1.
+  /** Accept 1 initial state on in1, fold over in2 elements, emitting the output
+    * elements on out1, and each result state after each result of `f` is unfolded
+    * on out2.
     */
   def flatMapConcatNode[T, A, B](
       f: (T, A) => UnfoldState[T, B]): Graph[BidiShape[T, B, A, T], NotUsed] =
