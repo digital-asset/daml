@@ -5,7 +5,7 @@
 -- such as functional dependencies and typeclass instance overlap modes. These are
 -- added in during LF conversion, and then decoded during data-dependencies to
 -- improve the reconstructed module interface.
-module DA.Daml.LFConversion.Encoding
+module DA.Daml.LFConversion.MetadataEncoding
     ( funDepName
     , encodeFunDeps
     , decodeFunDeps

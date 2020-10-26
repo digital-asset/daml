@@ -81,7 +81,7 @@ module DA.Daml.LFConversion
 import           DA.Daml.LFConversion.Primitives
 import           DA.Daml.LFConversion.UtilGHC
 import           DA.Daml.LFConversion.UtilLF
-import           DA.Daml.LFConversion.Encoding
+import           DA.Daml.LFConversion.MetadataEncoding
 
 import           Development.IDE.Types.Diagnostics
 import           Development.IDE.Types.Location

@@ -47,7 +47,7 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Alpha as LF
 import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
-import qualified DA.Daml.LFConversion.Encoding as LFC
+import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options
 
 import SdkVersion
