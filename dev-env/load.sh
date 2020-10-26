@@ -4,5 +4,5 @@
 
 # Source this file to add all tools to your PATH.
 
-PATH="$(nix-shell --pure --run 'echo $PATH'):${PATH}"
+PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && nix-shell --pure --run 'echo $PATH'):${PATH}"
 export PATH
