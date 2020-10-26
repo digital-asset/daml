@@ -58,6 +58,45 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
       Conversions.configurationStateKey -> Some(configurationStateValue),
       dedupKey -> Some(dedupValue))
 
+  private val aRichTransactionTreeSummary = {
+    val roots = Seq("Exercise-1", "Fetch-1", "LookupByKey-1", "Create-1")
+    val nodes: Seq[TransactionOuterClass.Node] = Seq(
+      createNode("Fetch-1")(_.setFetch(fetchNodeBuilder)),
+      createNode("LookupByKey-1")(_.setLookupByKey(lookupByKeyNodeBuilder)),
+      createNode("Create-1")(_.setCreate(createNodeBuilder)),
+      createNode("LookupByKey-2")(_.setLookupByKey(lookupByKeyNodeBuilder)),
+      createNode("Fetch-2")(_.setFetch(fetchNodeBuilder)),
+      createNode("Create-2")(_.setCreate(createNodeBuilder)),
+      createNode("Fetch-3")(_.setFetch(fetchNodeBuilder)),
+      createNode("Create-3")(_.setCreate(createNodeBuilder)),
+      createNode("LookupByKey-3")(_.setLookupByKey(lookupByKeyNodeBuilder)),
+      createNode("Exercise-2")(_.setExercise(exerciseNodeBuilder.addAllChildren(
+        Seq("Fetch-3", "Create-3", "LookupByKey-3").asJava
+      ))),
+
+      createNode("Exercise-1")(_.setExercise(exerciseNodeBuilder.addAllChildren(
+        Seq("LookupByKey-2", "Fetch-2", "Create-2", "Exercise-2").asJava
+      )))
+    )
+    val tx = Transaction.newBuilder()
+      .addAllRoots(roots.asJava)
+      .addAllNodes(nodes.asJava)
+      .build()
+    val outTx = aDamlTransactionEntry.toBuilder.setTransaction(tx).build()
+    DamlTransactionEntrySummary(outTx)
+  }
+
+  private def createNode(nodeId: String)(nodeImpl: TransactionOuterClass.Node.Builder => TransactionOuterClass.Node.Builder) =
+    nodeImpl(TransactionOuterClass.Node.newBuilder().setNodeId(nodeId)).build()
+
+  private def fetchNodeBuilder = TransactionOuterClass.NodeFetch.newBuilder()
+
+  private def exerciseNodeBuilder = TransactionOuterClass.NodeExercise.newBuilder()
+
+  private def createNodeBuilder = TransactionOuterClass.NodeCreate.newBuilder()
+
+  private def lookupByKeyNodeBuilder = TransactionOuterClass.NodeLookupByKey.newBuilder()
+
   "deduplicateCommand" should {
     "continue if record time is not available" in {
       val context = new FakeCommitContext(recordTime = None)
@@ -72,66 +111,18 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
     "removeUnnnecessaryNodes" should {
       "remove `Fetch` and `LookupByKey` nodes from transaction tree" in {
-        def createNode(nodeId: String)(nodeImpl: TransactionOuterClass.Node.Builder => TransactionOuterClass.Node.Builder) =
-          nodeImpl(TransactionOuterClass.Node.newBuilder().setNodeId(nodeId)).build()
-
-        def fetchNodeBuilder = TransactionOuterClass.NodeFetch.newBuilder()
-
-        def exerciseNodeBuilder = TransactionOuterClass.NodeExercise.newBuilder()
-
-        def createNodeBuilder = TransactionOuterClass.NodeCreate.newBuilder()
-
-        def lookupByKeyNodeBuilder = TransactionOuterClass.NodeLookupByKey.newBuilder()
-
         val context = new FakeCommitContext(recordTime = None)
 
-        val roots = Seq("E-1", "F-1", "LK-1", "E-2")
-        val nodes: Seq[TransactionOuterClass.Node] = Seq(
-          createNode("F-1")(_.setFetch(fetchNodeBuilder)),
-          createNode("LK-1")(_.setLookupByKey(lookupByKeyNodeBuilder)),
-          createNode("LK-2")(_.setLookupByKey(lookupByKeyNodeBuilder)),
-          createNode("F-2")(_.setFetch(fetchNodeBuilder)),
-          createNode("C-1")(_.setCreate(createNodeBuilder)),
-          createNode("E-1")(_.setExercise(exerciseNodeBuilder.addAllChildren(
-            Seq("LK-2", "F-2", "C-1").asJava
-          ))),
-          createNode("F-3")(_.setFetch(fetchNodeBuilder)),
-          createNode("E-6")(_.setExercise(exerciseNodeBuilder.addAllChildren(Seq("F-3").asJava))),
-          createNode("C-3")(_.setCreate(createNodeBuilder)),
-          createNode("LK-3")(_.setLookupByKey(lookupByKeyNodeBuilder)),
-          createNode("E-5")(_.setExercise(exerciseNodeBuilder.addAllChildren(Seq("LK-3").asJava))),
-          createNode("C-2")(_.setCreate(createNodeBuilder)),
-          createNode("E-4")(_.setExercise(exerciseNodeBuilder.addAllChildren(Seq("E-5", "C-2").asJava))),
-          createNode("F-2")(_.setFetch(fetchNodeBuilder)),
-          createNode("E-3")(_.setExercise(exerciseNodeBuilder.addAllChildren(Seq("E-4", "F-2").asJava))),
-          createNode("E-2")(_.setExercise(exerciseNodeBuilder.addAllChildren(Seq("E-3", "C-3", "E-6").asJava))),
-        )
-        val tx = Transaction.newBuilder()
-          .addAllRoots(roots.asJava)
-          .addAllNodes(nodes.asJava)
-          .build()
-        val outTx = aDamlTransactionEntry.toBuilder.setTransaction(tx).build()
-        val aTransactionEntrySummary = DamlTransactionEntrySummary(outTx)
-        outTx.getTransaction.getNodesList.asScala.forall(
-          node => !(node.hasFetch || node.hasLookupByKey)
-        ) shouldBe false
-
-        instance.removeUnnecessaryNodes(context, aTransactionEntrySummary) match {
-          case StepContinue(_) => fail("should be step stop")
+        instance.removeUnnecessaryNodes(context, aRichTransactionTreeSummary) match {
+          case StepContinue(_) => fail("should be StepStop")
           case StepStop(logEntry) =>
             val transaction = logEntry.getTransactionEntry.getTransaction
-            transaction.getRootsList.asScala should contain theSameElementsInOrderAs Seq("E-1", "E-2")
+            transaction.getRootsList.asScala should contain theSameElementsInOrderAs Seq("Exercise-1", "Create-1")
             val nodes = transaction.getNodesList.asScala
-            nodes.map(_.getNodeId) should contain theSameElementsInOrderAs Seq("C-1", "E-1", "E-6", "C-3", "E-5", "C-2", "E-4", "E-3", "E-2")
+            nodes.map(_.getNodeId) should contain theSameElementsInOrderAs Seq("Create-1", "Create-2", "Create-3", "Exercise-2", "Exercise-1")
             nodes.head.hasCreate shouldBe true
-            nodes(1).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq("C-1")
-            nodes(2).getExercise.getChildrenList.asScala shouldBe empty
-            nodes(3).hasCreate shouldBe true
-            nodes(4).getExercise.getChildrenList.asScala shouldBe empty
-            nodes(5).hasCreate shouldBe true
-            nodes(6).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq("E-5", "C-2")
-            nodes(7).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq("E-4")
-            nodes(8).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq("E-3", "C-3", "E-6")
+            nodes(3).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq("Create-3")
+            nodes(4).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq("Create-2", "Exercise-2")
         }
       }
     }

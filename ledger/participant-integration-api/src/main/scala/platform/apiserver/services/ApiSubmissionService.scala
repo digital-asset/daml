@@ -183,9 +183,9 @@ private[apiserver] final class ApiSubmissionService private (
       ledgerConfig: Configuration,
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     for {
-      result <- commandExecutor.execute(commands, submissionSeed) // daml_execution_total_mean
+      result <- commandExecutor.execute(commands, submissionSeed)
       transactionInfo <- handleCommandExecutionResult(result)
-      partyAllocationResults <- allocateMissingInformees(transactionInfo.transaction) // allocate party MAX
+      partyAllocationResults <- allocateMissingInformees(transactionInfo.transaction)
       submissionResult <- submitTransaction(transactionInfo, partyAllocationResults, ledgerConfig)
     } yield submissionResult
 

@@ -69,7 +69,7 @@ private[kvutils] class TransactionCommitter(
     "validate_contract_keys" -> validateContractKeys,
     "validate_model_conformance" -> validateModelConformance,
     "blind" -> blind,
-    "remove_unnecessary_nodes" -> removeUnnecessaryNodes
+    "remove_unnecessary_nodes" -> removeUnnecessaryNodes,
   )
 
   // -------------------------------------------------------------------------------
@@ -257,12 +257,13 @@ private[kvutils] class TransactionCommitter(
       buildFinalResultState(commitContext, transactionEntry, blindingInfo)
     }
 
-
-
+  /**
+   * Removes `Fetch` and `LookupByKey` nodes from the transactionEntry
+   */
   private[committer] def removeUnnecessaryNodes: Step = (commitContext, transactionEntry) => {
     val transaction = transactionEntry.submission.getTransaction
     val nodes = transaction.getNodesList.asScala
-    val nodesToKeep = nodes.collect {
+    val nodesToKeep = nodes.iterator.collect {
       case node if node.hasCreate || node.hasExercise => node.getNodeId
     }.toSet
 
@@ -289,7 +290,7 @@ private[kvutils] class TransactionCommitter(
 
     val newTx = transaction
       .newBuilderForType()
-      .addAllRoots(roots.filter(nodesToKeep).asJavaCollection)
+      .addAllRoots(roots.asJavaCollection)
       .addAllNodes(newNodes.asJavaCollection)
       .setVersion(transaction.getVersion)
       .build()
@@ -673,7 +674,6 @@ private[kvutils] class TransactionCommitter(
         .map(v => v.getNumber -> metrics.daml.kvutils.committer.transaction.rejection(v.name()))
         .toMap
   }
-
 }
 
 private[kvutils] object TransactionCommitter {
