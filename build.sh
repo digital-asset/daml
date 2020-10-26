@@ -5,6 +5,7 @@
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
+source dev-env/lib/ensure-nix
 source dev-env/load.sh
 
 execution_log_postfix=${1:-}
