@@ -837,13 +837,20 @@ convertExpr env0 e = do
             mkFieldProj i (name, _typ) = (mkIndexedField i, EStructProj name (EVar varV1))
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
+    -- NOTE(MH): `getFieldPrim` and `setFieldPrim` are used by the record
+    -- preprocessor to magically implement the `HasField` instances for records.
     go env (VarIn DA_Internal_Record "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
         record' <- convertType env record
         withTmArg env (varV1, record') args $ \x args ->
             pure (ERecProj (fromTCon record') (mkField $ fsToText name) x, args)
-    -- NOTE(MH): We only inline `getField` for record types. This is required
-    -- for contract keys. Projections on sum-of-records types have to through
-    -- the type class for `getField`.
+    go env (VarIn DA_Internal_Record "setFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType field : args) = do
+        record' <- convertType env record
+        field' <- convertType env field
+        withTmArg env (varV1, field') args $ \x1 args ->
+            withTmArg env (varV2, record') args $ \x2 args ->
+                pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
+    -- NOTE(MH): We only inline `getField` for record types. Projections on
+    -- sum-of-records types have to through the type class for `getField`.
     go env (VarIn DA_Internal_Record "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : args)
         | isSingleConType recordTyCon = do
             recordType <- convertType env recordType
@@ -859,14 +866,6 @@ convertExpr env0 e = do
                 withTmArg env (varV2, record') args $ \x2 args ->
                     pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
         -- TODO: Also fix evaluation order for sum-of-record types.
-    -- NOTE(SF): We will need a `setFieldPrim` rule regardless, because
-    -- GeneralizedNewtypeDeriving will skip the typeclass instance.
-    go env (VarIn DA_Internal_Record "setFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType field : args) = do
-        record' <- convertType env record
-        field' <- convertType env field
-        withTmArg env (varV1, field') args $ \x1 args ->
-            withTmArg env (varV2, record') args $ \x2 args ->
-                pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
     go env (VarIn GHC_Real "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRationalDecimal env top bot
     go env (VarIn GHC_Real "fromRational") (LType (isNumLitTy -> Just n) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
