@@ -19,8 +19,8 @@ da_scala_library(
         ":oauth-test-server",  # TODO[AH] Extract OAuth2 request/response types
         "//daml-lf/data",
         "//language-support/scala/bindings",
-        "//ledger-service/cli-opts",
         "//ledger-service/jwt",
+        "//ledger/cli-opts",
         "//ledger/ledger-api-auth",
         "//libs-scala/ports",
         "@maven//:com_github_scopt_scopt_2_12",
