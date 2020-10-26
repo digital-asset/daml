@@ -432,26 +432,25 @@ class Runner(
     val machine: Speedy.Machine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
 
-    val runRuleOnMsgs = UnfoldState.flatMapConcatStates(evaluatedInitialState) {
-      (state, messageVal: SValue) =>
-        val clientTime: Timestamp =
-          Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-        machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
-        val stateFun = Machine
-          .stepToValue(machine)
-          .expect("TriggerRule", {
-            case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) => fun
-          })
-          .orConverterException
-        machine.setExpressionToEvaluate(makeAppD(stateFun, state))
-        val updateWithNewState = Machine.stepToValue(machine)
+    val runRuleOnMsgs = UnfoldState.flatMapConcatNode { (state: SValue, messageVal: SValue) =>
+      val clientTime: Timestamp =
+        Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+      machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
+      val stateFun = Machine
+        .stepToValue(machine)
+        .expect("TriggerRule", {
+          case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) => fun
+        })
+        .orConverterException
+      machine.setExpressionToEvaluate(makeAppD(stateFun, state))
+      val updateWithNewState = Machine.stepToValue(machine)
 
-        freeTriggerSubmits(clientTime, v = updateWithNewState)
-          .leftMap(_.expect("TriggerRule new state", {
-            case DamlTuple2(SUnit, newState) =>
-              logger.debug(s"New state: $newState")
-              newState
-          }).orConverterException)
+      freeTriggerSubmits(clientTime, v = updateWithNewState)
+        .leftMap(_.expect("TriggerRule new state", {
+          case DamlTuple2(SUnit, newState) =>
+            logger.debug(s"New state: $newState")
+            newState
+        }).orConverterException)
     }
 
     // The flow that we return:
@@ -461,12 +460,17 @@ class Runner(
     //    thereby accumulating the state changes.
     // The materialized value of the flow is the (future) final state
     // of this process.
+    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
     val graph = GraphDSL.create(lastOr(evaluatedInitialState)) { implicit gb => saveLastState =>
       import GraphDSL.Implicits._
-      val msgIn = gb add (Flow[TriggerMsg] wireTap (logReceivedMsg _))
-      discard(
-        msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> runRuleOnMsgs
-          ~> submitAndRemoveSubmissions[SValue, SubmitRequest](submit) ~> saveLastState)
+      val msgIn = gb add Flow[TriggerMsg].wireTap(logReceivedMsg _)
+      val rule = gb add runRuleOnMsgs
+      // format: off
+           Source.single(evaluatedInitialState) ~> rule.in1
+      msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.in2
+       Sink.ignore <~ submitSubmissions(submit) <~ rule.out1
+                                                   rule.out2 ~> saveLastState
+      // format: on
       new SinkShape(msgIn.in)
     }
     Sink fromGraph graph
@@ -496,14 +500,9 @@ class Runner(
       case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
     }
 
-  private[this] def submitAndRemoveSubmissions[T, SR](
-      submit: SR => Future[None.type]): Flow[T \/ SR, T, NotUsed] =
-    Flow[T \/ SR]
-      .mapAsync(maxParallelSubmissionsPerTrigger) {
-        case -\/(t) => Future successful Some(t)
-        case \/-(sr) => submit(sr)
-      }
-      .collect { case Some(t) => t }
+  private[this] def submitSubmissions[SR, Z](submit: SR => Future[Z]): Flow[SR, Z, NotUsed] =
+    Flow[SR]
+      .mapAsync(maxParallelSubmissionsPerTrigger)(submit)
 
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
     SEApp(func, values.map(SEValue(_)))
