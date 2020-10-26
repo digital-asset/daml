@@ -394,6 +394,19 @@ class Runner(
     (initialStateFree, evaluatedUpdate)
   }
 
+  private[this] def encodeMsgs: Flow[TriggerMsg, SValue, NotUsed] =
+    Flow fromFunction {
+      case TransactionMsg(transaction) =>
+        converter.fromTransaction(transaction).orConverterException
+      case CompletionMsg(completion) =>
+        val status = completion.getStatus
+        if (status.code != 0) {
+          logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
+        }
+        converter.fromCompletion(completion).orConverterException
+      case HeartbeatMsg() => converter.fromHeartbeat
+    }
+
   // A sink for trigger messages representing a process for the
   // accumulated state changes resulting from application of the
   // messages given the starting state represented by the ACS
@@ -429,17 +442,7 @@ class Runner(
     Flow[TriggerMsg]
       .wireTap(logReceivedMsg _)
       .via(hideIrrelevantMsgs)
-      .map {
-        case TransactionMsg(transaction) =>
-          converter.fromTransaction(transaction).orConverterException
-        case CompletionMsg(completion) =>
-          val status = completion.getStatus
-          if (status.code != 0) {
-            logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
-          }
-          converter.fromCompletion(completion).orConverterException
-        case HeartbeatMsg() => converter.fromHeartbeat
-      }
+      .via(encodeMsgs)
       .via(UnfoldState.flatMapConcatStates(evaluatedInitialState) { (state, messageVal) =>
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
