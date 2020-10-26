@@ -4,8 +4,8 @@
 package com.daml.platform.apiserver.services
 
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.v1.version_service.GetApiVersionRequest
-import com.daml.ledger.api.v1.version_service.GetApiVersionResponse
+import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionRequest
+import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionResponse
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc.VersionService
 import com.daml.platform.api.grpc.GrpcApiService
@@ -21,9 +21,9 @@ private[apiserver] final class ApiVersionService private
   private val versionFile: String = "ledger-api/VERSION"
   private lazy val apiVersion: String = readVersion(versionFile)
 
-  override def getApiVersion(request: GetApiVersionRequest): Future[GetApiVersionResponse] =
+  override def getLedgerApiVersion(request: GetLedgerApiVersionRequest): Future[GetLedgerApiVersionResponse] =
     Future.successful {
-      GetApiVersionResponse(apiVersion)
+      GetLedgerApiVersionResponse(apiVersion)
     }
 
   private def readVersion(versionFileName: String): String =

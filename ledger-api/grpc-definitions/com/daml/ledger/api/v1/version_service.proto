@@ -12,11 +12,11 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 // Allows clients to retrieve information about the ledger API version
 service VersionService {
 
-  // Read the API version
-  rpc GetApiVersion (GetApiVersionRequest) returns (GetApiVersionResponse);
+  // Read the Ledger API version
+  rpc GetLedgerApiVersion (GetLedgerApiVersionRequest) returns (GetLedgerApiVersionResponse);
 }
 
-message GetApiVersionRequest {
+message GetLedgerApiVersionRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Must be a valid LedgerString (as described in ``value.proto``).
@@ -24,7 +24,7 @@ message GetApiVersionRequest {
   string ledger_id = 1;
 }
 
-message GetApiVersionResponse {
+message GetLedgerApiVersionResponse {
 
   // The version of the ledger API
   string version = 1;
