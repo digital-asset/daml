@@ -432,18 +432,8 @@ class Runner(
     val machine: Speedy.Machine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
 
-    // The flow that we return:
-    //  - Maps incoming trigger messages to new trigger messages
-    //    replacing ledger command IDs with the IDs used internally;
-    //  - Folds over the trigger messages via the speedy machine
-    //    thereby accumulating the state changes.
-    // The materialized value of the flow is the (future) final state
-    // of this process.
-    Flow[TriggerMsg]
-      .wireTap(logReceivedMsg _)
-      .via(hideIrrelevantMsgs)
-      .via(encodeMsgs)
-      .via(UnfoldState.flatMapConcatStates(evaluatedInitialState) { (state, messageVal) =>
+    val runRuleOnMsgs = UnfoldState.flatMapConcatStates(evaluatedInitialState) {
+      (state, messageVal: SValue) =>
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
         machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
@@ -462,12 +452,28 @@ class Runner(
               logger.debug(s"New state: $newState")
               newState
           }).orConverterException)
-      })
-      .via(submitAndRemoveSubmissions(submit))
-      .toMat(Sink.fold[SValue, SValue](evaluatedInitialState) { (_, newState) =>
-        newState
-      })(Keep.right[NotUsed, Future[SValue]])
+    }
+
+    // The flow that we return:
+    //  - Maps incoming trigger messages to new trigger messages
+    //    replacing ledger command IDs with the IDs used internally;
+    //  - Folds over the trigger messages via the speedy machine
+    //    thereby accumulating the state changes.
+    // The materialized value of the flow is the (future) final state
+    // of this process.
+    val graph = GraphDSL.create(lastOr(evaluatedInitialState)) { implicit gb => saveLastState =>
+      import GraphDSL.Implicits._
+      val msgIn = gb add (Flow[TriggerMsg] wireTap (logReceivedMsg _))
+      discard(
+        msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> runRuleOnMsgs
+          ~> submitAndRemoveSubmissions[SValue, SubmitRequest](submit) ~> saveLastState)
+      new SinkShape(msgIn.in)
+    }
+    Sink fromGraph graph
   }
+
+  private[this] def lastOr[A](orElse: A): Sink[A, Future[A]] =
+    Sink.fold(orElse)((_, next) => next)
 
   private[this] def hideIrrelevantMsgs: Flow[TriggerMsg, TriggerMsg, NotUsed] =
     Flow[TriggerMsg].mapConcat[TriggerMsg] {
