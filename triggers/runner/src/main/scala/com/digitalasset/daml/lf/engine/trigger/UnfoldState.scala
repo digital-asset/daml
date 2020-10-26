@@ -89,15 +89,15 @@ private[trigger] object UnfoldState {
       f: (T, A) => UnfoldState[T, B]): Flow[A, T \/ B, NotUsed] =
     Flow[A].statefulMapConcat(() => mkMapConcatFun(zero, f))
 
-  /** Like `flatMapConcat` but emit the new state after each unfolded list.
-    * The pattern you will see is a bunch of right Bs, followed by a single
-    * left T, then repeat until close, with a final T unless aborted.
+  /** Accept 1 initial state on in0, fold over in1 elements, emitting the output
+    * elements on out0, and each result state after each result of `f` is unfolded
+    * on out1.
     */
   def flatMapConcatNode[T, A, B](
       f: (T, A) => UnfoldState[T, B]): Graph[BidiShape[T, B, A, T], NotUsed] =
     GraphDSL.create() { implicit gb =>
       import GraphDSL.Implicits._
-      val initialT = gb add (Flow fromFunction \/.left[T, A])
+      val initialT = gb add (Flow fromFunction \/.left[T, A] take 1)
       val as = gb add (Flow fromFunction \/.right[T, A])
       val tas = gb add Concat[T \/ A](2) // ensure that T arrives *before* A
       val splat = gb add (Flow[T \/ A] statefulMapConcat (() => statefulMapConcatFun(f)))
