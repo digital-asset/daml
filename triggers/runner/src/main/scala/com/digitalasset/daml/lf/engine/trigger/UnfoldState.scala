@@ -7,7 +7,8 @@ import scalaz.{-\/, Bifunctor, \/, \/-}
 import scalaz.syntax.bifunctor._
 import scalaz.std.tuple._
 import akka.NotUsed
-import akka.stream.scaladsl.Flow
+import akka.stream.{BidiShape, FanOutShape2, Graph}
+import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Partition}
 
 import scala.annotation.tailrec
 
@@ -86,45 +87,95 @@ private[trigger] object UnfoldState {
     */
   def flatMapConcatStates[T, A, B](zero: T)(
       f: (T, A) => UnfoldState[T, B]): Flow[A, T \/ B, NotUsed] =
-    Flow[A].statefulMapConcat { () =>
-      var t = zero
-      // statefulMapConcat only uses 'iterator'.  We preserve the Iterable's
-      // immutability by making one strict reference to the 't' var at creation
-      // time, meaning any later 'iterator' call uses the same start state, no matter
-      // whether the above 't' has been updated
-      a =>
-        new Iterable[T \/ B] {
-          private[this] val bs = f(t, a)
-          import bs.step
-          override def iterator = new Iterator[T \/ B] {
-            private[this] var last: Option[T \/ (B, bs.S)] = {
-              val fst = step(bs.init)
-              fst fold (newT => t = newT, _ => ())
-              Some(fst)
-            }
+    Flow[A].statefulMapConcat(() => mkMapConcatFun(zero, f))
 
-            // this stream is "odd", i.e. we are always evaluating 1 step ahead
-            // of what the client sees.  We could improve laziness by making it
-            // "even", but it would be a little trickier, as `hasNext` would have
-            // a forcing side-effect
-            override def hasNext() = last.isDefined
-
-            override def next() =
-              last match {
-                case Some(\/-((b, s))) =>
-                  val next = step(s)
-                  // The assumption here is that statefulMapConcat's implementation
-                  // will always read iterator to end before invoking on the next A
-                  next fold (newT => t = newT, _ => ())
-                  last = Some(next)
-                  \/-(b)
-                case Some(et @ -\/(_)) =>
-                  last = None
-                  et
-                case None =>
-                  throw new IllegalStateException("iterator read past end")
-              }
-          }
-        }
+  /** Like `flatMapConcat` but emit the new state after each unfolded list.
+    * The pattern you will see is a bunch of right Bs, followed by a single
+    * left T, then repeat until close, with a final T unless aborted.
+    */
+  def flatMapConcatNode[T, A, B](
+      f: (T, A) => UnfoldState[T, B]): Graph[BidiShape[T, B, A, T], NotUsed] =
+    GraphDSL.create() { implicit gb =>
+      import GraphDSL.Implicits._
+      val initialT = gb add (Flow fromFunction \/.left[T, A])
+      val as = gb add (Flow fromFunction \/.right[T, A])
+      val tas = gb add Concat[T \/ A](2) // ensure that T arrives *before* A
+      val splat = gb add (Flow[T \/ A] statefulMapConcat (() => statefulMapConcatFun(f)))
+      val split = gb add partition[T, B]
+      // format: off
+      discard { initialT ~> tas }
+      discard {       as ~> tas ~> splat ~> split.in }
+      // format: on
+      new BidiShape(initialT.in, split.out1, as.in, split.out0)
     }
+
+  // TODO factor with ContractsFetch
+  private[this] def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
+    GraphDSL.create() { implicit b =>
+      import GraphDSL.Implicits._
+      val split = b.add(Partition[A \/ B](2, {
+        case -\/(_) => 0
+        case \/-(_) => 1
+      }))
+      val as = b.add(Flow[A \/ B].collect { case -\/(a) => a })
+      val bs = b.add(Flow[A \/ B].collect { case \/-(b) => b })
+      discard { split ~> as }
+      discard { split ~> bs }
+      new FanOutShape2(split.in, as.out, bs.out)
+    }
+
+  private[this] def statefulMapConcatFun[T, A, B](
+      f: (T, A) => UnfoldState[T, B]): T \/ A => Iterable[T \/ B] = {
+    var mcFun: A => Iterable[T \/ B] = null
+    _ fold (zeroT => {
+      mcFun = mkMapConcatFun(zeroT, f)
+      Iterable.empty
+    }, { a =>
+      mcFun(a)
+    })
+  }
+
+  private[this] def mkMapConcatFun[T, A, B](
+      zero: T,
+      f: (T, A) => UnfoldState[T, B]): A => Iterable[T \/ B] = {
+    var t = zero
+    // statefulMapConcat only uses 'iterator'.  We preserve the Iterable's
+    // immutability by making one strict reference to the 't' var at 'Iterable' creation
+    // time, meaning any later 'iterator' call uses the same start state, no matter
+    // whether the 't' has been updated
+    a =>
+      new Iterable[T \/ B] {
+        private[this] val bs = f(t, a)
+        import bs.step
+        override def iterator = new Iterator[T \/ B] {
+          private[this] var last: Option[T \/ (B, bs.S)] = {
+            val fst = step(bs.init)
+            fst fold (newT => t = newT, _ => ())
+            Some(fst)
+          }
+
+          // this stream is "odd", i.e. we are always evaluating 1 step ahead
+          // of what the client sees.  We could improve laziness by making it
+          // "even", but it would be a little trickier, as `hasNext` would have
+          // a forcing side-effect
+          override def hasNext() = last.isDefined
+
+          override def next() =
+            last match {
+              case Some(\/-((b, s))) =>
+                val next = step(s)
+                // The assumption here is that statefulMapConcat's implementation
+                // will always read iterator to end before invoking on the next A
+                next fold (newT => t = newT, _ => ())
+                last = Some(next)
+                \/-(b)
+              case Some(et @ -\/(_)) =>
+                last = None
+                et
+              case None =>
+                throw new IllegalStateException("iterator read past end")
+            }
+        }
+      }
+  }
 }
