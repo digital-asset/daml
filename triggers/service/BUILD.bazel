@@ -83,6 +83,7 @@ da_scala_binary(
 
 da_scala_test(
     name = "tests",
+    timeout = "long",
     srcs = glob(["src/test/scala/com/digitalasset/daml/lf/engine/trigger/*.scala"]),
     data = [
         ":test-model.dar",
