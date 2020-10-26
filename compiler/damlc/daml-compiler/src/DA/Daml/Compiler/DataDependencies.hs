@@ -47,6 +47,7 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Alpha as LF
 import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
+import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options
 
 import SdkVersion
@@ -332,7 +333,7 @@ generateSrcFromLf env = noLoc mod
                 , tcdLName = noLoc $ mkRdrUnqual occName
                 , tcdTyVars = HsQTvs noExt params
                 , tcdFixity = Prefix
-                , tcdFDs = mkFunDeps name
+                , tcdFDs = mkFunDeps synName
                 , tcdSigs =
                     [ mkOpSig False name ty | (name, ty) <- methods ] ++
                     [ mkOpSig True  name ty | (name, ty, _) <- defaultMethods ]
@@ -349,38 +350,13 @@ generateSrcFromLf env = noLoc mod
                     [mkRdrName methodName]
                     (HsIB noExt (noLoc methodType))
 
-        mkFunDeps :: T.Text -> [LHsFunDep GhcPs]
+        mkFunDeps :: LF.TypeSynName -> [LHsFunDep GhcPs]
         mkFunDeps className = fromMaybe [] $ do
             let values = LF.moduleValues (envMod env)
-            LF.DefValue{..} <- NM.lookup (funDepName className) values
+            LF.DefValue{..} <- NM.lookup (LFC.funDepName className) values
             LF.TForalls _ ty <- pure (snd dvalBinder)
-            decodeTypeList decodeFunDep ty
-
-        decodeFunDep :: LF.Type -> Maybe (LHsFunDep GhcPs)
-        decodeFunDep ty = do
-            (left LF.:-> right) <- pure ty
-            left' <- decodeTypeList decodeTypeVar left
-            right' <- decodeTypeList decodeTypeVar right
-            pure (noLoc (left', right'))
-
-        decodeTypeVar :: LF.Type -> Maybe (Located RdrName)
-        decodeTypeVar ty = do
-            LF.TVar (LF.TypeVarName x) <- pure ty
-            pure (mkRdrName x)
-
-        decodeTypeList :: (LF.Type -> Maybe t) -> LF.Type -> Maybe [t]
-        decodeTypeList f ty = do
-            LF.TStruct fields <- pure ty
-            pairs <- sortOn fst <$> mapM (decodeTypeListField f) fields
-            guard (map fst pairs == [1 .. length pairs])
-            pure (map snd pairs)
-
-        decodeTypeListField :: (LF.Type -> Maybe t) -> (LF.FieldName, LF.Type) -> Maybe (Int, t)
-        decodeTypeListField f (LF.FieldName fieldName, x) = do
-            suffix <- T.stripPrefix "_" fieldName
-            i <- readMay (T.unpack suffix)
-            y <- f x
-            pure (i, y)
+            funDeps <- LFC.decodeFunDeps ty
+            pure $ map (noLoc . LFC.mapFunDep (mkRdrName . LF.unTypeVarName)) funDeps
 
     synonymDecls :: [Gen (LHsDecl GhcPs)]
     synonymDecls = do
@@ -472,19 +448,11 @@ generateSrcFromLf env = noLoc mod
             in (T.reverse tagR, readMay (T.unpack (T.reverse intR)))
 
         getOverlapMode :: LF.ExprValName -> Maybe (Located OverlapMode)
-        getOverlapMode (LF.ExprValName name) = do
-            dval <- NM.lookup (overlapModeName name) (LF.moduleValues (envMod env))
-            LF.EBuiltin (LF.BEText mode) <- Just (LF.dvalBody dval)
-            modeFn <- MS.lookup mode overlapModeFns
-            Just (noLoc (modeFn NoSourceText))
-
-        overlapModeFns :: MS.Map T.Text (SourceText -> OverlapMode)
-        overlapModeFns = MS.fromList
-            [ ("OVERLAPPING", Overlapping)
-            , ("OVERLAPPABLE", Overlappable)
-            , ("OVERLAPS", Overlaps)
-            , ("INCOHERENT", Incoherent)
-            ]
+        getOverlapMode name = do
+            dval <- NM.lookup (LFC.overlapModeName name) (LF.moduleValues (envMod env))
+            LF.EBuiltin (LF.BEText modeText) <- Just (LF.dvalBody dval)
+            mode <- LFC.decodeOverlapMode modeText
+            Just (noLoc mode)
 
     hiddenRefMap :: HMS.HashMap Ref Bool
     hiddenRefMap = envHiddenRefMap env
@@ -1130,12 +1098,6 @@ isSuperClassField (LF.FieldName fieldName) =
 
 defaultMethodName :: T.Text -> LF.ExprValName
 defaultMethodName name = LF.ExprValName ("$dm" <> name)
-
-funDepName :: T.Text -> LF.ExprValName
-funDepName x = LF.ExprValName ("$$fd" <> x)
-
-overlapModeName :: T.Text -> LF.ExprValName
-overlapModeName x = LF.ExprValName ("$$om" <> x)
 
 -- | Signature data for a dictionary function.
 data DFunSig = DFunSig
