@@ -55,19 +55,6 @@ private[trigger] sealed abstract class UnfoldState[+T, +A] {
       }
     }
 
-  /*
-  final def uncons: T \/ (A, UnfoldState.Aux[S, T, A]) =
-    step(init) rightMap (_ rightMap withInit)
-
-  final def append[U, AA >: A](f: T => UnfoldState[U, AA]): UnfoldState[U, AA] =
-    UnfoldState(\/.left[S, UnfoldState[U, AA]](init)){
-      case -\/(s) => step(s) fold (t =>
-        f(t).uncons rightMap (_ rightMap \/.right)
-      , as => \/-(as rightMap \/.left))
-      case \/-(us) => us.uncons rightMap (_ rightMap \/.right)
-    }
-   */
-
   final def runTo[FA](implicit cbf: CanBuildFrom[Nothing, A, FA]): (FA, T) = {
     val b = cbf()
     val t = foreach(a => discard(b += a))
