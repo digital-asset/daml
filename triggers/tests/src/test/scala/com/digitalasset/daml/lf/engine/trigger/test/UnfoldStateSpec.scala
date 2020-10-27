@@ -6,15 +6,18 @@ package test
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import org.scalacheck.Gen
-import org.scalacheck.Arbitrary.arbitrary
+import org.scalacheck.Gen.listOfN
+import org.scalacheck.Arbitrary
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.Assertion
 import org.scalatest.{AsyncWordSpec, Matchers}
-import scalaz.{\/, -\/, \/-}
+import scalaz.{\/, -\/, \/-, Applicative, Monoid}
 import scalaz.std.list._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.traverse._
+
+import scala.concurrent.Future
 
 class UnfoldStateSpec
     extends AsyncWordSpec
@@ -40,60 +43,51 @@ class UnfoldStateSpec
   }
 
   "flatMapConcat" should {
-    "do as built-in flatMapConcat would" in {
-      val trials = 10
-      val runs = Gen
-        .listOfN(trials, arbitrary[List[List[Int]]])
-        .sample
-        .getOrElse(sys error "random Gen failed")
-
-      runs
-        .traverse { run =>
-          val flattened = run.flatten
-          var escape = (0, 0)
-          Source(run)
-            .via(flatMapConcat(escape) { (sums, ns) =>
-              UnfoldState((sums, ns)) {
-                case ((sum, ct), hd +: tl) => \/-((hd, ((sum + hd, ct), tl)))
-                case ((sum, ct), _) =>
-                  escape = (sum, ct + 1)
-                  -\/(escape)
-              }
-            })
-            .runWith(Sink.seq)
-            .map { ran =>
-              ran should ===(flattened)
-              escape should ===((flattened.sum, run.size))
-            }
+    "do as built-in flatMapConcat would" in forAllFuture(trials = 10) { run: List[List[Int]] =>
+      val flattened = run.flatten
+      var escape = (0, 0)
+      Source(run)
+        .via(flatMapConcat(escape) { (sums, ns) =>
+          UnfoldState((sums, ns)) {
+            case ((sum, ct), hd +: tl) => \/-((hd, ((sum + hd, ct), tl)))
+            case ((sum, ct), _) =>
+              escape = (sum, ct + 1)
+              -\/(escape)
+          }
+        })
+        .runWith(Sink.seq)
+        .map { ran =>
+          ran should ===(flattened)
+          escape should ===((flattened.sum, run.size))
         }
-        .map(_.foldLeft(succeed)((_, result) => result))
     }
   }
 
   "flatMapConcatStates" should {
-    "emit every state after the list elements" in {
-      val trials = 10
-      val runs = Gen
-        .listOfN(trials, arbitrary[List[List[Int]]])
-        .sample
-        .getOrElse(sys error "random Gen failed")
-
-      runs
-        .traverse { run =>
-          val (_, expected) = run.mapAccumL(0) { (sum, ns) =>
-            val newSum = sum + ns.sum
-            (newSum, (ns map \/.right) :+ -\/(newSum))
-          }
-          Source(run)
-            .via(flatMapConcatStates(0) { (sum, ns) =>
-              fromLinearSeq(ns) leftMap (_ => sum + ns.sum)
-            })
-            .runWith(Sink.seq)
-            .map { ran =>
-              ran should ===(expected.flatten)
-            }
+    "emit every state after the list elements" in forAllFuture(trials = 10) {
+      run: List[List[Int]] =>
+        val (_, expected) = run.mapAccumL(0) { (sum, ns) =>
+          val newSum = sum + ns.sum
+          (newSum, (ns map \/.right) :+ -\/(newSum))
         }
-        .map(_.foldLeft(succeed)((_, result) => result))
+        Source(run)
+          .via(flatMapConcatStates(0) { (sum, ns) =>
+            fromLinearSeq(ns) leftMap (_ => sum + ns.sum)
+          })
+          .runWith(Sink.seq)
+          .map { ran =>
+            ran should ===(expected.flatten)
+          }
     }
+  }
+
+  private[this] def forAllFuture[A](trials: Int)(f: A => Future[Assertion])(
+      implicit A: Arbitrary[A]): Future[Assertion] = {
+    val runs = listOfN(trials, A.arbitrary).sample
+      .getOrElse(sys error "random Gen failed")
+
+    implicit val assertionMonoid: Monoid[Future[Assertion]] =
+      Monoid liftMonoid (Applicative[Future], Monoid instance ((_, result) => result, succeed))
+    runs foldMap f
   }
 }
