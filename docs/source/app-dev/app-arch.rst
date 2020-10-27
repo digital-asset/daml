@@ -49,9 +49,9 @@ with a JSON API server by running
   daml start --start-navigator=no
 
 in the root of the project. DAML Sandbox exposes the same DAML Ledger API a Participant Node would
-expose without requiring a fully-fledged DAML Network to back the application. Once your
+expose without requiring a fully-fledged DAML network to back the application. Once your
 application matures and becomes ready for production, the ``daml deploy`` command helps you deploy
-your frontend and DAML artifacts of your project to a production DAML Network. See
+your frontend and DAML artifacts of your project to a production DAML network. See
 :ref:`Deploying to DAML Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
 
 Frontend
