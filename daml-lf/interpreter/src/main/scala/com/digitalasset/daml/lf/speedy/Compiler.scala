@@ -97,10 +97,10 @@ private[lf] object Compiler {
       signatures: PackageId PartialFunction PackageSignature,
       packages: Map[PackageId, Package],
       compilerConfig: Compiler.Config,
-  ): Either[String, Map[SDefinitionRef, SExpr]] = {
+  ): Either[String, Map[SDefinitionRef, SDefinition]] = {
     val compiler = new Compiler(signatures, compilerConfig)
     try {
-      Right(packages.foldLeft(Map.empty[SDefinitionRef, SExpr]) {
+      Right(packages.foldLeft(Map.empty[SDefinitionRef, SDefinition]) {
         case (acc, (pkgId, pkg)) => acc ++ compiler.unsafeCompilePackage(pkgId, pkg)
       })
     } catch {
@@ -256,7 +256,7 @@ private[lf] final class Compiler(
   def unsafeCompileModule(
       pkgId: PackageId,
       module: Module,
-  ): Iterable[(SDefinitionRef, SExpr)] = {
+  ): Iterable[(SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(SDefinitionRef, SExpr)]
 
     module.definitions.foreach {
@@ -277,11 +277,15 @@ private[lf] final class Compiler(
         tmpl.key.foreach { tmplKey =>
           builder += compileFetchByKey(identifier, tmpl, tmplKey)
           builder += compileLookupByKey(identifier, tmplKey)
-          tmpl.choices.values.foreach(builder += compileChoiceByKey(identifier, tmpl, tmplKey, _))
+          tmpl.choices.values.foreach(
+            builder +=
+              compileChoiceByKey(identifier, tmpl, tmplKey, _))
         }
     }
 
-    builder.result()
+    builder
+      .result()
+      .map { case (ref, body) => ref -> SDefinition(body) }
   }
 
   /** Validates and compiles all the definitions in the package provided.
@@ -297,7 +301,7 @@ private[lf] final class Compiler(
   def unsafeCompilePackage(
       pkgId: PackageId,
       pkg: Package,
-  ): Iterable[(SDefinitionRef, SExpr)] = {
+  ): Iterable[(SDefinitionRef, SDefinition)] = {
     logger.trace(s"compilePackage: Compiling $pkgId...")
 
     val t0 = Time.Timestamp.now()

@@ -23,13 +23,13 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
     extends MutableCompiledPackages(compilerConfig) {
   private[this] val _signatures: ConcurrentMap[PackageId, PackageSignature] =
     new ConcurrentHashMap().asScala
-  private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SExpr] =
+  private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SDefinition] =
     new ConcurrentHashMap()
   private[this] val _packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
     new ConcurrentHashMap()
 
   override def getSignature(pId: PackageId): Option[PackageSignature] = _signatures.get(pId)
-  override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SExpr] =
+  override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SDefinition] =
     Option(_defns.get(dref))
 
   /** Might ask for a package if the package you're trying to add references it.
