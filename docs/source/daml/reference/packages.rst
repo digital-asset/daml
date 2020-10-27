@@ -110,7 +110,7 @@ Importing DAML packages
 
 There are two ways to import a DAML package in a project: via ``dependencies``, and via ``data-dependencies``. They each have certain advantages and disadvantages. To summarize:
 
-* ``dependencies`` allow you to import a DAML archive as a library. The definitions in the dependency will all be made available to the importing project. However, the dependency must be compiled with the same DAML SDK version, so this method is only suitable for breaking up large projects into smaller projects that depend on each other, or to reuse existing libraries.
+* ``dependencies`` allow you to import a DAML archive as a library. The definitions in the dependency will all be made available to the importing project. However, the dependency must be compiled with the same SDK version, so this method is only suitable for breaking up large projects into smaller projects that depend on each other, or to reuse existing libraries.
 
 * ``data-dependencies`` allow you to import a DAML archive (.dar) or a DAML-LF package (.dalf), including packages that have already been deployed to a ledger. These packages can be compiled with any previous SDK version. On the other hand, not all definitions can be carried over perfectly, since the DAML interface needs to be reconstructed from the binary.
 
@@ -127,7 +127,7 @@ To do so, you first need to generate the DAML archive of ``foo``. Go into ``/hom
 
 .. TODO (#4925): Make the above step redundant by letting users declare projects directly. Then update this doc.
 
-Next, we will update the project config for ``bar`` to use the generated DAML archive as a depndency. Go into ``/home/user/bar`` and change the ``dependencies`` field in ``daml.yaml`` to point to the created `DAML archive`:
+Next, we will update the project config for ``bar`` to use the generated DAML archive as a dependency. Go into ``/home/user/bar`` and change the ``dependencies`` field in ``daml.yaml`` to point to the created `DAML archive`:
 
 .. code-block:: yaml
 
@@ -158,7 +158,7 @@ By default, all modules of ``foo`` are made available when importing ``foo`` as 
 Importing a DAML archive via data-dependencies
 ==============================================
 
-You can import a DAML archive (.dar) or DAML-LF package (.dalf) using ``data-dependencies``. Unlike ``dependencies``, this can be used when the DAML SDK versions do not match.
+You can import a DAML archive (.dar) or DAML-LF package (.dalf) using ``data-dependencies``. Unlike ``dependencies``, this can be used when the SDK versions do not match.
 
 For example, you can import ``foo.dar`` as follows:
 

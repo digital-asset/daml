@@ -16,7 +16,7 @@ import DA.Text
 import GHC.Stack.Types hiding (SrcLoc(..))
 import qualified GHC.Stack.Types as GHC
 
--- Pretty-print a `CallStack`.
+-- | Pretty-print a `CallStack`.
 prettyCallStack : CallStack -> Text
 prettyCallStack = intercalate "\n" . prettyCallStackLines
 
@@ -78,4 +78,3 @@ convSrcLoc GHC.SrcLoc{..} =
     , srcLocEndLine = srcLocEndLine - 1
     , srcLocEndCol = srcLocEndCol - 1
     }
-

@@ -309,6 +309,7 @@ object ValueGenerators {
       chosenValue <- versionedValueGen
       stakeholders <- genNonEmptyParties
       signatories <- genNonEmptyParties
+      choiceObservers <- genMaybeEmptyParties
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
@@ -328,6 +329,7 @@ object ValueGenerators {
         chosenValue,
         stakeholders,
         signatories,
+        choiceObservers = choiceObservers,
         false,
         children,
         Some(exerciseResultValue),

@@ -812,6 +812,7 @@ encodeTemplateChoice TemplateChoice{..} = do
     templateChoiceName <- encodeName unChoiceName chcName
     let templateChoiceConsuming = chcConsuming
     templateChoiceControllers <- encodeExpr chcControllers
+    templateChoiceObservers <- traverse encodeExpr' chcObservers
     templateChoiceSelfBinder <- encodeName unExprVarName chcSelfBinder
     templateChoiceArgBinder <- Just <$> encodeExprVarWithType chcArgBinder
     templateChoiceRetType <- encodeType chcReturnType

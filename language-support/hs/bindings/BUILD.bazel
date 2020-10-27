@@ -9,6 +9,7 @@ da_haskell_library(
     name = "hs-ledger",
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
+        "aeson",
         "async",
         "base",
         "bytestring",

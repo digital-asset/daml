@@ -24,6 +24,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
 }
 import com.daml.ledger.participant.state.kvutils.{Bytes, OffsetBuilder}
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
@@ -33,7 +34,6 @@ import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.MismatchException
-import com.daml.resources.{Resource, ResourceOwner}
 import com.google.protobuf.ByteString
 
 import scala.util.{Failure, Success}
@@ -95,11 +95,9 @@ object SqlLedgerReaderWriter {
       seedService: SeedService,
   )(implicit loggingContext: LoggingContext)
       extends ResourceOwner[SqlLedgerReaderWriter] {
-    override def acquire()(
-        implicit executionContext: sc.ExecutionContext
-    ): Resource[SqlLedgerReaderWriter] = {
+    override def acquire()(implicit context: ResourceContext): Resource[SqlLedgerReaderWriter] = {
       implicit val migratorExecutionContext: ExecutionContext[Database.Migrator] =
-        ExecutionContext(executionContext)
+        ExecutionContext(context.executionContext)
       for {
         uninitializedDatabase <- Database.owner(jdbcUrl, metrics).acquire()
         database <- Resource.fromFuture(
@@ -160,9 +158,7 @@ object SqlLedgerReaderWriter {
     }
 
   private final class DispatcherOwner(database: Database) extends ResourceOwner[Dispatcher[Index]] {
-    override def acquire()(
-        implicit executionContext: sc.ExecutionContext
-    ): Resource[Dispatcher[Index]] =
+    override def acquire()(implicit context: ResourceContext): Resource[Dispatcher[Index]] =
       for {
         head <- Resource.fromFuture(database
           .inReadTransaction("read_head") { queries =>

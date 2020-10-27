@@ -27,7 +27,7 @@ DAR, DALF, DAML-LF, and the Engine
 
 In :doc:`7_Composing` you already learnt a little about projects, DAML-LF, DAR files, and dependencies. In this chapter we will actually need to have dependencies from the chapter 8 project to the chapter 7 project so it's time to learn a little more about all this.
 
-Let's have a look inside the DAR file of chapter 7. DAR files, like Java JAR files are just ZIP archives, but the DAML SDK also has a utility to inspect DARs out of the box:
+Let's have a look inside the DAR file of chapter 7. DAR files, like Java JAR files are just ZIP archives, but the SDK also has a utility to inspect DARs out of the box:
 
 #. Navigate into the ``7Composing`` directory.
 #. Build using ``daml build -o assets.dar``

@@ -4,6 +4,7 @@
 package com.daml.oauth.middleware
 
 import akka.http.scaladsl.model.Uri
+import com.daml.jwt.{JwtVerifierBase, JwtVerifierConfigurationCli}
 import com.daml.ports.Port
 
 case class Config(
@@ -15,6 +16,8 @@ case class Config(
     // OAuth2 client properties
     clientId: String,
     clientSecret: String,
+    // Token verification
+    tokenVerifier: JwtVerifierBase,
 )
 
 object Config {
@@ -24,7 +27,8 @@ object Config {
       oauthAuth = null,
       oauthToken = null,
       clientId = null,
-      clientSecret = null)
+      clientSecret = null,
+      tokenVerifier = null)
 
   def parseConfig(args: Seq[String]): Option[Config] =
     configParser.parse(args, Empty)
@@ -62,6 +66,15 @@ object Config {
         .validate(x =>
           if (x.isEmpty) failure("Environment variable DAML_CLIENT_SECRET must not be empty")
           else success)
+
+      JwtVerifierConfigurationCli.parse(this)((v, c) => c.copy(tokenVerifier = v))
+
+      checkConfig { cfg =>
+        if (cfg.tokenVerifier == null)
+          Left("You must specify one of the --auth-jwt-* flags for token verification.")
+        else
+          Right(())
+      }
 
       help("help").text("Print this usage text")
 

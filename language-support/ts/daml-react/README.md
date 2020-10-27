@@ -88,6 +88,9 @@ const onClick = reload;
 
 `useStreamQuery`
 ----------------
+
+> Deprecated: prefer `useStreamQueries`
+
 `useStreamQuery` has the same signature as `useQuery`, but it constantly refreshes the results.
 
 ```typescript
@@ -101,6 +104,27 @@ If the query is omitted, all visible contracts of the given template are returne
 const {contracts, loading} = useStreamQuery(ContractTemplate);
 ```
 
+`useStreamQueries`
+------------------
+
+`useStreamQueries` is similar to `useQuery`, except that:
+- It constantly refreshes the results.
+- The factory function is expected to return a list of queries, and the
+  resulting set of contracts is the union of all the contracts that match at
+  least one query.
+- Like `useQuery`, if no factory function is provided, or if the provided
+  function returns an empty array, the set will contain all contracts of that
+  template.
+
+```typescript
+const {contracts, loading} = useStreamQueries(ContractTemplate,
+                                              () => [{field: value}, ...],
+                                              [dependency1, dependency2, ...]);
+```
+
+You can additionally pass in an extra function to handle WebSocket connection
+failures.
+
 `useFetchByKey`
 ---------------
 `useFetchByKey` returns the unique contract of a given template and a given contract key.
@@ -111,12 +135,36 @@ const {contract, loading} = useFetchByKey(ContractTemplate, () => key, [dependen
 
 `useStreamFetchByKey`
 ---------------------
-`useStreamFetchByKey` has the same signature as `useFetchByKey`, but it constantly keeps refreshes
+
+> Deprecated: prefer `useStreamFetchByKeys`
+
+`useStreamFetchByKey` has the same signature as `useFetchByKey`, but it constantly keeps refreshing
 the result.
 
 ```typescript
 const {contract, loading} = useStreamFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...]);
 ```
+
+`useStreamFetchByKeys`
+---------------------
+
+`useStreamFetchByKeys` takes a template and a factory that returns a list of
+keys, and returns a list of contracts that correspond to those keys (or null if
+no contract matches the corresponding key). This hook will keep an open
+WebSocket connection and listen for any change to the corresponding contracts.
+
+If the factory function returns an empty array, the hook will similarly produce
+an empty array of contracts.
+
+
+```typescript
+const {contracts, loading} = useStreamFetchByKeys(ContractTemplate,
+                                                  () => [key1, key2, ...],
+                                                  [dependency1, dependency2, ...]);
+```
+
+You can additionally pass in an extra function to handle WebSocket connection
+failures.
 
 ## Advanced Usage
 

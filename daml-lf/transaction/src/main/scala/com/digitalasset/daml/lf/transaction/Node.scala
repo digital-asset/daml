@@ -101,6 +101,7 @@ object Node {
             _,
             _,
             _,
+            _,
             children,
             exerciseResult,
             key,
@@ -163,6 +164,7 @@ object Node {
           chosenValue,
           stakeholders @ _,
           signatories @ _,
+          choiceObservers @ _,
           controllersDifferFromActors @ _,
           children @ _,
           exerciseResult,
@@ -243,6 +245,7 @@ object Node {
       chosenValue: Val,
       stakeholders: Set[Party],
       signatories: Set[Party],
+      choiceObservers: Set[Party],
       controllersDifferFromActors: Boolean,
       children: ImmArray[Nid],
       exerciseResult: Option[Val],
@@ -270,6 +273,7 @@ object Node {
         chosenValue: Val,
         stakeholders: Set[Party],
         signatories: Set[Party],
+        choiceObservers: Set[Party],
         children: ImmArray[Nid],
         exerciseResult: Option[Val],
         key: Option[KeyWithMaintainers[Val]],
@@ -285,6 +289,7 @@ object Node {
         chosenValue,
         stakeholders,
         signatories,
+        choiceObservers,
         controllersDifferFromActors = false,
         children,
         exerciseResult,
@@ -381,6 +386,7 @@ object Node {
             chosenValue2,
             stakeholders2,
             signatories2,
+            choiceObservers2,
             controllersDifferFromActors2,
             _,
             exerciseResult2,
@@ -390,7 +396,7 @@ object Node {
           import ne._
           targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
           consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
-          stakeholders == stakeholders2 && signatories == signatories2 &&
+          stakeholders == stakeholders2 && signatories == signatories2 && choiceObservers == choiceObservers2 &&
           controllersDifferFromActors == controllersDifferFromActors2 &&
           exerciseResult.fold(true)(_ => exerciseResult === exerciseResult2) &&
           key.fold(true)(_ => key === key2)

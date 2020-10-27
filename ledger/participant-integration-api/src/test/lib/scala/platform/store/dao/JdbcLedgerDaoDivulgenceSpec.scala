@@ -65,6 +65,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           chosenValue = someValueRecord,
           stakeholders = Set(alice, bob),
           signatories = Set(alice),
+          choiceObservers = Set.empty, //FIXME #7709, also test the case of non-empty choice-observers
           children = ImmArray.empty,
           exerciseResult = None,
           key = None,
@@ -97,6 +98,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           chosenValue = someValueRecord,
           stakeholders = Set(bob),
           signatories = Set(bob),
+          choiceObservers = Set.empty,
           children = ImmArray.empty,
           exerciseResult = None,
           key = Some(

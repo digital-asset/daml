@@ -18,6 +18,7 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.TransactionCommitter
@@ -38,7 +39,6 @@ import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations}
 import com.daml.resources.ProgramResource.StartupException
-import com.daml.resources.{Resource, ResourceOwner}
 import scalaz.Tag
 
 import scala.collection.immutable.Queue
@@ -81,7 +81,7 @@ private[sandbox] object SqlLedger {
 
     private val logger = ContextualizedLogger.get(this.getClass)
 
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[Ledger] =
+    override def acquire()(implicit context: ResourceContext): Resource[Ledger] =
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
         dao <- ledgerDaoOwner().acquire()
@@ -111,7 +111,9 @@ private[sandbox] object SqlLedger {
 
     // Store only the ledger entries (no headref, etc.). This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
-    private def initialize(dao: LedgerDao)(implicit ec: ExecutionContext): Future[LedgerId] = {
+    private def initialize(
+        dao: LedgerDao,
+    )(implicit executionContext: ExecutionContext): Future[LedgerId] = {
       val ledgerId = providedLedgerId.or(LedgerIdGenerator.generateRandomId(name))
       logger.info(s"Initializing node with ledger id '$ledgerId'")
       for {
@@ -253,9 +255,7 @@ private[sandbox] object SqlLedger {
 
     private final class PersistenceQueueOwner(dispatcher: Dispatcher[Offset])
         extends ResourceOwner[PersistenceQueue] {
-      override def acquire()(
-          implicit executionContext: ExecutionContext
-      ): Resource[PersistenceQueue] =
+      override def acquire()(implicit context: ResourceContext): Resource[PersistenceQueue] =
         Resource(Future.successful {
           val queue =
             Source.queue[Offset => Future[Unit]](queueDepth, OverflowStrategy.dropNew)
@@ -274,7 +274,7 @@ private[sandbox] object SqlLedger {
         })(queue => Future.successful(queue.complete()))
 
       private def persistAll(queue: Queue[Offset => Future[Unit]]): Future[Unit] = {
-        implicit val ec: ExecutionContext = DEC
+        implicit val executionContext: ExecutionContext = DEC
         val startOffset = SandboxOffset.fromOffset(dispatcher.getHead())
         // This will attempt to run the SQL queries concurrently, but there is no parallelism here,
         // so they will still run sequentially.

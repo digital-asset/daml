@@ -1783,6 +1783,39 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
         , "eqD x y = eq x y"
         ]
 
+    , simpleImportTest "Using functional dependencies"
+        -- This test checks that functional dependencies are imported via data-dependencies.
+        [ "module Lib where"
+        , "class MyClass a b | a -> b where"
+        , "   foo : a -> b"
+        , "instance MyClass Int Int where foo x = x"
+        , "instance MyClass Text Text where foo x = x"
+        ]
+        [ "module Main where"
+        , "import Lib"
+        , "useFooInt : Int -> Text"
+        , "useFooInt x = show (foo x)"
+        , "useFooText : Text -> Text"
+        , "useFooText x = show (foo x)"
+        -- If functional dependencies were not imported, we'd get a ton of
+        -- "ambiguous type variable" errors from GHC, since type inference
+        -- cannot determine the output type for 'foo'.
+        ]
+
+    , simpleImportTest "Using overlapping instances"
+        [ "module Lib where"
+        , "class MyShow t where myShow : t -> Text"
+        , "instance MyShow t where myShow _ = \"_\""
+        , "instance {-# OVERLAPPING #-} Show t => MyShow [t] where myShow = show"
+        ]
+        [ "module Main where"
+        , "import Lib"
+        , "useMyShow : [Int] -> Text"
+        , "useMyShow = myShow"
+          -- Without the OVERLAPPING pragma carrying over data-dependencies, this usage
+          -- of myShow fails.
+        ]
+
     , testCaseSteps "Implicit parameters" $ \step -> withTempDir $ \tmpDir -> do
         step "building project with implicit parameters"
         createDirectoryIfMissing True (tmpDir </> "dep")

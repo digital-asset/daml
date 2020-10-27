@@ -21,6 +21,7 @@ da_scala_library(
         "//daml-lf/data",
         "//ledger/caching",
         "//ledger/ledger-api-common",
+        "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/sandbox-classic",

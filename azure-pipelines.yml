@@ -74,13 +74,17 @@ jobs:
       - git_sha
     variables:
       fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+      pr_commit: $[ dependencies.git_sha.outputs['out.branch'] ]
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
       demands: assignment -equals default
     steps:
       - checkout: self
-      - bash: ci/check-changelog.sh $(fork_sha)
+      - bash: |
+          set -euo pipefail
+          git checkout $(pr_commit)
+          ci/check-changelog.sh $(fork_sha)
 
   - template: ci/da-ghc-lib/compile.yml
     parameters:
@@ -521,6 +525,7 @@ jobs:
 
   - job: compat_versions_pr
     dependsOn:
+    - git_sha
     - release
     - check_for_release
     pool:
@@ -528,6 +533,7 @@ jobs:
       demands: assignment -equals default
     variables:
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     steps:
     - checkout: self
       persistCredentials: true
@@ -558,6 +564,7 @@ jobs:
 
         AUTH="$(get_gh_auth_header)"
 
+        trap "git checkout $(branch_sha)" EXIT
         git checkout origin/master
         BRANCH=update-compat-versions-for-$(release_tag)
         # if this is a rerun, branch might already exist
@@ -886,3 +893,72 @@ jobs:
           else
               echo "User $(user_id) did not opt in for notifications."
           fi
+
+  # temporary (?) workaround for Azure not reporting global build status to GitHub anymore.
+  - job: finished
+    pool:
+      name: 'linux-pool'
+      demands: assignment -equals default
+    dependsOn:
+    - git_sha
+    - check_standard_change_label
+    - check_changelog_entry
+    - Linux
+    - macOS
+    - Windows
+    - compatibility_ts_libs
+    - compatibility_linux
+    - compatibility_macos
+    - compatibility_windows
+    - check_for_release
+    - check_perf_test
+    - release
+    - compat_versions_pr
+    - compat_versions_pr_trigger_daily
+    - write_ledger_dump
+    - collect_build_data
+    - notify_release_pr
+    - notify_user
+    condition: always()
+    variables:
+      git_sha: $[ dependencies.git_sha.result ]
+      check_standard_change_label: $[ dependencies.check_standard_change_label.result ]
+      check_changelog_entry: $[ dependencies.check_changelog_entry.result ]
+      Linux: $[ dependencies.Linux.result ]
+      macOS: $[ dependencies.macOS.result ]
+      Windows: $[ dependencies.Windows.result ]
+      compatibility_ts_libs: $[ dependencies.compatibility_ts_libs.result ]
+      compatibility_linux: $[ dependencies.compatibility_linux.result ]
+      compatibility_macos: $[ dependencies.compatibility_macos.result ]
+      compatibility_windows: $[ dependencies.compatibility_windows.result ]
+      check_for_release: $[ dependencies.check_for_release.result ]
+      check_perf_test: $[ dependencies.check_perf_test.result ]
+      release: $[ dependencies.release.result ]
+      compat_versions_pr: $[ dependencies.compat_versions_pr.result ]
+      compat_versions_pr_trigger_daily: $[ dependencies.compat_versions_pr_trigger_daily.result ]
+      write_ledger_dump: $[ dependencies.write_ledger_dump.result ]
+      collect_build_data: $[ dependencies.collect_build_data.result ]
+      notify_release_pr: $[ dependencies.notify_release_pr.result ]
+      notify_user: $[ dependencies.notify_user.result ]
+    steps:
+    - bash: |
+        set -euo pipefail
+        if [ "$(git_sha)" != "Succeeded" ] && [ "$(git_sha)" != "Skipped" ]; then exit 1; fi
+        if [ "$(check_standard_change_label)" != "Succeeded" ] && [ "$(check_standard_change_label)" != "Skipped" ]; then exit 1; fi
+        if [ "$(check_changelog_entry)" != "Succeeded" ] && [ "$(check_changelog_entry)" != "Skipped" ]; then exit 1; fi
+        if [ "$(Linux)" != "Succeeded" ] && [ "$(Linux)" != "Skipped" ]; then exit 1; fi
+        if [ "$(macOS)" != "Succeeded" ] && [ "$(macOS)" != "Skipped" ]; then exit 1; fi
+        if [ "$(Windows)" != "Succeeded" ] && [ "$(Windows)" != "Skipped" ]; then exit 1; fi
+        if [ "$(compatibility_ts_libs)" != "Succeeded" ] && [ "$(compatibility_ts_libs)" != "Skipped" ]; then exit 1; fi
+        if [ "$(compatibility_linux)" != "Succeeded" ] && [ "$(compatibility_linux)" != "Skipped" ]; then exit 1; fi
+        if [ "$(compatibility_macos)" != "Succeeded" ] && [ "$(compatibility_macos)" != "Skipped" ]; then exit 1; fi
+        if [ "$(compatibility_windows)" != "Succeeded" ] && [ "$(compatibility_windows)" != "Skipped" ]; then exit 1; fi
+        if [ "$(check_for_release)" != "Succeeded" ] && [ "$(check_for_release)" != "Skipped" ]; then exit 1; fi
+        if [ "$(check_perf_test)" != "Succeeded" ] && [ "$(check_perf_test)" != "Skipped" ]; then exit 1; fi
+        if [ "$(release)" != "Succeeded" ] && [ "$(release)" != "Skipped" ]; then exit 1; fi
+        if [ "$(compat_versions_pr)" != "Succeeded" ] && [ "$(compat_versions_pr)" != "Skipped" ]; then exit 1; fi
+        if [ "$(compat_versions_pr_trigger_daily)" != "Succeeded" ] && [ "$(compat_versions_pr_trigger_daily)" != "Skipped" ]; then exit 1; fi
+        if [ "$(write_ledger_dump)" != "Succeeded" ] && [ "$(write_ledger_dump)" != "Skipped" ]; then exit 1; fi
+        if [ "$(collect_build_data)" != "Succeeded" ] && [ "$(collect_build_data)" != "Skipped" ]; then exit 1; fi
+        if [ "$(notify_release_pr)" != "Succeeded" ] && [ "$(notify_release_pr)" != "Skipped" ]; then exit 1; fi
+        if [ "$(notify_user)" != "Succeeded" ] && [ "$(notify_user)" != "Skipped" ]; then exit 1; fi

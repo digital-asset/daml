@@ -145,11 +145,13 @@ private[validation] object ExprTraversable {
           name @ _,
           consuming @ _,
           controllers,
+          observers,
           selfBinder @ _,
           binder @ _,
           returnType @ _,
           update) =>
         f(controllers)
+        observers.map(f)
         f(update)
         ()
     }

@@ -5,13 +5,14 @@ package com.daml.platform.store.dao
 
 import com.daml.platform.store.DbType
 import com.daml.testing.postgresql.PostgresAroundAll
-import org.scalatest.Suite
+import org.scalatest.AsyncTestSuite
 
 private[dao] trait JdbcLedgerDaoBackendPostgresql
     extends JdbcLedgerDaoBackend
-    with PostgresAroundAll { this: Suite =>
+    with PostgresAroundAll {
+  this: AsyncTestSuite =>
 
   override protected val dbType: DbType = DbType.Postgres
-  override protected def jdbcUrl: String = postgresDatabase.url
 
+  override protected def jdbcUrl: String = postgresDatabase.url
 }

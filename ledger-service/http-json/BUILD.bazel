@@ -9,6 +9,7 @@ load(
     "lf_scalacopts",
 )
 load("//rules_daml:daml.bzl", "daml_compile")
+load("@os_info//:os_info.bzl", "is_windows")
 
 hj_scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -200,6 +201,54 @@ da_scala_test(
         "@maven//:org_typelevel_cats_core_2_12",
         "@maven//:org_typelevel_cats_effect_2_12",
         "@maven//:org_typelevel_cats_free_2_12",
+    ],
+)
+
+da_scala_test(
+    name = "failure-tests",
+    srcs = glob(["src/failure/scala/**/*.scala"]),
+    data = [
+        ":Account.dar",
+        "//docs:quickstart-model.dar",
+        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common/test-certificates",
+        "@toxiproxy_dev_env//:bin/toxiproxy-cmd" if not is_windows else "@toxiproxy_dev_env//:toxiproxy-server-windows-amd64.exe",
+    ],
+    plugins = [
+        "@maven//:org_spire_math_kind_projector_2_12",
+    ],
+    resources = glob(["src/failure/resources/**/*"]),
+    scalacopts = hj_scalacopts,
+    silent_annotations = False,
+    deps = [
+        ":http-json",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/data",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger-service/http-json-testing",
+        "//ledger-service/jwt",
+        "//ledger/caching",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-resources",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-integration-api:participant-integration-api-tests-lib",
+        "//ledger/participant-state",
+        "//ledger/sandbox",
+        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
+        "//libs-scala/ports",
+        "//libs-scala/postgresql-testing",
+        "//libs-scala/resources",
+        "//libs-scala/timer-utils",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

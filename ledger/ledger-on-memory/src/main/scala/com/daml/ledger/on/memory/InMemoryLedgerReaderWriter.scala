@@ -20,6 +20,7 @@ import com.daml.ledger.participant.state.kvutils.{
   KeyValueCommitting
 }
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.LedgerStateOperations.Value
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
@@ -34,7 +35,6 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
-import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
@@ -82,9 +82,7 @@ object InMemoryLedgerReaderWriter {
       engine: Engine,
   )(implicit materializer: Materializer)
       extends ResourceOwner[KeyValueLedger] {
-    override def acquire()(
-        implicit executionContext: ExecutionContext
-    ): Resource[KeyValueLedger] =
+    override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] =
       for {
         ledgerDataExporter <- LedgerDataExporter.Owner.acquire()
         keyValueCommitting = createKeyValueCommitting(metrics, timeProvider, engine)
@@ -125,9 +123,7 @@ object InMemoryLedgerReaderWriter {
   )(implicit materializer: Materializer)
       extends ResourceOwner[KeyValueLedger] {
 
-    override def acquire()(
-        implicit executionContext: ExecutionContext
-    ): Resource[KeyValueLedger] = {
+    override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] = {
       val state = InMemoryState.empty
       for {
         dispatcher <- dispatcherOwner.acquire()
@@ -159,9 +155,7 @@ object InMemoryLedgerReaderWriter {
       engine: Engine,
   )(implicit materializer: Materializer)
       extends ResourceOwner[KeyValueLedger] {
-    override def acquire()(
-        implicit executionContext: ExecutionContext
-    ): Resource[KeyValueLedger] = {
+    override def acquire()(implicit context: ResourceContext): Resource[KeyValueLedger] = {
       val keyValueCommitting =
         createKeyValueCommitting(metrics, timeProvider, engine)
 

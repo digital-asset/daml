@@ -48,8 +48,8 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
               observers Cons @Party [Mod:Person {person} this] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Sleep (self) (u: Unit) : Unit by Cons @Party [Mod:Person {person} this] (Nil @Party) to upure @Unit (),
-                choice @nonConsuming Nap (self) (i : Int64): Int64 by Cons @Party [Mod:Person {person} this] (Nil @Party) to upure @Int64 i
+                choice Sleep (self) (u: Unit) : Unit, controllers Cons @Party [Mod:Person {person} this] (Nil @Party) to upure @Unit (),
+                choice @nonConsuming Nap (self) (i : Int64): Int64, controllers Cons @Party [Mod:Person {person} this] (Nil @Party) to upure @Int64 i
               },
               key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party))
             };

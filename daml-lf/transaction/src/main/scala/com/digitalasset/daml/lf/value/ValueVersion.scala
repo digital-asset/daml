@@ -26,8 +26,8 @@ private[lf] object ValueVersions
   private[value] val minMap = ValueVersion("4")
   private[value] val minEnum = ValueVersion("5")
   private[value] val minNumeric = ValueVersion("6")
-  private[value] val minGenMap = ValueVersion("7")
-  private[value] val minContractIdV1 = ValueVersion("7")
+  private[value] val minGenMap = ValueVersion("dev")
+  private[value] val minContractIdV1 = ValueVersion("dev")
 
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
   val StableOutputVersions: VersionRange[ValueVersion] =

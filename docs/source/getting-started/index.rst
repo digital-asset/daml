@@ -27,7 +27,7 @@ With that, let's get started!
 Prerequisites
 *************
 
-Please make sure that you have the DAML SDK, Java 8 or higher, and Visual Studio Code (the only supported IDE) installed as per instructions from our :doc:`installation` page.
+Please make sure that you have the DAML Connect SDK, Java 8 or higher, and Visual Studio Code (the only supported IDE) installed as per instructions from our :doc:`installation` page.
 
 You will also need some common software tools to build and interact with the template project.
 
@@ -63,7 +63,7 @@ In one terminal, at the root of the ``create-daml-app`` directory, run the comma
     daml start
 
 Any commands starting with ``daml`` are using the :doc:`DAML Assistant </tools/assistant>`, a
-command line tool in the DAML SDK for building and running DAML apps.
+command line tool in the SDK for building and running DAML apps.
 
 You will know that the command has started successfully when you see the ``INFO  com.daml.http.Main$ - Started server: ServerBinding(/127.0.0.1:7575)`` message in the terminal. The command does a few things:
 

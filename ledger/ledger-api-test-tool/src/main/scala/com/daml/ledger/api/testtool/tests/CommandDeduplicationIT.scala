@@ -6,6 +6,7 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.{assertGrpcError, assertSingleton}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.TextKeyOperations._
 import com.daml.ledger.test.model.Test._
@@ -13,14 +14,12 @@ import com.daml.timer.Delayed
 import io.grpc.Status
 
 import scala.concurrent.Future
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.util.{Failure, Success}
 
-import scala.concurrent.duration.{Duration => ScalaDuration}
-import com.google.protobuf.duration.{Duration => ProtobufDuration}
-
-final class CommandDeduplicationIT(ledgerTimeInterval: ScalaDuration) extends LedgerTestSuite {
-  private val deduplicationTime = ProtobufDuration.of(ledgerTimeInterval.toSeconds, 0)
-  private val deduplicationWindowWait = ledgerTimeInterval * 2
+final class CommandDeduplicationIT(ledgerTimeInterval: Duration) extends LedgerTestSuite {
+  private val deduplicationTime = 3.seconds
+  private val deduplicationWindowWait = deduplicationTime + ledgerTimeInterval * 2
 
   test(
     "CDSimpleDeduplicationBasic",
@@ -31,12 +30,12 @@ final class CommandDeduplicationIT(ledgerTimeInterval: ScalaDuration) extends Le
       val requestA1 = ledger
         .submitRequest(party, DummyWithAnnotation(party, "First submission").create.command)
         .update(
-          _.commands.deduplicationTime := deduplicationTime,
+          _.commands.deduplicationTime := deduplicationTime.asProtobuf,
         )
       val requestA2 = ledger
         .submitRequest(party, DummyWithAnnotation(party, "Second submission").create.command)
         .update(
-          _.commands.deduplicationTime := deduplicationTime,
+          _.commands.deduplicationTime := deduplicationTime.asProtobuf,
           _.commands.commandId := requestA1.commands.get.commandId,
         )
 
@@ -159,7 +158,7 @@ final class CommandDeduplicationIT(ledgerTimeInterval: ScalaDuration) extends Le
       val requestA = ledger
         .submitAndWaitRequest(party, Dummy(party).create.command)
         .update(
-          _.commands.deduplicationTime := deduplicationTime,
+          _.commands.deduplicationTime := deduplicationTime.asProtobuf,
         )
 
       for {

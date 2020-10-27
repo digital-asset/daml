@@ -188,6 +188,7 @@ object TransactionBuilder {
       byKey: Boolean = true,
   ): Exercise =
     Exercise(
+      choiceObservers = Set.empty, //FIXME #7709: take observers as argument (pref no default value)
       targetCoid = contract.coid,
       templateId = contract.coinst.template,
       choiceId = Ref.ChoiceName.assertFromString(choice),

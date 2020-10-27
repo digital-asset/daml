@@ -11,16 +11,16 @@ import com.daml.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.GrpcServerSpec._
 import com.daml.platform.hello.{HelloRequest, HelloServiceGrpc}
 import com.daml.ports.Port
-import com.daml.resources.ResourceOwner
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-final class GrpcServerSpec extends AsyncWordSpec with Matchers {
+final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResourceContext {
   "a GRPC server" should {
     "handle a request to a valid service" in {
       resources().use { channel =>

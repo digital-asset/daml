@@ -9,8 +9,8 @@ import Control.Exception.Extra
 import Control.Monad
 import qualified Data.Aeson as Aeson
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
-import Data.List.Extra
 import qualified Data.HashMap.Strict as HashMap
+import Data.List.Extra
 import qualified Data.Map as Map
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
@@ -19,6 +19,7 @@ import Data.Typeable (Typeable)
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket
+import Safe
 import System.Directory.Extra
 import System.Environment.Blank
 import System.Exit
@@ -31,9 +32,11 @@ import Test.Tasty.HUnit
 import qualified Web.JWT as JWT
 
 import DA.Bazel.Runfiles
-import DA.Daml.Assistant.FreePort (getFreePort,socketHints)
+import DA.Daml.Assistant.FreePort (getFreePort, socketHints)
 import DA.Daml.Assistant.IntegrationTestUtils
-import DA.Daml.Helper.Util (waitForHttpServer,waitForConnectionOnPort)
+import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer)
+import DA.Ledger.Services.PartyManagementService (PartyDetails(..))
+import DA.Ledger.Types (Party(..))
 import DA.PortFile
 import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent)
@@ -361,6 +364,78 @@ packagingTests = testGroup "packaging"
               responseBody queryResponse @?= "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
               -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
+    , testCase "daml ledger via json api" $ withTempDir $ \tmpDir -> do
+          writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: ledger-json-api"
+              , "version: \"1.0\""
+              , "source: ."
+              , "dependencies:"
+              , "  - daml-prim"
+              , "  - daml-stdlib"
+              ]
+          sandboxPort :: Int <- fromIntegral <$> getFreePort
+          jsonApiPort :: Int <- fromIntegral <$> getFreePort
+          let startProc = shell $ unwords
+                [ "daml"
+                , "start"
+                , "--start-navigator no"
+                , "--sandbox-port " <> show sandboxPort
+                , "--json-api-port " <> show jsonApiPort
+                ]
+          withCurrentDirectory tmpDir $
+            withCreateProcess startProc $ \_ _ _ startPh ->
+              race_ (waitForProcess' startProc startPh) $ do
+                let token =
+                      JWT.encodeSigned
+                        (JWT.HMACSecret "secret")
+                        mempty
+                        mempty
+                          { JWT.unregisteredClaims =
+                              JWT.ClaimsMap $
+                              Map.fromList
+                                [ ( "https://daml.com/ledger-api"
+                                  , Aeson.Object $
+                                    HashMap.fromList
+                                      [ ("actAs", Aeson.toJSON ["Alice" :: T.Text])
+                                      , ("ledgerId", "MyLedger")
+                                      , ("applicationId", "foobar")
+                                      ])
+                                ]
+                          }
+                writeFileUTF8 (tmpDir </> "token.txt") $ T.unpack token
+                let headers =
+                      [("Authorization", "Bearer " <> T.encodeUtf8 token)] :: RequestHeaders
+                waitForHttpServer
+                  (threadDelay 100000)
+                  ("http://localhost:" <> show jsonApiPort <> "/v1/query")
+                  headers
+                callCommand $
+                  unwords
+                    [ "daml"
+                    , "ledger"
+                    , "allocate-party"
+                    , "--port"
+                    , show sandboxPort
+                    , "alice"
+                    ]
+                out <-
+                  readCreateProcess
+                    (shell $
+                     unwords
+                       [ "daml"
+                       , "ledger"
+                       , "list-parties"
+                       , "--json-api"
+                       , "--port"
+                       , show jsonApiPort
+                       , "--access-token-file"
+                       , "token.txt"
+                       ])
+                    ""
+                lines out `atMay` 1 @?= Just (show $ PartyDetails (Party "alice") "alice" True)
+                -- waitForProcess' will block on Windows so we explicitly kill the process.
+                terminateProcess startPh
       , testCase "daml start invokes codegen" $ withTempDir $ \tmpDir -> do
             writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
                 [ "sdk-version: " <> sdkVersion

@@ -28,14 +28,14 @@ diff --git templates/create-daml-app/ui/src/components/MainView.tsx templates/cr
 --- templates/create-daml-app/ui/src/components/MainView.tsx
 +++ templates/create-daml-app/ui/src/components/MainView.tsx
 @@ -8,6 +8,10 @@ import { User } from '@daml.js/create-daml-app';
- import { useParty, useLedger, useStreamFetchByKey, useStreamQuery } from '@daml/react';
+ import { useParty, useLedger, useStreamFetchByKey, useStreamQueries } from '@daml/react';
  import UserList from './UserList';
  import PartyListEdit from './PartyListEdit';
 +// IMPORTS_BEGIN
 +import MessageEdit from './MessageEdit';
 +import MessageList from './MessageList';
 +// IMPORTS_END
- 
+
  // USERS_BEGIN
  const MainView: React.FC = () => {
 @@ -78,6 +82,22 @@ const MainView: React.FC = () => {
@@ -146,13 +146,13 @@ diff --git templates/create-daml-app/ui/src/components/MessageList.tsx templates
 +import React from 'react'
 +import { List, ListItem } from 'semantic-ui-react';
 +import { User } from '@daml.js/create-daml-app';
-+import { useStreamQuery } from '@daml/react';
++import { useStreamQueries } from '@daml/react';
 +
 +/**
 + * React component displaying the list of messages for the current user.
 + */
 +const MessageList: React.FC = () => {
-+  const messagesResult = useStreamQuery(User.Message);
++  const messagesResult = useStreamQueries(User.Message);
 +
 +  return (
 +    <List relaxed>

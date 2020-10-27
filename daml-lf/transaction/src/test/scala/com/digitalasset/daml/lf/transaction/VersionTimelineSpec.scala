@@ -67,7 +67,7 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks wit
     "end with a dev version" in {
       inside(inAscendingOrder.last) {
         case Both(
-            Both(ValueVersion("7"), TransactionVersion("11")),
+            Both(ValueVersion("dev"), TransactionVersion("dev")),
             LanguageVersion(LanguageVersion.Major.V1, Dev)) =>
       }
     }

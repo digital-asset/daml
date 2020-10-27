@@ -55,6 +55,7 @@ private[preprocessing] final class TransactionPreprocessor(
           chosenVal,
           stakeholders @ _,
           signatories @ _,
+          choiceObservers @ _,
           controllersDifferFromActors @ _,
           children @ _,
           exerciseResult @ _,

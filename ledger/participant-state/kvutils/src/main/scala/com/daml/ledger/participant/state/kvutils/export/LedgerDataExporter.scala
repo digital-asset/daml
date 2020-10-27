@@ -5,10 +5,8 @@ package com.daml.ledger.participant.state.kvutils.export
 
 import java.nio.file.Paths
 
-import com.daml.resources.{Resource, ResourceOwner}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import org.slf4j.LoggerFactory
-
-import scala.concurrent.ExecutionContext
 
 trait LedgerDataExporter {
   def addSubmission(submissionInfo: SubmissionInfo): SubmissionAggregator
@@ -20,9 +18,7 @@ object LedgerDataExporter {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   object Owner extends ResourceOwner[LedgerDataExporter] {
-    override def acquire()(
-        implicit executionContext: ExecutionContext
-    ): Resource[LedgerDataExporter] =
+    override def acquire()(implicit context: ResourceContext): Resource[LedgerDataExporter] =
       sys.env
         .get(EnvironmentVariableName)
         .map(Paths.get(_))

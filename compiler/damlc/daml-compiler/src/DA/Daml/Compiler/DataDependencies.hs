@@ -47,6 +47,7 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Alpha as LF
 import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
+import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options
 
 import SdkVersion
@@ -332,7 +333,7 @@ generateSrcFromLf env = noLoc mod
                 , tcdLName = noLoc $ mkRdrUnqual occName
                 , tcdTyVars = HsQTvs noExt params
                 , tcdFixity = Prefix
-                , tcdFDs = [] -- can't reconstruct fundeps without LF annotations
+                , tcdFDs = mkFunDeps synName
                 , tcdSigs =
                     [ mkOpSig False name ty | (name, ty) <- methods ] ++
                     [ mkOpSig True  name ty | (name, ty, _) <- defaultMethods ]
@@ -348,6 +349,14 @@ generateSrcFromLf env = noLoc mod
             noLoc $ ClassOpSig noExt isDefault
                     [mkRdrName methodName]
                     (HsIB noExt (noLoc methodType))
+
+        mkFunDeps :: LF.TypeSynName -> [LHsFunDep GhcPs]
+        mkFunDeps className = fromMaybe [] $ do
+            let values = LF.moduleValues (envMod env)
+            LF.DefValue{..} <- NM.lookup (LFC.funDepName className) values
+            LF.TForalls _ ty <- pure (snd dvalBinder)
+            funDeps <- LFC.decodeFunDeps ty
+            pure $ map (noLoc . LFC.mapFunDep (mkRdrName . LF.unTypeVarName)) funDeps
 
     synonymDecls :: [Gen (LHsDecl GhcPs)]
     synonymDecls = do
@@ -420,7 +429,7 @@ generateSrcFromLf env = noLoc mod
                     , cid_sigs = []
                     , cid_tyfam_insts = []
                     , cid_datafam_insts = []
-                    , cid_overlap_mode = Nothing
+                    , cid_overlap_mode = getOverlapMode (fst dvalBinder)
                     }
       where
         -- Split a DefValue's name, into the lexical part and the numeric part
@@ -437,6 +446,13 @@ generateSrcFromLf env = noLoc mod
             let name = LF.unExprValName (fst (LF.dvalBinder dval))
                 (intR,tagR) = T.span isDigit (T.reverse name)
             in (T.reverse tagR, readMay (T.unpack (T.reverse intR)))
+
+        getOverlapMode :: LF.ExprValName -> Maybe (Located OverlapMode)
+        getOverlapMode name = do
+            dval <- NM.lookup (LFC.overlapModeName name) (LF.moduleValues (envMod env))
+            LF.EBuiltin (LF.BEText modeText) <- Just (LF.dvalBody dval)
+            mode <- LFC.decodeOverlapMode modeText
+            Just (noLoc mode)
 
     hiddenRefMap :: HMS.HashMap Ref Bool
     hiddenRefMap = envHiddenRefMap env

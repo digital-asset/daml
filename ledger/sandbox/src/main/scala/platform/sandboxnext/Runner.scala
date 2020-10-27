@@ -24,6 +24,7 @@ import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
@@ -41,8 +42,7 @@ import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
-import com.daml.resources.akka.AkkaResourceOwner
-import com.daml.resources.{ResettableResourceOwner, Resource, ResourceOwner}
+import com.daml.resources.ResettableResourceOwner
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
@@ -98,7 +98,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
   private val timeProviderType =
     config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType)
 
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] =
+  override def acquire()(implicit context: ResourceContext): Resource[Port] =
     newLoggingContext { implicit loggingContext =>
       implicit val actorSystem: ActorSystem = ActorSystem("sandbox")
       implicit val materializer: Materializer = Materializer(actorSystem)
@@ -106,32 +106,37 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       val owner = for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
-        _ <- AkkaResourceOwner.forActorSystem(() => actorSystem)
-        _ <- AkkaResourceOwner.forMaterializer(() => materializer)
+        _ <- ResourceOwner.forActorSystem(() => actorSystem)
+        _ <- ResourceOwner.forMaterializer(() => materializer)
 
-        apiServer <- ResettableResourceOwner[ApiServer, (Option[Port], StartupMode)](
+        metrics <- new MetricsReporting(
+          getClass.getName,
+          config.metricsReporter,
+          config.metricsReportingInterval,
+        )
+        lfValueTranslationCache = LfValueTranslation.Cache.newInstrumentedInstance(
+          eventConfiguration = config.lfValueTranslationEventCacheConfiguration,
+          contractConfiguration = config.lfValueTranslationContractCacheConfiguration,
+          metrics = metrics,
+        )
+
+        apiServer <- ResettableResourceOwner[
+          ResourceContext,
+          ApiServer,
+          (Option[Port], StartupMode),
+        ](
           initialValue = (None, startupMode),
           owner = reset => {
             case (currentPort, startupMode) =>
+              val isReset = startupMode == StartupMode.ResetAndStart
+              val ledgerId = specifiedLedgerId.getOrElse(UUID.randomUUID().toString)
+              val timeServiceBackend = timeProviderType match {
+                case TimeProviderType.Static =>
+                  Some(TimeServiceBackend.simple(Instant.EPOCH))
+                case TimeProviderType.WallClock =>
+                  None
+              }
               for {
-                metrics <- new MetricsReporting(
-                  getClass.getName,
-                  config.metricsReporter,
-                  config.metricsReportingInterval,
-                )
-                lfValueTranslationCache = LfValueTranslation.Cache.newInstrumentedInstance(
-                  eventConfiguration = config.lfValueTranslationEventCacheConfiguration,
-                  contractConfiguration = config.lfValueTranslationContractCacheConfiguration,
-                  metrics = metrics,
-                )
-                timeServiceBackend = timeProviderType match {
-                  case TimeProviderType.Static =>
-                    Some(TimeServiceBackend.simple(Instant.EPOCH))
-                  case TimeProviderType.WallClock =>
-                    None
-                }
-                ledgerId = specifiedLedgerId.getOrElse(UUID.randomUUID().toString)
-                isReset = startupMode == StartupMode.ResetAndStart
                 readerWriter <- new SqlLedgerReaderWriter.Owner(
                   ledgerId = ledgerId,
                   participantId = config.participantId,

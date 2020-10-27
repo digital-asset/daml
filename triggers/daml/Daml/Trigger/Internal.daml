@@ -8,7 +8,6 @@ module Daml.Trigger.Internal
   , TriggerA (..)
   , TriggerUpdateA (..)
   , TriggerInitializeA (..)
-  , ActionTriggerAny (..)
   , addCommands
   , insertTpl
   , groupActiveContracts
@@ -75,7 +74,7 @@ instance HasTime (TriggerA s) where
 -- | TriggerUpdateA is the type used in the `updateState` of a DAML
 -- trigger.  It has similar actions in common with `TriggerA`, but
 -- cannot use `emitCommands` or `getTime`.
-newtype TriggerUpdateA s a = TriggerUpdateA { runTriggerUpdateA : ACS -> State s a }
+newtype TriggerUpdateA s a = TriggerUpdateA { runTriggerUpdateA : (Map CommandId [Command], ACS) -> State s a }
 
 instance Functor (TriggerUpdateA s) where
   fmap f (TriggerUpdateA r) = TriggerUpdateA $ rliftFmap fmap f r
@@ -96,12 +95,6 @@ instance ActionState s (TriggerUpdateA s) where
 -- trigger.  It can query, but not emit commands or update the state.
 newtype TriggerInitializeA a = TriggerInitializeA { runTriggerInitializeA : ACS -> a }
   deriving (Functor, Applicative, Action)
-
--- | Features possible in `initialize`, `updateState`, and `rule`.
-class ActionTriggerAny m where
-  -- | Extract the contracts of a given template from the ACS.  (However, the
-  -- type parameters are in the 'm a' order, so it is not exported.)
-  implQuery : forall a. Template a => m [(ContractId a, a)]
 
 -- Internal API
 
@@ -190,16 +183,16 @@ data TriggerState s = TriggerState
   }
 
 -- unboxed newtype for common Trigger*A additions
-type TriggerAT f a = ACS -> f a
+type TriggerAT r f a = r -> f a
 
-rliftFmap : ((a -> b) -> f a -> f b) -> (a -> b) -> TriggerAT f a -> TriggerAT f b
+rliftFmap : ((a -> b) -> f a -> f b) -> (a -> b) -> TriggerAT r f a -> TriggerAT r f b
 rliftFmap ub f r = ub f . r
 
-rliftPure : (a -> f a) -> a -> TriggerAT f a
+rliftPure : (a -> f a) -> a -> TriggerAT r f a
 rliftPure ub = const . ub
 
-rliftAp : (f (a -> b) -> f a -> f b) -> TriggerAT f (a -> b) -> TriggerAT f a -> TriggerAT f b
+rliftAp : (f (a -> b) -> f a -> f b) -> TriggerAT r f (a -> b) -> TriggerAT r f a -> TriggerAT r f b
 rliftAp ub ff fa r = ff r `ub` fa r
 
-rliftBind : (f a -> (a -> f b) -> f b) -> TriggerAT f a -> (a -> TriggerAT f b) -> TriggerAT f b
+rliftBind : (f a -> (a -> f b) -> f b) -> TriggerAT r f a -> (a -> TriggerAT r f b) -> TriggerAT r f b
 rliftBind ub fa f r = fa r `ub` \a -> f a r

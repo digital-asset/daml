@@ -87,6 +87,7 @@ data AppTemplate
   | AppTemplateViaOption String
   | AppTemplateViaArgument String
 
+newtype ShowJsonApi = ShowJsonApi {_showJsonApi :: Bool}
 
 commandParser :: Parser Command
 commandParser = subparser $ fold
@@ -211,7 +212,7 @@ commandParser = subparser $ fold
     deployFooter = footer "See https://docs.daml.com/deploy/ for more information on deployment."
 
     deployCmd = Deploy
-        <$> ledgerFlags
+        <$> ledgerFlags (ShowJsonApi False)
 
     jsonApiCfg = JsonApiConfig <$> option
         readJsonApiPort
@@ -279,37 +280,38 @@ commandParser = subparser $ fold
         ]
 
     ledgerListPartiesCmd = LedgerListParties
-        <$> ledgerFlags
+        <$> ledgerFlags (ShowJsonApi True)
         <*> fmap JsonFlag (switch $ long "json" <> help "Output party list in JSON")
 
     ledgerAllocatePartiesCmd = LedgerAllocateParties
-        <$> ledgerFlags
+        <$> ledgerFlags (ShowJsonApi False)
         <*> many (argument str (metavar "PARTY" <> help "Parties to be allocated on the ledger (defaults to project parties if empty)"))
 
     -- same as allocate-parties but requires a single party.
     ledgerAllocatePartyCmd = LedgerAllocateParties
-        <$> ledgerFlags
+        <$> ledgerFlags (ShowJsonApi False)
         <*> fmap (:[]) (argument str (metavar "PARTY" <> help "Party to be allocated on the ledger"))
 
     ledgerUploadDarCmd = LedgerUploadDar
-        <$> ledgerFlags
+        <$> ledgerFlags (ShowJsonApi False)
         <*> optional (argument str (metavar "PATH" <> help "DAR file to upload (defaults to project DAR)"))
 
     ledgerFetchDarCmd = LedgerFetchDar
-        <$> ledgerFlags
+        <$> ledgerFlags (ShowJsonApi False)
         <*> option str (long "main-package-id" <> metavar "PKGID" <> help "Fetch DAR for this package identifier.")
         <*> option str (short 'o' <> long "output" <> metavar "PATH" <> help "Save fetched DAR into this file.")
 
     ledgerNavigatorCmd = LedgerNavigator
-        <$> ledgerFlags
+        <$> ledgerFlags (ShowJsonApi False)
         <*> many (argument str (metavar "ARG" <> help "Extra arguments to navigator."))
 
-    ledgerFlags = LedgerFlags
-        <$> hostFlag
-        <*> portFlag
-        <*> accessTokenFileFlag
+    ledgerFlags showJsonApi = LedgerFlags
+        <$> httpJsonFlag showJsonApi
         <*> sslConfig
         <*> timeoutOption
+        <*> hostFlag
+        <*> portFlag
+        <*> accessTokenFileFlag
 
     sslConfig :: Parser (Maybe ClientSSLConfig)
     sslConfig = do
@@ -339,6 +341,13 @@ commandParser = subparser $ fold
                 , clientSSLKeyCertPair = mbClientKeyCertPair
                 , clientMetadataPlugin = Nothing
                 }
+
+    httpJsonFlag :: ShowJsonApi -> Parser LedgerApi
+    httpJsonFlag (ShowJsonApi showJsonApi)
+      | showJsonApi =
+        flag Grpc HttpJson $
+        long "json-api" <> help "Use the HTTP JSON API instead of gRPC"
+      | otherwise = pure Grpc
 
     hostFlag :: Parser (Maybe String)
     hostFlag = optional . option str $

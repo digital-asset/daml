@@ -85,10 +85,16 @@ object Ast {
   final case class EStructCon(fields: ImmArray[(FieldName, Expr)]) extends Expr
 
   /** Struct projection. */
-  final case class EStructProj(field: FieldName, struct: Expr) extends Expr
+  final case class EStructProj(field: FieldName, struct: Expr) extends Expr {
+    // The actual index is filled in by the type checker.
+    private[lf] var fieldIndex: Option[Int] = None
+  }
 
   /** Non-destructive struct update. */
-  final case class EStructUpd(field: FieldName, struct: Expr, update: Expr) extends Expr
+  final case class EStructUpd(field: FieldName, struct: Expr, update: Expr) extends Expr {
+    // The actual index is filled in by the type checker.
+    private[lf] var fieldIndex: Option[Int] = None
+  }
 
   /** Expression application. Function can be an abstraction or a builtin function. */
   final case class EApp(fun: Expr, arg: Expr) extends Expr
@@ -628,6 +634,7 @@ object Ast {
       name: ChoiceName, // Name of the choice.
       consuming: Boolean, // Flag indicating whether exercising the choice consumes the contract.
       controllers: E, // Parties that can exercise the choice.
+      choiceObservers: Option[E], // Additional informees for the choice.
       selfBinder: ExprVarName, // Self ContractId binder.
       argBinder: (ExprVarName, Type), // Choice argument binder.
       returnType: Type, // Return type of the choice follow-up.
@@ -639,15 +646,24 @@ object Ast {
         name: ChoiceName,
         consuming: Boolean,
         controllers: E,
+        choiceObservers: Option[E],
         selfBinder: ExprVarName,
         argBinder: (ExprVarName, Type),
         returnType: Type,
         update: E
     ): GenTemplateChoice[E] =
-      new GenTemplateChoice(name, consuming, controllers, selfBinder, argBinder, returnType, update)
+      new GenTemplateChoice(
+        name,
+        consuming,
+        controllers,
+        choiceObservers,
+        selfBinder,
+        argBinder,
+        returnType,
+        update)
 
     def unapply(arg: GenTemplateChoice[E])
-      : Option[(ChoiceName, Boolean, E, ExprVarName, (ExprVarName, Type), Type, E)] =
+      : Option[(ChoiceName, Boolean, E, Option[E], ExprVarName, (ExprVarName, Type), Type, E)] =
       GenTemplateChoice.unapply(arg)
   }
 

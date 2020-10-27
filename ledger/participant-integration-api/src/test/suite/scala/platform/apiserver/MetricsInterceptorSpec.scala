@@ -14,6 +14,7 @@ import com.daml.grpc.adapter.server.akka.ServerAdapter
 import com.daml.grpc.adapter.utils.implementations.AkkaImplementation
 import com.daml.grpc.sampleservice.Responding
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.MetricsInterceptorSpec._
 import com.daml.platform.apiserver.services.GrpcClientResource
@@ -21,7 +22,6 @@ import com.daml.platform.hello.HelloServiceGrpc.HelloService
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.platform.testing.StreamConsumer
 import com.daml.ports.Port
-import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, Channel, Server, ServerInterceptor, ServerServiceDefinition}
@@ -36,7 +36,8 @@ final class MetricsInterceptorSpec
     extends AsyncFlatSpec
     with AkkaBeforeAndAfterAll
     with Matchers
-    with Eventually {
+    with Eventually
+    with TestResourceContext {
 
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(1, Second)))
@@ -108,7 +109,7 @@ object MetricsInterceptorSpec {
       service: BindableService,
   ): ResourceOwner[Server] =
     new ResourceOwner[Server] {
-      def acquire()(implicit executionContext: ExecutionContext): Resource[Server] =
+      def acquire()(implicit context: ResourceContext): Resource[Server] =
         Resource(Future {
           val server =
             NettyServerBuilder

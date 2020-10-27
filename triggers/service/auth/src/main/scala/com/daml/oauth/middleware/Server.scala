@@ -18,7 +18,7 @@ import com.daml.oauth.server.{Request => OAuthRequest, Response => OAuthResponse
 import com.typesafe.scalalogging.StrictLogging
 import java.util.UUID
 
-import com.daml.jwt.JwtDecoder
+import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 
@@ -46,7 +46,7 @@ object Server extends StrictLogging {
     // TODO[AH] Make sure this is bounded in size - or avoid state altogether.
     val requests: TrieMap[UUID, Uri] = TrieMap()
     val route = concat(
-      path("auth") { get { auth } },
+      path("auth") { get { auth(config) } },
       path("login") { get { login(config, requests) } },
       path("cb") { get { loginCallback(config, requests) } },
       path("refresh") {
@@ -69,6 +69,11 @@ object Server extends StrictLogging {
     optionalCookie(cookieName).map(_.flatMap(f))
   }
 
+  // Check whether the provided token's signature is valid.
+  private def tokenIsValid(accessToken: String, verifier: JwtVerifierBase): Boolean = {
+    verifier.verify(Jwt(accessToken)).isRight
+  }
+
   // Check whether the provided access token grants at least the requested claims.
   private def tokenProvidesClaims(accessToken: String, claims: Request.Claims): Boolean = {
     for {
@@ -81,11 +86,13 @@ object Server extends StrictLogging {
     }
   }.getOrElse(false)
 
-  private def auth =
+  private def auth(config: Config) =
     parameters(('claims.as[Request.Claims]))
       .as[Request.Auth](Request.Auth) { auth =>
         optionalToken {
-          case Some(token) if tokenProvidesClaims(token.accessToken, auth.claims) =>
+          case Some(token)
+              if tokenIsValid(token.accessToken, config.tokenVerifier) &&
+                tokenProvidesClaims(token.accessToken, auth.claims) =>
             complete(
               Response
                 .Authorize(accessToken = token.accessToken, refreshToken = token.refreshToken))

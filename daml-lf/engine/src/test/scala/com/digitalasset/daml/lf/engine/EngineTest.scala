@@ -755,6 +755,39 @@ class EngineTest
             "Update failed due to a contract key with an empty sey of maintainers")
       }
     }
+
+    "crash if the contract key does not exists" in {
+      val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
+
+      val cmds = ImmArray(
+        speedy.Command.FetchByKey(
+          templateId = templateId,
+          key = SRecord(
+            BasicTests_WithKey,
+            ImmArray("p", "k"),
+            ArrayList(SParty(alice), SInt64(43))
+          )
+        )
+      )
+
+      val result = engine
+        .interpretCommands(
+          validating = false,
+          submitters = Set(alice),
+          commands = cmds,
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.TransactionSeed(seed),
+          globalCids = Set.empty,
+        )
+        .consume(_ => None, lookupPackage, lookupKey)
+
+      inside(result) {
+        case Left(err) =>
+          err.msg should include(
+            s"couldn't find key GlobalKey($basicTestsPkgId:BasicTests:WithKey, ValueRecord(Some($basicTestsPkgId:BasicTests:WithKey),ImmArray((Some(p),ValueParty(Alice)),(Some(k),ValueInt64(43)))))")
+      }
+    }
   }
 
   "create-and-exercise command" should {
@@ -1059,6 +1092,7 @@ class EngineTest
             _,
             consuming,
             actingParties,
+            _,
             _,
             _,
             _,
@@ -1661,7 +1695,7 @@ class EngineTest
     "be partially reinterpretable" in {
       val Right((tx, txMeta)) = run(3)
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _, _) =
+      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, children, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
@@ -1791,7 +1825,7 @@ class EngineTest
     val submissionSeed = crypto.Hash.hashPrivateKey("engine check the version of input value")
     def contracts = Map(
       cidV6 -> ContractInst(templateId, VersionedValue(ValueVersion("6"), contract), ""),
-      cidV7 -> ContractInst(templateId, VersionedValue(ValueVersion("7"), contract), ""),
+      cidV7 -> ContractInst(templateId, VersionedValue(ValueVersion("dev"), contract), ""),
     )
 
     def run(
@@ -1957,6 +1991,7 @@ object EngineTest {
                       _,
                       _,
                       true,
+                      _,
                       _,
                       _,
                       _,

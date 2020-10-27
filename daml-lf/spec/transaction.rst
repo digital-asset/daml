@@ -453,6 +453,8 @@ As of version 1, these fields are included:
 * repeated ``string`` signatories
 * repeated ``string`` controllers
 
+FIXME: choice observers: https://github.com/digital-asset/daml/issues/7709
+
 ``children`` may be empty; all other fields are required, and required
 to be non-empty.
 

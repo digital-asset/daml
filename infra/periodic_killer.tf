@@ -8,22 +8,32 @@ resource "google_service_account" "periodic-killer" {
   account_id = "periodic-killer"
 }
 
-resource "google_project_iam_member" "periodic-killer" {
-  # should reference google_project_iam_custom_role.periodic-killer.id or
-  # something, but for whatever reason that's not exposed.
-  role   = "projects/da-dev-gcp-daml-language/roles/killCiNodesEveryNight"
-  member = "serviceAccount:${google_service_account.periodic-killer.email}"
-}
-
 resource "google_project_iam_custom_role" "periodic-killer" {
-  role_id = "killCiNodesEveryNight"
-  title   = "Permissions to list & kill CI nodes every night"
+  role_id = "killCiNodes"
+  title   = "Permissions to list & kill CI nodes"
   permissions = [
     "compute.instances.delete",
     "compute.instances.list",
     "compute.zoneOperations.get",
     "compute.zones.list",
   ]
+}
+
+locals {
+  accounts_that_can_kill_machines = [
+    # should reference google_project_iam_custom_role.periodic-killer.id or
+    # something, but for whatever reason that's not exposed.
+    "serviceAccount:${google_service_account.periodic-killer.email}",
+
+    "user:gary.verhaegen@digitalasset.com",
+    "user:moritz.kiefer@digitalasset.com",
+  ]
+}
+
+resource "google_project_iam_member" "periodic-killer" {
+  count  = "${length(local.accounts_that_can_kill_machines)}"
+  role   = "${google_project_iam_custom_role.periodic-killer.id}"
+  member = "${local.accounts_that_can_kill_machines[count.index]}"
 }
 
 resource "google_compute_instance" "periodic-killer" {

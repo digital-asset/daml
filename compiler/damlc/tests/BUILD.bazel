@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("//compiler/damlc:util.bzl", "DAML_LF_VERSIONS", "ghc_pkg")
+load("//compiler/damlc:util.bzl", "DAML_LF_VERSIONS", "LATEST_STABLE_DAML_LF_VERSION", "ghc_pkg")
 
 # Tests for the lax CLI parser
 da_haskell_test(
@@ -156,12 +156,17 @@ da_haskell_library(
     da_haskell_test(
         # NOTE(MH): For some reason, ghc-pkg gets very unhappy if we separate
         # the components of the version number by dot, dash or underscore.
-        name = "integration-v{}".format(version.replace(".", "")),
+        name = "integration{skip}-v{version}".format(
+            version = version.replace(".", ""),
+            skip = "-unvalidated" if skip_validation else "",
+        ),
         size = "large",
         srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
         args = [
             "--daml-lf-version",
             version,
+            "--skip-validation",
+            "true" if skip_validation else "false",
         ],
         data = [
             ":bond-trading",
@@ -185,7 +190,10 @@ da_haskell_library(
             ":integration-lib",
         ],
     )
-    for version in DAML_LF_VERSIONS
+    for version, skip_validation in [(version, False) for version in DAML_LF_VERSIONS] + [
+        (LATEST_STABLE_DAML_LF_VERSION, True),
+        ("1.dev", True),
+    ]
 ]
 
 # Tests for daml-doc

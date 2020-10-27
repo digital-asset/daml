@@ -229,7 +229,7 @@ Library infrastructure overview
 -------------------------------
 
 To help you implement your server and validator, we provide the following
-four Scala libraries as part of the DAML SDK. Changes
+four Scala libraries as part of DAML Connect. Changes
 to them are explained as part of the :ref:`release-notes`.
 
 As explained in :ref:`integration-kit_writing_code`,

@@ -3,10 +3,11 @@
 
 package com.daml
 
+import com.daml.ledger.resources.TestResourceContext
 import org.scalatest.{AsyncFlatSpec, Matchers}
 import stakeholders.{ExplicitObservers, ImplicitObservers, MixedObservers, OnlySignatories}
 
-class StakeholdersTest extends AsyncFlatSpec with Matchers {
+class StakeholdersTest extends AsyncFlatSpec with Matchers with TestResourceContext {
 
   import TestUtil._
 

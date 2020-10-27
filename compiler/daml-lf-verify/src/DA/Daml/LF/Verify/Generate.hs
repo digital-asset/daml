@@ -219,7 +219,7 @@ genTemplate pac mod Template{..} = do
   where
     archive :: TemplateChoice
     archive = TemplateChoice Nothing (ChoiceName "Archive") True
-      (ENil (TBuiltin BTParty)) (ExprVarName "self")
+      (ENil (TBuiltin BTParty)) Nothing (ExprVarName "self")
       (ExprVarName "arg", TStruct []) (TBuiltin BTUnit)
       (EUpdate $ UPure (TBuiltin BTUnit) (EBuiltin BEUnit))
 

@@ -45,6 +45,7 @@
 //        2019-12-03: Add (experimental) text primitives.
 //        2019-12-05: Add Generic Equality builtin
 //        2019-13-10: Add ExerciseByKey Update
+//        2020-10-??: Add choice-observers
 
 syntax = "proto3";
 package daml_lf_1;
@@ -1209,6 +1210,9 @@ message TemplateChoice {
   // controllers need to authorize the exercising of this choice (aka
   // conjunctive choice controllers).
   Expr controllers = 3;
+
+  // The additional informees of the choice. They have type `List Party`.
+  Expr observers = 11; // *Available in versions >= 1.dev*
 
   // Name to which the choice argument is bound and its type.
   VarWithType arg_binder = 4;

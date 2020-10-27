@@ -258,13 +258,13 @@ generateRawDalfRule =
                     stablePkgs <- useNoFile_ GenerateStablePackages
                     DamlEnv{envIsGenerated} <- getDamlServiceEnv
                     -- GHC Core to DAML LF
-                    case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core of
+                    case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core details of
                         Left e -> return ([e], Nothing)
-                        Right (v, warnings) -> do
+                        Right v -> do
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
                             pkgs <- getExternalPackages file
                             let world = LF.initWorldSelf pkgs pkg
-                            return (warnings, Just $ LF.simplifyModule world lfVersion v)
+                            return ([], Just $ LF.simplifyModule world lfVersion v)
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
 getExternalPackages file = do
@@ -406,9 +406,10 @@ generateSerializedDalfRule options =
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
                             DamlEnv{envIsGenerated} <- getDamlServiceEnv
-                            case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core of
+                            let details = hm_details (tmrModInfo tm)
+                            case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core details of
                                 Left e -> pure ([e], Nothing)
-                                Right (rawDalf, warnings) -> fmap (first (warnings ++)) $ do
+                                Right rawDalf -> do
                                     -- LF postprocessing
                                     pkgs <- getExternalPackages file
                                     let selfPkg = buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps

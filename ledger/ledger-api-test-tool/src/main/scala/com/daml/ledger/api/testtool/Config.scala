@@ -9,6 +9,8 @@ import java.nio.file.Path
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.ledger.api.tls.TlsConfiguration
 
+import scala.concurrent.duration.{Duration, DurationInt}
+
 final case class Config(
     participants: Vector[(String, Int)],
     darPackages: List[File],
@@ -26,7 +28,8 @@ final case class Config(
     listTestSuites: Boolean,
     shuffleParticipants: Boolean,
     partyAllocation: PartyAllocationConfiguration,
-    ledgerClockGranularityMs: Int,
+    ledgerClockGranularity: Duration,
+    uploadDars: Boolean,
 )
 
 object Config {
@@ -47,6 +50,7 @@ object Config {
     listTestSuites = false,
     shuffleParticipants = false,
     partyAllocation = PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants,
-    ledgerClockGranularityMs = 10000,
+    ledgerClockGranularity = 1.second,
+    uploadDars = true,
   )
 }

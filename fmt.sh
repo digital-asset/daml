@@ -60,7 +60,8 @@ USAGE
       ;;
     --diff)
       shift
-      scalafmt_args+=(--mode=diff --diff-branch=origin/master)
+      merge_base="$(git merge-base origin/master HEAD)"
+      scalafmt_args+=('--mode=diff' "--diff-branch=${merge_base}")
       hlint_diff=true
       ;;
     *)
@@ -109,13 +110,16 @@ run dade-copyright-headers "$dade_copyright_arg" .
 
 # We do test hlint via Bazel rules but we run it separately
 # to get linting failures early.
+HLINT=(hlint -j4)
+echo "\$ ${HLINT[*]}"
 if [ "$hlint_diff" = "true" ]; then
-    changed_haskell_files="$(git diff --name-only origin/master | grep '\.hs$' || [[ $? == 1 ]])"
-    if [ "" != "$changed_haskell_files" ]; then
-        hlint -j4 $changed_haskell_files
-    fi
+  #  We do not run on deleted files, or files that have been added since we last rebased onto trunk.
+  changed_haskell_files="$(git diff --name-only --diff-filter=ACMRT "$merge_base" | grep '\.hs$' || [[ $? == 1 ]])"
+  if [[ -n "$changed_haskell_files" ]]; then
+    "${HLINT[@]}" -j4 $changed_haskell_files
+  fi
 else
-    hlint --git -j4
+  "${HLINT[@]}" --git
 fi
 
 # check for scala code style

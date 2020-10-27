@@ -20,7 +20,7 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.configuration.LedgerConfiguration
-import com.daml.resources.ResourceOwner
+import com.daml.ledger.resources.ResourceOwner
 import scopt.OptionParser
 
 private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)

@@ -45,13 +45,13 @@ class ContractDiscriminatorFreshnessCheckSpec
               observers Mod:contractParties this,
               agreement "Agreement",
               choices {
-                choice @nonConsuming Noop (self) (u: Unit) : Unit
-                  by 
+                choice @nonConsuming Noop (self) (u: Unit) : Unit,
+                  controllers 
                     Mod:contractParties this
                   to
                     upure @Unit (),
-                 choice @nonConsuming LookupByKey (self) (key: Mod:Key) : Option (ContractId Mod:Contract)
-                   by 
+                 choice @nonConsuming LookupByKey (self) (key: Mod:Key) : Option (ContractId Mod:Contract),
+                   controllers 
                      Mod:contractParties this
                    to
                      lookup_by_key @Mod:Contract key 

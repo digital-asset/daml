@@ -9,7 +9,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.gatling.stats.{SimulationLog, SimulationLogSyntax}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.http.HttpServiceTestFixture.withHttpService
+import com.daml.http.HttpServiceTestFixture.{withLedger, withHttpService}
 import com.daml.http.domain.{JwtPayload, LedgerId}
 import com.daml.http.perf.scenario.SimulationConfig
 import com.daml.http.util.FutureUtil._
@@ -121,17 +121,19 @@ object Main extends StrictLogging {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext
   ): Future[ExitCode] =
-    withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
-      withHttpService(ledgerId.unwrap, config.dars, jsonApiJdbcConfig, None) { (uri, _, _, _) =>
-        runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
-          .flatMap {
-            case (exitCode, dir) =>
-              toFuture(generateReport(dir))
-                .map { _ =>
-                  logger.info(s"Report directory: ${dir.getAbsolutePath}")
-                  exitCode
-                }
-          }: Future[ExitCode]
+    withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, _) =>
+      withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
+        withHttpService(ledgerId.unwrap, ledgerPort, jsonApiJdbcConfig, None) { (uri, _, _, _) =>
+          runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
+            .flatMap {
+              case (exitCode, dir) =>
+                toFuture(generateReport(dir))
+                  .map { _ =>
+                    logger.info(s"Report directory: ${dir.getAbsolutePath}")
+                    exitCode
+                  }
+            }: Future[ExitCode]
+        }
       }
     }
 

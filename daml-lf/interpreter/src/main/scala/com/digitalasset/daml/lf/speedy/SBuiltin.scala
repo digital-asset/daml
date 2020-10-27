@@ -785,11 +785,25 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $tproj[field] :: Struct -> a */
-  final case class SBStructProj(field: Ast.FieldName) extends SBuiltinPure(1) {
+  /** $tproj[fieldIndex] :: Struct -> a */
+  final case class SBStructProj(fieldIndex: Int) extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SStruct(fields, values) =>
+        case SStruct(fields @ _, values) =>
+          values.get(fieldIndex)
+        case v =>
+          crash(s"StructProj on non-struct: $v")
+      }
+    }
+  }
+
+  /** $tproj[field] :: Struct -> a */
+  // This is a slower version of `SBStructProj` for the case when we didn't run
+  // the DAML-LF type checker and hence didn't infer the field index.
+  final case class SBStructProjByName(field: Ast.FieldName) extends SBuiltinPure(1) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+      args.get(0) match {
+        case SStruct(fields @ _, values) =>
           values.get(fields.indexOf(field))
         case v =>
           crash(s"StructProj on non-struct: $v")
@@ -797,8 +811,24 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** $tupd[fieldIndex] :: Struct -> a -> Struct */
+  final case class SBStructUpd(fieldIndex: Int) extends SBuiltinPure(2) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+      args.get(0) match {
+        case SStruct(fields, values) =>
+          val values2 = values.clone.asInstanceOf[util.ArrayList[SValue]]
+          values2.set(fieldIndex, args.get(1))
+          SStruct(fields, values2)
+        case v =>
+          crash(s"StructUpd on non-struct: $v")
+      }
+    }
+  }
+
   /** $tupd[field] :: Struct -> a -> Struct */
-  final case class SBStructUpd(field: Ast.FieldName) extends SBuiltinPure(2) {
+  // This is a slower version of `SBStructUpd` for the case when we didn't run
+  // the DAML-LF type checker and hence didn't infer the field index.
+  final case class SBStructUpdByName(field: Ast.FieldName) extends SBuiltinPure(2) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
         case SStruct(fields, values) =>
@@ -891,13 +921,14 @@ private[lf] object SBuiltin {
   }
 
   /** $beginExercise
-    *    :: arg                                           (choice argument)
-    *    -> ContractId arg                                (contract to exercise)
-    *    -> List Party                                    (actors)
-    *    -> List Party                                    (signatories)
-    *    -> List Party                                    (observers)
-    *    -> List Party                                    (choice controllers)
-    *    -> Optional {key: key, maintainers: List Party}  (template key, if present)
+    *    :: arg                                           0 (choice argument)
+    *    -> ContractId arg                                1 (contract to exercise)
+    *    -> List Party                                    2 (actors)
+    *    -> List Party                                    3 (signatories)
+    *    -> List Party                                    4 (template observers)
+    *    -> List Party                                    5 (choice controllers)
+    *    -> List Party                                    6 (choice observers)
+    *    -> Optional {key: key, maintainers: List Party}  7 (template key, if present)
     *    -> ()
     */
   final case class SBUBeginExercise(
@@ -905,7 +936,7 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-  ) extends OnLedgerBuiltin(7) {
+  ) extends OnLedgerBuiltin(8) {
 
     override protected final def execute(
         args: util.ArrayList[SValue],
@@ -922,10 +953,11 @@ private[lf] object SBuiltin {
         case v => crash(s"expect optional parties, got: $v")
       }
       val sigs = extractParties(args.get(3))
-      val obs = extractParties(args.get(4))
+      val templateObservers = extractParties(args.get(4))
       val ctrls = extractParties(args.get(5))
+      val choiceObservers = extractParties(args.get(6))
 
-      val mbKey = extractOptionalKeyWithMaintainers(args.get(6))
+      val mbKey = extractOptionalKeyWithMaintainers(args.get(7))
       val auth = machine.auth
 
       onLedger.ptx = onLedger.ptx
@@ -938,8 +970,9 @@ private[lf] object SBuiltin {
           consuming = consuming,
           actingParties = optActors.getOrElse(ctrls),
           signatories = sigs,
-          stakeholders = sigs union obs,
+          stakeholders = sigs union templateObservers,
           controllers = ctrls,
+          choiceObservers = choiceObservers,
           mbKey = mbKey,
           byKey = byKey,
           chosenValue = arg,

@@ -12,7 +12,9 @@ import qualified Control.Concurrent.QSem
 import qualified Control.Exception
 import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
+import qualified Control.Monad.Loops
 import qualified Data.Aeson as JSON
+import qualified Data.ByteString
 import qualified Data.ByteString.UTF8 as BS
 import qualified Data.ByteString.Lazy.UTF8 as LBS
 import qualified Data.CaseInsensitive as CI
@@ -78,12 +80,14 @@ robustly_download_nix_packages = do
               _ | "unexpected end-of-file" `Data.List.isInfixOf` err -> h (n - 1)
               _ -> die cmd exit out err
 
+add_github_contact_header :: HTTP.Request -> HTTP.Request
+add_github_contact_header req =
+    req { HTTP.requestHeaders = ("User-Agent", "DAML cron (team-daml-app-runtime@digitalasset.com)") : HTTP.requestHeaders req }
+
 http_get :: JSON.FromJSON a => String -> IO (a, H.HashMap String String)
 http_get url = do
     manager <- HTTP.newManager TLS.tlsManagerSettings
-    request' <- HTTP.parseRequest url
-    -- Be polite
-    let request = request' { HTTP.requestHeaders = [("User-Agent", "DAML cron (team-daml-language@digitalasset.com)")] }
+    request <- add_github_contact_header <$> HTTP.parseRequest url
     response <- HTTP.httpLbs request manager
     let body = JSON.decode $ HTTP.responseBody response
     let status = Status.statusCode $ HTTP.responseStatus response
@@ -271,18 +275,22 @@ docs = do
 
 download_assets :: FilePath -> GitHubRelease -> IO ()
 download_assets tmp release = do
+    manager <- HTTP.newManager TLS.tlsManagerSettings
     tokens <- Control.Concurrent.QSem.newQSem 20
     Control.Concurrent.Async.forConcurrently_ (map uri $ assets release) (\url ->
         Control.Exception.bracket_
           (Control.Concurrent.QSem.waitQSem tokens)
           (Control.Concurrent.QSem.signalQSem tokens)
           (do
-        shell_ $ unlines ["bash -c '",
-            "set -euo pipefail",
-            "eval \"$(dev-env/bin/dade assist)\"",
-            "cd \"" <> tmp <> "\"",
-            "wget --quiet \"" <> show url <> "\"",
-            "'"]))
+              req <- add_github_contact_header <$> HTTP.parseRequest (show url)
+              HTTP.withResponse req manager (\resp -> do
+                  let body = HTTP.responseBody resp
+                  IO.withBinaryFile (tmp </> (last $ Network.URI.pathSegments url)) IO.AppendMode (\handle -> do
+                      while (readFrom body) (writeTo handle)))))
+  where while = Control.Monad.Loops.whileJust_
+        readFrom body = ifNotEmpty <$> HTTP.brRead body
+        ifNotEmpty bs = if Data.ByteString.null bs then Nothing else Just bs
+        writeTo = Data.ByteString.hPut
 
 verify_signatures :: FilePath -> FilePath -> String -> IO String
 verify_signatures bash_lib tmp version_tag = do
