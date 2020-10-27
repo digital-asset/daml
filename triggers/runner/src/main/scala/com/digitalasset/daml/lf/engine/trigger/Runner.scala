@@ -52,7 +52,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.Converter.{DamlTuple2, DamlAnyModuleRecord, unrollFree}
 import com.daml.script.converter.Converter.Implicits._
 import com.daml.script.converter.ConverterException
@@ -249,13 +248,6 @@ class Runner(
 
   import Runner.{DamlFun, maxParallelSubmissionsPerTrigger}
 
-  // Handles the value of update.
-  private def handleStepFreeResult(
-      clientTime: Timestamp,
-      v: SValue,
-      submit: SubmitRequest => Any): SValue =
-    freeTriggerSubmits(clientTime, v) foreach (sr => discard(submit(sr)))
-
   private def freeTriggerSubmits(
       clientTime: Timestamp,
       v: SValue): UnfoldState[SValue, SubmitRequest] = {
@@ -422,15 +414,11 @@ class Runner(
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     val (initialStateFree, evaluatedUpdate) = getInitialStateFreeAndUpdate(acs)
 
-    // NB: the SubmitRequests produced here are submitted out-of-band; they
-    // do not flow into the stream, so are not subject to backpressure or throttling
-    val evaluatedInitialState: SValue =
-      handleStepFreeResult(clientTime, v = initialStateFree, submit)
-    logger.debug(s"Initial state: $evaluatedInitialState")
-
     // Prepare another speedy machine for evaluating expressions.
     val machine: Speedy.Machine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
+
+    val runInitialState = UnfoldState.toSource(freeTriggerSubmits(clientTime, initialStateFree))
 
     val runRuleOnMsgs = UnfoldState.flatMapConcatNode { (state: SValue, messageVal: SValue) =>
       val clientTime: Timestamp =
@@ -461,23 +449,27 @@ class Runner(
     // The materialized value of the flow is the (future) final state
     // of this process.
     @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-    val graph = GraphDSL.create(lastOr(evaluatedInitialState)) { implicit gb => saveLastState =>
+    val graph = GraphDSL.create(Sink.last[SValue]) { implicit gb => saveLastState =>
       import GraphDSL.Implicits._
       val msgIn = gb add Flow[TriggerMsg].wireTap(logReceivedMsg _)
+      val initialState = gb add runInitialState
+      val initialStateOut = gb add Broadcast[SValue](2)
       val rule = gb add runRuleOnMsgs
+      val submissions = gb add Merge[SubmitRequest](2)
+      val finalStateIn = gb add Concat[SValue](2)
+      // TODO SC logger.debug(s"Initial state: $evaluatedInitialState")
       // format: off
-           Source.single(evaluatedInitialState) ~> rule.in1
-      msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.in2
-       Sink.ignore <~ submitSubmissions(submit) <~ rule.out1
-                                                   rule.out2 ~> saveLastState
+                         initialState.out1 ~> initialStateOut ~> rule.in1
+                         initialState.out2     ~> submissions
+                    msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.in2
+      Sink.ignore <~ submitSubmissions(submit) <~ submissions <~ rule.out1
+                                              initialStateOut              ~> finalStateIn
+                                                                 rule.out2 ~> finalStateIn ~> saveLastState
       // format: on
       new SinkShape(msgIn.in)
     }
     Sink fromGraph graph
   }
-
-  private[this] def lastOr[A](orElse: A): Sink[A, Future[A]] =
-    Sink.fold(orElse)((_, next) => next)
 
   private[this] def hideIrrelevantMsgs: Flow[TriggerMsg, TriggerMsg, NotUsed] =
     Flow[TriggerMsg].mapConcat[TriggerMsg] {
