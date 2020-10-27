@@ -360,37 +360,44 @@ private[indexer] class JdbcIndexer private[indexer] (
   )(implicit loggingContext: LoggingContext)
       extends ResourceOwner[IndexFeedHandle] {
     override def acquire()(implicit context: ResourceContext): Resource[IndexFeedHandle] =
-      Resource(Future {
-        val (killSwitch, completionFuture) = readService
-          .stateUpdates(startExclusive)
-          .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-          .mapAsync(concurrency) {
-            case (offset, update) =>
-              withEnrichedLoggingContext(JdbcIndexer.loggingContextFor(offset, update)) {
-                implicit loggingContext =>
-                  Timed
-                    .future(
-                      metrics.daml.indexer.stateUpdateProcessing,
-                      handleStateUpdate(offset, update),
-                    )
-                    .map(_ => offset)
-              }
-          }
-          .batch(Long.MaxValue, identity)(Keep.right[Offset, Offset])
-          .mapAsync(1) { offset =>
-            ledgerDao.updateLedgerEnd(offset)
-          }
-          .toMat(Sink.ignore)(Keep.both)
-          .run()
-
-        new SubscriptionIndexFeedHandle(killSwitch, completionFuture.map(_ => ()))
-      })(
+      Resource(Future(handleUpdates()))(
         handle =>
           for {
             _ <- Future(handle.killSwitch.shutdown())
             _ <- handle.completed.recover { case NonFatal(_) => () }
           } yield ()
       )
+
+    private def handleUpdates(): SubscriptionIndexFeedHandle = {
+      import com.daml.dec.DirectExecutionContext
+
+      val (killSwitch, completionFuture) = readService
+        .stateUpdates(startExclusive)
+        .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+        .mapAsync(concurrency) {
+          case (offset, update) =>
+            withEnrichedLoggingContext(JdbcIndexer.loggingContextFor(offset, update)) {
+              implicit loggingContext =>
+                Timed
+                  .future(
+                    metrics.daml.indexer.stateUpdateProcessing,
+                    handleStateUpdate(offset, update),
+                  )
+                  .map(_ => offset)(DirectExecutionContext)
+            }
+        }
+        .batch(Long.MaxValue, identity)(Keep.right[Offset, Offset])
+        .mapAsync(1) { offset =>
+          ledgerDao.updateLedgerEnd(offset)
+        }
+        .toMat(Sink.ignore)(Keep.both)
+        .run()
+
+      new SubscriptionIndexFeedHandle(
+        killSwitch,
+        completionFuture.map(_ => ())(DirectExecutionContext),
+      )
+    }
   }
 
   private class SubscriptionIndexFeedHandle(
