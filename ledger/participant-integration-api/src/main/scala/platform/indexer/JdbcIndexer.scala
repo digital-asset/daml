@@ -3,6 +3,7 @@
 
 package com.daml.platform.indexer
 
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
@@ -23,7 +24,7 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.{DbType, FlywayMigrations}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 object JdbcIndexer {
@@ -42,7 +43,8 @@ object JdbcIndexer {
         readService: ReadService,
         metrics: Metrics,
         lfValueTranslationCache: LfValueTranslation.Cache,
-    )(implicit materializer: Materializer, loggingContext: LoggingContext) =
+    )(implicit materializer: Materializer, loggingContext: LoggingContext) = {
+      val executor = ResourceOwner.forExecutorService(() => Executors.newWorkStealingPool())
       this(
         config,
         readService,
@@ -52,12 +54,14 @@ object JdbcIndexer {
           serverRole,
           config.jdbcUrl,
           config.eventsPageSize,
+          ExecutionContext.fromExecutor(executor),
           metrics,
           lfValueTranslationCache,
           jdbcAsyncCommits = true,
         ),
         new FlywayMigrations(config.jdbcUrl),
       )
+    }
 
     private val logger = ContextualizedLogger.get(this.getClass)
 

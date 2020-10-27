@@ -220,6 +220,7 @@ class RecoveringIndexerIntegrationSpec
       serverRole = ServerRole.Testing(getClass),
       jdbcUrl = jdbcUrl,
       eventsPageSize = 100,
+      servicesExecutionContext = executionContext,
       metrics = new Metrics(new MetricRegistry),
       lfValueTranslationCache = LfValueTranslation.Cache.none,
       jdbcAsyncCommits = true,

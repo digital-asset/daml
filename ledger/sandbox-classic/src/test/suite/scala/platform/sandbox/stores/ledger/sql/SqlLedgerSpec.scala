@@ -31,8 +31,8 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
-import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
@@ -300,6 +300,7 @@ final class SqlLedgerSpec
         transactionCommitter = LegacyTransactionCommitter,
         startMode = SqlStartMode.ContinueIfExists,
         eventsPageSize = 100,
+        servicesExecutionContext = executionContext,
         metrics = new Metrics(metrics),
         lfValueTranslationCache = LfValueTranslation.Cache.none,
         validatePartyAllocation = validatePartyAllocation,

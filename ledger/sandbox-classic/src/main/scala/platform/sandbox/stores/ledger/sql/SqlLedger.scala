@@ -28,6 +28,7 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdMode, MismatchException}
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer.CurrentOffset
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.config.LedgerName
@@ -40,7 +41,6 @@ import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLe
 import com.daml.platform.store.{BaseLedger, FlywayMigrations}
 import com.daml.resources.ProgramResource.StartupException
 import scalaz.Tag
-import com.daml.platform.indexer.CurrentOffset
 
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
@@ -75,6 +75,7 @@ private[sandbox] object SqlLedger {
       transactionCommitter: TransactionCommitter,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       eventsPageSize: Int,
+      servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
       validatePartyAllocation: Boolean = false,
@@ -86,7 +87,7 @@ private[sandbox] object SqlLedger {
     override def acquire()(implicit context: ResourceContext): Resource[Ledger] =
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
-        dao <- ledgerDaoOwner().acquire()
+        dao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         _ <- startMode match {
           case SqlStartMode.AlwaysReset =>
             Resource.fromFuture(dao.reset())
@@ -221,11 +222,14 @@ private[sandbox] object SqlLedger {
       }
     }
 
-    private def ledgerDaoOwner(): ResourceOwner[LedgerDao] =
+    private def ledgerDaoOwner(
+        servicesExecutionContext: ExecutionContext
+    ): ResourceOwner[LedgerDao] =
       JdbcLedgerDao.validatingWriteOwner(
         serverRole,
         jdbcUrl,
         eventsPageSize,
+        servicesExecutionContext,
         metrics,
         lfValueTranslationCache,
         validatePartyAllocation,

@@ -3,6 +3,8 @@
 
 package com.daml.platform.sandbox
 
+import java.util.concurrent.Executors
+
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
@@ -25,6 +27,8 @@ import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.testing.postgresql.PostgresResource
+
+import scala.concurrent.ExecutionContext
 
 private[sandbox] object LedgerResource {
 
@@ -64,6 +68,9 @@ private[sandbox] object LedgerResource {
   ): Resource[Ledger] =
     new OwnedResource(
       for {
+        servicesExecutionContext <- ResourceOwner
+          .forExecutorService(() => Executors.newWorkStealingPool())
+          .map(ExecutionContext.fromExecutorService)
         database <- PostgresResource.owner[ResourceContext]()
         ledger <- new SqlLedger.Owner(
           name = LedgerName(testClass.getSimpleName),
@@ -78,6 +85,7 @@ private[sandbox] object LedgerResource {
           transactionCommitter = StandardTransactionCommitter,
           startMode = SqlStartMode.AlwaysReset,
           eventsPageSize = 100,
+          servicesExecutionContext = servicesExecutionContext,
           metrics = new Metrics(metrics),
           lfValueTranslationCache = LfValueTranslation.Cache.none,
         )
