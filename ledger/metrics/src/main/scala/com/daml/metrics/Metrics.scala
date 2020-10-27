@@ -369,6 +369,7 @@ final class Metrics(val registry: MetricRegistry) {
         val getParticipantId: DatabaseMetrics = createDbMetrics("get_participant_id")
         val getLedgerEnd: DatabaseMetrics = createDbMetrics("get_ledger_end")
         val getInitialLedgerEnd: DatabaseMetrics = createDbMetrics("get_initial_ledger_end")
+        val updateLedgerEnd: DatabaseMetrics = createDbMetrics("update_ledger_end")
         val initializeLedgerParameters: DatabaseMetrics = createDbMetrics(
           "initialize_ledger_parameters")
         val initializeParticipantId: DatabaseMetrics = createDbMetrics("initialize_participant_id")
@@ -397,7 +398,6 @@ final class Metrics(val registry: MetricRegistry) {
             registry.timer(dbPrefix :+ "insert_contract_witnesses_batch")
 
           val insertCompletion: Timer = registry.timer(dbPrefix :+ "insert_completion")
-          val updateLedgerEnd: Timer = registry.timer(dbPrefix :+ "update_ledger_end")
         }
         val storeRejectionDbMetrics
           : DatabaseMetrics = createDbMetrics("store_rejection") // FIXME Base name conflicts with storeRejection

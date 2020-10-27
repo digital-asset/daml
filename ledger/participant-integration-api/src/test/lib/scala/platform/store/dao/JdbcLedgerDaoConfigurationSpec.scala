@@ -27,6 +27,7 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         defaultConfig,
         None,
       )
+      _ <- ledgerDao.updateLedgerEnd(offset)
       optStoredConfig <- ledgerDao.lookupLedgerConfiguration()
       endingOffset <- ledgerDao.lookupLedgerEnd()
     } yield {
@@ -51,6 +52,7 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         proposedConfig,
         Some("bad config"),
       )
+      _ <- ledgerDao.updateLedgerEnd(offset)
       storedConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2))
       entries <- ledgerDao
         .getConfigurationEntries(startExclusive, offset)
@@ -82,6 +84,7 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         config.copy(generation = config.generation + 1),
         None,
       )
+      _ <- ledgerDao.updateLedgerEnd(offset0)
       newConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
 
       // Submission with duplicate submissionId is rejected
@@ -93,6 +96,7 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         newConfig.copy(generation = config.generation + 1),
         None,
       )
+      _ <- ledgerDao.updateLedgerEnd(offset1)
 
       // Submission with mismatching generation is rejected
       offset2 = nextOffset()
@@ -104,6 +108,7 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         config,
         None,
       )
+      _ <- ledgerDao.updateLedgerEnd(offset2)
 
       // Submission with unique submissionId and correct generation is accepted.
       offset3 = nextOffset()
@@ -116,6 +121,7 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
         lastConfig,
         None,
       )
+      _ <- ledgerDao.updateLedgerEnd(offset3)
       lastConfigActual <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
 
       entries <- ledgerDao.getConfigurationEntries(startExclusive, offset3).runWith(Sink.seq)

@@ -52,6 +52,11 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       implicit loggingContext: LoggingContext): Future[Option[Offset]] =
     Timed.future(metrics.daml.index.db.lookupLedgerEnd, ledgerDao.lookupInitialLedgerEnd())
 
+  // This does not add a timer, because the underlying ledger does exactly that.
+  override def updateLedgerEnd(offset: Offset)(
+      implicit loggingContext: LoggingContext): Future[Unit] =
+    ledgerDao.updateLedgerEnd(offset)
+
   override def lookupActiveOrDivulgedContract(
       contractId: Value.ContractId,
       forParty: Party,

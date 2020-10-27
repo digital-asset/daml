@@ -7,13 +7,13 @@ import java.time.Instant
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, SubmitterInfo}
-import com.daml.lf.data.Ref.Party
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, SubmitterInfo}
+import com.daml.lf.data.Ref.Party
 import com.daml.platform.ApiOffset
-import com.daml.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
 import com.daml.platform.store.CompletionFromTransaction
+import com.daml.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
 import org.scalatest.{AsyncFlatSpec, LoneElement, Matchers, OptionValues}
 
 import scala.concurrent.Future
@@ -129,6 +129,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
         offset = offset,
         reason = reason,
       )
+      .flatMap(_ => ledgerDao.updateLedgerEnd(offset))
       .map(_ => offset)
   }
 

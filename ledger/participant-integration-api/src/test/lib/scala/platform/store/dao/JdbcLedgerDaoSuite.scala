@@ -449,6 +449,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         offset = offset,
         divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
       )
+      .flatMap { _ =>
+        ledgerDao.updateLedgerEnd(offset)
+      }
       .map(_ => offsetAndTx)
   }
 

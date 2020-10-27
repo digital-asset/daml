@@ -9,7 +9,6 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ParticipantId
 import com.daml.ledger.participant.state.index.v2
@@ -335,7 +334,9 @@ private[indexer] class JdbcIndexer private[indexer] (
       case CommandRejected(recordTime, submitterInfo, reason) =>
         ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offset, reason)
     }
-    result.map(_ => ())(DEC)
+    result.flatMap { _ =>
+      ledgerDao.updateLedgerEnd(offset)
+    }(mat.executionContext)
   }
 
   private class SubscriptionResourceOwner(

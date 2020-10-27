@@ -120,6 +120,12 @@ private class JdbcLedgerDao(
       ParametersTable.getInitialLedgerEnd
     )
 
+  override def updateLedgerEnd(
+      offset: Offset,
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
+    dbDispatcher.executeSql(metrics.daml.index.db.updateLedgerEnd)(
+      ParametersTable.updateLedgerEnd(offset)(_))
+
   override def initializeLedger(ledgerId: LedgerId)(
       implicit loggingContext: LoggingContext,
   ): Future[Unit] =
@@ -232,7 +238,6 @@ private class JdbcLedgerDao(
             rejectionReason
         }
 
-      ParametersTable.updateLedgerEnd(offset)
       val configurationBytes = Configuration.encode(configuration).toByteArray
       val typ = if (finalRejectionReason.isEmpty) {
         acceptType
@@ -283,8 +288,6 @@ private class JdbcLedgerDao(
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
-      ParametersTable.updateLedgerEnd(offset)
-
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
           Try({
@@ -448,10 +451,6 @@ private class JdbcLedgerDao(
             prepareRejectionInsert(info, offset, recordTime, error.get).execute()
           }
         }
-        Timed.value(
-          metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
-          ParametersTable.updateLedgerEnd(offset)
-        )
         Ok
       }
   }
@@ -467,7 +466,6 @@ private class JdbcLedgerDao(
         stopDeduplicatingCommandSync(domain.CommandId(commandId), submitter)
         prepareRejectionInsert(info, offset, recordTime, reason).execute()
       }
-      ParametersTable.updateLedgerEnd(offset)
       Ok
     }
 
@@ -508,7 +506,6 @@ private class JdbcLedgerDao(
                 ).execute()
             }
         }
-        ParametersTable.updateLedgerEnd(newLedgerEnd)
     }
 
   private def toParticipantRejection(reason: domain.RejectionReason): RejectionReason =
@@ -654,8 +651,6 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
       implicit connection =>
-        ParametersTable.updateLedgerEnd(offset)
-
         if (packages.nonEmpty) {
           val uploadId = optEntry.map(_.submissionId).getOrElse(UUID.randomUUID().toString)
           uploadLfPackages(uploadId, packages)

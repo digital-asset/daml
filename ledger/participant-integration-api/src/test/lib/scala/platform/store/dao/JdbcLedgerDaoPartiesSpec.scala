@@ -37,6 +37,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
           partyDetails = alice,
         ),
       )
+      _ <- ledgerDao.updateLedgerEnd(offset1)
       _ = response should be(PersistenceResponse.Ok)
       offset2 = nextOffset()
       response <- ledgerDao.storePartyEntry(
@@ -47,6 +48,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
           partyDetails = bob,
         ),
       )
+      _ <- ledgerDao.updateLedgerEnd(offset2)
       _ = response should be(PersistenceResponse.Ok)
       parties <- ledgerDao.listKnownParties()
     } yield {
@@ -80,6 +82,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
           partyDetails = carol,
         ),
       )
+      _ <- ledgerDao.updateLedgerEnd(offset)
       _ = response should be(PersistenceResponse.Ok)
       carolPartyDetails <- ledgerDao.getParties(Seq(party))
       noPartyDetails <- ledgerDao.getParties(Seq(nonExistentParty))
@@ -113,6 +116,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
           partyDetails = dan,
         ),
       )
+      _ <- ledgerDao.updateLedgerEnd(offset1)
       _ = response should be(PersistenceResponse.Ok)
       offset2 = nextOffset()
       response <- ledgerDao.storePartyEntry(
@@ -123,6 +127,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
           partyDetails = eve,
         ),
       )
+      _ <- ledgerDao.updateLedgerEnd(offset2)
       _ = response should be(PersistenceResponse.Ok)
       parties <- ledgerDao.getParties(Seq(danParty, eveParty, nonExistentParty))
     } yield {
@@ -146,6 +151,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
           partyDetails = fred,
         ),
       )
+      _ <- ledgerDao.updateLedgerEnd(offset1)
       _ = response should be(PersistenceResponse.Ok)
       offset2 = nextOffset()
       response <- ledgerDao.storePartyEntry(
@@ -156,6 +162,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
           partyDetails = fred,
         ),
       )
+      _ <- ledgerDao.updateLedgerEnd(offset2)
     } yield {
       response should be(PersistenceResponse.Duplicate)
     }

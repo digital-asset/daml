@@ -183,14 +183,16 @@ private[sandbox] object SqlLedger {
             }
         }
 
+      val offset = SandboxOffset.toOffset(ledgerEnd)
       for {
         _ <- copyPackages(
           packages,
           ledgerDao,
           timeProvider.getCurrentTime,
-          SandboxOffset.toOffset(ledgerEnd),
+          offset,
         )
-        _ <- ledgerDao.storeInitialState(ledgerEntries, SandboxOffset.toOffset(ledgerEnd))
+        _ <- ledgerDao.storeInitialState(ledgerEntries, offset)
+        _ <- ledgerDao.updateLedgerEnd(offset)
       } yield ()
     }
 
@@ -211,8 +213,13 @@ private[sandbox] object SqlLedger {
 
         ledgerDao
           .storePackageEntry(newLedgerEnd, packages, None)
-          .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(
-            DEC)
+          .flatMap { _ =>
+            ledgerDao.updateLedgerEnd(newLedgerEnd)
+          }(DEC)
+          .recover {
+            case e =>
+              sys.error("Failed to copy initial packages: " + e.getMessage)
+          }(DEC)
       } else {
         Future.unit
       }
@@ -358,30 +365,36 @@ private final class SqlLedger(
       checkTimeModel(ledgerTime, recordTime)
         .fold(
           reason =>
-            ledgerDao.storeRejection(
-              Some(submitterInfo),
-              recordTime,
-              offset,
-              reason,
-          ),
+            ledgerDao
+              .storeRejection(
+                Some(submitterInfo),
+                recordTime,
+                offset,
+                reason,
+              )
+              .flatMap { _ =>
+                ledgerDao.updateLedgerEnd(offset)
+              }(DEC),
           _ =>
-            ledgerDao.storeTransaction(
-              Some(submitterInfo),
-              transactionMeta.workflowId,
-              transactionId,
-              recordTime,
-              transactionMeta.ledgerEffectiveTime.toInstant,
-              offset,
-              transactionCommitter.commitTransaction(transactionId, transaction),
-              Nil,
-          )
+            ledgerDao
+              .storeTransaction(
+                Some(submitterInfo),
+                transactionMeta.workflowId,
+                transactionId,
+                recordTime,
+                transactionMeta.ledgerEffectiveTime.toInstant,
+                offset,
+                transactionCommitter.commitTransaction(transactionId, transaction),
+                Nil,
+              )
+              .flatMap { _ =>
+                ledgerDao.updateLedgerEnd(offset)
+              }(DEC)
         )
-        .transform(
-          _.map(_ => ()).recover {
-            case NonFatal(t) =>
-              logger.error(s"Failed to persist entry with offset: ${offset.toApiString}", t)
-          }
-        )(DEC)
+        .transform(_.recover {
+          case NonFatal(t) =>
+            logger.error(s"Failed to persist entry with offset: ${offset.toApiString}", t)
+        })(DEC)
 
     }
 
@@ -414,7 +427,9 @@ private final class SqlLedger(
             PartyDetails(party, displayName, isLocal = true),
           ),
         )
-        .map(_ => ())(DEC)
+        .flatMap { _ =>
+          ledgerDao.updateLedgerEnd(offset)
+        }(DEC)
         .recover {
           case t =>
             //recovering from the failure so the persistence stream doesn't die
@@ -439,7 +454,9 @@ private final class SqlLedger(
           packages,
           Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)),
         )
-        .map(_ => ())(DEC)
+        .flatMap { _ =>
+          ledgerDao.updateLedgerEnd(offset)
+        }(DEC)
         .recover {
           case t =>
             //recovering from the failure so the persistence stream doesn't die
@@ -484,6 +501,7 @@ private final class SqlLedger(
               config,
               None,
             )
+            _ <- ledgerDao.updateLedgerEnd(offset)
             newConfig <- ledgerDao.lookupLedgerConfiguration()
           } yield {
             currentConfiguration.set(newConfig.map(_._2))

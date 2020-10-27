@@ -52,6 +52,9 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Looks up the current external ledger end offset */
   def lookupInitialLedgerEnd()(implicit loggingContext: LoggingContext): Future[Option[Offset]]
 
+  /** Update the ledger end */
+  def updateLedgerEnd(offset: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
+
   /** Looks up an active or divulged contract if it is visible for the given party. Archived contracts must not be returned by this method */
   def lookupActiveOrDivulgedContract(contractId: ContractId, forParty: Party)(
       implicit loggingContext: LoggingContext,
