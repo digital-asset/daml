@@ -406,7 +406,7 @@ class Runner(
   private def getTriggerSink(
       name: String,
       acs: Seq[CreatedEvent],
-      submit: SubmitRequest => Future[None.type],
+      submit: Sink[SubmitRequest, _],
   ): Sink[TriggerMsg, Future[SValue]] = {
     logger.info(s"Trigger ${name} is running as ${party}")
 
@@ -467,7 +467,7 @@ class Runner(
       initialState.finalState ~> logInitialState ~> initialStateOut ~> rule.initState
       initialState.elemsOut                          ~> submissions
                           msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.elemsIn
-            Sink.ignore <~ submitSubmissions(submit) <~ submissions <~ rule.elemsOut
+                                              submit <~ submissions <~ rule.elemsOut
                                                     initialStateOut                     ~> finalStateIn
                                                                        rule.finalStates ~> finalStateIn ~> saveLastState
       // format: on
@@ -497,10 +497,6 @@ class Runner(
       case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
     }
 
-  private[this] def submitSubmissions[SR, Z](submit: SR => Future[Z]): Flow[SR, Z, NotUsed] =
-    Flow[SR]
-      .mapAsync(maxParallelSubmissionsPerTrigger)(submit)
-
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
     SEApp(func, values.map(SEValue(_)))
   }
@@ -522,6 +518,22 @@ class Runner(
     } yield (acsResponses.flatMap(x => x.activeContracts), offset)
   }
 
+  private[this] def submitOrFail(implicit ec: ExecutionContext)
+    : Flow[SubmitRequest, (String, StatusRuntimeException), NotUsed] = {
+    def submit(req: SubmitRequest) = {
+      val f: Future[Empty] = client.commandClient
+        .submitSingleCommand(req)
+      f.map(_ => None).recover {
+        case s: StatusRuntimeException =>
+          Some((req.getCommands.commandId, s))
+        // any other error will cause the trigger's stream to fail
+      }
+    }
+    Flow[SubmitRequest]
+      .mapAsync(maxParallelSubmissionsPerTrigger)(submit)
+      .collect { case Some(err) => err }
+  }
+
   // Run the trigger given the state of the ACS. The msgFlow argument
   // passed from ServiceMain is a kill switch. Other choices are
   // possible e.g. 'Flow[TriggerMsg].take()' and this fact is made use
@@ -535,19 +547,10 @@ class Runner(
       executionContext: ExecutionContext): (T, Future[SValue]) = {
     val (source, postFailure) =
       msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
-    def submit(req: SubmitRequest): Future[None.type] = {
-      val f: Future[Empty] = client.commandClient
-        .submitSingleCommand(req)
-      f.map(_ => None).recover {
-        case s: StatusRuntimeException =>
-          // XXX It would be better to split the stream and feed failures back
-          // into the msgSource directly.  As it stands we fire-and-forget
-          // the (async) queuing done here, ignoring failure
-          postFailure(req.getCommands.commandId, s)
-          None
-        // any other error will cause the trigger's stream to fail
-      }
-    }
+    // XXX It would be better to split the stream and feed failures back
+    // into the msgSource directly.  As it stands we fire-and-forget
+    // the (async) queuing done here, ignoring failure
+    val submit = submitOrFail map postFailure.tupled to Sink.ignore
     source
       .viaMat(msgFlow)(Keep.right[NotUsed, T])
       .toMat(getTriggerSink(name, acs, submit))(Keep.both)
