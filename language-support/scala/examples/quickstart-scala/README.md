@@ -6,7 +6,7 @@ This example demonstrates how to:
 - how to exercise a choice and send a corresponding exercise command
 - subscribe to receive ledger events and decode them into generated Scala ADTs
 
-All instructions below assume that you have DAML Connect SDK installed. If you have not installed it yet, please follow these instructions: https://docs.daml.com/getting-started/installation.html
+All instructions below assume that you have the DAML Connect SDK installed. If you have not installed it yet, please follow these instructions: https://docs.daml.com/getting-started/installation.html
 
 ## Create a quickstart-scala project
 ```

@@ -6,7 +6,7 @@
 IOU Quickstart Tutorial
 #######################
 
-In this guide, you will learn about DAML Connect developer tools and DAML applications by:
+In this guide, you will learn about developer tools and DAML applications by:
 
 - developing a simple ledger application for issuing, managing, transferring and trading IOUs ("I Owe You!")
 - developing an integration layer that exposes some of the functionality via custom REST services
