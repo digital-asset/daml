@@ -1,6 +1,8 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE PatternSynonyms #-}
+
 -- | Encoding/decoding of metadata (i.e. non-semantically-relevant bindings) in LF,
 -- such as functional dependencies and typeclass instance overlap modes. These are
 -- added in during LF conversion, and then decoded during data-dependencies to
@@ -11,6 +13,11 @@ module DA.Daml.LFConversion.MetadataEncoding
     , decodeFunDeps
     , mapFunDep
     , mapFunDepM
+    , minimalName
+    , encodeLBooleanFormula
+    , decodeLBooleanFormula
+    , encodeBooleanFormula
+    , decodeBooleanFormula
     , overlapModeName
     , encodeOverlapMode
     , decodeOverlapMode
@@ -23,6 +30,8 @@ import qualified Data.Text as T
 
 import qualified "ghc-lib-parser" BasicTypes as GHC
 import qualified "ghc-lib-parser" Class as GHC
+import qualified "ghc-lib-parser" SrcLoc as GHC
+import qualified "ghc-lib-parser" BooleanFormula as BF
 
 import qualified DA.Daml.LF.Ast as LF
 
@@ -42,6 +51,7 @@ encodeFunDeps = encodeTypeList $ \(xs, ys) ->
 -- | Encode a list as an LF type. Given @'map' f xs == [y1, y2, ..., yn]@
 -- then @'encodeTypeList' f xs == { _1: y1, _2: y2, ..., _n: yn }@.
 encodeTypeList :: (t -> LF.Type) -> [t] -> LF.Type
+encodeTypeList _ [] = LF.TUnit
 encodeTypeList f xs =
     LF.TStruct $ zipWith
         (\i x -> (LF.FieldName (T.pack ('_' : show @Int i)), f x))
@@ -63,6 +73,7 @@ decodeTypeVar = \case
     _ -> Nothing
 
 decodeTypeList :: (LF.Type -> Maybe t) -> LF.Type -> Maybe [t]
+decodeTypeList _ LF.TUnit = Just []
 decodeTypeList f ty = do
     LF.TStruct fields <- pure ty
     pairs <- sortOn fst <$> mapM (decodeTypeListField f) fields
@@ -81,6 +92,40 @@ mapFunDep f (a, b) = (map f a, map f b)
 
 mapFunDepM :: Monad m => (a -> m b) -> (GHC.FunDep a -> m (GHC.FunDep b))
 mapFunDepM f (a, b) = liftM2 (,) (mapM f a) (mapM f b)
+
+-------------
+-- MINIMAL --
+-------------
+
+minimalName :: LF.TypeSynName -> LF.ExprValName
+minimalName (LF.TypeSynName xs) = LF.ExprValName ("$$minimal" <> T.concat xs)
+
+pattern TStr :: T.Text -> LF.Type
+pattern TStr x = LF.TStruct [(LF.FieldName x, LF.TUnit)]
+
+pattern TCon :: T.Text -> LF.Type -> LF.Type
+pattern TCon a b = LF.TStruct [(LF.FieldName a, b)]
+
+encodeLBooleanFormula :: BF.LBooleanFormula T.Text -> LF.Type
+encodeLBooleanFormula = encodeBooleanFormula . GHC.unLoc
+
+decodeLBooleanFormula :: LF.Type -> Maybe (BF.LBooleanFormula T.Text)
+decodeLBooleanFormula = fmap GHC.noLoc . decodeBooleanFormula
+
+encodeBooleanFormula :: BF.BooleanFormula T.Text -> LF.Type
+encodeBooleanFormula = \case
+    BF.Var x -> TCon "Var" (TStr x)
+    BF.And xs -> TCon "And" (encodeTypeList encodeLBooleanFormula xs)
+    BF.Or xs -> TCon "Or" (encodeTypeList encodeLBooleanFormula xs)
+    BF.Parens x -> TCon "Parens" (encodeLBooleanFormula x)
+
+decodeBooleanFormula :: LF.Type -> Maybe (BF.BooleanFormula T.Text)
+decodeBooleanFormula = \case
+    TCon "Var" (TStr x) -> Just (BF.Var x)
+    TCon "And" xs -> BF.And <$> decodeTypeList decodeLBooleanFormula xs
+    TCon "Or" xs -> BF.Or <$> decodeTypeList decodeLBooleanFormula xs
+    TCon "Parens" x -> BF.Parens <$> decodeLBooleanFormula x
+    _ -> Nothing
 
 -------------------
 -- OVERLAP MODES --

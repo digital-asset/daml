@@ -1816,6 +1816,29 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
           -- of myShow fails.
         ]
 
+    , simpleImportTest "MINIMAL pragma"
+        [ "module Lib where"
+        , "class Dummy t where"
+        , "    {-# MINIMAL #-}"
+        , "    dummy : t -> Int"
+        , "class MyClass t where"
+        , "    {-# MINIMAL foo | (bar, baz) #-}"
+        , "    foo : t -> Int"
+        , "    bar : t -> Int"
+        , "    baz : t -> Int"
+        ]
+        [ "module Main where"
+        , "import Lib"
+        , "data A = A"
+        , "data B = B"
+        , "instance Dummy A where"
+        , "instance MyClass A where"
+        , "    foo _ = 10"
+        , "instance MyClass B where"
+        , "    bar _ = 20"
+        , "    baz _ = 30"
+        ]
+
     , testCaseSteps "Implicit parameters" $ \step -> withTempDir $ \tmpDir -> do
         step "building project with implicit parameters"
         createDirectoryIfMissing True (tmpDir </> "dep")
