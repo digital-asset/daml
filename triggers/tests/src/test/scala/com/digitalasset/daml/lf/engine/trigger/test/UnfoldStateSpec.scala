@@ -33,6 +33,12 @@ class UnfoldStateSpec
     }
   }
 
+  "iterator" should {
+    "retract fromLinearSeq and end with unit" in forAll { xs: List[Int] =>
+      fromLinearSeq(xs).iterator().to[List] should ===((xs map \/.right) :+ -\/(()))
+    }
+  }
+
   "flatMapConcat" should {
     "do as built-in flatMapConcat would" in {
       val trials = 10

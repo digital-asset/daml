@@ -39,7 +39,7 @@ private[trigger] sealed abstract class UnfoldState[+T, +A] {
     go(init)
   }
 
-  private final def iterator(): Iterator[T \/ A] =
+  private[trigger] final def iterator(): Iterator[T \/ A] =
     new Iterator[T \/ A] {
       var last = some(step(init))
       override def hasNext() = last.isDefined
