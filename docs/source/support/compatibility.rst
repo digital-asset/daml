@@ -8,11 +8,11 @@ The DAML Ecosystem offers a number of forward and backward compatibility guarant
 
 Application Portability
 
-  A DAML application should not depend on the underlying Database or DLT used by a DAML Network.
+  A DAML application should not depend on the underlying Database or DLT used by a DAML network.
 
 Network Upgradeability
 
-  Ledger Operators should be able to upgrade DAML Network or Participant Nodes seamlessly to stay up to date with the latest features and fixes. A DAML application should be able to operate without significant change across such Network Upgrades.
+  Ledger Operators should be able to upgrade DAML network or Participant Nodes seamlessly to stay up to date with the latest features and fixes. A DAML application should be able to operate without significant change across such Network Upgrades.
 
 DAML Connect Upgradeability
 
@@ -32,7 +32,7 @@ As a concrete example, DAML for Postgres 1.4.0 has the Participant Node integrat
 Driver and Participant Compatibility: Network Upgradeability
 ------------------------------------------------------------
 
-Given the Ledger API Compatibility above, network upgrades are seamless if they preserve data, and Participant Nodes keep exposing the same or a newer minor version of the same major Ledger API Version. The semantic versioning of DAML Drivers and Participant Nodes gives this guarantee. Upgrades from one minor version to another are data preserving, and major Ledger API versions may only be removed with a new major version of Integration Components, DAML Drivers and Participant Nodes.
+Given the Ledger API Compatibility above, network upgrades are seamless if they preserve data, and Participant Nodes keep exposing the same or a newer minor version of the same major Ledger API Version. The semantic versioning of DAML drivers and participant nodes gives this guarantee. Upgrades from one minor version to another are data preserving, and major Ledger API versions may only be removed with a new major version of integration components, DAML drivers and Participant Nodes.
 
 As an example, from an application standpoint, the only effect of upgrading DAML for Postgres 1.4.0 to DAML for Postgres 1.6.0 is an uptick in the Ledger API version. There may be significant changes to components or database schemas, but these are not public APIs. 
 

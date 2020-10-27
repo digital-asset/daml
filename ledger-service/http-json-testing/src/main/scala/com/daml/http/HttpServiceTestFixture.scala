@@ -9,8 +9,8 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
@@ -41,6 +41,7 @@ import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.typesafe.scalalogging.LazyLogging
+import org.scalatest.{Assertions, Inside}
 import scalaz._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
@@ -52,7 +53,7 @@ import spray.json._
 import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
-object HttpServiceTestFixture extends LazyLogging {
+object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
   import json.JsonProtocol._
 
@@ -289,10 +290,10 @@ object HttpServiceTestFixture extends LazyLogging {
       }
   }
 
-  def postJsonStringRequest(uri: Uri, jsonString: String, headers: List[HttpHeader])(
+  def postJsonStringRequestEncoded(uri: Uri, jsonString: String, headers: List[HttpHeader])(
       implicit as: ActorSystem,
       ec: ExecutionContext,
-      mat: Materializer): Future[(StatusCode, JsValue)] = {
+      mat: Materializer): Future[(StatusCode, String)] = {
     logger.info(s"postJson: ${uri.toString} json: ${jsonString: String}")
     Http()
       .singleRequest(
@@ -304,9 +305,17 @@ object HttpServiceTestFixture extends LazyLogging {
       )
       .flatMap { resp =>
         val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
-        bodyF.map(body => (resp.status, body.parseJson))
+        bodyF.map(body => (resp.status, body))
       }
   }
+
+  def postJsonStringRequest(uri: Uri, jsonString: String, headers: List[HttpHeader])(
+      implicit as: ActorSystem,
+      ec: ExecutionContext,
+      mat: Materializer): Future[(StatusCode, JsValue)] =
+    postJsonStringRequestEncoded(uri, jsonString, headers).map {
+      case (status, body) => (status, body.parseJson)
+    }
 
   def postJsonRequest(uri: Uri, json: JsValue, headers: List[HttpHeader])(
       implicit as: ActorSystem,
@@ -383,5 +392,22 @@ object HttpServiceTestFixture extends LazyLogging {
       ))
 
     domain.CreateCommand(templateId, arg, None)
+  }
+
+  def getContractId(result: JsValue): domain.ContractId =
+    inside(result.asJsObject.fields.get("contractId")) {
+      case Some(JsString(contractId)) => domain.ContractId(contractId)
+    }
+
+  def getResult(output: JsValue): JsValue = getChild(output, "result")
+
+  def getWarnings(output: JsValue): JsValue = getChild(output, "warnings")
+
+  def getChild(output: JsValue, field: String): JsValue = {
+    def errorMsg = s"Expected JsObject with '$field' field, got: $output"
+    output
+      .asJsObject(errorMsg)
+      .fields
+      .getOrElse(field, fail(errorMsg))
   }
 }

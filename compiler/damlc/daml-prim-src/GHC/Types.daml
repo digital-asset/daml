@@ -37,7 +37,8 @@ infixr 5 ::
 -- | A kind for constraints, like `Show a`
 data Constraint
 
--- | (Kind) This is the kind of type-level symbols.
+-- | HIDE
+-- (Kind) This is the kind of type-level symbols.
 -- Declared here because class IP needs it
 data Symbol
 

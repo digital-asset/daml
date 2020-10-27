@@ -4,8 +4,7 @@
 package com.daml.oauth.middleware
 
 import akka.http.scaladsl.model.Uri
-import com.auth0.jwt.algorithms.Algorithm
-import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, JwtVerifierBase, RSA256Verifier}
+import com.daml.jwt.{JwtVerifierBase, JwtVerifierConfigurationCli}
 import com.daml.ports.Port
 
 case class Config(
@@ -68,56 +67,7 @@ object Config {
           if (x.isEmpty) failure("Environment variable DAML_CLIENT_SECRET must not be empty")
           else success)
 
-      opt[String]("auth-jwt-hs256-unsafe")
-        .optional()
-        .hidden()
-        .validate(v => Either.cond(v.length > 0, (), "HMAC secret must be a non-empty string"))
-        .text("[UNSAFE] Enables JWT-based authorization with shared secret HMAC256 signing: USE THIS EXCLUSIVELY FOR TESTING")
-        .action((secret, config) =>
-          config.copy(tokenVerifier = HMAC256Verifier(secret).valueOr(err =>
-            sys.error(s"Failed to create HMAC256 verifier: $err"))))
-
-      opt[String]("auth-jwt-rs256-crt")
-        .optional()
-        .validate(v =>
-          Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
-        .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given X509 certificate file (.crt)")
-        .action(
-          (path, config) =>
-            config.copy(
-              tokenVerifier = RSA256Verifier
-                .fromCrtFile(path)
-                .valueOr(err => sys.error(s"Failed to create RSA256 verifier: $err"))))
-
-      opt[String]("auth-jwt-es256-crt")
-        .optional()
-        .validate(v =>
-          Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
-        .text("Enables JWT-based authorization, where the JWT is signed by ECDSA256 with a public key loaded from the given X509 certificate file (.crt)")
-        .action(
-          (path, config) =>
-            config.copy(
-              tokenVerifier = ECDSAVerifier
-                .fromCrtFile(path, Algorithm.ECDSA256(_, null))
-                .valueOr(err => sys.error(s"Failed to create ECDSA256 verifier: $err"))))
-
-      opt[String]("auth-jwt-es512-crt")
-        .optional()
-        .validate(v =>
-          Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
-        .text("Enables JWT-based authorization, where the JWT is signed by ECDSA512 with a public key loaded from the given X509 certificate file (.crt)")
-        .action(
-          (path, config) =>
-            config.copy(
-              tokenVerifier = ECDSAVerifier
-                .fromCrtFile(path, Algorithm.ECDSA512(_, null))
-                .valueOr(err => sys.error(s"Failed to create ECDSA512 verifier: $err"))))
-
-      opt[String]("auth-jwt-rs256-jwks")
-        .optional()
-        .validate(v => Either.cond(v.length > 0, (), "JWK server URL must be a non-empty string"))
-        .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given JWKS URL")
-        .action((url, config) => config.copy(tokenVerifier = JwksVerifier(url)))
+      JwtVerifierConfigurationCli.parse(this)((v, c) => c.copy(tokenVerifier = v))
 
       checkConfig { cfg =>
         if (cfg.tokenVerifier == null)

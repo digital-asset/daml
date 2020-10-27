@@ -376,16 +376,13 @@ private[lf] final class Compiler(
         )
       case structProj: EStructProj =>
         structProj.fieldIndex match {
-          case None =>
-            throw CompilationError(
-              s"structural record projection for field ${structProj.field} has no index")
+          case None => SBStructProjByName(structProj.field)(compile(structProj.struct))
           case Some(index) => SBStructProj(index)(compile(structProj.struct))
         }
       case structUpd: EStructUpd =>
         structUpd.fieldIndex match {
           case None =>
-            throw CompilationError(
-              s"structural record projection for field ${structUpd.field} has no index")
+            SBStructUpdByName(structUpd.field)(compile(structUpd.struct), compile(structUpd.update))
           case Some(index) =>
             SBStructUpd(index)(compile(structUpd.struct), compile(structUpd.update))
         }
@@ -1533,19 +1530,15 @@ private[lf] final class Compiler(
         let(compileCommand(first)) { firstPos =>
           unaryFunction { tokenPos =>
             let(app(svar(firstPos), svar(tokenPos))) { _ =>
-              def loop(cmds: List[Command]): SExpr = cmds match {
-                case head :: tail =>
-                  let(app(compileCommand(head), svar(tokenPos))) { _ =>
-                    loop(tail)
-                  }
-                case Nil =>
-                  SEValue.Unit
-              }
-
-              loop(rest)
+              // we cannot process `rest` recursively without exposing ourselves to stack overflow.
+              val exprs = rest.iterator.map { cmd =>
+                val expr = app(compileCommand(cmd), svar(tokenPos))
+                nextPosition()
+                expr
+              }.toList
+              SELet(exprs, SEValue.Unit)
             }
           }
         }
     }
-
 }

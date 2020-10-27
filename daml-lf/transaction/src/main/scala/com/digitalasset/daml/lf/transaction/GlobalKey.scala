@@ -22,6 +22,8 @@ final class GlobalKey private (
   }
 
   override def hashCode(): Int = hash.hashCode()
+
+  override def toString: String = s"GlobalKey($templateId, $key)"
 }
 
 object GlobalKey {

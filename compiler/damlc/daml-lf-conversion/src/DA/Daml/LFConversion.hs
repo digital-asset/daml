@@ -81,6 +81,7 @@ module DA.Daml.LFConversion
 import           DA.Daml.LFConversion.Primitives
 import           DA.Daml.LFConversion.UtilGHC
 import           DA.Daml.LFConversion.UtilLF
+import           DA.Daml.LFConversion.MetadataEncoding
 
 import           Development.IDE.Types.Diagnostics
 import           Development.IDE.Types.Location
@@ -113,7 +114,7 @@ import           "ghc-lib-parser" Pair hiding (swap)
 import           "ghc-lib-parser" PrelNames
 import           "ghc-lib-parser" TysPrim
 import           "ghc-lib-parser" TyCoRep
-import           "ghc-lib-parser" Class (FunDep, classHasFds)
+import           "ghc-lib-parser" Class (classHasFds)
 import qualified "ghc-lib-parser" Name
 import           Safe.Exact (zipExact, zipExactMay)
 import           SdkVersion
@@ -538,32 +539,14 @@ convertClassDef env tycon
     let funDepTyVars = [(v, KStar) | (v, _) <- tyVars]
             -- We use the the type variables as types in the fundep encoding,
             -- not as whatever kind they were previously defined.
-        funDepName = ExprValName ("$$fd" <> getOccText tycon)
         funDepType = TForalls funDepTyVars (encodeFunDeps funDeps')
         funDepExpr = EBuiltin BEError `ETyApp` funDepType `ETmApp`
             EBuiltin (BEText "undefined") -- We only care about the type, not the expr.
-        funDepDef = defValue tycon (funDepName, funDepType) funDepExpr
+        funDepDef = defValue tycon (funDepName tsynName, funDepType) funDepExpr
 
     pure $ [typeDef] ++ [funDepDef | classHasFds cls && newStyle]
         -- NOTE (SF): No reason to generate fundep metadata with old-style typeclasses,
         -- since data-dependencies support for old-style typeclasses is extremely limited.
-
-mapFunDepM :: Monad m => (a -> m b) -> (FunDep a -> m (FunDep b))
-mapFunDepM f (a, b) = liftM2 (,) (mapM f a) (mapM f b)
-
--- | Encode a list of functional dependencies as an LF type.
-encodeFunDeps :: [FunDep TypeVarName] -> LF.Type
-encodeFunDeps = encodeTypeList $ \(xs, ys) ->
-    encodeTypeList TVar xs :->
-    encodeTypeList TVar ys
-
--- | Encode a list as an LF type. Given @'map' f xs == [y1, y2, ..., yn]@
--- then @'encodeTypeList' f xs == { _1: y1, _2: y2, ..., _n: yn }@.
-encodeTypeList :: (t -> LF.Type) -> [t] -> LF.Type
-encodeTypeList f xs =
-    LF.TStruct $ zipWith
-        (\i x -> (mkField (T.pack ('_' : show @Int i)), f x))
-        [1..] xs
 
 defNewtypeWorker :: NamedThing a => LF.ModuleName -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
@@ -756,17 +739,10 @@ convertBind env (name, x)
     name' <- convValWithType env name
 
     -- OVERLAP* annotations
-    let overlapModeName = ExprValName ("$$om" <> getOccText name)
-        overlapModeValueM =
-            case MS.lookup name (envModInstanceInfo env) of
-                Nothing -> Nothing
-                Just (NoOverlap _) -> Nothing
-                Just (Overlappable _) -> Just "OVERLAPPABLE"
-                Just (Overlapping _) -> Just "OVERLAPPING"
-                Just (Overlaps _) -> Just "OVERLAPS"
-                Just (Incoherent _) -> Just "INCOHERENT"
+    let overlapModeName' = overlapModeName (fst name')
+        overlapModeValueM = MS.lookup name (envModInstanceInfo env) >>= encodeOverlapMode
         overlapModeDef =
-            [ defValue name (overlapModeName, TText) (EBuiltin (BEText mode))
+            [ defValue name (overlapModeName', TText) (EBuiltin (BEText mode))
             | Just mode <- [overlapModeValueM]
             ]
 
@@ -837,18 +813,25 @@ convertExpr env0 e = do
             mkFieldProj i (name, _typ) = (mkIndexedField i, EStructProj name (EVar varV1))
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
-    go env (VarIs "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
+    -- NOTE(MH): `getFieldPrim` and `setFieldPrim` are used by the record
+    -- preprocessor to magically implement the `HasField` instances for records.
+    go env (VarIn DA_Internal_Record "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
         record' <- convertType env record
         withTmArg env (varV1, record') args $ \x args ->
             pure (ERecProj (fromTCon record') (mkField $ fsToText name) x, args)
-    -- NOTE(MH): We only inline `getField` for record types. This is required
-    -- for contract keys. Projections on sum-of-records types have to through
-    -- the type class for `getField`.
-    go env (VarIn DA_Internal_Record "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : LExpr record : args)
-        | isSingleConType recordTyCon = fmap (, args) $ do
+    go env (VarIn DA_Internal_Record "setFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType field : args) = do
+        record' <- convertType env record
+        field' <- convertType env field
+        withTmArg env (varV1, field') args $ \x1 args ->
+            withTmArg env (varV2, record') args $ \x2 args ->
+                pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
+    -- NOTE(MH): We only inline `getField` for record types. Projections on
+    -- sum-of-records types have to through the type class for `getField`.
+    go env (VarIn DA_Internal_Record "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : args)
+        | isSingleConType recordTyCon = do
             recordType <- convertType env recordType
-            record <- convertExpr env record
-            pure $ ERecProj (fromTCon recordType) (mkField $ fsToText name) record
+            withTmArg env (varV1, recordType) args $ \record args ->
+                pure (ERecProj (fromTCon recordType) (mkField $ fsToText name) record, args)
     -- NOTE(SF): We also need to inline `setField` in order to get the correct
     -- evaluation order (record first, then fields in order).
     go env (VarIn DA_Internal_Record "setField") (LType (isStrLitTy -> Just name) : LType record@(TypeCon recordTyCon _) : LType field : _dict : args)
@@ -859,14 +842,6 @@ convertExpr env0 e = do
                 withTmArg env (varV2, record') args $ \x2 args ->
                     pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
         -- TODO: Also fix evaluation order for sum-of-record types.
-    -- NOTE(SF): We will need a `setFieldPrim` rule regardless, because
-    -- GeneralizedNewtypeDeriving will skip the typeclass instance.
-    go env (VarIn DA_Internal_Record "setFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType field : args) = do
-        record' <- convertType env record
-        field' <- convertType env field
-        withTmArg env (varV1, field') args $ \x1 args ->
-            withTmArg env (varV2, record') args $ \x2 args ->
-                pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
     go env (VarIn GHC_Real "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRationalDecimal env top bot
     go env (VarIn GHC_Real "fromRational") (LType (isNumLitTy -> Just n) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
