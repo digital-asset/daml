@@ -9,6 +9,7 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ParticipantId
 import com.daml.ledger.participant.state.index.v2
@@ -58,17 +59,26 @@ object JdbcIndexer {
         .map(_ => initialized())(resourceContext.executionContext)
 
     def resetSchema(): Future[ResourceOwner[JdbcIndexer]] =
-      Future.successful(for {
-        ledgerDao <- JdbcLedgerDao.writeOwner(
-          serverRole,
-          config.jdbcUrl,
-          config.eventsPageSize,
-          metrics,
-          lfValueTranslationCache,
-        )
-        _ <- ResourceOwner.forFuture(() => ledgerDao.reset())
-        initialLedgerEnd <- initializeLedger(ledgerDao)
-      } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics))
+      Future.successful {
+        for {
+          ledgerDao <- JdbcLedgerDao.writeOwner(
+            serverRole,
+            config.jdbcUrl,
+            config.eventsPageSize,
+            metrics,
+            lfValueTranslationCache,
+          )
+          _ <- ResourceOwner.forFuture(() => ledgerDao.reset())
+          initialLedgerEnd <- initializeLedger(ledgerDao)
+        } yield
+          new JdbcIndexer(
+            initialLedgerEnd,
+            config.participantId,
+            config.concurrency,
+            ledgerDao,
+            metrics,
+          )
+      }
 
     private def initialized(): ResourceOwner[JdbcIndexer] =
       for {
@@ -80,7 +90,14 @@ object JdbcIndexer {
           lfValueTranslationCache,
         )
         initialLedgerEnd <- initializeLedger(ledgerDao)
-      } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics)
+      } yield
+        new JdbcIndexer(
+          initialLedgerEnd,
+          config.participantId,
+          config.concurrency,
+          ledgerDao,
+          metrics,
+        )
 
     private def initializeLedger(dao: LedgerDao)(): ResourceOwner[Option[Offset]] =
       new ResourceOwner[Option[Offset]] {
@@ -220,6 +237,7 @@ object JdbcIndexer {
 private[indexer] class JdbcIndexer private[indexer] (
     startExclusive: Option[Offset],
     participantId: v1.ParticipantId,
+    concurrency: Int,
     ledgerDao: LedgerDao,
     metrics: Metrics,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
@@ -334,9 +352,7 @@ private[indexer] class JdbcIndexer private[indexer] (
       case CommandRejected(recordTime, submitterInfo, reason) =>
         ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offset, reason)
     }
-    result.flatMap { _ =>
-      ledgerDao.updateLedgerEnd(offset)
-    }(mat.executionContext)
+    result.map(_ => ())(DirectExecutionContext)
   }
 
   private class SubscriptionResourceOwner(
@@ -348,15 +364,21 @@ private[indexer] class JdbcIndexer private[indexer] (
         val (killSwitch, completionFuture) = readService
           .stateUpdates(startExclusive)
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-          .mapAsync(1) {
+          .mapAsync(concurrency) {
             case (offset, update) =>
               withEnrichedLoggingContext(JdbcIndexer.loggingContextFor(offset, update)) {
                 implicit loggingContext =>
-                  Timed.future(
-                    metrics.daml.indexer.stateUpdateProcessing,
-                    handleStateUpdate(offset, update),
-                  )
+                  Timed
+                    .future(
+                      metrics.daml.indexer.stateUpdateProcessing,
+                      handleStateUpdate(offset, update),
+                    )
+                    .map(_ => offset)
               }
+          }
+          .batch(Long.MaxValue, identity)(Keep.right[Offset, Offset])
+          .mapAsync(1) { offset =>
+            ledgerDao.updateLedgerEnd(offset)
           }
           .toMat(Sink.ignore)(Keep.both)
           .run()

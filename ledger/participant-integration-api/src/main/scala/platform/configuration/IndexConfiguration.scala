@@ -7,4 +7,6 @@ object IndexConfiguration {
 
   val DefaultEventsPageSize: Int = 1000
 
+  val DefaultConcurrency: Int = 16
+
 }

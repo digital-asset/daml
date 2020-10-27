@@ -15,6 +15,7 @@ case class IndexerConfig(
     startupMode: IndexerStartupMode,
     restartDelay: FiniteDuration = DefaultRestartDelay,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
+    concurrency: Int = IndexConfiguration.DefaultConcurrency,
     allowExistingSchema: Boolean = false,
 )
 
