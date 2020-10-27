@@ -52,7 +52,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.Converter.{DamlTuple2, DamlAnyModuleRecord, unrollFree}
 import com.daml.script.converter.Converter.Implicits._
 import com.daml.script.converter.ConverterException
@@ -249,13 +248,6 @@ class Runner(
 
   import Runner.{DamlFun, maxParallelSubmissionsPerTrigger}
 
-  // Handles the value of update.
-  private def handleStepFreeResult(
-      clientTime: Timestamp,
-      v: SValue,
-      submit: SubmitRequest => Any): SValue =
-    freeTriggerSubmits(clientTime, v) foreach (sr => discard(submit(sr)))
-
   private def freeTriggerSubmits(
       clientTime: Timestamp,
       v: SValue): UnfoldState[SValue, SubmitRequest] = {
@@ -394,6 +386,19 @@ class Runner(
     (initialStateFree, evaluatedUpdate)
   }
 
+  private[this] def encodeMsgs: Flow[TriggerMsg, SValue, NotUsed] =
+    Flow fromFunction {
+      case TransactionMsg(transaction) =>
+        converter.fromTransaction(transaction).orConverterException
+      case CompletionMsg(completion) =>
+        val status = completion.getStatus
+        if (status.code != 0) {
+          logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
+        }
+        converter.fromCompletion(completion).orConverterException
+      case HeartbeatMsg() => converter.fromHeartbeat
+    }
+
   // A sink for trigger messages representing a process for the
   // accumulated state changes resulting from application of the
   // messages given the starting state represented by the ACS
@@ -409,15 +414,38 @@ class Runner(
       Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
     val (initialStateFree, evaluatedUpdate) = getInitialStateFreeAndUpdate(acs)
 
-    // NB: the SubmitRequests produced here are submitted out-of-band; they
-    // do not flow into the stream, so are not subject to backpressure or throttling
-    val evaluatedInitialState: SValue =
-      handleStepFreeResult(clientTime, v = initialStateFree, submit)
-    logger.debug(s"Initial state: $evaluatedInitialState")
-
     // Prepare another speedy machine for evaluating expressions.
     val machine: Speedy.Machine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
+
+    import UnfoldState.{toSourceOps, toSource, flatMapConcatNodeOps, flatMapConcatNode}
+
+    val runInitialState = toSource(freeTriggerSubmits(clientTime, initialStateFree))
+
+    val runRuleOnMsgs = flatMapConcatNode { (state: SValue, messageVal: SValue) =>
+      val clientTime: Timestamp =
+        Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+      machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
+      val stateFun = Machine
+        .stepToValue(machine)
+        .expect("TriggerRule", {
+          case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) => fun
+        })
+        .orConverterException
+      machine.setExpressionToEvaluate(makeAppD(stateFun, state))
+      val updateWithNewState = Machine.stepToValue(machine)
+
+      freeTriggerSubmits(clientTime, v = updateWithNewState)
+        .leftMap(_.expect("TriggerRule new state", {
+          case DamlTuple2(SUnit, newState) =>
+            logger.debug(s"New state: $newState")
+            newState
+        }).orConverterException)
+    }
+
+    val logInitialState =
+      Flow[SValue].wireTap(evaluatedInitialState =>
+        logger.debug(s"Initial state: $evaluatedInitialState"))
 
     // The flow that we return:
     //  - Maps incoming trigger messages to new trigger messages
@@ -426,44 +454,26 @@ class Runner(
     //    thereby accumulating the state changes.
     // The materialized value of the flow is the (future) final state
     // of this process.
-    Flow[TriggerMsg]
-      .wireTap(logReceivedMsg _)
-      .via(hideIrrelevantMsgs)
-      .map {
-        case TransactionMsg(transaction) =>
-          converter.fromTransaction(transaction).orConverterException
-        case CompletionMsg(completion) =>
-          val status = completion.getStatus
-          if (status.code != 0) {
-            logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
-          }
-          converter.fromCompletion(completion).orConverterException
-        case HeartbeatMsg() => converter.fromHeartbeat
-      }
-      .via(UnfoldState.flatMapConcatStates(evaluatedInitialState) { (state, messageVal) =>
-        val clientTime: Timestamp =
-          Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
-        machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
-        val stateFun = Machine
-          .stepToValue(machine)
-          .expect("TriggerRule", {
-            case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) => fun
-          })
-          .orConverterException
-        machine.setExpressionToEvaluate(makeAppD(stateFun, state))
-        val updateWithNewState = Machine.stepToValue(machine)
-
-        freeTriggerSubmits(clientTime, v = updateWithNewState)
-          .leftMap(_.expect("TriggerRule new state", {
-            case DamlTuple2(SUnit, newState) =>
-              logger.debug(s"New state: $newState")
-              newState
-          }).orConverterException)
-      })
-      .via(submitAndRemoveSubmissions(submit))
-      .toMat(Sink.fold[SValue, SValue](evaluatedInitialState) { (_, newState) =>
-        newState
-      })(Keep.right[NotUsed, Future[SValue]])
+    @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
+    val graph = GraphDSL.create(Sink.last[SValue]) { implicit gb => saveLastState =>
+      import GraphDSL.Implicits._
+      val msgIn = gb add Flow[TriggerMsg].wireTap(logReceivedMsg _)
+      val initialState = gb add runInitialState
+      val initialStateOut = gb add Broadcast[SValue](2)
+      val rule = gb add runRuleOnMsgs
+      val submissions = gb add Merge[SubmitRequest](2)
+      val finalStateIn = gb add Concat[SValue](2)
+      // format: off
+      initialState.finalState ~> logInitialState ~> initialStateOut ~> rule.initState
+      initialState.elemsOut                          ~> submissions
+                          msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.elemsIn
+            Sink.ignore <~ submitSubmissions(submit) <~ submissions <~ rule.elemsOut
+                                                    initialStateOut                     ~> finalStateIn
+                                                                       rule.finalStates ~> finalStateIn ~> saveLastState
+      // format: on
+      new SinkShape(msgIn.in)
+    }
+    Sink fromGraph graph
   }
 
   private[this] def hideIrrelevantMsgs: Flow[TriggerMsg, TriggerMsg, NotUsed] =
@@ -487,14 +497,9 @@ class Runner(
       case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
     }
 
-  private[this] def submitAndRemoveSubmissions[T, SR](
-      submit: SR => Future[None.type]): Flow[T \/ SR, T, NotUsed] =
-    Flow[T \/ SR]
-      .mapAsync(maxParallelSubmissionsPerTrigger) {
-        case -\/(t) => Future successful Some(t)
-        case \/-(sr) => submit(sr)
-      }
-      .collect { case Some(t) => t }
+  private[this] def submitSubmissions[SR, Z](submit: SR => Future[Z]): Flow[SR, Z, NotUsed] =
+    Flow[SR]
+      .mapAsync(maxParallelSubmissionsPerTrigger)(submit)
 
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
     SEApp(func, values.map(SEValue(_)))
