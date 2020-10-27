@@ -441,6 +441,10 @@ class Runner(
         }).orConverterException)
     }
 
+    val logInitialState =
+      Flow[SValue].wireTap(evaluatedInitialState =>
+        logger.debug(s"Initial state: $evaluatedInitialState"))
+
     // The flow that we return:
     //  - Maps incoming trigger messages to new trigger messages
     //    replacing ledger command IDs with the IDs used internally;
@@ -457,10 +461,9 @@ class Runner(
       val rule = gb add runRuleOnMsgs
       val submissions = gb add Merge[SubmitRequest](2)
       val finalStateIn = gb add Concat[SValue](2)
-      // TODO SC logger.debug(s"Initial state: $evaluatedInitialState")
       // format: off
-                         initialState.out1 ~> initialStateOut ~> rule.in1
-                         initialState.out2     ~> submissions
+      initialState.out1 ~> logInitialState ~> initialStateOut ~> rule.in1
+      initialState.out2                        ~> submissions
                     msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.in2
       Sink.ignore <~ submitSubmissions(submit) <~ submissions <~ rule.out1
                                               initialStateOut              ~> finalStateIn
