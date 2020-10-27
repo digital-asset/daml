@@ -4,7 +4,7 @@
 DAML Integration Kit
 ####################
 
-The DAML Integration Kit is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`. It comprises the components needed to build your own :ref:`DAML Drivers <ecosystem-architecture>`.
+The DAML integration kit is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`. It comprises the components needed to build your own :ref:`DAML Drivers <ecosystem-architecture>`.
 
 .. toctree::
    :hidden:
@@ -17,7 +17,7 @@ A DAML Ledger is a server serving the
 the :doc:`/concepts/ledger-model/index` and the
 `DAML-LF specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>`_.
 
-The DAML Integration Kit helps third-party ledger developers to
+The DAML integration kit helps third-party ledger developers to
 implement a DAML Ledger on top of their distributed ledger or database of
 choice.
 
@@ -44,7 +44,7 @@ and General Availability (GA) will come quite a bit later. The roadmap below exp
 these different statuses, and what's missing to progress.
 
 ALPHA (current status)
-  In the ALPHA status, the DAML Integration Kit is ready to be used by
+  In the ALPHA status, the DAML integration kit is ready to be used by
   third-parties willing to accept the following caveats:
 
   - The architecture includes everything required to run DAML Applications using the
@@ -90,7 +90,7 @@ BETA
 
 GA
   For us GA (General Availability) means that there are several
-  production-ready DAML ledgers built using the DAML Integration Kit.
+  production-ready DAML ledgers built using the DAML integration kit.
   We expect to reach GA in 2019.
 
   Related links

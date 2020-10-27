@@ -35,7 +35,7 @@ Individual DAML drivers follow their own release cadence, using already released
 Support Duration
 ----------------
 
-Major versions of DAML Connect and individual DAML drivers are supported for at least 12 months from the release of the terminal minor version. The fact that a released minor version is the terminal one will be communicated. Within a major version, only the latest minor version receives security and bug fixes.
+Major versions will be supported for a minimum of one year after a subsequent Major version is release. Within a major version, only the latest minor version receives security and bug fixes.
 
 .. _release-notes:
 

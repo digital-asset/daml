@@ -8,11 +8,11 @@ The DAML Ecosystem offers a number of forward and backward compatibility guarant
 
 Application Portability
 
-  A DAML application should not depend on the underlying Database or DLT used by a DAML Network.
+  A DAML application should not depend on the underlying Database or DLT used by a DAML network.
 
 Network Upgradeability
 
-  Ledger Operators should be able to upgrade DAML Network or Participant Nodes seamlessly to stay up to date with the latest features and fixes. A DAML application should be able to operate without significant change across such Network Upgrades.
+  Ledger Operators should be able to upgrade DAML network or Participant Nodes seamlessly to stay up to date with the latest features and fixes. A DAML application should be able to operate without significant change across such Network Upgrades.
 
 SDK Upgradeability
 
@@ -25,14 +25,14 @@ Application Portability and to some extent Network Upgradeability are achieved b
 
 Specifically, if a DAML Application is built against Ledger API version X.Y.Z and a Participant Node exposes Ledger API version X.Y2.Z2, the application is guaranteed to work as long as Y2.Z2 >= Y.Z.
 
-Currently, the Ledger API version is the same as the version of the Integration Components used in the Participant Node. This is mostly the case because there has been no need for the versions to diverge yet. This will likely change at the latest when one part of the ecosystem moves to version 2.X. Integration Components, DAML Drivers, and Participant Nodes advertise the Ledger API version they expose.
+Currently, the Ledger API version is the same as the version of the Integration Components used in the Participant Node. This is mostly the case because there has been no need for the versions to diverge yet. This will likely change at the latest when one part of the ecosystem moves to version 2.X. integration components, DAML drivers, and Participant Nodes advertise the Ledger API version they expose.
 
 As a concrete example, DAML for Postgres 1.4.0 has the Participant Node integrated, and exposes Ledger API version 1.4.0 and the DAML for VMware Blockchain 1.0 Participant Nodes expose Ledger API version 1.6.0. So any application that runs on DAML for Postgres 1.4.0 will also run on DAML for VMware Blockchain 1.0.
 
 Driver and Participant Compatibility: Network Upgradeability
 ------------------------------------------------------------
 
-Given the Ledger API Compatibility above, network upgrades are seamless if they preserve data, and Participant Nodes keep exposing the same or a newer minor version of the same major Ledger API Version. The semantic versioning of DAML Drivers and Participant Nodes gives this guarantee. Upgrades from one minor version to another are data preserving, and major Ledger API versions may only be removed with a new major version of Integration Components, DAML Drivers and Participant Nodes.
+Given the Ledger API Compatibility above, network upgrades are seamless if they preserve data, and Participant Nodes keep exposing the same or a newer minor version of the same major Ledger API Version. The semantic versioning of DAML drivers and participant nodes gives this guarantee. Upgrades from one minor version to another are data preserving, and major Ledger API versions may only be removed with a new major version of integration components, DAML drivers and Participant Nodes.
 
 As an example, from an application standpoint, the only effect of upgrading DAML for Postgres 1.4.0 to DAML for Postgres 1.6.0 is an uptick in the Ledger API version. There may be significant changes to components or database schemas, but these are not public APIs. 
 
@@ -54,4 +54,4 @@ Other than for hotfix releases, new releases of the Integration Components will 
 
 As a result we can make this overall statement:
 
-**An application built using SDK, Libraries and Runtime Components U.V.W against Ledger API X.Y.Z can be maintained using any SDK, Library amd Runtime Components version U2.V2.W2 >= U.V.W as long as Ledger API major version X is still supported at the time of release of U2.V2.W2, and run against any DAML Network with Participant Nodes exposing Ledger API X.Y2.Z2 >= X.Y.Z.**
+**An application built using SDK, Libraries and Runtime Components U.V.W against Ledger API X.Y.Z can be maintained using any SDK, Library amd Runtime Components version U2.V2.W2 >= U.V.W as long as Ledger API major version X is still supported at the time of release of U2.V2.W2, and run against any DAML network with Participant Nodes exposing Ledger API X.Y2.Z2 >= X.Y.Z.**
