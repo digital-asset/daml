@@ -25,7 +25,7 @@ To get started quickly with the recommended application architecture clone the
 architecture, providing you with an excellent starting point for your own application. It showcases
 
 - using DAML React libraries
-- quick iteration against the :ref:`DAML Ledger Sandbox <sandbox-manual>`.
+- quick iteration against the :ref:`DAML Sandbox <sandbox-manual>`.
 - authorization
 - deploying your application in the cloud as a Docker container
 
@@ -40,16 +40,17 @@ served by the HTTP JSON API server connected to the ledger API server. It provid
 endpoints to interact with the ledger via GET/POST requests. However, if you prefer, you can also
 use the :ref:`gRPC API <grpc>` directly.
 
-When you use the ``create-daml-app`` template application, you can start a local sandbox together
+When you use the ``create-daml-app`` template application, you can start a DAML Sandbox together
 with a JSON API server by running
 
 .. code-block:: bash
 
   daml start --start-navigator=no
 
-in the root of the project. This is the most simple DAML ledger implementation. Once your
+in the root of the project. DAML Sandbox exposes the same DAML Ledger API a Participant Node would
+expose without requiring a fully-fledged DAML Network to back the application. Once your
 application matures and becomes ready for production, the ``daml deploy`` command helps you deploy
-your frontend and DAML artifacts of your project to a production ledger. See
+your frontend and DAML artifacts of your project to a production DAML Network. See
 :ref:`Deploying to DAML Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
 
 Frontend
@@ -109,7 +110,7 @@ Developer workflow
 ~~~~~~~~~~~~~~~~~~
 
 The SDK enables a local development environment with fast iteration cycles. If you run
-``daml-reload-on-change.sh`` of the ``create-daml-app``, a local DAML sandbox ledger is started that
+``daml-reload-on-change.sh`` of the ``create-daml-app``, a local DAML Sandbox is started that
 is updated with your most recent DAML code on any change. Next, you can start your frontend in
 development mode by changing to your ``ui`` directory and run ``npm start``. This will reload your
 frontend whenever you make changes to it. You can add unit tests for your DAML models by writing
