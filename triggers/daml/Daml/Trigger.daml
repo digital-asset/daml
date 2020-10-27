@@ -8,6 +8,8 @@ module Daml.Trigger
  , queryContractId
  , queryContractKey
  , ActionTriggerAny
+ , getCommandsInFlight
+ , ActionTriggerUpdate
  , Trigger(..)
  , TriggerA
  , TriggerUpdateA
@@ -30,7 +32,6 @@ module Daml.Trigger
  , dedupCreate
  , dedupExerciseByKey
  , dedupCreateAndExercise
- , getCommandsInFlight
  , Message(..)
  , Completion(..)
  , Transaction(..)
@@ -92,17 +93,40 @@ queryContractKey : forall a k m. (Template a, HasKey a k, Eq k, ActionTriggerAny
     => k -> m (Optional (ContractId a, a))
 queryContractKey k = find (\(_, a) -> k == key a) <$> query
 
+-- | Features possible in `initialize`, `updateState`, and `rule`.
+class ActionTriggerAny m where
+  -- | Extract the contracts of a given template from the ACS.  (However, the
+  -- type parameters are in the 'm a' order, so it is not exported.)
+  implQuery : forall a. Template a => m [(ContractId a, a)]
+
+  -- | Find the contract with the given `id` in the ACS, if present.
+  queryContractId : Template a => ContractId a -> m (Optional a)
+
 instance ActionTriggerAny (TriggerA s) where
   implQuery = TriggerA $ pure . getContracts
   queryContractId id = TriggerA $ pure . getContractById id
 
 instance ActionTriggerAny (TriggerUpdateA s) where
-  implQuery = TriggerUpdateA $ pure . getContracts
-  queryContractId id = TriggerUpdateA $ pure . getContractById id
+  implQuery = TriggerUpdateA $ pure . getContracts . snd
+  queryContractId id = TriggerUpdateA $ pure . getContractById id . snd
 
 instance ActionTriggerAny TriggerInitializeA where
   implQuery = TriggerInitializeA getContracts
   queryContractId = TriggerInitializeA . getContractById
+
+-- | Features possible in `updateState` and `rule`.
+class ActionTriggerAny m => ActionTriggerUpdate m where
+  -- | Retrieve command submissions made by this trigger that have not yet
+  -- completed.  If the trigger has restarted, it will not contain commands from
+  -- before the restart; therefore, this should be treated as an optimization
+  -- rather than an absolute authority on ledger state.
+  getCommandsInFlight : m (Map CommandId [Command])
+
+instance ActionTriggerUpdate (TriggerUpdateA s) where
+  getCommandsInFlight = TriggerUpdateA $ \(cif, _) -> pure cif
+
+instance ActionTriggerUpdate (TriggerA s) where
+  getCommandsInFlight = liftTriggerRule $ get <&> \s -> s.commandsInFlight
 
 -- | This is the type of your trigger. `s` is the user-defined state type which
 -- you can often leave at `()`.
@@ -216,14 +240,6 @@ dedupExerciseByKey k c = do
   unless (any ((Some (k, c) ==) . fromExerciseByKey @t) cmds) $
     void $ emitCommands [exerciseByKeyCmd @t k c] []
 
--- | Retrieve command submissions made by this trigger that have not yet
--- completed.  If the trigger has restarted, it will not contain
--- commands from before the restart; therefore, this should be treated
--- as an optimization rather than an absolute authority on ledger state.
-getCommandsInFlight : TriggerA s (Map CommandId [Command])
-getCommandsInFlight = do
-  liftTriggerRule $ get <&> \s -> s.commandsInFlight
-
 -- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
 runTrigger userTrigger = LowLevel.Trigger
@@ -238,13 +254,15 @@ runTrigger userTrigger = LowLevel.Trigger
           userState = runTriggerInitializeA userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty
       in TriggerSetup $ execStateT (runTriggerRule $ runRule userTrigger.rule) state
-    utUpdateState acs msg = execState $ flip runTriggerUpdateA acs $ userTrigger.updateState msg
+    utUpdateState commandsInFlight acs msg = execState $ flip runTriggerUpdateA (commandsInFlight, acs) $ userTrigger.updateState msg
     update msg = do
       time <- getTime
       state <- get
       case msg of
         MCompletion completion ->
-          let userState = utUpdateState state.acs (MCompletion completion) state.userState
+          -- NB: the commands-in-flight and ACS updateState sees are those
+          -- prior to updates incurred by the msg
+          let userState = utUpdateState state.commandsInFlight state.acs (MCompletion completion) state.userState
           in case completion.status of
             Succeeded {} ->
               -- We delete successful completions when we receive the corresponding transaction
@@ -257,7 +275,8 @@ runTrigger userTrigger = LowLevel.Trigger
                 runRule userTrigger.rule
         MTransaction transaction -> do
           let acs = applyTransaction transaction state.acs
-              userState = utUpdateState acs (MTransaction transaction) state.userState
+              -- again, we use the commands-in-flight and ACS before the update below
+              userState = utUpdateState state.commandsInFlight acs (MTransaction transaction) state.userState
               -- See the comment above for why we delete this here instead of when we receive the completion.
               (acs', commandsInFlight) = case transaction.commandId of
                 None -> (acs, state.commandsInFlight)
@@ -265,6 +284,6 @@ runTrigger userTrigger = LowLevel.Trigger
           put $ state { acs = acs', userState, commandsInFlight }
           runRule userTrigger.rule
         MHeartbeat -> do
-          let userState = utUpdateState state.acs MHeartbeat state.userState
+          let userState = utUpdateState state.commandsInFlight state.acs MHeartbeat state.userState
           put $ state { userState }
           runRule userTrigger.rule

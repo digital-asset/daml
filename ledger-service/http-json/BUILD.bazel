@@ -240,6 +240,7 @@ da_scala_test(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/ports",
+        "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/timer-utils",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",

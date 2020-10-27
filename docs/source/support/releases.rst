@@ -22,13 +22,20 @@ DAML's "public API" is laid out in the :doc:`overview`.
 Cadence
 -------
 
-Regular snapshot releases are made every Wednesday, with additional snapshots released as needed. These releases contain SDK, Libraries, Runtime Components, and Integration Components, both from the `daml repository <https://github.com/digital-asset/daml>`_ as well as some others.
+Regular snapshot releases are made every Wednesday, with additional snapshots released as needed. These releases contain DAML Connect and Integration Components, both from the `daml repository <https://github.com/digital-asset/daml>`_ as well as some others.
 
 Stable versions are released once a month. See :ref:`release_process` below for the usual schedule. This schedule is a guide, not a guarantee, and additional releases may be made, or releases may be delayed for skipped entirely. 
 
 No more than one major version is released every six months, barring exceptional circumstances.
 
-Individual DAML Drivers follow their own release cadence, using already released Integration Components as a dependency.
+Individual DAML drivers follow their own release cadence, using already released Integration Components as a dependency.
+
+.. _support_duration:
+
+Support Duration
+----------------
+
+Major versions will be supported for a minimum of one year after a subsequent Major version is release. Within a major version, only the latest minor version receives security and bug fixes.
 
 .. _release-notes:
 

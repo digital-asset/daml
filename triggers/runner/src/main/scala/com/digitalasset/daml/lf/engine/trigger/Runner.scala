@@ -12,9 +12,10 @@ import io.grpc.StatusRuntimeException
 import java.time.Instant
 import java.util.UUID
 
-import scalaz.Functor
+import scalaz.{-\/, Functor, \/, \/-}
 import scalaz.\/.fromTryCatchThrowable
 import scalaz.std.option._
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.functor._
 import scalaz.syntax.tag._
 import scalaz.syntax.std.boolean._
@@ -51,6 +52,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.Converter.{DamlTuple2, DamlAnyModuleRecord, unrollFree}
 import com.daml.script.converter.Converter.Implicits._
 import com.daml.script.converter.ConverterException
@@ -245,13 +247,18 @@ class Runner(
     (commandUUID, SubmitRequest(commands = Some(commandsArg)))
   }
 
-  import Runner.DamlFun
+  import Runner.{DamlFun, maxParallelSubmissionsPerTrigger}
 
   // Handles the value of update.
   private def handleStepFreeResult(
       clientTime: Timestamp,
       v: SValue,
-      submit: SubmitRequest => Unit): SValue = {
+      submit: SubmitRequest => Any): SValue =
+    freeTriggerSubmits(clientTime, v) foreach (sr => discard(submit(sr)))
+
+  private def freeTriggerSubmits(
+      clientTime: Timestamp,
+      v: SValue): UnfoldState[SValue, SubmitRequest] = {
     def evaluate(se: SExpr) = {
       val machine: Speedy.Machine =
         Speedy.Machine.fromPureSExpr(compiledPackages, se)
@@ -259,7 +266,7 @@ class Runner(
       machine.setExpressionToEvaluate(se)
       Machine.stepToValue(machine)
     }
-    @tailrec def go(v: SValue): SValue = {
+    @tailrec def go(v: SValue): SValue \/ (SubmitRequest, SValue) = {
       val resumed = unrollFree(v) match {
         case Right(Right(vvv @ (variant, vv))) =>
           vvv.match2 {
@@ -270,15 +277,15 @@ class Runner(
               case DamlTuple2(sCommands, DamlFun(textA)) =>
                 val commands = converter.toCommands(sCommands).orConverterException
                 val (commandUUID, submitRequest) = handleCommands(commands)
-                submit(submitRequest)
-                Right(evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))))
+                Left(\/-(
+                  (submitRequest, evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))))))
             }
             case _ =>
               val msg = s"unrecognized TriggerF step $variant"
               logger.error(msg)
               throw new ConverterException(msg)
           }(fallback = throw new ConverterException(s"invalid contents for $variant: $vv"))
-        case Right(Left(newState)) => Left(newState)
+        case Right(Left(newState)) => Left(-\/(newState))
         case Left(e) => throw new ConverterException(e)
       }
       resumed match {
@@ -287,7 +294,7 @@ class Runner(
       }
     }
 
-    go(v)
+    UnfoldState(v)(go)
   }
 
   // This function produces a pair of a source of trigger messages
@@ -306,7 +313,9 @@ class Runner(
     val (completionQueue, completionQueueSource): (
         SourceQueue[Completion],
         Source[Completion, NotUsed]) =
-      Source.queue[Completion](10, OverflowStrategy.backpressure).preMaterialize()
+      Source
+        .queue[Completion](10 + maxParallelSubmissionsPerTrigger, OverflowStrategy.backpressure)
+        .preMaterialize()
     // This function, given a command ID and a runtime exception,
     // posts to the completion queue.
     def postSubmitFailure(commandId: String, s: StatusRuntimeException) = {
@@ -355,17 +364,7 @@ class Runner(
     case HeartbeatMsg() => ()
   }
 
-  // A sink for trigger messages representing a process for the
-  // accumulated state changes resulting from application of the
-  // messages given the starting state represented by the ACS
-  // argument.
-  private def getTriggerSink(
-      name: String,
-      acs: Seq[CreatedEvent],
-      submit: SubmitRequest => Unit,
-  ): Sink[TriggerMsg, Future[SValue]] = {
-    logger.info(s"Trigger ${name} is running as ${party}")
-
+  private[this] def getInitialStateFreeAndUpdate(acs: Seq[CreatedEvent]): (SValue, SValue) = {
     // Compile the trigger initialState and Update LF functions to
     // speedy expressions.
     val update: SExpr =
@@ -375,12 +374,7 @@ class Runner(
       compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
     // Convert the ACS to a speedy value.
-    val createdValue: SValue = converter.fromACS(acs) match {
-      case Left(err) => throw new ConverterException(err)
-      case Right(x) => x
-    }
-    val clientTime: Timestamp =
-      Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+    val createdValue: SValue = converter.fromACS(acs).orConverterException
     // Setup an application expression of initialState on the ACS.
     val initialState: SExpr =
       makeApp(getInitialState, Array(SParty(Party.assertFromString(party)), createdValue))
@@ -389,16 +383,41 @@ class Runner(
       Speedy.Machine.fromPureSExpr(compiledPackages, initialState)
     // Evaluate it.
     machine.setExpressionToEvaluate(initialState)
-    val value = Machine
+    val initialStateFree = Machine
       .stepToValue(machine)
       .expect("TriggerSetup", {
         case DamlAnyModuleRecord("TriggerSetup", fts) => fts
       })
       .orConverterException
-    val evaluatedInitialState: SValue = handleStepFreeResult(clientTime, v = value, submit)
-    logger.debug(s"Initial state: $evaluatedInitialState")
     machine.setExpressionToEvaluate(update)
     val evaluatedUpdate: SValue = Machine.stepToValue(machine)
+    (initialStateFree, evaluatedUpdate)
+  }
+
+  // A sink for trigger messages representing a process for the
+  // accumulated state changes resulting from application of the
+  // messages given the starting state represented by the ACS
+  // argument.
+  private def getTriggerSink(
+      name: String,
+      acs: Seq[CreatedEvent],
+      submit: SubmitRequest => Future[None.type],
+  ): Sink[TriggerMsg, Future[SValue]] = {
+    logger.info(s"Trigger ${name} is running as ${party}")
+
+    val clientTime: Timestamp =
+      Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
+    val (initialStateFree, evaluatedUpdate) = getInitialStateFreeAndUpdate(acs)
+
+    // NB: the SubmitRequests produced here are submitted out-of-band; they
+    // do not flow into the stream, so are not subject to backpressure or throttling
+    val evaluatedInitialState: SValue =
+      handleStepFreeResult(clientTime, v = initialStateFree, submit)
+    logger.debug(s"Initial state: $evaluatedInitialState")
+
+    // Prepare another speedy machine for evaluating expressions.
+    val machine: Speedy.Machine =
+      Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
 
     // The flow that we return:
     //  - Maps incoming trigger messages to new trigger messages
@@ -409,45 +428,19 @@ class Runner(
     // of this process.
     Flow[TriggerMsg]
       .wireTap(logReceivedMsg _)
-      .mapConcat[TriggerMsg]({
-        case msg @ CompletionMsg(c) =>
-          // This happens for invalid UUIDs which we might get for
-          // completions not emitted by the trigger.
-          val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
-            UUID.fromString(c.commandId)).toOption
-          ouuid.flatMap { uuid =>
-            useCommandId(uuid, SeenMsgs.Completion) option msg
-          }.toList
-        case msg @ TransactionMsg(t) =>
-          // This happens for invalid UUIDs which we might get for
-          // transactions not emitted by the trigger.
-          val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
-            UUID.fromString(t.commandId)).toOption
-          List(ouuid flatMap { uuid =>
-            useCommandId(uuid, SeenMsgs.Transaction) option msg
-          } getOrElse TransactionMsg(t.copy(commandId = "")))
-        case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
-      })
-      .toMat(Sink.fold[SValue, TriggerMsg](evaluatedInitialState)((state, message) => {
-        val messageVal = message match {
-          case TransactionMsg(transaction) => {
-            converter.fromTransaction(transaction) match {
-              case Left(err) => throw new ConverterException(err)
-              case Right(x) => x
-            }
+      .via(hideIrrelevantMsgs)
+      .map {
+        case TransactionMsg(transaction) =>
+          converter.fromTransaction(transaction).orConverterException
+        case CompletionMsg(completion) =>
+          val status = completion.getStatus
+          if (status.code != 0) {
+            logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
           }
-          case CompletionMsg(completion) => {
-            val status = completion.getStatus
-            if (status.code != 0) {
-              logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
-            }
-            converter.fromCompletion(completion) match {
-              case Left(err) => throw new ConverterException(err)
-              case Right(x) => x
-            }
-          }
-          case HeartbeatMsg() => converter.fromHeartbeat
-        }
+          converter.fromCompletion(completion).orConverterException
+        case HeartbeatMsg() => converter.fromHeartbeat
+      }
+      .via(UnfoldState.flatMapConcatStates(evaluatedInitialState) { (state, messageVal) =>
         val clientTime: Timestamp =
           Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
         machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
@@ -460,15 +453,48 @@ class Runner(
         machine.setExpressionToEvaluate(makeAppD(stateFun, state))
         val updateWithNewState = Machine.stepToValue(machine)
 
-        handleStepFreeResult(clientTime, v = updateWithNewState, submit = submit)
-          .expect("TriggerRule new state", {
+        freeTriggerSubmits(clientTime, v = updateWithNewState)
+          .leftMap(_.expect("TriggerRule new state", {
             case DamlTuple2(SUnit, newState) =>
               logger.debug(s"New state: $newState")
               newState
-          })
-          .orConverterException
-      }))(Keep.right[NotUsed, Future[SValue]])
+          }).orConverterException)
+      })
+      .via(submitAndRemoveSubmissions(submit))
+      .toMat(Sink.fold[SValue, SValue](evaluatedInitialState) { (_, newState) =>
+        newState
+      })(Keep.right[NotUsed, Future[SValue]])
   }
+
+  private[this] def hideIrrelevantMsgs: Flow[TriggerMsg, TriggerMsg, NotUsed] =
+    Flow[TriggerMsg].mapConcat[TriggerMsg] {
+      case msg @ CompletionMsg(c) =>
+        // This happens for invalid UUIDs which we might get for
+        // completions not emitted by the trigger.
+        val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
+          UUID.fromString(c.commandId)).toOption
+        ouuid.flatMap { uuid =>
+          useCommandId(uuid, SeenMsgs.Completion) option msg
+        }.toList
+      case msg @ TransactionMsg(t) =>
+        // This happens for invalid UUIDs which we might get for
+        // transactions not emitted by the trigger.
+        val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
+          UUID.fromString(t.commandId)).toOption
+        List(ouuid flatMap { uuid =>
+          useCommandId(uuid, SeenMsgs.Transaction) option msg
+        } getOrElse TransactionMsg(t.copy(commandId = "")))
+      case x @ HeartbeatMsg() => List(x) // Hearbeats don't carry any information.
+    }
+
+  private[this] def submitAndRemoveSubmissions[T, SR](
+      submit: SR => Future[None.type]): Flow[T \/ SR, T, NotUsed] =
+    Flow[T \/ SR]
+      .mapAsync(maxParallelSubmissionsPerTrigger) {
+        case -\/(t) => Future successful Some(t)
+        case \/-(sr) => submit(sr)
+      }
+      .collect { case Some(t) => t }
 
   def makeApp(func: SExpr, values: Array[SValue]): SExpr = {
     SEApp(func, values.map(SEValue(_)))
@@ -504,15 +530,18 @@ class Runner(
       executionContext: ExecutionContext): (T, Future[SValue]) = {
     val (source, postFailure) =
       msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
-    def submit(req: SubmitRequest): Unit = {
+    def submit(req: SubmitRequest): Future[None.type] = {
       val f: Future[Empty] = client.commandClient
         .submitSingleCommand(req)
-      f.failed.foreach({
+      f.map(_ => None).recover {
         case s: StatusRuntimeException =>
+          // XXX It would be better to split the stream and feed failures back
+          // into the msgSource directly.  As it stands we fire-and-forget
+          // the (async) queuing done here, ignoring failure
           postFailure(req.getCommands.commandId, s)
-        case e =>
-          logger.error(s"Unexpected exception: $e")
-      })
+          None
+        // any other error will cause the trigger's stream to fail
+      }
     }
     source
       .viaMat(msgFlow)(Keep.right[NotUsed, T])
@@ -522,6 +551,14 @@ class Runner(
 }
 
 object Runner extends StrictLogging {
+
+  /** The number of submitSingleCommand invocations each trigger will
+    * attempt to execute in parallel.  Note that this does not in any
+    * way bound the number of already-submitted, but not completed,
+    * commands that may be pending.
+    */
+  val maxParallelSubmissionsPerTrigger = 8
+
   // Return the time provider for a given time provider type.
   def getTimeProvider(ty: TimeProviderType): TimeProvider = {
     ty match {

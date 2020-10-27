@@ -203,9 +203,9 @@ To install the SDK version specified in the project config, run::
 
   daml install project
 
-To install a specific SDK version, for example version ``0.13.55``, run::
+To install a specific SDK version, for example version ``1.7.0``, run::
 
-  daml install 0.13.55
+  daml install 1.7.0
 
 Rarely, you might need to install an SDK release from a downloaded SDK release tarball. **This is an advanced feature**: you should only ever perform this on an SDK release tarball that is released through the official ``digital-asset/daml`` github repository. Otherwise your ``daml`` installation may become inconsistent with everyone else's. To do this, run::
 

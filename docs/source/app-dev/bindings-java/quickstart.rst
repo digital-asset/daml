@@ -131,15 +131,14 @@ In this section, you will run the quickstart application and get introduced to t
 
    .. code-block:: none
 
-      DAML LF Engine supports LF versions: 0, 1.0, 1.1, 1.2, 1.3; Transaction versions: 1, 2, 3, 4, 5; Value versions: 1, 2, 3, 4
-      Starting plainText server
-      listening on localhost:6865
-        ____             ____
+      INFO: Slf4jLogger started
+      INFO: Listening on localhost:6865 over plain text.
+         ____             ____
         / __/__ ____  ___/ / /  ___ __ __
-      _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
+       _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
       /___/\_,_/_//_/\_,_/_.__/\___/_\_\
 
-      Initialized sandbox version 100.13.10 with ledger-id = sandbox-5e12e502-817e-41f9-ad40-1c57b8845f9d, port = 6865, dar file = DamlPackageContainer(List(target/daml/iou.dar),false), time mode = WallClock, ledger = in-memory, daml-engine = {}
+      INFO: Initialized sandbox version 1.6.0 with ledger-id = 3528b0dd-069b-420c-9df4-4af6b8fd4f47, port = 6865, dar file = List(.daml/dist/quickstart-0.0.1.dar), time mode = wall-clock time, ledger = in-memory, auth-service = AuthServiceWildcard$, contract ids seeding = strong
 
    The sandbox is now running, and you can access its :doc:`ledger API </app-dev/ledger-api>` on port ``6865``.
 

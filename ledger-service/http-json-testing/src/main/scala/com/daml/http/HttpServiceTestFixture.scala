@@ -290,10 +290,10 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       }
   }
 
-  def postJsonStringRequest(uri: Uri, jsonString: String, headers: List[HttpHeader])(
+  def postJsonStringRequestEncoded(uri: Uri, jsonString: String, headers: List[HttpHeader])(
       implicit as: ActorSystem,
       ec: ExecutionContext,
-      mat: Materializer): Future[(StatusCode, JsValue)] = {
+      mat: Materializer): Future[(StatusCode, String)] = {
     logger.info(s"postJson: ${uri.toString} json: ${jsonString: String}")
     Http()
       .singleRequest(
@@ -305,9 +305,17 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       )
       .flatMap { resp =>
         val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
-        bodyF.map(body => (resp.status, body.parseJson))
+        bodyF.map(body => (resp.status, body))
       }
   }
+
+  def postJsonStringRequest(uri: Uri, jsonString: String, headers: List[HttpHeader])(
+      implicit as: ActorSystem,
+      ec: ExecutionContext,
+      mat: Materializer): Future[(StatusCode, JsValue)] =
+    postJsonStringRequestEncoded(uri, jsonString, headers).map {
+      case (status, body) => (status, body.parseJson)
+    }
 
   def postJsonRequest(uri: Uri, json: JsValue, headers: List[HttpHeader])(
       implicit as: ActorSystem,

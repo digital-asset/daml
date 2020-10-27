@@ -393,8 +393,7 @@ and a DAML module. In addition to the ``daml.yaml`` files for the
 respective packages, you also need to add a ``daml.yaml`` to the root
 of your project. This file only needs to specify the SDK
 version. Replace ``X.Y.Z`` by the SDK version you specified in the
-``daml.yaml`` files of the individual packages. Note that this feature
-is only available in SDK version ``0.13.52`` and newer.
+``daml.yaml`` files of the individual packages.
 
 .. code-block:: yaml
 
