@@ -4,7 +4,8 @@
 package com.daml.lf.engine.trigger
 package test
 
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.ClosedShape
+import akka.stream.scaladsl.{GraphDSL, Keep, RunnableGraph, Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalacheck.Gen.listOfN
 import org.scalacheck.Arbitrary
@@ -14,6 +15,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 import scalaz.{\/, -\/, \/-, Applicative, Monoid}
 import scalaz.std.list._
 import scalaz.std.scalaFuture._
+import scalaz.syntax.apply.^
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.traverse._
 
@@ -78,6 +80,32 @@ class UnfoldStateSpec
           .map { ran =>
             ran should ===(expected.flatten)
           }
+    }
+  }
+
+  "flatMapConcatNode" should {
+    "emit same elements as flatMapConcat" in forAllFuture(trials = 10) { run: List[List[Int]] =>
+      val (_, concatPairs) = run.mapAccumL(0) { (sum, ns) =>
+        val newSum = sum + ns.sum
+        (newSum, (ns, newSum))
+      }
+      val graph = GraphDSL.create(Sink.seq[Int], Sink.seq[Int])(Keep.both) {
+        implicit gb => (nsOut, stOut) =>
+          import GraphDSL.Implicits._
+          val fmc = gb add flatMapConcatNode { (sum: Int, ns: List[Int]) =>
+            fromLinearSeq(ns) leftMap (_ => sum + ns.sum)
+          }
+          fmc.in1 <~ Source.single(0)
+          fmc.in2 <~ Source(run)
+          fmc.out1 ~> nsOut
+          fmc.out2 ~> stOut
+          ClosedShape
+      }
+      val (fNs, fSt) = RunnableGraph.fromGraph(graph).run()
+      ^(fNs, fSt) { (ns, st) =>
+        st should ===(concatPairs map (_._2))
+        ns should ===(concatPairs flatMap (_._1))
+      }
     }
   }
 
