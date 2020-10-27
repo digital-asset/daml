@@ -3,7 +3,6 @@
 
 package com.daml.platform.apiserver.services
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionRequest
 import com.daml.ledger.api.v1.version_service.GetLedgerApiVersionResponse
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
@@ -12,52 +11,59 @@ import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext
 import com.daml.platform.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
+import io.grpc.Status
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.io.Source
-import scala.util.Failure
-import scala.util.Success
 import scala.util.Try
+import scala.util.control.NonFatal
 
-private[apiserver] final class ApiVersionService private (implicit loggingContext: LoggingContext)
+private[apiserver] final class ApiVersionService private (
+    implicit loggingContext: LoggingContext,
+    ec: ExecutionContext)
     extends VersionService
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val versionFile: String = "ledger-api/VERSION"
-  private lazy val apiVersion: String = readVersion(versionFile)
+  private lazy val apiVersion: Try[String] = readVersion(versionFile)
 
   override def getLedgerApiVersion(
       request: GetLedgerApiVersionRequest): Future[GetLedgerApiVersionResponse] =
-    Future.successful {
-      GetLedgerApiVersionResponse(apiVersion)
-    }
+    Future
+      .fromTry(apiVersion)
+      .map(GetLedgerApiVersionResponse(_))
+      .andThen(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
+      .recoverWith {
+        case NonFatal(_) => internalError
+      }
 
-  private def readVersion(versionFileName: String): String = {
+  private lazy val internalError: Future[Nothing] =
+    Future.failed(
+      Status.INTERNAL
+        .withDescription("Cannot read Ledger API version")
+        .asRuntimeException()
+    )
+
+  private def readVersion(versionFileName: String): Try[String] =
     Try {
       Source
         .fromResource(versionFileName)
         .getLines()
         .toList
         .head
-    } match {
-      case Success(version) => version
-      case Failure(ex) =>
-        logger.error(s"An error occurred when reading the Ledger API version", ex)
-        throw ex
     }
 
-  }
-
   override def bindService(): ServerServiceDefinition =
-    VersionServiceGrpc.bindService(this, DirectExecutionContext)
+    VersionServiceGrpc.bindService(this, ec)
 
   override def close(): Unit = ()
 
 }
 
 private[apiserver] object ApiVersionService {
-  def create()(implicit loggingContext: LoggingContext): ApiVersionService =
+  def create()(implicit loggingContext: LoggingContext, ec: ExecutionContext): ApiVersionService =
     new ApiVersionService
 }
