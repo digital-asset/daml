@@ -12,7 +12,8 @@ This section describes our recommended design of a full-stack DAML application.
 
 The above image shows the recommended architecture. Of course there are many ways how you can change
 the architecture and technology stack to fit your needs, which we'll mention in the corresponding
-sections.
+sections. Note that the Participant Node is integrated into the DAML drivers in some cases rather
+than being part of the Application Backend. See :doc:`/support/overview` for more details.
 
 To get started quickly with the recommended application architecture clone the
 ``create-daml-app`` application template:
