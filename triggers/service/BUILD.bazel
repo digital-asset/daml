@@ -103,6 +103,7 @@ da_scala_test(
         "//daml-lf/data",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
         "//ledger-service/cli-opts",
         "//ledger-service/jwt",
         "//ledger/caching",
