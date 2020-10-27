@@ -64,6 +64,18 @@ final class LedgerClientIT
       }
     }
 
+    "get api version" in {
+      // semantic versioning regex as in: https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+      val semVerRegex =
+        """^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"""
+      for {
+        client <- LedgerClient(channel, ClientConfiguration)
+        version <- client.versionClient.getApiVersion()
+      } yield {
+        version should fullyMatch regex semVerRegex
+      }
+    }
+
     "shut down the channel when closed" in {
       for {
         client <- LedgerClient(channel, ClientConfiguration)

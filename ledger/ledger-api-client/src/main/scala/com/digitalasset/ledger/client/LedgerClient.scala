@@ -18,6 +18,7 @@ import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServic
 import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
+import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.ledger.client.services.acs.ActiveContractSetClient
 import com.daml.ledger.client.services.admin.{PackageManagementClient, PartyManagementClient}
@@ -25,6 +26,7 @@ import com.daml.ledger.client.services.commands.{CommandClient, SynchronousComma
 import com.daml.ledger.client.services.identity.LedgerIdentityClient
 import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.client.services.transactions.TransactionClient
+import com.daml.ledger.client.services.version.VersionClient
 import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
 import io.grpc.{Channel, ManagedChannel}
@@ -70,6 +72,9 @@ final class LedgerClient private (
     new TransactionClient(
       ledgerId,
       LedgerClient.stub(TransactionServiceGrpc.stub(channel), config.token))
+
+  val versionClient: VersionClient =
+    new VersionClient(ledgerId, LedgerClient.stub(VersionServiceGrpc.stub(channel), config.token))
 
   override def close(): Unit =
     channel match {

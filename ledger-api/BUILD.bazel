@@ -1,2 +1,12 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+
+filegroup(
+    name = "api-version-files",
+    srcs = [
+        "VERSION",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+)

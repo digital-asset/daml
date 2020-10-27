@@ -197,6 +197,15 @@ This configuration includes the maximum command deduplication time (see `Command
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.LedgerConfigurationService>`.
 
+.. _version-service:
+
+Version service
+============================
+
+Use the **version service** to retrieve information about the Ledger API version.
+
+For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.VersionService>`.
+
 .. _ledger-api-testing-services:
 
 Testing services

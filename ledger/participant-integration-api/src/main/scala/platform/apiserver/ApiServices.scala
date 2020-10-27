@@ -134,6 +134,9 @@ private[daml] object ApiServices {
       val apiLedgerIdentityService =
         ApiLedgerIdentityService.create(() => identityService.getLedgerId())
 
+      val apiVersionService =
+        ApiVersionService.create()
+
       val apiPackageService = ApiPackageService.create(ledgerId, packagesService)
 
       val apiConfigurationService =
@@ -178,6 +181,7 @@ private[daml] object ApiServices {
         new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
         apiReflectionService,
         apiHealthService,
+        apiVersionService,
       )
     }
 
@@ -284,4 +288,5 @@ private[daml] object ApiServices {
       }
     }
   }
+
 }

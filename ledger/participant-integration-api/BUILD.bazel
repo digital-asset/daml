@@ -81,7 +81,9 @@ da_scala_library(
             # Do not include logback.xml into the library: let the user
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
-        ),
+        ) + [
+            "//ledger-api:api-version-files",
+        ],
     tags = ["maven_coordinates=com.daml:participant-integration-api:__VERSION__"],
     visibility = [
         "//visibility:public",
