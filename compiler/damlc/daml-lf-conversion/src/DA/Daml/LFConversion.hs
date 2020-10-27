@@ -547,7 +547,7 @@ convertClassDef env tycon
 
     let minimal = fmap getOccText (classMinimalDef cls)
         methodsWithNoDefault = sort [ getOccText id | (id, Nothing) <- classOpItems cls ]
-            -- ^ Used when MINIMAL pragma is not given,
+            -- Used when MINIMAL pragma is not given,
             -- i.e. the minimal sig is all methods without a default implementation.
         minimalIsDefault =
             case minimal of

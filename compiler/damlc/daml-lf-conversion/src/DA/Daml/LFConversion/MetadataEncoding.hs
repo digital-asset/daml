@@ -93,18 +93,18 @@ mapFunDep f (a, b) = (map f a, map f b)
 mapFunDepM :: Monad m => (a -> m b) -> (GHC.FunDep a -> m (GHC.FunDep b))
 mapFunDepM f (a, b) = liftM2 (,) (mapM f a) (mapM f b)
 
--------------
--- MINIMAL --
--------------
+---------------------
+-- MINIMAL PRAGMAS --
+---------------------
 
 minimalName :: LF.TypeSynName -> LF.ExprValName
 minimalName (LF.TypeSynName xs) = LF.ExprValName ("$$minimal" <> T.concat xs)
 
-pattern TStr :: T.Text -> LF.Type
-pattern TStr x = LF.TStruct [(LF.FieldName x, LF.TUnit)]
+pattern TEncodedStr :: T.Text -> LF.Type
+pattern TEncodedStr x = LF.TStruct [(LF.FieldName x, LF.TUnit)]
 
-pattern TCon :: T.Text -> LF.Type -> LF.Type
-pattern TCon a b = LF.TStruct [(LF.FieldName a, b)]
+pattern TEncodedCon :: T.Text -> LF.Type -> LF.Type
+pattern TEncodedCon a b = LF.TStruct [(LF.FieldName a, b)]
 
 encodeLBooleanFormula :: BF.LBooleanFormula T.Text -> LF.Type
 encodeLBooleanFormula = encodeBooleanFormula . GHC.unLoc
@@ -114,17 +114,17 @@ decodeLBooleanFormula = fmap GHC.noLoc . decodeBooleanFormula
 
 encodeBooleanFormula :: BF.BooleanFormula T.Text -> LF.Type
 encodeBooleanFormula = \case
-    BF.Var x -> TCon "Var" (TStr x)
-    BF.And xs -> TCon "And" (encodeTypeList encodeLBooleanFormula xs)
-    BF.Or xs -> TCon "Or" (encodeTypeList encodeLBooleanFormula xs)
-    BF.Parens x -> TCon "Parens" (encodeLBooleanFormula x)
+    BF.Var x -> TEncodedCon "Var" (TEncodedStr x)
+    BF.And xs -> TEncodedCon "And" (encodeTypeList encodeLBooleanFormula xs)
+    BF.Or xs -> TEncodedCon "Or" (encodeTypeList encodeLBooleanFormula xs)
+    BF.Parens x -> TEncodedCon "Parens" (encodeLBooleanFormula x)
 
 decodeBooleanFormula :: LF.Type -> Maybe (BF.BooleanFormula T.Text)
 decodeBooleanFormula = \case
-    TCon "Var" (TStr x) -> Just (BF.Var x)
-    TCon "And" xs -> BF.And <$> decodeTypeList decodeLBooleanFormula xs
-    TCon "Or" xs -> BF.Or <$> decodeTypeList decodeLBooleanFormula xs
-    TCon "Parens" x -> BF.Parens <$> decodeLBooleanFormula x
+    TEncodedCon "Var" (TEncodedStr x) -> Just (BF.Var x)
+    TEncodedCon "And" xs -> BF.And <$> decodeTypeList decodeLBooleanFormula xs
+    TEncodedCon "Or" xs -> BF.Or <$> decodeTypeList decodeLBooleanFormula xs
+    TEncodedCon "Parens" x -> BF.Parens <$> decodeLBooleanFormula x
     _ -> Nothing
 
 -------------------
