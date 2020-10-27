@@ -6,7 +6,7 @@
 Authorization
 #############
 
-When developing DAML applications using DAML Connect tools,
+When developing DAML applications using SDK tools,
 your local setup will most likely not verify any authorization -
 by default, any valid ledger API request will be accepted by the sandbox.
 
