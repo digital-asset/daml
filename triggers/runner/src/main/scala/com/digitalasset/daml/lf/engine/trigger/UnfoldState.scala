@@ -5,10 +5,11 @@ package com.daml.lf.engine.trigger
 
 import scalaz.{-\/, Bifunctor, \/, \/-}
 import scalaz.syntax.bifunctor._
+import scalaz.std.option.some
 import scalaz.std.tuple._
 import akka.NotUsed
 import akka.stream.{BidiShape, FanOutShape2, Graph}
-import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Partition}
+import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Partition, Source}
 
 import scala.annotation.tailrec
 
@@ -37,6 +38,22 @@ private[trigger] sealed abstract class UnfoldState[+T, +A] {
     }
     go(init)
   }
+
+  private final def iterator(): Iterator[T \/ A] =
+    new Iterator[T \/ A] {
+      var last = some(step(init))
+      override def hasNext() = last.isDefined
+      override def next() = last match {
+        case Some(\/-((a, s))) =>
+          last = Some(step(s))
+          \/-(a)
+        case Some(et @ -\/(_)) =>
+          last = None
+          et
+        case None =>
+          throw new IllegalStateException("iterator read past end")
+      }
+    }
 
   /*
   final def uncons: T \/ (A, UnfoldState.Aux[S, T, A]) =
@@ -85,6 +102,14 @@ private[trigger] object UnfoldState {
     apply(0) { n =>
       if (vector.sizeIs > n) \/-((vector(n), n + 1))
       else -\/(())
+    }
+
+  def toSource[T, A](us: UnfoldState[T, A]): Graph[SourceShape2[T, A], NotUsed] =
+    GraphDSL.create() { implicit gb =>
+      import GraphDSL.Implicits._
+      val split = gb add partition[T, A]
+      Source.fromIterator(() => us.iterator()) ~> split.in
+      SourceShape2(split.out0, split.out1)
     }
 
   /** A stateful but pure version of built-in flatMapConcat.
