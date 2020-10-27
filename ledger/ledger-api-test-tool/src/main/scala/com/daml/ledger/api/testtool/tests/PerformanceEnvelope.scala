@@ -296,8 +296,16 @@ object PerformanceEnvelope {
       reporter: (String, Double) => Unit,
   ): LedgerTestSuite =
     envelope match {
-      case e: Envelope.Latency => new LatencyTest(e, reporter = reporter)
-      case e: Envelope.Throughput => new ThroughputTest(e, reporter = reporter)
+      case e: Envelope.Latency =>
+        new LatencyTest(e, numPings = e.numPings, numWarmupPings = e.numPings, reporter = reporter)
+      case e: Envelope.Throughput =>
+        val numPings = Math.max(20, e.operationsPerSecond * 15) // test should run at least 15 seconds
+        new ThroughputTest(
+          envelope = e,
+          maxInflight = e.operationsPerSecond * 4, // aiming for a latency of 4 seconds
+          numPings = numPings,
+          numWarmupPings = numPings,
+          reporter = reporter)
       case e: Envelope.TransactionSize => new TransactionSizeScaleTest(e)
     }
 
