@@ -95,10 +95,10 @@ class UnfoldStateSpec
           val fmc = gb add flatMapConcatNode { (sum: Int, ns: List[Int]) =>
             fromLinearSeq(ns) leftMap (_ => sum + ns.sum)
           }
-          fmc.in1 <~ Source.single(0)
-          fmc.in2 <~ Source(run)
-          fmc.out1 ~> nsOut
-          fmc.out2 ~> stOut
+          fmc.initState <~ Source.single(0)
+          fmc.elemsIn <~ Source(run)
+          fmc.elemsOut ~> nsOut
+          fmc.finalStates ~> stOut
           ClosedShape
       }
       val (fNs, fSt) = RunnableGraph.fromGraph(graph).run()

@@ -418,9 +418,11 @@ class Runner(
     val machine: Speedy.Machine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
 
-    val runInitialState = UnfoldState.toSource(freeTriggerSubmits(clientTime, initialStateFree))
+    import UnfoldState.{toSourceOps, toSource, flatMapConcatNodeOps, flatMapConcatNode}
 
-    val runRuleOnMsgs = UnfoldState.flatMapConcatNode { (state: SValue, messageVal: SValue) =>
+    val runInitialState = toSource(freeTriggerSubmits(clientTime, initialStateFree))
+
+    val runRuleOnMsgs = flatMapConcatNode { (state: SValue, messageVal: SValue) =>
       val clientTime: Timestamp =
         Timestamp.assertFromInstant(Runner.getTimeProvider(timeProviderType).getCurrentTime)
       machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
@@ -462,12 +464,12 @@ class Runner(
       val submissions = gb add Merge[SubmitRequest](2)
       val finalStateIn = gb add Concat[SValue](2)
       // format: off
-      initialState.out1 ~> logInitialState ~> initialStateOut ~> rule.in1
-      initialState.out2                        ~> submissions
-                    msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.in2
-      Sink.ignore <~ submitSubmissions(submit) <~ submissions <~ rule.out1
-                                              initialStateOut              ~> finalStateIn
-                                                                 rule.out2 ~> finalStateIn ~> saveLastState
+      initialState.finalState ~> logInitialState ~> initialStateOut ~> rule.initState
+      initialState.elemsOut                          ~> submissions
+                          msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.elemsIn
+            Sink.ignore <~ submitSubmissions(submit) <~ submissions <~ rule.elemsOut
+                                                    initialStateOut                     ~> finalStateIn
+                                                                       rule.finalStates ~> finalStateIn ~> saveLastState
       // format: on
       new SinkShape(msgIn.in)
     }

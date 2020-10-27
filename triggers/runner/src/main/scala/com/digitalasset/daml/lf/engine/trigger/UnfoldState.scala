@@ -8,7 +8,7 @@ import scalaz.syntax.bifunctor._
 import scalaz.std.option.some
 import scalaz.std.tuple._
 import akka.NotUsed
-import akka.stream.{BidiShape, FanOutShape2, Graph}
+import akka.stream.{BidiShape, FanOutShape2, Graph, Inlet, Outlet}
 import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Partition, Source}
 
 import scala.annotation.tailrec
@@ -91,6 +91,11 @@ private[trigger] object UnfoldState {
       else -\/(())
     }
 
+  implicit final class toSourceOps[T, A](private val self: SourceShape2[T, A]) {
+    def elemsOut: Outlet[A] = self.out2
+    def finalState: Outlet[T] = self.out1
+  }
+
   def toSource[T, A](us: UnfoldState[T, A]): Graph[SourceShape2[T, A], NotUsed] =
     GraphDSL.create() { implicit gb =>
       import GraphDSL.Implicits._
@@ -114,12 +119,21 @@ private[trigger] object UnfoldState {
       f: (T, A) => UnfoldState[T, B]): Flow[A, T \/ B, NotUsed] =
     Flow[A].statefulMapConcat(() => mkMapConcatFun(zero, f))
 
+  type UnfoldStateShape[T, -A, +B] = BidiShape[T, B, A, T]
+  implicit final class flatMapConcatNodeOps[IT, B, A, OT](
+      private val self: BidiShape[IT, B, A, OT]) {
+    def initState: Inlet[IT] = self.in1
+    def elemsIn: Inlet[A] = self.in2
+    def elemsOut: Outlet[B] = self.out1
+    def finalStates: Outlet[OT] = self.out2
+  }
+
   /** Accept 1 initial state on in1, fold over in2 elements, emitting the output
     * elements on out1, and each result state after each result of `f` is unfolded
     * on out2.
     */
   def flatMapConcatNode[T, A, B](
-      f: (T, A) => UnfoldState[T, B]): Graph[BidiShape[T, B, A, T], NotUsed] =
+      f: (T, A) => UnfoldState[T, B]): Graph[UnfoldStateShape[T, A, B], NotUsed] =
     GraphDSL.create() { implicit gb =>
       import GraphDSL.Implicits._
       val initialT = gb add (Flow fromFunction \/.left[T, A] take 1)
