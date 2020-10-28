@@ -224,11 +224,12 @@ private[lf] final class Compiler(
       ref: SDefRef,
       arity: Int)(
       body: List[Position] => SExpr
-  ): (SDefRef, SExpr) =
+  ): (SDefRef, SDefinition) =
     ref ->
-      unsafeClosureConvert(
-        SEAbs(arity, withLabel(ref, body(List.fill(arity)(nextPosition()))))
-      )
+      SDefinition(
+        unsafeClosureConvert(
+          SEAbs(arity, withLabel(ref, body(List.fill(arity)(nextPosition()))))
+        ))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -257,12 +258,12 @@ private[lf] final class Compiler(
       pkgId: PackageId,
       module: Module,
   ): Iterable[(SDefinitionRef, SDefinition)] = {
-    val builder = Iterable.newBuilder[(SDefinitionRef, SExpr)]
+    val builder = Iterable.newBuilder[(SDefinitionRef, SDefinition)]
 
     module.definitions.foreach {
       case (defName, DValue(_, _, body, _)) =>
         val ref = LfDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
-        builder += (ref -> withLabel(ref, unsafeCompile(body)))
+        builder += (ref -> SDefinition(withLabel(ref, unsafeCompile(body))))
       case _ =>
     }
 
@@ -283,9 +284,7 @@ private[lf] final class Compiler(
         }
     }
 
-    builder
-      .result()
-      .map { case (ref, body) => ref -> SDefinition(body) }
+    builder.result()
   }
 
   /** Validates and compiles all the definitions in the package provided.
@@ -922,7 +921,7 @@ private[lf] final class Compiler(
       tmplId: TypeConName,
       tmpl: Template,
       choice: TemplateChoice,
-  ): (SDefinitionRef, SExpr) =
+  ): (SDefinitionRef, SDefinition) =
     // Compiles a choice into:
     // ChoiceDefRef(SomeTemplate, SomeChoice) = \<actors> <cid> <choiceArg> <token> ->
     //   let targ = fetch(tmplId) <cid>
@@ -947,7 +946,7 @@ private[lf] final class Compiler(
       tmpl: Template,
       tmplKey: TemplateKey,
       choice: TemplateChoice,
-  ): (SDefinitionRef, SExpr) =
+  ): (SDefinitionRef, SDefinition) =
     // Compiles a choice into:
     // ChoiceByKeyDefRef(SomeTemplate, SomeChoice) = \ <actors> <key> <choiceArg> <token> ->
     //    let <keyWithM> = { key = <key> ; maintainers = [tmpl.maintainers] <key> }
@@ -1358,7 +1357,9 @@ private[lf] final class Compiler(
       }
     }
 
-  private[this] def compileFetch(tmplId: Identifier, tmpl: Template): (SDefinitionRef, SExpr) =
+  private[this] def compileFetch(
+      tmplId: Identifier,
+      tmpl: Template): (SDefinitionRef, SDefinition) =
     // compile a template to
     // FetchDefRef(tmplId) = \ <coid> <token> ->
     //   let <tmplArg> = $fetch(tmplId) <coid>
@@ -1369,7 +1370,9 @@ private[lf] final class Compiler(
         compileFetchBody(tmplId, tmpl)(cidPos, None, tokenPos)
     }
 
-  private[this] def compileCreate(tmplId: Identifier, tmpl: Template): (SDefinitionRef, SExpr) =
+  private[this] def compileCreate(
+      tmplId: Identifier,
+      tmpl: Template): (SDefinitionRef, SDefinition) =
     // Translates 'create Foo with <params>' into:
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
     //   let _ = $checkPreconf(tmplId)(<tmplArg> [tmpl.precond]
@@ -1448,7 +1451,7 @@ private[lf] final class Compiler(
   private[this] def compileLookupByKey(
       tmplId: Identifier,
       tmplKey: TemplateKey,
-  ): (SDefinitionRef, SExpr) =
+  ): (SDefinitionRef, SDefinition) =
     // compile a template with key into
     // LookupByKeyDefRef(tmplId) = \ <key> <token> ->
     //    let <keyWithM> = { key = <key> ; maintainers = [tmplKey.maintainers] <key> }
@@ -1474,7 +1477,7 @@ private[lf] final class Compiler(
       tmplId: TypeConName,
       tmpl: Template,
       tmplKey: TemplateKey,
-  ): (SDefinitionRef, SExpr) =
+  ): (SDefinitionRef, SDefinition) =
     // compile a template with key into
     // FetchByKeyDefRef(tmplId) = \ <key> <token> ->
     //    let <keyWithM> = { key = <key> ; maintainers = [tmpl.maintainers] <key> }

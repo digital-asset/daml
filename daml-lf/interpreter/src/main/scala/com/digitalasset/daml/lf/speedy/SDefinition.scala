@@ -16,8 +16,7 @@ final case class SDefinition(
     body: SExpr,
 ) {
   private var _cached: Option[(SValue, List[Location])] = None
-  def cached: Option[(SValue, List[Location])] = _cached
-
-  def setCached(sValue: SValue, stack_trace: List[Location]): Unit =
+  private[speedy] def cached: Option[(SValue, List[Location])] = _cached
+  private[speedy] def setCached(sValue: SValue, stack_trace: List[Location]): Unit =
     _cached = Some((sValue, stack_trace))
 }
