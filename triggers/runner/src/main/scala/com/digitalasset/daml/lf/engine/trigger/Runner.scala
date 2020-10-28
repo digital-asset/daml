@@ -399,15 +399,14 @@ class Runner(
       case HeartbeatMsg() => converter.fromHeartbeat
     }
 
-  // A sink for trigger messages representing a process for the
+  // A flow for trigger messages representing a process for the
   // accumulated state changes resulting from application of the
   // messages given the starting state represented by the ACS
   // argument.
-  private def getTriggerSink(
+  private def getTriggerEvaluator(
       name: String,
       acs: Seq[CreatedEvent],
-      submit: Sink[SubmitRequest, _],
-  ): Sink[TriggerMsg, Future[SValue]] = {
+  ): Flow[TriggerMsg, SubmitRequest, Future[SValue]] = {
     logger.info(s"Trigger ${name} is running as ${party}")
 
     val clientTime: Timestamp =
@@ -467,13 +466,13 @@ class Runner(
       initialState.finalState ~> logInitialState ~> initialStateOut ~> rule.initState
       initialState.elemsOut                          ~> submissions
                           msgIn ~> hideIrrelevantMsgs ~> encodeMsgs ~> rule.elemsIn
-                                              submit <~ submissions <~ rule.elemsOut
+                                                        submissions <~ rule.elemsOut
                                                     initialStateOut                     ~> finalStateIn
                                                                        rule.finalStates ~> finalStateIn ~> saveLastState
       // format: on
-      new SinkShape(msgIn.in)
+      new FlowShape(msgIn.in, submissions.out)
     }
-    Sink fromGraph graph
+    Flow fromGraph graph
   }
 
   private[this] def hideIrrelevantMsgs: Flow[TriggerMsg, TriggerMsg, NotUsed] =
@@ -553,7 +552,8 @@ class Runner(
     val submit = submitOrFail map postFailure.tupled to Sink.ignore
     source
       .viaMat(msgFlow)(Keep.right[NotUsed, T])
-      .toMat(getTriggerSink(name, acs, submit))(Keep.both)
+      .viaMat(getTriggerEvaluator(name, acs))(Keep.both)
+      .to(submit)
       .run()
   }
 }
