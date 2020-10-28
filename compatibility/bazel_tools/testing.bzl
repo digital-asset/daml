@@ -18,6 +18,7 @@ load("//:versions.bzl", "latest_stable_version")
 # PRs that resulted in exclusions:
 # - ContractKeysIT:
 #   - https://github.com/digital-asset/daml/pull/5608
+#   - https://github.com/digital-asset/daml/pull/7829
 # - ContractKeysSubmitterIsMaintainerIT:
 #   - https://github.com/digital-asset/daml/pull/5611
 excluded_test_tool_tests = [
@@ -119,6 +120,18 @@ excluded_test_tool_tests = [
                 "exclusions": [
                     # See https://github.com/digital-asset/daml/pull/7400
                     "WronglyTypedContractIdIT:WTFetchFails",
+                ],
+            },
+        ],
+    },
+    {
+        "end": "1.7.0-snapshot.20201023.5508.0.9dec6689",
+        "platform_ranges": [
+            {
+                "start": "0.0.0",
+                "exclusions": [
+                    "ContractKeysIT:CKFetchOrLookup",
+                    "ContractKeysIT:CKNoFetchUndisclosed",
                 ],
             },
         ],
