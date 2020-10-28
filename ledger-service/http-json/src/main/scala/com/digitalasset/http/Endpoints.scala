@@ -303,7 +303,8 @@ class Endpoints(
 
     HttpResponse(
       status = StatusCodes.OK,
-      entity = HttpEntity.CloseDelimited(ContentTypes.`application/json`, response)
+      entity = HttpEntity
+        .Chunked(ContentTypes.`application/json`, response.map(HttpEntity.ChunkStreamPart(_)))
     )
   }
 
