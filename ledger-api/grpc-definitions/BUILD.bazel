@@ -325,10 +325,11 @@ scaladoc_jar(
     deps = [],
 ) if is_windows == False else None
 
-# Create empty Sources JAR for uploading to Maven Central
+# Allow .proto files to be used by ScalaPB for customized compilation
 scala_source_jar(
     name = "ledger-api-scalapb_src",
-    srcs = [],
+    srcs = glob(["**/*.proto"]),
+    strip_upto = "/grpc-definitions/"
 )
 
 proto_gen(
