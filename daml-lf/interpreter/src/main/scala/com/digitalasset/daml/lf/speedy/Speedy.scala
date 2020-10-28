@@ -259,8 +259,8 @@ private[lf] object Speedy {
         // stack trace it produced back on the continuation stack to get
         // complete stack trace at the use site. Thus, we store the stack traces
         // of top level values separately during their execution.
-        case Some(KCacheVal(v, stack_trace)) =>
-          kontStack.set(last_index, KCacheVal(v, loc :: stack_trace)); ()
+        case Some(KCacheVal(v, defn, stack_trace)) =>
+          kontStack.set(last_index, KCacheVal(v, defn, loc :: stack_trace)); ()
         case _ => pushKont(KLocation(loc))
       }
     }
@@ -408,9 +408,15 @@ private[lf] object Speedy {
         case None =>
           val ref = eval.ref
           compiledPackages.getDefinition(ref) match {
-            case Some(body) =>
-              pushKont(KCacheVal(eval, Nil))
-              ctrl = body
+            case Some(defn) =>
+              defn.cached match {
+                case Some((svalue, stackTrace)) =>
+                  eval.setCached(svalue, stackTrace)
+                  returnValue = svalue
+                case None =>
+                  pushKont(KCacheVal(eval, defn, Nil))
+                  ctrl = defn.body
+              }
             case None =>
               if (compiledPackages.getSignature(ref.packageId).isDefined)
                 crash(
@@ -1128,16 +1134,22 @@ private[lf] object Speedy {
     }
   }
 
-  /** Store the evaluated value in the 'SEVal' from which the expression came from.
-    * This in principle makes top-level values lazy. It is a useful optimization to
-    * allow creation of large constants (for example records) that are repeatedly
-    * accessed. In older compilers which did not use the builtin record and struct
-    * updates this solves the blow-up which would happen when a large record is
-    * updated multiple times. */
-  private[speedy] final case class KCacheVal(v: SEVal, stack_trace: List[Location]) extends Kont {
+  /** Store the evaluated value in the definition and in the 'SEVal' from which the
+    * expression came from. This in principle makes top-level values lazy. It is a
+    * useful optimization to allow creation of large constants (for example records
+    * that are repeatedly accessed. In older compilers which did not use the builtin
+    * record and struct updates this solves the blow-up which would happen when a
+    * large record is updated multiple times.
+    */
+  private[speedy] final case class KCacheVal(
+      v: SEVal,
+      defn: SDefinition,
+      stack_trace: List[Location])
+      extends Kont {
     def execute(sv: SValue, machine: Machine): Unit = {
       machine.pushStackTrace(stack_trace)
       v.setCached(sv, stack_trace)
+      defn.setCached(sv, stack_trace)
       machine.returnValue = sv
     }
   }
