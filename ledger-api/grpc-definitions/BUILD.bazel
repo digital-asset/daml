@@ -286,8 +286,8 @@ da_haskell_library(
 scala_library(
     name = "ledger-api-scalapb",
     srcs = [":ledger-api-scalapb-sources"],
-    resources = glob(["**/*.proto"]),
     resource_strip_prefix = ledger_api_proto_source_root,
+    resources = glob(["**/*.proto"]),
     tags = [
         "maven_coordinates=com.daml:ledger-api-scalapb:__VERSION__",
     ],
