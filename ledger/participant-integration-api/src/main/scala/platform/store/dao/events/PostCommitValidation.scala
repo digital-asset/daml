@@ -215,13 +215,13 @@ private[dao] object PostCommitValidation {
   }
 
   private[events] val DuplicateKey: RejectionReason =
-    RejectionReason.Disputed("DuplicateKey: contract key is not unique")
+    RejectionReason.Inconsistent("DuplicateKey: contract key is not unique")
 
   private[events] def MismatchingLookup(
       expectation: Option[ContractId],
       result: Option[ContractId],
   ): RejectionReason =
-    RejectionReason.Disputed(
+    RejectionReason.Inconsistent(
       s"Contract key lookup with different results: expected [$expectation], actual [$result]"
     )
 
