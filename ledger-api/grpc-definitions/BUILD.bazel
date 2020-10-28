@@ -15,6 +15,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 ledger_api_proto_source_root = "ledger-api/grpc-definitions"
 
+
 proto_library(
     name = "protos",
     srcs = glob(["**/*.proto"]),
@@ -282,9 +283,12 @@ da_haskell_library(
     visibility = ["//visibility:public"],
 )
 
+# ScalaPB Ledger API plus protobuf sources for customized compilation
 scala_library(
     name = "ledger-api-scalapb",
     srcs = [":ledger-api-scalapb-sources"],
+    resources = glob(["**/*.proto"]),
+    resource_strip_prefix = ledger_api_proto_source_root,
     tags = [
         "maven_coordinates=com.daml:ledger-api-scalapb:__VERSION__",
     ],
@@ -325,7 +329,7 @@ scaladoc_jar(
     deps = [],
 ) if is_windows == False else None
 
-# Allow .proto files to be used by ScalaPB for customized compilation
+# Provide protobuf sources
 scala_source_jar(
     name = "ledger-api-scalapb_src",
     srcs = glob(["**/*.proto"]),
