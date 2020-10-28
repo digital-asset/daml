@@ -332,7 +332,7 @@ scaladoc_jar(
 scala_source_jar(
     name = "ledger-api-scalapb_src",
     srcs = glob(["**/*.proto"]),
-    strip_upto = "/grpc-definitions/"
+    strip_upto = ledger_api_proto_source_root,
 )
 
 proto_gen(
