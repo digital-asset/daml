@@ -60,5 +60,5 @@ da_haskell_test(
     deps = [
         ":daml-lf-conversion",
         "//compiler/daml-lf-ast",
-    ]
+    ],
 )
