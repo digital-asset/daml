@@ -15,7 +15,6 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 ledger_api_proto_source_root = "ledger-api/grpc-definitions"
 
-
 proto_library(
     name = "protos",
     srcs = glob(["**/*.proto"]),
