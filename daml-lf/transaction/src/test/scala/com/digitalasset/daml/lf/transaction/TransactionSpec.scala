@@ -13,6 +13,7 @@ import com.daml.lf.transaction.GenTransaction.{
   OrphanedNode
 }
 import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
+import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
@@ -130,8 +131,17 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
    */
 
   "isReplayedBy" - {
+    def genTrans(node: GenNode.WithTxValue[NodeId, ContractId]) = {
+      val nid = NodeId(1)
+      GenTransaction(HashMap(nid -> node), ImmArray(nid))
+    }
+
+    def isReplayedBy(
+        n1: GenNode.WithTxValue[NodeId, ContractId],
+        n2: GenNode.WithTxValue[NodeId, ContractId],
+    ) = Transaction.isReplayedBy(genTrans(n1), genTrans(n2))
+
     // the whole-transaction-relevant parts are handled by equalForest testing
-    import Node.isReplayedBy
     type CidVal[F[_, _]] = F[V.ContractId, V.VersionedValue[V.ContractId]]
     val genEmptyNode
       : Gen[Node.GenNode.WithTxValue[Nothing, V.ContractId]] = danglingRefGenNode map {
@@ -141,11 +151,11 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
     }
 
     "is reflexive" in forAll(genEmptyNode) { n =>
-      isReplayedBy(n, n) shouldBe true
+      isReplayedBy(n, n) shouldBe Right(())
     }
 
     "negation implies == negation" in forAll(genEmptyNode, genEmptyNode) { (na, nb) =>
-      whenever(!isReplayedBy(na, nb)) {
+      whenever(isReplayedBy(na, nb).isLeft) {
         na should not be nb
       }
     }
@@ -158,8 +168,8 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
           ne copy (optLocation = None)
         case nl: CidVal[Node.NodeLookupByKey] => nl copy (optLocation = None)
       }
-      isReplayedBy(withoutLocation, n) shouldBe true
-      isReplayedBy(n, withoutLocation) shouldBe true
+      isReplayedBy(withoutLocation, n) shouldBe Right(())
+      isReplayedBy(n, withoutLocation) shouldBe Right(())
     }
   }
 
