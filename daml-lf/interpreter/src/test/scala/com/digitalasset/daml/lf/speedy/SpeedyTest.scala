@@ -7,7 +7,6 @@ package speedy
 import java.util
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.{FrontStack, ImmArray, Struct}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
@@ -310,11 +309,12 @@ class SpeedyTest extends WordSpec with Matchers {
       val p_1_0 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_1_0")))
       p_1_0 shouldEqual
         Some(
-          SELet1General(
-            SEVal(LfDefRef(qualify("M:origin"))),
-            SEAppAtomicSaturatedBuiltin(
-              SBRecUpd(qualify("M:Point"), 0),
-              Array(SELocS(1), SEValue(SInt64(1))))))
+          SDefinition(
+            SELet1General(
+              SEVal(LfDefRef(qualify("M:origin"))),
+              SEAppAtomicSaturatedBuiltin(
+                SBRecUpd(qualify("M:Point"), 0),
+                Array(SELocS(1), SEValue(SInt64(1)))))))
 
     }
 
@@ -333,15 +333,17 @@ class SpeedyTest extends WordSpec with Matchers {
       val p_1_2 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_1_2")))
       p_1_2 shouldEqual
         Some(
-          SELet1General(
-            SEVal(LfDefRef(qualify("M:origin"))),
-            SEAppAtomicSaturatedBuiltin(
-              SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
-              Array(
-                SELocS(1),
-                SEValue(SInt64(1)),
-                SEValue(SInt64(2)),
-              ),
+          SDefinition(
+            SELet1General(
+              SEVal(LfDefRef(qualify("M:origin"))),
+              SEAppAtomicSaturatedBuiltin(
+                SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                Array(
+                  SELocS(1),
+                  SEValue(SInt64(1)),
+                  SEValue(SInt64(2)),
+                ),
+              )
             )
           )
         )
@@ -370,18 +372,20 @@ class SpeedyTest extends WordSpec with Matchers {
       val p_3_4 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_3_4_loc")))
       p_3_4 shouldEqual
         Some(
-          SELet1General(
-            SELocation(mkLocation(2), SEVal(LfDefRef(qualify("M:origin")))),
-            SELocation(
-              mkLocation(0),
-              SEAppAtomicSaturatedBuiltin(
-                SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
-                Array(
-                  SELocS(1),
-                  SEValue(SInt64(3)),
-                  SEValue(SInt64(4)),
-                ),
-              )),
+          SDefinition(
+            SELet1General(
+              SELocation(mkLocation(2), SEVal(LfDefRef(qualify("M:origin")))),
+              SELocation(
+                mkLocation(0),
+                SEAppAtomicSaturatedBuiltin(
+                  SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                  Array(
+                    SELocS(1),
+                    SEValue(SInt64(3)),
+                    SEValue(SInt64(4)),
+                  ),
+                )),
+            )
           )
         )
     }

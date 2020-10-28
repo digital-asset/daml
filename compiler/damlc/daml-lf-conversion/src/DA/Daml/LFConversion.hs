@@ -114,8 +114,9 @@ import           "ghc-lib-parser" Pair hiding (swap)
 import           "ghc-lib-parser" PrelNames
 import           "ghc-lib-parser" TysPrim
 import           "ghc-lib-parser" TyCoRep
-import           "ghc-lib-parser" Class (classHasFds)
+import           "ghc-lib-parser" Class (classHasFds, classMinimalDef, classOpItems)
 import qualified "ghc-lib-parser" Name
+import qualified "ghc-lib-parser" BooleanFormula as BF
 import           Safe.Exact (zipExact, zipExactMay)
 import           SdkVersion
 
@@ -544,8 +545,27 @@ convertClassDef env tycon
             EBuiltin (BEText "undefined") -- We only care about the type, not the expr.
         funDepDef = defValue tycon (funDepName tsynName, funDepType) funDepExpr
 
-    pure $ [typeDef] ++ [funDepDef | classHasFds cls && newStyle]
-        -- NOTE (SF): No reason to generate fundep metadata with old-style typeclasses,
+    let minimal = fmap getOccText (classMinimalDef cls)
+        methodsWithNoDefault = sort [ getOccText id | (id, Nothing) <- classOpItems cls ]
+            -- Used when MINIMAL pragma is not given,
+            -- i.e. the minimal sig is all methods without a default implementation.
+        minimalIsDefault =
+            case minimal of
+                BF.Var x -> [x] == methodsWithNoDefault
+                BF.And subclauses
+                    | let names = [ name | BF.Var name <- map unLoc subclauses ]
+                    , length names == length subclauses
+                    -> sort names == methodsWithNoDefault
+                _ -> False
+        minimalType = encodeBooleanFormula minimal
+        minimalExpr = EBuiltin BEError `ETyApp` minimalType `ETmApp`
+            EBuiltin (BEText "undefined")
+        minimalDef = defValue tycon (minimalName tsynName, minimalType) minimalExpr
+
+    pure $ [typeDef]
+        ++ [funDepDef | classHasFds cls && newStyle]
+        ++ [minimalDef | not minimalIsDefault && newStyle]
+        -- NOTE (SF): No reason to generate fundep & minimal metadata with old-style typeclasses,
         -- since data-dependencies support for old-style typeclasses is extremely limited.
 
 defNewtypeWorker :: NamedThing a => LF.ModuleName -> a -> TypeConName -> DataCon

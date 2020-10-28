@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import java.util.regex.Pattern
+
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
@@ -56,7 +58,10 @@ final class ContractKeysIT extends LedgerTestSuite {
           .failed
       } yield {
         assertGrpcError(fetchFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
-        assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "Disputed")
+        assertGrpcError(
+          lookupByKeyFailure,
+          Status.Code.INVALID_ARGUMENT,
+          Some(Pattern.compile("Disputed|Inconsistent")))
       }
   })
 
@@ -99,7 +104,10 @@ final class ContractKeysIT extends LedgerTestSuite {
           "dependency error: couldn't find contract",
         )
         assertGrpcError(fetchByKeyFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
-        assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "Disputed")
+        assertGrpcError(
+          lookupByKeyFailure,
+          Status.Code.INVALID_ARGUMENT,
+          Some(Pattern.compile("Disputed|Inconsistent")))
       }
   })
 
@@ -165,7 +173,10 @@ final class ContractKeysIT extends LedgerTestSuite {
           .create(alice, MaintainerNotSignatory(alice, bob))
           .failed
       } yield {
-        assertGrpcError(duplicateKeyFailure, Status.Code.INVALID_ARGUMENT, "DuplicateKey")
+        assertGrpcError(
+          duplicateKeyFailure,
+          Status.Code.INVALID_ARGUMENT,
+          Some(Pattern.compile("DuplicateKey|Inconsistent")))
         assertGrpcError(
           bobLooksUpTextKeyFailure,
           Status.Code.INVALID_ARGUMENT,
