@@ -553,7 +553,7 @@ convertClassDef env tycon
             case minimal of
                 BF.Var x -> [x] == methodsWithNoDefault
                 BF.And subclauses
-                    | names <- [ name | BF.Var name <- map unLoc subclauses ]
+                    | let names = [ name | BF.Var name <- map unLoc subclauses ]
                     , length names == length subclauses
                     -> sort names == methodsWithNoDefault
                 _ -> False
