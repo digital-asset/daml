@@ -246,7 +246,7 @@ class Runner(
     (commandUUID, SubmitRequest(commands = Some(commandsArg)))
   }
 
-  import Runner.{DamlFun, maxParallelSubmissionsPerTrigger}
+  import Runner.{DamlFun, SingleCommandFailure, maxParallelSubmissionsPerTrigger}
 
   private def freeTriggerSubmits(
       clientTime: Timestamp,
@@ -298,7 +298,7 @@ class Runner(
       heartbeat: Option[FiniteDuration],
       party: String,
       filter: TransactionFilter)(implicit materializer: Materializer)
-    : (Source[TriggerMsg, NotUsed], (String, StatusRuntimeException) => Unit) = {
+    : (Source[TriggerMsg, NotUsed], SingleCommandFailure => Unit) = {
 
     // A queue for command submission failures together with a source
     // from which messages posted to the queue can be consumed.
@@ -310,7 +310,8 @@ class Runner(
         .preMaterialize()
     // This function, given a command ID and a runtime exception,
     // posts to the completion queue.
-    def postSubmitFailure(commandId: String, s: StatusRuntimeException) = {
+    def postSubmitFailure(scf: SingleCommandFailure) = {
+      import scf._
       val _ = completionQueue.offer(
         Completion(
           commandId,
@@ -517,14 +518,14 @@ class Runner(
     } yield (acsResponses.flatMap(x => x.activeContracts), offset)
   }
 
-  private[this] def submitOrFail(implicit ec: ExecutionContext)
-    : Flow[SubmitRequest, (String, StatusRuntimeException), NotUsed] = {
+  private[this] def submitOrFail(
+      implicit ec: ExecutionContext): Flow[SubmitRequest, SingleCommandFailure, NotUsed] = {
     def submit(req: SubmitRequest) = {
       val f: Future[Empty] = client.commandClient
         .submitSingleCommand(req)
       f.map(_ => None).recover {
         case s: StatusRuntimeException =>
-          Some((req.getCommands.commandId, s))
+          Some(SingleCommandFailure(req.getCommands.commandId, s))
         // any other error will cause the trigger's stream to fail
       }
     }
@@ -549,7 +550,7 @@ class Runner(
     // XXX It would be better to split the stream and feed failures back
     // into the msgSource directly.  As it stands we fire-and-forget
     // the (async) queuing done here, ignoring failure
-    val submit = submitOrFail map postFailure.tupled to Sink.ignore
+    val submit = submitOrFail map postFailure to Sink.ignore
     source
       .viaMat(msgFlow)(Keep.right[NotUsed, T])
       .viaMat(getTriggerEvaluator(name, acs))(Keep.both)
@@ -591,6 +592,8 @@ object Runner extends StrictLogging {
       }
     }
   }
+
+  private final case class SingleCommandFailure(commandId: String, s: StatusRuntimeException)
 
   private sealed abstract class SeenMsgs {
     import Runner.{SeenMsgs => S}
