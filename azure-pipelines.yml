@@ -610,48 +610,6 @@ jobs:
         az pipelines build queue --branch $(branch) --definition-name "digital-asset.daml-daily-compat" --org "https://dev.azure.com/digitalasset" --project daml
         az pipelines build queue --branch $(branch) --definition-name "digital-asset.daml" --org "https://dev.azure.com/digitalasset" --project daml
 
-  - job: write_ledger_dump
-    dependsOn:
-      - check_for_release
-      - da_ghc_lib
-    pool:
-      vmImage: "Ubuntu-16.04"
-    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
-    variables:
-      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
-      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    steps:
-      - checkout: self
-      - bash: |
-          set -euo pipefail
-
-          git checkout $(release_sha)
-          export DAML_SDK_RELEASE_VERSION=$(release_tag)
-
-          sudo mkdir -p /nix
-          sudo chown $USER /nix
-          curl -sSfL https://nixos.org/releases/nix/nix-2.3.3/install | bash
-          eval "$(dev-env/bin/dade-assist)"
-          GCS_KEY=$(mktemp)
-          cleanup () {
-              rm -f $GCS_KEY
-          }
-          trap cleanup EXIT
-          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
-          gcloud auth activate-service-account --key-file=$GCS_KEY
-          export BOTO_CONFIG=/dev/null
-
-          bazel build //ledger/participant-state/kvutils:reference-ledger-dump
-          gsutil cp bazel-bin/ledger/participant-state/kvutils/reference-ledger-dump.out \
-                    gs://daml-dumps/release/ledger/api-server-damlonx/reference-v2/reference-ledger-dump-$(release_tag)
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ci/tell-slack-failed.yml
-        parameters:
-          trigger_sha: '$(trigger_sha)'
-
   - job: collect_build_data
     condition: always()
     dependsOn:
@@ -659,7 +617,6 @@ jobs:
       - macOS
       - Windows
       - release
-      - write_ledger_dump
       - git_sha
       - compatibility_macos
       - compatibility_linux
@@ -684,10 +641,6 @@ jobs:
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]
       release.status: $[ dependencies.release.result ]
-      dump.start: $[ dependencies.write_ledger_dump.outputs['start.time'] ]
-      dump.machine: $[ dependencies.write_ledger_dump.outputs['start.machine'] ]
-      dump.end: $[ dependencies.write_ledger_dump.outputs['end.time'] ]
-      dump.status: $[ dependencies.write_ledger_dump.result ]
       compatibility_linux.start: $[ dependencies.compatibility_linux.outputs['start.time'] ]
       compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
       compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
@@ -735,10 +688,6 @@ jobs:
                                 "machine": "$(Windows.machine)",
                                 "end": "$(Windows.end)",
                                 "status": "$(Windows.status)"},
-                    "write_ledger_dump": {"start": "$(dump.start)",
-                                          "machine": "$(dump.machine)",
-                                          "end": "$(dump.end)",
-                                          "status": "$(dump.status)"},
                     "release": {"start": "$(release.start)",
                                 "machine": "$(release.machine)",
                                 "end": "$(release.end)",
@@ -789,15 +738,13 @@ jobs:
           # Linux, macOS and Windows are always required and should always
           # succeed.
           #
-          # release and write_ledger_dump only run on releases and are skipped
-          # otherwise.
+          # release only run on releases and is skipped otherwise.
           if [[ "$(Linux.status)" != "Succeeded"
               || "$(macOS.status)" != "Succeeded"
               || "$(Windows.status)" != "Succeeded"
               || "$(compatibility_linux.status)" != "Succeeded"
               || "$(compatibility_macos.status)" != "Succeeded"
               || "$(compatibility_windows.status)" != "Succeeded"
-              || "$(dump.status)" == "Canceled"
               || "$(release.status)" == "Canceled" ]]; then
               exit 1
           fi
@@ -915,7 +862,6 @@ jobs:
     - release
     - compat_versions_pr
     - compat_versions_pr_trigger_daily
-    - write_ledger_dump
     - collect_build_data
     - notify_release_pr
     - notify_user
@@ -936,7 +882,6 @@ jobs:
       release: $[ dependencies.release.result ]
       compat_versions_pr: $[ dependencies.compat_versions_pr.result ]
       compat_versions_pr_trigger_daily: $[ dependencies.compat_versions_pr_trigger_daily.result ]
-      write_ledger_dump: $[ dependencies.write_ledger_dump.result ]
       collect_build_data: $[ dependencies.collect_build_data.result ]
       notify_release_pr: $[ dependencies.notify_release_pr.result ]
       notify_user: $[ dependencies.notify_user.result ]
@@ -958,7 +903,6 @@ jobs:
         if [ "$(release)" != "Succeeded" ] && [ "$(release)" != "Skipped" ]; then exit 1; fi
         if [ "$(compat_versions_pr)" != "Succeeded" ] && [ "$(compat_versions_pr)" != "Skipped" ]; then exit 1; fi
         if [ "$(compat_versions_pr_trigger_daily)" != "Succeeded" ] && [ "$(compat_versions_pr_trigger_daily)" != "Skipped" ]; then exit 1; fi
-        if [ "$(write_ledger_dump)" != "Succeeded" ] && [ "$(write_ledger_dump)" != "Skipped" ]; then exit 1; fi
         if [ "$(collect_build_data)" != "Succeeded" ] && [ "$(collect_build_data)" != "Skipped" ]; then exit 1; fi
         if [ "$(notify_release_pr)" != "Succeeded" ] && [ "$(notify_release_pr)" != "Skipped" ]; then exit 1; fi
         if [ "$(notify_user)" != "Succeeded" ] && [ "$(notify_user)" != "Skipped" ]; then exit 1; fi

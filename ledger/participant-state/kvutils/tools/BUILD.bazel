@@ -11,32 +11,9 @@ load(
 )
 
 da_scala_binary(
-    name = "integrity-check-v1",
-    srcs = glob(["integrity-check-v1/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/v1/**/*.scala"]),
-    main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.v1.Main",
-    resources = glob(["src/main/resources/*"]),
-    visibility = [
-        "//visibility:public",
-    ],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
-    ],
-    deps = [
-        "//daml-lf/data",
-        "//daml-lf/engine",
-        "//ledger/metrics",
-        "//ledger/participant-state",
-        "//ledger/participant-state/kvutils",
-        "//ledger/participant-state/kvutils:daml_kvutils_java_proto",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_dropwizard_metrics_metrics_core",
-    ],
-)
-
-da_scala_binary(
-    name = "integrity-check-v2",
-    srcs = glob(["integrity-check-v2/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/v2/**/*.scala"]),
-    main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.v2.Main",
+    name = "integrity-check",
+    srcs = glob(["integrity-check/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/**/*.scala"]),
+    main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.Main",
     resources = glob(["src/main/resources/*"]),
     visibility = [
         "//visibility:public",
@@ -61,11 +38,11 @@ da_scala_binary(
 )
 
 da_scala_test(
-    name = "integrity-check-v2-tests",
+    name = "integrity-check-tests",
     size = "small",
-    srcs = glob(["integrity-check-v2/src/test/scala/ledger/participant/state/kvutils/tools/integritycheck/v2/IntegrityCheckerSpec.scala"]),
+    srcs = glob(["integrity-check/src/test/scala/ledger/participant/state/kvutils/tools/integritycheck/IntegrityCheckerSpec.scala"]),
     deps = [
-        ":integrity-check-v2",
+        ":integrity-check",
         "//ledger/participant-state/kvutils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_mockito_mockito_core",

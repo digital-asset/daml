@@ -24,6 +24,7 @@ import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.SortedSet
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -295,7 +296,7 @@ class SubmissionValidator[LogResult] private[validator] (
 
 object SubmissionValidator {
 
-  type RawKeyValuePairs = Seq[(Bytes, Bytes)]
+  type RawKeyValuePairs = SortedSet[(Bytes, Bytes)]
 
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
