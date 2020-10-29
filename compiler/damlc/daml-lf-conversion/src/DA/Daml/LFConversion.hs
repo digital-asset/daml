@@ -1032,16 +1032,16 @@ convertExpr env0 e = do
     go env (VarIn GHC_Types "[]") (LType (TypeCon (Is "Char") []) : args)
         = pure $ (, args) $ EBuiltin (BEText T.empty)
     go env (VarIn GHC_Types "[]") args
-        = withTyArg env KStar args $ \_env t args -> pure (ENil t, args)
+        = withTyArg env KStar args $ \env t args -> pure (ENil t, args)
     go env (VarIn GHC_Types ":") args =
-        withTyArg env KStar args $ \_env t args ->
+        withTyArg env KStar args $ \env t args ->
         withTmArg env t args $ \x args ->
         withTmArg env (TList t) args $ \y args ->
           pure (ECons t x y, args)
     go env (VarIn DA_Internal_Prelude (IgnoreWorkerPrefixFS "None")) args
-        = withTyArg env KStar args $ \_env t args -> pure (ENone t, args)
+        = withTyArg env KStar args $ \env t args -> pure (ENone t, args)
     go env (VarIn DA_Internal_Prelude (IgnoreWorkerPrefixFS "Some")) args
-        = withTyArg env KStar args $ \_env t args ->
+        = withTyArg env KStar args $ \env t args ->
           withTmArg env t args $ \x args ->
             pure (ESome t x, args)
 
