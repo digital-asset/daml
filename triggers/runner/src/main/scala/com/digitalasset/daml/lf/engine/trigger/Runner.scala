@@ -543,7 +543,7 @@ class Runner(
       .viaMat(getTriggerEvaluator(name, acs))(Keep.both)
       .via(submitOrFail)
       .join(source)
-      .run
+      .run()
   }
 }
 
