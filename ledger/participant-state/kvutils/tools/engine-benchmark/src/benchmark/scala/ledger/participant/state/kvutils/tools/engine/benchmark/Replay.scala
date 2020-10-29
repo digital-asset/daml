@@ -21,6 +21,7 @@ import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   SubmittedTransaction,
+  TransactionOuterClass,
   Transaction => Tx,
   TransactionCoder => TxCoder
 }
@@ -37,15 +38,24 @@ final case class TxEntry(
     submitter: Ref.Party,
     ledgerTime: Time.Timestamp,
     submissionTime: Time.Timestamp,
-    submissionSeed: crypto.Hash,
-)
+    submissionSeed: crypto.Hash
+) {
+  val bytes: Array[Byte] = Replay.encode(tx)
+}
 
 final case class BenchmarkState(
     name: String,
     transaction: TxEntry,
     contracts: Map[ContractId, Tx.ContractInst[ContractId]],
     contractKeys: Map[GlobalKey, ContractId],
-)
+) {
+  def getContract(cid: ContractId) =
+    contracts.get(cid)
+
+  def getContractKey(globalKeyWithMaintainers: GlobalKeyWithMaintainers) =
+    contractKeys.get(globalKeyWithMaintainers.globalKey)
+
+}
 
 @State(Scope.Benchmark)
 class Replay {
@@ -68,31 +78,29 @@ class Replay {
   var adapt: Boolean = _
 
   private var readDarFile: Option[String] = None
-  private var loadedPackages: Map[Ref.PackageId, Ast.Package] = _
-  private var engine: Engine = _
+  var loadedPackages: Map[Ref.PackageId, Ast.Package] = _
+  var engine: Engine = _
   private var benchmarksFile: Option[String] = None
   private var benchmarks: Map[String, BenchmarkState] = _
   private var benchmark: BenchmarkState = _
 
-  private def getContract(cid: ContractId) =
-    benchmark.contracts.get(cid)
-
-  private def getContractKey(globalKeyWithMaintainers: GlobalKeyWithMaintainers) =
-    benchmark.contractKeys.get(globalKeyWithMaintainers.globalKey)
-
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
   def bench(): Unit = {
-    val result = engine
-      .replay(
-        benchmark.transaction.submitter,
-        benchmark.transaction.tx,
-        benchmark.transaction.ledgerTime,
-        benchmark.transaction.participantId,
-        benchmark.transaction.submissionTime,
-        benchmark.transaction.submissionSeed,
-      )
-      .consume(getContract, Replay.unexpectedError, getContractKey)
-    assert(result.isRight)
+    //    benchmarks.foreach {
+    //      case (_, benchmark) =>
+    //        val result = engine
+    //          .replay(
+    //            benchmark.transaction.submitter,
+    Replay.encode(Replay.decode(benchmark.transaction.bytes))
+    //            benchmark.transaction.ledgerTime,
+    //            benchmark.transaction.participantId,
+    //            benchmark.transaction.submissionTime,
+    //            benchmark.transaction.submissionSeed,
+    //          )
+    //          .consume(benchmark.getContract, Replay.unexpectedError, benchmark.getContractKey)
+    //          .map(x => Replay.encode(x._1))
+    //        assert(result.isRight)
+    ()
   }
 
   @Setup(Level.Trial)
@@ -126,7 +134,9 @@ class Replay {
         benchmark.transaction.submissionTime,
         benchmark.transaction.submissionSeed,
       )
-      .consume(getContract, Replay.unexpectedError, getContractKey)
+      .consume(benchmark.getContract, Replay.unexpectedError, benchmark.getContractKey)
+    println(result.toString.take(200))
+
     assert(result.isRight)
   }
 
@@ -136,7 +146,7 @@ object Replay {
 
   private val unexpectedError = (_: Any) => sys.error("Unexpected Error")
 
-  private def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
+  def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
     println(s"%%% loading dar file $darFile ...")
     UniversalArchiveReader()
       .readFile(darFile.toFile)
@@ -148,7 +158,7 @@ object Replay {
       .toMap
   }
 
-  private def compile(pkgs: Map[Ref.PackageId, Ast.Package]): Engine = {
+  def compile(pkgs: Map[Ref.PackageId, Ast.Package]): Engine = {
     println(s"%%% compile ${pkgs.size} packages ...")
     val engine = Engine.DevEngine()
     AstUtil.dependenciesInTopologicalOrder(pkgs.keys.toList, pkgs).foreach { pkgId =>
@@ -158,6 +168,19 @@ object Replay {
       assert(r.isRight)
     }
     engine
+  }
+
+  def encode(tx: SubmittedTransaction) = {
+    val javaTx: TransactionOuterClass.Transaction =
+      TxCoder.encodeTransaction(TxCoder.NidEncoder, ValCoder.CidEncoder, tx).right.get
+    javaTx.toByteArray
+  }
+
+  def decode(bytes: Array[Byte]) = {
+    val javaTx2 = TransactionOuterClass.Transaction.parseFrom(bytes)
+    val scalaTx =
+      TxCoder.decodeTransaction(TxCoder.NidDecoder, ValCoder.CidDecoder, javaTx2).right.get
+    SubmittedTransaction(scalaTx)
   }
 
   private[this] def decodeSubmission(
@@ -173,9 +196,10 @@ object Replay {
             ValCoder.CidDecoder,
             submission.getTransactionEntry.getTransaction)
           .fold(err => sys.error(err.toString), SubmittedTransaction(_))
+
         Stream(
           TxEntry(
-            tx = tx,
+            tx = decode(encode(tx)),
             participantId = participantId,
             submitter = Ref.Party.assertFromString(entry.getSubmitterInfo.getSubmitter),
             ledgerTime = parseTimestamp(entry.getLedgerEffectiveTime),
@@ -246,6 +270,11 @@ object Replay {
             List.empty
         }
       }
+//
+//      remy.log("****")
+//      benchmarks.foreach(
+//        b => remy.log(s"${b.name}, ${b.transaction.bytes.size}")
+//      )
 
       benchmarks.groupBy(_.name).flatMap {
         case (key, Seq(test)) =>

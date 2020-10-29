@@ -9,7 +9,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
 import com.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
-import com.daml.lf.value.Value.{ContractInst, ValueParty, VersionedValue}
+import com.daml.lf.value.Value.{ContractId, ContractInst, ValueParty, VersionedValue}
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.lf.value.{Value, ValueCoder, ValueVersion, ValueVersions}
 import com.daml.lf.transaction.TransactionVersions._
@@ -37,34 +37,40 @@ class TransactionCoderSpec
   "encode-decode" should {
     "do contractInstance" in {
       forAll(contractInstanceGen) { coinst: ContractInst[Tx.Value[Value.ContractId]] =>
-        Right(coinst) shouldEqual TransactionCoder.decodeContractInstance(
+        val normalizedCoinst = minimalistCoinst(coinst)
+        Right(normalizedCoinst) shouldEqual TransactionCoder.decodeContractInstance(
           ValueCoder.CidDecoder,
-          TransactionCoder.encodeContractInstance(ValueCoder.CidEncoder, coinst).toOption.get,
+          TransactionCoder
+            .encodeContractInstance(ValueCoder.CidEncoder, normalizedCoinst)
+            .toOption
+            .get,
         )
       }
     }
 
     "do NodeCreate" in {
       forAll(malformedCreateNodeGen, valueVersionGen()) {
-        (node: NodeCreate[Value.ContractId, Tx.Value[Value.ContractId]], _: ValueVersion) =>
+        (node: NodeCreate[Value.ContractId, Tx.Value[ContractId]], _: ValueVersion) =>
+          val normalizedNode =
+            GenNode.map3(identity[NodeId], identity[ContractId], minimalistValue[ContractId])(node)
           val encodedNode = TransactionCoder
             .encodeNode(
               TransactionCoder.NidEncoder,
               ValueCoder.CidEncoder,
               defaultTransactionVersion,
               NodeId(0),
-              node,
+              normalizedNode,
             )
             .toOption
             .get
-          Right((NodeId(0), node)) shouldEqual TransactionCoder.decodeNode(
+          Right((NodeId(0), normalizedNode)) shouldEqual TransactionCoder.decodeNode(
             TransactionCoder.NidDecoder,
             ValueCoder.CidDecoder,
             defaultTransactionVersion,
             encodedNode,
           )
 
-          Right(node.informeesOfNode) shouldEqual
+          Right(normalizedNode.informeesOfNode) shouldEqual
             TransactionCoder
               .protoNodeInfo(defaultTransactionVersion, encodedNode)
               .map(_.informeesOfNode)
@@ -74,6 +80,8 @@ class TransactionCoderSpec
     "do NodeFetch" in {
       forAll(fetchNodeGen, valueVersionGen()) {
         (node: NodeFetch.WithTxValue[Value.ContractId], _: ValueVersion) =>
+          val normalizedNode =
+            GenNode.map3(identity[NodeId], identity[ContractId], minimalistValue[ContractId])(node)
           val encodedNode =
             TransactionCoder
               .encodeNode(
@@ -81,17 +89,18 @@ class TransactionCoderSpec
                 ValueCoder.CidEncoder,
                 defaultTransactionVersion,
                 NodeId(0),
-                node,
+                normalizedNode,
               )
               .toOption
               .get
-          Right((NodeId(0), withoutByKeyFlag(node))) shouldEqual TransactionCoder.decodeNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            defaultTransactionVersion,
-            encodedNode,
-          )
-          Right(node.informeesOfNode) shouldEqual
+          Right((NodeId(0), withoutByKeyFlag(normalizedNode))) shouldEqual TransactionCoder
+            .decodeNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              defaultTransactionVersion,
+              encodedNode,
+            )
+          Right(normalizedNode.informeesOfNode) shouldEqual
             TransactionCoder
               .protoNodeInfo(defaultTransactionVersion, encodedNode)
               .map(_.informeesOfNode)
@@ -101,6 +110,8 @@ class TransactionCoderSpec
     "do NodeExercises" in {
       forAll(danglingRefExerciseNodeGen) {
         node: NodeExercises[NodeId, Value.ContractId, Tx.Value[Value.ContractId]] =>
+          val normalizedNode =
+            GenNode.map3(identity[NodeId], identity[ContractId], minimalistValue[ContractId])(node)
           val encodedNode =
             TransactionCoder
               .encodeNode(
@@ -108,18 +119,19 @@ class TransactionCoderSpec
                 ValueCoder.CidEncoder,
                 defaultTransactionVersion,
                 NodeId(0),
-                node,
+                normalizedNode,
               )
               .toOption
               .get
-          Right((NodeId(0), withoutByKeyFlag(node))) shouldEqual TransactionCoder.decodeNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            defaultTransactionVersion,
-            encodedNode,
-          )
+          Right((NodeId(0), withoutByKeyFlag(normalizedNode))) shouldEqual TransactionCoder
+            .decodeNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              defaultTransactionVersion,
+              encodedNode,
+            )
 
-          Right(node.informeesOfNode) shouldEqual
+          Right(normalizedNode.informeesOfNode) shouldEqual
             TransactionCoder
               .protoNodeInfo(defaultTransactionVersion, encodedNode)
               .map(_.informeesOfNode)
@@ -430,23 +442,59 @@ class TransactionCoderSpec
   ): GenTransaction[Nid, Cid, Val] =
     t copy (nodes = t.nodes.transform((_, gn) => f(gn)))
 
-  def minimalistTx[Nid, Cid, Val](
+  private def minimalistValue[Cid](
+      value: Tx.Value[Cid]
+  ): VersionedValue[Cid] = {
+    val version = value.version
+    val noTypeConstructor = !(version precedes ValueVersions.minNoTypeConstructor)
+    val noRecordLabel = !(version precedes ValueVersions.minNoRecordLabel)
+    val noGenMap = (version precedes ValueVersions.minGenMap)
+    def go(value: Value[Cid]): Value[Cid] =
+      value match {
+        case Value.ValueEnum(_, enum) if noTypeConstructor =>
+          Value.ValueEnum(None, enum)
+        case Value.ValueRecord(id, fields) =>
+          Value.ValueRecord(id.filterNot(_ => noTypeConstructor), fields.map {
+            case (label, v) => label.filterNot(_ => noRecordLabel) -> go(v)
+          })
+        case Value.ValueVariant(id, variant, value) =>
+          Value.ValueVariant(id.filterNot(_ => noTypeConstructor), variant, go(value))
+        case Value.ValueGenMap(_) if noGenMap => Value.ValueUnit
+        case Value.ValueGenMap(entries) =>
+          Value.ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
+        case Value.ValueList(elems) => Value.ValueList(elems.map(go))
+        case Value.ValueOptional(value) => Value.ValueOptional(value.map(go))
+        case Value.ValueTextMap(entries) => Value.ValueTextMap(entries.mapValue(go))
+        case otherwise => otherwise
+      }
+    VersionedValue(value.version, go(value.value))
+  }
+
+  private def minimalistCoinst[Cid](
+      coinst: Value.ContractInst[VersionedValue[Cid]]
+  ) = {
+    val x = minimalistValue(coinst.arg)
+    coinst.copy(arg = x)
+  }
+
+  def minimalistTx[Nid, Cid](
       txvMin: TransactionVersion,
-      tx: GenTransaction[Nid, Cid, Val],
-  ): GenTransaction[Nid, Cid, Val] = {
+      tx: GenTransaction.WithTxValue[Nid, Cid],
+  ): GenTransaction.WithTxValue[Nid, Cid] = {
     def condApply(
         before: TransactionVersion,
-        f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val],
-    ): GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val] =
+        f: GenNode.WithTxValue[Nid, Cid] => GenNode.WithTxValue[Nid, Cid],
+    ): GenNode.WithTxValue[Nid, Cid] => GenNode.WithTxValue[Nid, Cid] =
       if (txvMin precedes before) f else identity
-
     transactionWithout(
       tx,
       condApply(minMaintainersInExercise, withoutMaintainersInExercise)
         .compose(condApply(minContractKeyInExercise, withoutContractKeyInExercise))
         .compose(condApply(minExerciseResult, withoutExerciseResult))
         .compose(condApply(minChoiceObservers, withoutChoiceObservers))
-        .compose(withoutByKeyFlag[Nid, Cid, Val]),
+        .compose(GenNode
+          .map3(identity[Nid], identity[Cid], (v: Tx.Value[Cid]) => minimalistValue(v)))
+        .compose(withoutByKeyFlag[Nid, Cid, Tx.Value[Cid]]),
     )
   }
 

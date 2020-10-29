@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.language.Ast
-import com.daml.lf.language.Ast.{keyFieldName, maintainersFieldName}
+import com.daml.lf.language.Ast.{TTyCon, keyFieldName, maintainersFieldName}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy._
@@ -1041,7 +1041,7 @@ private[lf] object SBuiltin {
                         DamlEDisallowedInputValueVersion(onLedger.inputValueVersions, version),
                       )
                     else
-                      SEImportValue(arg)
+                      SEImportValue(TTyCon(actualTmplId), arg)
               },
             ),
           )
@@ -1119,7 +1119,10 @@ private[lf] object SBuiltin {
                   // We have to check that the discriminator of cid does not conflict with a local ones
                   // however we cannot raise an exception in case of failure here.
                   // We delegate to CtrlImportValue the task to check cid.
-                  machine.ctrl = SEImportValue(V.ValueOptional(Some(V.ValueContractId(cid))))
+                  machine.ctrl = SBSome(
+                    SEImportValue(
+                      language.Util.TUnit, // garbage type
+                      V.ValueContractId(cid)))
                   true
                 case SKeyLookupResult.NotFound =>
                   onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> None))
@@ -1202,7 +1205,9 @@ private[lf] object SBuiltin {
                   // We have to check that the discriminator of cid does not conflict with a local ones
                   // however we cannot raise an exception in case of failure here.
                   // We delegate to CtrlImportValue the task to check cid.
-                  machine.ctrl = SEImportValue(V.ValueContractId(cid))
+                  machine.ctrl = SEImportValue(
+                    language.Util.TUnit, // garbage type
+                    V.ValueContractId(cid))
                   true
                 case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible =>
                   onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> None))

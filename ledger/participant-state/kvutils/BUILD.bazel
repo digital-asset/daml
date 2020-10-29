@@ -201,11 +201,11 @@ client_server_build(
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=%s,port=%d" % (REFERENCE_LEDGER_EXPORT_NAME, REFERENCE_LEDGER_EXPORT_PORT),
     ],
-) if not is_windows else None
+) if is_windows else None
 
 # Test for checking the integrity of the ledger export produced above.
 integrity_test(
     name = "%s-integrity-test" % REFERENCE_LEDGER_EXPORT_NAME,
     checker = "//ledger/participant-state/kvutils/tools:integrity-check",
     dump = ":%s" % REFERENCE_LEDGER_EXPORT_NAME,
-) if not is_windows else None
+) if is_windows else None

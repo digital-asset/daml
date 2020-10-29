@@ -10,6 +10,10 @@
 // * 3: new message ContractId, replaces string contract_id in Value sum
 // * 4: new message Map, incorporated into Value sum
 // * 5: new message Enum, incorporated into Value sum
+// * 6: change the format of Value's field numeric
+// * dev: new message GenMap
+//      : forbid use of field record_id, variant_id, and enum_id in message Record, Variant, and Enum
+//      : forbid use of field label in message RecordField
 syntax = "proto3";
 
 package com.daml.lf.value;
@@ -41,7 +45,7 @@ message Value {
         // to 28 digits before the decimal point and up to 10 after the decimal
         // point.
         //
-        // Starting from v5 this field expressed a number in base-10 with at most
+        // Starting from v6 this field expressed a number in base-10 with at most
         // 38 digits from which at most 37 can be used in the right hand side
         // of the decimal point.
         //
@@ -69,26 +73,26 @@ message Value {
         // https://www.ietf.org/rfc/rfc3339.txt
         int32 date = 13;
 
-        Optional optional = 14; // *since v2*
+        Optional optional = 14; // *available since v2*
 
         ContractId contract_id_struct = 15;
 
-        Map map = 16; // *since v4*
+        Map map = 16; // *available since v4*
 
-        Enum enum = 17; // *since v5*
+        Enum enum = 17; // *available since v5*
 
-        GenMap gen_map = 18; // *since v7*
+        GenMap gen_map = 18; // *available since vDev*
     }
 }
 // architecture-handbook-entry-end: Value
 
 message Record {
-    Identifier record_id = 1; // optional
+    Identifier record_id = 1; // optional // *available until vDev*
     repeated RecordField fields = 2;
 }
 
 message RecordField {
-    string label = 1; // optional
+    string label = 1; // optional // *until vDev*
     Value value = 2;
 }
 
@@ -102,13 +106,13 @@ message Identifier {
 }
 
 message Variant {
-    Identifier variant_id = 1; // optional
+    Identifier variant_id = 1; // optional // *available until vDev*
     string constructor = 2;
     Value value = 3;
 }
 
 message Enum {
-    Identifier enum_id = 1; // optional
+    Identifier enum_id = 1; // optional // *available until vDev*
     string value = 2;
 }
 
