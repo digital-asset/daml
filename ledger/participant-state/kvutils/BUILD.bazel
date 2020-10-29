@@ -176,39 +176,36 @@ da_java_proto_library(
     deps = [":daml_kvutils_proto"],
 )
 
-[
-    (
-        # Generates a ledger export by running the test tool against a kvutils-based ledger.
-        client_server_build(
-            name = name,
-            testonly = True,  # only test targets can depend on this.
-            client = "//ledger/ledger-api-test-tool",
-            client_args = [
-                "--concurrent-test-runs=4",
-                "--timeout-scale-factor=20",
-                "localhost:%d" % port,
-            ],
-            data = [
-                "//ledger/test-common:dar-files",
-            ],
-            output_env = environment_variable,
-            runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
-            runner_args = [str(port)],
-            server = "//ledger/ledger-on-memory:app",
-            server_args = [
-                "--contract-id-seeding=testing-weak",
-                "--participant participant-id=%s,port=%d" % (name, port),
-            ],
-        ) if not is_windows else None,
-        # Test for checking the integrity of the ledger export produced above.
-        integrity_test(
-            name = "%s-integrity-test" % name,
-            checker = checker,
-            dump = ":%s" % name,
-        ) if not is_windows else None,
-    )
-    for (name, port, environment_variable, checker) in [
-        ("reference-ledger-dump", 65101, "KVUTILS_LEDGER_DUMP", "//ledger/participant-state/kvutils/tools:integrity-check-v1"),
-        ("reference-ledger-export", 65102, "KVUTILS_LEDGER_EXPORT", "//ledger/participant-state/kvutils/tools:integrity-check-v2"),
-    ]
-]
+REFERENCE_LEDGER_EXPORT_NAME = "reference-ledger-export"
+
+REFERENCE_LEDGER_EXPORT_PORT = 65102
+
+# Generates a ledger export by running the test tool against a kvutils-based ledger.
+client_server_build(
+    name = REFERENCE_LEDGER_EXPORT_NAME,
+    testonly = True,  # only test targets can depend on this.
+    client = "//ledger/ledger-api-test-tool",
+    client_args = [
+        "--concurrent-test-runs=4",
+        "--timeout-scale-factor=20",
+        "localhost:%d" % REFERENCE_LEDGER_EXPORT_PORT,
+    ],
+    data = [
+        "//ledger/test-common:dar-files",
+    ],
+    output_env = "KVUTILS_LEDGER_EXPORT",
+    runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
+    runner_args = [str(REFERENCE_LEDGER_EXPORT_PORT)],
+    server = "//ledger/ledger-on-memory:app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=%s,port=%d" % (REFERENCE_LEDGER_EXPORT_NAME, REFERENCE_LEDGER_EXPORT_PORT),
+    ],
+) if not is_windows else None
+
+# Test for checking the integrity of the ledger export produced above.
+integrity_test(
+    name = "%s-integrity-test" % REFERENCE_LEDGER_EXPORT_NAME,
+    checker = "//ledger/participant-state/kvutils/tools:integrity-check",
+    dump = ":%s" % REFERENCE_LEDGER_EXPORT_NAME,
+) if not is_windows else None
