@@ -207,7 +207,7 @@ envFreshTypeVar nameHint env = try 1 (TypeVarName nameHint)
 -- | Bind a type var without shadowing its LF name.
 envBindTypeVar :: Var -> Env -> (TypeVarName, Env)
 envBindTypeVar x env0 =
-    let (n, env) = envFreshTypeVar (getOccText x) env in
+    let (n, env) = envFreshTypeVar (getOccText x) env0 in
     (n, env{envTypeVars = MS.insert x n (envTypeVars env)})
 
 -- | Bind multiple type vars without shadowing their LF names.
