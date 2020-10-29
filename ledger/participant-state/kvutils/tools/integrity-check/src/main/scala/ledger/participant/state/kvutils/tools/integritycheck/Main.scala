@@ -8,7 +8,7 @@ import java.util.concurrent.Executors
 
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.export.{LedgerDataExporter, v2}
-import Color.color
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.Color.color
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 

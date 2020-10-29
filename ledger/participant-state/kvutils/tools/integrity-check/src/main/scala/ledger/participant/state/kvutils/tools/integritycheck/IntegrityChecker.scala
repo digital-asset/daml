@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.kvutils.export.{
   NoOpLedgerDataExporter,
   WriteSet
 }
-import Color.color
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.Color.color
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,

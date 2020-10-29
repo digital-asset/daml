@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import com.daml.ledger.on.memory.{InMemoryLedgerStateOperations, Index}
 import com.daml.ledger.participant.state.kvutils
-import IntegrityChecker.bytesAsHexString
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.bytesAsHexString
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.batch.BatchedSubmissionValidatorFactory
