@@ -192,18 +192,23 @@ envInsertAlias v x env = env{envAliases = MS.insert v x (envAliases env)}
 envLookupAlias :: Var -> Env -> Maybe LF.Expr
 envLookupAlias x = MS.lookup x . envAliases
 
--- | Bind a type var without shadowing its LF name.
-envBindTypeVar :: Var -> Env -> (TypeVarName, Env)
-envBindTypeVar x env = try 1 (TypeVarName occName)
+-- | Get a fresh type var whose LF name has not yet been taken.
+envFreshTypeVar :: T.Text -> Env -> (TypeVarName, Env)
+envFreshTypeVar nameHint env = try 1 (TypeVarName nameHint)
     where
-        occName = getOccText x
-        nameFor i = TypeVarName (occName <> T.pack (show i))
+        nameFor i = TypeVarName (nameHint <> T.pack (show i))
 
         try :: Int -> TypeVarName -> (TypeVarName, Env)
         try !i name =
             if envHasTypeVarName name env
                 then try (i+1) (nameFor i)
-                else (name, envInsertTypeVar x name env)
+                else (name, env{envTypeVarNames = S.insert name (envTypeVarNames env)})
+
+-- | Bind a type var without shadowing its LF name.
+envBindTypeVar :: Var -> Env -> (TypeVarName, Env)
+envBindTypeVar x env0 =
+    let (n, env) = envFreshTypeVar (getOccText x) env in
+    (n, env{envTypeVars = MS.insert x n (envTypeVars env)})
 
 -- | Bind multiple type vars without shadowing their LF names.
 envBindTypeVars :: [Var] -> Env -> ([TypeVarName], Env)
@@ -211,12 +216,6 @@ envBindTypeVars xs env = foldr f ([], env) xs
     where
         f x (ys, env) =
             let (y, env') = envBindTypeVar x env in (y:ys, env')
-
-envInsertTypeVar :: Var -> TypeVarName -> Env -> Env
-envInsertTypeVar x n env = env
-    { envTypeVars = MS.insert x n (envTypeVars env)
-    , envTypeVarNames = S.insert n (envTypeVarNames env)
-    }
 
 envLookupTypeVar :: Var -> Env -> Maybe TypeVarName
 envLookupTypeVar x = MS.lookup x . envTypeVars
@@ -242,7 +241,6 @@ data ConversionEnv = ConversionEnv
 
 data ConversionState = ConversionState
     { freshTmVarCounter :: Int
-    , freshTyVarCounter :: Int
     }
 
 newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Except FileDiagnostic)) a)
@@ -256,7 +254,6 @@ runConvertM s (ConvertM a) = runExcept (evalStateT (runReaderT a s) st0)
   where
     st0 = ConversionState
         { freshTmVarCounter = 0
-        , freshTyVarCounter = 0
         }
 
 withRange :: Maybe SourceLoc -> ConvertM a -> ConvertM a
@@ -267,10 +264,8 @@ freshTmVar = do
     n <- state (\st -> let k = freshTmVarCounter st + 1 in (k, st{freshTmVarCounter = k}))
     pure $ LF.ExprVarName ("$$v" <> T.show n)
 
-freshTyVar :: ConvertM LF.TypeVarName
-freshTyVar = do
-    n <- state (\st -> let k = freshTyVarCounter st + 1 in (k, st{freshTyVarCounter = k}))
-    pure $ LF.TypeVarName ("$$t" <> T.show n)
+resetFreshVarCounters :: ConvertM ()
+resetFreshVarCounters = modify' (\st -> st{freshTmVarCounter = 0})
 
 convertInt64 :: Integer -> ConvertM LF.Expr
 convertInt64 x
@@ -388,7 +383,7 @@ convertModule
     -> ModDetails
     -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap stablePackages isGenerated file x details = runConvertM (ConversionEnv file Nothing) $ do
-    definitions <- concatMapM (convertBind env) binds
+    definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env bind) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     templates <- convertTemplateDefs env
     pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ definitions))
@@ -640,7 +635,8 @@ res = mkVar "res"
 
 convertTemplateDefs :: Env -> ConvertM [Definition]
 convertTemplateDefs env =
-    forM (MS.toList (envTemplateBinds env)) $ \(tname, tbinds) ->
+    forM (MS.toList (envTemplateBinds env)) $ \(tname, tbinds) -> do
+        resetFreshVarCounters
         DTemplate <$> convertTemplate env tname tbinds
 
 convertTemplate :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM Template
@@ -1036,16 +1032,16 @@ convertExpr env0 e = do
     go env (VarIn GHC_Types "[]") (LType (TypeCon (Is "Char") []) : args)
         = pure $ (, args) $ EBuiltin (BEText T.empty)
     go env (VarIn GHC_Types "[]") args
-        = withTyArg env KStar args $ \t args -> pure (ENil t, args)
+        = withTyArg env KStar args $ \_env t args -> pure (ENil t, args)
     go env (VarIn GHC_Types ":") args =
-        withTyArg env KStar args $ \t args ->
+        withTyArg env KStar args $ \_env t args ->
         withTmArg env t args $ \x args ->
         withTmArg env (TList t) args $ \y args ->
           pure (ECons t x y, args)
     go env (VarIn DA_Internal_Prelude (IgnoreWorkerPrefixFS "None")) args
-        = withTyArg env KStar args $ \t args -> pure (ENone t, args)
+        = withTyArg env KStar args $ \_env t args -> pure (ENone t, args)
     go env (VarIn DA_Internal_Prelude (IgnoreWorkerPrefixFS "Some")) args
-        = withTyArg env KStar args $ \t args ->
+        = withTyArg env KStar args $ \_env t args ->
           withTmArg env t args $ \x args ->
             pure (ESome t x, args)
 
@@ -1301,13 +1297,13 @@ convertArg env = \case
     Type t -> TyArg <$> convertType env t
     e -> TmArg <$> convertExpr env e
 
-withTyArg :: Env -> LF.Kind -> [LArg Var] -> (LF.Type -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
+withTyArg :: Env -> LF.Kind -> [LArg Var] -> (Env -> LF.Type -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
 withTyArg env _ (LType t:args) cont = do
     t <- convertType env t
-    cont t args
+    cont env t args
 withTyArg env k args cont = do
-    v <- freshTyVar
-    (x, args) <- cont (TVar v) args
+    let (v, env') = envFreshTypeVar "a" env
+    (x, args) <- cont env' (TVar v) args
     pure (ETyLam (v, k) x, args)
 
 withTmArg :: Env -> LF.Type -> [LArg Var] -> (LF.Expr-> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
