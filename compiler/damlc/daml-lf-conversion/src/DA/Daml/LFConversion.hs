@@ -104,7 +104,7 @@ import qualified Data.Map.Strict as MS
 import qualified Data.Set as S
 import           Data.Maybe
 import qualified Data.NameMap as NM
-import qualified Data.Text as T
+import qualified Data.Text.Extended as T
 import           Data.Tuple.Extra
 import           Data.Ratio
 import           "ghc-lib" GHC
@@ -192,18 +192,23 @@ envInsertAlias v x env = env{envAliases = MS.insert v x (envAliases env)}
 envLookupAlias :: Var -> Env -> Maybe LF.Expr
 envLookupAlias x = MS.lookup x . envAliases
 
--- | Bind a type var without shadowing its LF name.
-envBindTypeVar :: Var -> Env -> (TypeVarName, Env)
-envBindTypeVar x env = try 1 (TypeVarName occName)
+-- | Get a fresh type var whose LF name has not yet been taken.
+envFreshTypeVar :: T.Text -> Env -> (TypeVarName, Env)
+envFreshTypeVar nameHint env = try 1 (TypeVarName nameHint)
     where
-        occName = getOccText x
-        nameFor i = TypeVarName (occName <> T.pack (show i))
+        nameFor i = TypeVarName (nameHint <> T.pack (show i))
 
         try :: Int -> TypeVarName -> (TypeVarName, Env)
         try !i name =
             if envHasTypeVarName name env
                 then try (i+1) (nameFor i)
-                else (name, envInsertTypeVar x name env)
+                else (name, env{envTypeVarNames = S.insert name (envTypeVarNames env)})
+
+-- | Bind a type var without shadowing its LF name.
+envBindTypeVar :: Var -> Env -> (TypeVarName, Env)
+envBindTypeVar x env0 =
+    let (n, env) = envFreshTypeVar (getOccText x) env0 in
+    (n, env{envTypeVars = MS.insert x n (envTypeVars env)})
 
 -- | Bind multiple type vars without shadowing their LF names.
 envBindTypeVars :: [Var] -> Env -> ([TypeVarName], Env)
@@ -211,12 +216,6 @@ envBindTypeVars xs env = foldr f ([], env) xs
     where
         f x (ys, env) =
             let (y, env') = envBindTypeVar x env in (y:ys, env')
-
-envInsertTypeVar :: Var -> TypeVarName -> Env -> Env
-envInsertTypeVar x n env = env
-    { envTypeVars = MS.insert x n (envTypeVars env)
-    , envTypeVarNames = S.insert n (envTypeVarNames env)
-    }
 
 envLookupTypeVar :: Var -> Env -> Maybe TypeVarName
 envLookupTypeVar x = MS.lookup x . envTypeVars
@@ -240,17 +239,33 @@ data ConversionEnv = ConversionEnv
   , convRange :: !(Maybe SourceLoc)
   }
 
-newtype ConvertM a = ConvertM (ReaderT ConversionEnv (Except FileDiagnostic) a)
-  deriving (Functor, Applicative, Monad, MonadError FileDiagnostic, MonadReader ConversionEnv)
+data ConversionState = ConversionState
+    { freshTmVarCounter :: Int
+    }
+
+newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Except FileDiagnostic)) a)
+  deriving (Functor, Applicative, Monad, MonadError FileDiagnostic, MonadState ConversionState, MonadReader ConversionEnv)
 
 instance MonadFail ConvertM where
     fail = conversionError
 
 runConvertM :: ConversionEnv -> ConvertM a -> Either FileDiagnostic a
-runConvertM s (ConvertM a) = runExcept (runReaderT a s)
+runConvertM s (ConvertM a) = runExcept (evalStateT (runReaderT a s) st0)
+  where
+    st0 = ConversionState
+        { freshTmVarCounter = 0
+        }
 
 withRange :: Maybe SourceLoc -> ConvertM a -> ConvertM a
 withRange r = local (\s -> s { convRange = r })
+
+freshTmVar :: ConvertM LF.ExprVarName
+freshTmVar = do
+    n <- state (\st -> let k = freshTmVarCounter st + 1 in (k, st{freshTmVarCounter = k}))
+    pure $ LF.ExprVarName ("$$v" <> T.show n)
+
+resetFreshVarCounters :: ConvertM ()
+resetFreshVarCounters = modify' (\st -> st{freshTmVarCounter = 0})
 
 convertInt64 :: Integer -> ConvertM LF.Expr
 convertInt64 x
@@ -368,7 +383,7 @@ convertModule
     -> ModDetails
     -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap stablePackages isGenerated file x details = runConvertM (ConversionEnv file Nothing) $ do
-    definitions <- concatMapM (convertBind env) binds
+    definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env bind) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     templates <- convertTemplateDefs env
     pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ definitions))
@@ -620,7 +635,8 @@ res = mkVar "res"
 
 convertTemplateDefs :: Env -> ConvertM [Definition]
 convertTemplateDefs env =
-    forM (MS.toList (envTemplateBinds env)) $ \(tname, tbinds) ->
+    forM (MS.toList (envTemplateBinds env)) $ \(tname, tbinds) -> do
+        resetFreshVarCounters
         DTemplate <$> convertTemplate env tname tbinds
 
 convertTemplate :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM Template
@@ -828,29 +844,29 @@ convertExpr env0 e = do
             let fields = [(mkField f1, t1), (mkField f2, t2)]
             tupleTyCon <- qDA_Types env $ mkTypeCon ["Tuple" <> T.pack (show $ length fields)]
             let tupleType = TypeConApp tupleTyCon (map snd fields)
-            pure $ ETmLam (varV1, TStruct fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
-        where
-            mkFieldProj i (name, _typ) = (mkIndexedField i, EStructProj name (EVar varV1))
+            v <- freshTmVar
+            let mkFieldProj i (name, _typ) = (mkIndexedField i, EStructProj name (EVar v))
+            pure $ ETmLam (v, TStruct fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
     -- NOTE(MH): `getFieldPrim` and `setFieldPrim` are used by the record
     -- preprocessor to magically implement the `HasField` instances for records.
     go env (VarIn DA_Internal_Record "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
         record' <- convertType env record
-        withTmArg env (varV1, record') args $ \x args ->
+        withTmArg env record' args $ \x args ->
             pure (ERecProj (fromTCon record') (mkField $ fsToText name) x, args)
     go env (VarIn DA_Internal_Record "setFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType field : args) = do
         record' <- convertType env record
         field' <- convertType env field
-        withTmArg env (varV1, field') args $ \x1 args ->
-            withTmArg env (varV2, record') args $ \x2 args ->
+        withTmArg env field' args $ \x1 args ->
+            withTmArg env record' args $ \x2 args ->
                 pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
     -- NOTE(MH): We only inline `getField` for record types. Projections on
     -- sum-of-records types have to through the type class for `getField`.
     go env (VarIn DA_Internal_Record "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : args)
         | isSingleConType recordTyCon = do
             recordType <- convertType env recordType
-            withTmArg env (varV1, recordType) args $ \record args ->
+            withTmArg env recordType args $ \record args ->
                 pure (ERecProj (fromTCon recordType) (mkField $ fsToText name) record, args)
     -- NOTE(SF): We also need to inline `setField` in order to get the correct
     -- evaluation order (record first, then fields in order).
@@ -858,8 +874,8 @@ convertExpr env0 e = do
         | isSingleConType recordTyCon = do
             record' <- convertType env record
             field' <- convertType env field
-            withTmArg env (varV1, field') args $ \x1 args ->
-                withTmArg env (varV2, record') args $ \x2 args ->
+            withTmArg env field' args $ \x1 args ->
+                withTmArg env record' args $ \x2 args ->
                     pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
         -- TODO: Also fix evaluation order for sum-of-record types.
     go env (VarIn GHC_Real "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
@@ -1016,17 +1032,17 @@ convertExpr env0 e = do
     go env (VarIn GHC_Types "[]") (LType (TypeCon (Is "Char") []) : args)
         = pure $ (, args) $ EBuiltin (BEText T.empty)
     go env (VarIn GHC_Types "[]") args
-        = withTyArg env varT1 args $ \t args -> pure (ENil t, args)
+        = withTyArg env KStar args $ \env t args -> pure (ENil t, args)
     go env (VarIn GHC_Types ":") args =
-        withTyArg env varT1 args $ \t args ->
-        withTmArg env (varV1, t) args $ \x args ->
-        withTmArg env (varV2, TList t) args $ \y args ->
+        withTyArg env KStar args $ \env t args ->
+        withTmArg env t args $ \x args ->
+        withTmArg env (TList t) args $ \y args ->
           pure (ECons t x y, args)
     go env (VarIn DA_Internal_Prelude (IgnoreWorkerPrefixFS "None")) args
-        = withTyArg env varT1 args $ \t args -> pure (ENone t, args)
+        = withTyArg env KStar args $ \env t args -> pure (ENone t, args)
     go env (VarIn DA_Internal_Prelude (IgnoreWorkerPrefixFS "Some")) args
-        = withTyArg env varT1 args $ \t args ->
-          withTmArg env (varV1, t) args $ \x args ->
+        = withTyArg env KStar args $ \env t args ->
+          withTmArg env t args $ \x args ->
             pure (ESome t x, args)
 
     go env (VarIn GHC_Tuple "()") args = pure (EUnit, args)
@@ -1281,19 +1297,21 @@ convertArg env = \case
     Type t -> TyArg <$> convertType env t
     e -> TmArg <$> convertExpr env e
 
-withTyArg :: Env -> (LF.TypeVarName, LF.Kind) -> [LArg Var] -> (LF.Type -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
+withTyArg :: Env -> LF.Kind -> [LArg Var] -> (Env -> LF.Type -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
 withTyArg env _ (LType t:args) cont = do
     t <- convertType env t
-    cont t args
-withTyArg env (v, k) args cont = do
-    (x, args) <- cont (TVar v) args
+    cont env t args
+withTyArg env k args cont = do
+    let (v, env') = envFreshTypeVar "a" env
+    (x, args) <- cont env' (TVar v) args
     pure (ETyLam (v, k) x, args)
 
-withTmArg :: Env -> (LF.ExprVarName, LF.Type) -> [LArg Var] -> (LF.Expr-> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
+withTmArg :: Env -> LF.Type -> [LArg Var] -> (LF.Expr-> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])) -> ConvertM (LF.Expr, [LArg Var])
 withTmArg env _ (LExpr x:args) cont = do
     x <- convertExpr env x
     cont x args
-withTmArg env (v, t) args cont = do
+withTmArg env t args cont = do
+    v <- freshTmVar
     (x, args) <- cont (EVar v) args
     pure (ETmLam (v, t) x, args)
 
