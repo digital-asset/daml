@@ -289,34 +289,26 @@ class Runner(
     UnfoldState(v)(go)
   }
 
-  // This function produces a pair of a source of trigger messages
-  // and a function to call in the event of a command submission
-  // failure.
+  // This function produces a source of trigger messages,
+  // with input of failures from command submission
   private def msgSource(
       client: LedgerClient,
       offset: LedgerOffset,
       heartbeat: Option[FiniteDuration],
       party: String,
-      filter: TransactionFilter)(implicit materializer: Materializer)
-    : (Source[TriggerMsg, NotUsed], SingleCommandFailure => Unit) = {
+      filter: TransactionFilter): Flow[SingleCommandFailure, TriggerMsg, NotUsed] = {
 
-    // A queue for command submission failures together with a source
-    // from which messages posted to the queue can be consumed.
-    val (completionQueue, completionQueueSource): (
-        SourceQueue[Completion],
-        Source[Completion, NotUsed]) =
-      Source
-        .queue[Completion](10 + maxParallelSubmissionsPerTrigger, OverflowStrategy.backpressure)
-        .preMaterialize()
-    // This function, given a command ID and a runtime exception,
-    // posts to the completion queue.
-    def postSubmitFailure(scf: SingleCommandFailure) = {
-      import scf._
-      val _ = completionQueue.offer(
-        Completion(
-          commandId,
-          Some(Status(s.getStatus().getCode().value(), s.getStatus().getDescription()))))
-    }
+    // A queue for command submission failures.
+    // 256 comes from the default ExecutionContext
+    val submissionFailureQueue: Flow[SingleCommandFailure, Completion, NotUsed] =
+      Flow[SingleCommandFailure]
+        .buffer(256 + maxParallelSubmissionsPerTrigger, OverflowStrategy.fail)
+        .map {
+          case SingleCommandFailure(commandId, s) =>
+            Completion(
+              commandId,
+              Some(Status(s.getStatus().getCode().value(), s.getStatus().getDescription())))
+        }
 
     // The transaction source (ledger).
     val transactionSource: Source[TriggerMsg, NotUsed] =
@@ -326,14 +318,15 @@ class Runner(
 
     // Command completion source (ledger completion stream +
     // synchronous sumbmission failures).
-    val completionSource: Source[TriggerMsg, NotUsed] =
-      client.commandClient
-        .completionSource(List(party), offset)
-        .mapConcat({
-          case CheckpointElement(_) => List()
-          case CompletionElement(c) => List(c)
-        })
-        .merge(completionQueueSource)
+    val completionSource: Flow[SingleCommandFailure, TriggerMsg, NotUsed] =
+      submissionFailureQueue
+        .merge(
+          client.commandClient
+            .completionSource(List(party), offset)
+            .mapConcat {
+              case CheckpointElement(_) => List()
+              case CompletionElement(c) => List(c)
+            })
         .map(CompletionMsg)
 
     // Hearbeats source (we produce these repetitvely on a timer with
@@ -346,9 +339,7 @@ class Runner(
       case None => Source.empty[TriggerMsg]
     }
 
-    val triggerMsgSource = transactionSource.merge(completionSource).merge(heartbeatSource)
-
-    (triggerMsgSource, postSubmitFailure)
+    completionSource merge transactionSource merge heartbeatSource
   }
 
   private def logReceivedMsg(tm: TriggerMsg): Unit = tm match {
@@ -545,17 +536,14 @@ class Runner(
       name: String = "")(
       implicit materializer: Materializer,
       executionContext: ExecutionContext): (T, Future[SValue]) = {
-    val (source, postFailure) =
+    val source =
       msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
-    // XXX It would be better to split the stream and feed failures back
-    // into the msgSource directly.  As it stands we fire-and-forget
-    // the (async) queuing done here, ignoring failure
-    val submit = submitOrFail map postFailure to Sink.ignore
-    source
-      .viaMat(msgFlow)(Keep.right[NotUsed, T])
+    Flow
+      .fromGraph(msgFlow)
       .viaMat(getTriggerEvaluator(name, acs))(Keep.both)
-      .to(submit)
-      .run()
+      .via(submitOrFail)
+      .join(source)
+      .run
   }
 }
 
