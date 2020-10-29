@@ -269,9 +269,12 @@ da_haskell_library(
     visibility = ["//visibility:public"],
 )
 
+# ScalaPB Ledger API plus protobuf sources for customized compilation
 scala_library(
     name = "ledger-api-scalapb",
     srcs = [":ledger-api-scalapb-sources"],
+    resource_strip_prefix = ledger_api_proto_source_root,
+    resources = glob(["**/*.proto"]),
     tags = [
         "maven_coordinates=com.daml:ledger-api-scalapb:__VERSION__",
     ],
@@ -312,10 +315,11 @@ scaladoc_jar(
     deps = [],
 ) if is_windows == False else None
 
-# Create empty Sources JAR for uploading to Maven Central
+# Provide protobuf sources
 scala_source_jar(
     name = "ledger-api-scalapb_src",
-    srcs = [],
+    srcs = glob(["**/*.proto"]),
+    strip_upto = ledger_api_proto_source_root,
 )
 
 proto_gen(
