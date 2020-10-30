@@ -26,7 +26,7 @@ import qualified Web.JWT as JWT
 
 data HttpJsonConfig = HttpJsonConfig
   { mbSharedSecret :: Maybe BS.ByteString
-  , mbActor :: Maybe T.Text
+  , actor :: T.Text
   }
 
 defaultHttpJsonConf :: T.Text -> HttpJsonConfig
