@@ -125,7 +125,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "end": "1.7.0-snapshot.20201023.5508.0.9dec6689",
+        "end": "1.7.0-snapshot.20201027.5530.0.bdbf8977",
         "platform_ranges": [
             {
                 "start": "0.0.0",
