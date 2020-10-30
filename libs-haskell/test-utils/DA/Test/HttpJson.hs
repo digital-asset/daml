@@ -29,8 +29,8 @@ data HttpJsonConfig = HttpJsonConfig
   , mbActor :: Maybe T.Text
   }
 
-defaultHttpJsonConf :: HttpJsonConfig
-defaultHttpJsonConf = HttpJsonConfig {mbSharedSecret = Nothing, mbActor = Nothing}
+defaultHttpJsonConf :: T.Text -> HttpJsonConfig
+defaultHttpJsonConf actor = HttpJsonConfig {mbSharedSecret = Nothing, actor = actor}
 
 getHttpJsonProc :: IO Int -> FilePath -> IO CreateProcess
 getHttpJsonProc getLedgerPort portFile = do
