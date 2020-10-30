@@ -355,19 +355,27 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     } yield result
   }
 
-  def getRequest(uri: Uri, headers: List[HttpHeader])(
+  def getRequestEncoded(uri: Uri, headers: List[HttpHeader] = List())(
       implicit as: ActorSystem,
       ec: ExecutionContext,
-      mat: Materializer): Future[(StatusCode, JsValue)] = {
+      mat: Materializer): Future[(StatusCode, String)] = {
     Http()
       .singleRequest(
         HttpRequest(method = HttpMethods.GET, uri = uri, headers = headers)
       )
       .flatMap { resp =>
         val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
-        bodyF.map(body => (resp.status, body.parseJson))
+        bodyF.map(body => (resp.status, body))
       }
   }
+
+  def getRequest(uri: Uri, headers: List[HttpHeader])(
+      implicit as: ActorSystem,
+      ec: ExecutionContext,
+      mat: Materializer): Future[(StatusCode, JsValue)] =
+    getRequestEncoded(uri, headers).map {
+      case (status, body) => (status, body.parseJson)
+    }
 
   def archiveCommand[Ref](reference: Ref): domain.ExerciseCommand[v.Value, Ref] = {
     val arg: v.Record = v.Record()
