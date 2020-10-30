@@ -7,7 +7,7 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.{Package, PackageSignature}
 import com.daml.lf.language.{LanguageVersion, Util}
 import com.daml.lf.speedy.SExpr.SDefinitionRef
-import com.daml.lf.speedy.{Compiler, SExpr}
+import com.daml.lf.speedy.{Compiler, SDefinition}
 
 /** Trait to abstract over a collection holding onto DAML-LF package definitions + the
   * compiled speedy expressions.
@@ -16,11 +16,11 @@ private[lf] abstract class CompiledPackages(
     compilerConfig: Compiler.Config,
 ) {
   def getSignature(pkgId: PackageId): Option[PackageSignature]
-  def getDefinition(dref: SDefinitionRef): Option[SExpr]
+  def getDefinition(dref: SDefinitionRef): Option[SDefinition]
 
   def signatures: PartialFunction[PackageId, PackageSignature] = Function.unlift(this.getSignature)
   def packageIds: Set[PackageId]
-  def definitions: PartialFunction[SDefinitionRef, SExpr] =
+  def definitions: PartialFunction[SDefinitionRef, SDefinition] =
     Function.unlift(this.getDefinition)
 
   def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
@@ -34,12 +34,12 @@ private[lf] abstract class CompiledPackages(
   */
 private[lf] final class PureCompiledPackages(
     signatures: Map[PackageId, PackageSignature],
-    defns: Map[SDefinitionRef, SExpr],
+    defns: Map[SDefinitionRef, SDefinition],
     compilerConfig: Compiler.Config,
 ) extends CompiledPackages(compilerConfig) {
   override def packageIds: Set[PackageId] = signatures.keySet
   override def getSignature(pkgId: PackageId): Option[PackageSignature] = signatures.get(pkgId)
-  override def getDefinition(dref: SDefinitionRef): Option[SExpr] = defns.get(dref)
+  override def getDefinition(dref: SDefinitionRef): Option[SDefinition] = defns.get(dref)
 }
 
 private[lf] object PureCompiledPackages {
@@ -49,7 +49,7 @@ private[lf] object PureCompiledPackages {
     */
   def apply(
       signatures: Map[PackageId, PackageSignature],
-      defns: Map[SDefinitionRef, SExpr],
+      defns: Map[SDefinitionRef, SDefinition],
       compilerConfig: Compiler.Config,
   ): PureCompiledPackages =
     new PureCompiledPackages(signatures, defns, compilerConfig)

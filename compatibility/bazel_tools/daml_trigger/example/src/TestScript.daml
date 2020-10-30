@@ -3,7 +3,7 @@
 
 module TestScript where
 
-import CopyTrigger
+import Templates
 import DA.Assert
 import DA.Time
 import Daml.Script

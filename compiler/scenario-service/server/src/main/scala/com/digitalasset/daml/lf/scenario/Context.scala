@@ -18,8 +18,7 @@ import com.daml.lf.speedy.Compiler
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.Speedy
-import com.daml.lf.speedy.SExpr
-import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.{SExpr, SValue, SDefinition}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
@@ -73,10 +72,10 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
 
   private var extSignatures: Map[PackageId, Ast.PackageSignature] = HashMap.empty
-  private var extDefns: Map[SDefinitionRef, SExpr] = HashMap.empty
+  private var extDefns: Map[SDefinitionRef, SDefinition] = HashMap.empty
   private var modules: Map[ModuleName, Ast.Module] = HashMap.empty
-  private var modDefns: Map[ModuleName, Map[SDefinitionRef, SExpr]] = HashMap.empty
-  private var defns: Map[SDefinitionRef, SExpr] = HashMap.empty
+  private var modDefns: Map[ModuleName, Map[SDefinitionRef, SDefinition]] = HashMap.empty
+  private var defns: Map[SDefinitionRef, SDefinition] = HashMap.empty
 
   def loadedModules(): Iterable[ModuleName] = modules.keys
   def loadedPackages(): Iterable[PackageId] = extSignatures.keys
@@ -172,7 +171,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       Speedy.Machine.fromScenarioSExpr(
         compiledPackages,
         txSeeding,
-        defn,
+        defn.body,
         value.ValueVersions.DevOutputVersions,
         transaction.TransactionVersions.DevOutputVersions,
       )

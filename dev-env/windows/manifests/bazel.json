@@ -11,7 +11,7 @@
   },
   "depends": [
     "msys2",
-    "vcredist-14.24.28127.4"
+    "vcredist-14.27.29112"
   ],
   "env_set": {
     "BAZEL_SH": "$(appdir msys2)\\current\\usr\\bin\\bash.exe"

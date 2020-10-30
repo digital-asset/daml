@@ -228,7 +228,7 @@ runStart
     scriptOpts <- withOptsFromProjectConfig "script-options" scriptOpts projectConfig
     doBuild
     doCodegen projectConfig
-    listenForKeyPress projectConfig
+    listenForKeyPress projectConfig darPath
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxClassic sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh sandboxPort -> do
         withNavigator' shouldStartNavigator sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
@@ -274,9 +274,9 @@ runStart
                 projectConfig
             whenJust mbOutputPath $ \_outputPath -> do
               runCodegen lang []
-        doUploadDar =
-          runLedgerUploadDar (defaultLedgerFlags Grpc) Nothing
-        listenForKeyPress projectConfig = do
+        doUploadDar darPath =
+          runLedgerUploadDar (defaultLedgerFlags Grpc) (Just darPath)
+        listenForKeyPress projectConfig darPath = do
           hSetBuffering stdin NoBuffering
           void $
             forkIO $
@@ -286,14 +286,14 @@ runStart
               forever $ do
                 printRebuildInstructions
                 c <- getChar
-                when (c == 'r' || c == 'R') $ rebuild projectConfig
+                when (c == 'r' || c == 'R') $ rebuild projectConfig darPath
                 threadDelay 1000000
 
-        rebuild projectConfig = do
+        rebuild projectConfig darPath = do
           putStrLn "re-building and uploading package"
           doBuild
           doCodegen projectConfig
-          doUploadDar
+          doUploadDar darPath
           putStrLn "rebuild complete"
         printRebuildInstructions = do
           setSGR [SetColor Foreground Vivid Red]
