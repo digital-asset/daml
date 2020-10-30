@@ -51,7 +51,7 @@ getHttpJsonProc getLedgerPort portFile = do
       ]
 
 createHttpJson :: Handle -> IO Int -> HttpJsonConfig -> IO HttpJsonResource
-createHttpJson httpJsonOutput getLedgerPort HttpJsonConfig {mbActor, mbSharedSecret} = do
+createHttpJson httpJsonOutput getLedgerPort HttpJsonConfig {actor, mbSharedSecret} = do
   (tmpDir, rmTmpDir) <- newTempDir
   let portFile = tmpDir </> "http-json.portfile"
   let tokenFile = tmpDir </> "http-json.token"
@@ -82,7 +82,7 @@ createHttpJson httpJsonOutput getLedgerPort HttpJsonConfig {mbActor, mbSharedSec
                 [ ( "https://daml.com/ledger-api"
                   , Object $
                     HashMap.fromList
-                      [ ("actAs", toJSON [fromMaybe "Alice" mbActor])
+                      [ ("actAs", toJSON [actor])
                       , ("ledgerId", "MyLedger")
                       , ("applicationId", "foobar")
                       ])

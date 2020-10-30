@@ -23,7 +23,7 @@ main = do
     testGroup
       "daml ledger"
       [ withSandbox defaultSandboxConf $ \getSandboxPort -> do
-          withHttpJson getSandboxPort defaultHttpJsonConf $ \getHttpJson ->
+          withHttpJson getSandboxPort (defaultHttpJsonConf "Alice") $ \getHttpJson ->
             testGroup
               "list-parties"
               [ testCase "succeeds against HTTP JSON API" $ do
