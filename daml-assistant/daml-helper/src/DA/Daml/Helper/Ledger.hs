@@ -179,7 +179,7 @@ runLedgerUploadDar flags darPathM = do
   bytes <- BS.readFile darPath
   uploadDarFile args bytes `catch` \(e :: SomeException) -> do
     putStrLn $ unlines
-      [ "An exception was thrown when during the upload-dar command"
+      [ "An exception was thrown during the upload-dar command"
       , "- " <> show e
       , "One reason for this to occur is if the size of DAR file being uploaded exceeds the gRPC maximum message size. The default value for this is 4Mb, but it may be increased when the ledger is (re)started. Please check with your ledger operator."
       ]
