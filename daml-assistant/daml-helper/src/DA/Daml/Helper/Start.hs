@@ -228,26 +228,29 @@ runStart
     scriptOpts <- withOptsFromProjectConfig "script-options" scriptOpts projectConfig
     doBuild
     doCodegen projectConfig
-    listenForKeyPress projectConfig darPath
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxClassic sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh sandboxPort -> do
+        let doRunInitScript =
+              whenJust mbInitScript $ \initScript -> do
+                  putStrLn "Running the initialization script."
+                  procScript <- toAssistantCommand $
+                      [ "script"
+                      , "--dar"
+                      , darPath
+                      , "--script-name"
+                      , initScript
+                      , if any (`elem` ["-s", "--static-time"]) sandboxOpts
+                          then "--static-time"
+                          else "--wall-clock-time"
+                      , "--ledger-host"
+                      , "localhost"
+                      , "--ledger-port"
+                      , case sandboxPort of SandboxPort port -> show port
+                      ] ++ scriptOpts
+                  runProcess_ procScript
+        doRunInitScript
+        listenForKeyPress projectConfig darPath sandboxPort doRunInitScript
         withNavigator' shouldStartNavigator sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
-            whenJust mbInitScript $ \initScript -> do
-                procScript <- toAssistantCommand $
-                    [ "script"
-                    , "--dar"
-                    , darPath
-                    , "--script-name"
-                    , initScript
-                    , if any (`elem` ["-s", "--static-time"]) sandboxOpts
-                        then "--static-time"
-                        else "--wall-clock-time"
-                    , "--ledger-host"
-                    , "localhost"
-                    , "--ledger-port"
-                    , case sandboxPort of SandboxPort port -> show port
-                    ] ++ scriptOpts
-                runProcess_ procScript
             whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
             when (shouldStartNavigator && shouldOpenBrowser) $
                 void $ openBrowser (navigatorURL navigatorPort)
@@ -274,9 +277,9 @@ runStart
                 projectConfig
             whenJust mbOutputPath $ \_outputPath -> do
               runCodegen lang []
-        doUploadDar darPath =
-          runLedgerUploadDar (defaultLedgerFlags Grpc) (Just darPath)
-        listenForKeyPress projectConfig darPath = do
+        doUploadDar darPath (SandboxPort sandboxPort) =
+          runLedgerUploadDar ((defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}) (Just darPath)
+        listenForKeyPress projectConfig darPath sandboxPort runInitScript = do
           hSetBuffering stdin NoBuffering
           void $
             forkIO $
@@ -286,15 +289,16 @@ runStart
               forever $ do
                 printRebuildInstructions
                 c <- getChar
-                when (c == 'r' || c == 'R') $ rebuild projectConfig darPath
+                when (c == 'r' || c == 'R') $ rebuild projectConfig darPath sandboxPort runInitScript
                 threadDelay 1000000
-
-        rebuild projectConfig darPath = do
-          putStrLn "re-building and uploading package"
+        rebuild :: ProjectConfig -> FilePath -> SandboxPort -> IO () -> IO ()
+        rebuild projectConfig darPath sandboxPort doRunInitScript = do
+          putStrLn "Re-building and uploading package ..."
           doBuild
           doCodegen projectConfig
-          doUploadDar darPath
-          putStrLn "rebuild complete"
+          doUploadDar darPath sandboxPort
+          doRunInitScript
+          putStrLn "Rebuild complete."
         printRebuildInstructions = do
           setSGR [SetColor Foreground Vivid Red]
           putStrLn reloadInstructions
