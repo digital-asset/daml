@@ -64,6 +64,8 @@ message CompletionStreamRequest {
   string application_id = 2;
 
   // Non-empty list of parties whose data should be included.
+  // Only completions of commands for which the set of ``act_as`` parties is a subset of the given parties
+  // will be visible in the stream.
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   repeated string parties = 3;
