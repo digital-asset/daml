@@ -133,11 +133,12 @@ message DamlLogEntryId {
 }
 
 message DamlSubmitterInfo {
-  string submitter = 1;
+  repeated string act_as = 1;
   string command_id = 2;
   string application_id = 3;
   reserved 4; // was maximum_record_time
   google.protobuf.Timestamp deduplicate_until = 5;
+  repeated string read_as = 6;
 }
 
 // DAML transaction entry, used in both `DamlSubmission` and `DamlLogEntry`.
@@ -363,7 +364,7 @@ message DamlStateValue {
 }
 
 message DamlCommandDedupKey {
-  string submitter = 1;
+  repeated string actAs = 1;
   reserved 2; // was application_id
   string command_id = 3;
 }
