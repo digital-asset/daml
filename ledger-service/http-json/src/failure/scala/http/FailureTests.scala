@@ -61,7 +61,7 @@ final class FailureTests
           """[-] ledger failed
             |[+] database ok
             |readyz check failed
-            |""".stripMargin
+            |""".stripMargin.replace("\r\n", "\n")
         _ <- inside(output) {
           case JsObject(fields) =>
             inside(fields.get("status")) {
@@ -251,7 +251,7 @@ final class FailureTests
         """[+] ledger ok
           |[-] database failed
           |readyz check failed
-          |""".stripMargin
+          |""".stripMargin.replace("\r\n", "\n")
       _ = dbProxy.enable()
       // eventually doesn’t handle Futures in the version of scalatest we’re using.
       _ <- RetryStrategy.constant(5, 2.seconds)((_, _) =>
