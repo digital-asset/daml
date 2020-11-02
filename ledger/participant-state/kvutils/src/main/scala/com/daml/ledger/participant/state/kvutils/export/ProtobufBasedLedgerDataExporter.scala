@@ -1,20 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.export.v2
+package com.daml.ledger.participant.state.kvutils.`export`
 
 import java.io.{BufferedOutputStream, Closeable, OutputStream}
 import java.nio.file.{Files, Path}
 
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.LedgerExportEntry
-import com.daml.ledger.participant.state.kvutils.export.{
-  InMemorySubmissionAggregator,
-  LedgerDataExporter,
-  LedgerDataWriter,
-  SubmissionAggregator,
-  SubmissionInfo
-}
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.collection.JavaConverters._
