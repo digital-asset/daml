@@ -19,7 +19,6 @@ import Data.Typeable (Typeable)
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket
-import Safe
 import System.Directory.Extra
 import System.Environment.Blank
 import System.Exit
@@ -35,8 +34,6 @@ import DA.Bazel.Runfiles
 import DA.Daml.Assistant.FreePort (getFreePort, socketHints)
 import DA.Daml.Assistant.IntegrationTestUtils
 import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer)
-import DA.Ledger.Services.PartyManagementService (PartyDetails(..))
-import DA.Ledger.Types (Party(..))
 import DA.PortFile
 import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent)
@@ -364,7 +361,7 @@ packagingTests = testGroup "packaging"
               responseBody queryResponse @?= "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
               -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
-    , testCase "daml ledger via json api" $ withTempDir $ \tmpDir -> do
+    , testCase "run a daml ledger command" $ withTempDir $ \tmpDir -> do
           writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
               , "name: ledger-json-api"
@@ -419,21 +416,6 @@ packagingTests = testGroup "packaging"
                     , show sandboxPort
                     , "alice"
                     ]
-                out <-
-                  readCreateProcess
-                    (shell $
-                     unwords
-                       [ "daml"
-                       , "ledger"
-                       , "list-parties"
-                       , "--json-api"
-                       , "--port"
-                       , show jsonApiPort
-                       , "--access-token-file"
-                       , "token.txt"
-                       ])
-                    ""
-                lines out `atMay` 1 @?= Just (show $ PartyDetails (Party "alice") "alice" True)
                 -- waitForProcess' will block on Windows so we explicitly kill the process.
                 terminateProcess startPh
       , testCase "daml start invokes codegen" $ withTempDir $ \tmpDir -> do

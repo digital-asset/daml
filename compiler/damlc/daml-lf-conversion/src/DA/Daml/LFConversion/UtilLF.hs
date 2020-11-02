@@ -73,9 +73,6 @@ varV1 = mkVar "v1"
 varV2 = mkVar "v2"
 varV3 = mkVar "v3"
 
-varT1 :: (TypeVarName, Kind)
-varT1 = (mkTypeVar "t1", KStar)
-
 fromTCon :: HasCallStack => Type -> TypeConApp
 fromTCon (TConApp con args) = TypeConApp con args
 fromTCon t = error $ "fromTCon failed, " ++ show t

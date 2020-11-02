@@ -21,6 +21,7 @@ da_scala_library(
 da_scala_library(
     name = "ledger-resources-test-lib",
     srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.daml:ledger-resources-test-lib:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
