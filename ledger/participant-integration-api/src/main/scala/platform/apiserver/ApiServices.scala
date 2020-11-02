@@ -126,7 +126,7 @@ private[daml] object ApiServices {
     private def createServices(ledgerId: LedgerId, ledgerConfigProvider: LedgerConfigProvider)(
         implicit executionContext: ExecutionContext): List[BindableService] = {
 
-      engine.info.pretty.foreach(logger.info(_))
+      logger.info(engine.info.toString)
 
       val apiTransactionService =
         ApiTransactionService.create(ledgerId, transactionsService)
