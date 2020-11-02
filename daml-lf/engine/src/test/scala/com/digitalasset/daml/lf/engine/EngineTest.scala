@@ -19,10 +19,10 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   SubmittedTransaction,
-  TransactionVersion,
   VersionedTransaction,
   GenTransaction => GenTx,
   Transaction => Tx,
+  TransactionVersion => TxVersion,
   TransactionVersions => TxVersions
 }
 import com.daml.lf.value.{Value, ValueVersion}
@@ -30,6 +30,7 @@ import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
+import com.daml.lf.transaction.TransactionVersions.UnversionedNode
 import com.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -1857,8 +1858,7 @@ class EngineTest
       val result = run(
         cidV6,
         EngineConfig.Stable.copy(
-          allowedOutputTransactionVersions =
-            VersionRange(TransactionVersion("9"), TransactionVersion("9"))))
+          allowedOutputTransactionVersions = VersionRange(TxVersion("9"), TxVersion("9"))))
       result shouldBe 'left
       result.left.get.msg should include("inferred transaction version 10 is not allowed")
     }
@@ -1955,7 +1955,7 @@ object EngineTest {
   ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
     type Acc =
       (
-          HashMap[NodeId, Tx.Node],
+          HashMap[NodeId, UnversionedNode],
           BackStack[NodeId],
           Boolean,
           BackStack[(NodeId, crypto.Hash)],
@@ -2025,7 +2025,13 @@ object EngineTest {
             tr = tr1.transaction.mapNodeId(nodeRenaming)
           } yield
             (
-              nodes ++ tr.nodes,
+              nodes ++ tr.nodes.mapValues(
+                Node.GenNode.map3(
+                  identity[NodeId],
+                  identity[ContractId],
+                  (v: VersionedValue[ContractId]) => v.value,
+                )
+              ),
               roots :++ tr.roots,
               dependsOnTime || meta1.dependsOnTime,
               nodeSeeds :++ meta1.nodeSeeds.map { case (nid, seed) => nodeRenaming(nid) -> seed },
@@ -2037,7 +2043,14 @@ object EngineTest {
     iterate.map {
       case (nodes, roots, dependsOnTime, nodeSeeds, _, _) =>
         (
-          TxVersions.assertAsVersionedTransaction(GenTx(nodes, roots.toImmArray)),
+          data.assertRight(
+            TxVersions.asVersionedTransaction(
+              TxVersions.DevOutputVersions,
+              engine.compiledPackages().packageLanguageVersion,
+              roots.toImmArray,
+              nodes,
+            )
+          ),
           Tx.Metadata(
             submissionSeed = None,
             submissionTime = txMeta.submissionTime,

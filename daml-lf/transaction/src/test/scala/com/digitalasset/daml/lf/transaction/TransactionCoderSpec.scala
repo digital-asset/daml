@@ -294,24 +294,31 @@ class TransactionCoderSpec
       val nodes = ImmArray((1 to 10000).map { nid =>
         NodeId(nid) -> node
       })
-      val tx = TransactionVersions.assertAsVersionedTransaction(
-        GenTransaction(nodes = HashMap(nodes.toSeq: _*), roots = nodes.map(_._1)))
 
-      tx shouldEqual TransactionCoder
-        .decodeTransaction(
-          TransactionCoder.NidDecoder,
-          ValueCoder.CidDecoder,
-          TransactionCoder
-            .encodeTransaction(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              tx,
-            )
-            .right
-            .get,
+      val versions = Table("version", TransactionVersion("10"), TransactionVersion("dev"))
+
+      forEvery(versions) { version =>
+        val tx = VersionedTransaction(
+          version,
+          GenTransaction(nodes = HashMap(nodes.toSeq: _*), roots = nodes.map(_._1))
         )
-        .right
-        .get
+
+        tx shouldEqual TransactionCoder
+          .decodeTransaction(
+            TransactionCoder.NidDecoder,
+            ValueCoder.CidDecoder,
+            TransactionCoder
+              .encodeTransaction(
+                TransactionCoder.NidEncoder,
+                ValueCoder.CidEncoder,
+                tx,
+              )
+              .right
+              .get,
+          )
+          .right
+          .get
+      }
     }
   }
 
