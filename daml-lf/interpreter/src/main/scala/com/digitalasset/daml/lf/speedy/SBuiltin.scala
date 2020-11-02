@@ -1029,17 +1029,13 @@ private[lf] object SBuiltin {
               onLedger.committers,
               cbMissing = _ => machine.tryHandleException(),
               cbPresent = {
-                case V.ContractInst(actualTmplId, V.VersionedValue(version, arg), _) =>
+                case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
                   // Note that we cannot throw in this continuation -- instead
                   // set the control appropriately which will crash the machine
                   // correctly later.
                   machine.ctrl =
                     if (actualTmplId != templateId)
                       SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
-                    else if (!onLedger.inputValueVersions.contains(version))
-                      SEDamlException(
-                        DamlEDisallowedInputValueVersion(onLedger.inputValueVersions, version),
-                      )
                     else
                       SEImportValue(arg)
               },
@@ -1278,7 +1274,6 @@ private[lf] object SBuiltin {
 
         case SBool(false) =>
           ptxOld.finish(
-            onLedger.outputTransactionVersions,
             machine.compiledPackages.packageLanguageVersion,
           ) match {
             case PartialTransaction.CompleteTransaction(tx) =>
@@ -1291,8 +1286,6 @@ private[lf] object SBuiltin {
             case PartialTransaction.IncompleteTransaction(_) =>
               machine.clearCommit
               machine.returnValue = SV.Unit
-            case PartialTransaction.SerializationError(msg) =>
-              throw ScenarioErrorSerializationError(msg)
           }
         case v =>
           crash(s"endCommit: expected bool, got: $v")
@@ -1305,7 +1298,6 @@ private[lf] object SBuiltin {
         onLedger: OnLedger): Unit =
       onLedger.ptx
         .finish(
-          onLedger.outputTransactionVersions,
           machine.compiledPackages.packageLanguageVersion,
         ) match {
         case PartialTransaction.CompleteTransaction(tx) =>
@@ -1323,8 +1315,6 @@ private[lf] object SBuiltin {
         case PartialTransaction.IncompleteTransaction(ptx) =>
           checkAborted(ptx)
           crash("IMPOSSIBLE: PartialTransaction.finish failed, but transaction was not aborted")
-        case PartialTransaction.SerializationError(msg) =>
-          throw ScenarioErrorSerializationError(msg)
       }
   }
 

@@ -15,8 +15,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.transaction.TransactionVersion
-import com.daml.lf.value.{ValueVersion, Value => V}
+import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -100,13 +99,6 @@ private[lf] object Speedy {
   private[lf] sealed trait LedgerMode
 
   private[lf] final case class OnLedger(
-      /* Transaction versions that the machine can read */
-      val inputValueVersions: VersionRange[ValueVersion],
-      /* Transaction versions that the machine can output */
-      val outputTransactionVersions: VersionRange[TransactionVersion],
-      /* Whether the current submission is validating the transaction, or interpreting
-       * it. If this is false, the committers must be a singleton set.
-       */
       val validating: Boolean,
       /* Controls if authorization checks are performed during evaluation */
       val checkAuthorization: CheckAuthorizationMode,
@@ -173,7 +165,7 @@ private[lf] object Speedy {
 
     private[lf] def withOnLedger[T](op: String)(f: OnLedger => T): T =
       ledgerMode match {
-        case onLedger @ OnLedger(_, _, _, _, _, _, _, _, _, _) => f(onLedger)
+        case onLedger @ OnLedger(_, _, _, _, _, _, _, _) => f(onLedger)
         case OffLedger => throw SRequiresOnLedger(op)
       }
 
@@ -703,8 +695,6 @@ private[lf] object Speedy {
         expr: SExpr,
         globalCids: Set[V.ContractId],
         committers: Set[Party],
-        inputValueVersions: VersionRange[ValueVersion],
-        outputTransactionVersions: VersionRange[TransactionVersion],
         validating: Boolean = false,
         checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
@@ -718,8 +708,6 @@ private[lf] object Speedy {
         kontStack = initialKontStack(),
         lastLocation = None,
         ledgerMode = OnLedger(
-          inputValueVersions = inputValueVersions,
-          outputTransactionVersions = outputTransactionVersions,
           validating = validating,
           checkAuthorization = checkAuthorization,
           ptx = PartialTransaction.initial(submissionTime, initialSeeding),
@@ -745,8 +733,6 @@ private[lf] object Speedy {
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
         scenario: SExpr,
-        inputValueVersions: VersionRange[ValueVersion],
-        outputTransactionVersions: VersionRange[TransactionVersion],
     ): Machine = Machine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
@@ -754,8 +740,6 @@ private[lf] object Speedy {
       expr = SEApp(scenario, Array(SEValue.Token)),
       globalCids = Set.empty,
       committers = Set.empty,
-      inputValueVersions: VersionRange[ValueVersion],
-      outputTransactionVersions = outputTransactionVersions,
     )
 
     @throws[PackageNotFound]
@@ -765,15 +749,11 @@ private[lf] object Speedy {
         compiledPackages: CompiledPackages,
         transactionSeed: crypto.Hash,
         scenario: Expr,
-        inputValueVersions: VersionRange[ValueVersion],
-        outputTransactionVersions: VersionRange[TransactionVersion],
     ): Machine =
       fromScenarioSExpr(
         compiledPackages = compiledPackages,
         transactionSeed = transactionSeed,
         scenario = compiledPackages.compiler.unsafeCompile(scenario),
-        inputValueVersions = inputValueVersions,
-        outputTransactionVersions = outputTransactionVersions,
       )
 
     @throws[PackageNotFound]

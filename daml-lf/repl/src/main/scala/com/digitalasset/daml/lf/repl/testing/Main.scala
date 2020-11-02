@@ -215,8 +215,6 @@ object Repl {
           compiledPackages,
           seed,
           expr,
-          inputValueVersion,
-          outputTransactionVersions,
         )
       (machine, ScenarioRunner(machine).run())
     }

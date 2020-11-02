@@ -14,8 +14,7 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.transaction.TransactionVersions
-import com.daml.lf.value.{Value, ValueVersions}
+import com.daml.lf.value.{Value}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
 
@@ -1421,8 +1420,6 @@ object SBuiltinTest {
         compiledPackages,
         transactionSeed = seed,
         scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
-        inputValueVersions = ValueVersions.Empty,
-        outputTransactionVersions = TransactionVersions.Empty
       )
     } else {
       Speedy.Machine.fromPureSExpr(compiledPackages, e)
