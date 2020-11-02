@@ -16,7 +16,8 @@ import com.daml.ledger.participant.state.kvutils.export.{
   NoOpLedgerDataExporter,
   WriteSet
 }
-import com.daml.ledger.participant.state.kvutils.tools.integritycheck.Color.color
+import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
@@ -25,11 +26,17 @@ import com.daml.ledger.validator.batch.{
 }
 import com.daml.ledger.validator.{CommitStrategy, DamlLedgerStateReader}
 import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.logging.LoggingContext
+import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, JdbcIndexer}
+import com.daml.platform.store.dao.events.LfValueTranslation
 import com.google.protobuf.ByteString
 
 import scala.PartialFunction.condOpt
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[LogResult]) {
 
@@ -37,31 +44,100 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
 
   def run(
       importer: LedgerDataImporter,
+      config: Config,
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
     val actorSystem: ActorSystem = ActorSystem("integrity-checker")
     implicit val materializer: Materializer = Materializer(actorSystem)
+
+    if (!config.performByteComparison) {
+      println("Skipping byte-for-byte comparison.".yellow)
+      println()
+    }
 
     val engine = new Engine(EngineConfig.Stable)
     val metricRegistry = new MetricRegistry
     val metrics = new Metrics(metricRegistry)
     val submissionValidator = BatchedSubmissionValidator[LogResult](
-      BatchedSubmissionValidatorParameters.reasonableDefault,
-      new KeyValueCommitting(engine, metrics),
-      new ConflictDetection(metrics),
-      metrics,
-      NoOpLedgerDataExporter,
+      params = BatchedSubmissionValidatorParameters(cpuParallelism = 1, readParallelism = 1),
+      committer = new KeyValueCommitting(engine, metrics),
+      conflictDetection = new ConflictDetection(metrics),
+      metrics = metrics,
+      ledgerDataExporter = NoOpLedgerDataExporter,
     )
-    val ComponentsForReplay(reader, commitStrategy, queryableWriteSet) =
-      commitStrategySupport.createComponentsForReplay()
-    processSubmissions(importer, submissionValidator, reader, commitStrategy, queryableWriteSet)
-      .map { _ =>
+    val expectedReadServiceFactory = commitStrategySupport.newReadServiceFactory()
+    val actualReadServiceFactory = commitStrategySupport.newReadServiceFactory()
+    val stateUpdates = new StateUpdates(
+      expectedReadServiceFactory.getReadService,
+      actualReadServiceFactory.getReadService,
+    )
+    (for {
+      _ <- processSubmissions(
+        importer,
+        submissionValidator,
+        commitStrategySupport.ledgerStateReader,
+        commitStrategySupport.commitStrategy,
+        commitStrategySupport.writeSet,
+        expectedReadServiceFactory,
+        actualReadServiceFactory,
+        config,
+      )
+      _ <- stateUpdates.compare()
+      _ <- indexStateUpdates(config.name, metrics, actualReadServiceFactory.getReadService)
+    } yield ()).andThen {
+      case _ =>
         reportDetailedMetrics(metricRegistry)
-      }
-      .andThen {
-        case _ =>
-          materializer.shutdown()
-          actorSystem.terminate()
-      }
+        materializer.shutdown()
+        actorSystem.terminate()
+    }
+  }
+
+  private def indexStateUpdates(
+      name: String,
+      metrics: Metrics,
+      readService: ReplayingReadService,
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
+    val jdbcUrl = s"jdbc:h2:mem:$name;db_close_delay=-1;db_close_on_exit=false"
+    val config = IndexerConfig(
+      participantId = ParticipantId.assertFromString("IntegrityCheckerParticipant"),
+      jdbcUrl = jdbcUrl,
+      startupMode = IndexerStartupMode.MigrateAndStart,
+    )
+
+    implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
+
+    // Start the indexer consuming the recorded state updates
+    println(s"Starting to index ${readService.updateCount()} updates.".white)
+    newLoggingContext { implicit loggingContext =>
+      val feedHandleResourceOwner = for {
+        indexerFactory <- ResourceOwner
+          .forFuture(() =>
+            migrateAndStartIndexer(config, readService, metrics, LfValueTranslation.Cache.none))
+        indexer <- indexerFactory
+        feedHandle <- indexer.subscription(readService)
+      } yield feedHandle
+
+      // Wait for the indexer to finish consuming the state updates.
+      // This works because ReplayingReadService.stateUpdates() closes the update stream
+      // when it is done streaming the recorded updates, and IndexFeedHandle.complete()
+      // completes when it finishes consuming the state update stream.
+      // Any failure (e.g., during the decoding of the recorded state updates, or
+      // during the indexing of a state update) will result in a failed Future.
+      feedHandleResourceOwner.use(_.completed())
+    }.transform {
+      case Success(value) =>
+        println(s"Successfully indexed all updates.".green)
+        println()
+        Success(value)
+      case Failure(exception) =>
+        val message =
+          s"""Failure indexing updates: $exception
+             |Indexer metrics:
+             |  stateUpdateProcessing:  ${metrics.daml.indexer.stateUpdateProcessing.getCount}
+             |  lastReceivedRecordTime: ${metrics.daml.indexer.lastReceivedRecordTime.getValue()}
+             |  lastReceivedOffset:     ${metrics.daml.indexer.lastReceivedOffset.getValue()}
+             |""".stripMargin
+        Failure(new IndexingFailureException(message))
+    }
   }
 
   private def processSubmissions(
@@ -70,7 +146,11 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       reader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[LogResult],
       queryableWriteSet: QueryableWriteSet,
+      expectedReadServiceFactory: ReplayingReadServiceFactory,
+      actualReadServiceFactory: ReplayingReadServiceFactory,
+      config: Config,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
+    println(s"Importing the ledger export.".white)
     Source(importer.read())
       .mapAsync(1) {
         case (submissionInfo, expectedWriteSet) =>
@@ -90,12 +170,23 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
               commitStrategy,
             )
             actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
-            _ = compareWriteSets(expectedWriteSet, actualWriteSet)
+            orderedActualWriteSet = if (config.sortWriteSet) {
+              actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
+            } else {
+              actualWriteSet
+            }
+            _ = expectedReadServiceFactory.appendBlock(expectedWriteSet)
+            _ = actualReadServiceFactory.appendBlock(orderedActualWriteSet)
+            _ = if (config.performByteComparison) {
+              compareWriteSets(expectedWriteSet, orderedActualWriteSet)
+            } else {
+              ()
+            }
           } yield ()
       }
       .runWith(Sink.fold(0)((n, _) => n + 1))
       .map { counter =>
-        println(s"Processed $counter submissions.".white)
+        println(s"Processed $counter submissions.".green)
         println()
       }
   }
@@ -160,7 +251,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       .toOption
       .map { expectedStateValue =>
         val stateKey =
-          commitStrategySupport.stateKeySerializationStrategy().deserializeStateKey(key)
+          commitStrategySupport.stateKeySerializationStrategy.deserializeStateKey(key)
         val actualStateValue = kvutils.Envelope.openStateValue(actualValue)
         s"""|State key: $stateKey
             |Expected: $expectedStateValue
@@ -176,6 +267,25 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       .build
     reporter.report()
   }
+
+  private def migrateAndStartIndexer(
+      config: IndexerConfig,
+      readService: ReadService,
+      metrics: Metrics,
+      lfValueTranslationCache: LfValueTranslation.Cache,
+  )(
+      implicit resourceContext: ResourceContext,
+      materializer: Materializer,
+      loggingContext: LoggingContext): Future[ResourceOwner[JdbcIndexer]] = {
+    val indexerFactory = new JdbcIndexer.Factory(
+      ServerRole.Indexer,
+      config,
+      readService,
+      metrics,
+      lfValueTranslationCache,
+    )
+    indexerFactory.migrateSchema(allowExistingSchema = false)
+  }
 }
 
 object IntegrityChecker {
@@ -184,6 +294,8 @@ object IntegrityChecker {
 
   class CheckFailedException(message: String) extends RuntimeException(message)
 
-  class ComparisonFailureException(message: String) extends CheckFailedException(message)
+  class ComparisonFailureException(lines: String*)
+      extends CheckFailedException(("FAIL" +: lines).mkString(System.lineSeparator))
 
+  class IndexingFailureException(message: String) extends CheckFailedException(message)
 }

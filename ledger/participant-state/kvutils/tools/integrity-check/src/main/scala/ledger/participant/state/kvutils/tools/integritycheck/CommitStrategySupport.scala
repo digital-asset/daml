@@ -3,7 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
+import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.export.WriteSet
+import com.daml.ledger.participant.state.v1.ReadService
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.{
   CommitStrategy,
@@ -11,28 +13,36 @@ import com.daml.ledger.validator.{
   StateKeySerializationStrategy
 }
 
-import scala.concurrent.ExecutionContext
-
 trait QueryableWriteSet {
   def getAndClearRecordedWriteSet(): WriteSet
 }
 
-final case class ComponentsForReplay[LogResult](
-    ledgerStateReader: DamlLedgerStateReader,
-    commitStrategy: CommitStrategy[LogResult],
-    queryableWriteSet: QueryableWriteSet,
-)
+/** A ReadService that streams back previously recorded state updates */
+trait ReplayingReadService extends ReadService {
+  def updateCount(): Long
+}
+
+/** Records state updates and creates corresponding ReplayingReadService instances */
+trait ReplayingReadServiceFactory {
+  def appendBlock(writeSet: WriteSet): Unit
+
+  def getReadService(implicit materializer: Materializer): ReplayingReadService
+}
 
 trait CommitStrategySupport[LogResult] {
-  def stateKeySerializationStrategy(): StateKeySerializationStrategy
+  def stateKeySerializationStrategy: StateKeySerializationStrategy
 
-  def createComponentsForReplay()(
-      implicit executionContext: ExecutionContext): ComponentsForReplay[LogResult]
+  def ledgerStateReader: DamlLedgerStateReader
+
+  def commitStrategy: CommitStrategy[LogResult]
+
+  def writeSet: QueryableWriteSet
+
+  def newReadServiceFactory(): ReplayingReadServiceFactory
 
   /**
-    * Determines if there's an actual difference and tries to explain it.
-    *
-    * @return None in case no difference should be signaled to the user; otherwise a message explaining the difference
+    * Determines if there's an actual difference and tries to explain it in case there is.
+    * A None return value signals that no difference should be signaled to the user.
     */
   def explainMismatchingValue(key: Key, expectedValue: Value, actualValue: Value): Option[String]
 }
