@@ -1489,3 +1489,33 @@ created before the offset *unless* those contracts are identified in a
 ``contractIdAtOffset``.  By contrast, if any ``contractIdAtOffset`` is
 missing, ``archived`` event filtering will be disabled, and you will
 receive "phantom archives" as with query streams.
+
+Healthcheck Endpoints
+*********************
+
+The HTTP JSON API provides two healthcheck endpoints for integration
+with schedulers like
+`Kubernetes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`_.
+
+Liveness check
+==============
+
+- URL: ``/livez``
+- Method: ``GET``
+
+A status code of ``200`` indicates a successful liveness check.
+
+This is an unauthenticated endpoint intended to be used as a liveness
+probe.
+
+Readyness check
+===============
+
+- URL: ``/readyz``
+- Method: ``GET``
+
+A status code of ``200`` indicates a successful readyness check.
+
+This is an unauthenticated endpoint intended to be used as a liveness
+probe. It validates both the ledger connection as well as the database
+connection.

@@ -28,6 +28,7 @@ private[http] final case class Config(
     packageReloadInterval: FiniteDuration = HttpService.DefaultPackageReloadInterval,
     packageMaxInboundMessageSize: Option[Int] = None,
     maxInboundMessageSize: Int = HttpService.DefaultMaxInboundMessageSize,
+    healthTimeoutSeconds: Int = HttpService.DefaultHealthTimeoutSeconds,
     tlsConfig: TlsConfiguration = TlsConfiguration(enabled = false, None, None, None),
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,

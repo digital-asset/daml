@@ -55,6 +55,13 @@ final class FailureTests
           uri,
           headersWithParties(List(p.unwrap)))
         _ = status shouldBe StatusCodes.InternalServerError
+        (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
+        _ = status shouldBe StatusCodes.ServiceUnavailable
+        _ = out shouldBe
+          """[-] ledger failed
+            |[+] database ok
+            |readyz check failed
+            |""".stripMargin.replace("\r\n", "\n")
         _ <- inside(output) {
           case JsObject(fields) =>
             inside(fields.get("status")) {
@@ -71,6 +78,8 @@ final class FailureTests
               uri,
               headersWithParties(List(p.unwrap)))
           } yield status shouldBe StatusCodes.OK)
+        (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
+        _ = status shouldBe StatusCodes.OK
       } yield succeed
   }
 
@@ -236,6 +245,13 @@ final class FailureTests
       }
       // TODO Document this properly or adjust it
       _ = status shouldBe StatusCodes.OK
+      (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
+      _ = status shouldBe StatusCodes.ServiceUnavailable
+      _ = out shouldBe
+        """[+] ledger ok
+          |[-] database failed
+          |readyz check failed
+          |""".stripMargin.replace("\r\n", "\n")
       _ = dbProxy.enable()
       // eventually doesn’t handle Futures in the version of scalatest we’re using.
       _ <- RetryStrategy.constant(5, 2.seconds)((_, _) =>
@@ -252,6 +268,8 @@ final class FailureTests
               }
           }
         } yield succeed)
+      (status, _) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
+      _ = status shouldBe StatusCodes.OK
     } yield succeed
   }
 
