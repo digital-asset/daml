@@ -230,6 +230,20 @@ class Runner(
     newMap.isDefined
   }
 
+  import Runner.{DamlFun, SingleCommandFailure, maxParallelSubmissionsPerTrigger}
+
+  /** Delay for command submissions, based on the number of known-pending commands. */
+  private[this] def pendingCommandDelay[SR]: Flow[SR, SR, NotUsed] =
+    Flow[SR].delayWith(
+      () => { _: SR =>
+        val excessCmds = 0 max (pendingCommandIds.size - maxParallelSubmissionsPerTrigger)
+        val delay = 10 * excessCmds * excessCmds
+        val maxDelay = 1000
+        ((maxDelay min delay) max 0).milliseconds
+      },
+      DelayOverflowStrategy.backpressure
+    )
+
   @throws[RuntimeException]
   private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
     val commandUUID = UUID.randomUUID
@@ -245,8 +259,6 @@ class Runner(
       s"submitting command ID ${commandUUID: UUID}, commands ${commands.map(_.command.value)}")
     (commandUUID, SubmitRequest(commands = Some(commandsArg)))
   }
-
-  import Runner.{DamlFun, SingleCommandFailure, maxParallelSubmissionsPerTrigger}
 
   private def freeTriggerSubmits(
       clientTime: Timestamp,
@@ -541,6 +553,7 @@ class Runner(
     Flow
       .fromGraph(msgFlow)
       .viaMat(getTriggerEvaluator(name, acs))(Keep.both)
+      .via(pendingCommandDelay)
       .via(submitOrFail)
       .join(source)
       .run()
@@ -550,9 +563,9 @@ class Runner(
 object Runner extends StrictLogging {
 
   /** The number of submitSingleCommand invocations each trigger will
-    * attempt to execute in parallel.  Note that this does not in any
-    * way bound the number of already-submitted, but not completed,
-    * commands that may be pending.
+    * attempt to execute in parallel.  As the number of submitted but
+    * incomplete commands exceeds this number, submission will slow down
+    * until reaching 1/sec at >9 excess commands.
     */
   val maxParallelSubmissionsPerTrigger = 8
 
