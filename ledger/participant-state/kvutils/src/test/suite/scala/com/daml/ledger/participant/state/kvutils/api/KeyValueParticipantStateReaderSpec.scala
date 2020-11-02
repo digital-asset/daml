@@ -265,5 +265,7 @@ object KeyValueParticipantStateReaderSpec {
       reader,
       new Metrics(new MetricRegistry),
       logEntryToUpdate,
-      () => None)
+      () => None,
+      failOnUnexpectedEvent = true,
+    )
 }

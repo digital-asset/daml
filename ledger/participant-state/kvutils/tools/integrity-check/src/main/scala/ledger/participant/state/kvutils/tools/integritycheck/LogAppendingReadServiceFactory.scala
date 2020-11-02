@@ -53,7 +53,11 @@ final class LogAppendingReadServiceFactory(
       }
       val participantStateReader = {
         val implementation =
-          KeyValueParticipantStateReader(keyValueSource, metrics)
+          KeyValueParticipantStateReader(
+            keyValueSource,
+            metrics,
+            failOnUnexpectedEvent = false,
+          )
         new ReplayingReadService {
           override def updateCount(): Long = recordedBlocks.length.toLong
 

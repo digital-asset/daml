@@ -17,13 +17,21 @@ object Main {
       ExecutionContext.fromExecutorService(
         Executors.newFixedThreadPool(sys.runtime.availableProcessors()))
 
-    run(args, new LogAppendingCommitStrategySupport()(executionContext))
+    run(
+      args,
+      new LogAppendingCommitStrategySupport()(executionContext),
+      () => executionContext.shutdown(),
+    )
   }
 
-  def run(args: Array[String], commitStrategySupport: CommitStrategySupport[Index]): Unit = {
+  def run(
+      args: Array[String],
+      commitStrategySupport: CommitStrategySupport[Index],
+      cleanup: () => Unit,
+  ): Unit = {
     val config = Config.parse(args).getOrElse { sys.exit(1) }
 
-    run(config, commitStrategySupport).failed
+    run(config, commitStrategySupport, cleanup).failed
       .foreach {
         case exception: IntegrityChecker.CheckFailedException =>
           println(exception.getMessage.red)
@@ -36,7 +44,9 @@ object Main {
 
   private def run(
       config: Config,
-      commitStrategySupport: CommitStrategySupport[Index]): Future[Unit] = {
+      commitStrategySupport: CommitStrategySupport[Index],
+      cleanup: () => Unit,
+  ): Future[Unit] = {
     println(s"Verifying integrity of ${config.exportFilePath}...")
 
     val executionContext: ExecutionContextExecutorService =
@@ -49,6 +59,7 @@ object Main {
         case _ =>
           importer.close()
           executionContext.shutdown()
+          cleanup()
       }(DirectExecutionContext)
   }
 }
