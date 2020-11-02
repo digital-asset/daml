@@ -51,46 +51,34 @@ private[lf] object TransactionVersions
     )
 
   private[lf] def assignVersions(
-      supportedTxVersions: VersionRange[TransactionVersion],
       as: Seq[SpecifiedVersion],
-  ): Either[String, TransactionVersion] = {
-
-    val transactionVersion =
-      VersionTimeline.latestWhenAllPresent(
-        supportedTxVersions.min,
-        (DevOutputVersions.min: SpecifiedVersion) +: as: _*,
-      )
-
-    Either.cond(
-      !(supportedTxVersions.max precedes transactionVersion),
-      transactionVersion,
-      s"inferred transaction version ${transactionVersion.protoValue} is not allowed"
+  ): TransactionVersion =
+    VersionTimeline.latestWhenAllPresent(
+      minVersion,
+      (DevOutputVersions.min: SpecifiedVersion) +: as: _*,
     )
-  }
 
   type UnversionedNode = Node.GenNode[NodeId, Value.ContractId, Value[Value.ContractId]]
   type VersionedNode = Node.GenNode[NodeId, Value.ContractId, VersionedValue[Value.ContractId]]
 
   def asVersionedTransaction(
-      supportedTxVersions: VersionRange[TransactionVersion],
       pkgLangVersions: Ref.PackageId => LanguageVersion,
       roots: ImmArray[NodeId],
       nodes: HashMap[NodeId, UnversionedNode],
-  ): Either[String, VersionedTransaction[NodeId, Value.ContractId]] = {
+  ): VersionedTransaction[NodeId, Value.ContractId] = {
 
     import VersionTimeline.Implicits._
 
     val langVersions: Iterator[SpecifiedVersion] =
-      roots.reverseIterator.map(nid => pkgLangVersions(nodes(nid).templateId.packageId))
+      roots.iterator.map(nid => pkgLangVersions(nodes(nid).templateId.packageId))
 
-    assignVersions(supportedTxVersions, langVersions.toList).map { txVersion =>
-      val versionNode: UnversionedNode => VersionedNode =
-        Node.GenNode.map3(identity, identity, VersionedValue(assignValueVersion(txVersion), _))
-      VersionedTransaction(
-        txVersion,
-        GenTransaction(nodes = nodes.transform((_, n) => versionNode(n)), roots = roots)
-      )
-    }
+    val txVersion = assignVersions(langVersions.toList)
+    val versionNode: UnversionedNode => VersionedNode =
+      Node.GenNode.map3(identity, identity, VersionedValue(assignValueVersion(txVersion), _))
+    VersionedTransaction(
+      assignVersions(langVersions.toList),
+      GenTransaction(nodes = nodes.transform((_, n) => versionNode(n)), roots = roots)
+    )
   }
 
 }

@@ -60,8 +60,6 @@ class CollectAuthorityState {
       compiledPackages,
       seeding(),
       expr,
-      value.ValueVersions.DevOutputVersions,
-      transaction.TransactionVersions.DevOutputVersions,
     )
     the_sexpr = machine.ctrl
 
