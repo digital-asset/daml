@@ -5,14 +5,13 @@ package com.daml.lf.engine.trigger
 
 import java.io.File
 import java.net.InetAddress
-import java.time.Duration
-import scala.concurrent.duration.{Duration => SDuration}
+
 import io.grpc.Channel
 import com.daml.ledger.api.testing.utils.OwnedResource
-import com.daml.ledger.resources.{Resource, ResourceContext}
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.configuration.LedgerConfiguration
-
+import com.daml.resources.FutureResourceOwner
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -28,7 +27,11 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
-import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement
+}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
 import com.daml.oauth.middleware.{Config => MiddlewareConfig, Server => MiddlewareServer}
@@ -55,8 +58,8 @@ import scala.sys.process.Process
 import scala.util.Success
 
 /**
- * A test-fixture that persists cookies between http requests for each test-case.
- */
+  * A test-fixture that persists cookies between http requests for each test-case.
+  */
 trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
   private val cookieJar = TrieMap[String, String]()
 
@@ -66,11 +69,11 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
   }
 
   /**
-   * Adds a Cookie header for the currently stored cookies and performs the given http request.
-   */
+    * Adds a Cookie header for the currently stored cookies and performs the given http request.
+    */
   def httpRequest(request: HttpRequest)(
-    implicit system: ActorSystem,
-    ec: ExecutionContext): Future[HttpResponse] = {
+      implicit system: ActorSystem,
+      ec: ExecutionContext): Future[HttpResponse] = {
     Http()
       .singleRequest {
         if (cookieJar.nonEmpty) {
@@ -91,11 +94,11 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
   }
 
   /**
-   * Same as [[httpRequest]] but will follow redirections.
-   */
+    * Same as [[httpRequest]] but will follow redirections.
+    */
   def httpRequestFollow(request: HttpRequest, maxRedirections: Int = 10)(
-    implicit system: ActorSystem,
-    ec: ExecutionContext): Future[HttpResponse] = {
+      implicit system: ActorSystem,
+      ec: ExecutionContext): Future[HttpResponse] = {
     httpRequest(request).flatMap {
       case resp @ HttpResponse(StatusCodes.Redirection(_), _, _, _) =>
         if (maxRedirections == 0) {
@@ -106,6 +109,160 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
         }
       case resp => Future(resp)
     }
+  }
+}
+
+trait AbstractAuthFixture extends SuiteMixin {
+  self: Suite =>
+
+  protected def authService: Option[auth.AuthService]
+  protected def authToken(payload: AuthServiceJWTPayload): Option[String]
+  protected def authConfig: AuthConfig
+}
+
+trait NoAuthFixture extends AbstractAuthFixture {
+  self: Suite =>
+
+  protected override def authService: Option[auth.AuthService] = None
+  protected override def authToken(payload: AuthServiceJWTPayload): Option[String] = None
+  protected override def authConfig: AuthConfig = NoAuth
+}
+
+trait AuthMiddlewareFixture
+    extends AbstractAuthFixture
+    with BeforeAndAfterAll
+    with AkkaBeforeAndAfterAll {
+  self: Suite =>
+
+  protected def authService: Option[auth.AuthService] = Some(auth.AuthServiceJWT(authVerifier))
+  protected def authToken(payload: AuthServiceJWTPayload): Option[String] = Some {
+    val header = """{"alg": "HS256", "typ": "JWT"}"""
+    val jwt = JwtSigner.HMAC256
+      .sign(DecodedJwt(header, AuthServiceJWTCodec.compactPrint(payload)), authSecret)
+      .toOption
+      .get
+    jwt.value
+  }
+  protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri)
+
+  private def authVerifier: JwtVerifierBase = HMAC256Verifier(authSecret).toOption.get
+  private def authMiddleware: ServerBinding = resource.value
+  private def authMiddlewareUri: Uri =
+    Uri()
+      .withScheme("http")
+      .withAuthority(authMiddleware.localAddress.getHostString, authMiddleware.localAddress.getPort)
+
+  private val authSecret: String = "secret"
+  private var resource: OwnedResource[ResourceContext, ServerBinding] = null
+
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+
+    implicit val context: ResourceContext = ResourceContext(system.dispatcher)
+    def closeServerBinding(binding: ServerBinding)(implicit ec: ExecutionContext): Future[Unit] =
+      for {
+        _ <- binding.unbind()
+      } yield ()
+    val oauthConfig = OAuthConfig(
+      port = Port.Dynamic,
+      ledgerId = this.getClass.getSimpleName,
+      // TODO[AH] Choose application ID, see https://github.com/digital-asset/daml/issues/7671
+      applicationId = None,
+      jwtSecret = authSecret,
+    )
+    resource = new OwnedResource(new ResourceOwner[ServerBinding] {
+      override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
+        for {
+          oauth <- Resource(OAuthServer.start(oauthConfig))(closeServerBinding)
+          uri = Uri()
+            .withScheme("http")
+            .withAuthority(oauth.localAddress.getHostString, oauth.localAddress.getPort)
+          middlewareConfig = MiddlewareConfig(
+            port = Port.Dynamic,
+            oauthAuth = uri.withPath(Path./("authorize")),
+            oauthToken = uri.withPath(Path./("token")),
+            clientId = "oauth-middleware-id",
+            clientSecret = "oauth-middleware-secret",
+            tokenVerifier = authVerifier,
+          )
+          middleware <- Resource(MiddlewareServer.start(middlewareConfig))(closeServerBinding)
+        } yield middleware
+    })
+    resource.setup()
+  }
+
+  override protected def afterAll(): Unit = {
+    resource.close()
+
+    super.afterAll()
+  }
+}
+
+trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with AkkaBeforeAndAfterAll {
+  self: Suite =>
+
+  protected val damlPackages: List[File] = List()
+  protected val ledgerIdMode: LedgerIdMode =
+    LedgerIdMode.Static(LedgerId(this.getClass.getSimpleName))
+  private def sandboxConfig: SandboxConfig = sandbox.DefaultConfig.copy(
+    port = Port.Dynamic,
+    damlPackages = damlPackages,
+    ledgerIdMode = ledgerIdMode,
+    timeProviderType = Some(TimeProviderType.Static),
+    authService = authService,
+    ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
+    seeding = None,
+  )
+
+  protected lazy val sandboxServer: SandboxServer = resource.value._1
+  protected lazy val sandboxPort: Port = sandboxServer.port
+  protected def sandboxClient(
+      applicationId: ApplicationId,
+      admin: Boolean = false,
+      actAs: List[ApiTypes.Party] = List(),
+      readAs: List[ApiTypes.Party] = List())(
+      implicit executionContext: ExecutionContext): Future[LedgerClient] =
+    LedgerClient(
+      resource.value._2,
+      LedgerClientConfiguration(
+        applicationId = ApplicationId.unwrap(applicationId),
+        ledgerIdRequirement = LedgerIdRequirement.none,
+        commandClient = CommandClientConfiguration.default,
+        sslContext = None,
+        token = authToken(
+          AuthServiceJWTPayload(
+            ledgerId = None,
+            applicationId = None,
+            participantId = None,
+            exp = None,
+            admin = admin,
+            actAs = actAs.map(ApiTypes.Party.unwrap),
+            readAs = readAs.map(ApiTypes.Party.unwrap)
+          ))
+      )
+    )
+
+  private var resource: OwnedResource[ResourceContext, (SandboxServer, Channel)] = null
+
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+
+    implicit val context: ResourceContext = ResourceContext(system.dispatcher)
+    // The owner spins up its own actor system which avoids deadlocks
+    // during shutdown.
+    resource = new OwnedResource(for {
+      sandbox <- SandboxServer.owner(sandboxConfig)
+      port <- new FutureResourceOwner[ResourceContext, Port](() =>
+        sandbox.portF(context.executionContext))
+      channel <- GrpcClientResource.owner(port)
+    } yield (sandbox, channel))
+    resource.setup()
+  }
+
+  override protected def afterAll(): Unit = {
+    resource.close()
+
+    super.afterAll()
   }
 }
 
@@ -129,7 +286,7 @@ trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
     val proc = Process(Seq(exe, "--port", port.port.value.toString)).run()
     Await.result(RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
       Future(port.testAndUnlock(host))
-    }, 10.seconds)
+    }, Duration.Inf)
     val client = new ToxiproxyClient(host.getHostName, port.port.value)
     resource = (client, proc)
   }
@@ -138,149 +295,6 @@ trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
     resource._2.destroy()
     val _ = resource._2.exitValue()
 
-    super.afterAll()
-  }
-}
-
-trait AbstractAuthFixture extends SuiteMixin {
-  self: Suite =>
-
-  protected def authService: Option[auth.AuthService]
-  protected def authToken(payload: AuthServiceJWTPayload): Option[String]
-  protected def authConfig: AuthConfig
-}
-
-trait NoAuthFixture extends AbstractAuthFixture {
-  self: Suite =>
-
-  protected override def authService: Option[auth.AuthService] = None
-  protected override def authToken(payload: AuthServiceJWTPayload): Option[String] = None
-  protected override def authConfig: AuthConfig = NoAuth
-}
-
-trait AuthMiddlewareFixture
-  extends AbstractAuthFixture
-    with BeforeAndAfterAll
-    with AkkaBeforeAndAfterAll {
-  self: Suite =>
-
-  protected def authService: Option[auth.AuthService] = Some(auth.AuthServiceJWT(authVerifier))
-  protected def authToken(payload: AuthServiceJWTPayload): Option[String] = Some {
-    val header = """{"alg": "HS256", "typ": "JWT"}"""
-    val jwt = JwtSigner.HMAC256.sign(DecodedJwt(header, AuthServiceJWTCodec.compactPrint(payload)), authSecret).toOption.get
-    jwt.value
-  }
-  protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri)
-
-  private def authVerifier: JwtVerifierBase = HMAC256Verifier(authSecret).toOption.get
-  private def authMiddleware: ServerBinding = resource._2
-  private def authMiddlewareUri: Uri = Uri()
-    .withScheme("http")
-    .withAuthority(authMiddleware.localAddress.getHostString, authMiddleware.localAddress.getPort)
-
-  private val authSecret: String = "secret"
-  private var resource: (ServerBinding, ServerBinding) = null
-  private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
-
-  override protected def beforeAll(): Unit = {
-    super.beforeAll()
-
-    resource = Await.result(for {
-      oauth <- OAuthServer.start(
-        OAuthConfig(
-          port = Port.Dynamic,
-          ledgerId = this.getClass.getSimpleName,
-          // TODO[AH] Choose application ID, see https://github.com/digital-asset/daml/issues/7671
-          applicationId = None,
-          jwtSecret = authSecret,
-        ))
-      serverUri = Uri()
-        .withScheme("http")
-        .withAuthority(oauth.localAddress.getHostString, oauth.localAddress.getPort)
-      middleware <- MiddlewareServer.start(
-        MiddlewareConfig(
-          port = Port.Dynamic,
-          oauthAuth = serverUri.withPath(Path./("authorize")),
-          oauthToken = serverUri.withPath(Path./("token")),
-          clientId = "oauth-middleware-id",
-          clientSecret = "oauth-middleware-secret",
-          tokenVerifier = authVerifier,
-        ))
-    } yield (oauth, middleware),
-      1.minute)
-  }
-
-  override protected def afterAll(): Unit = {
-    val (oauth, middleware) = resource
-    middleware.unbind()
-    oauth.unbind()
-
-    super.afterAll()
-  }
-}
-
-trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with AkkaBeforeAndAfterAll {
-  self: Suite =>
-
-  protected val damlPackages: List[File] = List()
-  protected val ledgerIdMode: LedgerIdMode = LedgerIdMode.Static(LedgerId(this.getClass.getSimpleName))
-  private def sandboxConfig: SandboxConfig = sandbox.DefaultConfig.copy(
-    port = Port.Dynamic,
-    damlPackages = damlPackages,
-    ledgerIdMode = ledgerIdMode,
-    timeProviderType = Some(TimeProviderType.Static),
-    authService = authService,
-    ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
-    seeding = None,
-  )
-
-  protected def sandboxServer: SandboxServer = resource._1
-  protected def sandboxPort: Port = resource._2
-  protected def channel: Channel = resource._3
-  protected def sandboxClient(
-    applicationId: ApplicationId,
-    admin: Boolean = false,
-    actAs: List[ApiTypes.Party] = List(),
-    readAs: List[ApiTypes.Party] = List())(
-    implicit executionContext: ExecutionContext): Future[LedgerClient] =
-    LedgerClient(
-      channel,
-      LedgerClientConfiguration(
-        applicationId = ApplicationId.unwrap(applicationId),
-        ledgerIdRequirement = LedgerIdRequirement.none,
-        commandClient = CommandClientConfiguration.default,
-        sslContext = None,
-        token = authToken(
-          AuthServiceJWTPayload(
-            ledgerId = None,
-            applicationId = None,
-            participantId = None,
-            exp = None,
-            admin = admin,
-            actAs = actAs.map(ApiTypes.Party.unwrap),
-            readAs = readAs.map(ApiTypes.Party.unwrap)))))
-
-  private var resource: (SandboxServer, Port, Channel) = null
-
-  private var channelResource: OwnedResource[ResourceContext, Channel] = null
-
-var sadbonxResource: Resource[SandboxServer] = null
-
-  override protected def beforeAll(): Unit = {
-    super.beforeAll()
-    implicit val context: ResourceContext = ResourceContext(system.dispatcher)
-    // The owner spins up its own actor system which avoids deadlocks
-    // during shutdown.
-    sadbonxResource = SandboxServer.owner(sandboxConfig).acquire()
-    val server = Await.result(sadbonxResource.asFuture, SDuration.Inf)
-    val port = server.port
-    channelResource = new OwnedResource(GrpcClientResource.owner(port))
-    resource = (server, port, channelResource.construct)
-  }
-
-  override protected def afterAll(): Unit = {
-    channelResource.destruct(resource._3)
-    Await.result(sadbonxResource.release(), SDuration.Inf)
     super.afterAll()
   }
 }
@@ -328,10 +342,10 @@ trait TriggerDaoInMemFixture extends AbstractTriggerDaoFixture {
 }
 
 trait TriggerDaoPostgresFixture
-  extends AbstractTriggerDaoFixture
-  with BeforeAndAfterEach
-  with AkkaBeforeAndAfterAll
-  with PostgresAroundAll {
+    extends AbstractTriggerDaoFixture
+    with BeforeAndAfterEach
+    with AkkaBeforeAndAfterAll
+    with PostgresAroundAll {
   self: Suite =>
 
   override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
@@ -362,50 +376,63 @@ trait TriggerDaoPostgresFixture
 }
 
 trait TriggerServiceFixture
-  extends SuiteMixin
-  with ToxiSandboxFixture
-  with AbstractTriggerDaoFixture
-  with StrictLogging {
+    extends SuiteMixin
+    with ToxiSandboxFixture
+    with AbstractTriggerDaoFixture
+    with StrictLogging {
   self: Suite =>
 
   // Use a small initial interval so we can test restart behaviour more easily.
   private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
+  private def triggerServiceOwner(encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]]) =
+    new ResourceOwner[ServerBinding] {
+      override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
+        for {
+          (binding, _) <- Resource {
+            val host = InetAddress.getLoopbackAddress
+            val ledgerConfig = LedgerConfig(
+              host.getHostName,
+              toxiSandboxPort.value,
+              TimeProviderType.Static,
+              java.time.Duration.ofSeconds(30),
+              ServiceConfig.DefaultMaxInboundMessageSize,
+            )
+            val restartConfig = TriggerRestartConfig(
+              minRestartInterval,
+              ServiceConfig.DefaultMaxRestartInterval,
+            )
+            val lock = LockedFreePort.find()
+            for {
+              r <- ServiceMain.startServer(
+                host.getHostName,
+                lock.port.value,
+                authConfig,
+                ledgerConfig,
+                restartConfig,
+                encodedDar,
+                jdbcConfig,
+              )
+              _ = lock.unlock()
+            } yield r
+          } {
+            case (_, system) => {
+              system ! Stop
+              system.whenTerminated.map(_ => ())
+            }
+          }
+        } yield binding
+    }
 
-  def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])(testFn: Uri => Future[A])(
+  def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])(
+      testFn: Uri => Future[A])(
       implicit ec: ExecutionContext,
       pos: source.Position,
   ): Future[A] = {
     logger.info(s"${pos.fileName}:${pos.lineNumber}: setting up trigger service")
-
-    val host = InetAddress.getLoopbackAddress
-    val ledgerConfig = LedgerConfig(
-      host.getHostName,
-      toxiSandboxPort.value,
-      TimeProviderType.Static,
-      Duration.ofSeconds(30),
-      ServiceConfig.DefaultMaxInboundMessageSize,
-    )
-    val restartConfig = TriggerRestartConfig(
-      minRestartInterval,
-      ServiceConfig.DefaultMaxRestartInterval,
-    )
-    val servicePort = LockedFreePort.find()
-    (for {
-      (binding, system) <- ServiceMain.startServer(
-        host.getHostName,
-        servicePort.port.value,
-        authConfig,
-        ledgerConfig,
-        restartConfig,
-        encodedDar,
-        jdbcConfig,
-      )
-      uri = Uri.from(scheme = "http", host = "localhost", port = binding.localAddress.getPort)
-      result <- testFn(uri).transform(Success(_))
-      _ <- {
-        system ! Stop
-        system.whenTerminated
-      }
-    } yield result).flatMap(Future.fromTry(_))
+    implicit val context: ResourceContext = ResourceContext(ec)
+    triggerServiceOwner(encodedDar).use { binding =>
+      val uri = Uri.from(scheme = "http", host = "localhost", port = binding.localAddress.getPort)
+      testFn(uri)
+    }
   }
 }

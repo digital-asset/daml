@@ -13,7 +13,6 @@ import java.io.File
 import java.util.UUID
 
 import org.scalatest._
-import org.scalatest.concurrent.Eventually
 
 import scala.concurrent.Future
 import scalaz.Tag
@@ -32,10 +31,9 @@ import com.typesafe.scalalogging.StrictLogging
 import scala.concurrent.duration._
 
 abstract class AbstractTriggerServiceTest
-  extends AsyncFlatSpec
+    extends AsyncFlatSpec
     with HttpCookies
     with TriggerServiceFixture
-    with Eventually
     with Matchers
     with StrictLogging {
 
@@ -62,7 +60,6 @@ abstract class AbstractTriggerServiceTest
   }
 
   def testId: String = this.getClass.getSimpleName
-
   protected override def actorSystemName = testId
 
   protected val alice: Party = Tag("Alice")
@@ -177,10 +174,8 @@ abstract class AbstractTriggerServiceTest
     } yield statusMsgs
   }
 
-  def assertTriggerStatus[A](
-                              uri: Uri,
-                              triggerInstance: UUID,
-                              pred: Vector[String] => A)(implicit A: CompatAssertion[A]): Future[Assertion] = {
+  def assertTriggerStatus[A](uri: Uri, triggerInstance: UUID, pred: Vector[String] => A)(
+      implicit A: CompatAssertion[A]): Future[Assertion] = {
     // eventually doesn’t handle Futures in the version of scalatest we’re using.
     RetryStrategy.constant(5, 1.seconds) { (_, _) =>
       for {
@@ -205,19 +200,18 @@ abstract class AbstractTriggerServiceTest
       } yield succeed
     }
 
-  it should "fail to start non-existent trigger" in withTriggerService(Some(dar)) {
-    uri: Uri =>
-      val expectedError = StatusCodes.UnprocessableEntity
-      for {
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:foobar", alice)
-        _ <- resp.status should equal(expectedError)
-        // Check the "status" and "errors" fields
-        body <- responseBodyToString(resp)
-        JsObject(fields) = body.parseJson
-        _ <- fields.get("status") should equal(Some(JsNumber(expectedError.intValue)))
-        _ <- fields.get("errors") should equal(
-          Some(JsArray(JsString("Could not find name foobar in module TestTrigger"))))
-      } yield succeed
+  it should "fail to start non-existent trigger" in withTriggerService(Some(dar)) { uri: Uri =>
+    val expectedError = StatusCodes.UnprocessableEntity
+    for {
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:foobar", alice)
+      _ <- resp.status should equal(expectedError)
+      // Check the "status" and "errors" fields
+      body <- responseBodyToString(resp)
+      JsObject(fields) = body.parseJson
+      _ <- fields.get("status") should equal(Some(JsNumber(expectedError.intValue)))
+      _ <- fields.get("errors") should equal(
+        Some(JsArray(JsString("Could not find name foobar in module TestTrigger"))))
+    } yield succeed
   }
 
   it should "start a trigger after uploading it" in withTriggerService(None) { uri: Uri =>
@@ -267,30 +261,29 @@ abstract class AbstractTriggerServiceTest
       } yield succeed
   }
 
-  it should "should enable a trigger on http request" in withTriggerService(Some(dar)) {
-    uri: Uri =>
-      for {
-        // Start the trigger
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
-        triggerId <- parseTriggerId(resp)
+  it should "should enable a trigger on http request" in withTriggerService(Some(dar)) { uri: Uri =>
+    for {
+      // Start the trigger
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+      triggerId <- parseTriggerId(resp)
 
-        // Trigger is running, create an A contract
-        client <- sandboxClient(ApiTypes.ApplicationId(testId), actAs = List(ApiTypes.Party("Alice")))
-        _ <- {
-          val cmd = Command().withCreate(
-            CreateCommand(
-              templateId = Some(Identifier(testPkgId, "TestTrigger", "A")),
-              createArguments = Some(
-                Record(
-                  None,
-                  Seq(
-                    RecordField(value = Some(Value().withParty("Alice"))),
-                    RecordField(value = Some(Value().withInt64(42)))))),
-            ))
-          submitCmd(client, "Alice", cmd)
-        }
-        // Query ACS until we see a B contract
-        // format: off
+      // Trigger is running, create an A contract
+      client <- sandboxClient(ApiTypes.ApplicationId(testId), actAs = List(ApiTypes.Party("Alice")))
+      _ <- {
+        val cmd = Command().withCreate(
+          CreateCommand(
+            templateId = Some(Identifier(testPkgId, "TestTrigger", "A")),
+            createArguments = Some(
+              Record(
+                None,
+                Seq(
+                  RecordField(value = Some(Value().withParty("Alice"))),
+                  RecordField(value = Some(Value().withInt64(42)))))),
+          ))
+        submitCmd(client, "Alice", cmd)
+      }
+      // Query ACS until we see a B contract
+      // format: off
         _ <- Future {
           val filter = TransactionFilter(List(("Alice", Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
           // eventually doesn’t handle Futures in the version of scalatest we’re using.
@@ -301,9 +294,9 @@ abstract class AbstractTriggerServiceTest
           }
         }
         // format: on
-        resp <- stopTrigger(uri, triggerId, alice)
-        _ <- assert(resp.status.isSuccess)
-      } yield succeed
+      resp <- stopTrigger(uri, triggerId, alice)
+      _ <- assert(resp.status.isSuccess)
+    } yield succeed
   }
 
   it should "restart trigger on initialization failure due to failed connection" in withTriggerService(
@@ -362,22 +355,21 @@ abstract class AbstractTriggerServiceTest
       } yield succeed
   }
 
-  it should "restart triggers with update errors" in withTriggerService(Some(dar)) {
-    uri: Uri =>
-      for {
-        resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", alice)
-        aliceTrigger <- parseTriggerId(resp)
-        _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
-        // We will attempt to restart the trigger indefinitely.
-        // Just check that we see a few failures and restart attempts.
-        // This relies on a small minimum restart interval as the interval doubles after each
-        // failure.
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") should be > 2)
-        _ <- assertTriggerStatus(
-          uri,
-          aliceTrigger,
-          _.count(_ == "stopped: runtime failure") should be > 2)
-      } yield succeed
+  it should "restart triggers with update errors" in withTriggerService(Some(dar)) { uri: Uri =>
+    for {
+      resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", alice)
+      aliceTrigger <- parseTriggerId(resp)
+      _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
+      // We will attempt to restart the trigger indefinitely.
+      // Just check that we see a few failures and restart attempts.
+      // This relies on a small minimum restart interval as the interval doubles after each
+      // failure.
+      _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") should be > 2)
+      _ <- assertTriggerStatus(
+        uri,
+        aliceTrigger,
+        _.count(_ == "stopped: runtime failure") should be > 2)
+    } yield succeed
   }
 
   it should "give a 'not found' response for a stop request with an unparseable UUID" in withTriggerService(
@@ -426,8 +418,10 @@ object AbstractTriggerServiceTest {
 }
 
 // Tests for in-memory mode only go here
-class TriggerServiceTestInMem extends AbstractTriggerServiceTest with TriggerDaoInMemFixture with NoAuthFixture {
-}
+class TriggerServiceTestInMem
+    extends AbstractTriggerServiceTest
+    with TriggerDaoInMemFixture
+    with NoAuthFixture {}
 
 // Tests for database mode only go here
 class TriggerServiceTestWithDb
@@ -490,5 +484,7 @@ class TriggerServiceTestWithDb
 }
 
 // Tests for auth mode only go here
-class TriggerServiceTestAuth extends AbstractTriggerServiceTest with TriggerDaoInMemFixture with AuthMiddlewareFixture {
-}
+class TriggerServiceTestAuth
+    extends AbstractTriggerServiceTest
+    with TriggerDaoInMemFixture
+    with AuthMiddlewareFixture {}
