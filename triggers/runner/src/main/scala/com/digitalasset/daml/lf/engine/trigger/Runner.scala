@@ -582,7 +582,7 @@ object Runner extends StrictLogging {
     def unapply(v: SPAP): Some[SPAP] = Some(v)
   }
 
-  private def alterF[K, V, F[_]: Functor](m: Map[K, V], k: K)(
+  private def alterF[K, V, F[a] >: Option[a]: Functor](m: Map[K, V], k: K)(
       f: Option[V] => F[Option[V]]): F[Map[K, V]] = {
     val ov = m get k
     f(ov) map {
