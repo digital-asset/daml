@@ -556,9 +556,7 @@ convertClassDef env tycon
             -- We use the the type variables as types in the fundep encoding,
             -- not as whatever kind they were previously defined.
         funDepType = TForalls funDepTyVars (encodeFunDeps funDeps')
-        funDepExpr = EBuiltin BEError `ETyApp` funDepType `ETmApp`
-            EBuiltin (BEText "undefined") -- We only care about the type, not the expr.
-        funDepDef = defValue tycon (funDepName tsynName, funDepType) funDepExpr
+        funDepDef = DValue (mkMetadataStub (funDepName tsynName) funDepType)
 
     let minimal = fmap getOccText (classMinimalDef cls)
         methodsWithNoDefault = sort [ getOccText id | (id, Nothing) <- classOpItems cls ]
@@ -573,9 +571,7 @@ convertClassDef env tycon
                     -> sort names == methodsWithNoDefault
                 _ -> False
         minimalType = encodeBooleanFormula minimal
-        minimalExpr = EBuiltin BEError `ETyApp` minimalType `ETmApp`
-            EBuiltin (BEText "undefined")
-        minimalDef = defValue tycon (minimalName tsynName, minimalType) minimalExpr
+        minimalDef = DValue (mkMetadataStub (minimalName tsynName) minimalType)
 
     pure $ [typeDef]
         ++ [funDepDef | classHasFds cls && newStyle]
@@ -776,11 +772,10 @@ convertBind env (name, x)
 
     -- OVERLAP* annotations
     let overlapModeName' = overlapModeName (fst name')
-        overlapModeValueM = MS.lookup name (envModInstanceInfo env) >>= encodeOverlapMode
-        overlapModeDef =
-            [ defValue name (overlapModeName', TText) (EBuiltin (BEText mode))
-            | Just mode <- [overlapModeValueM]
-            ]
+        overlapModeDef = maybeToList $ do
+            overlapMode <- MS.lookup name (envModInstanceInfo env)
+            overlapModeType <- encodeOverlapMode overlapMode
+            Just (DValue (mkMetadataStub overlapModeName' overlapModeType))
 
     pure $ [defValue name name' sanitized_x'] ++ overlapModeDef
 

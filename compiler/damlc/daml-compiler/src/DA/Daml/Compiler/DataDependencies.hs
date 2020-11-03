@@ -459,8 +459,7 @@ generateSrcFromLf env = noLoc mod
         getOverlapMode :: LF.ExprValName -> Maybe (Located OverlapMode)
         getOverlapMode name = do
             dval <- NM.lookup (LFC.overlapModeName name) (LF.moduleValues (envMod env))
-            LF.EBuiltin (LF.BEText modeText) <- Just (LF.dvalBody dval)
-            mode <- LFC.decodeOverlapMode modeText
+            mode <- LFC.decodeOverlapMode (snd (LF.dvalBinder dval))
             Just (noLoc mode)
 
     hiddenRefMap :: HMS.HashMap Ref Bool
