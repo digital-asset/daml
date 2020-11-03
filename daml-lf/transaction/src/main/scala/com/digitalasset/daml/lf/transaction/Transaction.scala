@@ -606,7 +606,12 @@ object Transaction {
 
   /** Whether `other` is the result of reinterpreting this transaction.
     *
-    * @note This function is asymmetric.
+    * @param recorded : the transaction to be validated.
+    * @param replayed : the transaction resulting from the reinterpretation of
+    *   the root nodes of [[recorded]].
+    * @note This function is asymmetric in order to provide backward compatibility.
+    *      For instance, some field may be undefined in the [[recorded]] transaction
+    *      while present in the [[replayed]] one.
     */
   def isReplayedBy[Nid, Cid, Val](
       recorded: GenTransaction[Nid, Cid, Val],
