@@ -129,12 +129,10 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "1.1.1",
         "end": last_nongranular_test_tool,
         "platform_ranges": [
             {
-                # TODO bump after next snapshot
-                "start": "0.0.0",
+                "start": "1.7.0-snapshot.20201103.5565.0.e75d42dd",
                 "exclusions": ["ContractKeysIT"],
             },
         ],
@@ -144,8 +142,7 @@ excluded_test_tool_tests = [
         "end": "1.7.0-snapshot.20201027.5530.0.bdbf8977",
         "platform_ranges": [
             {
-                # TODO bump after next snapshot
-                "start": "0.0.0",
+                "start": "1.7.0-snapshot.20201103.5565.0.e75d42dd",
                 "exclusions": [
                     "ContractKeysIT:CKFetchOrLookup",
                     "ContractKeysIT:CKNoFetchUndisclosed",
