@@ -206,8 +206,12 @@ export function createLedgerContext(contextName="DamlLedgerContext"): LedgerCont
         stream.on('close', closeHandler);
       } else {
         stream.on('close', closeEvent => {
-          console.error(`${name}: web socket closed`, closeEvent);
-          setResult(result => setLoading(result, true));
+          if ( closeEvent.code === 4000 ) {
+            // deliberate call to .close, nothing to do
+          } else {
+            console.error(`${name}: WebSocket connection failed.`);
+            setResult(result => setLoading(result, true));
+          }
         });
       }
       return (): void => {
