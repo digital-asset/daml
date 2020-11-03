@@ -320,7 +320,7 @@ class Runner(
     // The transaction source (ledger).
     val transactionSource: Source[TriggerMsg, NotUsed] =
       client.transactionClient
-        .getTransactions(offset, None, filter, verbose = true)
+        .getTransactions(offset, None, filter, verbose = false)
         .map(TransactionMsg)
 
     // Command completion source (ledger completion stream +
@@ -514,7 +514,7 @@ class Runner(
       executionContext: ExecutionContext): Future[(Seq[CreatedEvent], LedgerOffset)] = {
     for {
       acsResponses <- client.activeContractSetClient
-        .getActiveContracts(transactionFilter, verbose = true)
+        .getActiveContracts(transactionFilter, verbose = false)
         .runWith(Sink.seq)
       offset = Array(acsResponses: _*).lastOption
         .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
