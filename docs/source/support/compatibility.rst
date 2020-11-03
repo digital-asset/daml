@@ -25,7 +25,11 @@ Application Portability and to some extent Network Upgradeability are achieved b
 
 Specifically, if a DAML Application is built against Ledger API version X.Y.Z and a Participant Node exposes Ledger API version X.Y2.Z2, the application is guaranteed to work as long as Y2.Z2 >= Y.Z.
 
-Before SDK 1.7, the Ledger API version exposed by the Participant Node matches the SDK version. Currently, these versions can diverge. Integration Components, DAML Drivers, and Participant Nodes advertise the Ledger API version they expose.
+Participant Nodes advertise the Ledger API version they support via the :ref:`version service <version-service>`.
+
+.. note:
+
+  Before release 1.7, the Ledger API version exposed by the Participant Node matched the version of the integration kit and SDK they were released with. 
 
 As a concrete example, DAML for Postgres 1.4.0 has the Participant Node integrated, and exposes Ledger API version 1.4.0 and the DAML for VMware Blockchain 1.0 Participant Nodes expose Ledger API version 1.6.0. So any application that runs on DAML for Postgres 1.4.0 will also run on DAML for VMware Blockchain 1.0.
 
