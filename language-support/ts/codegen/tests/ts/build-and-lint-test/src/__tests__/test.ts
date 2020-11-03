@@ -104,6 +104,10 @@ function promisifyStream<T extends object, K, I extends string, State>(
   return {next, close};
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 describe('decoders for recursive types do not loop', () => {
   test('recursive enum', () => {
     expect(buildAndLint.Main.Expr(Int).decoder.run(undefined).ok).toBe(false);
@@ -329,9 +333,6 @@ test("multi-{key,query} stream", async () => {
   async function archive(t: string): Promise<void> {
     await ledger.archiveByKey(buildAndLint.Main.Counter, {_1: ALICE_PARTY, _2: t});
   }
-  function sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
   async function close<T extends object, K, I extends string, State>(s: Stream<T, K, I, State>): Promise<void> {
     const p = pEvent(s, 'close');
     s.close();
@@ -457,4 +458,40 @@ test("multi-{key,query} stream", async () => {
     ]
   );
 
+});
+
+test('stream close behaviour', async () => {
+  const url = 'ws' + httpBaseUrl().slice(4) + 'v1/stream/query';
+  const events: string[] = [];
+  events.push('before creation');
+  const ws = new WebSocket(url, ['jwt.token.' + ALICE_TOKEN, 'daml.ws.auth']);
+  events.push('after creation');
+  await sleep(10);
+  events.push('before register open');
+  ws.addEventListener('open', () => events.push('open'));
+  events.push('after register open');
+  await sleep(100);
+  events.push('before register close');
+  ws.addEventListener('close', () => events.push('close'));
+  events.push('after register close');
+  await sleep(100);
+  events.push('before close');
+  ws.close();
+  events.push('after close');
+  await sleep(10);
+  events.push('after sleep');
+
+  expect(events).toEqual([
+    'before creation',
+    'after creation',
+    'before register open',
+    'after register open',
+    'open',
+    'before register close',
+    'after register close',
+    'before close',
+    'after close',
+    'close',
+    'after sleep'
+  ]);
 });

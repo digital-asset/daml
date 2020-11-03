@@ -598,6 +598,11 @@ class Ledger {
       }
     };
     const close = (): void => {
+      // Note: ws.close will trigger the onClose handlers of the WebSocket
+      // (here onWsClose), but they execute as a separate event after the
+      // current event in the JS event loop, i.e. in particular after the call
+      // to closeStream and thus, in this case, the onWsClose handler will see
+      // streamClosed as true.
       ws.close();
       closeStream({code: 4000, reason: "called .close()"});
     };
