@@ -19,6 +19,7 @@ import scalaz.syntax.bifunctor._
 import scalaz.syntax.functor._
 import scalaz.syntax.tag._
 import scalaz.syntax.std.boolean._
+import scalaz.syntax.std.option._
 
 import scala.language.higherKinds
 
@@ -593,6 +594,36 @@ object Runner extends StrictLogging {
 
   private object DamlFun {
     def unapply(v: SPAP): Some[SPAP] = Some(v)
+  }
+
+  /** Like `CommandRetryFlow` but with no notion of ledger time, and with
+    * delay support.
+    */
+  private def retrying[A, B](
+      initialTries: Int,
+      backoff: Int => FiniteDuration,
+      parallelism: Int,
+      retryable: A => Future[Option[B]],
+      notRetryable: A => Future[B])(implicit ec: ExecutionContext): Flow[A, B, NotUsed] = {
+    final case class RA(tries: Int, value: A)
+    def trial(value: RA): Future[B \/ RA] =
+      if (value.tries <= 0) notRetryable(value.value) map \/.left
+      else retryable(value.value) map (_ toLeftDisjunction value.copy(tries = value.tries - 1))
+    val delay = Flow[RA]
+      .delayWith(() => ra => backoff(initialTries - ra.tries), DelayOverflowStrategy.backpressure)
+      .addAttributes(Attributes.inputBuffer(initial = parallelism, max = parallelism))
+    val runTrial = Flow[RA].mapAsync(parallelism)(trial)
+    val graph = GraphDSL.create() { implicit gb =>
+      import GraphDSL.Implicits._
+      val emitResults = gb add partition[B \/ RA]
+      val pickRetryFirst = gb add MergePreferred[RA](1, eagerComplete = true)
+      // format: off
+      pickRetryFirst.preferred <~ delay <~ emitResults.out2
+      pickRetryFirst        ~> runTrial ~> emitResults
+      // format: on
+      FlowShape(pickRetryFirst.in(0), emitResults.out1)
+    }
+    Flow fromGraph graph
   }
 
   private def alterF[K, V, F[a] >: Option[a]: Functor](m: Map[K, V], k: K)(
