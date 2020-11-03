@@ -234,15 +234,21 @@ class Runner(
 
   /** Delay for command submissions, based on the number of known-pending commands. */
   private[this] def pendingCommandDelay[SR]: Flow[SR, SR, NotUsed] =
-    Flow[SR].delayWith(
-      () => { _: SR =>
-        val excessCmds = 0 max (pendingCommandIds.size - maxParallelSubmissionsPerTrigger)
-        val delay = 10 * excessCmds * excessCmds
-        val maxDelay = 1000
-        ((maxDelay min delay) max 0).milliseconds
-      },
-      DelayOverflowStrategy.backpressure
-    )
+    Flow[SR]
+      .delayWith(
+        () => { _: SR =>
+          val excessCmds = 0 max (pendingCommandIds.size - maxParallelSubmissionsPerTrigger)
+          val delay = 10 * excessCmds * excessCmds
+          val maxDelay = 1000
+          ((maxDelay min delay) max 0).milliseconds
+        },
+        DelayOverflowStrategy.backpressure
+      )
+      .addAttributes(
+        // we don't want a buffer, because we want to backpressure the interpreter
+        // loop as soon as there is any submission delay, thus keeping pendingCommandIds
+        // holding only IDs we are actively scheduling submit for
+        Attributes.inputBuffer(initial = 1, max = 1))
 
   @throws[RuntimeException]
   private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
