@@ -170,7 +170,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     val filter = transactionFilter(parties, templateId)
     val acsResponses =
       grpcClient.activeContractSetClient
-        .getActiveContracts(filter, verbose = true)
+        .getActiveContracts(filter, verbose = false)
         .runWith(Sink.seq)
     acsResponses.map(acsPages =>
       acsPages.flatMap(page =>
