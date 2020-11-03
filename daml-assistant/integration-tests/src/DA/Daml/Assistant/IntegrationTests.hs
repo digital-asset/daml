@@ -344,7 +344,7 @@ packagingTests = testGroup "packaging"
                   , "  alice `submit` createCmd (S alice)"
                   , "  pure ()"
                   ]
-              maybe (fail "No start process stdin handle") (\h -> hPutChar h 'r' >> hFlush h) $ startStdIn
+              maybe (fail "No start process stdin handle") (\h -> hPutChar h 'r' >> hFlush h) startStdIn
               threadDelay 25000000
               initialRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
               let queryRequest =
