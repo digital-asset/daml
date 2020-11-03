@@ -230,18 +230,18 @@ class Runner(
     newMap.isDefined
   }
 
-  import Runner.{DamlFun, SingleCommandFailure, maxParallelSubmissionsPerTrigger}
+  import Runner.{
+    DamlFun,
+    SingleCommandFailure,
+    maxParallelSubmissionsPerTrigger,
+    preferredSubmitDelay
+  }
 
   /** Delay for command submissions, based on the number of known-pending commands. */
   private[this] def pendingCommandDelay[SR]: Flow[SR, SR, NotUsed] =
     Flow[SR]
       .delayWith(
-        () => { _: SR =>
-          val excessCmds = 0 max (pendingCommandIds.size - maxParallelSubmissionsPerTrigger)
-          val delay = 10 * excessCmds * excessCmds
-          val maxDelay = 1000
-          ((maxDelay min delay) max 0).milliseconds
-        },
+        () => (_: SR) => preferredSubmitDelay(pendingCommandIds.size),
         DelayOverflowStrategy.backpressure
       )
       .addAttributes(
@@ -574,6 +574,13 @@ object Runner extends StrictLogging {
     * until reaching 1/sec at >9 excess commands.
     */
   val maxParallelSubmissionsPerTrigger = 8
+
+  private def preferredSubmitDelay(pendingSubmitCount: Int): FiniteDuration = {
+    val excessCmds = 0 max (pendingSubmitCount - maxParallelSubmissionsPerTrigger)
+    val delay = 10 * excessCmds * excessCmds
+    val maxDelay = 1000
+    ((maxDelay min delay) max 0).milliseconds
+  }
 
   // Return the time provider for a given time provider type.
   def getTimeProvider(ty: TimeProviderType): TimeProvider = {
