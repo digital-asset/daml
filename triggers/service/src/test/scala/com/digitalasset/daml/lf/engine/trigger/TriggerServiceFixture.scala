@@ -6,6 +6,12 @@ package com.daml.lf.engine.trigger
 import java.io.File
 import java.net.InetAddress
 import java.time.Duration
+import scala.concurrent.duration.{Duration => SDuration}
+import io.grpc.Channel
+import com.daml.ledger.api.testing.utils.OwnedResource
+import com.daml.ledger.resources.{Resource, ResourceContext}
+import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.platform.configuration.LedgerConfiguration
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -224,19 +230,21 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     ledgerIdMode = ledgerIdMode,
     timeProviderType = Some(TimeProviderType.Static),
     authService = authService,
+    ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
+    seeding = None,
   )
 
   protected def sandboxServer: SandboxServer = resource._1
   protected def sandboxPort: Port = resource._2
+  protected def channel: Channel = resource._3
   protected def sandboxClient(
     applicationId: ApplicationId,
     admin: Boolean = false,
     actAs: List[ApiTypes.Party] = List(),
     readAs: List[ApiTypes.Party] = List())(
     implicit executionContext: ExecutionContext): Future[LedgerClient] =
-    LedgerClient.singleHost(
-      InetAddress.getLoopbackAddress.getHostName,
-      sandboxPort.value,
+    LedgerClient(
+      channel,
       LedgerClientConfiguration(
         applicationId = ApplicationId.unwrap(applicationId),
         ledgerIdRequirement = LedgerIdRequirement.none,
@@ -252,19 +260,27 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
             actAs = actAs.map(ApiTypes.Party.unwrap),
             readAs = readAs.map(ApiTypes.Party.unwrap)))))
 
-  private var resource: (SandboxServer, Port) = null
+  private var resource: (SandboxServer, Port, Channel) = null
+
+  private var channelResource: OwnedResource[ResourceContext, Channel] = null
+
+var sadbonxResource: Resource[SandboxServer] = null
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-
-    val server = new SandboxServer(sandboxConfig, materializer)
+    implicit val context: ResourceContext = ResourceContext(system.dispatcher)
+    // The owner spins up its own actor system which avoids deadlocks
+    // during shutdown.
+    sadbonxResource = SandboxServer.owner(sandboxConfig).acquire()
+    val server = Await.result(sadbonxResource.asFuture, SDuration.Inf)
     val port = server.port
-    resource = (server, port)
+    channelResource = new OwnedResource(GrpcClientResource.owner(port))
+    resource = (server, port, channelResource.construct)
   }
 
   override protected def afterAll(): Unit = {
-    sandboxServer.close()
-
+    channelResource.destruct(resource._3)
+    Await.result(sadbonxResource.release(), SDuration.Inf)
     super.afterAll()
   }
 }

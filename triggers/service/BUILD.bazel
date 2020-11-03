@@ -96,6 +96,9 @@ da_scala_test(
     ),
     resources = glob(["src/test/resources/**/*"]),
     deps = [
+         "//libs-scala/resources",
+         "//ledger/ledger-resources",
+         "//ledger/participant-integration-api:participant-integration-api-tests-lib",
         ":trigger-service",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
