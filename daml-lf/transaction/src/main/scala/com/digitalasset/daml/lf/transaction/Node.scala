@@ -6,7 +6,15 @@ package transaction
 
 import com.daml.lf.data.{ImmArray, ScalazEqual}
 import com.daml.lf.data.Ref._
-import com.daml.lf.value.{CidContainer, CidContainer1, CidContainer3, CidMapper, Value}
+import com.daml.lf.value.Value.VersionedValue
+import com.daml.lf.value.{
+  CidContainer,
+  CidContainer1,
+  CidContainer2,
+  CidContainer3,
+  CidMapper,
+  Value
+}
 
 import scala.language.higherKinds
 import scalaz.Equal
@@ -371,6 +379,31 @@ object Node {
 
   sealed trait WithTxValue3[F[+ _, + _, + _]] {
     type WithTxValue[+Nid, +Cid] = F[Nid, Cid, Transaction.Value[Cid]]
+  }
+
+  case class VersionedNode[+Nid, +Cid](
+      version: TransactionVersion,
+      node: Node.GenNode.WithTxValue[Nid, Cid],
+  ) extends CidContainer[VersionedNode[Nid, Cid]] {
+    override protected def self: this.type = this
+  }
+
+  object VersionedNode extends CidContainer2[VersionedNode] {
+    override private[lf] def map2[A1, B1, A2, B2](
+        f1: A1 => A2,
+        f2: B1 => B2,
+    ): VersionedNode[A1, B1] => VersionedNode[A2, B2] = {
+      case VersionedNode(version, node) =>
+        VersionedNode(version, GenNode.map3(f1, f2, VersionedValue.map1(f2))(node))
+    }
+
+    override private[lf] def foreach2[A, B](
+        f1: A => Unit,
+        f2: B => Unit,
+    ): VersionedNode[A, B] => Unit = {
+      case VersionedNode(_, node) =>
+        GenNode.foreach3(f1, f2, VersionedValue.foreach1(f2))(node)
+    }
   }
 
 }

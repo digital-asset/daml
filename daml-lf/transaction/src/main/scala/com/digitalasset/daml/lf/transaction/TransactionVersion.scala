@@ -66,11 +66,13 @@ private[lf] object TransactionVersions
       roots.iterator.map(nid => pkgLangVersions(nodes(nid).templateId.packageId))
 
     val txVersion = assignVersions(langVersions.toList)
+
     val versionNode: UnversionedNode => VersionedNode =
       Node.GenNode.map3(identity, identity, VersionedValue(assignValueVersion(txVersion), _))
     VersionedTransaction(
-      assignVersions(langVersions.toList),
-      GenTransaction(nodes = nodes.transform((_, n) => versionNode(n)), roots = roots)
+      txVersion,
+      versionedNodes = nodes.transform((_, n) => Node.VersionedNode(txVersion, versionNode(n))),
+      roots = roots
     )
   }
 

@@ -6,7 +6,7 @@ package transaction
 package test
 
 import com.daml.lf.data.{ImmArray, Ref}
-import transaction.Node.GenNode
+import transaction.Node.{GenNode, VersionedNode}
 import transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 
@@ -41,13 +41,19 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def add(node: Node, parent: NodeId): NodeId = ids.synchronized {
     lazy val nodeId = newNode(node) // lazy to avoid getting the next id if the method later throws
     nodes = nodes.mapResult { ns =>
-      val exercise = ns(parent) match {
+      val VersionedNode(version, node) = ns(parent)
+      val exercise = node match {
         case exe: TxExercise => exe
         case _ =>
           throw new IllegalArgumentException(
             s"Node ${parent.index} either does not exist or is not an exercise")
       }
-      ns.updated(parent, exercise.copy(children = exercise.children.slowSnoc(nodeId)))
+      ns.updated(
+        parent,
+        VersionedNode(
+          version,
+          exercise.copy(children = exercise.children.slowSnoc(nodeId))
+        ))
     }
     nodeId
   }
@@ -58,12 +64,12 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
     val builtRoots = roots.result()
     val nodesVersions =
       builtRoots.reverseIterator
-        .map(n => nodeTxVersion(builtNodes(n)): VersionTimeline.SpecifiedVersion)
+        .map(n => builtNodes(n).version: VersionTimeline.SpecifiedVersion)
         .toSeq
     val txVersion =
       VersionTimeline
         .latestWhenAllPresent(TransactionVersions.StableOutputVersions.min, nodesVersions: _*)
-    VersionedTransaction(txVersion, GenTransaction(nodes.result(), roots.result()))
+    VersionedTransaction(txVersion, nodes.result(), roots.result())
   }
 
   def buildSubmitted(): SubmittedTransaction = SubmittedTransaction(build())
@@ -71,9 +77,6 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def buildCommitted(): CommittedTransaction = CommittedTransaction(build())
 
   def newCid: ContractId = ContractId.V1(newHash())
-
-  private[this] def nodeTxVersion(n: GenNode[_, _, _]) =
-    pkgTxVersion(n.templateId.packageId)
 
   private[this] def pkgValVersion(pkgId: Ref.PackageId) = {
     import VersionTimeline.Implicits._
@@ -89,8 +92,10 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
     value.Value.VersionedValue(pkgValVersion(templateId.packageId), _)
 
   private[this] def versionN(node: Node): TxNode =
-    GenNode.map3(identity[NodeId], identity[ContractId], versionValue(node.templateId))(node)
-
+    VersionedNode(
+      pkgTxVersion(node.templateId.packageId),
+      GenNode.map3(identity[NodeId], identity[ContractId], versionValue(node.templateId))(node)
+    )
 }
 
 object TransactionBuilder {
@@ -99,7 +104,7 @@ object TransactionBuilder {
   type TxValue = value.Value.VersionedValue[ContractId]
   type NodeId = transaction.NodeId
   type Node = Node.GenNode[NodeId, ContractId, Value]
-  type TxNode = Node.GenNode[NodeId, ContractId, TxValue]
+  type TxNode = VersionedNode[NodeId, ContractId]
 
   type Create = Node.NodeCreate[ContractId, Value]
   type Exercise = Node.NodeExercises[NodeId, ContractId, Value]
@@ -255,7 +260,8 @@ object TransactionBuilder {
   val Empty: Tx.Transaction =
     VersionedTransaction(
       TransactionVersions.StableOutputVersions.min,
-      GenTransaction(HashMap.empty, ImmArray.empty),
+      HashMap.empty,
+      ImmArray.empty,
     )
   val EmptySubmitted: SubmittedTransaction = SubmittedTransaction(Empty)
   val EmptyCommitted: CommittedTransaction = CommittedTransaction(Empty)
