@@ -25,7 +25,7 @@ Application Portability and to some extent Network Upgradeability are achieved b
 
 Specifically, if a DAML Application is built against Ledger API version X.Y.Z and a Participant Node exposes Ledger API version X.Y2.Z2, the application is guaranteed to work as long as Y2.Z2 >= Y.Z.
 
-Participant Nodes advertise the Ledger API version they support via the :ref:`version service <version-service>`˛.
+Participant Nodes advertise the Ledger API version they support via the :ref:`version service <version-service>`.
 
 .. note:
 
