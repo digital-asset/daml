@@ -13,7 +13,7 @@ import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.on.memory.Index
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
-import com.daml.ledger.participant.state.kvutils.`export`.ProtobufBasedLedgerDataImporter
+import com.daml.ledger.participant.state.kvutils.export.ProtobufBasedLedgerDataImporter
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   NoOpLedgerDataExporter,
