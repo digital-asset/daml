@@ -596,6 +596,8 @@ object Runner extends StrictLogging {
     def unapply(v: SPAP): Some[SPAP] = Some(v)
   }
 
+  import UnfoldState.partition
+
   /** Like `CommandRetryFlow` but with no notion of ledger time, and with
     * delay support.
     */
@@ -615,13 +617,14 @@ object Runner extends StrictLogging {
     val runTrial = Flow[RA].mapAsync(parallelism)(trial)
     val graph = GraphDSL.create() { implicit gb =>
       import GraphDSL.Implicits._
-      val emitResults = gb add partition[B \/ RA]
+      val firstTry = gb add Flow.fromFunction(RA(initialTries, _))
+      val emitResults = gb add partition[B, RA]
       val pickRetryFirst = gb add MergePreferred[RA](1, eagerComplete = true)
       // format: off
-      pickRetryFirst.preferred <~ delay <~ emitResults.out2
-      pickRetryFirst        ~> runTrial ~> emitResults
+                  pickRetryFirst.preferred <~ delay <~ emitResults.out1
+      firstTry ~> pickRetryFirst        ~> runTrial ~> emitResults.in
       // format: on
-      FlowShape(pickRetryFirst.in(0), emitResults.out1)
+      FlowShape(firstTry.in, emitResults.out0)
     }
     Flow fromGraph graph
   }
