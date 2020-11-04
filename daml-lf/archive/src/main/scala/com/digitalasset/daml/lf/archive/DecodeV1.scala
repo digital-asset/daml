@@ -423,15 +423,16 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             Some(decodeModuleRef(loc.getModule))
           else
             optModuleName.map((packageId, _))
-        optModuleRef.map(moduleRef => {
-          val range = loc.getRange
-          Location(
-            moduleRef._1,
-            moduleRef._2,
-            definition,
-            (range.getStartLine, range.getStartCol),
-            (range.getEndLine, range.getEndCol))
-        })
+        optModuleRef.map {
+          case (pkgId, moduleName) =>
+            val range = loc.getRange
+            Location(
+              pkgId,
+              moduleName,
+              definition,
+              (range.getStartLine, range.getStartCol),
+              (range.getEndLine, range.getEndCol))
+        }
       } else {
         None
       }
