@@ -92,7 +92,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       stateUpdates: StateUpdates,
       metrics: Metrics)(
       implicit executionContext: ExecutionContext,
-      materializer: Materializer): Future[Unit] = {
+      materializer: Materializer): Future[Unit] =
     for {
       _ <- processSubmissions(
         importer,
@@ -107,7 +107,6 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       _ <- stateUpdates.compare()
       _ <- indexStateUpdates(config.name, metrics, actualReadServiceFactory.getReadService)
     } yield ()
-  }
 
   private def indexStateUpdates(
       name: String,
