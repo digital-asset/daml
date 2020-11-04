@@ -694,7 +694,6 @@ object Transaction {
                   stakeholders1,
                   signatories1,
                   choiceObservers1,
-                  controllersDifferFromActors1,
                   children1 @ _,
                   exerciseResult1 @ _,
                   key1,
@@ -711,7 +710,6 @@ object Transaction {
                   stakeholders2,
                   signatories2,
                   choiceObservers2,
-                  controllersDifferFromActors2,
                   children2 @ _,
                   exerciseResult2 @ _,
                   key2,
@@ -727,7 +725,6 @@ object Transaction {
                   stakeholders1 == stakeholders2 &&
                   signatories1 == signatories2 &&
                   choiceObservers1 == choiceObservers2 &&
-                  controllersDifferFromActors1 == controllersDifferFromActors2 &&
                   (key1.isEmpty || key1 === key2) =>
               loop(
                 children1.iterator.toStream,
