@@ -21,6 +21,10 @@ load("//:versions.bzl", "latest_stable_version")
 #   - https://github.com/digital-asset/daml/pull/7829
 # - ContractKeysSubmitterIsMaintainerIT:
 #   - https://github.com/digital-asset/daml/pull/5611
+
+last_nongranular_test_tool = "1.3.0-snapshot.20200617.4484.0.7e0a6848"
+first_granular_test_tool = "1.3.0-snapshot.20200623.4546.0.4f68cfc4"
+
 excluded_test_tool_tests = [
     {
         "start": "1.0.0",
@@ -53,7 +57,7 @@ excluded_test_tool_tests = [
     },
     {
         "start": "1.1.1",
-        "end": "1.3.0-snapshot.20200617.4484.0.7e0a6848",
+        "end": last_nongranular_test_tool,
         "platform_ranges": [
             {
                 "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
@@ -62,7 +66,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "1.3.0-snapshot.20200623.4546.0.4f68cfc4",
+        "start": first_granular_test_tool,
         "platform_ranges": [
             {
                 "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
@@ -100,7 +104,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "end": "1.3.0-snapshot.20200617.4484.0.7e0a6848",
+        "end": last_nongranular_test_tool,
         "platform_ranges": [
             {
                 "start": "1.6.0-snapshot.20200922.5258.0.cd4a06db",
@@ -112,7 +116,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "1.3.0-snapshot.20200623.4546.0.4f68cfc4",
+        "start": first_granular_test_tool,
         "end": "1.6.0-snapshot.20200915.5208.0.09014dc6",
         "platform_ranges": [
             {
@@ -125,9 +129,22 @@ excluded_test_tool_tests = [
         ],
     },
     {
+        "start": "1.1.1",
+        "end": last_nongranular_test_tool,
+        "platform_ranges": [
+            {
+                # TODO bump after next snapshot
+                "start": "0.0.0",
+                "exclusions": ["ContractKeysIT"],
+            },
+        ],
+    },
+    {
+        "start": first_granular_test_tool,
         "end": "1.7.0-snapshot.20201027.5530.0.bdbf8977",
         "platform_ranges": [
             {
+                # TODO bump after next snapshot
                 "start": "0.0.0",
                 "exclusions": [
                     "ContractKeysIT:CKFetchOrLookup",
