@@ -10,16 +10,13 @@ load(
     "lf_scalacopts",
 )
 
-da_scala_binary(
-    name = "integrity-check",
-    srcs = glob(["integrity-check/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/**/*.scala"]),
-    main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.Main",
-    resources = glob(["src/main/resources/*"]),
+da_scala_library(
+    name = "tools",
+    srcs = glob(["src/main/scala/ledger/participant/state/kvutils/tools/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    tags = ["maven_coordinates=com.daml:participant-state-kvutils-tools:__VERSION__"],
     visibility = [
         "//visibility:public",
-    ],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
         "//daml-lf/data",
@@ -41,6 +38,24 @@ da_scala_binary(
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
+    ],
+)
+
+da_scala_binary(
+    name = "integrity-check",
+    srcs = glob(["integrity-check/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/**/*.scala"]),
+    main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.Main",
+    resources = glob(["src/main/resources/*"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//ledger/ledger-on-memory",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils/tools",
     ],
 )
 
