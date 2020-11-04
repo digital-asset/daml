@@ -482,13 +482,11 @@ trait AbstractTriggerServiceTestWithDb
 }
 
 // Tests for non-authenticated trigger service configurations go here
-trait AbstractTriggerServiceTestNoAuth
-    extends AbstractTriggerServiceTest
-    with NoAuthFixture {}
+trait AbstractTriggerServiceTestNoAuth extends AbstractTriggerServiceTest with NoAuthFixture {}
 
 // Tests for authenticated trigger service configurations go here
 trait AbstractTriggerServiceTestAuthMiddleware
-  extends AbstractTriggerServiceTest
+    extends AbstractTriggerServiceTest
     with AuthMiddlewareFixture {}
 
 class TriggerServiceTestInMem
