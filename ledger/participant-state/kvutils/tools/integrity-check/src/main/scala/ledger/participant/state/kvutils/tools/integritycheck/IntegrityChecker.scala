@@ -3,14 +3,17 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{Executors, TimeUnit}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
+import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.on.memory.Index
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
+import com.daml.ledger.participant.state.kvutils.`export`.ProtobufBasedLedgerDataImporter
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   NoOpLedgerDataExporter,
@@ -35,7 +38,7 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.google.protobuf.ByteString
 
 import scala.PartialFunction.condOpt
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.util.{Failure, Success}
 
 class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[LogResult]) {
@@ -45,10 +48,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
   def run(
       importer: LedgerDataImporter,
       config: Config,
-  )(implicit executionContext: ExecutionContext): Future[Unit] = {
-    val actorSystem: ActorSystem = ActorSystem("integrity-checker")
-    implicit val materializer: Materializer = Materializer(actorSystem)
-
+  )(implicit executionContext: ExecutionContext, materializer: Materializer): Future[Unit] = {
     if (!config.performByteComparison) {
       println("Skipping byte-for-byte comparison.".yellow)
       println()
@@ -70,7 +70,30 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       expectedReadServiceFactory.getReadService,
       actualReadServiceFactory.getReadService,
     )
-    (for {
+    checkIntegrity(
+      config,
+      importer,
+      submissionValidator,
+      expectedReadServiceFactory,
+      actualReadServiceFactory,
+      stateUpdates,
+      metrics).andThen {
+      case _ =>
+        reportDetailedMetrics(metricRegistry)
+    }
+  }
+
+  private def checkIntegrity(
+      config: Config,
+      importer: LedgerDataImporter,
+      submissionValidator: BatchedSubmissionValidator[LogResult],
+      expectedReadServiceFactory: ReplayingReadServiceFactory,
+      actualReadServiceFactory: ReplayingReadServiceFactory,
+      stateUpdates: StateUpdates,
+      metrics: Metrics)(
+      implicit executionContext: ExecutionContext,
+      materializer: Materializer): Future[Unit] = {
+    for {
       _ <- processSubmissions(
         importer,
         submissionValidator,
@@ -83,12 +106,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       )
       _ <- stateUpdates.compare()
       _ <- indexStateUpdates(config.name, metrics, actualReadServiceFactory.getReadService)
-    } yield ()).andThen {
-      case _ =>
-        reportDetailedMetrics(metricRegistry)
-        materializer.shutdown()
-        actorSystem.terminate()
-    }
+    } yield ()
   }
 
   private def indexStateUpdates(
@@ -298,4 +316,41 @@ object IntegrityChecker {
       extends CheckFailedException(("FAIL" +: lines).mkString(System.lineSeparator))
 
   class IndexingFailureException(message: String) extends CheckFailedException(message)
+
+  def run(
+      args: Array[String],
+      commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[Index],
+  ): Unit = {
+    val config = Config.parse(args).getOrElse { sys.exit(1) }
+
+    run(config, commitStrategySupportFactory).failed
+      .foreach {
+        case exception: IntegrityChecker.CheckFailedException =>
+          println(exception.getMessage.red)
+          sys.exit(1)
+        case exception =>
+          exception.printStackTrace()
+          sys.exit(1)
+      }(DirectExecutionContext)
+  }
+
+  private def run(
+      config: Config,
+      commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[Index],
+  ): Future[Unit] = {
+    println(s"Verifying integrity of ${config.exportFilePath}...")
+
+    val actorSystem: ActorSystem = ActorSystem("integrity-checker")
+    implicit val executionContext: ExecutionContextExecutorService =
+      ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+    implicit val materializer: Materializer = Materializer(actorSystem)
+
+    val importer = ProtobufBasedLedgerDataImporter(config.exportFilePath)
+    new IntegrityChecker(commitStrategySupportFactory(executionContext))
+      .run(importer, config)
+      .andThen {
+        case _ =>
+          sys.exit(0)
+      }(DirectExecutionContext)
+  }
 }
