@@ -70,6 +70,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       expectedReadServiceFactory.getReadService,
       actualReadServiceFactory.getReadService,
     )
+
     checkIntegrity(
       config,
       importer,
@@ -77,7 +78,8 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       expectedReadServiceFactory,
       actualReadServiceFactory,
       stateUpdates,
-      metrics).andThen {
+      metrics,
+    ).andThen {
       case _ =>
         reportDetailedMetrics(metricRegistry)
     }
