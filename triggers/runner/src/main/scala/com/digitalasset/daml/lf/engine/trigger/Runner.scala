@@ -601,7 +601,7 @@ object Runner extends StrictLogging {
   /** Like `CommandRetryFlow` but with no notion of ledger time, and with
     * delay support.
     */
-  private def retrying[A, B](
+  private[trigger] def retrying[A, B](
       initialTries: Int,
       backoff: Int => FiniteDuration,
       parallelism: Int,
