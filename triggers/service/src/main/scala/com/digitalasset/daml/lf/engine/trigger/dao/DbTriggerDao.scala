@@ -154,20 +154,11 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
       }
     } yield (pkgId, payload)
 
-  private def selectAllTriggers: ConnectionIO[Vector[(UUID, String, String, Option[String])]] = {
+  private def selectAllTriggers: ConnectionIO[Vector[RunningTrigger]] = {
     val select: Fragment = sql"""
-      select trigger_instance, trigger_party, full_trigger_name, access_token from running_triggers order by trigger_instance
+      select trigger_instance, full_trigger_name, trigger_party, access_token from running_triggers order by trigger_instance
     """
-    select.query[(UUID, String, String, Option[String])].to[Vector]
-  }
-
-  private def parseRunningTrigger(
-      triggerInstance: UUID,
-      party: String,
-      fullTriggerName: String,
-      token: Option[String]): Either[String, RunningTrigger] = {
-    // TODO[AH] Persist the refresh token.
-    Identifier.fromString(fullTriggerName).map(RunningTrigger(triggerInstance, _, Tag(party), token))
+    select.query[(UUID, Identifier, Party, Option[String])].map(RunningTrigger.tupled).to[Vector]
   }
 
   // Drop all tables and other objects associated with the database.
@@ -218,12 +209,8 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
     )
   }
 
-  def readRunningTriggers: Either[String, Vector[RunningTrigger]] = {
-    import cats.implicits._ // needed for traverse
-    run(selectAllTriggers, "Failed to read running triggers from database").flatMap(
-      _.traverse((parseRunningTrigger _).tupled)
-    )
-  }
+  def readRunningTriggers: Either[String, Vector[RunningTrigger]] =
+    run(selectAllTriggers, "Failed to read running triggers from database")
 
   def initialize: Either[String, Unit] =
     run(createTables, "Failed to initialize database.")
