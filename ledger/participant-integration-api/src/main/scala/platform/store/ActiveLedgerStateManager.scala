@@ -101,7 +101,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
               case nf: N.NodeFetch.WithTxValue[ContractId] =>
                 val nodeParties = nf.signatories
                   .union(nf.stakeholders)
-                  .union(nf.actingParties.getOrElse(Set.empty))
+                  .union(nf.actingParties)
                 AddTransactionState(
                   Some(acc),
                   contractCheck(nf.coid).fold(errs)(errs + _),

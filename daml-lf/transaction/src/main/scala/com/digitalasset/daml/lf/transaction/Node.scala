@@ -101,7 +101,6 @@ object Node {
             _,
             _,
             _,
-            _,
             children,
             exerciseResult,
             key,
@@ -165,7 +164,6 @@ object Node {
           stakeholders @ _,
           signatories @ _,
           choiceObservers @ _,
-          controllersDifferFromActors @ _,
           children @ _,
           exerciseResult,
           key,
@@ -214,7 +212,7 @@ object Node {
       coid: Cid,
       override val templateId: TypeConName,
       optLocation: Option[Location], // Optional location of the fetch expression
-      actingParties: Option[Set[Party]],
+      actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Val]],
@@ -228,12 +226,6 @@ object Node {
     * We remember the `children` of this `NodeExercises`
     * to allow segregating the graph afterwards into party-specific
     * ledgers.
-    *
-    * @param controllersDifferFromActors
-    *     When we decode transactions version<6, the controllers might be different
-    *     from the actors.  However, such a transaction is always invalid, so we
-    *     prevalidate that when decoding and report the error when we get to the
-    *     actual validation stage.
     */
   final case class NodeExercises[+Nid, +Cid, +Val](
       targetCoid: Cid,
@@ -246,7 +238,6 @@ object Node {
       stakeholders: Set[Party],
       signatories: Set[Party],
       choiceObservers: Set[Party],
-      controllersDifferFromActors: Boolean,
       children: ImmArray[Nid],
       exerciseResult: Option[Val],
       key: Option[KeyWithMaintainers[Val]],
@@ -257,46 +248,7 @@ object Node {
     private[daml] def controllers: actingParties.type = actingParties
   }
 
-  object NodeExercises extends WithTxValue3[NodeExercises] {
-
-    /** After interpretation authorization, it must be the case that
-      * the controllers are the same as the acting parties. This
-      * apply method enforces it.
-      */
-    def apply[Nid, Cid, Val](
-        targetCoid: Cid,
-        templateId: TypeConName,
-        choiceId: ChoiceName,
-        optLocation: Option[Location],
-        consuming: Boolean,
-        actingParties: Set[Party],
-        chosenValue: Val,
-        stakeholders: Set[Party],
-        signatories: Set[Party],
-        choiceObservers: Set[Party],
-        children: ImmArray[Nid],
-        exerciseResult: Option[Val],
-        key: Option[KeyWithMaintainers[Val]],
-        byKey: Boolean,
-    ): NodeExercises[Nid, Cid, Val] =
-      NodeExercises(
-        targetCoid,
-        templateId,
-        choiceId,
-        optLocation,
-        consuming,
-        actingParties,
-        chosenValue,
-        stakeholders,
-        signatories,
-        choiceObservers,
-        controllersDifferFromActors = false,
-        children,
-        exerciseResult,
-        key,
-        byKey
-      )
-  }
+  object NodeExercises extends WithTxValue3[NodeExercises]
 
   final case class NodeLookupByKey[+Cid, +Val](
       override val templateId: TypeConName,
@@ -387,7 +339,6 @@ object Node {
             stakeholders2,
             signatories2,
             choiceObservers2,
-            controllersDifferFromActors2,
             _,
             exerciseResult2,
             key2,
@@ -397,7 +348,6 @@ object Node {
           targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
           consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
           stakeholders == stakeholders2 && signatories == signatories2 && choiceObservers == choiceObservers2 &&
-          controllersDifferFromActors == controllersDifferFromActors2 &&
           exerciseResult.fold(true)(_ => exerciseResult === exerciseResult2) &&
           key.fold(true)(_ => key === key2)
       }

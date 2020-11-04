@@ -142,47 +142,39 @@ Version history
 This table lists every version of this specification in ascending order
 (oldest first).
 
+The *"dev" version* is used as a staging area for the next stable transaction
+version. The "dev" version can be changed freely without considering
+compatibility with prior "dev" versions.
+
+Support for transaction versions 1 to 9 was dropped on 2020-11-02.
+This breaking change does not impact ledgers created with SDK 1.0.0 or
+later.
+
 +--------------------+-----------------+
 | Version identifier | Date introduced |
 +====================+=================+
-|                  1 |      2018-12-19 |
-+--------------------+-----------------+
-|                  2 |      2019-01-28 |
-+--------------------+-----------------+
-|                  3 |      2019-01-30 |
-+--------------------+-----------------+
-|                  4 |      2019-02-14 |
-+--------------------+-----------------+
-|                  5 |      2019-03-12 |
-+--------------------+-----------------+
-|                  6 |      2019-04-29 |
-+--------------------+-----------------+
-|                  7 |      2019-05-06 |
-+--------------------+-----------------+
-|                  8 |      2019-06-26 |
-+--------------------+-----------------+
-|                  9 |      2020-01-13 |
-+--------------------+-----------------+
 |                 10 |      2020-03-25 |
++--------------------+-----------------+
+|                dev |      2020-03-25 |
 +--------------------+-----------------+
 
 message Transaction
 ^^^^^^^^^^^^^^^^^^^
 
-*since version 1*
+*since version 10*
 
 A list of `message Node`_, implicitly forming a forest starting at
 ``roots``.
 
-As of version 1, these fields are included:
+As of version 10, these fields are included:
 
 * ``string`` version
 * ``string`` roots
 * repeated `message Node`_ nodes
 
 ``version`` is required, and must be a version of this specification.
-For example, for version 1 of this specification, ``version`` must be
-``"1"``.  Consumers can expect this field to be present and to
+For example, for version 10 of this specification, ``version`` must be
+``"10"``.  Consumers can expect this field to be present and to
 have the semantics defined here without knowing the version of this
 value in advance.
 
@@ -198,12 +190,12 @@ The node of the tree appears in pre-order traversal in ``nodes``
 message ContractInstance
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-*since version 1*
+*since version 10*
 
 An instance of a DAML-LF template, represented by the DAML-LF value used
 to construct that instance.
 
-As of version 1, these fields are included:
+As of version 10, these fields are included:
 
 * `message Identifier`_ template_id
 * `message VersionedValue`_ value
@@ -225,11 +217,11 @@ the version of that specification to use when consuming it is the
 message Node
 ^^^^^^^^^^^^
 
-*since version 1*
+*since version 10*
 
 An action on the ledger.
 
-As of version 1, this required field is included:
+As of version 10, this required field is included:
 
 * ``string`` `field node_id`_
 
@@ -238,17 +230,12 @@ Additionally, one of the following node types *must* be included:
 * `message NodeCreate`_ create
 * `message NodeFetch`_ fetch
 * `message NodeExercise`_ exercise
-
-*since version 3*
-
-Instead of one of the above three node types, this one may be used:
-
 * `message NodeLookupByKey`_ lookup
 
 field node_id
 ~~~~~~~~~~~~~
 
-*since version 1*
+*since version 10*
 
 An identifier for this node, unique within the transaction.
 
@@ -275,7 +262,7 @@ an invalid transaction.
 message KeyWithMaintainers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-*since version 3*
+*since version 10*
 
 A contract key paired with its induced maintainers.
 
@@ -294,23 +281,23 @@ The key may not contain contract IDs.
 message NodeCreate
 ^^^^^^^^^^^^^^^^^^
 
-*since version 1*
+*since version 10*
 
 The creation of a contract by instantiating a DAML-LF template with the
 given argument.
 
-As of version 1, these fields are included:
+As of version 10, these fields are included:
 
-* ``string`` contract_id
+* `message ContractId`_ contract_id_struct
 * `message ContractInstance`_ contract_instance
 * repeated ``string`` stakeholders
 * repeated ``string`` signatories
+* `message KeyWithMaintainers`_ key_with_maintainers
 
-``contract_id`` and ``contract_instance`` are required.
+``contract_id_struct`` is required. Its structure is defined by `the value
+specification`_, version 3.
 
-``contract_id`` must conform to the regular expression::
-
-  [A-Za-z0-9._:-]+
+``contract_instance`` is required.
 
 Every element of ``stakeholders`` is a party identifier.
 ``signatories`` must be a non-empty subset of ``stakeholders``.
@@ -324,13 +311,7 @@ Every element of ``stakeholders`` is a party identifier.
   the template for said contract. Conceptually, they are the parties that
   agreed for that contract to be created.
 
-*since version 3*
-
-A new field is included:
-
-* `message KeyWithMaintainers`_ key_with_maintainers
-
-``key`` is optional. If present:
+``key_with_maintainers`` is optional. If present:
 
 * Its ``maintainers`` must be a subset of the ``signatories``;
 * The ``template_id` in the ``contract_instance`` must refer to a template with
@@ -345,73 +326,37 @@ the template for the contract.
 
 ``contract_id`` must not be set, and this new field is required:
 
-* `message ContractId`_ contract_id_struct
-
-Its structure is defined by `the value specification`_, version 3.
-
 .. _`message ContractId`: value.rst#message-contractid
 
 message NodeFetch
 ^^^^^^^^^^^^^^^^^
 
-*since version 1*
+*since version 10*
 
 Evidence of a DAML-LF ``fetch`` invocation.
 
-As of version 1, these fields are included:
+As of version 10, these fields are included:
 
-* ``string`` contract_id
+* `message ContractId`_ contract_id_struct
 * `message Identifier`_ template_id
 * repeated ``string`` stakeholders
 * repeated ``string`` signatories
+* repeated ``string`` actors
+* `message KeyWithMaintainers`_ key_with_maintainers
+* ``string`` value_version
 
-``contract_id`` and ``template_id`` are required.
+``contract_id_struct`` is required. Its structure is defined by `the value
+specification`_, version 3.
 
-``contract_id`` must conform to the regular expression::
-
-  [A-Za-z0-9._:-]+
+``template_id`` is required.
 
 ``template_id``'s structure is defined by `the value specification`_,
 version 1.
 
-Every element of ``stakeholders`` and ``signatories`` is a party
+Every element of ``stakeholders``, ``signatories`` and ``actors`` is a party
 identifier.
 
-*since version 2*
-
-As of version 2, this field is included in addition to all previous
-fields:
-
-* ``string`` value_version
-
-It is optional; if defined, it must be a version of `the value
-specification`_, and ``template_id`` shall be consumed according to that
-version.  Otherwise, it is assumed to be version "1".
-
-*since version 4*
-
-``contract_id`` must not be set, and this new field is required:
-
-* `message ContractId`_ contract_id_struct
-
-Its structure is defined by `the value specification`_, version 3.
-
-If ``contract_id_struct``'s ``relative`` field is ``true``, then:
-
-1. there must be a `message NodeCreate`_ in this transaction with the
-   same ``contract_id_struct`` (the _corresponding ``NodeCreate``_),
-2. ``stakeholders`` must have the same elements as the corresponding
-   ``NodeCreate``'s ``stakeholders`` field, and
-3. ``signatories`` must have the same elements as the corresponding
-   ``NodeCreate``'s ``signatories`` field.
-
-*since version 5*
-
-As of version 5, this new field is required to be non-empty:
-
-* repeated ``string`` actors
-
-Every element of ``actors`` is a party identifier.
+``actors`` is required to be non-empty:
 
 .. note:: *This section is non-normative.*
 
@@ -419,30 +364,29 @@ Every element of ``actors`` is a party identifier.
   contract -- or in other words, they are _not_ a property of the
   contract itself.
 
-*since version 10*
-
-Version 10 adds the field:
-
-* `message KeyWithMaintainers`_ key_with_maintainers
-
 ``key_with_maintainers`` is optional. It is present if and only if the
 ``template_id`` field refers to a template with a DAML-LF key
 definition.  When present, the field's sub-fields ``key`` and
 ``maintainers`` must conform to the key definition for the
 ``template_id``.
 
+`value_version` is optional; if defined it should be either "1", "2", "3", "4", "5", or "6".
+
+As of version dev
+
+the field `value_version` must not be set.
 
 message NodeExercise
 ^^^^^^^^^^^^^^^^^^^^
 
-*since version 1*
+*since version 10*
 
 The exercise of a choice on a contract, selected from the available
 choices in the associated DAML-LF template definition.
 
-As of version 1, these fields are included:
+As of version 10, these fields are included:
 
-* ``string`` contract_id
+* `message ContractId`_ contract_id_struct
 * `message Identifier`_ template_id
 * repeated ``string`` actors
 * ``string`` choice
@@ -451,16 +395,14 @@ As of version 1, these fields are included:
 * repeated ``string`` children
 * repeated ``string`` stakeholders
 * repeated ``string`` signatories
-* repeated ``string`` controllers
+* `message VersionedValue`_ return_value
+* `message KeyWithMaintainers`_ key_with_maintainers
 
-FIXME: choice observers: https://github.com/digital-asset/daml/issues/7709
+``contract_id_struct`` is required. Its structure is defined by `the value
+specification`_, version 3.
 
 ``children`` may be empty; all other fields are required, and required
 to be non-empty.
-
-``contract_id`` must conform to the regular expression::
-
-  [A-Za-z0-9._:-]+
 
 ``template_id``'s structure is defined by `the value specification`_;
 the version of that specification to use when consuming it is the
@@ -486,67 +428,37 @@ Every element of ``actors``, ``stakeholders``, ``signatories``, and
   The ``stakeholders`` and ``signatories`` field have the same meaning
   they have for ``NodeCreate``.
 
-  The ``actors`` field contains the parties that exercised the choice.
-  The ``controllers`` field contains the parties that _can_ exercise
-  the choice. Note that according to the ledger model these two fields
-  _must_ be the same. For this reason the ``controllers`` field was
-  removed in version 6 -- see *since version 6* below.
+* `return_value` is required
 
-*since version 4*
+``key_with_maintainers`` is optional. It is present if and only if the
+``template_id`` field refers to a template with a DAML-LF key
+definition.  When present, the field's sub-fields ``key`` and
+``maintainers`` must conform to the key definition for the
+``template_id``.
 
-``contract_id`` must not be set, and this new field is required:
+As of version dev
 
-* `message ContractId`_ contract_id_struct
+A new field is included:
 
-Its structure is defined by `the value specification`_, version 3.
+* repeated ``observer`` signatories
 
-If ``contract_id_struct``'s ``relative`` field is ``true``, then:
-
-1. there must be a `message NodeCreate`_ in this transaction with the
-   same ``contract_id_struct`` (the _corresponding ``NodeCreate``_),
-2. ``stakeholders`` must have the same elements as the corresponding
-   ``NodeCreate``'s ``stakeholders`` field, and
-3. ``signatories`` must have the same elements as the corresponding
-   ``NodeCreate``'s ``signatories`` field.
-
-*since version 6*
-
-The ``controllers`` field must be empty. Software needing to fill in
-data structures that demand both actors and controllers must use
-the ``actors`` field as the controllers.
-
-*since version 7*
-
-A new field ``return_value`` is required:
-
-* `message VersionedValue`_ return_value
-
-Containing the result of the exercised choice.
-
-*since version 8*
-
-New optional field `contract_key` is now set when the exercised
-contract has a contract key defined. The key may not contain contract IDs.
-
-*since version 9*
-
-New optional field `key_with_maintainers` is now set when the exercised
-contract has a contract key defined. The `contract_key` field is
-not used any more.
-
+Every element of ``observer`` is a party identifier.
 
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-*since version 3*
+*since version 10*
 
 The lookup of a contract by contract key.
 
-As of version 3, these fields are included:
+As of version 10, these fields are included:
 
+* `message ContractId`_ contract_id_struct
 * `message Identifier`_ template_id
 * `message KeyWithMaintainers`_ key_with_maintainers
-* ``string`` contract_id
+
+``contract_id_struct`` is optional. Its structure is defined by `the value
+specification`_, version 3.
 
 ``template_id`` and ``key_with_maintainers`` are required. ``contract_id`` is optional: if a
 contract with the specified key is not found it will not be present.
@@ -561,16 +473,5 @@ The ``key`` in ``key_with_maintainers`` must conform to the key definition in ``
 ``template_id``'s structure is defined by `the value specification`_;
 the version of that specification to use when consuming it is the
 ``version`` field of the ``key`` field in ``key_with_maintainers``.
-
-*since version 4*
-
-``contract_id`` must not be set, and this new field is optional:
-
-* `message ContractId`_ contract_id_struct
-
-Its structure is defined by `the value specification`_, version 3.
-
-If a contract with the specified key is not found it will not be
-present.
 
 .. _`the value specification`: value.rst

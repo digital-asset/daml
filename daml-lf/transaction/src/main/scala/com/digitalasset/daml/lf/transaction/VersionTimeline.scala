@@ -14,6 +14,10 @@ import scalaz.{-\/, @@, NonEmptyList, OneAnd, Ordering, Semigroup, \&/, \/, \/-}
 
 import scala.language.higherKinds
 
+// FIXME: https://github.com/digital-asset/daml/issues/7788
+// VersionTimeline is currently being rewritten and simplified.
+// Comments below may be inaccurate.
+
 /** The "monotonically decreasing" guarantee of engine versioning
   * described by the LF governance rules implicitly permits us to
   * exploit the order in which versions happen to have been introduced.
@@ -39,29 +43,19 @@ object VersionTimeline {
     */
   private[lf] val inAscendingOrder: NonEmptyList[Release] =
     NonEmptyList(
-      Both(Both(ValueVersion("1"), TransactionVersion("1")), LanguageVersion(LMV.V1, "0")),
-      Both(Both(ValueVersion("2"), TransactionVersion("2")), LanguageVersion(LMV.V1, "1")),
-      This(That(TransactionVersion("3"))),
-      This(Both(ValueVersion("3"), TransactionVersion("4"))),
-      This(That(TransactionVersion("5"))),
+      Both(This(ValueVersion("1")), LanguageVersion(LMV.V1, "0")),
+      Both(This(ValueVersion("2")), LanguageVersion(LMV.V1, "1")),
+      This(This(ValueVersion("3"))),
       That(LanguageVersion(LMV.V1, "2")),
       Both(This(ValueVersion("4")), LanguageVersion(LMV.V1, "3")),
-      This(That(TransactionVersion("6"))),
-      This(That(TransactionVersion("7"))),
       That(LanguageVersion(LMV.V1, "4")),
       That(LanguageVersion(LMV.V1, "5")),
-      This(That(TransactionVersion("8"))),
       Both(This(ValueVersion("5")), LanguageVersion(LMV.V1, "6")),
       Both(This(ValueVersion("6")), LanguageVersion(LMV.V1, "7")),
-      This(That(TransactionVersion("9"))),
       That(LanguageVersion(LMV.V1, "8")),
       This(That(TransactionVersion("10"))),
       // add new versions above this line (but see more notes below)
       Both(Both(ValueVersion("dev"), TransactionVersion("dev")), LanguageVersion(LMV.V1, Dev)),
-      // do *not* backfill to make more Boths, because such would
-      // invalidate the timeline, except to accompany Dev language
-      // versions; use This and That instead as needed.
-      // Backfill *is* appropriate if a release of the last hasn't happened
       //
       // "dev" versions float through the timeline with little rationale
       // due to their ephemeral contents; don't worry too much about their exact

@@ -9,7 +9,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{PackageId, SubmitterInfo}
 import com.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.VersionTimeline.Implicits._
 import com.daml.lf.transaction.{GlobalKey, _}
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
@@ -205,16 +204,12 @@ private[state] object Conversions {
     )
 
   def contractIdStructOrStringToStateKey[A](
-      transactionVersion: TransactionVersion,
-      coidString: String,
       coidStruct: ValueOuterClass.ContractId,
   ): DamlStateKey =
     contractIdToStateKey(
       assertDecode(
         "ContractId",
         ValueCoder.CidDecoder.decode(
-          sv = transactionVersion,
-          stringForm = coidString,
           structForm = coidStruct,
         ),
       )

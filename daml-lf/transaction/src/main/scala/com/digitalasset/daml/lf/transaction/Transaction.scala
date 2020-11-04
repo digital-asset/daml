@@ -362,7 +362,7 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
     */
   final def inputContracts[Cid2 >: Cid]: Set[Cid2] =
     fold(Set.empty[Cid2]) {
-      case (acc, (_, Node.NodeExercises(coid, _, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.NodeExercises(coid, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
       case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _, _, _))) =>
         acc + coid
@@ -501,9 +501,9 @@ object GenTransaction extends value.CidContainer3[GenTransaction] {
           node match {
             case Node.NodeCreate(_, c, _, _, _, Some(key)) =>
               state.created(globalKey(c.template, key.key.value))
-            case Node.NodeExercises(_, tmplId, _, _, true, _, _, _, _, _, _, _, _, Some(key), _) =>
+            case Node.NodeExercises(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key), _) =>
               state.consumed(globalKey(tmplId, key.key.value))
-            case Node.NodeExercises(_, tmplId, _, _, false, _, _, _, _, _, _, _, _, Some(key), _) =>
+            case Node.NodeExercises(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key), _) =>
               state.referenced(globalKey(tmplId, key.key.value))
             case Node.NodeFetch(_, tmplId, _, _, _, _, Some(key), _) =>
               state.referenced(globalKey(tmplId, key.key.value))
