@@ -35,8 +35,10 @@ final class LogAppendingReadServiceFactory(
   }
 
   /** Returns a new ReadService that can stream all previously recorded updates */
-  override def getReadService(implicit materializer: Materializer): ReplayingReadService =
+  override def createReadService(implicit materializer: Materializer): ReplayingReadService =
     this.synchronized {
+      val recordedBlocksSnapshot = recordedBlocks.toList
+
       val keyValueSource = new LedgerReader {
         override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
           if (offset.isDefined) {
@@ -44,13 +46,16 @@ final class LogAppendingReadServiceFactory(
               new IllegalArgumentException(
                 s"A read offset of $offset is not supported. Must be $None."))
           } else {
-            Source.fromIterator(() => recordedBlocks.toList.toIterator)
+            Source.fromIterator(() => {
+              recordedBlocksSnapshot.toIterator
+            })
           }
 
         override def currentHealth(): HealthStatus = HealthStatus.healthy
 
         override def ledgerId(): LedgerId = "FakeParticipantStateReaderLedgerId"
       }
+
       val participantStateReader = {
         val implementation =
           KeyValueParticipantStateReader(
@@ -59,7 +64,7 @@ final class LogAppendingReadServiceFactory(
             failOnUnexpectedEvent = false,
           )
         new ReplayingReadService {
-          override def updateCount(): Long = recordedBlocks.length.toLong
+          override def updateCount(): Long = recordedBlocksSnapshot.length.toLong
 
           override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
             implementation.getLedgerInitialConditions()
@@ -70,6 +75,7 @@ final class LogAppendingReadServiceFactory(
           override def currentHealth(): HealthStatus = implementation.currentHealth()
         }
       }
+
       participantStateReader
     }
 

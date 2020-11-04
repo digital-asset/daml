@@ -67,8 +67,8 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     val expectedReadServiceFactory = commitStrategySupport.newReadServiceFactory()
     val actualReadServiceFactory = commitStrategySupport.newReadServiceFactory()
     val stateUpdates = new StateUpdates(
-      expectedReadServiceFactory.getReadService,
-      actualReadServiceFactory.getReadService,
+      expectedReadServiceFactory.createReadService,
+      actualReadServiceFactory.createReadService,
     )
 
     checkIntegrity(
@@ -107,7 +107,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
         config,
       )
       _ <- stateUpdates.compare()
-      _ <- indexStateUpdates(config.name, metrics, actualReadServiceFactory.getReadService)
+      _ <- indexStateUpdates(config.name, metrics, actualReadServiceFactory.createReadService)
     } yield ()
 
   private def indexStateUpdates(

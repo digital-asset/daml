@@ -26,7 +26,7 @@ trait ReplayingReadService extends ReadService {
 trait ReplayingReadServiceFactory {
   def appendBlock(writeSet: WriteSet): Unit
 
-  def getReadService(implicit materializer: Materializer): ReplayingReadService
+  def createReadService(implicit materializer: Materializer): ReplayingReadService
 }
 
 trait CommitStrategySupport[LogResult] {
