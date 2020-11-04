@@ -3,6 +3,7 @@
 
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module DA.Daml.LF.Proto3.DecodeV1
@@ -18,6 +19,7 @@ import Data.Coerce
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
+import Control.Monad.ST
 import Data.Int
 import Text.Read
 import           Data.List
@@ -27,6 +29,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
+import qualified Data.Vector.Mutable as MV
 import qualified Proto3.Suite as Proto
 
 
@@ -37,6 +40,7 @@ data DecodeEnv = DecodeEnv
     -- erroring out when producing the string interning table.
     { internedStrings :: !(V.Vector (T.Text, Either String UnmangledIdentifier))
     , internedDottedNames :: !(V.Vector ([T.Text], Either String [UnmangledIdentifier]))
+    , internedTypes :: !(V.Vector Type)
     , selfPackageRef :: PackageRef
     }
 
@@ -61,6 +65,27 @@ lookupDottedName :: Int32 -> Decode ([T.Text], Either String [UnmangledIdentifie
 lookupDottedName id = do
     DecodeEnv{internedDottedNames} <- ask
     lookupInterned internedDottedNames BadDottedNameId id
+
+-- | /O(n)/ Construct a vector with @n@ elements by repeatedly applying the
+-- generator function to the already constructed part of the vector and the
+-- index of the current element to construct.
+constructVector :: forall a e. Int -> (V.Vector a -> Int -> Either e a) -> Either e (V.Vector a)
+-- NOTE(MH): This is a copy of `Data.Vector.constructN` with small modifications
+-- to pass the current index to `f` and to run in the `Either` monad.
+constructVector !n f = runST $ do
+    v  <- MV.new n
+    v' <- V.unsafeFreeze v
+    fill v' 0
+  where
+    fill :: forall s. V.Vector a -> Int -> ST s (Either e (V.Vector a))
+    fill !v i | i < n = case f (V.unsafeTake i v) i of
+        Left e -> return (Left e)
+        Right x -> seq x $ do
+            v'  <- V.unsafeThaw v
+            MV.unsafeWrite v' i x
+            v'' <- V.unsafeFreeze v'
+            fill v'' (i+1)
+    fill v _ = return (Right v)
 
 ------------------------------------------------------------------------
 -- Decodings of things related to string interning
@@ -177,14 +202,18 @@ decodeInternedDottedName (LF1.InternedDottedName ids) = do
     pure (mangled, sequence unmangledOrErr)
 
 decodePackage :: TL.Text -> LF.PackageRef -> LF1.Package -> Either Error Package
-decodePackage minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata) = do
+decodePackage minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata internedTypesV) = do
   version <- decodeVersion (decodeString minorText)
   let internedStrings = V.map decodeMangledString internedStringsV
   let internedDottedNames = V.empty
+  let internedTypes = V.empty
   let env0 = DecodeEnv{..}
   internedDottedNames <- runDecode env0 $ mapM decodeInternedDottedName internedDottedNamesV
-  let env = DecodeEnv{..}
-  runDecode env $ do
+  let env1 = env0{internedDottedNames}
+  internedTypes <- constructVector (V.length internedTypesV) $ \prefix i ->
+      runDecode env1{internedTypes = prefix} $ decodeType (internedTypesV V.! i)
+  let env2 = env1{internedTypes}
+  runDecode env2 $ do
     Package version <$> decodeNM DuplicateModule decodeModule mods <*> traverse decodePackageMetadata metadata
 
 decodePackageMetadata :: LF1.PackageMetadata -> Decode PackageMetadata
@@ -776,6 +805,9 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
     foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
   LF1.TypeSumStruct (LF1.Type_Struct flds) ->
     TStruct <$> mapM (decodeFieldWithType FieldName) (V.toList flds)
+  LF1.TypeSumInterned n -> do
+    DecodeEnv{internedTypes} <- ask
+    lookupInterned internedTypes BadTypeId n
   where
     decodeWithArgs :: V.Vector LF1.Type -> Decode Type -> Decode Type
     decodeWithArgs args fun = foldl TApp <$> fun <*> traverse decodeType args

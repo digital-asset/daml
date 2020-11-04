@@ -44,8 +44,9 @@
 //        2019-11-12: Add Generic Map (GenMap)
 //        2019-12-03: Add (experimental) text primitives.
 //        2019-12-05: Add Generic Equality builtin
-//        2019-13-10: Add ExerciseByKey Update
-//        2020-10-??: Add choice-observers
+//        2019-10-13: Add ExerciseByKey Update
+//        2020-11-04: Add interning of types
+//        2020-11-??: Add choice-observers
 
 syntax = "proto3";
 package daml_lf_1;
@@ -397,6 +398,8 @@ message Type {
     // use standard signed long for future usage.
     sint64 nat = 11;
     Syn syn = 12; // *Available in versions >= 1.8*
+
+    int32 interned = 13; // *Available in versions >= 1.dev*
   }
 
   reserved 6; // This was list. Removed in favour of PrimType.LIST
@@ -1480,4 +1483,8 @@ message Package {
   repeated string interned_strings = 2; // *Available in versions >= 1.6*
   repeated InternedDottedName interned_dotted_names = 3; // *Available in versions >= 1.7*
   PackageMetadata metadata = 4; // *Available and required in versions >= 1.8*
+
+  // Types in the interning table are only allowed to refer to interned types
+  // at smaller indices.
+  repeated Type interned_types = 5; // *Available in versions >= 1.dev*
 }
