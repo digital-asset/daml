@@ -172,8 +172,6 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
         compiledPackages,
         txSeeding,
         defn.body,
-        value.ValueVersions.DevOutputVersions,
-        transaction.TransactionVersions.DevOutputVersions,
       )
   }
 

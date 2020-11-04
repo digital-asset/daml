@@ -90,6 +90,7 @@ data Error
   | EExpectedStructType    !Type
   | EKindMismatch          {foundKind :: !Kind, expectedKind :: !Kind}
   | ETypeMismatch          {foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
+  | EPatternTypeMismatch   {pattern :: !CasePattern, scrutineeType :: !Type}
   | EExpectedHigherKind    !Kind
   | EExpectedFunctionType  !Type
   | EExpectedUniversalType !Type
@@ -236,6 +237,14 @@ instance Pretty Error where
       , nest 4 (pretty expectedKind)
       , "* found Kind:"
       , nest 4 (pretty foundKind)
+      ]
+    EPatternTypeMismatch{pattern, scrutineeType} ->
+      vcat $
+      [ "pattern type mismatch:"
+      , "* pattern:"
+      , nest 4 (pretty pattern)
+      , "* scrutinee type:"
+      , nest 4 (pretty scrutineeType)
       ]
 
     EExpectedFunctionType foundType ->

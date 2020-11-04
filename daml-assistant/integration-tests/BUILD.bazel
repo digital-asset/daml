@@ -147,6 +147,7 @@ da_haskell_test(
         "text",
         "unordered-containers",
         "utf8-string",
+        "vector",
     ],
     main_function = "DA.Daml.Assistant.IntegrationTests.main",
     visibility = ["//visibility:public"],

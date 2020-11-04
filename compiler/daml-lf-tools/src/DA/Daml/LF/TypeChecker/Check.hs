@@ -378,66 +378,101 @@ typeOfTmLam (var, typ) body = do
 typeOfTyLam :: MonadGamma m => (TypeVarName, Kind) -> Expr -> m Type
 typeOfTyLam (tvar, kind) expr = TForall (tvar, kind) <$> introTypeVar tvar kind (typeOf expr)
 
-introCasePattern :: MonadGamma m => Type -> CasePattern -> m a -> m a
-introCasePattern scrutType patn cont = case patn of
-  CPVariant patnTCon con var -> do
-    DefDataType _loc _name _serializable tparams dataCons <- inWorld (lookupDataType patnTCon)
-    variantCons <- match _DataVariant (EExpectedVariantType patnTCon) dataCons
-    conArgType <-
-      match _Just (EUnknownDataCon con) (con `lookup` variantCons)
-    (scrutTCon, scrutTArgs) <-
-      match _TConApp (EExpectedDataType scrutType) scrutType
-    unless (scrutTCon == patnTCon) $
-      throwWithContext (ETypeConMismatch patnTCon scrutTCon)
-    -- NOTE(MH): The next line should never throw since @scrutTApp@ has passed
-    -- 'checkTypeConApp'. The call to 'substitute' is hence safe for the same
-    -- reason as in 'checkTypeConApp'.
-    subst0 <-
-      match _Just (ETypeConAppWrongArity (TypeConApp scrutTCon scrutTArgs)) (zipExactMay tparams scrutTArgs)
-    let subst1 = map (\((v, _k), t) -> (v, t)) subst0
-    let varType = substitute (Map.fromList subst1) conArgType
-    introExprVar var varType cont
-  CPEnum patnTCon con -> do
-    defDataType <- inWorld (lookupDataType patnTCon)
-    enumCons <- match _DataEnum (EExpectedEnumType patnTCon) (dataCons defDataType)
-    unless (con `elem` enumCons) $ throwWithContext (EUnknownDataCon con)
-    scrutTCon <- match _TCon (EExpectedDataType scrutType) scrutType
-    unless (scrutTCon == patnTCon) $
-      throwWithContext (ETypeConMismatch patnTCon scrutTCon)
-    cont
-  CPUnit
-    | scrutType == TUnit -> cont
-    | otherwise ->
-        throwWithContext ETypeMismatch{foundType = scrutType, expectedType = TUnit, expr = Nothing}
-  CPBool _
-    | scrutType == TBool -> cont
-    | otherwise ->
-        throwWithContext ETypeMismatch{foundType = scrutType, expectedType = TBool, expr = Nothing}
-  CPNil -> do
-    _ :: Type <- match _TList (EExpectedListType scrutType) scrutType
-    cont
-  CPCons headVar tailVar
-    | headVar == tailVar ->
-        throwWithContext (EClashingPatternVariables headVar)
-    | otherwise -> do
-        elemType <- match _TList (EExpectedListType scrutType) scrutType
-        introExprVar headVar elemType $ introExprVar tailVar (TList elemType) cont
-  CPDefault -> cont
-  CPSome bodyVar -> do
-    bodyType <- match _TOptional (EExpectedOptionalType scrutType) scrutType
-    introExprVar bodyVar bodyType cont
-  CPNone -> do
-    _ :: Type <- match _TOptional (EExpectedOptionalType scrutType) scrutType
-    cont
+typeOfAlts :: MonadGamma m => (CaseAlternative -> m Type) -> [CaseAlternative] -> m Type
+typeOfAlts f alts = do
+    ts <- traverse f alts
+    case ts of
+        [] -> throwWithContext EEmptyCase
+        t:ts' -> do
+            forM_ ts' $ \t' -> unless (alphaType t t') $
+                throwWithContext ETypeMismatch{foundType = t', expectedType = t, expr = Nothing}
+            pure t
+
+typeOfAltsVariant :: MonadGamma m => Qualified TypeConName -> [Type] -> [TypeVarName] -> [(VariantConName, Type)] -> [CaseAlternative] -> m Type
+typeOfAltsVariant scrutTCon scrutTArgs tparams cons =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> case patn of
+        CPVariant patnTCon con var
+          | scrutTCon == patnTCon -> do
+            conArgType <- match _Just (EUnknownDataCon con) (con `lookup` cons)
+            -- NOTE(MH): The next line should never throw since @scrutType@ has
+            -- already been checked. The call to 'substitute' is hence safe for
+            -- the same reason as in 'checkTypeConApp'.
+            subst <- match _Just (ETypeConAppWrongArity (TypeConApp scrutTCon scrutTArgs)) (zipExactMay tparams scrutTArgs)
+            let varType = substitute (Map.fromList subst) conArgType
+            introExprVar var varType $ typeOf rhs
+        CPDefault -> typeOf rhs
+        _ -> throwWithContext (EPatternTypeMismatch patn (TConApp scrutTCon scrutTArgs))
+
+typeOfAltsEnum :: MonadGamma m => Qualified TypeConName -> [VariantConName] -> [CaseAlternative] -> m Type
+typeOfAltsEnum scrutTCon cons =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> case patn of
+        CPEnum patnTCon con
+          | scrutTCon == patnTCon -> do
+            unless (con `elem` cons) $ throwWithContext (EUnknownDataCon con)
+            typeOf rhs
+        CPDefault -> typeOf rhs
+        _ -> throwWithContext (EPatternTypeMismatch patn (TCon scrutTCon))
+
+typeOfAltsUnit :: MonadGamma m => [CaseAlternative] -> m Type
+typeOfAltsUnit  =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> do
+        case patn of
+            CPUnit -> typeOf rhs
+            CPDefault -> typeOf rhs
+            _ -> throwWithContext (EPatternTypeMismatch patn TUnit)
+
+typeOfAltsBool :: MonadGamma m => [CaseAlternative] -> m Type
+typeOfAltsBool =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> do
+        case patn of
+            CPBool (_ :: Bool) -> typeOf rhs
+            CPDefault -> typeOf rhs
+            _ -> throwWithContext (EPatternTypeMismatch patn TBool)
+
+typeOfAltsList :: MonadGamma m => Type -> [CaseAlternative] -> m Type
+typeOfAltsList elemType =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> do
+        case patn of
+            CPNil -> typeOf rhs
+            CPCons headVar tailVar
+              | headVar == tailVar -> throwWithContext (EClashingPatternVariables headVar)
+              | otherwise -> introExprVar headVar elemType $ introExprVar tailVar (TList elemType) $ typeOf rhs
+            CPDefault -> typeOf rhs
+            _ -> throwWithContext (EPatternTypeMismatch patn (TList elemType))
+
+typeOfAltsOptional :: MonadGamma m => Type -> [CaseAlternative] -> m Type
+typeOfAltsOptional elemType =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> do
+        case patn of
+            CPNone -> typeOf rhs
+            CPSome bodyVar -> introExprVar bodyVar elemType $ typeOf rhs
+            CPDefault -> typeOf rhs
+            _ -> throwWithContext (EPatternTypeMismatch patn (TOptional elemType))
+
+-- NOTE(MH): The DAML-LF spec says that `CPDefault` matches _every_ value,
+-- regardless of its type.
+typeOfAltsOnlyDefault :: MonadGamma m => Type -> [CaseAlternative] -> m Type
+typeOfAltsOnlyDefault scrutType =
+    typeOfAlts $ \(CaseAlternative patn rhs) -> do
+        case patn of
+            CPDefault -> typeOf rhs
+            _ -> throwWithContext (EPatternTypeMismatch patn scrutType)
 
 typeOfCase :: MonadGamma m => Expr -> [CaseAlternative] -> m Type
-typeOfCase _ [] = throwWithContext EEmptyCase
-typeOfCase scrut (CaseAlternative patn0 rhs0:alts) = do
-  scrutType <- typeOf scrut
-  rhsType <- introCasePattern scrutType patn0 (typeOf rhs0)
-  for_ alts $ \(CaseAlternative patn rhs) ->
-    introCasePattern scrutType patn (checkExpr rhs rhsType)
-  pure rhsType
+typeOfCase scrut alts = do
+    scrutType <- typeOf scrut
+    case scrutType of
+        TConApp scrutTCon scrutTArgs -> do
+            DefDataType{dataParams, dataCons} <- inWorld (lookupDataType scrutTCon)
+            case dataCons of
+                DataVariant cons -> typeOfAltsVariant scrutTCon scrutTArgs (map fst dataParams) cons alts
+                DataEnum cons -> typeOfAltsEnum scrutTCon cons alts
+                DataRecord{} -> typeOfAltsOnlyDefault scrutType alts
+        TUnit -> typeOfAltsUnit alts
+        TBool -> typeOfAltsBool alts
+        TList elemType -> typeOfAltsList elemType alts
+        TOptional elemType -> typeOfAltsOptional elemType alts
+        _ -> typeOfAltsOnlyDefault scrutType alts
 
 typeOfLet :: MonadGamma m => Binding -> Expr -> m Type
 typeOfLet (Binding (var, typ0) expr) body = do

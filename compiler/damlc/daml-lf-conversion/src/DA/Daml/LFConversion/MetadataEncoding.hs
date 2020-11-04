@@ -21,6 +21,7 @@ module DA.Daml.LFConversion.MetadataEncoding
     , overlapModeName
     , encodeOverlapMode
     , decodeOverlapMode
+    , mkMetadataStub
     ) where
 
 import Safe (readMay)
@@ -134,18 +135,35 @@ decodeBooleanFormula = \case
 overlapModeName :: LF.ExprValName -> LF.ExprValName
 overlapModeName (LF.ExprValName x) = LF.ExprValName ("$$om" <> x)
 
-encodeOverlapMode :: GHC.OverlapMode -> Maybe T.Text
+encodeOverlapMode :: GHC.OverlapMode -> Maybe LF.Type
 encodeOverlapMode = \case
     GHC.NoOverlap _ -> Nothing
-    GHC.Overlappable _ -> Just "OVERLAPPABLE"
-    GHC.Overlapping _ -> Just "OVERLAPPING"
-    GHC.Overlaps _ -> Just "OVERLAPS"
-    GHC.Incoherent _ -> Just "INCOHERENT"
+    GHC.Overlappable _ -> Just (TEncodedStr "OVERLAPPABLE")
+    GHC.Overlapping _ -> Just (TEncodedStr "OVERLAPPING")
+    GHC.Overlaps _ -> Just (TEncodedStr "OVERLAPS")
+    GHC.Incoherent _ -> Just (TEncodedStr "INCOHERENT")
 
-decodeOverlapMode :: T.Text -> Maybe GHC.OverlapMode
-decodeOverlapMode mode = lookup mode
-    [ ("OVERLAPPING", GHC.Overlapping GHC.NoSourceText)
-    , ("OVERLAPPABLE", GHC.Overlappable GHC.NoSourceText)
-    , ("OVERLAPS", GHC.Overlaps GHC.NoSourceText)
-    , ("INCOHERENT", GHC.Incoherent GHC.NoSourceText)
-    ]
+decodeOverlapMode :: LF.Type -> Maybe GHC.OverlapMode
+decodeOverlapMode = \case
+    TEncodedStr mode -> lookup mode
+        [ ("OVERLAPPING", GHC.Overlapping GHC.NoSourceText)
+        , ("OVERLAPPABLE", GHC.Overlappable GHC.NoSourceText)
+        , ("OVERLAPS", GHC.Overlaps GHC.NoSourceText)
+        , ("INCOHERENT", GHC.Incoherent GHC.NoSourceText)
+        ]
+    _ -> Nothing
+
+
+---------------------
+-- STUB GENERATION --
+---------------------
+
+mkMetadataStub :: LF.ExprValName -> LF.Type -> LF.DefValue
+mkMetadataStub n t = LF.DefValue
+    { dvalLocation = Nothing
+    , dvalBinder = (n,t)
+    , dvalBody = LF.EBuiltin LF.BEError `LF.ETyApp` t
+        `LF.ETmApp` LF.EBuiltin (LF.BEText "undefined")
+    , dvalNoPartyLiterals = LF.HasNoPartyLiterals True
+    , dvalIsTest = LF.IsTest False
+    }

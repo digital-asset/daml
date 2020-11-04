@@ -285,8 +285,6 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
-        inputValueVersions = config.allowedInputValueVersions,
-        outputTransactionVersions = config.allowedOutputTransactionVersions,
         validating = validating,
         checkAuthorization = checkAuthorization,
       )
@@ -359,7 +357,6 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     }
 
     onLedger.ptx.finish(
-      onLedger.outputTransactionVersions,
       compiledPackages.packageLanguageVersion,
     ) match {
       case PartialTransaction.CompleteTransaction(tx) =>
@@ -380,8 +377,6 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         ResultDone((tx, meta))
       case PartialTransaction.IncompleteTransaction(ptx) =>
         ResultError(Error(s"Interpretation error: ended with partial result: $ptx"))
-      case PartialTransaction.SerializationError(msg) =>
-        ResultError(SerializationError(msg))
     }
   }
 

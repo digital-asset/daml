@@ -242,6 +242,9 @@ mkTFuns ts t = foldr (:->) t ts
 mkTApps :: Type -> [Type] -> Type
 mkTApps = curry (review _TApps)
 
+splitTApps :: Type -> (Type, [Type])
+splitTApps = view _TApps
+
 
 typeConAppToType :: TypeConApp -> Type
 typeConAppToType (TypeConApp tcon targs) = TConApp tcon targs

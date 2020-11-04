@@ -284,8 +284,6 @@ object ScenarioRunner {
       engine.compiledPackages(),
       transactionSeed,
       scenarioExpr,
-      engine.config.allowedInputValueVersions,
-      engine.config.allowedOutputTransactionVersions,
     )
     ScenarioRunner(speedyMachine).run() match {
       case Left(e) =>

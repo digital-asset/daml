@@ -218,7 +218,7 @@ object TransactionBuilder {
       coid = contract.coid,
       templateId = contract.coinst.template,
       optLocation = None,
-      actingParties = Some(contract.signatories.map(Ref.Party.assertFromString)),
+      actingParties = contract.signatories.map(Ref.Party.assertFromString),
       signatories = contract.signatories,
       stakeholders = contract.stakeholders,
       key = contract.key,

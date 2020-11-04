@@ -7,9 +7,6 @@ package engine
 import java.nio.file.Path
 
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.speedy.Compiler
-import com.daml.lf.transaction.{TransactionVersions, TransactionVersion, VersionTimeline}
-import com.daml.lf.value.ValueVersion
 
 /**
   * The Engine configurations describes the versions of language and
@@ -21,15 +18,6 @@ import com.daml.lf.value.ValueVersion
   * @param allowedLanguageVersions The range of language versions the
   *     engine is allowed to load.  The engine will crash if it asked
   *     to load a language version that is not included in this range.
-  * @param allowedInputTransactionVersions The range of transaction
-  *     version the engine is allowed to load. The engine will crash
-  *     if it is asked to load transaction version that is not
-  *     included in this range
-  * @param allowedOutputTransactionVersions The range of output
-  *     transactions the engine is allowed to produce. The Engine
-  *     will always use the lowest possible version from this range to
-  *     encode the output transaction, and fails if such version does
-  *     not exist.
   * @param stackTraceMode The flag enables the runtime support for
   *     stack trace.
   * @param profileDir The optional specifies the directory where to
@@ -37,37 +25,13 @@ import com.daml.lf.value.ValueVersion
   *     disabled if the option is empty.
   */
 final case class EngineConfig(
-    allowedLanguageVersions: VersionRange[LanguageVersion],
-    allowedInputTransactionVersions: VersionRange[TransactionVersion],
-    allowedOutputTransactionVersions: VersionRange[TransactionVersion],
+    allowedLanguageVersions: VersionRange[language.LanguageVersion],
     packageValidation: Boolean = true,
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
 ) {
 
-  /**
-    * The range of value versions the engine is allowed to load.  This
-    * is deterministically derived from
-    * [[allowedInputTransactionVersions]].
-    */
-  private[lf] val allowedInputValueVersions: VersionRange[ValueVersion] =
-    VersionRange(
-      TransactionVersions.assignValueVersion(allowedInputTransactionVersions.min),
-      TransactionVersions.assignValueVersion(allowedInputTransactionVersions.max),
-    )
-
-  /**
-    * The range of value versions the engine is allowed to produce.
-    * This is deterministically derived from
-    * [[allowedOutputTransactionVersions]].
-    */
-  private[lf] val allowedOutputValueVersions: VersionRange[ValueVersion] =
-    VersionRange(
-      TransactionVersions.assignValueVersion(allowedOutputTransactionVersions.min),
-      TransactionVersions.assignValueVersion(allowedOutputTransactionVersions.max),
-    )
-
-  private[lf] def getCompilerConfig: Compiler.Config =
+  private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(
       allowedLanguageVersions,
       packageValidation =
@@ -97,21 +61,13 @@ object EngineConfig {
     * language and transaction.
     */
   val Lenient: EngineConfig = new EngineConfig(
-    allowedLanguageVersions = VersionTimeline.stableLanguageVersions,
-    allowedInputTransactionVersions =
-      VersionRange(TransactionVersion("10"), TransactionVersion("10")),
-    allowedOutputTransactionVersions =
-      VersionRange(TransactionVersion("10"), TransactionVersion("10"))
+    allowedLanguageVersions = transaction.VersionTimeline.stableLanguageVersions,
   )
 
   private[this] def toDev(config: EngineConfig): EngineConfig =
     config.copy(
       allowedLanguageVersions = config.allowedLanguageVersions.copy(
         max = LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor.Dev)),
-      allowedInputTransactionVersions = config.allowedInputTransactionVersions.copy(
-        max = TransactionVersions.acceptedVersions.last),
-      allowedOutputTransactionVersions = config.allowedOutputTransactionVersions.copy(
-        max = TransactionVersions.acceptedVersions.last),
     )
 
   /**

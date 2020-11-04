@@ -16,7 +16,6 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   SubmittedTransaction,
-  TransactionVersion,
   TransactionVersions,
   Transaction => Tx
 }
@@ -134,9 +133,6 @@ private[lf] object PartialTransaction {
   sealed abstract class Result extends Product with Serializable
   final case class CompleteTransaction(tx: SubmittedTransaction) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
-  final case class SerializationError(msg: String) extends Result {
-    def prettyMessage: String = s"Cannot serialize the transaction: $msg"
-  }
 
 }
 
@@ -231,21 +227,19 @@ private[lf] case class PartialTransaction(
     *   the `outputTransactionVersions`.
     */
   def finish(
-      outputTransactionVersions: VersionRange[TransactionVersion],
       packageLanguageVersion: Ref.PackageId => LanguageVersion,
   ): PartialTransaction.Result =
     if (context.exeContext.isEmpty && aborted.isEmpty)
-      TransactionVersions
-        .asVersionedTransaction(
-          outputTransactionVersions,
-          packageLanguageVersion,
-          context.children.toImmArray,
-          nodes
+      CompleteTransaction(
+        SubmittedTransaction(
+          TransactionVersions
+            .asVersionedTransaction(
+              packageLanguageVersion,
+              context.children.toImmArray,
+              nodes
+            )
         )
-        .fold(
-          SerializationError,
-          tx => CompleteTransaction(SubmittedTransaction(tx))
-        )
+      )
     else
       IncompleteTransaction(this)
 
@@ -316,7 +310,7 @@ private[lf] case class PartialTransaction(
       coid,
       templateId,
       optLocation,
-      Some(actingParties),
+      actingParties,
       signatories,
       stakeholders,
       key,
@@ -420,7 +414,6 @@ private[lf] case class PartialTransaction(
           stakeholders = ec.stakeholders,
           signatories = ec.signatories,
           choiceObservers = ec.choiceObservers,
-          controllersDifferFromActors = ec.controllers != ec.actingParties,
           children = context.children.toImmArray,
           exerciseResult = Some(value),
           key = ec.contractKey,

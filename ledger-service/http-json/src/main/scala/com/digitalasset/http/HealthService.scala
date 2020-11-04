@@ -4,23 +4,20 @@
 package com.daml.http
 
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
-import com.typesafe.scalalogging.StrictLogging
 import scalaz.Scalaz._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
-private class HealthService(
+final class HealthService(
     getLedgerEnd: HealthService.GetLedgerEnd,
     contractDao: Option[dbbackend.ContractDao],
-    timeoutSeconds: Int)
-    extends StrictLogging {
+    timeoutSeconds: Int) {
   import HealthService._
   def ready()(implicit ec: ExecutionContext): Future[ReadyResponse] =
     for {
       ledger <- getLedgerEnd().transform(r => Try(r.isSuccess))
-      _ = println("START")
       optDb <- contractDao.traverse(opt =>
         opt.isValid(timeoutSeconds).unsafeToFuture().recover {
           case NonFatal(_) => false
