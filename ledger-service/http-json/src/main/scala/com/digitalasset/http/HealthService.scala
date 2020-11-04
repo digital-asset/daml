@@ -11,7 +11,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
-class HealthService(
+final class HealthService(
     getLedgerEnd: HealthService.GetLedgerEnd,
     contractDao: Option[dbbackend.ContractDao],
     timeoutSeconds: Int)
