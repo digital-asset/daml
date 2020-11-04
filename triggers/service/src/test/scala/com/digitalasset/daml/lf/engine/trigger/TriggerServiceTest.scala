@@ -177,7 +177,7 @@ abstract class AbstractTriggerServiceTest
   def assertTriggerStatus[A](uri: Uri, triggerInstance: UUID, pred: Vector[String] => A)(
       implicit A: CompatAssertion[A]): Future[Assertion] = {
     // eventually doesn’t handle Futures in the version of scalatest we’re using.
-    RetryStrategy.constant(5, 1.seconds) { (_, _) =>
+    RetryStrategy.constant(15, 1.seconds) { (_, _) =>
       for {
         resp <- triggerStatus(uri, triggerInstance)
         result <- parseTriggerStatus(resp)
