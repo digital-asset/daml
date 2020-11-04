@@ -102,6 +102,14 @@ jobs:
               echo "Done."
             fi
           done
+        env:
+          DOCKER_LOGIN: $(DOCKER_LOGIN)
+          DOCKER_PASSWORD: $(DOCKER_PASSWORD)
+          DOCKER_CONTENT_TRUST_KEY: $(DOCKER_CONTENT_TRUST_KEY)
+          DOCKER_CONTENT_TRUST_USERNAME: $(DOCKER_CONTENT_TRUST_USERNAME)
+          # Does not appear explicitly in the script, but is used by
+          # docker trust key load
+          DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE: $(DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE)
       - template: ci/tell-slack-failed.yml
 
   - job: vscode_marketplace
