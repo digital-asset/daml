@@ -4,7 +4,6 @@
 package com.daml.http
 
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
-import com.typesafe.scalalogging.StrictLogging
 import scalaz.Scalaz._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -14,8 +13,7 @@ import scala.util.control.NonFatal
 final class HealthService(
     getLedgerEnd: HealthService.GetLedgerEnd,
     contractDao: Option[dbbackend.ContractDao],
-    timeoutSeconds: Int)
-    extends StrictLogging {
+    timeoutSeconds: Int) {
   import HealthService._
   def ready()(implicit ec: ExecutionContext): Future[ReadyResponse] =
     for {
