@@ -11,7 +11,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
-private class HealthService(
+class HealthService(
     getLedgerEnd: HealthService.GetLedgerEnd,
     contractDao: Option[dbbackend.ContractDao],
     timeoutSeconds: Int)
@@ -20,7 +20,6 @@ private class HealthService(
   def ready()(implicit ec: ExecutionContext): Future[ReadyResponse] =
     for {
       ledger <- getLedgerEnd().transform(r => Try(r.isSuccess))
-      _ = println("START")
       optDb <- contractDao.traverse(opt =>
         opt.isValid(timeoutSeconds).unsafeToFuture().recover {
           case NonFatal(_) => false
