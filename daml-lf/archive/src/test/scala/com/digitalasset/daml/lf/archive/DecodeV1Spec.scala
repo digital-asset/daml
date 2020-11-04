@@ -54,6 +54,7 @@ class DecodeV1Spec
       Ref.PackageId.assertFromString("noPkgId"),
       stringTable,
       dottedNameTable,
+      IndexedSeq(),
       None,
       Some(dummyModuleName),
       onlySerializableDataDefs = false

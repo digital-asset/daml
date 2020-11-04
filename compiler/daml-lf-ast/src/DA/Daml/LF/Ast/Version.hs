@@ -135,6 +135,14 @@ featureChoiceObservers = Feature
     , featureCppFlag = "DAML_CHOICE_OBSERVERS"
     }
 
+featureTypeInterning :: Feature
+featureTypeInterning = Feature
+    { featureName = "Type interning"
+    -- TODO Change as part of #7139
+    , featureMinVersion = versionDev
+    , featureCppFlag = "DAML_TYPE_INTERNING"
+    }
+
 allFeatures :: [Feature]
 allFeatures =
     [ featureNumeric
