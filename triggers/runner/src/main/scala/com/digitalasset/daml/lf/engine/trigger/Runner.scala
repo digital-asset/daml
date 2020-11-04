@@ -608,13 +608,15 @@ object Runner extends StrictLogging {
       retryable: A => Future[Option[B]],
       notRetryable: A => Future[B])(implicit ec: ExecutionContext): Flow[A, B, NotUsed] = {
     final case class RA(tries: Int, value: A)
+
     def trial(value: RA): Future[B \/ RA] =
-      if (value.tries <= 0) notRetryable(value.value) map \/.left
+      if (value.tries <= 1) notRetryable(value.value) map \/.left
       else retryable(value.value) map (_ toLeftDisjunction value.copy(tries = value.tries - 1))
     val delay = Flow[RA]
       .delayWith(() => ra => backoff(initialTries - ra.tries), DelayOverflowStrategy.backpressure)
       .addAttributes(Attributes.inputBuffer(initial = parallelism, max = parallelism))
     val runTrial = Flow[RA].mapAsync(parallelism)(trial)
+
     val graph = GraphDSL.create() { implicit gb =>
       import GraphDSL.Implicits._
       val firstTry = gb add Flow.fromFunction(RA(initialTries, _))
