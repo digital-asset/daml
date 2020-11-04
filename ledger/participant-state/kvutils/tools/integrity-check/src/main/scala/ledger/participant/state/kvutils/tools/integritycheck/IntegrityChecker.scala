@@ -10,13 +10,12 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.on.memory.Index
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
-import com.daml.ledger.participant.state.kvutils.export.ProtobufBasedLedgerDataImporter
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   NoOpLedgerDataExporter,
+  ProtobufBasedLedgerDataImporter,
   WriteSet
 }
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
@@ -318,9 +317,9 @@ object IntegrityChecker {
 
   class IndexingFailureException(message: String) extends CheckFailedException(message)
 
-  def run(
+  def run[LogResult](
       args: Array[String],
-      commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[Index],
+      commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[LogResult],
   ): Unit = {
     val config = Config.parse(args).getOrElse { sys.exit(1) }
 
@@ -335,9 +334,9 @@ object IntegrityChecker {
       }(DirectExecutionContext)
   }
 
-  private def run(
+  private def run[LogResult](
       config: Config,
-      commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[Index],
+      commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[LogResult],
   ): Future[Unit] = {
     println(s"Verifying integrity of ${config.exportFilePath}...")
 
