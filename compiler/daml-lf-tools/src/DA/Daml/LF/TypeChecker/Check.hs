@@ -41,6 +41,7 @@ import           Data.Functor
 import Data.Generics.Uniplate.Data (para)
 import qualified Data.HashSet as HS
 import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 import           Safe.Exact (zipExactMay)
 
 import           DA.Daml.LF.Ast
@@ -461,18 +462,40 @@ typeOfAltsOnlyDefault scrutType =
 typeOfCase :: MonadGamma m => Expr -> [CaseAlternative] -> m Type
 typeOfCase scrut alts = do
     scrutType <- typeOf scrut
-    case scrutType of
+    (neededPats, rhsType) <- case scrutType of
         TConApp scrutTCon scrutTArgs -> do
             DefDataType{dataParams, dataCons} <- inWorld (lookupDataType scrutTCon)
             case dataCons of
-                DataVariant cons -> typeOfAltsVariant scrutTCon scrutTArgs (map fst dataParams) cons alts
-                DataEnum cons -> typeOfAltsEnum scrutTCon cons alts
-                DataRecord{} -> typeOfAltsOnlyDefault scrutType alts
-        TUnit -> typeOfAltsUnit alts
-        TBool -> typeOfAltsBool alts
-        TList elemType -> typeOfAltsList elemType alts
-        TOptional elemType -> typeOfAltsOptional elemType alts
-        _ -> typeOfAltsOnlyDefault scrutType alts
+                DataVariant cons -> (,) (map (\(c, _) -> CPVariant scrutTCon c wildcard) cons)
+                    <$> typeOfAltsVariant scrutTCon scrutTArgs (map fst dataParams) cons alts
+                DataEnum cons ->  (,) (map (CPEnum scrutTCon) cons)
+                    <$> typeOfAltsEnum scrutTCon cons alts
+                DataRecord{} -> (,) [CPDefault] <$> typeOfAltsOnlyDefault scrutType alts
+        TUnit -> (,) [CPUnit] <$> typeOfAltsUnit alts
+        TBool -> (,) [CPBool False, CPBool True] <$> typeOfAltsBool alts
+        TList elemType -> (,) [CPNil, CPCons wildcard wildcard] <$> typeOfAltsList elemType alts
+        TOptional elemType -> (,) [CPNone, CPSome wildcard] <$> typeOfAltsOptional elemType alts
+        _ -> (,) [CPDefault] <$> typeOfAltsOnlyDefault scrutType alts
+    let matchedPats = map (\(CaseAlternative pat _) -> cleanPattern pat) alts
+    let removePat pats = \case
+            CPDefault -> Set.empty
+            pat -> Set.delete pat pats
+    let unmatchedPats = foldl removePat (Set.fromList neededPats) matchedPats
+    whenJust (Set.lookupMin unmatchedPats) $ \pat ->
+        throwWithContext (ENonExhaustivePatterns pat scrutType)
+    pure rhsType
+  where
+    wildcard = ExprVarName "_"
+    cleanPattern = \case
+        CPVariant t c _ -> CPVariant t c wildcard
+        p@CPEnum{} -> p
+        p@CPUnit -> p
+        p@CPBool{} -> p
+        p@CPNil -> p
+        CPCons _ _ -> CPCons wildcard wildcard
+        p@CPNone -> p
+        CPSome _ -> CPSome wildcard
+        p@CPDefault -> p
 
 typeOfLet :: MonadGamma m => Binding -> Expr -> m Type
 typeOfLet (Binding (var, typ0) expr) body = do
