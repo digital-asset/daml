@@ -256,6 +256,16 @@ final case class ETypeMismatch(
        | * expected type: ${expectedType.pretty}
        | * found type: ${foundType.pretty}""".stripMargin
 }
+final case class EPatternTypeMismatch(
+    context: Context,
+    pattern: CasePat,
+    scrutineeType: Type,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"""pattern type mismatch:
+       | * pattern: $pattern
+       | *  scrutinee type: ${scrutineeType.pretty}""".stripMargin
+}
 final case class EExpectedAnyType(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String =
     s"expected a type containing neither type variables nor quantifiers, but found: ${typ.pretty}"

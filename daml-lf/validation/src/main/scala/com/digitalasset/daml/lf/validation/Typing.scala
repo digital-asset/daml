@@ -583,98 +583,94 @@ private[validation] object Typing {
     private def typeofTyLam(tVar: TypeVarName, kind: Kind, expr: Expr): Type =
       TForall(tVar -> kind, introTypeVar(tVar, kind).typeOf(expr))
 
-    private def introCasePattern[A](scrutType: Type, patn: CasePat): Env = patn match {
-      case CPVariant(patnTCon, con, varName) =>
-        val DDataType(_, tparams, dataCons) = lookupDataType(ctx, patnTCon)
-        dataCons match {
-          case DataVariant(variantCons) =>
-            val conArgType0 = variantCons.lookup(con, EUnknownVariantCon(ctx, con))
-            scrutType match {
-              case TTyConApp(scrutTCon, scrutTArgs) =>
-                if (scrutTCon != patnTCon) throw ETypeConMismatch(ctx, patnTCon, scrutTCon)
-                val conArgType =
-                  TypeSubst.substitute((tparams.map(_._1) zip scrutTArgs).toMap, conArgType0)
-                introExprVar(varName, conArgType)
-              case _ =>
-                throw EExpectedDataType(ctx, scrutType)
-            }
-          case _ =>
-            throw EExpectedVariantType(ctx, patnTCon)
-        }
-
-      case CPEnum(patnTCon, con) =>
-        val DDataType(_, _, dataCons) = lookupDataType(ctx, patnTCon)
-        dataCons match {
-          case DataEnum(enumCons) =>
-            if (!enumCons.toSeq.contains(con)) throw EUnknownEnumCon(ctx, con)
-            scrutType match {
-              case TTyCon(scrutTCon) =>
-                if (scrutTCon != patnTCon) throw ETypeConMismatch(ctx, patnTCon, scrutTCon)
-                this
-              case _ =>
-                throw EExpectedDataType(ctx, scrutType)
-            }
-          case _ =>
-            throw EExpectedVariantType(ctx, patnTCon)
-        }
-
-      case CPPrimCon(con) =>
-        val conType = typeOfPRimCon(con)
-        if (!alphaEquiv(scrutType, conType))
-          throw ETypeMismatch(ctx, foundType = scrutType, expectedType = conType, expr = None)
-        this
-
-      case CPNil =>
-        scrutType match {
-          case TList(_) =>
-            this
-          case _ =>
-            throw EExpectedOptionType(ctx, scrutType)
-        }
-
-      case CPCons(headVar, tailVar) =>
-        if (headVar == tailVar)
-          throw EClashingPatternVariables(ctx, headVar)
-        scrutType match {
-          case TList(elemType) =>
-            introExprVar(headVar, elemType).introExprVar(tailVar, TList(elemType))
-          case _ =>
-            throw EExpectedListType(ctx, scrutType)
-        }
-
-      case CPNone =>
-        scrutType match {
-          case TOptional(_) =>
-            this
-          case _ =>
-            throw EExpectedOptionType(ctx, scrutType)
-        }
-
-      case CPSome(bodyVar) =>
-        scrutType match {
-          case TOptional(bodyType) =>
-            introExprVar(bodyVar, bodyType)
-          case _ =>
-            throw EExpectedOptionType(ctx, scrutType)
-        }
-
-      case CPDefault =>
-        this
+    private[this] def introPatternVariant(
+        scrutTCon: TypeConName,
+        scrutTArgs: ImmArray[Type],
+        tparams: ImmArray[TypeVarName],
+        cons: ImmArray[(VariantConName, Type)]
+    ): PartialFunction[CasePat, Env] = {
+      case CPVariant(patnTCon, con, bodyVar) if scrutTCon == patnTCon =>
+        val conArgType = cons.lookup(con, EUnknownVariantCon(ctx, con))
+        val bodyType =
+          TypeSubst.substitute((tparams.iterator zip scrutTArgs.iterator).toMap, conArgType)
+        introExprVar(bodyVar, bodyType)
+      case CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, TTyConApp(scrutTCon, scrutTArgs))
     }
 
-    private def typeOfCase(scrut: Expr, alts: ImmArray[CaseAlt]): Type =
-      if (alts.isEmpty)
-        throw EEmptyCase(ctx)
-      else {
-        val CaseAlt(patn0, rhs0) = alts(0)
-        val scrutType = typeOf(scrut)
-        val rhsType = introCasePattern(scrutType, patn0).typeOf(rhs0)
-        for (i <- alts.indices.drop(1)) {
-          val CaseAlt(patn, rhs) = alts(i)
-          introCasePattern(scrutType, patn).checkExpr(rhs, rhsType)
-        }
-        rhsType
+    private[this] def introPatternEnum(
+        scrutTCon: TypeConName,
+        cons: ImmArray[VariantConName],
+    ): CasePat => Env = {
+      case CPEnum(patnTCon, con) if scrutTCon == patnTCon =>
+        if (!cons.toSeq.contains(con)) throw EUnknownEnumCon(ctx, con)
+        this
+      case CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, TTyCon(scrutTCon))
+    }
+
+    private[this] val introPatternUnit: CasePat => Env = {
+      case CPUnit | CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, TUnit)
+    }
+
+    private[this] val introPatternBool: CasePat => Env = {
+      case CPTrue | CPFalse | CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, TBool)
+    }
+
+    private[this] def introPatternList(elemType: Type): CasePat => Env = {
+      case CPCons(headVar, tailVar) =>
+        if (headVar == tailVar) throw EClashingPatternVariables(ctx, headVar)
+        introExprVar(headVar, elemType).introExprVar(tailVar, TList(elemType))
+      case CPNil | CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, TList(elemType))
+    }
+
+    private[this] def introPatternOptional(elemType: Type): CasePat => Env = {
+      case CPSome(bodyVar) => introExprVar(bodyVar, elemType)
+      case CPNone | CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, TOptional(elemType))
+    }
+
+    private[this] def introOnlyDefault(scrutType: Type): CasePat => Env = {
+      case CPDefault => this
+      case otherwise => throw EPatternTypeMismatch(ctx, otherwise, scrutType)
+    }
+
+    private[this] def typeOfCase(scrut: Expr, alts: ImmArray[CaseAlt]): Type = {
+      val scrutType = typeOf(scrut)
+      val introPattern = typeOf(scrut) match {
+        case TTyConApp(scrutTCon, scrutTArgs) =>
+          lookupDataType(ctx, scrutTCon) match {
+            case DDataType(_, dataParams, dataCons) =>
+              dataCons match {
+                case DataRecord(_) =>
+                  introOnlyDefault(scrutType)
+                case DataVariant(cons) =>
+                  introPatternVariant(scrutTCon, scrutTArgs, dataParams.map(_._1), cons)
+                case DataEnum(cons) =>
+                  introPatternEnum(scrutTCon, cons)
+              }
+          }
+        case TUnit => introPatternUnit
+        case TBool => introPatternBool
+        case TList(elem) => introPatternList(elem)
+        case TOptional(elem) => introPatternOptional(elem)
+        case _ => introOnlyDefault(scrutType)
       }
+
+      val types = alts.iterator.map { case CaseAlt(patn, rhs) => introPattern(patn).typeOf(rhs) }.toList
+
+      types match {
+        case t :: ts =>
+          ts.foreach(otherType =>
+            if (!alphaEquiv(t, otherType)) throw ETypeMismatch(ctx, otherType, t, None))
+          t
+        case Nil =>
+          throw EEmptyCase(ctx)
+      }
+    }
 
     private def typeOfLet(binding: Binding, body: Expr): Type = binding match {
       case Binding(Some(vName), typ0, expr) =>
