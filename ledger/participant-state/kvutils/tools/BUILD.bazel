@@ -22,7 +22,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/engine",
         "//ledger/ledger-api-health",
-        "//ledger/ledger-on-memory",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
