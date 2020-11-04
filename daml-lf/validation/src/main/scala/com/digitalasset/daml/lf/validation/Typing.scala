@@ -633,20 +633,19 @@ private[validation] object Typing {
       case otherwise => throw EPatternTypeMismatch(ctx, otherwise, TOptional(elemType))
     }
 
-    private[this] def introOnlyDefault(scrutType: Type): CasePat => Env = {
+    private[this] def introOnlyPatternDefault(scrutType: Type): CasePat => Env = {
       case CPDefault => this
       case otherwise => throw EPatternTypeMismatch(ctx, otherwise, scrutType)
     }
 
-    private[this] def typeOfCase(scrut: Expr, alts: ImmArray[CaseAlt]): Type = {
-      val scrutType = typeOf(scrut)
-      val introPattern = typeOf(scrut) match {
+    private[this] def introPatternForType(scrutType: Type): CasePat => Env =
+      scrutType match {
         case TTyConApp(scrutTCon, scrutTArgs) =>
           lookupDataType(ctx, scrutTCon) match {
             case DDataType(_, dataParams, dataCons) =>
               dataCons match {
                 case DataRecord(_) =>
-                  introOnlyDefault(scrutType)
+                  introOnlyPatternDefault(scrutType)
                 case DataVariant(cons) =>
                   introPatternVariant(scrutTCon, scrutTArgs, dataParams.map(_._1), cons)
                 case DataEnum(cons) =>
@@ -657,9 +656,11 @@ private[validation] object Typing {
         case TBool => introPatternBool
         case TList(elem) => introPatternList(elem)
         case TOptional(elem) => introPatternOptional(elem)
-        case _ => introOnlyDefault(scrutType)
+        case _ => introOnlyPatternDefault(scrutType)
       }
 
+    private[this] def typeOfCase(scrut: Expr, alts: ImmArray[CaseAlt]): Type = {
+      val introPattern = introPatternForType(typeOf(scrut))
       val types = alts.iterator.map { case CaseAlt(patn, rhs) => introPattern(patn).typeOf(rhs) }.toList
 
       types match {
