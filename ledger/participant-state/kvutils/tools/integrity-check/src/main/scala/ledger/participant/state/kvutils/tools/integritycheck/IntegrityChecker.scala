@@ -320,12 +320,15 @@ object IntegrityChecker {
   def run[LogResult](
       args: Array[String],
       commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[LogResult],
-  ): Unit = {
-    val config = Config.parse(args).getOrElse { sys.exit(1) }
+  ): Unit =
+    run(Config.parse(args).getOrElse { sys.exit(1) }, commitStrategySupportFactory)
 
-    run(config, commitStrategySupportFactory).failed
+  def run[LogResult](
+      config: Config,
+      commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[LogResult]): Unit = {
+    runAsync(config, commitStrategySupportFactory).failed
       .foreach {
-        case exception: IntegrityChecker.CheckFailedException =>
+        case exception: CheckFailedException =>
           println(exception.getMessage.red)
           sys.exit(1)
         case exception =>
@@ -334,7 +337,7 @@ object IntegrityChecker {
       }(DirectExecutionContext)
   }
 
-  private def run[LogResult](
+  private def runAsync[LogResult](
       config: Config,
       commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[LogResult],
   ): Future[Unit] = {
