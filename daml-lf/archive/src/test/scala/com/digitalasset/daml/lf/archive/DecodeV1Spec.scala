@@ -45,28 +45,17 @@ class DecodeV1Spec
   val dummyModuleDName = DamlLf1.DottedName.newBuilder().addSegments(dummyModuleStr).build()
   val dummyModuleName = DottedName.assertFromString(dummyModuleStr)
 
-  private def dummyModule(version: LV.Minor, interningIdx: Int) = {
-    val builder = DamlLf1.Module.newBuilder()
-
-    if (LV.ordering.lt(LV(LV.Major.V1, version), LV.Features.internedDottedNames))
-      builder.setNameDname(dummyModuleDName)
-    else
-      builder.setNameInternedDname(interningIdx)
-
-    builder.build()
-  }
-
   private def moduleDecoder(
       minVersion: LV.Minor,
       stringTable: ImmArraySeq[String] = ImmArraySeq.empty,
       dottedNameTable: ImmArraySeq[DottedName] = ImmArraySeq.empty
   ) = {
-    new DecodeV1(minVersion).ModuleDecoder(
+    new DecodeV1(minVersion).DecoderEnv(
       Ref.PackageId.assertFromString("noPkgId"),
       stringTable,
-      dottedNameTable :+ dummyModuleName,
+      dottedNameTable,
       None,
-      dummyModule(minVersion, dottedNameTable.length),
+      Some(dummyModuleName),
       onlySerializableDataDefs = false
     )
   }
