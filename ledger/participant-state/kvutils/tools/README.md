@@ -27,12 +27,6 @@ The following options are supported:
     --skip-byte-comparison  Skips the byte-for-byte comparison. Useful when comparing behavior across versions.
     --sort-write-set        Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally.
 
-The following options are supported:
-
-    --help
-    --skip-byte-comparison  Skips the byte-for-byte comparison. Useful when comparing behavior across versions.
-    --sort-write-set        Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally.
-
 # `benchmark-replay`
 
 This benchmarks the LF engine using transactions from a ledger export stored in a file.
