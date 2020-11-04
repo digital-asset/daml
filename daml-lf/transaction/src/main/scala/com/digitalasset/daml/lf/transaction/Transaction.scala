@@ -622,9 +622,6 @@ object Transaction {
 
     type Exe = Node.NodeExercises[Nid, Cid, Val]
 
-    def fail(recordedMismatch: Option[Nid], replayMismatch: Option[Nid]) =
-      Left(ReplayMismatch(recorded, recordedMismatch, replayed, replayMismatch))
-
     @tailrec
     def loop(
         nids1: Stream[Nid],
@@ -746,7 +743,7 @@ object Transaction {
                   result1 === result2 =>
               loop(rest1, rest2, stack)
             case _ =>
-              fail(Some(nid1), Some(nid2))
+              Left(ReplayNodeMismatch(recorded, nid1, replayed, nid2))
           }
 
         case (Stream.Empty, Stream.Empty) =>
@@ -755,13 +752,16 @@ object Transaction {
               if (exe1.exerciseResult.isEmpty || exe1.exerciseResult === exe2.exerciseResult)
                 loop(nids1, nids2, rest)
               else
-                fail(Some(nid1), Some(nid2))
+                Left(ReplayNodeMismatch(recorded, nid1, replayed, nid2))
             case Nil =>
               Right(())
           }
 
-        case _ =>
-          fail(nids1.headOption, nids2.headOption)
+        case (nid1 #:: _, Stream.Empty) =>
+          Left(ReplayedNodeMissing(recorded, nid1, replayed))
+
+        case (Stream.Empty, nid2 #:: _) =>
+          Left(RecordedNodeMissing(recorded, replayed, nid2))
 
       }
 
@@ -771,14 +771,29 @@ object Transaction {
 
 }
 
-case class ReplayMismatch[Nid, Cid, Val](
-    recorded: GenTransaction[Nid, Cid, Val],
-    recordedMismatch: Option[Nid],
-    replayed: GenTransaction[Nid, Cid, Val],
-    replayedMismatch: Option[Nid]
-) {
-  require(recordedMismatch.isDefined || replayedMismatch.isDefined)
+sealed abstract class ReplayMismatch[Nid, Cid, Val] {
+  def recordedTransaction: GenTransaction[Nid, Cid, Val]
+  def replayedTransaction: GenTransaction[Nid, Cid, Val]
 
   def msg: String =
-    s"recreated and original transaction mismatch $recorded expected, but $replayed is recreated"
+    s"recreated and original transaction mismatch $recordedTransaction expected, but $replayedTransaction is recreated"
 }
+
+final case class ReplayNodeMismatch[Nid, Cid, Val](
+    override val recordedTransaction: GenTransaction[Nid, Cid, Val],
+    recordedNode: Nid,
+    override val replayedTransaction: GenTransaction[Nid, Cid, Val],
+    replayedNode: Nid,
+) extends ReplayMismatch[Nid, Cid, Val]
+
+final case class RecordedNodeMissing[Nid, Cid, Val](
+    override val recordedTransaction: GenTransaction[Nid, Cid, Val],
+    override val replayedTransaction: GenTransaction[Nid, Cid, Val],
+    replayedNode: Nid,
+) extends ReplayMismatch[Nid, Cid, Val]
+
+final case class ReplayedNodeMissing[Nid, Cid, Val](
+    override val recordedTransaction: GenTransaction[Nid, Cid, Val],
+    recordedNode: Nid,
+    override val replayedTransaction: GenTransaction[Nid, Cid, Val],
+) extends ReplayMismatch[Nid, Cid, Val]
