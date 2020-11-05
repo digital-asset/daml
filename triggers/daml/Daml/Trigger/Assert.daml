@@ -41,10 +41,14 @@ buildACS party (ACSBuilder fetches) = do
     , pendingContracts = Map.empty
     }
 
--- | Include the given contract in the 'ACS'.
+-- | Include the given contract in the 'ACS'. Note that the `ContractId`
+-- must point to an active contract.
 toACS : Template t => ContractId t -> ACSBuilder
 toACS cid = ACSBuilder $ \p ->
-  [ do Some t <- queryContractId p cid
+  [ do t <-
+         queryContractId p cid >>= \case
+           None -> abort ("Failed to fetch contract passed to toACS: " <> show cid)
+           Some c -> pure c
        pure (toAnyContractId cid, toAnyTemplate t)
   ]
 
