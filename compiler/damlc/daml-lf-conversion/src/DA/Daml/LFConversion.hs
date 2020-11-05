@@ -1671,7 +1671,7 @@ convertType env = go env
             erasedTy env
 
         | t == funTyCon, _:_:ts' <- ts =
-            foldl TApp TArrow <$> mapM (go env) ts'
+            foldl' TApp TArrow <$> mapM (go env) ts'
         | NameIn DA_Internal_LF "Pair" <- t
         , [StrLitTy f1, StrLitTy f2, t1, t2] <- ts = do
             t1 <- go env t1
