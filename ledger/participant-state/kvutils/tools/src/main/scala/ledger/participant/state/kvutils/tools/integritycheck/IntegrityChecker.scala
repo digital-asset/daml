@@ -49,11 +49,11 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       importer: LedgerDataImporter,
       config: Config,
   )(implicit executionContext: ExecutionContext, materializer: Materializer): Future[Unit] = {
-    if (config.indexOnly) {
+
+    if (config.indexOnly)
       println("Running indexing only".white)
-    } else {
+    else
       println("Running full integrity check".white)
-    }
 
     if (config.indexOnly || !config.performByteComparison) {
       println("Skipping byte-for-byte comparison.".yellow)
@@ -86,10 +86,8 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       stateUpdates,
       metrics,
     ).andThen {
-      case _ =>
-        if (config.fullMetrics) {
-          reportDetailedMetrics(metricRegistry)
-        }
+      case _ if config.fullMetrics =>
+        reportDetailedMetrics(metricRegistry)
     }
   }
 
@@ -152,7 +150,9 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
                 indexerConfig,
                 readService,
                 metrics,
-                LfValueTranslation.Cache.none))
+                LfValueTranslation.Cache.none,
+            )
+          )
         indexer <- indexerFactory
         feedHandle <- indexer.subscription(readService)
       } yield (feedHandle, System.nanoTime())
