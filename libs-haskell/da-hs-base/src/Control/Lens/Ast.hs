@@ -8,6 +8,7 @@ module Control.Lens.Ast
   ) where
 
 import Control.Lens
+import Data.List
 
 -- $setup
 -- The examples for 'leftSpine' and 'rightSpine' assume we have the following
@@ -34,7 +35,7 @@ leftSpine p = iso unwindl rewindl
         go e0 as = case matching p e0 of
           Left   e1     -> (e1, as)
           Right (e1, a) -> go e1 (a:as)
-    rewindl (e0, as) = foldl (curry (p #)) e0 as
+    rewindl (e0, as) = foldl' (curry (p #)) e0 as
 
 -- | Analogue of 'leftSpine' for right associative constructors.
 --
