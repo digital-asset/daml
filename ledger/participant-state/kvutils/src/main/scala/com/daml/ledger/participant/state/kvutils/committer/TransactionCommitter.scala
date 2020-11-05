@@ -70,8 +70,6 @@ private[kvutils] class TransactionCommitter(
     "blind" -> blind
   )
 
-  // -------------------------------------------------------------------------------
-
   private def contractIsActiveAndVisibleToSubmitter(
       transactionEntry: DamlTransactionEntrySummary,
       contractState: DamlContractState,
