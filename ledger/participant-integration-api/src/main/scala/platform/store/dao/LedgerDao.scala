@@ -27,7 +27,8 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.dao.events.TransactionsReader
+import com.daml.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
+import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -167,6 +168,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 }
 
 private[platform] trait LedgerWriteDao extends ReportsHealth {
+  def transactionsWriter: TransactionsWriter
 
   def maxConcurrentConnections: Int
 
@@ -182,6 +184,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   ): Future[Unit]
 
   def storeTransaction(
+      preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,

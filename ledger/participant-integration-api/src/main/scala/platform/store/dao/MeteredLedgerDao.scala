@@ -20,7 +20,8 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.dao.events.TransactionsReader
+import com.daml.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
+import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -151,7 +152,10 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
+  override def transactionsWriter: TransactionsWriter = ledgerDao.transactionsWriter
+
   override def storeTransaction(
+      preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
@@ -164,6 +168,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     Timed.future(
       metrics.daml.index.db.storeTransaction,
       ledgerDao.storeTransaction(
+        preparedInsert,
         submitterInfo,
         workflowId,
         transactionId,

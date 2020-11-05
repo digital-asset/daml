@@ -43,6 +43,7 @@ import com.daml.platform.store.dao.CommandCompletionsTable.{
 }
 import com.daml.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
 import com.daml.platform.store.dao.PersistenceResponse.Ok
+import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.events.{
   ContractsReader,
   LfValueTranslation,
@@ -401,6 +402,7 @@ private class JdbcLedgerDao(
     contractsReader.lookupContractKey(forParty, key)
 
   override def storeTransaction(
+      preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
@@ -410,19 +412,6 @@ private class JdbcLedgerDao(
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
-    val preparedTransactionInsert =
-      Timed.value(
-        metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
-        transactionsWriter.prepare(
-          submitterInfo = submitterInfo,
-          workflowId = workflowId,
-          transactionId = transactionId,
-          ledgerEffectiveTime = ledgerEffectiveTime,
-          offset = offset,
-          transaction = transaction,
-          divulgedContracts = divulged,
-        )
-      )
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
         val error =
@@ -435,7 +424,7 @@ private class JdbcLedgerDao(
             )
           )
         if (error.isEmpty) {
-          preparedTransactionInsert.write(metrics)
+          preparedInsert.write(metrics)
           Timed.value(
             metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
             submitterInfo
@@ -832,7 +821,7 @@ private class JdbcLedgerDao(
   private val translation: LfValueTranslation =
     new LfValueTranslation(lfValueTranslationCache)
 
-  private val transactionsWriter: TransactionsWriter =
+  override val transactionsWriter: TransactionsWriter =
     new TransactionsWriter(dbType, metrics, translation)
 
   override val transactionsReader: TransactionsReader =
