@@ -10,7 +10,7 @@ import java.time.Instant
   * Note that this is used for party-originating changes only. They are
   * usually issued via the Ledger API.
   *
-  * @param actAs: the set of parties that submitted the change.
+  * @param actAs: the non-empty set of parties that submitted the change.
   *
   *
   * @param applicationId: an identifier for the DAML application that
