@@ -138,7 +138,6 @@ message DamlSubmitterInfo {
   string application_id = 3;
   reserved 4; // was maximum_record_time
   google.protobuf.Timestamp deduplicate_until = 5;
-  repeated string read_as = 6;
 }
 
 // DAML transaction entry, used in both `DamlSubmission` and `DamlLogEntry`.
