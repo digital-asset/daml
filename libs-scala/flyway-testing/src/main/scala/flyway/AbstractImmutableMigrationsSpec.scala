@@ -18,7 +18,7 @@ import org.scalatest.WordSpec
 
 import scala.collection.JavaConverters._
 
-abstract class ImmutableMigrationsSpec extends WordSpec {
+abstract class AbstractImmutableMigrationsSpec extends WordSpec {
   protected def migrationsResourcePath: String
   protected def hashMigrationsScriptPath: String
 
