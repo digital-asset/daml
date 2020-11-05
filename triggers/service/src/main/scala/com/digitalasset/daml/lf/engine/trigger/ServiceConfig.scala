@@ -30,6 +30,7 @@ private[trigger] final case class ServiceConfig(
     commandTtl: Duration,
     init: Boolean,
     jdbcConfig: Option[JdbcConfig],
+    portFile: Option[Path],
 )
 
 final case class JdbcConfig(
@@ -95,7 +96,7 @@ private[trigger] object ServiceConfig {
       address = (f, c) => c.copy(address = f(c.address)),
       httpPort = (f, c) => c.copy(httpPort = f(c.httpPort)),
       defaultHttpPort = Some(DefaultHttpPort),
-      portFile = None,
+      portFile = Some((f, c) => c.copy(portFile = f(c.portFile))),
     )
 
     opt[String]("ledger-host")
@@ -175,6 +176,7 @@ private[trigger] object ServiceConfig {
         commandTtl = Duration.ofSeconds(30L),
         init = false,
         jdbcConfig = None,
+        portFile = None,
       ),
     )
 }

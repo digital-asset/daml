@@ -43,6 +43,7 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/ports",
         "//libs-scala/scala-utils",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:oauth-middleware",  # TODO[AH] Extract request/response types
