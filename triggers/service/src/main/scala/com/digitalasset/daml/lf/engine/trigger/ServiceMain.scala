@@ -7,7 +7,6 @@ import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.http.scaladsl.Http.ServerBinding
 import akka.util.Timeout
-
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.data.Ref.PackageId
@@ -17,6 +16,9 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.sys.ShutdownHookThread
 import scala.util.{Failure, Success}
+import scalaz.syntax.traverse._
+import scalaz.std.list._
+import scalaz.std.either._
 
 object ServiceMain {
 
@@ -30,7 +32,7 @@ object ServiceMain {
       authConfig: AuthConfig,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
-      encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
+      encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
   ): Future[(ServerBinding, ActorSystem[Message])] = {
 
@@ -42,7 +44,7 @@ object ServiceMain {
           authConfig,
           ledgerConfig,
           restartConfig,
-          encodedDar,
+          encodedDars,
           jdbcConfig,
           initDb = false // for tests we initialize the database in beforeEach clause
         ),
@@ -61,12 +63,10 @@ object ServiceMain {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) =>
-        val encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]] =
-          config.darPath.map { darPath =>
-            DarReader().readArchiveFromFile(darPath.toFile) match {
-              case Failure(err) => sys.error(s"Failed to read archive: $err")
-              case Success(dar) => dar
-            }
+        val encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]] =
+          config.darPaths.traverse(p => DarReader().readArchiveFromFile(p.toFile).toEither) match {
+            case Left(err) => sys.error(s"Failed to read archive: $err")
+            case Right(dar) => dar
           }
         val authConfig: AuthConfig = config.authUri match {
           case None => NoAuth
@@ -92,7 +92,7 @@ object ServiceMain {
               authConfig,
               ledgerConfig,
               restartConfig,
-              encodedDar,
+              encodedDars,
               config.jdbcConfig,
               config.init,
             ),

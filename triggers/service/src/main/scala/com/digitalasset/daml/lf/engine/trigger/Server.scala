@@ -412,7 +412,7 @@ object Server {
       authConfig: AuthConfig,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
-      initialDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
+      initialDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       initDb: Boolean,
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
@@ -466,7 +466,7 @@ object Server {
         }
     }
 
-    initialDar foreach { dar =>
+    initialDars foreach { dar =>
       server.addDar(dar) match {
         case Left(err) =>
           ctx.log.error("Failed to upload provided DAR.\n" ++ err)
