@@ -29,6 +29,7 @@ The following options are supported:
     --index-only            Run only the indexing step of the integrity checker (useful tp benchmark the indexer).
     --jdbc-url              External JDBC url (useful for running against PostgreSQL).
     --full-metrics          Print all registered metrics.
+
 # `benchmark-replay`
 
 This benchmarks the LF engine using transactions from a ledger export stored in a file.
