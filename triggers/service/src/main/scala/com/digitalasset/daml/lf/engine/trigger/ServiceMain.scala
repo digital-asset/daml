@@ -7,10 +7,10 @@ import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.http.scaladsl.Http.ServerBinding
 import akka.util.Timeout
-
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.data.Ref.PackageId
+import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -105,6 +105,9 @@ object ServiceMain {
         // Shutdown gracefully on SIGINT.
         val serviceF: Future[ServerBinding] =
           system.ask((ref: ActorRef[ServerBinding]) => GetServerBinding(ref))
+        config.portFile.foreach(portFile =>
+          serviceF.foreach(serverBinding =>
+            PortFiles.write(portFile, Port(serverBinding.localAddress.getPort))))
         val _: ShutdownHookThread = sys.addShutdownHook {
           system ! Stop
           serviceF.onComplete {
