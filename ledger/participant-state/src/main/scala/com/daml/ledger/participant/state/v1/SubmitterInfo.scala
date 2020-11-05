@@ -12,10 +12,6 @@ import java.time.Instant
   *
   * @param actAs: the set of parties that submitted the change.
   *
-  * @param readAs: the set of parties on whose behalf (in addition to all
-  *   parties listed in `actAs`) contracts can be retrieved.
-  *   This affects DAML operations such as `fetch`, `fetchByKey`, `lookupByKey`,
-  *   `exercise`, and `exerciseByKey`.
   *
   * @param applicationId: an identifier for the DAML application that
   *   submitted the command. This is used for monitoring and to allow DAML
@@ -36,7 +32,6 @@ import java.time.Instant
   */
 final case class SubmitterInfo(
     actAs: List[Party],
-    readAs: List[Party],
     applicationId: ApplicationId,
     commandId: CommandId,
     deduplicateUntil: Instant,
