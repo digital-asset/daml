@@ -7,7 +7,10 @@ module DA.Daml.Assistant.Install.Path
     ) where
 
 import Control.Monad
+import System.Directory
+import System.Environment
 import System.FilePath
+import System.IO
 
 #ifdef mingw32_HOST_OS
 import Control.Exception.Safe
@@ -77,7 +80,40 @@ regQueryStringValue key valueName =
                 c_RegQueryValueEx p_key c_valueName nullPtr nullPtr c_value p_valueLen
             peekTString (castPtr c_value)
 #else
-updatePath _ output targetPath = suggestAddToPath output targetPath
+updatePath installOpts output targetPath
+  | SetPath No <- iSetPath installOpts = suggestAddToPath output targetPath
+  | SetPath autoOrYes <- iSetPath installOpts = do
+    searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
+    unless (targetPath `elem` searchPaths) $ do
+      mbShellPath <- lookupEnv "SHELL"
+      let mbShellConfig = do
+            shellPath <- mbShellPath
+            shellConfig (takeFileName shellPath) targetPath
+      case mbShellConfig of
+        Nothing -> output setPathManualMsg
+        Just (configFile, cmd) -> do
+          home <- getHomeDirectory
+          let cfgFile = home </> configFile
+          cfgFileExists <- doesFileExist cfgFile
+          if cfgFileExists
+            then do
+              content <- readFile cfgFile
+              unless (cmd `elem` lines content) $ do
+                case autoOrYes of
+                  Auto -> do
+                    stdinIsTerminal <- hIsTerminalDevice stdin
+                    stdoutIsTerminal <- hIsTerminalDevice stdout
+                    if stdinIsTerminal && stdoutIsTerminal
+                      then do
+                        answer <- prompt "Add DAML Assistant executable to your PATH?" "Yes" ["No"]
+                        when (answer `elem` ["Yes", "yes", "y", "Y"]) $ appendFile cfgFile cmd
+                      else output setPathManualMsg
+                  Yes -> appendFile cfgFile cmd
+                  No -> error "updatePath: impossible case match"
+                  -- this can't happen because the `No` case is already handled above.
+            else output setPathManualMsg
+  where
+    setPathManualMsg = "Please add " <> targetPath <> " to your PATH."
 #endif
 
 suggestAddToPath :: (String -> IO ()) -> FilePath -> IO ()
@@ -86,3 +122,20 @@ suggestAddToPath output targetPath = do
     searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
     when (targetPath `notElem` searchPaths) $ do
         output ("Please add " <> targetPath <> " to your PATH.")
+
+prompt :: String -> String -> [String] -> IO String
+prompt msg def others = do
+  putStrLn $ msg <> (unwords $ " [" <> def <> "]" : others)
+  ans <- getLine
+  return $
+    if null ans
+      then def
+      else ans
+
+shellConfig :: String -> FilePath -> Maybe (FilePath, String)
+shellConfig shell targetPath =
+  case shell of
+    "zsh" -> Just (".zshrc", "export PATH=$PATH:" <> targetPath)
+    "bash" -> Just (".bashrc", "export PATH=$PATH:" <> targetPath)
+    _other -> Nothing
+
