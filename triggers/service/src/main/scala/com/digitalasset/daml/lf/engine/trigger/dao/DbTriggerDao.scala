@@ -23,6 +23,7 @@ import doobie.{Fragment, Put, Transactor}
 import scalaz.Tag
 import java.io.{Closeable, IOException}
 
+import com.daml.lf.engine.trigger.Tagged.AccessToken
 import javax.sql.DataSource
 
 import scala.concurrent.ExecutionContext
@@ -73,6 +74,10 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   implicit val partyGet: Get[Party] = Tag.subst(implicitly[Get[String]])
 
+  implicit val accessTokenPut: Put[AccessToken] = Tag.subst(implicitly[Put[String]])
+
+  implicit val accessTokenGet: Get[AccessToken] = Tag.subst(implicitly[Get[String]])
+
   implicit val identifierPut: Put[Identifier] = implicitly[Put[String]].contramap(_.toString)
 
   implicit val identifierGet: Get[Identifier] =
@@ -105,7 +110,7 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
         where trigger_instance = $triggerInstance
       """
     select
-      .query[(UUID, Identifier, Party, Option[String])]
+      .query[(UUID, Identifier, Party, Option[AccessToken])]
       .map(RunningTrigger.tupled)
       .option
   }
@@ -158,7 +163,10 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
     val select: Fragment = sql"""
       select trigger_instance, full_trigger_name, trigger_party, access_token from running_triggers order by trigger_instance
     """
-    select.query[(UUID, Identifier, Party, Option[String])].map(RunningTrigger.tupled).to[Vector]
+    select
+      .query[(UUID, Identifier, Party, Option[AccessToken])]
+      .map(RunningTrigger.tupled)
+      .to[Vector]
   }
 
   // Drop all tables and other objects associated with the database.
