@@ -43,45 +43,27 @@ object ValueCoder {
       EncodeError(s"${version.showsVersion} is too old to support $isTooOldFor")
   }
 
-  private val defaultVersion: SpecifiedVersion = ValueVersions.acceptedVersions.last
-
   abstract class EncodeCid[-Cid] private[lf] {
-    private[lf] def encode(
-        version: SpecifiedVersion = defaultVersion,
-        contractId: Cid,
-    ): Either[EncodeError, Either[String, (proto.ContractId)]]
+    private[lf] def encode(contractId: Cid): proto.ContractId
   }
 
   @deprecated("use CidEndocer", since = "1.1.2")
   val AbsCidDecoder = CidEncoder
 
   object CidEncoder extends EncodeCid[ContractId] {
-    private[lf] def encode(
-        sv: SpecifiedVersion,
-        cid: ContractId
-    ): Either[EncodeError, Either[String, proto.ContractId]] =
-      Right(
-        Either.cond(
-          !useOldStringField(sv),
-          proto.ContractId.newBuilder.setRelative(false).setContractId(cid.coid).build,
-          cid.coid,
-        )
-      )
+    private[lf] def encode(cid: ContractId): proto.ContractId =
+      proto.ContractId.newBuilder.setRelative(false).setContractId(cid.coid).build
   }
 
   abstract class DecodeCid[Cid] private[lf] {
     def decodeOptional(
-        sv: SpecifiedVersion,
-        stringForm: String,
         structForm: proto.ContractId,
     ): Either[DecodeError, Option[Cid]]
 
     final def decode(
-        sv: SpecifiedVersion,
-        stringForm: String,
         structForm: proto.ContractId,
     ): Either[DecodeError, Cid] =
-      decodeOptional(sv, stringForm, structForm).flatMap {
+      decodeOptional(structForm).flatMap {
         case Some(cid) => Right(cid)
         case None => Left(DecodeError("Missing required field contract_id"))
       }
@@ -97,28 +79,12 @@ object ValueCoder {
           DecodeError(s"""cannot parse contractId "$s""""))
 
     override def decodeOptional(
-        sv: SpecifiedVersion,
-        stringForm: String,
         structForm: proto.ContractId,
     ): Either[DecodeError, Option[ContractId]] =
-      if (useOldStringField(sv)) {
-        if (structForm != proto.ContractId.getDefaultInstance) {
-          Left(DecodeError(sv, isTooOldFor = "message ContractId"))
-        } else {
-          if (stringForm.isEmpty)
-            Right(None)
-          else
-            stringToCidString(stringForm).map(Some(_))
-        }
-      } else {
-        if (stringForm.nonEmpty)
-          Left(DecodeError(s"${sv.showsVersion} is too new to use string contract IDs"))
-        else if (structForm.getContractId.isEmpty)
-          Right(None)
-        else
-          stringToCidString(structForm.getContractId).map(Some(_))
-      }
-
+      if (structForm.getContractId.isEmpty)
+        Right(None)
+      else
+        stringToCidString(structForm.getContractId).map(Some(_))
   }
 
   /**
@@ -295,11 +261,7 @@ object ValueCoder {
             val party = Party.fromString(protoValue.getParty)
             party.fold(e => throw Err("error decoding party: " + e), ValueParty)
           case proto.Value.SumCase.CONTRACT_ID | proto.Value.SumCase.CONTRACT_ID_STRUCT =>
-            val cid = decodeCid.decode(
-              valueVersion,
-              protoValue.getContractId,
-              protoValue.getContractIdStruct
-            )
+            val cid = decodeCid.decode(protoValue.getContractIdStruct)
             cid.fold(
               e => throw Err("error decoding contractId: " + e.errorMessage),
               ValueContractId(_))
@@ -447,11 +409,7 @@ object ValueCoder {
           case ValueTimestamp(t) =>
             builder.setTimestamp(t.micros).build()
           case ValueContractId(coid) =>
-            encodeCid.encode(valueVersion, coid).map {
-              case Left(string) => builder.setContractId(string)
-              case Right(struct) => builder.setContractIdStruct(struct)
-            }
-            builder.build()
+            builder.setContractIdStruct(encodeCid.encode(coid)).build()
           case ValueList(elems) =>
             val listBuilder = proto.List.newBuilder()
             elems.foreach(elem => {
@@ -554,9 +512,6 @@ object ValueCoder {
   ): Either[DecodeError, Value[Cid]] = {
     decodeValue(decodeCid, proto.VersionedValue.parseFrom(bytes))
   }
-
-  private[this] def useOldStringField(sv: SpecifiedVersion): Boolean =
-    sv precedes ValueVersions.minContractIdStruct
 
   private[this] def useLegacyDecimal(sv: SpecifiedVersion): Boolean =
     sv precedes ValueVersions.minNumeric

@@ -296,8 +296,16 @@ object PerformanceEnvelope {
       reporter: (String, Double) => Unit,
   ): LedgerTestSuite =
     envelope match {
-      case e: Envelope.Latency => new LatencyTest(e, reporter = reporter)
-      case e: Envelope.Throughput => new ThroughputTest(e, reporter = reporter)
+      case e: Envelope.Latency =>
+        new LatencyTest(e, numPings = e.numPings, numWarmupPings = e.numPings, reporter = reporter)
+      case e: Envelope.Throughput =>
+        val numPings = Math.max(20, e.operationsPerSecond * 15) // test should run at least 15 seconds
+        new ThroughputTest(
+          envelope = e,
+          maxInflight = e.operationsPerSecond * 5, // aiming for a latency of 5 seconds
+          numPings = numPings,
+          numWarmupPings = numPings,
+          reporter = reporter)
       case e: Envelope.TransactionSize => new TransactionSizeScaleTest(e)
     }
 
@@ -309,9 +317,9 @@ object PerformanceEnvelope {
     */
   private final class ThroughputTest(
       override protected val envelope: Envelope.Throughput,
-      override protected val maxInflight: Int = 40,
-      numPings: Int = 200,
-      numWarmupPings: Int = 40,
+      override protected val maxInflight: Int,
+      numPings: Int,
+      numWarmupPings: Int,
       reporter: (String, Double) => Unit,
   ) extends LedgerTestSuite
       with PerformanceEnvelope[Envelope.Throughput] {
@@ -352,8 +360,8 @@ object PerformanceEnvelope {
 
   private final class LatencyTest(
       override protected val envelope: Envelope.Latency,
-      numPings: Int = 20,
-      numWarmupPings: Int = 10,
+      numPings: Int,
+      numWarmupPings: Int,
       reporter: (String, Double) => Unit,
   ) extends LedgerTestSuite
       with PerformanceEnvelope[Envelope.Latency] {

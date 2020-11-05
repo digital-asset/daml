@@ -78,14 +78,8 @@ patches we backport to the 1.0 release branch).
    > The ad-hoc machines take a bit of time to be available after being reported as
    > created, so be patient for a bit if your first connection attempt(s) fail.
    >
-   > The first thing you should do is install Firefox, because Internet
-   > Explorer is a pain. Open IE, go to Internet Options (gear icon in the top
-   > right. If you don't see the icon, make sure the entire window fits into your screen),
-   > switch to the Security tab, click Trusted Sites, click Sites, and
-   > add `*.mozilla.net`. Then navigate to [getfirefox.com] and download the
-   > "64-bit MSI" version.
-   >
-   > [getfirefox.com]: https://getfirefox.com
+   > Windows machines come with both Internet Explorer and Firefox installed.
+   > Do not make the mistake of trying to use Internet Explorer.
    >
    > Install Java from [adoptopenjdk]. The installer has an option, unticked by
    > default, to set the `JAVA_HOME` variable. Tick it.
@@ -164,7 +158,7 @@ patches we backport to the 1.0 release branch).
 
     1. Close VSCode.
 
-    1. In the terminal where `daml start` is running, press 'r' 
+    1. In the terminal where `daml start` is running, press 'r'
        respectively 'r' + 'Enter' on Windows.
 
     1. Run `code .` from the project root directory (the extension is
@@ -258,7 +252,7 @@ patches we backport to the 1.0 release branch).
 
     1. Open `daml/Main.daml`.
 
-    1. Click on `Script results` above `setup` and wait for the script
+    1. Click on `Script results` above `initialize` and wait for the script
        results to appear.
 
     1. Add `+` at the end of line 14, after `"Alice")` and confirm you get an
@@ -292,8 +286,8 @@ patches we backport to the 1.0 release branch).
    1. Kill `daml start` with `Ctrl-C`.
    1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
       the scenario result appears within 30 seconds.
-   1. Add `+` at the end of line 25 after `(PartyIdHint "Alice")` and verify that
-      you get an error on line 26.
+   1. Add `+` at the end of line 14 after `(PartyIdHint "Alice")` and verify that
+      you get an error on line 15.
 
 1. On your PR, add the comment:
 

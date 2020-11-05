@@ -7,7 +7,6 @@ package speedy
 import java.util
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.{FrontStack, ImmArray, Struct}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
@@ -294,6 +293,7 @@ class SpeedyTest extends WordSpec with Matchers {
   val recUpdPkgs = typeAndCompile(p"""
     module M {
       record Point = { x: Int64, y: Int64 } ;
+      val f: Int64 -> Int64 = \(x: Int64) -> MUL_INT64 2 x ;
       val origin: M:Point = M:Point { x = 0, y = 0 } ;
       val p_1_0: M:Point = M:Point { M:origin with x = 1 } ;
       val p_1_2: M:Point = M:Point { M:Point { M:origin with x = 1 } with y = 2 } ;
@@ -302,6 +302,8 @@ class SpeedyTest extends WordSpec with Matchers {
           loc(M,p_3_4_loc,2,2,2,2) M:origin with x = 3
         } with y = 4
       } ;
+      val p_6_8: M:Point = M:Point { M:Point { M:origin with x = M:f 3 } with y = M:f 4 } ;
+      val p_3_2: M:Point = M:Point { M:Point { M:Point { M:origin with x = 1 } with y = 2 } with x = 3 } ;
     }
   """)
 
@@ -310,11 +312,12 @@ class SpeedyTest extends WordSpec with Matchers {
       val p_1_0 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_1_0")))
       p_1_0 shouldEqual
         Some(
-          SELet1General(
-            SEVal(LfDefRef(qualify("M:origin"))),
-            SEAppAtomicSaturatedBuiltin(
-              SBRecUpd(qualify("M:Point"), 0),
-              Array(SELocS(1), SEValue(SInt64(1))))))
+          SDefinition(
+            SELet1General(
+              SEVal(LfDefRef(qualify("M:origin"))),
+              SEAppAtomicSaturatedBuiltin(
+                SBRecUpd(qualify("M:Point"), 0),
+                Array(SELocS(1), SEValue(SInt64(1)))))))
 
     }
 
@@ -333,15 +336,17 @@ class SpeedyTest extends WordSpec with Matchers {
       val p_1_2 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_1_2")))
       p_1_2 shouldEqual
         Some(
-          SELet1General(
-            SEVal(LfDefRef(qualify("M:origin"))),
-            SEAppAtomicSaturatedBuiltin(
-              SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
-              Array(
-                SELocS(1),
-                SEValue(SInt64(1)),
-                SEValue(SInt64(2)),
-              ),
+          SDefinition(
+            SELet1General(
+              SEVal(LfDefRef(qualify("M:origin"))),
+              SEAppAtomicSaturatedBuiltin(
+                SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                Array(
+                  SELocS(1),
+                  SEValue(SInt64(1)),
+                  SEValue(SInt64(2)),
+                ),
+              )
             )
           )
         )
@@ -370,18 +375,20 @@ class SpeedyTest extends WordSpec with Matchers {
       val p_3_4 = recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_3_4_loc")))
       p_3_4 shouldEqual
         Some(
-          SELet1General(
-            SELocation(mkLocation(2), SEVal(LfDefRef(qualify("M:origin")))),
-            SELocation(
-              mkLocation(0),
-              SEAppAtomicSaturatedBuiltin(
-                SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
-                Array(
-                  SELocS(1),
-                  SEValue(SInt64(3)),
-                  SEValue(SInt64(4)),
-                ),
-              )),
+          SDefinition(
+            SELet1General(
+              SELocation(mkLocation(2), SEVal(LfDefRef(qualify("M:origin")))),
+              SELocation(
+                mkLocation(0),
+                SEAppAtomicSaturatedBuiltin(
+                  SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                  Array(
+                    SELocS(1),
+                    SEValue(SInt64(3)),
+                    SEValue(SInt64(4)),
+                  ),
+                )),
+            )
           )
         )
     }
@@ -393,6 +400,79 @@ class SpeedyTest extends WordSpec with Matchers {
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
             ArrayList(SInt64(3), SInt64(4)),
+          )
+        )
+    }
+
+    "use SBRecUpdMulti for non-atomic multi update" in {
+      recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_6_8"))) shouldEqual
+        Some(
+          SDefinition(
+            SELet1General(
+              SEVal(LfDefRef(qualify("M:origin"))),
+              SELet1General(
+                SEVal(LfDefRef(qualify("M:f"))),
+                SELet1General(
+                  SEAppAtomicGeneral(SELocS(1), Array(SEValue(SInt64(3)))),
+                  SELet1General(
+                    SEVal(LfDefRef(qualify("M:f"))),
+                    SELet1General(
+                      SEAppAtomicGeneral(SELocS(1), Array(SEValue(SInt64(4)))),
+                      SEAppAtomicSaturatedBuiltin(
+                        SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                        Array(
+                          SELocS(5),
+                          SELocS(3),
+                          SELocS(1),
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+    }
+
+    "produce expected output for non-atomic multi update" in {
+      eval(e"M:p_6_8", recUpdPkgs) shouldEqual
+        Right(
+          SRecord(
+            qualify("M:Point"),
+            ImmArray(n"x", n"y"),
+            ArrayList(SInt64(6), SInt64(8)),
+          )
+        )
+    }
+
+    "use SBRecUpdMulti for overwriting multi update" in {
+      recUpdPkgs.getDefinition(LfDefRef(qualify("M:p_3_2"))) shouldEqual
+        Some(
+          SDefinition(
+            SELet1General(
+              SEVal(LfDefRef(qualify("M:origin"))),
+              SEAppAtomicSaturatedBuiltin(
+                SBRecUpdMulti(qualify("M:Point"), Array(0, 1, 0)),
+                Array(
+                  SELocS(1),
+                  SEValue(SInt64(1)),
+                  SEValue(SInt64(2)),
+                  SEValue(SInt64(3)),
+                ),
+              )
+            )
+          )
+        )
+    }
+
+    "produce expected output for overwriting multi update" in {
+      eval(e"M:p_3_2", recUpdPkgs) shouldEqual
+        Right(
+          SRecord(
+            qualify("M:Point"),
+            ImmArray(n"x", n"y"),
+            ArrayList(SInt64(3), SInt64(2)),
           )
         )
     }

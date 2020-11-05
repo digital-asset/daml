@@ -18,3 +18,16 @@ index bcb83c73..46148f16 100644
          "depends": hs.package_ids,
          "exposed-modules": exposed_modules,
      })
+diff --git a/haskell/assets/ghc_8_6_5_win_base.patch b/haskell/assets/ghc_8_6_5_win_base.patch
+index d870deef..77edb1d2 100644
+--- a/haskell/assets/ghc_8_6_5_win_base.patch
++++ b/haskell/assets/ghc_8_6_5_win_base.patch
+@@ -5,7 +5,7 @@
+  hs-libraries: HSbase-4.12.0.0
+  extra-libraries:
+ -    wsock32 user32 shell32 msvcrt mingw32 mingwex
+-+    wsock32 user32 shell32 msvcrt mingw32 mingwex shlwapi
+++    wsock32 ws2_32 user32 shell32 msvcrt mingw32 mingwex shlwapi stdc++
+  include-dirs: $topdir\base-4.12.0.0\include
+  includes:
+      HsBase.h

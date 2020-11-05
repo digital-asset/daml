@@ -24,6 +24,9 @@ class ContractDao(xa: Connection.T) {
 
   def transact[A](query: ConnectionIO[A]): IO[A] =
     query.transact(xa)
+
+  def isValid(timeoutSeconds: Int): IO[Boolean] =
+    fconn.isValid(timeoutSeconds).transact(xa)
 }
 
 object ContractDao {

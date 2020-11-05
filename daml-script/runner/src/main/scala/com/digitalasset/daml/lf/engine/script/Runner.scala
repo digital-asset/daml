@@ -31,7 +31,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SDefinition, SValue, Speedy}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -326,21 +326,21 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
   // This is a type error but Speedy doesn’t care about the types and the only thing we do
   // with the result is convert it to ledger values/record so this is safe.
   private val extendedCompiledPackages = {
-    val fromLedgerValue: PartialFunction[SDefinitionRef, SExpr] = {
+    val fromLedgerValue: PartialFunction[SDefinitionRef, SDefinition] = {
       case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
-        SEMakeClo(Array(), 1, SELocA(0))
+        SDefinition(SEMakeClo(Array(), 1, SELocA(0)))
     }
     new CompiledPackages(Runner.compilerConfig) {
       override def getSignature(pkgId: PackageId): Option[PackageSignature] =
         compiledPackages.getSignature(pkgId)
-      override def getDefinition(dref: SDefinitionRef): Option[SExpr] =
+      override def getDefinition(dref: SDefinitionRef): Option[SDefinition] =
         fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
       // FIXME: avoid override of non abstract method
       override def signatures: PartialFunction[PackageId, PackageSignature] =
         compiledPackages.signatures
       override def packageIds: Set[PackageId] = compiledPackages.packageIds
       // FIXME: avoid override of non abstract method
-      override def definitions: PartialFunction[SDefinitionRef, SExpr] =
+      override def definitions: PartialFunction[SDefinitionRef, SDefinition] =
         fromLedgerValue.orElse(compiledPackages.definitions)
       override def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
         compiledPackages.packageLanguageVersion

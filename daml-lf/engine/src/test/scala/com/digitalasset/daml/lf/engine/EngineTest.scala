@@ -19,17 +19,17 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   SubmittedTransaction,
-  TransactionVersion,
   VersionedTransaction,
   GenTransaction => GenTx,
   Transaction => Tx,
   TransactionVersions => TxVersions
 }
-import com.daml.lf.value.{Value, ValueVersion}
+import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
+import com.daml.lf.transaction.TransactionVersions.UnversionedNode
 import com.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -1096,7 +1096,6 @@ class EngineTest
             _,
             _,
             _,
-            _,
             children,
             _,
             _,
@@ -1248,8 +1247,7 @@ class EngineTest
 
     def actFetchActors[Nid, Cid, Val](n: Node.GenNode[Nid, Cid, Val]): Set[Party] = {
       n match {
-        case Node.NodeFetch(_, _, _, actingParties, _, _, _, _) =>
-          actingParties.getOrElse(Set.empty)
+        case Node.NodeFetch(_, _, _, actingParties, _, _, _, _) => actingParties
         case _ => Set()
       }
     }
@@ -1360,7 +1358,7 @@ class EngineTest
         coid = fetchedCid,
         templateId = fetchedTid,
         optLocation = None,
-        actingParties = None,
+        actingParties = Set.empty,
         signatories = Set.empty,
         stakeholders = Set.empty,
         key = None,
@@ -1695,7 +1693,7 @@ class EngineTest
     "be partially reinterpretable" in {
       val Right((tx, txMeta)) = run(3)
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, children, _, _, _) =
+      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
@@ -1812,59 +1810,6 @@ class EngineTest
     }
   }
 
-  "Engine#submit" should {
-    val cidV6 = toContractId("#cidV6")
-    val cidV7 = toContractId("#cidV7")
-    val contract = ValueRecord(
-      Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
-      ImmArray((Some[Name]("p"), ValueParty(party)))
-    )
-    val hello = Identifier(basicTestsPkgId, "BasicTests:Hello")
-    val templateId = TypeConName(basicTestsPkgId, "BasicTests:Simple")
-    val now = Time.Timestamp.now()
-    val submissionSeed = crypto.Hash.hashPrivateKey("engine check the version of input value")
-    def contracts = Map(
-      cidV6 -> ContractInst(templateId, VersionedValue(ValueVersion("6"), contract), ""),
-      cidV7 -> ContractInst(templateId, VersionedValue(ValueVersion("dev"), contract), ""),
-    )
-
-    def run(
-        cid: ContractId,
-        engineConfig: EngineConfig = EngineConfig.Stable
-    ) = {
-      val engine = new Engine(engineConfig)
-      val cmds = Commands(
-        submitter = party,
-        commands = ImmArray(
-          ExerciseCommand(templateId, cid, "Hello", ValueRecord(Some(hello), ImmArray.empty))),
-        ledgerEffectiveTime = now,
-        commandsReference = "",
-      )
-      engine
-        .submit(cmds, participant, submissionSeed)
-        .consume(contracts.get, lookupPackage, lookupKey)
-    }
-
-    "fail nicely if fed with disallowed value version" in {
-      run(cidV6) shouldBe 'right
-      val result = run(cidV7)
-      result shouldBe 'left
-      result.left.get.msg should include("Update failed due to disallowed value version")
-    }
-
-    "fail nicely if it can serialize the transaction" in {
-      run(cidV6) shouldBe 'right
-      val result = run(
-        cidV6,
-        EngineConfig.Stable.copy(
-          allowedOutputTransactionVersions =
-            VersionRange(TransactionVersion("9"), TransactionVersion("9"))))
-      result shouldBe 'left
-      result.left.get.msg should include("inferred transaction version 10 is not allowed")
-    }
-
-  }
-
   "Engine.preloadPackage" should {
 
     import com.daml.lf.language.{LanguageVersion => LV}
@@ -1955,7 +1900,7 @@ object EngineTest {
   ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
     type Acc =
       (
-          HashMap[NodeId, Tx.Node],
+          HashMap[NodeId, UnversionedNode],
           BackStack[NodeId],
           Boolean,
           BackStack[(NodeId, crypto.Hash)],
@@ -1990,8 +1935,7 @@ object EngineTest {
                       _,
                       _,
                       _,
-                      true,
-                      _,
+                      consuming @ true,
                       _,
                       _,
                       _,
@@ -2025,7 +1969,13 @@ object EngineTest {
             tr = tr1.transaction.mapNodeId(nodeRenaming)
           } yield
             (
-              nodes ++ tr.nodes,
+              nodes ++ tr.nodes.mapValues(
+                Node.GenNode.map3(
+                  identity[NodeId],
+                  identity[ContractId],
+                  (v: VersionedValue[ContractId]) => v.value,
+                )
+              ),
               roots :++ tr.roots,
               dependsOnTime || meta1.dependsOnTime,
               nodeSeeds :++ meta1.nodeSeeds.map { case (nid, seed) => nodeRenaming(nid) -> seed },
@@ -2037,7 +1987,11 @@ object EngineTest {
     iterate.map {
       case (nodes, roots, dependsOnTime, nodeSeeds, _, _) =>
         (
-          TxVersions.assertAsVersionedTransaction(GenTx(nodes, roots.toImmArray)),
+          TxVersions.asVersionedTransaction(
+            engine.compiledPackages().packageLanguageVersion,
+            roots.toImmArray,
+            nodes,
+          ),
           Tx.Metadata(
             submissionSeed = None,
             submissionTime = txMeta.submissionTime,

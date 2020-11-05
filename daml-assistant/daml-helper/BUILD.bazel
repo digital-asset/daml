@@ -145,3 +145,29 @@ da_haskell_test(
         "//libs-haskell/test-utils",
     ],
 )
+
+da_haskell_test(
+    name = "test-daml-ledger",
+    srcs = ["test/DA/Daml/Helper/Test/Ledger.hs"],
+    data = [
+        "daml-helper",
+        "//ledger-service/http-json:http-json-binary",
+        "//ledger/sandbox:sandbox-binary",
+    ],
+    hackage_deps = [
+        "base",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Daml.Helper.Test.Ledger.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/hs/bindings:hs-ledger",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)

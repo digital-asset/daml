@@ -13,7 +13,7 @@ import com.daml.lf.engine.script._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.{Compiler, SValue, SExpr, SError}
+import com.daml.lf.speedy.{Compiler, SDefinition, SValue, SExpr, SError}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
@@ -183,7 +183,7 @@ class ReplService(
     extends ReplServiceGrpc.ReplServiceImplBase
     with StrictLogging {
   var signatures: Map[PackageId, PackageSignature] = Map.empty
-  var compiledDefinitions: Map[SDefinitionRef, SExpr] = Map.empty
+  var compiledDefinitions: Map[SDefinitionRef, SDefinition] = Map.empty
   var results: Seq[SValue] = Seq()
   implicit val ec_ = ec
   implicit val esf_ = esf

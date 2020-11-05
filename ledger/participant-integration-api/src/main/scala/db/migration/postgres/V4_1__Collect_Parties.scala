@@ -102,7 +102,7 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
               parties
                 .union(nf.signatories)
                 .union(nf.stakeholders)
-                .union(nf.actingParties.getOrElse(Set.empty))
+                .union(nf.actingParties)
             case nc: NodeCreate.WithTxValue[ContractId] =>
               parties
                 .union(nc.signatories)

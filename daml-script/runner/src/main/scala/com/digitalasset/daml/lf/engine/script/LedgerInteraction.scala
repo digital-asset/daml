@@ -170,7 +170,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     val filter = transactionFilter(parties, templateId)
     val acsResponses =
       grpcClient.activeContractSetClient
-        .getActiveContracts(filter, verbose = true)
+        .getActiveContracts(filter, verbose = false)
         .runWith(Sink.seq)
     acsResponses.map(acsPages =>
       acsPages.flatMap(page =>
@@ -400,8 +400,6 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     expr = null,
     globalCids = Set.empty,
     committers = Set.empty,
-    inputValueVersions = value.ValueVersions.DevOutputVersions,
-    outputTransactionVersions = transaction.TransactionVersions.DevOutputVersions,
     traceLog = traceLog,
   )
   val onLedger = machine.ledgerMode match {
@@ -490,9 +488,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
         case SResultNeedKey(keyWithMaintainers, committers, cb) =>
           scenarioRunner.lookupKey(keyWithMaintainers.globalKey, committers, cb).toTry.get
         case SResultFinalValue(SUnit) =>
-          onLedger.ptx.finish(
-            onLedger.outputTransactionVersions,
-            machine.compiledPackages.packageLanguageVersion) match {
+          onLedger.ptx.finish(machine.compiledPackages.packageLanguageVersion) match {
             case PartialTransaction.CompleteTransaction(tx) =>
               val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
                 tx.nodes(n) match {
@@ -525,8 +521,6 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
               }
             case PartialTransaction.IncompleteTransaction(ptx) =>
               throw new RuntimeException(s"Unexpected abort: $ptx")
-            case err: PartialTransaction.SerializationError =>
-              throw new RuntimeException(err.prettyMessage)
           }
         case SResultFinalValue(v) =>
           // The final result should always be unit.

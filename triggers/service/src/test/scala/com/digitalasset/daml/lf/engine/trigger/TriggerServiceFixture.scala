@@ -5,19 +5,22 @@ package com.daml.lf.engine.trigger
 
 import java.io.File
 import java.net.InetAddress
-import java.time.Duration
 
+import io.grpc.Channel
+import com.daml.ledger.api.testing.utils.OwnedResource
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.resources.FutureResourceOwner
 import akka.actor.ActorSystem
-import akka.actor.typed.{ActorSystem => TypedActorSystem}
+import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri, headers}
 import akka.http.scaladsl.model.Uri.Path
-import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.jwt.{HMAC256Verifier, JwtSigner}
+import com.daml.jwt.{HMAC256Verifier, JwtSigner, JwtVerifierBase}
 import com.daml.ledger.api.auth
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
@@ -39,226 +42,397 @@ import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.lf.engine.trigger.dao.DbTriggerDao
+import com.daml.testing.postgresql.PostgresAroundAll
 import com.daml.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
 import eu.rekawek.toxiproxy._
 import org.scalactic.source
-import scalaz.syntax.std.option._
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite, SuiteMixin}
 
+import scala.collection.concurrent.TrieMap
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.sys.process.Process
+import scala.util.Success
 
-private[trigger] final case class AuthTestConfig(
-    // HMAC256 signature secret.
-    jwtSecret: String,
-    // Grant readAs claims for these parties to the ledger client provided to test cases.
-    parties: List[ApiTypes.Party],
-)
+/**
+  * A test-fixture that persists cookies between http requests for each test-case.
+  */
+trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
+  private val cookieJar = TrieMap[String, String]()
 
-object TriggerServiceFixture extends StrictLogging {
+  override protected def afterEach(): Unit = {
+    try super.afterEach()
+    finally cookieJar.clear()
+  }
 
-  // Use a small initial interval so we can test restart behaviour more easily.
-  private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
+  /**
+    * Adds a Cookie header for the currently stored cookies and performs the given http request.
+    */
+  def httpRequest(request: HttpRequest)(
+      implicit system: ActorSystem,
+      ec: ExecutionContext): Future[HttpResponse] = {
+    Http()
+      .singleRequest {
+        if (cookieJar.nonEmpty) {
+          val cookies = headers.Cookie(values = cookieJar.to[Seq]: _*)
+          request.addHeader(cookies)
+        } else {
+          request
+        }
+      }
+      .andThen {
+        case Success(resp) =>
+          resp.headers.foreach {
+            case headers.`Set-Cookie`(cookie) =>
+              cookieJar.update(cookie.name, cookie.value)
+            case _ =>
+          }
+      }
+  }
 
-  def withTriggerService[A](
-      testName: String,
-      dars: List[File],
-      encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
-      jdbcConfig: Option[JdbcConfig],
-      authTestConfig: Option[AuthTestConfig],
-  )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
-      implicit mat: Materializer,
-      aesf: ExecutionSequencerFactory,
-      ec: ExecutionContext,
-      system: ActorSystem,
-      pos: source.Position,
-  ): Future[A] = {
-    logger.info(s"${pos.fileName}:${pos.lineNumber}: setting up trigger service")
+  /**
+    * Same as [[httpRequest]] but will follow redirections.
+    */
+  def httpRequestFollow(request: HttpRequest, maxRedirections: Int = 10)(
+      implicit system: ActorSystem,
+      ec: ExecutionContext): Future[HttpResponse] = {
+    httpRequest(request).flatMap {
+      case resp @ HttpResponse(StatusCodes.Redirection(_), _, _, _) =>
+        if (maxRedirections == 0) {
+          throw new RuntimeException("Too many redirections")
+        } else {
+          val uri = resp.header[headers.Location].get.uri
+          httpRequestFollow(HttpRequest(uri = uri), maxRedirections - 1)
+        }
+      case resp => Future(resp)
+    }
+  }
+}
+
+trait AbstractAuthFixture extends SuiteMixin {
+  self: Suite =>
+
+  protected def authService: Option[auth.AuthService]
+  protected def authToken(payload: AuthServiceJWTPayload): Option[String]
+  protected def authConfig: AuthConfig
+}
+
+trait NoAuthFixture extends AbstractAuthFixture {
+  self: Suite =>
+
+  protected override def authService: Option[auth.AuthService] = None
+  protected override def authToken(payload: AuthServiceJWTPayload): Option[String] = None
+  protected override def authConfig: AuthConfig = NoAuth
+}
+
+trait AuthMiddlewareFixture
+    extends AbstractAuthFixture
+    with BeforeAndAfterAll
+    with AkkaBeforeAndAfterAll {
+  self: Suite =>
+
+  protected def authService: Option[auth.AuthService] = Some(auth.AuthServiceJWT(authVerifier))
+  protected def authToken(payload: AuthServiceJWTPayload): Option[String] = Some {
+    val header = """{"alg": "HS256", "typ": "JWT"}"""
+    val jwt = JwtSigner.HMAC256
+      .sign(DecodedJwt(header, AuthServiceJWTCodec.compactPrint(payload)), authSecret)
+      .toOption
+      .get
+    jwt.value
+  }
+  protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri)
+
+  private def authVerifier: JwtVerifierBase = HMAC256Verifier(authSecret).toOption.get
+  private def authMiddleware: ServerBinding = resource.value
+  private def authMiddlewareUri: Uri =
+    Uri()
+      .withScheme("http")
+      .withAuthority(authMiddleware.localAddress.getHostString, authMiddleware.localAddress.getPort)
+
+  private val authSecret: String = "secret"
+  private var resource: OwnedResource[ResourceContext, ServerBinding] = null
+
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+
+    implicit val context: ResourceContext = ResourceContext(system.dispatcher)
+    def closeServerBinding(binding: ServerBinding)(implicit ec: ExecutionContext): Future[Unit] =
+      for {
+        _ <- binding.unbind()
+      } yield ()
+    val oauthConfig = OAuthConfig(
+      port = Port.Dynamic,
+      ledgerId = this.getClass.getSimpleName,
+      // TODO[AH] Choose application ID, see https://github.com/digital-asset/daml/issues/7671
+      applicationId = None,
+      jwtSecret = authSecret,
+    )
+    resource = new OwnedResource(new ResourceOwner[ServerBinding] {
+      override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
+        for {
+          oauth <- Resource(OAuthServer.start(oauthConfig))(closeServerBinding)
+          uri = Uri()
+            .withScheme("http")
+            .withAuthority(oauth.localAddress.getHostString, oauth.localAddress.getPort)
+          middlewareConfig = MiddlewareConfig(
+            port = Port.Dynamic,
+            oauthAuth = uri.withPath(Path./("authorize")),
+            oauthToken = uri.withPath(Path./("token")),
+            clientId = "oauth-middleware-id",
+            clientSecret = "oauth-middleware-secret",
+            tokenVerifier = authVerifier,
+          )
+          middleware <- Resource(MiddlewareServer.start(middlewareConfig))(closeServerBinding)
+        } yield middleware
+    })
+    resource.setup()
+  }
+
+  override protected def afterAll(): Unit = {
+    resource.close()
+
+    super.afterAll()
+  }
+}
+
+trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with AkkaBeforeAndAfterAll {
+  self: Suite =>
+
+  protected val damlPackages: List[File] = List()
+  protected val ledgerIdMode: LedgerIdMode =
+    LedgerIdMode.Static(LedgerId(this.getClass.getSimpleName))
+  private def sandboxConfig: SandboxConfig = sandbox.DefaultConfig.copy(
+    port = Port.Dynamic,
+    damlPackages = damlPackages,
+    ledgerIdMode = ledgerIdMode,
+    timeProviderType = Some(TimeProviderType.Static),
+    authService = authService,
+    ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
+    seeding = None,
+  )
+
+  protected lazy val sandboxServer: SandboxServer = resource.value._1
+  protected lazy val sandboxPort: Port = sandboxServer.port
+  protected def sandboxClient(
+      applicationId: ApplicationId,
+      admin: Boolean = false,
+      actAs: List[ApiTypes.Party] = List(),
+      readAs: List[ApiTypes.Party] = List())(
+      implicit executionContext: ExecutionContext): Future[LedgerClient] =
+    LedgerClient(
+      resource.value._2,
+      LedgerClientConfiguration(
+        applicationId = ApplicationId.unwrap(applicationId),
+        ledgerIdRequirement = LedgerIdRequirement.none,
+        commandClient = CommandClientConfiguration.default,
+        sslContext = None,
+        token = authToken(
+          AuthServiceJWTPayload(
+            ledgerId = None,
+            applicationId = None,
+            participantId = None,
+            exp = None,
+            admin = admin,
+            actAs = actAs.map(ApiTypes.Party.unwrap),
+            readAs = readAs.map(ApiTypes.Party.unwrap)
+          ))
+      )
+    )
+
+  private var resource: OwnedResource[ResourceContext, (SandboxServer, Channel)] = null
+
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+
+    implicit val context: ResourceContext = ResourceContext(system.dispatcher)
+    // The owner spins up its own actor system which avoids deadlocks
+    // during shutdown.
+    resource = new OwnedResource(for {
+      sandbox <- SandboxServer.owner(sandboxConfig)
+      port <- new FutureResourceOwner[ResourceContext, Port](() =>
+        sandbox.portF(context.executionContext))
+      channel <- GrpcClientResource.owner(port)
+    } yield (sandbox, channel))
+    resource.setup()
+  }
+
+  override protected def afterAll(): Unit = {
+    resource.close()
+
+    super.afterAll()
+  }
+}
+
+trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
+  self: Suite =>
+
+  protected def toxiproxyClient = resource._1
+
+  private var resource: (ToxiproxyClient, Process) = null
+  private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
+
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
 
     val host = InetAddress.getLoopbackAddress
     val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
-
-    // Launch a Toxiproxy server. Wait on it to be ready to accept connections and
-    // then create a client.
-    val toxiproxyExe =
+    val exe =
       if (!isWindows) BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
       else BazelRunfiles.rlocation("external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe")
-    val toxiproxyF: Future[(Process, ToxiproxyClient)] = for {
-      toxiproxyPort <- Future(LockedFreePort.find())
-      toxiproxyServer <- Future(
-        Process(Seq(toxiproxyExe, "--port", toxiproxyPort.port.value.toString)).run())
-      _ <- RetryStrategy.constant(attempts = 3, waitTime = 2.seconds)((_, _) =>
-        Future(toxiproxyPort.testAndUnlock(host)))
-      toxiproxyClient = new ToxiproxyClient(host.getHostName, toxiproxyPort.port.value)
-    } yield (toxiproxyServer, toxiproxyClient)
-
-    val ledgerId = LedgerId(testName)
-    val applicationId = ApplicationId(testName)
-    val authF: Future[(AuthConfig, () => Future[Unit])] = authTestConfig match {
-      case None => Future((NoAuth, () => Future(())))
-      case Some(AuthTestConfig(secret, _)) =>
-        for {
-          oauth <- OAuthServer.start(
-            OAuthConfig(
-              port = Port.Dynamic,
-              ledgerId = LedgerId.unwrap(ledgerId),
-              // TODO[AH] Choose application ID, see https://github.com/digital-asset/daml/issues/7671
-              applicationId = None,
-              jwtSecret = secret,
-            ))
-          serverUri = Uri()
-            .withScheme("http")
-            .withAuthority(oauth.localAddress.getHostString, oauth.localAddress.getPort)
-          middleware <- MiddlewareServer.start(
-            MiddlewareConfig(
-              port = Port.Dynamic,
-              oauthAuth = serverUri.withPath(Path./("authorize")),
-              oauthToken = serverUri.withPath(Path./("token")),
-              clientId = "oauth-middleware-id",
-              clientSecret = "oauth-middleware-secret",
-              tokenVerifier = HMAC256Verifier(secret).toOption.get,
-            ))
-          middlewareUri = Uri()
-            .withScheme("http")
-            .withAuthority(middleware.localAddress.getHostString, middleware.localAddress.getPort)
-          cleanup = () =>
-            for {
-              _ <- middleware.unbind()
-              _ <- oauth.unbind()
-            } yield ()
-        } yield (AuthMiddleware(middlewareUri), cleanup)
-    }
-    val ledgerF = for {
-      (_, toxiproxyClient) <- toxiproxyF
-      ledger <- Future(
-        new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, authTestConfig), mat))
-      ledgerPort <- ledger.portF
-      ledgerProxyPort = LockedFreePort.find()
-      ledgerProxy = toxiproxyClient.createProxy(
-        "sandbox",
-        s"${host.getHostName}:${ledgerProxyPort.port}",
-        s"${host.getHostName}:$ledgerPort")
-      _ = ledgerProxyPort.unlock()
-    } yield (ledger, ledgerPort, ledgerProxyPort, ledgerProxy)
-    // 'ledgerProxyPort' is managed by the toxiproxy instance and
-    // forwards to the real sandbox port.
-
-    // Configure this client with the ledger's *actual* port.
-    val clientF: Future[LedgerClient] = for {
-      (_, ledgerPort, _, _) <- ledgerF
-      client <- LedgerClient.singleHost(
-        host.getHostName,
-        ledgerPort.value,
-        clientConfig(applicationId, authTestConfig),
-      )
-    } yield client
-
-    // Configure the service with the ledger's *proxy* port.
-    val serviceF: Future[(ServerBinding, TypedActorSystem[Message])] = for {
-      (authConfig, _) <- authF
-      (_, _, ledgerProxyPort, _) <- ledgerF
-      ledgerConfig = LedgerConfig(
-        host.getHostName,
-        ledgerProxyPort.port.value,
-        TimeProviderType.Static,
-        Duration.ofSeconds(30),
-        ServiceConfig.DefaultMaxInboundMessageSize,
-      )
-      restartConfig = TriggerRestartConfig(
-        minRestartInterval,
-        ServiceConfig.DefaultMaxRestartInterval,
-      )
-      servicePort = LockedFreePort.find()
-      service <- ServiceMain.startServer(
-        host.getHostName,
-        servicePort.port.value,
-        authConfig,
-        ledgerConfig,
-        restartConfig,
-        encodedDar,
-        jdbcConfig,
-      )
-    } yield service
-
-    // For adding toxics.
-    val ledgerProxyF: Future[Proxy] = for {
-      (_, _, _, ledgerProxy) <- ledgerF
-    } yield ledgerProxy
-
-    val fa: Future[A] = for {
-      client <- clientF
-      binding <- serviceF
-      ledgerProxy <- ledgerProxyF
-      uri = Uri.from(scheme = "http", host = "localhost", port = binding._1.localAddress.getPort)
-      a <- testFn(uri, client, ledgerProxy)
-    } yield a
-
-    fa.transformWith { ta =>
-      for {
-        se <- optErr(serviceF.flatMap {
-          case (_, system) =>
-            system ! Stop
-            system.whenTerminated
-        })
-        le <- optErr(ledgerF.map(_._1.close()))
-        te <- optErr(toxiproxyF.map {
-          case (proc, _) =>
-            proc.destroy()
-            proc.exitValue() // destroy is async
-        })
-        ae <- optErr(authF.flatMap {
-          case (_, cleanup) => cleanup()
-        })
-        result <- (ta.failed.toOption orElse se orElse le orElse te orElse ae)
-          .cata(Future.failed, Future fromTry ta)
-      } yield result
-    }
+    val port = LockedFreePort.find()
+    val proc = Process(Seq(exe, "--port", port.port.value.toString)).run()
+    Await.result(RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
+      Future(port.testAndUnlock(host))
+    }, Duration.Inf)
+    val client = new ToxiproxyClient(host.getHostName, port.port.value)
+    resource = (client, proc)
   }
 
-  private def optErr(fut: Future[_])(implicit ec: ExecutionContext): Future[Option[Throwable]] =
-    fut transform (te => scala.util.Success(te.failed.toOption))
+  override protected def afterAll(): Unit = {
+    resource._2.destroy()
+    val _ = resource._2.exitValue()
 
-  private def ledgerConfig(
-      ledgerPort: Port,
-      dars: List[File],
-      ledgerId: LedgerId,
-      authTestConfig: Option[AuthTestConfig]
-  ): SandboxConfig =
-    sandbox.DefaultConfig.copy(
-      port = ledgerPort,
-      damlPackages = dars,
-      timeProviderType = Some(TimeProviderType.Static),
-      ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = for {
-        cfg <- authTestConfig
-        verifier <- HMAC256Verifier(cfg.jwtSecret).toOption
-      } yield auth.AuthServiceJWT(verifier)
-    )
+    super.afterAll()
+  }
+}
 
-  private def clientConfig[A](
-      applicationId: ApplicationId,
-      authTestConfig: Option[AuthTestConfig]): LedgerClientConfiguration =
-    LedgerClientConfiguration(
-      applicationId = ApplicationId.unwrap(applicationId),
-      ledgerIdRequirement = LedgerIdRequirement.none,
-      commandClient = CommandClientConfiguration.default,
-      sslContext = None,
-      token = for {
-        cfg <- authTestConfig
-        header = """{"alg": "HS256", "typ": "JWT"}"""
-        payload = AuthServiceJWTPayload(
-          ledgerId = None,
-          applicationId = None,
-          participantId = None,
-          exp = None,
-          admin = true,
-          actAs = cfg.parties.map(ApiTypes.Party.unwrap),
-          readAs = List(),
-        )
-        jwt <- JwtSigner.HMAC256
-          .sign(DecodedJwt(header, AuthServiceJWTCodec.compactPrint(payload)), cfg.jwtSecret)
-          .toOption
-      } yield jwt.value,
+trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with SandboxFixture {
+  self: Suite =>
+
+  protected def toxiSandboxPort = resource._1
+  protected def toxiSandboxProxy = resource._2
+
+  private var resource: (Port, Proxy) = null
+
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+
+    val host = InetAddress.getLoopbackAddress
+    val lock = LockedFreePort.find()
+    val port = lock.port
+    val proxy = toxiproxyClient.createProxy(
+      "sandbox",
+      s"${host.getHostName}:${port}",
+      s"${host.getHostName}:${sandboxPort}"
     )
+    lock.unlock()
+    resource = (port, proxy)
+  }
+
+  override protected def afterAll(): Unit = {
+    toxiSandboxProxy.delete()
+
+    super.afterAll()
+  }
+}
+
+trait AbstractTriggerDaoFixture extends SuiteMixin {
+  self: Suite =>
+
+  protected def jdbcConfig: Option[JdbcConfig]
+}
+
+trait TriggerDaoInMemFixture extends AbstractTriggerDaoFixture {
+  self: Suite =>
+
+  override def jdbcConfig: Option[JdbcConfig] = None
+}
+
+trait TriggerDaoPostgresFixture
+    extends AbstractTriggerDaoFixture
+    with BeforeAndAfterEach
+    with AkkaBeforeAndAfterAll
+    with PostgresAroundAll {
+  self: Suite =>
+
+  override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
+
+  // Lazy because the postgresDatabase is only available once the tests start
+  private lazy val jdbcConfig_ = JdbcConfig(postgresDatabase.url, "operator", "password")
+  private lazy val triggerDao =
+    DbTriggerDao(jdbcConfig_, poolSize = dao.Connection.PoolSize.IntegrationTest)
+  private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
+
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+
+    triggerDao.initialize fold (fail(_), identity)
+  }
+
+  override protected def afterEach(): Unit = {
+    triggerDao.destroy() fold (fail(_), identity)
+
+    super.afterEach()
+  }
+
+  override protected def afterAll(): Unit = {
+    triggerDao.destroyPermanently() fold (fail(_), identity)
+
+    super.afterAll()
+  }
+}
+
+trait TriggerServiceFixture
+    extends SuiteMixin
+    with ToxiSandboxFixture
+    with AbstractTriggerDaoFixture
+    with StrictLogging {
+  self: Suite =>
+
+  // Use a small initial interval so we can test restart behaviour more easily.
+  private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
+  private def triggerServiceOwner(encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]]) =
+    new ResourceOwner[ServerBinding] {
+      override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
+        for {
+          (binding, _) <- Resource {
+            val host = InetAddress.getLoopbackAddress
+            val ledgerConfig = LedgerConfig(
+              host.getHostName,
+              toxiSandboxPort.value,
+              TimeProviderType.Static,
+              java.time.Duration.ofSeconds(30),
+              ServiceConfig.DefaultMaxInboundMessageSize,
+            )
+            val restartConfig = TriggerRestartConfig(
+              minRestartInterval,
+              ServiceConfig.DefaultMaxRestartInterval,
+            )
+            val lock = LockedFreePort.find()
+            for {
+              r <- ServiceMain.startServer(
+                host.getHostName,
+                lock.port.value,
+                authConfig,
+                ledgerConfig,
+                restartConfig,
+                encodedDar,
+                jdbcConfig,
+              )
+              _ = lock.unlock()
+            } yield r
+          } {
+            case (_, system) => {
+              system ! Stop
+              system.whenTerminated.map(_ => ())
+            }
+          }
+        } yield binding
+    }
+
+  def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])(
+      testFn: Uri => Future[A])(
+      implicit ec: ExecutionContext,
+      pos: source.Position,
+  ): Future[A] = {
+    logger.info(s"${pos.fileName}:${pos.lineNumber}: setting up trigger service")
+    implicit val context: ResourceContext = ResourceContext(ec)
+    triggerServiceOwner(encodedDar).use { binding =>
+      val uri = Uri.from(scheme = "http", host = "localhost", port = binding.localAddress.getPort)
+      testFn(uri)
+    }
+  }
 }

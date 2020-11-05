@@ -6,7 +6,7 @@ package com.daml.platform.store
 import java.time.Instant
 
 import com.daml.ledger.api.domain.RejectionReason
-import com.daml.ledger.api.domain.RejectionReason.{Disputed, Inconsistent, InvalidLedgerTime}
+import com.daml.ledger.api.domain.RejectionReason.{Inconsistent, InvalidLedgerTime}
 import com.daml.ledger.participant.state.v1.ContractInst
 import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.data.Ref.Party
@@ -101,7 +101,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
               case nf: N.NodeFetch.WithTxValue[ContractId] =>
                 val nodeParties = nf.signatories
                   .union(nf.stakeholders)
-                  .union(nf.actingParties.getOrElse(Set.empty))
+                  .union(nf.actingParties)
                 AddTransactionState(
                   Some(acc),
                   contractCheck(nf.coid).fold(errs)(errs + _),
@@ -138,7 +138,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                     if (acc.lookupContractByKey(gk).isDefined) {
                       AddTransactionState(
                         None,
-                        errs + Disputed("DuplicateKey: contract key is not unique"),
+                        errs + Inconsistent("DuplicateKey: contract key is not unique"),
                         parties.union(nodeParties),
                         archivedIds)
                     } else {
@@ -183,7 +183,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                       )
                     } else {
                       ats.copy(
-                        errs = errs + Disputed(
+                        errs = errs + Inconsistent(
                           s"Contract key lookup with different results: expected [${nlkup.result}], actual [${currentResult}]")
                       )
                     }

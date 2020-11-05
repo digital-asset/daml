@@ -1,0 +1,22 @@
+-- Test that we don't use the hard coded variable names `v1`, `v2`, ... during
+-- the conversion of some builtins to DAML-LF.
+module FreshNames where
+
+import DA.Assert
+import DA.Record
+
+data Record = Record with field: Text
+
+bugSetField = scenario do
+    let v2 = Record with field = "expected"
+    let f = setField @"field" @Record v2.field
+    let r = f (Record with field = "unexpected")
+    r.field === "expected"
+
+bugCons = scenario do
+    let hd = \case
+            x::_ -> x
+            [] -> "unexpected"
+    let v2 = ["expected"]
+    let f = (hd v2::)
+    f [] === ["expected"]

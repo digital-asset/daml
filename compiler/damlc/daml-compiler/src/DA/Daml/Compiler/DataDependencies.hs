@@ -336,7 +336,8 @@ generateSrcFromLf env = noLoc mod
                 , tcdFDs = mkFunDeps synName
                 , tcdSigs =
                     [ mkOpSig False name ty | (name, ty) <- methods ] ++
-                    [ mkOpSig True  name ty | (name, ty, _) <- defaultMethods ]
+                    [ mkOpSig True  name ty | (name, ty, _) <- defaultMethods ] ++
+                    mkMinimalSig synName
                 , tcdMeths = listToBag
                     [ noLoc bind | (_, _, bind) <- defaultMethods ]
                 , tcdATs = [] -- associated types not supported
@@ -351,12 +352,20 @@ generateSrcFromLf env = noLoc mod
                     (HsIB noExt (noLoc methodType))
 
         mkFunDeps :: LF.TypeSynName -> [LHsFunDep GhcPs]
-        mkFunDeps className = fromMaybe [] $ do
+        mkFunDeps synName = fromMaybe [] $ do
             let values = LF.moduleValues (envMod env)
-            LF.DefValue{..} <- NM.lookup (LFC.funDepName className) values
+            LF.DefValue{..} <- NM.lookup (LFC.funDepName synName) values
             LF.TForalls _ ty <- pure (snd dvalBinder)
             funDeps <- LFC.decodeFunDeps ty
             pure $ map (noLoc . LFC.mapFunDep (mkRdrName . LF.unTypeVarName)) funDeps
+
+        mkMinimalSig :: LF.TypeSynName -> [LSig GhcPs]
+        mkMinimalSig synName = maybeToList $ do
+            let values = LF.moduleValues (envMod env)
+            LF.DefValue{..} <- NM.lookup (LFC.minimalName synName) values
+            lbf <- LFC.decodeLBooleanFormula (snd dvalBinder)
+            let lbf' = fmap (fmap mkRdrName) lbf
+            Just (noLoc (MinimalSig noExt NoSourceText lbf'))
 
     synonymDecls :: [Gen (LHsDecl GhcPs)]
     synonymDecls = do
@@ -450,8 +459,7 @@ generateSrcFromLf env = noLoc mod
         getOverlapMode :: LF.ExprValName -> Maybe (Located OverlapMode)
         getOverlapMode name = do
             dval <- NM.lookup (LFC.overlapModeName name) (LF.moduleValues (envMod env))
-            LF.EBuiltin (LF.BEText modeText) <- Just (LF.dvalBody dval)
-            mode <- LFC.decodeOverlapMode modeText
+            mode <- LFC.decodeOverlapMode (snd (LF.dvalBinder dval))
             Just (noLoc mode)
 
     hiddenRefMap :: HMS.HashMap Ref Bool

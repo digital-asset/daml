@@ -16,10 +16,10 @@ import Data.Maybe (maybeToList)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.Typeable (Typeable)
+import qualified Data.Vector as Vector
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket
-import Safe
 import System.Directory.Extra
 import System.Environment.Blank
 import System.Exit
@@ -35,8 +35,6 @@ import DA.Bazel.Runfiles
 import DA.Daml.Assistant.FreePort (getFreePort, socketHints)
 import DA.Daml.Assistant.IntegrationTestUtils
 import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer)
-import DA.Ledger.Services.PartyManagementService (PartyDetails(..))
-import DA.Ledger.Types (Party(..))
 import DA.PortFile
 import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent)
@@ -267,6 +265,111 @@ packagingTests = testGroup "packaging"
                 _ -> assertFailure "Expected JSON object in response body"
               -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess startPh
+     , testCase "hot-reload" $ withTempDir $ \tmpDir -> do
+        let projDir = tmpDir </> "hotreload"
+        createDirectoryIfMissing True (projDir </> "daml")
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: hotreload"
+          , "version: \"1.0\""
+          , "source: daml"
+          , "dependencies:"
+          , "  - daml-prim"
+          , "  - daml-stdlib"
+          , "  - daml-script"
+          , "parties:"
+          , "- Alice"
+          , "init-script: Main:init"
+          , "sandbox-options:"
+          , "  - --wall-clock-time"
+          ]
+        writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
+          [ "module Main where"
+          , "import Daml.Script"
+          , "template T with p : Party where signatory p"
+          , "init : Script ()"
+          , "init = do"
+          , "  alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"Alice\")"
+          , "  alice `submit` createCmd (T alice)"
+          , "  pure ()"
+          ]
+        sandboxPort :: Int <- fromIntegral <$> getFreePort
+        jsonApiPort :: Int <- fromIntegral <$> getFreePort
+        let startProc = (shell $ unwords
+              [ "daml"
+              , "start"
+              , "--start-navigator"
+              , "no"
+              , "--sandbox-port"
+              , show sandboxPort
+              , "--json-api-port"
+              , show jsonApiPort
+              ]) {std_in = CreatePipe, cwd = Just projDir}
+        withCurrentDirectory projDir $
+          withCreateProcess startProc $ \startStdIn _ _ startPh ->
+            race_ (waitForProcess' startProc startPh) $
+             do
+              -- The hard-coded secret for testing is "secret".
+              let token =
+                    JWT.encodeSigned
+                      (JWT.HMACSecret "secret")
+                      mempty
+                      mempty
+                        { JWT.unregisteredClaims =
+                            JWT.ClaimsMap $
+                            Map.fromList
+                              [ ( "https://daml.com/ledger-api"
+                                , Aeson.Object $
+                                  HashMap.fromList
+                                    [ ("actAs", Aeson.toJSON ["Alice" :: T.Text])
+                                    , ("ledgerId", "MyLedger")
+                                    , ("applicationId", "foobar")
+                                    ])
+                              ]
+                        }
+              let headers = [("Authorization", "Bearer " <> T.encodeUtf8 token)] :: RequestHeaders
+              waitForHttpServer
+                (threadDelay 100000)
+                ("http://localhost:" <> show jsonApiPort <> "/v1/query")
+                headers
+              writeFileUTF8 (projDir </> "daml/Main.daml") $
+                unlines
+                  [ "module Main where"
+                  , "import Daml.Script"
+                  , "template S with newFieldName : Party where signatory newFieldName"
+                  , "init : Script ()"
+                  , "init = do"
+                  , "  [aliceDetails] <- listKnownParties"
+                  , "  let alice = party aliceDetails"
+                  , "  alice `submit` createCmd (S alice)"
+                  , "  pure ()"
+                  ]
+              maybe (fail "No start process stdin handle") (\h -> hPutChar h 'r' >> hFlush h) startStdIn
+              threadDelay 25000000
+              initialRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
+              let queryRequest =
+                    initialRequest
+                      { method = "POST"
+                      , requestHeaders = headers
+                      , requestBody =
+                          RequestBodyLBS $
+                          Aeson.encode $ Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:S"]]
+                      }
+              manager <- newManager defaultManagerSettings
+              queryResponse <- httpLbs queryRequest manager
+              statusCode (responseStatus queryResponse) @?= 200
+              case Aeson.decode (responseBody queryResponse) of
+                Just (Aeson.Object body)
+                  | Just (Aeson.Array result) <- HashMap.lookup "result" body ->
+                    case Vector.toList result of
+                      [Aeson.Object r]
+                        | Just (Aeson.Object payload) <- HashMap.lookup "payload" r ->
+                          HashMap.lookup "newFieldName" payload @?= Just "Alice"
+                      other -> assertFailure $ "Bad result in response: " <> show other
+                other -> assertFailure $ "Expected JSON object in response body: " <> show other
+
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
+              terminateProcess startPh
      , testCase "sandbox-options is picked up" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "sandbox-options"
         createDirectoryIfMissing True (projDir </> "daml")
@@ -364,7 +467,7 @@ packagingTests = testGroup "packaging"
               responseBody queryResponse @?= "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
               -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
-    , testCase "daml ledger via json api" $ withTempDir $ \tmpDir -> do
+    , testCase "run a daml ledger command" $ withTempDir $ \tmpDir -> do
           writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
               , "name: ledger-json-api"
@@ -419,21 +522,6 @@ packagingTests = testGroup "packaging"
                     , show sandboxPort
                     , "alice"
                     ]
-                out <-
-                  readCreateProcess
-                    (shell $
-                     unwords
-                       [ "daml"
-                       , "ledger"
-                       , "list-parties"
-                       , "--json-api"
-                       , "--port"
-                       , show jsonApiPort
-                       , "--access-token-file"
-                       , "token.txt"
-                       ])
-                    ""
-                lines out `atMay` 1 @?= Just (show $ PartyDetails (Party "alice") "alice" True)
                 -- waitForProcess' will block on Windows so we explicitly kill the process.
                 terminateProcess startPh
       , testCase "daml start invokes codegen" $ withTempDir $ \tmpDir -> do

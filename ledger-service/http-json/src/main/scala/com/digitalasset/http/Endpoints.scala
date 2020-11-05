@@ -47,6 +47,7 @@ class Endpoints(
     contractsService: ContractsService,
     partiesService: PartiesService,
     packageManagementService: PackageManagementService,
+    healthService: HealthService,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"))(
@@ -82,6 +83,11 @@ class Endpoints(
     // format: on
     case req @ HttpRequest(POST, Uri.Path("/v1/packages"), _, _, _) =>
       httpResponse(uploadDarFile(req))
+    case HttpRequest(GET, Uri.Path("/livez"), _, _, _) =>
+      Future.successful(HttpResponse(status = StatusCodes.OK))
+    case HttpRequest(GET, Uri.Path("/readyz"), _, _, _) =>
+      healthService.ready().map(_.toHttpResponse)
+
   }
 
   def create(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
@@ -303,7 +309,8 @@ class Endpoints(
 
     HttpResponse(
       status = StatusCodes.OK,
-      entity = HttpEntity.CloseDelimited(ContentTypes.`application/json`, response)
+      entity = HttpEntity
+        .Chunked(ContentTypes.`application/json`, response.map(HttpEntity.ChunkStreamPart(_)))
     )
   }
 

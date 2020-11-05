@@ -22,7 +22,7 @@ object Envelope {
 
   val All: immutable.Seq[Envelope] = Latency.All ++ Throughput.All ++ TransactionSize.All
 
-  sealed abstract class Latency(name: String, val latency: Duration)
+  sealed abstract class Latency(name: String, val latency: Duration, val numPings: Int)
       extends Envelope(Latency.Prefix :+ name)
 
   object Latency {
@@ -32,10 +32,17 @@ object Envelope {
     val All: immutable.Seq[Latency] =
       Vector(SixtySeconds, ThreeSeconds, OneSecond, HalfSecond)
 
-    case object SixtySeconds extends Latency("60000ms", latency = Duration(60, TimeUnit.SECONDS))
-    case object ThreeSeconds extends Latency("3000ms", latency = Duration(3, TimeUnit.SECONDS))
-    case object OneSecond extends Latency("1000ms", latency = Duration(1, TimeUnit.SECONDS))
-    case object HalfSecond extends Latency("500ms", latency = Duration(500, TimeUnit.MILLISECONDS))
+    case object SixtySeconds
+        extends Latency("60000ms", latency = Duration(60, TimeUnit.SECONDS), numPings = 20)
+    case object ThreeSeconds
+        extends Latency("3000ms", latency = Duration(3, TimeUnit.SECONDS), numPings = 20)
+    case object OneSecond
+        extends Latency("1000ms", latency = Duration(1, TimeUnit.SECONDS), numPings = 20)
+    case object HalfSecond
+        extends Latency("500ms", latency = Duration(500, TimeUnit.MILLISECONDS), numPings = 40)
+    case object QuarterSecond
+        extends Latency("250ms", latency = Duration(250, TimeUnit.MILLISECONDS), numPings = 40)
+
   }
 
   sealed abstract class Throughput(name: String, val operationsPerSecond: Int)
@@ -53,6 +60,7 @@ object Envelope {
     case object TwentyPerSecond extends Throughput("TwentyOPS", operationsPerSecond = 20)
     case object FiftyPerSecond extends Throughput("FiftyOPS", operationsPerSecond = 50)
     case object FiveHundredPerSecond extends Throughput("FiveHundredOPS", operationsPerSecond = 500)
+
   }
 
   sealed abstract class TransactionSize(name: String, val kilobytes: Int)

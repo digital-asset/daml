@@ -215,8 +215,6 @@ object Repl {
           compiledPackages,
           seed,
           expr,
-          inputValueVersion,
-          outputTransactionVersions,
         )
       (machine, ScenarioRunner(machine).run())
     }
@@ -440,8 +438,8 @@ object Repl {
     defs.get(idToRef(state, args(0))) match {
       case None =>
         println("Error: definition '" + args(0) + "' not found. Try :list."); usage
-      case Some(expr) =>
-        println(Pretty.SExpr.prettySExpr(0)(expr).render(80))
+      case Some(defn) =>
+        println(Pretty.SExpr.prettySExpr(0)(defn.body).render(80))
     }
   }
 
