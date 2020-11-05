@@ -19,31 +19,63 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 service TransactionService {
 
   // Read the ledger's filtered transaction stream for a set of parties.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields (e.g. if ``before`` is not before ``end``)
+  // - ``OUT_OF_RANGE``: if the ``begin`` parameter value is not before the end of the ledger
   rpc GetTransactions (GetTransactionsRequest) returns (stream GetTransactionsResponse);
 
   // Read the ledger's complete transaction tree stream for a set of parties.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields (e.g. if ``before`` is not before ``end``)
+  // - ``OUT_OF_RANGE``: if the ``begin`` parameter value is not before the end of the ledger
   rpc GetTransactionTrees (GetTransactionsRequest) returns (stream GetTransactionTreesResponse);
 
   // Lookup a transaction tree by the ID of an event that appears within it.
-  // Returns ``NOT_FOUND`` if no such transaction exists.
   // For looking up a transaction instead of a transaction tree, please see GetFlatTransactionByEventId
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id or no such transaction exists
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields (e.g. if requesting parties are invalid or empty)
   rpc GetTransactionByEventId (GetTransactionByEventIdRequest) returns (GetTransactionResponse);
 
   // Lookup a transaction tree by its ID.
-  // Returns ``NOT_FOUND`` if no such transaction exists.
   // For looking up a transaction instead of a transaction tree, please see GetFlatTransactionById
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id or no such transaction exists
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields (e.g. if requesting parties are invalid or empty)
   rpc GetTransactionById (GetTransactionByIdRequest) returns (GetTransactionResponse);
 
   // Lookup a transaction by the ID of an event that appears within it.
-  // Returns ``NOT_FOUND`` if no such transaction exists.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id or no such transaction exists
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields (e.g. if requesting parties are invalid or empty)
   rpc GetFlatTransactionByEventId (GetTransactionByEventIdRequest) returns (GetFlatTransactionResponse);
 
   // Lookup a transaction by its ID.
-  // Returns ``NOT_FOUND`` if no such transaction exists.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id or no such transaction exists
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields (e.g. if requesting parties are invalid or empty)
   rpc GetFlatTransactionById (GetTransactionByIdRequest) returns (GetFlatTransactionResponse);
 
   // Get the current ledger end.
   // Subscriptions started with the returned offset will serve transactions created after this RPC was called.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id or no such transaction exists
   rpc GetLedgerEnd (GetLedgerEndRequest) returns (GetLedgerEndResponse);
 
 }
