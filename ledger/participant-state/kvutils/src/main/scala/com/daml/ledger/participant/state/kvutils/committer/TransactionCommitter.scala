@@ -278,13 +278,15 @@ private[kvutils] class TransactionCommitter(
       .fold((true, keys)) {
         case (
             (allUnique, existingKeys),
-            (_, exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _)))
+            (_, exe: Node.NodeExercises[NodeId, Value.ContractId, Tx.Value[Value.ContractId]]))
             if exe.key.isDefined && exe.consuming =>
           val stateKey = Conversions.globalKeyToStateKey(
             GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
           (allUnique, existingKeys - stateKey)
 
-        case ((allUnique, existingKeys), (_, create @ Node.NodeCreate(_, _, _, _, _, _)))
+        case (
+            (allUnique, existingKeys),
+            (_, create: Node.NodeCreate[Value.ContractId, Tx.Value[Value.ContractId]]))
             if create.key.isDefined =>
           val stateKey = Conversions.globalKeyToStateKey(
             GlobalKey(
@@ -624,6 +626,7 @@ private[kvutils] class TransactionCommitter(
         .map(v => v.getNumber -> metrics.daml.kvutils.committer.transaction.rejection(v.name()))
         .toMap
   }
+
 }
 
 private[kvutils] object TransactionCommitter {
