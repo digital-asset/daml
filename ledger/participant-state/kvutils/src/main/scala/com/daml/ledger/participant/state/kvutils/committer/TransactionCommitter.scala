@@ -128,9 +128,6 @@ private[kvutils] class TransactionCommitter(
 
   /** Authorize the submission by looking up the party allocation and verifying
     * that the submitting party is indeed hosted by the submitting participant.
-    *
-    * If the "open world" setting is enabled we allow the submission even if the
-    * party is unallocated.
     */
   private def authorizeSubmitter: Step = (commitContext, transactionEntry) => {
     commitContext.get(partyStateKey(transactionEntry.submitter)) match {
