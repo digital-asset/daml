@@ -38,6 +38,7 @@ import           Control.Lens hiding (Context, para)
 import           Control.Monad.Extra
 import           Data.Foldable
 import           Data.Functor
+import           Data.List
 import Data.Generics.Uniplate.Data (para)
 import qualified Data.HashSet as HS
 import qualified Data.Map.Strict as Map
@@ -379,123 +380,145 @@ typeOfTmLam (var, typ) body = do
 typeOfTyLam :: MonadGamma m => (TypeVarName, Kind) -> Expr -> m Type
 typeOfTyLam (tvar, kind) expr = TForall (tvar, kind) <$> introTypeVar tvar kind (typeOf expr)
 
-typeOfAlts :: MonadGamma m => (CaseAlternative -> m Type) -> [CaseAlternative] -> m Type
+-- | Type to track which constructor ranks have be covered in a pattern matching.
+data MatchedRanks = AllRanks | SomeRanks !(Set.Set Int)
+
+emptyMR :: MatchedRanks
+emptyMR = SomeRanks Set.empty
+
+singletonMR :: Int -> MatchedRanks
+singletonMR k = SomeRanks (Set.singleton k)
+
+unionMR :: MatchedRanks -> MatchedRanks -> MatchedRanks
+unionMR AllRanks _ = AllRanks
+unionMR _ AllRanks = AllRanks
+unionMR (SomeRanks ks) (SomeRanks ls) = SomeRanks (ks `Set.union` ls)
+
+missingMR :: MatchedRanks -> Int -> Maybe Int
+missingMR AllRanks _ = Nothing
+missingMR (SomeRanks ks) n
+    | Set.size ks == n = Nothing
+    | otherwise = Set.lookupMin (Set.fromList [0..n-1] `Set.difference` ks)
+
+lookupWithIndex :: Eq a => a -> [(a, b)] -> Maybe (Int, b)
+lookupWithIndex = go 0
+  where
+    go !_ _ [] = Nothing
+    go !n a0 ((a, b):abs)
+        | a0 == a = Just (n, b)
+        | otherwise = go (n+1) a0 abs
+
+typeOfAlts :: MonadGamma m => (CaseAlternative -> m (MatchedRanks, Type)) -> [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAlts f alts = do
-    ts <- traverse f alts
+    (ks, ts) <- unzip <$> traverse f alts
     case ts of
         [] -> throwWithContext EEmptyCase
         t:ts' -> do
             forM_ ts' $ \t' -> unless (alphaType t t') $
                 throwWithContext ETypeMismatch{foundType = t', expectedType = t, expr = Nothing}
-            pure t
+            let k = foldl' unionMR emptyMR ks
+            pure (k, t)
 
-typeOfAltsVariant :: MonadGamma m => Qualified TypeConName -> [Type] -> [TypeVarName] -> [(VariantConName, Type)] -> [CaseAlternative] -> m Type
+typeOfAltsVariant :: MonadGamma m => Qualified TypeConName -> [Type] -> [TypeVarName] -> [(VariantConName, Type)] -> [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAltsVariant scrutTCon scrutTArgs tparams cons =
     typeOfAlts $ \(CaseAlternative patn rhs) -> case patn of
         CPVariant patnTCon con var
           | scrutTCon == patnTCon -> do
-            conArgType <- match _Just (EUnknownDataCon con) (con `lookup` cons)
+            (conRank, conArgType) <- match _Just (EUnknownDataCon con) (con `lookupWithIndex` cons)
             -- NOTE(MH): The next line should never throw since @scrutType@ has
             -- already been checked. The call to 'substitute' is hence safe for
             -- the same reason as in 'checkTypeConApp'.
             subst <- match _Just (ETypeConAppWrongArity (TypeConApp scrutTCon scrutTArgs)) (zipExactMay tparams scrutTArgs)
             let varType = substitute (Map.fromList subst) conArgType
-            introExprVar var varType $ typeOf rhs
-        CPDefault -> typeOf rhs
+            rhsType <- introExprVar var varType $ typeOf rhs
+            pure (singletonMR conRank, rhsType)
+        CPDefault -> (,) AllRanks <$> typeOf rhs
         _ -> throwWithContext (EPatternTypeMismatch patn (TConApp scrutTCon scrutTArgs))
 
-typeOfAltsEnum :: MonadGamma m => Qualified TypeConName -> [VariantConName] -> [CaseAlternative] -> m Type
+typeOfAltsEnum :: MonadGamma m => Qualified TypeConName -> [VariantConName] -> [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAltsEnum scrutTCon cons =
     typeOfAlts $ \(CaseAlternative patn rhs) -> case patn of
         CPEnum patnTCon con
           | scrutTCon == patnTCon -> do
-            unless (con `elem` cons) $ throwWithContext (EUnknownDataCon con)
-            typeOf rhs
-        CPDefault -> typeOf rhs
+            conRank <- match _Just (EUnknownDataCon con) (con `elemIndex` cons)
+            rhsType <- typeOf rhs
+            pure (singletonMR conRank, rhsType)
+        CPDefault -> (,) AllRanks <$> typeOf rhs
         _ -> throwWithContext (EPatternTypeMismatch patn (TCon scrutTCon))
 
-typeOfAltsUnit :: MonadGamma m => [CaseAlternative] -> m Type
+typeOfAltsUnit :: MonadGamma m => [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAltsUnit  =
     typeOfAlts $ \(CaseAlternative patn rhs) -> do
         case patn of
-            CPUnit -> typeOf rhs
-            CPDefault -> typeOf rhs
+            CPUnit -> (,) AllRanks <$> typeOf rhs
+            CPDefault -> (,) AllRanks <$> typeOf rhs
             _ -> throwWithContext (EPatternTypeMismatch patn TUnit)
 
-typeOfAltsBool :: MonadGamma m => [CaseAlternative] -> m Type
+typeOfAltsBool :: MonadGamma m => [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAltsBool =
     typeOfAlts $ \(CaseAlternative patn rhs) -> do
         case patn of
-            CPBool (_ :: Bool) -> typeOf rhs
-            CPDefault -> typeOf rhs
+            CPBool (b :: Bool) -> do
+                rhsType <- typeOf rhs
+                pure (singletonMR (fromEnum b), rhsType)
+            CPDefault -> (,) AllRanks <$> typeOf rhs
             _ -> throwWithContext (EPatternTypeMismatch patn TBool)
 
-typeOfAltsList :: MonadGamma m => Type -> [CaseAlternative] -> m Type
+typeOfAltsList :: MonadGamma m => Type -> [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAltsList elemType =
     typeOfAlts $ \(CaseAlternative patn rhs) -> do
         case patn of
-            CPNil -> typeOf rhs
+            CPNil -> (,) (singletonMR 0) <$> typeOf rhs
             CPCons headVar tailVar
               | headVar == tailVar -> throwWithContext (EClashingPatternVariables headVar)
-              | otherwise -> introExprVar headVar elemType $ introExprVar tailVar (TList elemType) $ typeOf rhs
-            CPDefault -> typeOf rhs
+              | otherwise -> do
+                rhsType <- introExprVar headVar elemType $ introExprVar tailVar (TList elemType) $ typeOf rhs
+                pure (singletonMR 1, rhsType)
+            CPDefault -> (,) AllRanks <$> typeOf rhs
             _ -> throwWithContext (EPatternTypeMismatch patn (TList elemType))
 
-typeOfAltsOptional :: MonadGamma m => Type -> [CaseAlternative] -> m Type
+typeOfAltsOptional :: MonadGamma m => Type -> [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAltsOptional elemType =
     typeOfAlts $ \(CaseAlternative patn rhs) -> do
         case patn of
-            CPNone -> typeOf rhs
-            CPSome bodyVar -> introExprVar bodyVar elemType $ typeOf rhs
-            CPDefault -> typeOf rhs
+            CPNone -> (,) (singletonMR 0) <$> typeOf rhs
+            CPSome bodyVar -> do
+                rhsType <- introExprVar bodyVar elemType $ typeOf rhs
+                pure (singletonMR 1, rhsType)
+            CPDefault -> (,) AllRanks <$> typeOf rhs
             _ -> throwWithContext (EPatternTypeMismatch patn (TOptional elemType))
 
 -- NOTE(MH): The DAML-LF spec says that `CPDefault` matches _every_ value,
 -- regardless of its type.
-typeOfAltsOnlyDefault :: MonadGamma m => Type -> [CaseAlternative] -> m Type
+typeOfAltsOnlyDefault :: MonadGamma m => Type -> [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAltsOnlyDefault scrutType =
     typeOfAlts $ \(CaseAlternative patn rhs) -> do
         case patn of
-            CPDefault -> typeOf rhs
+            CPDefault -> (,) AllRanks <$> typeOf rhs
             _ -> throwWithContext (EPatternTypeMismatch patn scrutType)
 
 typeOfCase :: MonadGamma m => Expr -> [CaseAlternative] -> m Type
 typeOfCase scrut alts = do
     scrutType <- typeOf scrut
-    (neededPats, rhsType) <- case scrutType of
+    (numRanks, rankToPat, (matchedRanks, rhsType)) <- case scrutType of
         TConApp scrutTCon scrutTArgs -> do
             DefDataType{dataParams, dataCons} <- inWorld (lookupDataType scrutTCon)
             case dataCons of
-                DataVariant cons -> (,) (map (\(c, _) -> CPVariant scrutTCon c wildcard) cons)
+                DataVariant cons -> (,,) (length cons) (\k -> CPVariant scrutTCon (fst (cons !! k)) wildcard)
                     <$> typeOfAltsVariant scrutTCon scrutTArgs (map fst dataParams) cons alts
-                DataEnum cons ->  (,) (map (CPEnum scrutTCon) cons)
+                DataEnum cons ->  (,,) (length cons) (\k -> CPEnum scrutTCon (cons !! k))
                     <$> typeOfAltsEnum scrutTCon cons alts
-                DataRecord{} -> (,) [CPDefault] <$> typeOfAltsOnlyDefault scrutType alts
-        TUnit -> (,) [CPUnit] <$> typeOfAltsUnit alts
-        TBool -> (,) [CPBool False, CPBool True] <$> typeOfAltsBool alts
-        TList elemType -> (,) [CPNil, CPCons wildcard wildcard] <$> typeOfAltsList elemType alts
-        TOptional elemType -> (,) [CPNone, CPSome wildcard] <$> typeOfAltsOptional elemType alts
-        _ -> (,) [CPDefault] <$> typeOfAltsOnlyDefault scrutType alts
-    let matchedPats = map (\(CaseAlternative pat _) -> cleanPattern pat) alts
-    let removePat pats = \case
-            CPDefault -> Set.empty
-            pat -> Set.delete pat pats
-    let unmatchedPats = foldl removePat (Set.fromList neededPats) matchedPats
-    whenJust (Set.lookupMin unmatchedPats) $ \pat ->
-        throwWithContext (ENonExhaustivePatterns pat scrutType)
+                DataRecord{} -> (,,) 1 (const CPDefault) <$> typeOfAltsOnlyDefault scrutType alts
+        TUnit -> (,,) 1 (const CPUnit) <$> typeOfAltsUnit alts
+        TBool -> (,,) 2 (CPBool . toEnum) <$> typeOfAltsBool alts
+        TList elemType -> (,,) 2 ([CPNil, CPCons wildcard wildcard] !!) <$> typeOfAltsList elemType alts
+        TOptional elemType -> (,,) 2 ([CPNone, CPSome wildcard] !!) <$> typeOfAltsOptional elemType alts
+        _ -> (,,) 1 (const CPDefault) <$> typeOfAltsOnlyDefault scrutType alts
+    whenJust (missingMR matchedRanks numRanks) $ \k ->
+        throwWithContext (ENonExhaustivePatterns (rankToPat k) scrutType)
     pure rhsType
   where
     wildcard = ExprVarName "_"
-    cleanPattern = \case
-        CPVariant t c _ -> CPVariant t c wildcard
-        p@CPEnum{} -> p
-        p@CPUnit -> p
-        p@CPBool{} -> p
-        p@CPNil -> p
-        CPCons _ _ -> CPCons wildcard wildcard
-        p@CPNone -> p
-        CPSome _ -> CPSome wildcard
-        p@CPDefault -> p
 
 typeOfLet :: MonadGamma m => Binding -> Expr -> m Type
 typeOfLet (Binding (var, typ0) expr) body = do
