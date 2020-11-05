@@ -34,6 +34,9 @@
 # Off by default hints we like
 - warn: {name: Use module export list}
 
+# Performance foot guns
+- warn: {lhs: foldl, rhs: "foldl'"}
+
 # Condemn nub and friends
 - warn: {lhs: nub (sort x), rhs: Data.List.Extra.nubSort x}
 - warn: {lhs: nub, rhs: Data.List.Extra.nubOrd}
@@ -53,7 +56,7 @@
 - warn: {lhs: Data.Text.Lazy.readFile, rhs: Data.Text.Extended.readFileUtf8}
 - warn: {lhs: Data.Text.Lazy.writeFile, rhs: Data.Text.Extended.writeFileUtf8}
 - warn: {lhs: System.Environment.setEnv, rhs: System.Environment.Blank.setEnv}
-- warn: {lhs: toNormalizedFilePath, rhs: toNormalizedFilePath'}
+- warn: {lhs: toNormalizedFilePath, rhs: "toNormalizedFilePath'"}
 
 # Hints that do not always make sense
 - ignore: {name: "Use if", within: [DA.Daml.LF.Proto3.EncodeV1, DA.Daml.LF.Ast.Pretty]}
