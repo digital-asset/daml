@@ -296,6 +296,7 @@ object Node {
 
   }
 
+  @deprecated("this method is not maintain anymore", since = "1.7.0")
   final def isReplayedBy[Cid: Equal, Val: Equal](
       recorded: GenNode[Nothing, Cid, Val],
       isReplayedBy: GenNode[Nothing, Cid, Val],
