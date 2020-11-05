@@ -467,7 +467,6 @@ test('stream close behaviour', async () => {
   events.push('before creation');
   const ws = new WebSocket(url, ['jwt.token.' + ALICE_TOKEN, 'daml.ws.auth']);
   events.push('after creation');
-  await sleep(waitTime);
   events.push('before register open');
   ws.addEventListener('open', () => events.push('open'));
   events.push('after register open');
