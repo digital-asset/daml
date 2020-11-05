@@ -19,12 +19,13 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 // Allows clients to observe the status of their submissions.
 // Commands may be submitted via the Command Submission Service.
 // The on-ledger effects of their submissions are disclosed by the Transaction Service.
-// Commands may fail in 4 distinct manners:
 //
-// 1. ``INVALID_PARAMETER`` gRPC error on malformed payloads and missing required fields.
-// 2. Failure communicated in the gRPC error.
-// 3. Failure communicated in a Completion.
-// 4. A Checkpoint with ``record_time`` > command ``mrt`` arrives through the Completion Stream, and the command's Completion was not visible before. In this case the command is lost.
+// Commands may fail in 2 distinct manners:
+//
+// 1. Failure communicated in the gRPC error of the submission.
+// 2. Failure communicated in a Completion.
+//
+// Only successfully submitted commands may produce a completion event.
 //
 // Clients that do not receive a successful completion about their submission MUST NOT assume that it was successful.
 // Clients SHOULD subscribe to the CompletionStream before starting to submit commands to prevent race conditions.
@@ -34,9 +35,19 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 service CommandCompletionService {
 
   // Subscribe to command completion events.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+  // - ``OUT_OF_RANGE``: if the absolute offset is not before the end of the ledger
   rpc CompletionStream (CompletionStreamRequest) returns (stream CompletionStreamResponse);
 
   // Returns the offset after the latest completion.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
   rpc CompletionEnd (CompletionEndRequest) returns (CompletionEndResponse);
 
 }
@@ -92,8 +103,8 @@ message Checkpoint {
 
 message CompletionEndRequest {
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
-  // Required
   // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
   string ledger_id = 1;
 
   // Server side tracing will be registered as a child of the submitted context.

@@ -384,7 +384,7 @@ trait TriggerServiceFixture
 
   // Use a small initial interval so we can test restart behaviour more easily.
   private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
-  private def triggerServiceOwner(encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]]) =
+  private def triggerServiceOwner(encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]]) =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
         for {
@@ -409,7 +409,7 @@ trait TriggerServiceFixture
                 authConfig,
                 ledgerConfig,
                 restartConfig,
-                encodedDar,
+                encodedDars,
                 jdbcConfig,
               )
               _ = lock.unlock()
@@ -423,14 +423,14 @@ trait TriggerServiceFixture
         } yield binding
     }
 
-  def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])(
+  def withTriggerService[A](encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]])(
       testFn: Uri => Future[A])(
       implicit ec: ExecutionContext,
       pos: source.Position,
   ): Future[A] = {
     logger.info(s"${pos.fileName}:${pos.lineNumber}: setting up trigger service")
     implicit val context: ResourceContext = ResourceContext(ec)
-    triggerServiceOwner(encodedDar).use { binding =>
+    triggerServiceOwner(encodedDars).use { binding =>
       val uri = Uri.from(scheme = "http", host = "localhost", port = binding.localAddress.getPort)
       testFn(uri)
     }

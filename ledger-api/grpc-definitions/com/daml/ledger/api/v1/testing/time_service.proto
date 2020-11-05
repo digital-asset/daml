@@ -22,6 +22,8 @@ service TimeService {
   rpc GetTime (GetTimeRequest) returns (stream GetTimeResponse);
 
   // Allows clients to change the ledger's clock in an atomic get-and-set operation.
+  // Errors:
+  // - ``INVALID_ARGUMENT``: if ``current_time`` is invalid (it MUST precisely match the current time as it's known to the ledger server)
   rpc SetTime (SetTimeRequest) returns (google.protobuf.Empty);
 
 }
@@ -48,7 +50,6 @@ message SetTimeRequest {
   string ledger_id = 1;
 
   // MUST precisely match the current time as it's known to the ledger server.
-  // On mismatch, an ``INVALID_PARAMETER`` gRPC error will be returned.
   google.protobuf.Timestamp current_time = 2;
 
   // The time the client wants to set on the ledger.

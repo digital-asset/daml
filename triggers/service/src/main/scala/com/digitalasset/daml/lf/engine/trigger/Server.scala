@@ -52,6 +52,7 @@ import java.util.UUID
 import java.util.zip.ZipInputStream
 import java.time.LocalDateTime
 
+import com.daml.lf.engine.trigger.Tagged.AccessToken
 import com.daml.oauth.middleware.Request.Claims
 
 import scala.collection.concurrent.TrieMap
@@ -125,7 +126,7 @@ class Server(
   private def startTrigger(
       party: Party,
       triggerName: Identifier,
-      token: Option[String],
+      token: Option[AccessToken],
       existingInstance: Option[UUID] = None): Either[String, JsValue] = {
     for {
       trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
@@ -143,7 +144,7 @@ class Server(
             ctx.self,
             triggerInstance,
             party,
-            token,
+            AccessToken.unsubst(token),
             compiledPackages,
             trigger,
             ledgerConfig,
@@ -200,14 +201,14 @@ class Server(
   // to proceed once the login flow completed and authentication succeeded.
   private def authorize(claims: AuthRequest.Claims)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[String]] =
+      system: ActorSystem): Directive1[Option[AccessToken]] =
     authConfig match {
       case NoAuth => provide(None)
       case AuthMiddleware(authUri) =>
         // Attempt to obtain the access token from the middleware's /auth endpoint.
         // Forwards the current request's cookies.
         // Fails if the response is not OK or Unauthorized.
-        def auth: Directive1[Option[String]] = {
+        def auth: Directive1[Option[AccessToken]] = {
           val uri = authUri
             .withPath(Path./("auth"))
             .withQuery(AuthRequest.Auth(claims).toQuery)
@@ -216,7 +217,7 @@ class Server(
             onSuccess(Http().singleRequest(HttpRequest(uri = uri, headers = cookies))).flatMap {
               case HttpResponse(StatusCodes.OK, _, entity, _) =>
                 onSuccess(Unmarshal(entity).to[AuthResponse.Authorize]).map { auth =>
-                  Some(auth.accessToken): Option[String]
+                  Some(AccessToken(auth.accessToken)): Option[AccessToken]
                 }
               case HttpResponse(StatusCodes.Unauthorized, _, _, _) =>
                 provide(None)
@@ -273,7 +274,7 @@ class Server(
   // If the trigger does not exist, then the request will also proceed without attempting authorization.
   private def authorizeForTrigger(uuid: UUID, readOnly: Boolean = false)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[String]] =
+      system: ActorSystem): Directive1[Option[AccessToken]] =
     authConfig match {
       case NoAuth => provide(None)
       case AuthMiddleware(_) =>
@@ -412,7 +413,7 @@ object Server {
       authConfig: AuthConfig,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
-      initialDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
+      initialDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       initDb: Boolean,
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
@@ -466,7 +467,7 @@ object Server {
         }
     }
 
-    initialDar foreach { dar =>
+    initialDars foreach { dar =>
       server.addDar(dar) match {
         case Left(err) =>
           ctx.log.error("Failed to upload provided DAR.\n" ++ err)
