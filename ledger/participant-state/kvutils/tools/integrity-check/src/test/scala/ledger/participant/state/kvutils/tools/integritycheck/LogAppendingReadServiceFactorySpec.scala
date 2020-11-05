@@ -16,7 +16,7 @@ import org.scalatest.{AsyncFunSuite, AsyncWordSpec, Matchers}
 
 @RunWith(classOf[JUnitRunner])
 class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matchers {
-  "LogFragmentingReadServiceFactory" should {
+  "LogAppendingReadServiceFactory" should {
     "handle empty blocks" in {
       val actorSystem: ActorSystem = ActorSystem("LogAppendingReadServiceFactorySpec")
       implicit val materializer: Materializer = Materializer(actorSystem)
