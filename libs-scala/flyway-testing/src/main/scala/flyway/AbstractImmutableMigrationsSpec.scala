@@ -20,6 +20,7 @@ import scala.collection.JavaConverters._
 
 abstract class AbstractImmutableMigrationsSpec extends WordSpec {
   protected def migrationsResourcePath: String
+  protected def migrationsMinSize: Int
   protected def hashMigrationsScriptPath: String
 
   private def flywayScanner(configuration: FluentConfiguration) =
@@ -58,6 +59,7 @@ abstract class AbstractImmutableMigrationsSpec extends WordSpec {
         .locations(s"classpath:/$migrationsResourcePath")
       val resourceScanner = flywayScanner(configuration)
       val resources = resourceScanner.getResources("", ".sql").asScala.toSeq
+      resources.size should be >= migrationsMinSize
 
       resources.foreach { resource =>
         val migrationFile = resource.getRelativePath

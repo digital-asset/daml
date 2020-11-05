@@ -7,5 +7,6 @@ import com.daml.flyway.AbstractImmutableMigrationsSpec
 
 class ImmutableMigrationsSpec extends AbstractImmutableMigrationsSpec {
   protected override val migrationsResourcePath = "com/daml/ledger/on/sql/migrations"
+  protected override val migrationsMinSize = 3
   protected override val hashMigrationsScriptPath = "ledger/ledger-on-sql/hash-migrations.sh"
 }
