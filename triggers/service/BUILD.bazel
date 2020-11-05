@@ -127,6 +127,7 @@ da_scala_test(
         "@maven//:com_typesafe_akka_akka_parsing_2_12",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
         "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
