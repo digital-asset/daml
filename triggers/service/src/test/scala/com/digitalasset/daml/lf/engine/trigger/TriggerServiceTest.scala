@@ -186,12 +186,12 @@ abstract class AbstractTriggerServiceTest
   }
 
   it should "start up and shut down server" in
-    withTriggerService(Some(dar)) { _ =>
+    withTriggerService(List(dar)) { _ =>
       Future(succeed)
     }
 
   it should "allow repeated uploads of the same packages" in
-    withTriggerService(Some(dar)) { uri: Uri =>
+    withTriggerService(List(dar)) { uri: Uri =>
       for {
         resp <- uploadDar(uri, darPath) // same dar as in initialization
         _ <- parseResult(resp)
@@ -200,7 +200,7 @@ abstract class AbstractTriggerServiceTest
       } yield succeed
     }
 
-  it should "fail to start non-existent trigger" in withTriggerService(Some(dar)) { uri: Uri =>
+  it should "fail to start non-existent trigger" in withTriggerService(List(dar)) { uri: Uri =>
     val expectedError = StatusCodes.UnprocessableEntity
     for {
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:foobar", alice)
@@ -214,7 +214,7 @@ abstract class AbstractTriggerServiceTest
     } yield succeed
   }
 
-  it should "start a trigger after uploading it" in withTriggerService(None) { uri: Uri =>
+  it should "start a trigger after uploading it" in withTriggerService(Nil) { uri: Uri =>
     for {
       resp <- uploadDar(uri, darPath)
       JsObject(fields) <- parseResult(resp)
@@ -229,7 +229,7 @@ abstract class AbstractTriggerServiceTest
     } yield succeed
   }
 
-  it should "start multiple triggers and list them by party" in withTriggerService(Some(dar)) {
+  it should "start multiple triggers and list them by party" in withTriggerService(List(dar)) {
     uri: Uri =>
       for {
         resp <- listTriggers(uri, alice)
@@ -261,7 +261,7 @@ abstract class AbstractTriggerServiceTest
       } yield succeed
   }
 
-  it should "should enable a trigger on http request" in withTriggerService(Some(dar)) { uri: Uri =>
+  it should "should enable a trigger on http request" in withTriggerService(List(dar)) { uri: Uri =>
     for {
       // Start the trigger
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
@@ -300,7 +300,7 @@ abstract class AbstractTriggerServiceTest
   }
 
   it should "restart trigger on initialization failure due to failed connection" in withTriggerService(
-    Some(dar)) { uri: Uri =>
+    List(dar)) { uri: Uri =>
     for {
       // Simulate a failed ledger connection which will prevent triggers from initializing.
       _ <- Future(toxiSandboxProxy.disable())
@@ -318,7 +318,7 @@ abstract class AbstractTriggerServiceTest
   }
 
   it should "restart trigger on run-time failure due to dropped connection" in withTriggerService(
-    Some(dar)) { uri: Uri =>
+    List(dar)) { uri: Uri =>
     // Simulate the ledger being briefly unavailable due to network connectivity loss.
     // We continually restart the trigger until the connection returns.
     for {
@@ -337,7 +337,7 @@ abstract class AbstractTriggerServiceTest
     } yield succeed
   }
 
-  it should "restart triggers with initialization errors" in withTriggerService(Some(dar)) {
+  it should "restart triggers with initialization errors" in withTriggerService(List(dar)) {
     uri: Uri =>
       for {
         resp <- startTrigger(uri, s"$testPkgId:ErrorTrigger:trigger", alice)
@@ -355,7 +355,7 @@ abstract class AbstractTriggerServiceTest
       } yield succeed
   }
 
-  it should "restart triggers with update errors" in withTriggerService(Some(dar)) { uri: Uri =>
+  it should "restart triggers with update errors" in withTriggerService(List(dar)) { uri: Uri =>
     for {
       resp <- startTrigger(uri, s"$testPkgId:LowLevelErrorTrigger:trigger", alice)
       aliceTrigger <- parseTriggerId(resp)
@@ -373,7 +373,7 @@ abstract class AbstractTriggerServiceTest
   }
 
   it should "give a 'not found' response for a stop request with an unparseable UUID" in withTriggerService(
-    None) { uri: Uri =>
+    Nil) { uri: Uri =>
     val uuid: String = "No More Mr Nice Guy"
     val req = HttpRequest(
       method = HttpMethods.DELETE,
@@ -386,7 +386,7 @@ abstract class AbstractTriggerServiceTest
   }
 
   it should "give a 'not found' response for a stop request on an unknown UUID" in withTriggerService(
-    None) { uri: Uri =>
+    Nil) { uri: Uri =>
     val uuid = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
     for {
       resp <- stopTrigger(uri, uuid, alice)
@@ -432,14 +432,14 @@ class TriggerServiceTestWithDb
   behavior of "persistent backend"
 
   it should "recover packages after shutdown" in (for {
-    _ <- withTriggerService(None) { uri: Uri =>
+    _ <- withTriggerService(Nil) { uri: Uri =>
       for {
         resp <- uploadDar(uri, darPath)
         _ <- parseResult(resp)
       } yield succeed
     }
     // Once service is shutdown, start a new one and try to use the previously uploaded dar
-    _ <- withTriggerService(None) { uri: Uri =>
+    _ <- withTriggerService(Nil) { uri: Uri =>
       for {
         // start trigger defined in previously uploaded dar
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
@@ -450,7 +450,7 @@ class TriggerServiceTestWithDb
   } yield succeed)
 
   it should "restart triggers after shutdown" in (for {
-    _ <- withTriggerService(Some(dar)) { uri: Uri =>
+    _ <- withTriggerService(List(dar)) { uri: Uri =>
       for {
         // Start a trigger in the first run of the service.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
@@ -462,7 +462,7 @@ class TriggerServiceTestWithDb
     }
     // Once service is shutdown, start a new one and check the previously running trigger is restarted.
     // also tests vacuous DB migration, incidentally
-    _ <- withTriggerService(None) { uri: Uri =>
+    _ <- withTriggerService(Nil) { uri: Uri =>
       for {
         // Get the previous trigger instance using a list request
         resp <- listTriggers(uri, alice)

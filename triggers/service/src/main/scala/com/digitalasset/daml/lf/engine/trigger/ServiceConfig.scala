@@ -15,9 +15,9 @@ import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
 
 private[trigger] final case class ServiceConfig(
-    // For convenience, we allow passing in a DAR on startup
-    // as opposed to uploading it dynamically.
-    darPath: Option[Path],
+    // For convenience, we allow passing DARs on startup
+    // as opposed to uploading them dynamically.
+    darPaths: List[Path],
     address: String,
     httpPort: Int,
     ledgerHost: String,
@@ -87,7 +87,8 @@ private[trigger] object ServiceConfig {
 
     opt[String]("dar")
       .optional()
-      .action((f, c) => c.copy(darPath = Some(Paths.get(f))))
+      .unbounded()
+      .action((f, c) => c.copy(darPaths = Paths.get(f) :: c.darPaths))
       .text("Path to the dar file containing the trigger.")
 
     cliopts.Http.serverParse(this, serviceName = "Trigger")(
@@ -161,7 +162,7 @@ private[trigger] object ServiceConfig {
     parser.parse(
       args,
       ServiceConfig(
-        darPath = None,
+        darPaths = Nil,
         address = cliopts.Http.defaultAddress,
         httpPort = DefaultHttpPort,
         ledgerHost = null,
