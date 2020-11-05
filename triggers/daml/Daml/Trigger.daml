@@ -35,6 +35,11 @@ module Daml.Trigger
  , Message(..)
  , Completion(..)
  , Transaction(..)
+ , Event(..)
+ , Created
+ , Archived
+ , fromCreated
+ , fromArchived
  , CompletionStatus(..)
  , RegisteredTemplates(..)
  , registeredTemplate
