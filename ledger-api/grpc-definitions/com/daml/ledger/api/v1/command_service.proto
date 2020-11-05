@@ -20,23 +20,47 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 service CommandService {
 
   // Submits a single composite command and waits for its result.
-  // Returns ``RESOURCE_EXHAUSTED`` if the number of in-flight commands reached the maximum (if a limit is configured).
   // Propagates the gRPC error of failed submissions including DAML interpretation errors.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+  // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
+  // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
   rpc SubmitAndWait (SubmitAndWaitRequest) returns (google.protobuf.Empty);
 
   // Submits a single composite command, waits for its result, and returns the transaction id.
-  // Returns ``RESOURCE_EXHAUSTED`` if the number of in-flight commands reached the maximum (if a limit is configured).
   // Propagates the gRPC error of failed submissions including DAML interpretation errors.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+  // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
+  // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
   rpc SubmitAndWaitForTransactionId (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionIdResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction.
-  // Returns ``RESOURCE_EXHAUSTED`` if the number of in-flight commands reached the maximum (if a limit is configured).
   // Propagates the gRPC error of failed submissions including DAML interpretation errors.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+  // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
+  // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
   rpc SubmitAndWaitForTransaction (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction tree.
-  // Returns ``RESOURCE_EXHAUSTED`` if the number of in-flight commands reached the maximum (if a limit is configured).
   // Propagates the gRPC error of failed submissions including DAML interpretation errors.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+  // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
+  // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
   rpc SubmitAndWaitForTransactionTree (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionTreeResponse);
 }
 

@@ -17,6 +17,9 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 service LedgerIdentityService {
 
   // Clients may call this RPC to return the identifier of the ledger they are connected to.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc GetLedgerIdentity (GetLedgerIdentityRequest) returns (GetLedgerIdentityResponse);
 
 }
@@ -32,7 +35,6 @@ message GetLedgerIdentityRequest {
 message GetLedgerIdentityResponse {
 
   // The ID of the ledger exposed by the server.
-  // Requests submitted with the wrong ledger ID will result in ``NOT_FOUND`` gRPC errors.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string ledger_id = 1;

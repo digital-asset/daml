@@ -14,24 +14,30 @@ import "google/protobuf/timestamp.proto";
 
 // Status: experimental interface, will change before it is deemed production
 // ready
-
+//
 // Ledger configuration management service provides methods for the ledger administrator
 // to change the current ledger configuration. The services provides methods to modify
 // different aspects of the configuration.
 service ConfigManagementService {
+
   // Return the currently active time model and the current configuration generation.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc GetTimeModel (GetTimeModelRequest) returns (GetTimeModelResponse);
 
   // Set the ledger time model.
-  // In case of failure this method responds with:
-  // - INVALID_ARGUMENT if arguments are invalid, or the provided configuration generation
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``INVALID_ARGUMENT``: if arguments are invalid, or the provided configuration generation
   //   does not match the current active configuration generation. The caller is expected
   //   to retry by again fetching current time model using 'GetTimeModel', applying changes
   //   and resubmitting.
-  // - ABORTED if the request is rejected or times out. Note that a timed out request may
+  // - ``ABORTED``: if the request is rejected or times out. Note that a timed out request may
   //   have still been committed to the ledger. Application should re-query the current
   //   time model before retrying.
-  // - UNIMPLEMENTED if this method is not supported by the backing ledger.
+  // - ``UNIMPLEMENTED``: if this method is not supported by the backing ledger.
   rpc SetTimeModel (SetTimeModelRequest) returns (SetTimeModelResponse);
 }
 
