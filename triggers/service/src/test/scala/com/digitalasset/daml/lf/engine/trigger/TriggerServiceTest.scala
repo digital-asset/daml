@@ -30,7 +30,8 @@ import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.duration._
 
-abstract class AbstractTriggerServiceTest
+// Tests for all trigger service configurations go here
+trait AbstractTriggerServiceTest
     extends AsyncFlatSpec
     with HttpCookies
     with TriggerServiceFixture
@@ -417,17 +418,15 @@ object AbstractTriggerServiceTest {
   }
 }
 
-// Tests for in-memory mode only go here
-class TriggerServiceTestInMem
+// Tests for in-memory trigger service configurations go here
+trait AbstractTriggerServiceTestInMem
     extends AbstractTriggerServiceTest
-    with TriggerDaoInMemFixture
-    with NoAuthFixture {}
+    with TriggerDaoInMemFixture {}
 
-// Tests for database mode only go here
-class TriggerServiceTestWithDb
+// Tests for database trigger service configurations go here
+trait AbstractTriggerServiceTestWithDb
     extends AbstractTriggerServiceTest
-    with TriggerDaoPostgresFixture
-    with NoAuthFixture {
+    with TriggerDaoPostgresFixture {
 
   behavior of "persistent backend"
 
@@ -480,11 +479,32 @@ class TriggerServiceTestWithDb
       } yield succeed
     }
   } yield succeed)
-
 }
 
-// Tests for auth mode only go here
+// Tests for non-authenticated trigger service configurations go here
+trait AbstractTriggerServiceTestNoAuth extends AbstractTriggerServiceTest with NoAuthFixture {}
+
+// Tests for authenticated trigger service configurations go here
+trait AbstractTriggerServiceTestAuthMiddleware
+    extends AbstractTriggerServiceTest
+    with AuthMiddlewareFixture {}
+
+class TriggerServiceTestInMem
+    extends AbstractTriggerServiceTest
+    with AbstractTriggerServiceTestInMem
+    with AbstractTriggerServiceTestNoAuth {}
+
+class TriggerServiceTestWithDb
+    extends AbstractTriggerServiceTest
+    with AbstractTriggerServiceTestWithDb
+    with AbstractTriggerServiceTestNoAuth {}
+
 class TriggerServiceTestAuth
     extends AbstractTriggerServiceTest
-    with TriggerDaoInMemFixture
-    with AuthMiddlewareFixture {}
+    with AbstractTriggerServiceTestInMem
+    with AbstractTriggerServiceTestAuthMiddleware {}
+
+class TriggerServiceTestAuthWithDb
+    extends AbstractTriggerServiceTest
+    with AbstractTriggerServiceTestWithDb
+    with AbstractTriggerServiceTestAuthMiddleware {}

@@ -94,23 +94,19 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   private def insertRunningTrigger(t: RunningTrigger): ConnectionIO[Unit] = {
     val insert: Fragment = sql"""
-        insert into running_triggers values (${t.triggerInstance}, ${t.triggerParty}, ${t.triggerName})
+        insert into running_triggers values (${t.triggerInstance}, ${t.triggerParty}, ${t.triggerName}, ${t.triggerToken})
       """
     insert.update.run.void
   }
 
   private def queryRunningTrigger(triggerInstance: UUID): ConnectionIO[Option[RunningTrigger]] = {
     val select: Fragment = sql"""
-        select (trigger_instance, trigger_name, trigger_party) from running_triggers
+        select trigger_instance, full_trigger_name, trigger_party, access_token from running_triggers
         where trigger_instance = $triggerInstance
       """
     select
-      .query[(UUID, Identifier, Party)]
-      .map {
-        case (instance, name, party) =>
-          // TODO[AH] use query.to[RunningTrigger] once the token is persisted.
-          RunningTrigger(instance, name, party, None)
-      }
+      .query[(UUID, Identifier, Party, Option[String])]
+      .map(RunningTrigger.tupled)
       .option
   }
 
@@ -158,19 +154,11 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
       }
     } yield (pkgId, payload)
 
-  private def selectAllTriggers: ConnectionIO[Vector[(UUID, String, String)]] = {
+  private def selectAllTriggers: ConnectionIO[Vector[RunningTrigger]] = {
     val select: Fragment = sql"""
-      select trigger_instance, trigger_party, full_trigger_name from running_triggers order by trigger_instance
+      select trigger_instance, full_trigger_name, trigger_party, access_token from running_triggers order by trigger_instance
     """
-    select.query[(UUID, String, String)].to[Vector]
-  }
-
-  private def parseRunningTrigger(
-      triggerInstance: UUID,
-      party: String,
-      fullTriggerName: String): Either[String, RunningTrigger] = {
-    // TODO[AH] Persist the access and refresh token.
-    Identifier.fromString(fullTriggerName).map(RunningTrigger(triggerInstance, _, Tag(party), None))
+    select.query[(UUID, Identifier, Party, Option[String])].map(RunningTrigger.tupled).to[Vector]
   }
 
   // Drop all tables and other objects associated with the database.
@@ -221,12 +209,8 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
     )
   }
 
-  def readRunningTriggers: Either[String, Vector[RunningTrigger]] = {
-    import cats.implicits._ // needed for traverse
-    run(selectAllTriggers, "Failed to read running triggers from database").flatMap(
-      _.traverse((parseRunningTrigger _).tupled)
-    )
-  }
+  def readRunningTriggers: Either[String, Vector[RunningTrigger]] =
+    run(selectAllTriggers, "Failed to read running triggers from database")
 
   def initialize: Either[String, Unit] =
     run(createTables, "Failed to initialize database.")
