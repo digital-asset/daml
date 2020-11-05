@@ -461,37 +461,22 @@ test("multi-{key,query} stream", async () => {
 });
 
 test('stream close behaviour', async () => {
-  const waitTime = 100;
   const url = 'ws' + httpBaseUrl().slice(4) + 'v1/stream/query';
   const events: string[] = [];
-  events.push('before creation');
   const ws = new WebSocket(url, ['jwt.token.' + ALICE_TOKEN, 'daml.ws.auth']);
-  events.push('after creation');
-  events.push('before register open');
-  ws.addEventListener('open', () => events.push('open'));
-  events.push('after register open');
-  await sleep(waitTime);
-  events.push('before register close');
-  ws.addEventListener('close', () => events.push('close'));
-  events.push('after register close');
-  await sleep(waitTime);
+  await new Promise(resolve => ws.addEventListener('open', () => resolve()));
+  const forCloseEvent = new Promise(resolve => ws.addEventListener('close', () => {
+    events.push('close');
+    resolve();
+  }));
   events.push('before close');
   ws.close();
   events.push('after close');
-  await sleep(waitTime);
-  events.push('after sleep');
+  await forCloseEvent;
 
   expect(events).toEqual([
-    'before creation',
-    'after creation',
-    'before register open',
-    'after register open',
-    'open',
-    'before register close',
-    'after register close',
     'before close',
     'after close',
     'close',
-    'after sleep'
   ]);
 });
