@@ -28,7 +28,7 @@ The following options are supported:
     --sort-write-set        Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally.
     --index-only            Run only the indexing step of the integrity checker (useful to benchmark the indexer).
     --jdbc-url              External JDBC url (useful for running against PostgreSQL).
-    --full-metrics          Print all registered metrics.
+    --report-metrics          Print all registered metrics.
 
 # `benchmark-replay`
 

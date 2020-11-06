@@ -169,11 +169,12 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     }.transform {
       case Success((startTime, _)) =>
         Success {
-          println(s"Successfully indexed all updates.".green)
+          println("Successfully indexed all updates.".green)
           val durationSeconds = Duration.fromNanos(System.nanoTime() - startTime).toSeconds
+          val updatesPerSecond = readService.updateCount() / durationSeconds.toDouble
           println(
             s"\nIndexing duration: $durationSeconds seconds" ++
-              s" (${readService.updateCount() / durationSeconds.toDouble} updates/second)")
+              s" ($updatesPerSecond updates/second)")
         }
       case Failure(exception) =>
         val message =
@@ -220,11 +221,15 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
             ) map { _ =>
               val actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
               val orderedActualWriteSet =
-                if (config.sortWriteSet) actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
-                else actualWriteSet
+                if (config.sortWriteSet)
+                  actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
+                else
+                  actualWriteSet
               actualReadServiceFactory.appendBlock(orderedActualWriteSet)
-              if (config.performByteComparison)
+
+              if (config.performByteComparison) {
                 compareWriteSets(expectedWriteSet, orderedActualWriteSet)
+              }
             } else Future.unit
       }
       .runWith(Sink.fold(0)((n, _) => n + 1))
