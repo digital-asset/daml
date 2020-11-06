@@ -25,7 +25,8 @@ import Control.Exception (evaluate,try,SomeException)
 import Data.Map(Map)
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
-import Data.Vector as Vector (Vector,fromList,toList)
+import Data.Vector (Vector)
+import qualified Data.Vector as Vector
 import qualified Data.Text.Lazy as Text (pack,unpack)
 
 import qualified Google.Protobuf.Empty as LL
@@ -72,7 +73,7 @@ lowerCommands = \case
         commandsCommandId = unCommandId cid,
         commandsParty = unParty party,
         commandsDeduplicationTime = dedupTime,
-        commandsCommands = Vector.fromList $ map lowerCommand coms,
+        commandsCommands = fmap lowerCommand $ Vector.fromList coms,
         commandsMinLedgerTimeAbs = fmap lowerTimestamp minLeTimeAbs,
         commandsMinLedgerTimeRel = minLeTimeRel }
 
@@ -121,7 +122,7 @@ lowerValue = LL.Value . Just . \case
     VRecord r -> (LL.ValueSumRecord . lowerRecord) r
     VVariant v -> (LL.ValueSumVariant . lowerVariant) v
     VContract c -> (LL.ValueSumContractId . unContractId) c
-    VList vs -> (LL.ValueSumList . LL.List . Vector.fromList . map lowerValue) vs
+    VList vs -> (LL.ValueSumList . LL.List . fmap lowerValue . Vector.fromList) vs
     VInt i -> (LL.ValueSumInt64 . fromIntegral) i
     VDecimal t -> LL.ValueSumNumeric $ Text.pack $ show t
     VText t -> LL.ValueSumText t
@@ -153,13 +154,13 @@ lowerEnum = \case
         }
 
 lowerTextMap :: Map Text Value -> LL.Map
-lowerTextMap = LL.Map . Vector.fromList . map lowerTextMapEntry . Map.toList
+lowerTextMap = LL.Map . fmap lowerTextMapEntry . Vector.fromList . Map.toList
 
 lowerTextMapEntry :: (Text,Value) -> LL.Map_Entry
 lowerTextMapEntry (key,value) = LL.Map_Entry key (Just $ lowerValue value)
 
 lowerGenMap :: [(Value, Value)] -> LL.GenMap
-lowerGenMap = LL.GenMap . Vector.fromList . map lowerGenMapEntry
+lowerGenMap = LL.GenMap . fmap lowerGenMapEntry . Vector.fromList
 
 lowerGenMapEntry :: (Value, Value) -> LL.GenMap_Entry
 lowerGenMapEntry (key,value) = LL.GenMap_Entry
@@ -170,7 +171,7 @@ lowerRecord = \case
     Record{..} ->
         LL.Record {
         recordRecordId = fmap lowerIdentifier rid,
-        recordFields = Vector.fromList $ map lowerRecordField fields }
+        recordFields = fmap lowerRecordField $ Vector.fromList fields }
 
 lowerRecordField :: RecordField -> LL.RecordField
 lowerRecordField = \case

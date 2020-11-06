@@ -37,6 +37,13 @@
 # Performance foot guns
 - warn: {lhs: foldl, rhs: "foldl'"}
 
+# Mapping over a vector uses less memory than mapping over a list
+- warn: {lhs: Data.Vector.fromList (map f x), rhs: fmap f (Data.Vector.fromList x)}
+- warn: {lhs: fmap Data.Vector.fromList (mapM f x), rhs: mapM f (Data.Vector.fromList x)}
+- warn: {lhs: Data.Vector.fromList <$> mapM f x, rhs: mapM f (Data.Vector.fromList x)}
+- warn: {lhs: fmap Data.Vector.fromList (traverse f x), rhs: traverse f (Data.Vector.fromList x)}
+- warn: {lhs: Data.Vector.fromList <$> traverse f x, rhs: traverse f (Data.Vector.fromList x)}
+
 # Condemn nub and friends
 - warn: {lhs: nub (sort x), rhs: Data.List.Extra.nubSort x}
 - warn: {lhs: nub, rhs: Data.List.Extra.nubOrd}

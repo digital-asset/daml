@@ -166,7 +166,7 @@ mkByEventIdRequest lid eid parties =
     LL.GetTransactionByEventIdRequest
     (unLedgerId lid)
     (unEventId eid)
-    (Vector.fromList $ map unParty parties)
+    (fmap unParty $ Vector.fromList parties)
     noTrace
 
 mkByIdRequest :: LedgerId -> TransactionId -> [Party] -> LL.GetTransactionByIdRequest
@@ -174,5 +174,5 @@ mkByIdRequest lid trid parties =
     LL.GetTransactionByIdRequest
     (unLedgerId lid)
     (unTransactionId trid)
-    (Vector.fromList $ map unParty parties)
+    (fmap unParty $ Vector.fromList parties)
     noTrace

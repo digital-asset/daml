@@ -33,7 +33,7 @@ mkCompletionStreamRequest :: LedgerId -> ApplicationId -> [Party] -> Maybe Ledge
 mkCompletionStreamRequest (LedgerId id) aid parties offsetOpt = CompletionStreamRequest {
     completionStreamRequestLedgerId = id,
     completionStreamRequestApplicationId = unApplicationId aid,
-    completionStreamRequestParties = Vector.fromList (map unParty parties),
+    completionStreamRequestParties = fmap unParty (Vector.fromList parties),
 
     -- From: command_completion_service.proto
     -- // Optional, if not set the ledger uses the current ledger end offset instead.

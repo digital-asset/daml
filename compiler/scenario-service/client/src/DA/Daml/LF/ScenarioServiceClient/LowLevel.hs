@@ -282,7 +282,7 @@ gcCtxs Handle{..} ctxIds = do
         performRequest
             (SS.scenarioServiceGCContexts hClient)
             (optRequestTimeout hOptions)
-            (SS.GCContextsRequest (V.fromList (map getContextId ctxIds)))
+            (SS.GCContextsRequest (fmap getContextId (V.fromList ctxIds)))
     pure (void res)
 
 updateCtx :: Handle -> ContextId -> ContextUpdate -> IO (Either BackendError ())
@@ -300,12 +300,12 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
   where
     updModules =
       SS.UpdateContextRequest_UpdateModules
-        (V.fromList (map convModule updLoadModules))
-        (V.fromList (map encodeName updUnloadModules))
+        (fmap convModule (V.fromList updLoadModules))
+        (fmap encodeName (V.fromList updUnloadModules))
     updPackages =
       SS.UpdateContextRequest_UpdatePackages
-        (V.fromList (map snd updLoadPackages))
-        (V.fromList (map (TL.fromStrict . LF.unPackageId) updUnloadPackages))
+        (fmap snd (V.fromList updLoadPackages))
+        (fmap (TL.fromStrict . LF.unPackageId) (V.fromList updUnloadPackages))
     encodeName = TL.fromStrict . mangleModuleName
     convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScenarioModule
     convModule (_, bytes) = SS.ScenarioModule bytes
