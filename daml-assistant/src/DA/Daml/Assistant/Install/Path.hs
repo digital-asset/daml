@@ -140,7 +140,7 @@ shellConfig :: String -> FilePath -> Maybe (FilePath, String)
 shellConfig shell targetPath =
   case shell of
     "zsh" -> Just (".zprofile", "export PATH=$PATH:" <> targetPath)
-    "bash" -> Just (".profile", "export PATH=$PATH:" <> targetPath)
+    "bash" -> Just (".bash_profile", "export PATH=$PATH:" <> targetPath)
     "sh" -> Just (".profile", "export PATH=$PATH:" <> targetPath)
     _other -> Nothing
 
