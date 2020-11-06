@@ -370,7 +370,7 @@ testInstall = Tasty.testGroup "DA.Daml.Assistant.Install"
                     , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
-                    , iSetPath = SetPath False
+                    , iSetPath = SetPath No
                     , iBashCompletions = BashCompletions No
                     , iZshCompletions = ZshCompletions No
                     }
@@ -406,7 +406,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                           , iActivate = ActivateInstall False
                           , iQuiet = QuietInstall True
                           , iForce = ForceInstall False
-                          , iSetPath = SetPath False
+                          , iSetPath = SetPath No
                           , iBashCompletions = BashCompletions No
                           , iZshCompletions = ZshCompletions No
                           }
@@ -437,7 +437,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
-                    , iSetPath = SetPath False
+                    , iSetPath = SetPath No
                     , iBashCompletions = BashCompletions No
                     , iZshCompletions = ZshCompletions No
                     }
@@ -468,7 +468,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
-                    , iSetPath = SetPath False
+                    , iSetPath = SetPath No
                     , iBashCompletions = BashCompletions No
                     , iZshCompletions = ZshCompletions No
                     }
@@ -499,7 +499,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                     , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
-                    , iSetPath = SetPath False
+                    , iSetPath = SetPath No
                     , iBashCompletions = BashCompletions No
                     , iZshCompletions = ZshCompletions No
                     }
