@@ -125,20 +125,24 @@ object Server extends StrictLogging {
 
   private def loginCallback(config: Config, requests: TrieMap[UUID, Uri])(
       implicit system: ActorSystem,
-      ec: ExecutionContext) =
-    // TODO[AH] Implement error response handler https://tools.ietf.org/html/rfc6749#section-4.1.2.1
-    parameters(('code, 'state ?))
-      .as[OAuthResponse.Authorize](OAuthResponse.Authorize) { authorize =>
-        extractRequest { request =>
-          val redirectUri = for {
-            state <- authorize.state
-            requestId <- Try(UUID.fromString(state)).toOption
-            redirectUri <- requests.remove(requestId)
-          } yield redirectUri
-          redirectUri match {
-            case None =>
-              complete(StatusCodes.NotFound)
-            case Some(redirectUri) =>
+      ec: ExecutionContext) = {
+    def popRequest(optState: Option[String]): Directive1[Uri] = {
+      val redirectUri = for {
+        state <- optState
+        requestId <- Try(UUID.fromString(state)).toOption
+        redirectUri <- requests.remove(requestId)
+      } yield redirectUri
+      redirectUri match {
+        case Some(redirectUri) => provide(redirectUri)
+        case None => complete(StatusCodes.NotFound)
+      }
+    }
+
+    concat(
+      parameters(('code, 'state ?))
+        .as[OAuthResponse.Authorize](OAuthResponse.Authorize) { authorize =>
+          popRequest(authorize.state) { redirectUri =>
+            extractRequest { request =>
               val body = OAuthRequest.Token(
                 grantType = "authorization_code",
                 code = authorize.code,
@@ -167,7 +171,20 @@ object Server extends StrictLogging {
                   redirect(redirectUri, StatusCodes.Found)
                 }
               }
+            }
+          }
+        },
+      parameters(('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?))
+        .as[OAuthResponse.Error](OAuthResponse.Error) { error =>
+          popRequest(error.state) { _ =>
+            // TODO[AH] Forward errors to the callback URI
+            if (error.error.matches(".*unauthorized.*|denied")) {
+              complete((StatusCodes.Unauthorized, error.errorDescription.getOrElse(error.error)))
+            } else {
+              complete((StatusCodes.InternalServerError, error.errorDescription.getOrElse(error.error)))
+            }
           }
         }
-      }
+    )
+  }
 }
