@@ -139,7 +139,8 @@ prompt output msg def others = do
 shellConfig :: String -> FilePath -> Maybe (FilePath, String)
 shellConfig shell targetPath =
   case shell of
-    "zsh" -> Just (".profile", "export PATH=$PATH:" <> targetPath)
+    "zsh" -> Just (".zprofile", "export PATH=$PATH:" <> targetPath)
     "bash" -> Just (".profile", "export PATH=$PATH:" <> targetPath)
+    "sh" -> Just (".profile", "export PATH=$PATH:" <> targetPath)
     _other -> Nothing
 
