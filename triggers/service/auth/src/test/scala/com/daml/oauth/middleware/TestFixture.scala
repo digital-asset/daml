@@ -6,12 +6,8 @@ package com.daml.oauth.middleware
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import com.daml.jwt.HMAC256Verifier
-import com.daml.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  OwnedResource,
-  Resource,
-  SuiteResource
-}
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource, Resource, SuiteResource}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.oauth.server.{Config => OAuthConfig}
 import com.daml.ports.Port
@@ -32,7 +28,7 @@ trait TestFixture extends AkkaBeforeAndAfterAll with SuiteResource[(ServerBindin
             ledgerId = ledgerId,
             applicationId = Some(applicationId),
             jwtSecret = jwtSecret,
-            parties = None))
+            parties = Some(ApiTypes.Party.subst(Set("Alice", "Bob")))))
         serverUri = Uri()
           .withScheme("http")
           .withAuthority(server.localAddress.getHostString, server.localAddress.getPort)
