@@ -167,7 +167,7 @@ onExp (L o (SectionR _ mid@(isDot -> True) rhs))
         -- don't need it when the record type is unknown. When the record type
         -- is known, the conversion to DAML-LF needs to add the lambda anyway.
         [sel] -> mkVar var_getField `mkAppType` sel
-        _:_:_ -> mkLam var_record $ foldl (\x sel -> mkVar var_getField `mkAppType` sel `mkApp` x) (mkVar var_record) sels
+        _:_:_ -> mkLam var_record $ foldl' (\x sel -> mkVar var_getField `mkAppType` sel `mkApp` x) (mkVar var_record) sels
           where
             var_record = GHC.mkRdrUnqual $ GHC.mkVarOcc "record"
 

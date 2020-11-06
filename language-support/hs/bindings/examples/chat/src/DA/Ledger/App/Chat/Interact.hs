@@ -7,6 +7,7 @@ module DA.Ledger.App.Chat.Interact (InteractState(..), makeInteractState, runSub
 
 import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
+import Data.List
 import DA.Ledger.App.Chat.ChatLedger (Handle,sendCommand,getTrans)
 import DA.Ledger.App.Chat.Contracts (ChatContract)
 import DA.Ledger.App.Chat.Domain (Party)
@@ -51,7 +52,7 @@ manageUpdates :: Handle -> Party -> Logger -> MVar State -> IO (Stream ChatContr
 manageUpdates h whoami log sv = do
     PastAndFuture{past,future} <- getTrans whoami h
     log $ "replaying " <> show (length past) <> " transactions"
-    modifyMVar_ sv (\s -> return $ foldl (applyTransQuiet whoami) s past)
+    modifyMVar_ sv (\s -> return $ foldl' (applyTransQuiet whoami) s past)
     withMVar sv $ \s -> sendShowingRejection whoami h log (introduceEveryone whoami s)
     _ <- forkIO (updateX h whoami log sv future)
     return future

@@ -19,7 +19,13 @@ You can produce a ledger dump using the in memory kv ledger implementation conta
 
 Run the tool using Bazel:
 
-    bazel run //ledger/participant-state/kvutils/tools:integrity-check-v2 <ledger dump file>
+    bazel run //ledger/participant-state/kvutils/tools:integrity-check <ledger dump file>
+
+The following options are supported:
+
+    --help
+    --skip-byte-comparison  Skips the byte-for-byte comparison. Useful when comparing behavior across versions.
+    --sort-write-set        Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally.
 
 # `benchmark-replay`
 

@@ -7,6 +7,8 @@ import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 package object export {
 
+  val header = new Header(version = "v2")
+
   type WriteItem = (Key, Value)
 
   type WriteSet = Seq[WriteItem]

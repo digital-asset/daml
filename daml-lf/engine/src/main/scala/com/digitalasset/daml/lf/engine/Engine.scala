@@ -217,13 +217,9 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         submissionSeed,
       )
       (rtx, _) = result
-      validationResult <- if (tx.transaction isReplayedBy rtx.transaction) {
-        ResultDone.Unit
-      } else {
-        ResultError(
-          ValidationError(
-            s"recreated and original transaction mismatch $tx expected, but $rtx is recreated"))
-      }
+      validationResult <- Tx
+        .isReplayedBy(tx.transaction, rtx.transaction)
+        .fold(e => ResultError(ReplayMismatch(e)), _ => ResultDone.Unit)
     } yield validationResult
   }
 

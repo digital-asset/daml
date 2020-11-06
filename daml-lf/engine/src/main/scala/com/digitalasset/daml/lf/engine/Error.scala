@@ -1,7 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine
+package com.daml.lf
+package engine
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 
 //TODO: Errors
@@ -46,6 +48,17 @@ final case class ValidationError(override val msg: String)
     extends RuntimeException(s"ValidationError: $msg", null, true, false)
     with Error {
   override def detailMsg: String = msg
+}
+
+final case class ReplayMismatch(
+    mismatch: transaction.ReplayMismatch[
+      transaction.NodeId,
+      ContractId,
+      Value.VersionedValue[ContractId]])
+    extends RuntimeException(s"ValidationError: ${mismatch.msg}", null, true, false)
+    with Error {
+  override def msg: String = mismatch.msg
+  override def detailMsg: String = mismatch.msg
 }
 
 final case class AuthorizationError(override val msg: String) extends Error {

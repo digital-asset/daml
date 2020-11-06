@@ -16,13 +16,13 @@
     </root>
 
     <!-- Disable noisy DB logging at the start of sandbox -->
-    <logger name="com.digitalasset.platform.store.FlywayMigrations" level="WARN" />
+    <logger name="com.daml.platform.store.FlywayMigrations" level="WARN" />
     <logger name="org.flywaydb" level="ERROR" />
     <logger name="com.zaxxer.hikari" level="ERROR" />
-    <logger name="com.digitalasset.platform" level="WARN" />
+    <logger name="com.daml.platform" level="WARN" />
 
     <!-- raising the command tracker logging level -->
-    <logger name="com.digitalasset.platform.apiserver.services.tracking.TrackerMap" level="WARN" />
+    <logger name="com.daml.platform.apiserver.services.tracking.TrackerMap" level="WARN" />
 
     <logger name="io.netty" level="WARN" additivity="false">
         <appender-ref ref="STDOUT"/>
