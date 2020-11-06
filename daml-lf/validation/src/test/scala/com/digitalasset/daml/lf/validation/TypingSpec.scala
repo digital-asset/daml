@@ -327,6 +327,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpTyApp
         E"Λ (τ : ⋆ → ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → ⸨ e @τ ⸩" -> //
           { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (σ: ⋆). λ (e : σ) → ⸨ e @τ ⸩" -> //
+          { case _: EExpectedUniversalType => },
         // ExpAbs
         E"⸨ λ (x : List) → () ⸩" -> //
           { case _: EKindMismatch => },
