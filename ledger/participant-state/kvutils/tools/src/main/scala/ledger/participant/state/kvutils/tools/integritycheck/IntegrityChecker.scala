@@ -86,7 +86,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       stateUpdates,
       metrics,
     ).andThen {
-      case _ if config.fullMetrics =>
+      case _ if config.reportMetrics =>
         reportDetailedMetrics(metricRegistry)
     }
   }

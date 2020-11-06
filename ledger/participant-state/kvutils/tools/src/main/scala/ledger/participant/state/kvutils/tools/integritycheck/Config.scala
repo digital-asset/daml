@@ -13,7 +13,7 @@ case class Config(
     performByteComparison: Boolean,
     sortWriteSet: Boolean,
     indexOnly: Boolean = false,
-    fullMetrics: Boolean = false,
+    reportMetrics: Boolean = false,
     jdbcUrl: Option[String] = None,
 ) {
   def exportFileName: String = exportFilePath.getFileName.toString
@@ -47,13 +47,13 @@ object Config {
       opt[Unit]("index-only")
         .text(
           "Run only the indexing step of the integrity checker (useful tp benchmark the indexer).")
-        .action((_, c) => c.copy(indexOnly = true))
+        .action((_, config) => config.copy(indexOnly = true))
       opt[String]("jdbc-url")
         .text("External JDBC URL (useful for running against PostgreSQL).")
-        .action((jdbcUrl, c) => c.copy(jdbcUrl = Some(jdbcUrl)))
+        .action((jdbcUrl, config) => config.copy(jdbcUrl = Some(jdbcUrl)))
       opt[Unit]("report-metrics")
         .text("Print all registered metrics.")
-        .action((_, c) => c.copy(fullMetrics = true))
+        .action((_, config) => config.copy(reportMetrics = true))
     }
 
   def parse(args: Seq[String]): Option[Config] =
