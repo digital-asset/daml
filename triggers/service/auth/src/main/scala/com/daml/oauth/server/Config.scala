@@ -16,7 +16,7 @@ case class Config(
     // Secret used to sign JWTs
     jwtSecret: String,
     // Only authorize requests for these parties, if set.
-    parties: Option[Seq[Party]]
+    parties: Option[Set[Party]]
 )
 
 object Config {
@@ -46,7 +46,7 @@ object Config {
         .action((x, c) => c.copy(jwtSecret = x))
 
       opt[Seq[String]]("parties")
-        .action((x, c) => c.copy(parties = Some(x.map(Party(_)))))
+        .action((x, c) => c.copy(parties = Some(Party.subst(x).toSet)))
         .text("Only authorize requests for these parties")
 
       help("help").text("Print this usage text")
