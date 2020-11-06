@@ -678,7 +678,7 @@ makeSignedJwt secret tid = do
   let parties = [ T.pack $ TL.unpack $ unParty $ p tid | p <- [alice,bob] ]
   let urc = JWT.ClaimsMap $ Map.fromList
         [ ("admin", Aeson.Bool True)
-        , ("actAs", Aeson.Array $ Vector.fromList $ map Aeson.String parties)
+        , ("actAs", Aeson.Array $ fmap Aeson.String $ Vector.fromList parties)
         ]
   let cs = mempty { JWT.unregisteredClaims = urc }
   let key = JWT.hmacSecret $ T.pack $ getSecret secret

@@ -189,10 +189,10 @@ encodePackageRef = fmap (Just . P.PackageRef . Just) . \case
 ------------------------------------------------------------------------
 
 encodeList :: (a -> Encode b) -> [a] -> Encode (V.Vector b)
-encodeList encodeElem = fmap V.fromList . mapM encodeElem
+encodeList encodeElem = mapM encodeElem . V.fromList
 
 encodeNameMap :: NM.Named a => (a -> Encode b) -> NM.NameMap a -> Encode (V.Vector b)
-encodeNameMap encodeElem = fmap V.fromList . mapM encodeElem . NM.toList
+encodeNameMap encodeElem = mapM encodeElem . V.fromList . NM.toList
 
 encodeQualTypeSynName' :: Qualified TypeSynName -> Encode P.TypeSynName
 encodeQualTypeSynName' (Qualified pref mname syn) = do
@@ -858,9 +858,9 @@ encodePackage (Package version mods metadata) =
         ((packageModules, packageMetadata), EncodeEnv{internedStrings, internedDottedNames}) =
             runState ((,) <$> encodeNameMap encodeModule mods <*> traverse encodePackageMetadata metadata) env
         packageInternedStrings =
-            V.fromList $ map (encodeString . fst) $ L.sortOn snd $ HMS.toList internedStrings
+            fmap (encodeString . fst) $ V.fromList $ L.sortOn snd $ HMS.toList internedStrings
         packageInternedDottedNames =
-            V.fromList $ map (P.InternedDottedName . V.fromList . fst) $ L.sortOn snd $ HMS.toList internedDottedNames
+            fmap (P.InternedDottedName . V.fromList . fst) $ V.fromList $ L.sortOn snd $ HMS.toList internedDottedNames
     in
     P.Package{..}
 
