@@ -12,7 +12,7 @@ load(
 
 da_scala_library(
     name = "tools",
-    srcs = glob(["src/main/scala/ledger/participant/state/kvutils/tools/**/*.scala"]),
+    srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
     tags = ["maven_coordinates=com.daml:participant-state-kvutils-tools:__VERSION__"],
     visibility = [
