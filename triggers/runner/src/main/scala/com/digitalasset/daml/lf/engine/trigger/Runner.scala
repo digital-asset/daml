@@ -235,7 +235,10 @@ class Runner(
     DamlFun,
     SingleCommandFailure,
     maxParallelSubmissionsPerTrigger,
-    preferredSubmitDelay
+    maxTriesWhenOverloaded,
+    overloadedRetryDelay,
+    preferredSubmitDelay,
+    retrying,
   }
 
   /** Delay for command submissions, based on the number of known-pending commands. */
@@ -539,8 +542,20 @@ class Runner(
         // any other error will cause the trigger's stream to fail
       }
     }
-    Flow[SubmitRequest]
-      .mapAsync(maxParallelSubmissionsPerTrigger)(submit)
+    import io.grpc.Status.Code, Code.RESOURCE_EXHAUSTED
+    def retryableSubmit(req: SubmitRequest) =
+      submit(req).map {
+        case Some(SingleCommandFailure(_, s))
+            if (s.getStatus.getCode: Code) == (RESOURCE_EXHAUSTED: Code) =>
+          None
+        case z => Some(z)
+      }
+    retrying(
+      initialTries = maxTriesWhenOverloaded,
+      backoff = overloadedRetryDelay,
+      parallelism = maxParallelSubmissionsPerTrigger,
+      retryableSubmit,
+      submit)
       .collect { case Some(err) => err }
   }
 
@@ -575,6 +590,7 @@ object Runner extends StrictLogging {
     * until reaching 1/sec at >9 excess commands.
     */
   val maxParallelSubmissionsPerTrigger = 8
+  val maxTriesWhenOverloaded = 6
 
   private def preferredSubmitDelay(pendingSubmitCount: Int): FiniteDuration = {
     val excessCmds = 0 max (pendingSubmitCount - maxParallelSubmissionsPerTrigger)
@@ -582,6 +598,9 @@ object Runner extends StrictLogging {
     val maxDelay = 1000
     ((maxDelay min delay) max 0).milliseconds
   }
+
+  private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
+    (250 * (1 << (afterTries - 1))).milliseconds
 
   // Return the time provider for a given time provider type.
   def getTimeProvider(ty: TimeProviderType): TimeProvider = {
@@ -597,7 +616,9 @@ object Runner extends StrictLogging {
   }
 
   /** Like `CommandRetryFlow` but with no notion of ledger time, and with
-    * delay support.
+    * delay support.  Note that only the future succeeding with `None`
+    * indicates that a retry should be attempted; a failed future propagates
+    * to the stream.
     */
   private[trigger] def retrying[A, B](
       initialTries: Int,
@@ -610,7 +631,7 @@ object Runner extends StrictLogging {
       else
         retryable(value).flatMap(_ cata (Future.successful, {
           Future {
-            try Thread.sleep(backoff(initialTries - tries).toMillis)
+            try Thread.sleep(backoff(initialTries - tries + 1).toMillis)
             catch { case _: InterruptedException => }
           }.flatMap(_ => trial(tries - 1, value))
         }))
