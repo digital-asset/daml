@@ -12,6 +12,9 @@ case class Config(
     exportFilePath: Path,
     performByteComparison: Boolean,
     sortWriteSet: Boolean,
+    indexOnly: Boolean = false,
+    reportMetrics: Boolean = false,
+    jdbcUrl: Option[String] = None,
 ) {
   def exportFileName: String = exportFilePath.getFileName.toString
 }
@@ -32,7 +35,7 @@ object Config {
         s"You can produce a ledger export on a kvutils ledger by setting ${LedgerDataExporter.EnvironmentVariableName}=/path/to/file${System.lineSeparator}")
       help("help")
       arg[Path]("PATH")
-        .text("The path to the ledger export file.")
+        .text("The path to the ledger export file (uncompressed).")
         .action((exportFilePath, config) => config.copy(exportFilePath = exportFilePath))
       opt[Unit]("skip-byte-comparison")
         .text("Skips the byte-for-byte comparison. Useful when comparing behavior across versions.")
@@ -41,6 +44,16 @@ object Config {
         .text(
           "Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally.")
         .action((_, config) => config.copy(sortWriteSet = true))
+      opt[Unit]("index-only")
+        .text(
+          "Run only the indexing step of the integrity checker (useful tp benchmark the indexer).")
+        .action((_, config) => config.copy(indexOnly = true))
+      opt[String]("jdbc-url")
+        .text("External JDBC URL (useful for running against PostgreSQL).")
+        .action((jdbcUrl, config) => config.copy(jdbcUrl = Some(jdbcUrl)))
+      opt[Unit]("report-metrics")
+        .text("Print all registered metrics.")
+        .action((_, config) => config.copy(reportMetrics = true))
     }
 
   def parse(args: Seq[String]): Option[Config] =

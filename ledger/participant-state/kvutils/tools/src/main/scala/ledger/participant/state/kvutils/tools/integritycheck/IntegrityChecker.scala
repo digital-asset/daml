@@ -37,6 +37,7 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.google.protobuf.ByteString
 
 import scala.PartialFunction.condOpt
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.util.{Failure, Success}
 
@@ -48,7 +49,13 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       importer: LedgerDataImporter,
       config: Config,
   )(implicit executionContext: ExecutionContext, materializer: Materializer): Future[Unit] = {
-    if (!config.performByteComparison) {
+
+    if (config.indexOnly)
+      println("Running indexing only".white)
+    else
+      println("Running full integrity check".white)
+
+    if (config.indexOnly || !config.performByteComparison) {
       println("Skipping byte-for-byte comparison.".yellow)
       println()
     }
@@ -79,7 +86,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       stateUpdates,
       metrics,
     ).andThen {
-      case _ =>
+      case _ if config.reportMetrics =>
         reportDetailedMetrics(metricRegistry)
     }
   }
@@ -106,19 +113,25 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
         config,
       )
       _ <- stateUpdates.compare()
+      _ <- if (!config.indexOnly) stateUpdates.compare() else Future.unit
       _ <- indexStateUpdates(
-        config.exportFileName,
-        metrics,
-        actualReadServiceFactory.createReadService)
+        exportFileName = config.exportFileName,
+        metrics = metrics,
+        readService =
+          if (config.indexOnly)
+            expectedReadServiceFactory.createReadService
+          else
+            actualReadServiceFactory.createReadService,
+      )
     } yield ()
 
   private def indexStateUpdates(
-      name: String,
+      exportFileName: String,
       metrics: Metrics,
       readService: ReplayingReadService,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
-    val jdbcUrl = s"jdbc:h2:mem:$name;db_close_delay=-1;db_close_on_exit=false"
-    val config = IndexerConfig(
+    val jdbcUrl = s"jdbc:h2:mem:$exportFileName;db_close_delay=-1;db_close_on_exit=false"
+    val indexerConfig = IndexerConfig(
       participantId = ParticipantId.assertFromString("IntegrityCheckerParticipant"),
       jdbcUrl = jdbcUrl,
       startupMode = IndexerStartupMode.MigrateAndStart,
@@ -131,11 +144,18 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     newLoggingContext { implicit loggingContext =>
       val feedHandleResourceOwner = for {
         indexerFactory <- ResourceOwner
-          .forFuture(() =>
-            migrateAndStartIndexer(config, readService, metrics, LfValueTranslation.Cache.none))
+          .forFuture(
+            () =>
+              migrateAndStartIndexer(
+                indexerConfig,
+                readService,
+                metrics,
+                LfValueTranslation.Cache.none,
+            )
+          )
         indexer <- indexerFactory
         feedHandle <- indexer.subscription(readService)
-      } yield feedHandle
+      } yield (feedHandle, System.nanoTime())
 
       // Wait for the indexer to finish consuming the state updates.
       // This works because ReplayingReadService.stateUpdates() closes the update stream
@@ -143,12 +163,18 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       // completes when it finishes consuming the state update stream.
       // Any failure (e.g., during the decoding of the recorded state updates, or
       // during the indexing of a state update) will result in a failed Future.
-      feedHandleResourceOwner.use(_.completed())
+      feedHandleResourceOwner.use {
+        case (feedHandle, startTime) => Future.successful(startTime).zip(feedHandle.completed())
+      }
     }.transform {
-      case Success(value) =>
-        println(s"Successfully indexed all updates.".green)
-        println()
-        Success(value)
+      case Success((startTime, _)) =>
+        Success {
+          println("Successfully indexed all updates.".green)
+          val durationSeconds = Duration.fromNanos(System.nanoTime() - startTime).toSeconds
+          val updatesPerSecond = readService.updateCount() / durationSeconds.toDouble
+          println()
+          println(s"Indexing duration: $durationSeconds seconds ($updatesPerSecond updates/second)")
+        }
       case Failure(exception) =>
         val message =
           s"""Failure indexing updates: $exception
@@ -182,29 +208,31 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
               + s" submissionEnvelopeSize=${submissionInfo.submissionEnvelope.size()}"
               + s" writeSetSize=${expectedWriteSet.size}"
           )
-          for {
-            _ <- submissionValidator.validateAndCommit(
+          expectedReadServiceFactory.appendBlock(expectedWriteSet)
+          if (!config.indexOnly) {
+            submissionValidator.validateAndCommit(
               submissionInfo.submissionEnvelope,
               submissionInfo.correlationId,
               submissionInfo.recordTimeInstant,
               submissionInfo.participantId,
               reader,
               commitStrategy,
-            )
-            actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
-            orderedActualWriteSet = if (config.sortWriteSet) {
-              actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
-            } else {
-              actualWriteSet
+            ) map { _ =>
+              val actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
+              val orderedActualWriteSet =
+                if (config.sortWriteSet)
+                  actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
+                else
+                  actualWriteSet
+              actualReadServiceFactory.appendBlock(orderedActualWriteSet)
+
+              if (config.performByteComparison) {
+                compareWriteSets(expectedWriteSet, orderedActualWriteSet)
+              }
             }
-            _ = expectedReadServiceFactory.appendBlock(expectedWriteSet)
-            _ = actualReadServiceFactory.appendBlock(orderedActualWriteSet)
-            _ = if (config.performByteComparison) {
-              compareWriteSets(expectedWriteSet, orderedActualWriteSet)
-            } else {
-              ()
-            }
-          } yield ()
+          } else {
+            Future.unit
+          }
       }
       .runWith(Sink.fold(0)((n, _) => n + 1))
       .map { counter =>
