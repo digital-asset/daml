@@ -61,7 +61,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         assertGrpcError(
           lookupByKeyFailure,
           Status.Code.INVALID_ARGUMENT,
-          Some(Pattern.compile("Inconsistent")))
+          Some(Pattern.compile("Disputed|Inconsistent")))
       }
   })
 
@@ -107,7 +107,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         assertGrpcError(
           lookupByKeyFailure,
           Status.Code.INVALID_ARGUMENT,
-          Some(Pattern.compile("Inconsistent")))
+          Some(Pattern.compile("Disputed|Inconsistent")))
       }
   })
 
@@ -176,7 +176,7 @@ final class ContractKeysIT extends LedgerTestSuite {
         assertGrpcError(
           duplicateKeyFailure,
           Status.Code.INVALID_ARGUMENT,
-          Some(Pattern.compile("Inconsistent")))
+          Some(Pattern.compile("DuplicateKey|Inconsistent")))
         assertGrpcError(
           bobLooksUpTextKeyFailure,
           Status.Code.INVALID_ARGUMENT,
