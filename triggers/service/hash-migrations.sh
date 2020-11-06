@@ -9,4 +9,4 @@ shopt -s globstar
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 "$DIR"/../../libs-scala/flyway-testing/hash-migrations.sh \
-  "$DIR"/src/main/resources/com/daml/ledger/on/sql/migrations/**/*.sql
+  "$DIR"/src/main/resources/com/daml/lf/engine/trigger/db/migration/**/*.sql
