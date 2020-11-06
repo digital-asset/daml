@@ -758,6 +758,7 @@ private[validation] object Typing {
     }
 
     private def typeOfFetch(tpl: TypeConName, cid: Expr): Type = {
+      lookupTemplate(ctx, tpl)
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
     }

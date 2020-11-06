@@ -33,7 +33,7 @@ private[validation] object SpecUtil {
     '⟨' -> "<",
     '⟩' -> ">",
     '⸨' -> "( loc(Test, test, 0, 0, 0, 0)( ",
-    '⸩' -> " ))"
+    '⸩' -> " ))",
   )
 
   implicit class SyntaxHelper2(val sc: StringContext) extends AnyVal {

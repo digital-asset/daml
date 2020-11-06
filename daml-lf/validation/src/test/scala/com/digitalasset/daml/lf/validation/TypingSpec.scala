@@ -319,16 +319,14 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpTyApp
         E"Λ (τ : ⋆ → ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → ⸨ e @τ ⸩" -> //
           { case _: EKindMismatch => },
-//        E"Λ (τ : ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆ → ⋆). σ α) → ⸨ e @τ ⸩" -> //
-//          { case _: EKindMismatch => },
         // ExpAbs
-//        E"Λ  (τ : ⋆ → ⋆) (σ: ⋆) . λ (e: τ → σ) → ⸨ λ (x : τ) → e x ⸩" -> //
-//          { case _: EKindMismatch => },
+        E"⸨ λ (x : List) → () ⸩" -> //
+          { case _: EKindMismatch => },
         // ExpLet
         E"Λ  (τ₁: ⋆) (τ₂ : ⋆) (σ: ⋆). λ (e₁ : τ₁) (e₂ : σ) → ⸨ let x : τ₂ = e₁ in e₂ ⸩" -> //
           { case _: ETypeMismatch => },
-//        E"Λ (τ : ⋆ → ⋆) (σ: ⋆). λ (e₁ : τ) (e₂ : τ → σ) → ⸨ let x : τ = e₁ in e₂ x ⸩" -> //
-//          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆ → ⋆) . ⸨ let x : τ = nothing in nothing ⸩" -> //
+          { case _: EKindMismatch => },
         // ExpLitDecimal
 //        E"λ (f: Numeric 0 → Unit) → f ⸨ 3.1415926536 ⸩" -> //
 //          { case _: ETypeMismatch => },
@@ -336,8 +334,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆ → ⋆). ⸨ Nil @τ ⸩" -> //
           { case _: EKindMismatch => },
         // ExpListCons
-//        E"Λ (τ : ⋆ → ⋆). λ (e₁ : τ) (e₂ : τ) (e : List τ) → ⸨ Cons @τ [e₁, e₂] e ⸩" -> //
-//          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆ → ⋆). ⸨ Cons @τ [nothing] nothing ⸩" -> //
+          { case _: EKindMismatch => },
         E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e₂ : τ₁) (e : List τ₁) → ⸨ Cons @τ₁ [e₁, e₂] e ⸩" -> //
           { case _: ETypeMismatch => },
         E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e : List τ₁) → ⸨ Cons @τ₁ [e₁] e ⸩" -> //
@@ -352,12 +350,14 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           { case _: EEmptyConsFront => },
         //ExpVal
         E"⸨ Mod:g ⸩" -> //
-          { case _: EUnknownDefinition => },
+          { case EUnknownDefinition(_, LEDataType(_)) => },
+        E"⸨ Mod:R ⸩" -> //
+          { case EUnknownDefinition(_, LEValue(_)) => },
         //ExpRecCon
-//        E"Λ (σ : ⋆). λ (e₁ : Bool) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁, f2 = e₂ } ⸩" -> //
-//          { case _: ETypeMismatch => },
-//        E"Λ (σ : ⋆ → ⋆). λ (e₁ : Int64) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁, f2 = e₂ } ⸩" -> //
-//          { case _: EKindMismatch => },
+        E"Λ (σ : ⋆). λ (e₁ : Bool) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁, f2 = e₂ } ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆ → ⋆). λ (e₁ : Int64) → ⸨ Mod:R @σ { f1 = e₁, f2 = nothing } ⸩" -> //
+          { case _: EKindMismatch => },
         E"Λ (σ : ⋆). λ (e₁ : Int64) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁, f3 = e₂ } ⸩" -> //
           { case _: EFieldMismatch => },
         E"Λ (σ : ⋆). λ (e₁ : Int64) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁ } ⸩" -> //
@@ -365,8 +365,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (σ : ⋆) (τ: ⋆). λ (e₁ : Int64) (e₂ : List σ) (e₃:τ) → ⸨ Mod:R @σ { f1 = e₁, f2 = e₂, f3 = e₃} ⸩" -> //
           { case _: EFieldMismatch => },
         // ExpRecProj
-//        E"Λ (σ : ⋆ → ⋆). λ (e : Mod:R σ) → ⸨ Mod:R @σ {f2} e⸩" -> //
-//          { case _: EKindMismatch => },
+        E"Λ (σ : ⋆ → ⋆). ⸨ Mod:R @σ {f2} nothing⸩" -> //
+          { case _: EKindMismatch => },
         E"Λ (σ : ⋆). λ (e : Mod:R σ) → ⸨ Mod:R @σ {f3} e ⸩" -> //
           { case _: EUnknownField => },
         // ExpRecUpdate
@@ -375,8 +375,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (σ : ⋆). λ (e : Mod:R σ) (e₂ : Bool) → ⸨ Mod:R @σ { e  with f2 = e₂ } ⸩" -> //
           { case _: ETypeMismatch => },
         // ExpVarCon
-//        E"Λ (σ : ⋆ → ⋆). λ (e : σ) → ⸨ Mod:Tree:Leaf @σ e ⸩" -> //
-//          { case _: EKindMismatch => },
+        E"Λ (σ : ⋆ → ⋆). ⸨ Mod:Tree:Leaf @σ nothing ⸩" -> //
+          { case _: EKindMismatch => },
         E"Λ (σ : ⋆). λ (e : σ) → ⸨ Mod:Tree:Leaf @σ (Cons @σ [e] (Nil @σ⸩ ⸩" -> //
           { case _: ETypeMismatch => },
         // ExpStructCon
@@ -444,17 +444,15 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"⸨ type_rep @(∀(τ : *) . Int64) ⸩" -> //
           { case _: EExpectedAnyType => },
         // ScnPure
-//        E"Λ (τ : ⋆ → ⋆). λ (e: τ) → ⸨ spure @τ e ⸩" -> //
-//          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆ → ⋆). ⸨ spure @τ nothing ⸩" -> //
+          { case _: EKindMismatch => },
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → ⸨ spure @σ e ⸩" -> //
           { case _: ETypeMismatch => },
         // ScnBlock
-//        E"Λ (τ : ⋆ → ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
-//          { case _: EKindMismatch => },
-//        E"Λ (τ : ⋆) (τ₂ : ⋆ → ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
-//          { case _: EKindMismatch => },
-//        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆ → ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
-//          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆ → ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← nothing in e ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆ → ⋆). λ (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← nothing ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: EKindMismatch => },
         E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁:  τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
           { case _: ETypeMismatch => },
         E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂:τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
@@ -466,8 +464,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: σ ← e₂ in e ⸩" -> //
           { case _: ETypeMismatch => },
         // ScnCommit
-//        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) (e₂: Update τ) → ⸨ commit @τ e₁ e₂ ⸩" -> //
-//          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) → ⸨ commit @τ e₁ nothing ⸩" -> //
+          { case _: EKindMismatch => },
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: σ) (e₂: Update τ) → ⸨ commit @τ e₁ e₂ ⸩" -> //
           { case _: ETypeMismatch => },
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → ⸨ commit @τ e₁ e₂ ⸩" -> //
@@ -477,8 +475,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update τ) → ⸨ commit @σ e₁ e₂ ⸩" -> //
           { case _: ETypeMismatch => },
         // ScnMustFail
-//        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) (e₂: Update τ) → ⸨ must_fail_at @τ e₁ e₂ ⸩" -> //
-//          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) → ⸨ must_fail_at @τ e₁ nothing ⸩" -> //
+          { case _: EKindMismatch => },
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: σ) (e₂: Update τ) → ⸨ must_fail_at @τ e₁ e₂ ⸩" -> //
           { case _: ETypeMismatch => },
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → ⸨ must_fail_at @τ e₁ e₂ ⸩" -> //
@@ -499,17 +497,15 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ sembed_expr @τ e ⸩" -> //
           { case _: ETypeMismatch => },
         //  UpdPure
-//        E"Λ (τ : ⋆ → ⋆). λ (e: τ) → ⸨ upure @τ e ⸩" -> //
-//          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆ → ⋆). ⸨ upure @τ nothing ⸩" -> //
+          { case _: EKindMismatch => },
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → ⸨ upure @σ e ⸩" -> //
           { case _: ETypeMismatch => },
         // UpdBlock
-//        E"Λ (τ : ⋆ → ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Update τ₁) (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
-//          { case _: EKindMismatch => },
-//        E"Λ (τ : ⋆) (τ₂ : ⋆ → ⋆) (τ₁ : ⋆). λ (e₁: Update τ₁) (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
-//          { case _: EKindMismatch => },
-//        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆ → ⋆). λ (e₁: Update τ₁) (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
-//          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆ → ⋆) (τ₁ : ⋆). λ (e₁: Update τ₁) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← nothing in e ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆ → ⋆). λ (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← nothing ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: EKindMismatch => },
         E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁:  τ₁) (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
           { case _: ETypeMismatch => },
         E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Update τ₁) (e₂:τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
@@ -521,13 +517,15 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Update τ₁) (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: σ ← e₂ in e ⸩" -> //
           { case _: ETypeMismatch => },
         // UpdCreate
-//        E"λ (e: Mod:R) → ⸨ create @Mod:R e⸩" -> //
-//          { case _: EKindMismatch => },
+        E"⸨ create @Mod:S noting ⸩" -> //
+          { case EUnknownDefinition(_, LETemplate(_)) => },
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ create @Mod:T e ⸩" -> //
+          { case _: ETypeMismatch => },
         // UpdExercise
-//        E"λ (e₁: ContractId Mod:R) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:R Ch e₁ e₂ e₃ ⸩" -> //
-//          { case _: EKindMismatch => },
+        E"λ (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:S Ch nothing e₂ e₃ ⸩" -> //
+          { case EUnknownDefinition(_, LETemplate(_)) => },
         E"λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:T Not e₁ e₂ e₃ ⸩" -> //
-          { case _: EUnknownDefinition => },
+          { case EUnknownDefinition(_, LEChoice(_, _)) => },
         E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: σ) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
           { case _: ETypeMismatch => },
         E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List σ) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
@@ -535,11 +533,15 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: σ) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
           { case _: ETypeMismatch => },
         // FecthByKey & lookupByKey
+        E"""⸨fetch_by_key @Mod:S "Bob"⸩""" -> //
+          { case EUnknownDefinition(_, LETemplate(_)) => },
         E"""⸨fetch_by_key @Mod:T "Bob"⸩""" -> //
           { case _: ETypeMismatch => },
         E"""⸨lookup_by_key @Mod:T "Bob"⸩""" -> //
           { case _: ETypeMismatch => },
         // UpdFetch
+        E"Λ (σ : ⋆). λ (e: ContractId Mod:S) → ⸨ fetch @Mod:S e ⸩" -> //
+          { case EUnknownDefinition(_, LETemplate(_)) => },
         E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch @Mod:T e ⸩" -> //
           { case _: ETypeMismatch => },
         // ScenarioEmbedExpr
@@ -1058,8 +1060,10 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
          synonym SynPair (a: *) (b: *) = <one: a, two: b>;
          synonym SynHigh (f: * -> *) = f Int64 ;
          synonym SynHigh2 (f: * -> * -> *) (a: *) = f a a ;
-
-         record T = {person: Party, name: Text };
+           
+         record @serializable S = { person: Party, name: Text };
+         
+         record @serializable T = { person: Party, name: Text };
          template (this : T) =  {
            precondition True,
            signatories Cons @Party ['Bob'] Nil @Party,
