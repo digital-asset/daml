@@ -105,15 +105,19 @@ updatePath installOpts output targetPath
                     stdoutIsTerminal <- hIsTerminalDevice stdout
                     if stdinIsTerminal && stdoutIsTerminal
                       then do
-                        answer <- prompt "Add DAML Assistant executable to your PATH?" "Yes" ["No"]
-                        when (answer `elem` ["Yes", "yes", "y", "Y"]) $ appendFile cfgFile cmd
+                        answer <- prompt output ("Add DAML Assistant executable to your PATH (in " ++ configFile ++ ")?") "Yes" ["No"]
+                        when (answer `elem` ["Yes", "yes", "y", "Y"]) $ doUpdatePath cfgFile cmd
                       else output setPathManualMsg
-                  Yes -> appendFile cfgFile cmd
+                  Yes -> doUpdatePath cfgFile cmd
                   No -> error "updatePath: impossible case match"
-                  -- this can't happen because the `No` case is already handled above.
             else output setPathManualMsg
   where
     setPathManualMsg = "Please add " <> targetPath <> " to your PATH."
+    doUpdatePath cfg cmd = do
+      appendFile cfg cmd
+      output $
+        "Your " <> cfg <>
+        " has been updated. You need to logout and login again for the change to take effect."
 #endif
 
 suggestAddToPath :: (String -> IO ()) -> FilePath -> IO ()
@@ -123,9 +127,9 @@ suggestAddToPath output targetPath = do
     when (targetPath `notElem` searchPaths) $ do
         output ("Please add " <> targetPath <> " to your PATH.")
 
-prompt :: String -> String -> [String] -> IO String
-prompt msg def others = do
-  putStrLn $ msg <> (unwords $ " [" <> def <> "]" : others)
+prompt :: (String -> IO ()) -> String -> String -> [String] -> IO String
+prompt output msg def others = do
+  output $ msg <> (unwords $ " [" <> def <> "]" : others)
   ans <- getLine
   return $
     if null ans
@@ -135,7 +139,7 @@ prompt msg def others = do
 shellConfig :: String -> FilePath -> Maybe (FilePath, String)
 shellConfig shell targetPath =
   case shell of
-    "zsh" -> Just (".zshrc", "export PATH=$PATH:" <> targetPath)
-    "bash" -> Just (".bashrc", "export PATH=$PATH:" <> targetPath)
+    "zsh" -> Just (".profile", "export PATH=$PATH:" <> targetPath)
+    "bash" -> Just (".profile", "export PATH=$PATH:" <> targetPath)
     _other -> Nothing
 
