@@ -56,7 +56,8 @@ message Commands {
   // Required
   repeated Command commands = 8;
 
-  // The length of the time window during which all commands with the same party and command ID will be deduplicated.
+  // The length of the time window during which all commands with the same ``act_as`` parties and
+  // the same command ID will be deduplicated.
   // Duplicate commands submitted before the end of this window return an ALREADY_EXISTS error.
   // Optional
   google.protobuf.Duration deduplication_time = 9;
@@ -77,8 +78,7 @@ message Commands {
   // Set of parties on whose behalf the command should be executed. It is up to the server to verify that the
   // authorisation can be granted and that the connection has been authenticated for the given set of parties.
   // This field supersedes the ``party`` field. The effective set of parties on whose behalf the command
-  // should be executed is the union of all parties listed in ``party`` and ``act_as``. This set must not be
-  // empty.
+  // should be executed is the union of all parties listed in ``party`` and ``act_as``, which must be non-empty.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Optional
   repeated string act_as = 12;
@@ -87,7 +87,8 @@ message Commands {
   // This affects DAML operations such as ``fetch``, ``fetchByKey``, ``lookupByKey``, ``exercise``, and ``exerciseByKey``.
   // Note: A participant node of a DAML network can host multiple parties. Each contract present on the participant
   // node is only visible to a subset of these parties. A command can only use contracts that are visible to at least
-  // one of the parties in ``act_as`` or ``read_as``.
+  // one of the parties in ``act_as`` or ``read_as``. This visibility check is independent from the DAML authorization
+  // rules for fetch operations.
   // Optional
   repeated string read_as = 13;
 }
