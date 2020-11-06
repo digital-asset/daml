@@ -8,9 +8,11 @@ import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.scalatest.AsyncForAll
 import org.scalatest.{AsyncWordSpec, Matchers}
+import scalaz.syntax.std.boolean._
 
 import scala.collection.immutable.Seq
-import scala.concurrent.duration.Duration.Zero
+import scala.concurrent.duration._
+import Duration.Zero
 import scala.concurrent.Future
 
 class RunnerSpec extends AsyncWordSpec with Matchers with AsyncForAll with AkkaBeforeAndAfterAll {
@@ -18,6 +20,8 @@ class RunnerSpec extends AsyncWordSpec with Matchers with AsyncForAll with AkkaB
 
   "retrying" should {
     import Future.{successful => okf}
+
+    val trialCount = 5
 
     def runItThrough[A, B](xs: Seq[A])(flow: Flow[A, B, _]): Future[Seq[B]] =
       Source(xs).via(flow).runWith(Sink.seq)
@@ -30,14 +34,25 @@ class RunnerSpec extends AsyncWordSpec with Matchers with AsyncForAll with AkkaB
         .map(_ shouldBe empty)
     }
 
-    "ignore retryable function if no retries" in forAllAsync(trials = 5) { xs: Seq[Int] =>
+    "ignore retryable function if no retries" in forAllAsync(trialCount) { xs: Seq[Int] =>
       runItThrough(xs)(retrying(1, _ => Zero, 8, _ => fail("retried"), a => okf(a + 42)))
         .map(_ should ===(xs map (_ + 42)))
     }
 
-    "not retry if retryable succeeded" in forAllAsync(trials = 5) { xs: Seq[Int] =>
+    "not retry if retryable succeeded" in forAllAsync(trialCount) { xs: Seq[Int] =>
       runItThrough(xs)(retrying(2, _ => Zero, 8, a => okf(Some(a + 42)), a => okf(a - 42)))
         .map(_ should ===(xs map (_ + 42)))
+    }
+
+    "retry if failed" in forAllAsync(trialCount) { xs: Seq[Int] =>
+      runItThrough(xs)(
+        retrying(
+          2,
+          _ => 10.milliseconds,
+          8,
+          a => okf((a % 2 == 0) option (a - 42)),
+          a => okf(a + 42)))
+        .map(_ should contain theSameElementsAs xs.map(n => n + (if (n % 2 == 0) -42 else 42)))
     }
   }
 }
