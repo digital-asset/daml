@@ -89,12 +89,12 @@ da_scala_test(
         "//ledger/ledger-api-health",
         "//ledger/metrics",
         "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_mockito_mockito_core",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
