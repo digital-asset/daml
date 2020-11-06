@@ -13,8 +13,7 @@ case class Config(
     performByteComparison: Boolean,
     sortWriteSet: Boolean,
 ) {
-  // This needs to be lazy because `exportFilePath` is `null` in `ParseInput`.
-  lazy val name: String = exportFilePath.getFileName.toString
+  def exportFileName: String = exportFilePath.getFileName.toString
 }
 
 object Config {
@@ -34,14 +33,14 @@ object Config {
       help("help")
       arg[Path]("PATH")
         .text("The path to the ledger export file.")
-        .action((x, c) => c.copy(exportFilePath = x))
+        .action((exportFilePath, config) => config.copy(exportFilePath = exportFilePath))
       opt[Unit]("skip-byte-comparison")
         .text("Skips the byte-for-byte comparison. Useful when comparing behavior across versions.")
-        .action((_, c) => c.copy(performByteComparison = false))
+        .action((_, config) => config.copy(performByteComparison = false))
       opt[Unit]("sort-write-set")
         .text(
           "Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally.")
-        .action((_, c) => c.copy(sortWriteSet = true))
+        .action((_, config) => config.copy(sortWriteSet = true))
     }
 
   def parse(args: Seq[String]): Option[Config] =
