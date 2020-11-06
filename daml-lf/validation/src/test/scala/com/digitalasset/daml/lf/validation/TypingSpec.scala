@@ -302,6 +302,14 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     }
 
     "reject ill formed terms" in {
+
+      // In the following test cases we use the variable `nothing` when we
+      // cannot built an expression of the expected type. In those cases we
+      // expect the type checker to fail with the error we are testing before
+      // it tries to type check the variable `nothing`.
+      // Expressions of type τ, where τ has kind ⋆ → ⋆, are examples of
+      // such expressions that cannot be constructed.
+
       val testCases = Table[Expr, PartialFunction[ValidationError, _]](
         "non-well formed expression" -> "error",
         // ExpDefVar
