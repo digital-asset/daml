@@ -169,6 +169,7 @@ trait AuthMiddlewareFixture
       // TODO[AH] Choose application ID, see https://github.com/digital-asset/daml/issues/7671
       applicationId = None,
       jwtSecret = authSecret,
+      parties = None,
     )
     resource = new OwnedResource(new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
