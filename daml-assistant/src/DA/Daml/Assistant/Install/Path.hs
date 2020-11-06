@@ -7,10 +7,13 @@ module DA.Daml.Assistant.Install.Path
     ) where
 
 import Control.Monad
+import System.FilePath
+
+#ifndef mingw32_HOST_OS
 import System.Directory
 import System.Environment
-import System.FilePath
 import System.IO
+#endif
 
 #ifdef mingw32_HOST_OS
 import Control.Exception.Safe
