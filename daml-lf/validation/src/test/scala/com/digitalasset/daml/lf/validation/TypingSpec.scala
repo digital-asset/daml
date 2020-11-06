@@ -265,7 +265,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "shadow variables properly" in {
+    "handle variable scope properly" in {
 
       val testCases = Table(
         "expression" ->
@@ -278,6 +278,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"∀ (τ : ⋆) (σ : ⋆). σ → (( τ → τ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁ : τ) (e₂: σ) → (( let x : τ = e₁ in let x : σ = e₂ in x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). τ → σ → (( σ ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (f : σ → τ) (x: σ) → (( let x : τ = f x in x ))" ->
+          T"∀ (τ : ⋆) (σ : ⋆). (σ → τ) → σ → (( τ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( λ (x : τ) → case e of Cons x t → x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). List σ → (( τ → σ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( case e of Cons x t → λ (x : τ) → x ))" ->
@@ -288,12 +290,16 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"∀ (τ : ⋆) (σ : ⋆). Scenario σ → (( τ → Scenario σ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Scenario τ) (e₂: Scenario σ)  → (( sbind x: τ ← e₁ ; x: σ ← e₂ in spure @σ x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Scenario τ → Scenario σ → (( Scenario σ ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (f : σ → τ) (x: σ) → (( sbind x : τ ← spure @τ (f x) in spure @τ x ))" ->
+          T"∀ (τ : ⋆) (σ : ⋆). (σ → τ) → σ → (( Scenario τ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: Update σ) → (( ubind x: σ ← e in upure @(τ → τ) (λ (x : τ) → x) ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Update σ → (( Update (τ  → τ) ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: Update σ) → (( λ (x : τ) → ubind x: σ ← e in upure @σ x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Update σ → (( τ → Update σ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Update τ) (e₂: Update σ)  → (( ubind x: τ ← e₁ ; x: σ ← e₂ in upure @σ x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Update τ → Update σ → (( Update σ ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (f : σ → τ) (x: σ) → (( ubind x : τ ← upure @τ (f x) in upure @τ x ))" ->
+          T"∀ (τ : ⋆) (σ : ⋆). (σ → τ) → σ → (( Update τ ))",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
