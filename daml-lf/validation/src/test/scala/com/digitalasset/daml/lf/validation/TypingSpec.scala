@@ -76,7 +76,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           "expected type",
         // ExpDefVar
         E"Λ (τ : ⋆) (σ: ⋆). λ (x: σ) → λ (x: τ) → (( x ))" ->
-          T"∀ (τ: ⋆) (σ: ⋆). σ → τ → (( τ ))",
+          T"∀ (τ: ⋆) (σ:⋆). σ → τ → (( τ ))",
         // ExpApp
         E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₁ → τ₂) (e₂ : τ₁) → (( e₁ e₂ ))" ->
           T"∀ (τ₁: ⋆) (τ₂ : ⋆) . (τ₁ → τ₂) → τ₁ → (( τ₂ ))",
