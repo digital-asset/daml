@@ -3,39 +3,81 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.validator.LedgerStateOperations
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlLogEntry,
+  DamlLogEntryId,
+  DamlPartyAllocationEntry
+}
+import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.v1
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
-import org.junit.runner.RunWith
-import org.scalatest.junit.JUnitRunner
-import org.scalatest.{AsyncFunSuite, AsyncWordSpec, Matchers}
+import org.scalatest.{AsyncWordSpec, Matchers}
 
-@RunWith(classOf[JUnitRunner])
+import scala.concurrent.duration.Duration
+
 class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matchers {
+
   "LogAppendingReadServiceFactory" should {
     "handle empty blocks" in {
-      val actorSystem: ActorSystem = ActorSystem("LogAppendingReadServiceFactorySpec")
-      implicit val materializer: Materializer = Materializer(actorSystem)
-      val metrics = new Metrics(new MetricRegistry)
-      val factory = new LogAppendingReadServiceFactory(metrics)
-
-      // Append empty WriteSet
+      val factory = createFactory()
       factory.appendBlock(Seq.empty)
 
-      // Append WriteSet consisting entirely of unknown keys
-      val unknownKey: LedgerStateOperations.Key = ByteString.copyFromUtf8("???")
-      val emptyValue: LedgerStateOperations.Value = ByteString.EMPTY
-      factory.appendBlock(List(unknownKey -> emptyValue))
-
-      // Check that all state updates can be served
       factory.createReadService
         .stateUpdates(None)
         .runWith(Sink.fold(0)((n, _) => n + 1))
         .map(count => count shouldBe 0)
     }
+
+    "handle non-empty blocks" in {
+      val factory = createFactory()
+      factory.appendBlock(List(aSerializedLogEntryId -> aWrappedLogEntry))
+
+      factory.createReadService
+        .stateUpdates(None)
+        .runWith(Sink.seq)
+        .map { updates =>
+          updates.size shouldBe 1
+          updates.head._2 should be(aPartyAddedToParticipantUpdate)
+        }
+    }
   }
+
+  private def createFactory() = new LogAppendingReadServiceFactory(metrics)
+  private lazy val actorSystem: ActorSystem = ActorSystem("LogAppendingReadServiceFactorySpec")
+  private lazy implicit val materializer: Materializer = Materializer(actorSystem)
+  private lazy val metrics = new Metrics(new MetricRegistry)
+
+  private val AnEntryId = "AnEntryId"
+  private lazy val aLogEntryId =
+    DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8(AnEntryId)).build()
+  private lazy val aSerializedLogEntryId = aLogEntryId.toByteString
+
+  private lazy val APartyName = "aParty"
+  private lazy val AParticipantId = "aParticipant"
+  private lazy val ATimestampInSeconds = 1234L
+  private lazy val aLogEntry = DamlLogEntry
+    .newBuilder()
+    .setPartyAllocationEntry(
+      DamlPartyAllocationEntry.newBuilder().setParty(APartyName).setParticipantId(AParticipantId))
+    .setRecordTime(com.google.protobuf.Timestamp.newBuilder.setSeconds(ATimestampInSeconds))
+    .build()
+
+  private lazy val aPartyAddedToParticipantUpdate = v1.Update.PartyAddedToParticipant(
+    Ref.Party.assertFromString(APartyName),
+    "",
+    Ref.ParticipantId.assertFromString(AParticipantId),
+    Timestamp.assertFromLong(Duration(ATimestampInSeconds, TimeUnit.SECONDS).toMicros),
+    None,
+  )
+
+  private lazy val aWrappedLogEntry = Envelope.enclose(aLogEntry)
 }
