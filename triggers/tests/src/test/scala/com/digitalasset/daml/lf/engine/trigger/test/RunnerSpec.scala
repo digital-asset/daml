@@ -35,12 +35,12 @@ class RunnerSpec extends AsyncWordSpec with Matchers with AsyncForAll with AkkaB
     }
 
     "ignore retryable function if no retries" in forAllAsync(trialCount) { xs: Seq[Int] =>
-      runItThrough(xs)(retrying(1, _ => Zero, 8, _ => fail("retried"), a => okf(a + 42)))
+      runItThrough(xs)(retrying(1, _ => Zero, 1, _ => fail("retried"), a => okf(a + 42)))
         .map(_ should ===(xs map (_ + 42)))
     }
 
     "not retry if retryable succeeded" in forAllAsync(trialCount) { xs: Seq[Int] =>
-      runItThrough(xs)(retrying(2, _ => Zero, 8, a => okf(Some(a + 42)), a => okf(a - 42)))
+      runItThrough(xs)(retrying(2, _ => Zero, 1, a => okf(Some(a + 42)), a => okf(a - 42)))
         .map(_ should ===(xs map (_ + 42)))
     }
 
