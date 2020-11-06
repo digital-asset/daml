@@ -42,7 +42,7 @@ import           Data.List.Extended
 import Data.Generics.Uniplate.Data (para)
 import qualified Data.HashSet as HS
 import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
+import qualified Data.IntSet as IntSet
 import           Safe.Exact (zipExactMay)
 
 import           DA.Daml.LF.Ast
@@ -381,24 +381,27 @@ typeOfTyLam :: MonadGamma m => (TypeVarName, Kind) -> Expr -> m Type
 typeOfTyLam (tvar, kind) expr = TForall (tvar, kind) <$> introTypeVar tvar kind (typeOf expr)
 
 -- | Type to track which constructor ranks have be covered in a pattern matching.
-data MatchedRanks = AllRanks | SomeRanks !(Set.Set Int)
+data MatchedRanks = AllRanks | SomeRanks !IntSet.IntSet
 
 emptyMR :: MatchedRanks
-emptyMR = SomeRanks Set.empty
+emptyMR = SomeRanks IntSet.empty
 
 singletonMR :: Int -> MatchedRanks
-singletonMR k = SomeRanks (Set.singleton k)
+singletonMR k = SomeRanks (IntSet.singleton k)
 
 unionMR :: MatchedRanks -> MatchedRanks -> MatchedRanks
 unionMR AllRanks _ = AllRanks
 unionMR _ AllRanks = AllRanks
-unionMR (SomeRanks ks) (SomeRanks ls) = SomeRanks (ks `Set.union` ls)
+unionMR (SomeRanks ks) (SomeRanks ls) = SomeRanks (ks `IntSet.union` ls)
+
+unionsMR :: [MatchedRanks] -> MatchedRanks
+unionsMR = foldl' unionMR emptyMR
 
 missingMR :: MatchedRanks -> Int -> Maybe Int
 missingMR AllRanks _ = Nothing
 missingMR (SomeRanks ks) n
-    | Set.size ks == n = Nothing
-    | otherwise = Set.lookupMin (Set.fromList [0..n-1] `Set.difference` ks)
+    | IntSet.size ks == n = Nothing
+    | otherwise = IntSet.lookupGE 0 (IntSet.fromList [0..n-1] `IntSet.difference` ks)
 
 typeOfAlts :: MonadGamma m => (CaseAlternative -> m (MatchedRanks, Type)) -> [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAlts f alts = do
@@ -408,8 +411,7 @@ typeOfAlts f alts = do
         t:ts' -> do
             forM_ ts' $ \t' -> unless (alphaType t t') $
                 throwWithContext ETypeMismatch{foundType = t', expectedType = t, expr = Nothing}
-            let k = foldl' unionMR emptyMR ks
-            pure (k, t)
+            pure (unionsMR ks, t)
 
 typeOfAltsVariant :: MonadGamma m => Qualified TypeConName -> [Type] -> [TypeVarName] -> [(VariantConName, Type)] -> [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAltsVariant scrutTCon scrutTArgs tparams cons =
