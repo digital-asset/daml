@@ -38,7 +38,7 @@ import           Control.Lens hiding (Context, para)
 import           Control.Monad.Extra
 import           Data.Foldable
 import           Data.Functor
-import           Data.List
+import           Data.List.Extended
 import Data.Generics.Uniplate.Data (para)
 import qualified Data.HashSet as HS
 import qualified Data.Map.Strict as Map
@@ -399,14 +399,6 @@ missingMR AllRanks _ = Nothing
 missingMR (SomeRanks ks) n
     | Set.size ks == n = Nothing
     | otherwise = Set.lookupMin (Set.fromList [0..n-1] `Set.difference` ks)
-
-lookupWithIndex :: Eq a => a -> [(a, b)] -> Maybe (Int, b)
-lookupWithIndex = go 0
-  where
-    go !_ _ [] = Nothing
-    go !n a0 ((a, b):abs)
-        | a0 == a = Just (n, b)
-        | otherwise = go (n+1) a0 abs
 
 typeOfAlts :: MonadGamma m => (CaseAlternative -> m (MatchedRanks, Type)) -> [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAlts f alts = do
