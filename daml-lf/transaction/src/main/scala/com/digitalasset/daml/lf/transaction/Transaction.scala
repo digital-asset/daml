@@ -33,9 +33,13 @@ final case class VersionedTransaction[Nid, +Cid] private[lf] (
     )
   }
 
+  // O(1)
   override def nodes: Map[Nid, Node.GenNode.WithTxValue[Nid, Cid]] =
+    // Here we use intentionally `mapValues` to get the time/memory complexity of the method constant.
+    // It is fine since the function `_.node` is very cheap.
     versionedNodes.mapValues(_.node)
 
+  // O(1)
   def transaction: GenTransaction[Nid, Cid, Transaction.Value[Cid]] =
     GenTransaction(nodes, roots)
 
