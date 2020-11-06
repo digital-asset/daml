@@ -52,6 +52,7 @@ class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matchers {
   }
 
   private def createFactory() = new LogAppendingReadServiceFactory(metrics)
+
   private lazy val actorSystem: ActorSystem = ActorSystem("LogAppendingReadServiceFactorySpec")
   private lazy implicit val materializer: Materializer = Materializer(actorSystem)
   private lazy val metrics = new Metrics(new MetricRegistry)
