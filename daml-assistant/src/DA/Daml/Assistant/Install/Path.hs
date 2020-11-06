@@ -36,7 +36,7 @@ import DA.Daml.Assistant.Types
 updatePath :: InstallOptions -> (String -> IO ()) -> FilePath -> IO ()
 #ifdef mingw32_HOST_OS
 updatePath installOpts output targetPath
-    | SetPath b <- iSetPath installOpts, not b = suggestAddToPath output targetPath
+    | SetPath No <- iSetPath installOpts = suggestAddToPath output targetPath
     | otherwise = do
     -- Updating PATH on Windows is annoying so we do it automatically.
     bracket (regOpenKeyEx hKEY_CURRENT_USER "Environment" kEY_ALL_ACCESS) regCloseKey $ \envKey -> do
@@ -121,14 +121,6 @@ updatePath installOpts output targetPath
       output $
         "Your " <> cfg <>
         " has been updated. You need to logout and login again for the change to take effect."
-#endif
-
-suggestAddToPath :: (String -> IO ()) -> FilePath -> IO ()
-suggestAddToPath output targetPath = do
-    -- Ask user to add .daml/bin to PATH if it is absent.
-    searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
-    when (targetPath `notElem` searchPaths) $ do
-        output ("Please add " <> targetPath <> " to your PATH.")
 
 prompt :: (String -> IO ()) -> String -> String -> [String] -> IO String
 prompt output msg def others = do
@@ -147,3 +139,11 @@ shellConfig shell targetPath =
     "sh" -> Just (".profile", "export PATH=$PATH:" <> targetPath)
     _other -> Nothing
 
+#endif
+
+suggestAddToPath :: (String -> IO ()) -> FilePath -> IO ()
+suggestAddToPath output targetPath = do
+    -- Ask user to add .daml/bin to PATH if it is absent.
+    searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
+    when (targetPath `notElem` searchPaths) $ do
+        output ("Please add " <> targetPath <> " to your PATH.")
