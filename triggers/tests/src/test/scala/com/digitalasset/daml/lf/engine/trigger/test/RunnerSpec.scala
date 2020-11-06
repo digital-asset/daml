@@ -49,7 +49,7 @@ class RunnerSpec extends AsyncWordSpec with Matchers with AsyncForAll with AkkaB
         retrying(
           2,
           _ => 10.milliseconds,
-          8,
+          16,
           a => okf((a % 2 == 0) option (a - 42)),
           a => okf(a + 42)))
         .map(_ should contain theSameElementsAs xs.map(n => n + (if (n % 2 == 0) -42 else 42)))

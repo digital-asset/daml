@@ -596,8 +596,6 @@ object Runner extends StrictLogging {
     def unapply(v: SPAP): Some[SPAP] = Some(v)
   }
 
-  import UnfoldState.partition
-
   /** Like `CommandRetryFlow` but with no notion of ledger time, and with
     * delay support.
     */
@@ -607,28 +605,16 @@ object Runner extends StrictLogging {
       parallelism: Int,
       retryable: A => Future[Option[B]],
       notRetryable: A => Future[B])(implicit ec: ExecutionContext): Flow[A, B, NotUsed] = {
-    final case class RA(tries: Int, value: A)
-
-    def trial(value: RA): Future[B \/ RA] =
-      if (value.tries <= 1) notRetryable(value.value) map \/.left
-      else retryable(value.value) map (_ toLeftDisjunction value.copy(tries = value.tries - 1))
-    val delay = Flow[RA]
-      .delayWith(() => ra => backoff(initialTries - ra.tries), DelayOverflowStrategy.backpressure)
-      .addAttributes(Attributes.inputBuffer(initial = parallelism, max = parallelism))
-    val runTrial = Flow[RA].mapAsync(parallelism)(trial)
-
-    val graph = GraphDSL.create() { implicit gb =>
-      import GraphDSL.Implicits._
-      val firstTry = gb add Flow.fromFunction(RA(initialTries, _))
-      val emitResults = gb add partition[B, RA]
-      val pickRetryFirst = gb add MergePreferred[RA](1, eagerComplete = true)
-      // format: off
-                  pickRetryFirst.preferred <~ delay <~ emitResults.out1
-      firstTry ~> pickRetryFirst        ~> runTrial ~> emitResults.in
-      // format: on
-      FlowShape(firstTry.in, emitResults.out0)
-    }
-    Flow fromGraph graph
+    def trial(tries: Int, value: A): Future[B] =
+      if (tries <= 1) notRetryable(value)
+      else
+        retryable(value).flatMap(_ cata (Future.successful, {
+          Future {
+            try Thread.sleep(backoff(initialTries - tries).toMillis)
+            catch { case _: InterruptedException => }
+          }.flatMap(_ => trial(tries - 1, value))
+        }))
+    Flow[A].mapAsync(parallelism)(trial(initialTries, _))
   }
 
   private def alterF[K, V, F[a] >: Option[a]: Functor](m: Map[K, V], k: K)(

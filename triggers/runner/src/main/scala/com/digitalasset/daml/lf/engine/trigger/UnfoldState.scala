@@ -149,7 +149,7 @@ private[trigger] object UnfoldState {
     }
 
   // TODO factor with ContractsFetch
-  private[trigger] def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
+  private[this] def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       val split = b.add(Partition[A \/ B](2, {
