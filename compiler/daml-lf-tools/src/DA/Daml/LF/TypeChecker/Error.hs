@@ -91,6 +91,7 @@ data Error
   | EKindMismatch          {foundKind :: !Kind, expectedKind :: !Kind}
   | ETypeMismatch          {foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
   | EPatternTypeMismatch   {pattern :: !CasePattern, scrutineeType :: !Type}
+  | ENonExhaustivePatterns {missingPattern :: !CasePattern, scrutineeType :: !Type}
   | EExpectedHigherKind    !Kind
   | EExpectedFunctionType  !Type
   | EExpectedUniversalType !Type
@@ -243,6 +244,14 @@ instance Pretty Error where
       [ "pattern type mismatch:"
       , "* pattern:"
       , nest 4 (pretty pattern)
+      , "* scrutinee type:"
+      , nest 4 (pretty scrutineeType)
+      ]
+    ENonExhaustivePatterns{missingPattern, scrutineeType} ->
+      vcat $
+      [ "non-exhaustive pattern match:"
+      , "* missing pattern:"
+      , nest 4 (pretty missingPattern)
       , "* scrutinee type:"
       , nest 4 (pretty scrutineeType)
       ]
