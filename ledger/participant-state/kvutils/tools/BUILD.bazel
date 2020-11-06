@@ -43,7 +43,7 @@ da_scala_library(
 da_scala_test(
     name = "tools-tests",
     size = "small",
-    srcs = glob(["src/test/scala/ledger/participant/state/kvutils/tools/**/*.scala"]),
+    srcs = glob(["src/test/scala/**/*.scala"]),
     deps = [
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
@@ -82,7 +82,7 @@ da_scala_binary(
 da_scala_test(
     name = "integrity-check-tests",
     size = "small",
-    srcs = glob(["integrity-check/src/test/scala/ledger/participant/state/kvutils/tools/integritycheck/**/*.scala"]),
+    srcs = glob(["integrity-check/src/test/**/*.scala"]),
     deps = [
         ":integrity-check",
         "//daml-lf/data",
