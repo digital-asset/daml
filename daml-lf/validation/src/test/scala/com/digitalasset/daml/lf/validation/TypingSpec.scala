@@ -75,10 +75,10 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         "expression" ->
           "expected type",
         // ExpDefVar
-        E"Λ (τ : *) (σ: *). λ (x: σ) → λ (x: τ) → (( x ))" ->
-          T"∀ (τ: *) (σ:*). σ → τ → (( τ ))",
+        E"Λ (τ : ⋆) (σ: ⋆). λ (x: σ) → λ (x: τ) → (( x ))" ->
+          T"∀ (τ: ⋆) (σ: ⋆). σ → τ → (( τ ))",
         // ExpApp
-        E"Λ (τ₁: *) (τ₂ : ⋆). λ (e₁ : τ₁ → τ₂) (e₂ : τ₁) → (( e₁ e₂ ))" ->
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₁ → τ₂) (e₂ : τ₁) → (( e₁ e₂ ))" ->
           T"∀ (τ₁: ⋆) (τ₂ : ⋆) . (τ₁ → τ₂) → τ₁ → (( τ₂ ))",
         // ExpTyApp
         E"Λ (τ : ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → (( e @τ ))" ->
@@ -444,7 +444,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpTypeRep
         E"⸨ type_rep @Mod:NoSuchType ⸩" -> //
           { case _: EUnknownDefinition => },
-        E"Λ (τ : *). ⸨ type_rep @τ ⸩" -> //
+        E"Λ (τ : ⋆). ⸨ type_rep @τ ⸩" -> //
           { case _: EExpectedAnyType => },
         E"⸨ type_rep @(∀(τ :⋆) . Int64) ⸩" -> //
           { case _: EExpectedAnyType => },
@@ -556,14 +556,16 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           { case _: ETypeMismatch => },
       )
 
-      import scala.util.{Failure, Try}
+      val ELocation(expectedLocation, EVar("something")) = E"⸨ something ⸩"
+      val expectedContext = ContextLocation(expectedLocation)
 
       forEvery(testCases) { (exp, checkError) =>
+        import scala.util.{Failure, Try}
+
         val x = Try(env.typeOf(exp))
         x should matchPattern {
           case Failure(exception: ValidationError)
-              if exception.context
-                .isInstanceOf[ContextLocation] // check the error happened between ⸨ ⸩
+              if exception.context == expectedContext // check the error happened between ⸨ ⸩
                 && checkError.isDefinedAt(exception) =>
         }
       }
