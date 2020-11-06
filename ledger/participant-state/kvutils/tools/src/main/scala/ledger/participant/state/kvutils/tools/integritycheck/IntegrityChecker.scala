@@ -115,7 +115,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       _ <- stateUpdates.compare()
       _ <- if (!config.indexOnly) stateUpdates.compare() else Future.unit
       _ <- indexStateUpdates(
-        config = config,
+        exportFileName = config.exportFileName,
         metrics = metrics,
         readService =
           if (config.indexOnly)
@@ -126,11 +126,11 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     } yield ()
 
   private def indexStateUpdates(
-      config: Config,
+      exportFileName: String,
       metrics: Metrics,
       readService: ReplayingReadService,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
-    val jdbcUrl = s"jdbc:h2:mem:${config.exportFileName};db_close_delay=-1;db_close_on_exit=false"
+    val jdbcUrl = s"jdbc:h2:mem:$exportFileName;db_close_delay=-1;db_close_on_exit=false"
     val indexerConfig = IndexerConfig(
       participantId = ParticipantId.assertFromString("IntegrityCheckerParticipant"),
       jdbcUrl = jdbcUrl,
@@ -172,9 +172,8 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
           println("Successfully indexed all updates.".green)
           val durationSeconds = Duration.fromNanos(System.nanoTime() - startTime).toSeconds
           val updatesPerSecond = readService.updateCount() / durationSeconds.toDouble
-          println(
-            s"\nIndexing duration: $durationSeconds seconds" ++
-              s" ($updatesPerSecond updates/second)")
+          println()
+          println(s"Indexing duration: $durationSeconds seconds ($updatesPerSecond updates/second)")
         }
       case Failure(exception) =>
         val message =
@@ -210,7 +209,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
               + s" writeSetSize=${expectedWriteSet.size}"
           )
           expectedReadServiceFactory.appendBlock(expectedWriteSet)
-          if (!config.indexOnly)
+          if (!config.indexOnly) {
             submissionValidator.validateAndCommit(
               submissionInfo.submissionEnvelope,
               submissionInfo.correlationId,
@@ -230,7 +229,10 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
               if (config.performByteComparison) {
                 compareWriteSets(expectedWriteSet, orderedActualWriteSet)
               }
-            } else Future.unit
+            }
+          } else {
+            Future.unit
+          }
       }
       .runWith(Sink.fold(0)((n, _) => n + 1))
       .map { counter =>
