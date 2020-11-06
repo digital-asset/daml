@@ -293,6 +293,9 @@ private[validation] object Typing {
     private def introExprVar(xOpt: Option[ExprVarName], t: Type): Env =
       xOpt.fold(this)(introExprVar(_, t))
 
+    private def newLocation(loc: Location): Env =
+      copy(ctx = ContextLocation(loc))
+
     private def lookupExpVar(name: ExprVarName): Type =
       eVars.getOrElse(name, throw EUnknownExprVar(ctx, name))
 
@@ -911,8 +914,8 @@ private[validation] object Typing {
         typeOfUpdate(update)
       case EScenario(scenario) =>
         typeOfScenario(scenario)
-      case ELocation(_, expr) =>
-        typeOf(expr)
+      case ELocation(loc, expr) =>
+        newLocation(loc).typeOf(expr)
       case ENone(typ) =>
         checkType(typ, KStar)
         TOptional(typ)
