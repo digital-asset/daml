@@ -106,7 +106,10 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
         config,
       )
       _ <- stateUpdates.compare()
-      _ <- indexStateUpdates(config.name, metrics, actualReadServiceFactory.createReadService)
+      _ <- indexStateUpdates(
+        config.exportFileName,
+        metrics,
+        actualReadServiceFactory.createReadService)
     } yield ()
 
   private def indexStateUpdates(
@@ -168,7 +171,8 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       actualReadServiceFactory: ReplayingReadServiceFactory,
       config: Config,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
-    println(s"Importing the ledger export.".white)
+    println("Processing the ledger export.".white)
+
     Source(importer.read())
       .mapAsync(1) {
         case (submissionInfo, expectedWriteSet) =>

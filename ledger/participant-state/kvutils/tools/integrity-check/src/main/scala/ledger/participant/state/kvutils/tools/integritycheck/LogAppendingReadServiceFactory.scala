@@ -24,7 +24,7 @@ final class LogAppendingReadServiceFactory(
 ) extends ReplayingReadServiceFactory {
   private val recordedBlocks = ListBuffer.empty[LedgerRecord]
 
-  override def appendBlock(writeSet: WriteSet): Unit = {
+  override def appendBlock(writeSet: WriteSet): Unit =
     this.synchronized {
       writeSet.foreach {
         case (key, value) =>
@@ -32,7 +32,6 @@ final class LogAppendingReadServiceFactory(
           recordedBlocks.append(LedgerRecord(offset, key, value))
       }
     }
-  }
 
   /** Returns a new ReadService that can stream all previously recorded updates */
   override def createReadService(implicit materializer: Materializer): ReplayingReadService =
@@ -46,9 +45,7 @@ final class LogAppendingReadServiceFactory(
               new IllegalArgumentException(
                 s"A read offset of $offset is not supported. Must be $None."))
           } else {
-            Source.fromIterator(() => {
-              recordedBlocksSnapshot.toIterator
-            })
+            Source.fromIterator(() => recordedBlocksSnapshot.toIterator)
           }
 
         override def currentHealth(): HealthStatus = HealthStatus.healthy

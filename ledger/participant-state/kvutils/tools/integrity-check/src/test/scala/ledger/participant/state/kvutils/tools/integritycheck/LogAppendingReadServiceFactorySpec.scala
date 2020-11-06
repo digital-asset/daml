@@ -27,7 +27,7 @@ class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matchers {
       factory.appendBlock(Seq.empty)
 
       // Append WriteSet consisting entirely of unknown keys
-      val unknownKey: LedgerStateOperations.Key = ByteString.copyFrom("???", "utf-8")
+      val unknownKey: LedgerStateOperations.Key = ByteString.copyFromUtf8("???")
       val emptyValue: LedgerStateOperations.Value = ByteString.EMPTY
       factory.appendBlock(List(unknownKey -> emptyValue))
 

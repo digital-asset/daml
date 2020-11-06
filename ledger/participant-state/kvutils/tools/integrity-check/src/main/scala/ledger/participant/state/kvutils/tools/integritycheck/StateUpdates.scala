@@ -20,7 +20,7 @@ final class StateUpdates(
       implicit materializer: Materializer,
       executionContext: ExecutionContext,
   ): Future[Unit] = {
-    println(s"Comparing expected and actual state updates.".white)
+    println("Comparing expected and actual state updates.".white)
     if (expectedReadService.updateCount() != actualReadService.updateCount()) {
       Future.failed(new ComparisonFailureException(
         s"Expected ${expectedReadService.updateCount()} state updates but got ${actualReadService.updateCount()}.",
@@ -55,17 +55,17 @@ object StateUpdates {
       Future.unit
     }
 
-  private def compareUpdates(expected: Update, actual: Update): Future[Unit] = {
-    val almostExpected = normalizeUpdate(expected)
-    val almostActual = normalizeUpdate(actual)
-    if (almostExpected != almostActual) {
+  private def compareUpdates(expectedUpdate: Update, normalizedUpdate: Update): Future[Unit] = {
+    val expectedNormalizedUpdate = normalizeUpdate(expectedUpdate)
+    val actualNormalizedUpdate = normalizeUpdate(normalizedUpdate)
+    if (expectedNormalizedUpdate != actualNormalizedUpdate) {
       Future.failed(
         new ComparisonFailureException(
           "State update mismatch.",
           "Expected:",
-          almostExpected.toString,
+          expectedNormalizedUpdate.toString,
           "Actual:",
-          almostActual.toString,
+          actualNormalizedUpdate.toString,
         ))
     } else {
       Future.unit
