@@ -21,7 +21,12 @@ case class Config(
 
 object Config {
   private val Empty =
-    Config(port = Port.Dynamic, ledgerId = null, applicationId = None, jwtSecret = null, parties = None)
+    Config(
+      port = Port.Dynamic,
+      ledgerId = null,
+      applicationId = None,
+      jwtSecret = null,
+      parties = None)
 
   def parseConfig(args: Seq[String]): Option[Config] =
     configParser.parse(args, Empty)
