@@ -75,10 +75,10 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         "expression" ->
           "expected type",
         // ExpDefVar
-        E"Λ (τ : ⋆) (σ: ⋆). λ (x: σ) → λ (x: τ) → (( x ))" ->
-          T"∀ (τ: ⋆) (σ:⋆). σ → τ → (( τ ))",
+        E"Λ (τ : *) (σ: *). λ (x: σ) → λ (x: τ) → (( x ))" ->
+          T"∀ (τ: *) (σ:*). σ → τ → (( τ ))",
         // ExpApp
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₁ → τ₂) (e₂ : τ₁) → (( e₁ e₂ ))" ->
+        E"Λ (τ₁: *) (τ₂ : ⋆). λ (e₁ : τ₁ → τ₂) (e₂ : τ₁) → (( e₁ e₂ ))" ->
           T"∀ (τ₁: ⋆) (τ₂ : ⋆) . (τ₁ → τ₂) → τ₁ → (( τ₂ ))",
         // ExpTyApp
         E"Λ (τ : ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → (( e @τ ))" ->
@@ -335,9 +335,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           { case _: ETypeMismatch => },
         E"Λ (τ : ⋆ → ⋆) . ⸨ let x : τ = nothing in nothing ⸩" -> //
           { case _: EKindMismatch => },
-        // ExpLitDecimal
-//        E"λ (f: Numeric 0 → Unit) → f ⸨ 3.1415926536 ⸩" -> //
-//          { case _: ETypeMismatch => },
         // ExpListNil
         E"Λ (τ : ⋆ → ⋆). ⸨ Nil @τ ⸩" -> //
           { case _: EKindMismatch => },
@@ -421,35 +418,35 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of  ⸩" -> //
           { case _: EEmptyCase => },
         // ExpToAny
-        E"Λ (τ : *). λ (r: Mod:R τ) → ⸨ to_any @Mod:R r ⸩" -> //
+        E"Λ (τ :⋆). λ (r: Mod:R τ) → ⸨ to_any @Mod:R r ⸩" -> //
           { case _: EKindMismatch => },
-        E"Λ (τ : *). λ (r: Mod:R τ) → ⸨ to_any @(Mod:R τ) r ⸩" -> //
+        E"Λ (τ :⋆). λ (r: Mod:R τ) → ⸨ to_any @(Mod:R τ) r ⸩" -> //
           { case _: EExpectedAnyType => },
-        E"Λ (τ : *). λ (t: Mod:Tree τ) → ⸨ to_any @(Mod:Tree τ) t ⸩" -> //
+        E"Λ (τ :⋆). λ (t: Mod:Tree τ) → ⸨ to_any @(Mod:Tree τ) t ⸩" -> //
           { case _: EExpectedAnyType => },
-        E"Λ (τ : *). λ (t: ∀ (α : ⋆). Int64) → ⸨ to_any @(∀ (α : ⋆). Int64) t ⸩" -> //
+        E"Λ (τ :⋆). λ (t: ∀ (α : ⋆). Int64) → ⸨ to_any @(∀ (α : ⋆). Int64) t ⸩" -> //
           { case _: EExpectedAnyType => },
-        E"Λ (τ : *). λ (t: List (Option (∀ (α : ⋆). Int64⸩) → ⸨ to_any @(List (Option (∀ (α : ⋆). Int64⸩) t ⸩" -> //
+        E"Λ (τ :⋆). λ (t: List (Option (∀ (α : ⋆). Int64⸩) → ⸨ to_any @(List (Option (∀ (α : ⋆). Int64⸩) t ⸩" -> //
           { case _: EExpectedAnyType => },
         // ExpFromAny
         E"λ (t: Any) → ⸨ from_any @Mod:R t ⸩" -> //
           { case _: EKindMismatch => },
-        E"Λ (τ : *). λ (t: Any) → ⸨ from_any @(Mod:R τ) t ⸩" -> //
+        E"Λ (τ :⋆). λ (t: Any) → ⸨ from_any @(Mod:R τ) t ⸩" -> //
           { case _: EExpectedAnyType => },
-        E"Λ (τ : *). λ (t: Any) → ⸨ from_any @(Mod:Tree τ) t ⸩" -> //
+        E"Λ (τ :⋆). λ (t: Any) → ⸨ from_any @(Mod:Tree τ) t ⸩" -> //
           { case _: EExpectedAnyType => },
         E"λ (t: Mod:T) → ⸨ from_any @Mod:T t ⸩" -> //
           { case _: ETypeMismatch => },
-        E"Λ (τ : *). λ (t: Any) → ⸨ to_any @(∀ (α : ⋆). Int64) t ⸩" -> //
+        E"Λ (τ :⋆). λ (t: Any) → ⸨ to_any @(∀ (α : ⋆). Int64) t ⸩" -> //
           { case _: EExpectedAnyType => },
-        E"Λ (τ : *). λ (t: Any) → ⸨ to_any @(List (Option (∀ (α : ⋆). Int64⸩) t ⸩" -> //
+        E"Λ (τ :⋆). λ (t: Any) → ⸨ to_any @(List (Option (∀ (α : ⋆). Int64⸩) t ⸩" -> //
           { case _: EExpectedAnyType => },
         // ExpTypeRep
         E"⸨ type_rep @Mod:NoSuchType ⸩" -> //
           { case _: EUnknownDefinition => },
         E"Λ (τ : *). ⸨ type_rep @τ ⸩" -> //
           { case _: EExpectedAnyType => },
-        E"⸨ type_rep @(∀(τ : *) . Int64) ⸩" -> //
+        E"⸨ type_rep @(∀(τ :⋆) . Int64) ⸩" -> //
           { case _: EExpectedAnyType => },
         // ScnPure
         E"Λ (τ : ⋆ → ⋆). ⸨ spure @τ nothing ⸩" -> //
