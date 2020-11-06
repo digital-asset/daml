@@ -335,7 +335,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpLet
         E"Λ  (τ₁: ⋆) (τ₂ : ⋆) (σ: ⋆). λ (e₁ : τ₁) (e₂ : σ) → ⸨ let x : τ₂ = e₁ in e₂ ⸩" -> //
           { case _: ETypeMismatch => },
-        E"Λ (τ : ⋆ → ⋆) . ⸨ let x : τ = nothing in nothing ⸩" -> //
+        E"Λ (τ : ⋆ → ⋆) (σ: ⋆). λ(e : σ) → ⸨ let x : τ = nothing in e ⸩" -> //
           { case _: EKindMismatch => },
         // ExpListNil
         E"Λ (τ : ⋆ → ⋆). ⸨ Nil @τ ⸩" -> //
