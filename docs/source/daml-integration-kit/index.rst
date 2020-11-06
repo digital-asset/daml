@@ -250,7 +250,7 @@ this section is best read jointly with the code in
   See documentation in
   `package.scala <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils/package.scala>`__
 
-``ledger-api-server.jar`` (`source code for API server <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/apiserver/StandaloneApiServer.scala>`__, `source code for indexer <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/indexer/StandaloneIndexerServer.scala>`__)
+``ledger-api-server.jar`` (`source code for API server <https://github.com/digital-asset/daml/blob/master/ledger/participant-integration-api/src/main/scala/platform/apiserver/StandaloneApiServer.scala>`__, `source code for indexer <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/daml/platform/indexer/StandaloneIndexerServer.scala>`__)
   Contains code that implements a DAML Ledger API server and the SQL-backed indexer
   given implementations of the interfaces in ``participant-state.jar``.
 
@@ -313,10 +313,10 @@ of their qualified names where unambiguous):
   is a class implementing the ``ReadService`` and the
   ``WriteService`` on top of the ``<X> services``. You need to implement this
   for your DAML on `X` ledger.
-``StandaloneIndexerServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/indexer/StandaloneIndexerServer.scala>`__)
+``StandaloneIndexerServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-integration-api/src/main/scala/platform/indexer/StandaloneIndexerServer.scala>`__)
   is a standalone service that subscribe to ledger changes using ``ReadService`` and inserts
   the data into a SQL backend ("index") for the purpose of serving the data over the Ledger API.
-``StandaloneIndexServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/apiserver/StandaloneApiServer.scala>`__)
+``StandaloneIndexServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-integration-api/src/main/scala/platform/apiserver/StandaloneApiServer.scala>`__)
   is a class containing all the code to implement the
   Ledger API on top of an ledger backend. It serves the data from a SQL database populated by the ``StandaloneIndexerServer``.
 
@@ -350,7 +350,7 @@ do the following modifications to your code:
 - Instantiate a ``com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/interceptor/AuthorizationInterceptor.scala>`__),
   and pass it an instance of your AuthService implementation.
   This interceptor will be responsible for storing the decoded Claims in a place where ledger API services can access them.
-- When starting the ``com.daml.platform.apiserver.LedgerApiServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/apiserver/LedgerApiServer.scala>`__),
+- When starting the ``com.daml.platform.apiserver.LedgerApiServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-integration-api/src/main/scala/platform/apiserver/LedgerApiServer.scala>`__),
   add the above AuthorizationInterceptor to the list of interceptors (see ``interceptors`` parameter of ``LedgerApiServer.create``).
 
 For reference, you can have a look at how authorization is implemented in the sandbox:

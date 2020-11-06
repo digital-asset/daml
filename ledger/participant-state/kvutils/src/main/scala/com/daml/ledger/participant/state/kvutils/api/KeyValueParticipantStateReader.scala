@@ -30,6 +30,7 @@ class KeyValueParticipantStateReader private[api] (
     metrics: Metrics,
     logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update],
     timeUpdatesProvider: TimeUpdatesProvider,
+    failOnUnexpectedEvent: Boolean,
 ) extends ReadService {
   import KeyValueParticipantStateReader._
 
@@ -59,7 +60,10 @@ class KeyValueParticipantStateReader private[api] (
                   }
                 )
               case _ =>
-                Left("Envelope does not contain a log entry")
+                if (failOnUnexpectedEvent)
+                  Left("Envelope does not contain a log entry")
+                else
+                  Right(Source.empty)
             }
             .getOrElse(throw new IllegalArgumentException(
               s"Invalid log entry received at offset $offset"))
@@ -80,13 +84,16 @@ object KeyValueParticipantStateReader {
   def apply(
       reader: LedgerReader,
       metrics: Metrics,
-      timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault)
-    : KeyValueParticipantStateReader =
+      timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault,
+      failOnUnexpectedEvent: Boolean = true,
+  ): KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
       metrics,
       KeyValueConsumption.logEntryToUpdate,
-      timeUpdatesProvider)
+      timeUpdatesProvider,
+      failOnUnexpectedEvent,
+    )
 
   private[api] def offsetForUpdate(
       offsetFromRecord: Offset,

@@ -294,7 +294,7 @@ filterVars vars cexprs =
 constructSynonyms :: [(ExprVarName, [ExprVarName])]
   -- ^ The current contract names, along with any previous synonyms.
   -> [(ExprVarName, ExprVarName)]
-constructSynonyms = foldl step []
+constructSynonyms = foldl' step []
   where
     step :: [(ExprVarName, ExprVarName)] -> (ExprVarName, [ExprVarName])
       -> [(ExprVarName, ExprVarName)]
@@ -334,7 +334,7 @@ constructConstr env chtem ch ftem f =
       -- ^ The updates to analyse.
       -> ConstraintSet
     constructSingleSet vars ctrs syns (info, upds) =
-      let (cres, arcs) = foldl
+      let (cres, arcs) = foldl'
             (\(cs,as) upd -> let (cs',as') = filterCondUpd ftem syns f upd in (cs ++ cs',as ++ as'))
             ([],[])
             upds
@@ -504,7 +504,7 @@ declareCtrs sol cvars1 exprs = do
     cc_step [] _ = ([],[])
     cc_step edges0 (o,l,r,vars) =
       let (neighbors,edges1) = partition (\(_,_,_,vars') -> not $ null $ intersect vars vars') edges0
-      in foldl (\(conn,edges2) edge -> first (conn ++) $ cc_step edges2 edge)
+      in foldl' (\(conn,edges2) edge -> first (conn ++) $ cc_step edges2 edge)
            ((o,l,r,vars):neighbors,edges1) neighbors
 
     declare :: [(ExprVarName,S.SExpr)]
@@ -543,7 +543,7 @@ data Result
 
 instance Show Result where
   show Success = "Success!"
-  show (Fail cs) = "Fail. Counter example:" ++ foldl (flip step) "" cs
+  show (Fail cs) = "Fail. Counter example:" ++ foldl' (flip step) "" cs
     where
       step :: (S.SExpr, S.Value) -> String -> String
       step (var, val) str = ("\n" ++) $ S.ppSExpr var $ (" = " ++) $ S.ppSExpr (S.value val) str
@@ -555,7 +555,7 @@ showResult choice field result = case result of
   Success -> "Success! The choice " ++ choiceStr ++ " preserves the field "
     ++ fieldStr ++ "."
   (Fail cs) -> "Fail. The choice " ++ choiceStr ++ " does not preserve the field "
-    ++ fieldStr ++ ". Counter example:" ++ foldl (flip step) "" cs
+    ++ fieldStr ++ ". Counter example:" ++ foldl' (flip step) "" cs
   Unknown -> "Inconclusive result."
   where
     choiceStr = T.unpack $ unChoiceName choice
@@ -582,8 +582,8 @@ solveConstr spath ConstraintSet{..} = do
     else pure (vars1 ++ vars2)
   let cres = renderFilter $ map simplifyCExpr _cCres
       arcs = renderFilter $ map simplifyCExpr _cArcs
-  cre <- foldl S.add (S.real 0.0) <$> mapM (cexp2sexp vars) cres
-  arc <- foldl S.add (S.real 0.0) <$> mapM (cexp2sexp vars) arcs
+  cre <- foldl' S.add (S.real 0.0) <$> mapM (cexp2sexp vars) cres
+  arc <- foldl' S.add (S.real 0.0) <$> mapM (cexp2sexp vars) arcs
   S.assert sol (S.not (cre `S.eq` arc))
   result <- S.check sol >>= \case
     S.Sat -> do

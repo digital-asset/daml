@@ -4,19 +4,16 @@
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import scala.io.AnsiColor
-import scala.language.implicitConversions
 
 final class Color(val text: String) extends AnyVal {
   def green: String = color(AnsiColor.GREEN)
 
   def red: String = color(AnsiColor.RED)
 
+  def yellow: String = color(AnsiColor.YELLOW)
+
   def white: String = color(AnsiColor.WHITE)
 
   private def color(color: String): String =
     color + text + AnsiColor.RESET
-}
-
-object Color {
-  implicit def color(text: String): Color = new Color(text)
 }

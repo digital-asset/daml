@@ -13,21 +13,16 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 
 // Status: experimental interface, will change before it is deemed production
 // ready
-
+//
 // Query the DAML-LF packages supported by the ledger participant and upload
 // DAR files. We use 'backing participant' to refer to this specific participant
 // in the methods of this API.
-// When the participant is run in mode requiring authentication, all the calls 
-// in this interface will respond with UNAUTHENTICATED, if the caller fails
-// to provide a valid access token, and will respond with PERMISSION_DENIED, if
-// the claims in the token are insufficient to perform a given operation.
-// Subsequently, only specific errors of individual calls not related to 
-// authorization will be described.
 service PackageManagementService {
 
-  // Returns the details of all DAML-LF packages known to the backing
-  // participant.
-  // This request will always succeed.
+  // Returns the details of all DAML-LF packages known to the backing participant.
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   rpc ListKnownPackages (ListKnownPackagesRequest) returns
     (ListKnownPackagesResponse);
 
@@ -38,11 +33,13 @@ service PackageManagementService {
   // is not sufficient to render it usable, it must be activated first.
   // This call may:
   // - Succeed, if the package was successfully uploaded, or if the same package
-  //   was already uploaded before. 
-  // - Respond with UNIMPLEMENTED, if DAR package uploading is not supported by
-  //   the backing participant.
-  // - Respond with INVALID_ARGUMENT, if the DAR file is too big or malformed.
-  // The maximum supported size is implementation specific.
+  //   was already uploaded before.
+  // - Respond with a gRPC error
+  // Errors:
+  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
+  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
+  // - ``UNIMPLEMENTED``: if DAR package uploading is not supported by the backing participant
+  // - ``INVALID_ARGUMENT``: if the DAR file is too big or malformed. The maximum supported size is implementation specific.
   rpc UploadDarFile (UploadDarFileRequest) returns (UploadDarFileResponse);
 }
 

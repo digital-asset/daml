@@ -35,7 +35,7 @@ import scala.util.control.NonFatal
 
 object JdbcIndexer {
 
-  private[indexer] final class Factory(
+  private[daml] final class Factory(
       serverRole: ServerRole,
       config: IndexerConfig,
       readService: ReadService,
@@ -218,7 +218,7 @@ object JdbcIndexer {
 /**
   * @param startExclusive The last offset received from the read service.
   */
-private[indexer] class JdbcIndexer private[indexer] (
+private[daml] class JdbcIndexer private[indexer] (
     startExclusive: Option[Offset],
     participantId: v1.ParticipantId,
     ledgerDao: LedgerDao,

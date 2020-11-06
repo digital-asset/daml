@@ -5,6 +5,7 @@
 module DA.Daml.LF.Ast.Util(module DA.Daml.LF.Ast.Util) where
 
 import Control.Monad
+import Data.List
 import Data.Maybe
 import qualified Data.Text as T
 import           Control.Lens
@@ -191,7 +192,7 @@ pattern TTextMapEntry a = TStruct [(FieldName "key", TText), (FieldName "value",
 pattern TConApp :: Qualified TypeConName -> [Type] -> Type
 pattern TConApp tcon targs <- (view (leftSpine _TApp) -> (TCon tcon, targs))
   where
-    TConApp tcon targs = foldl TApp (TCon tcon) targs
+    TConApp tcon targs = foldl' TApp (TCon tcon) targs
 
 pattern TForalls :: [(TypeVarName, Kind)] -> Type -> Type
 pattern TForalls binders ty <- (view _TForalls -> (binders, ty))

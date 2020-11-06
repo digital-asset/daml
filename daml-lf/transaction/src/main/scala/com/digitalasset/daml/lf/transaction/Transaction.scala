@@ -229,15 +229,6 @@ final case class GenTransaction[Nid, +Cid, +Val](
 
   }
 
-  /** Whether `other` is the result of reinterpreting this transaction.
-    *
-    * @note This function is asymmetric.
-    */
-  def isReplayedBy[Nid2, Cid2 >: Cid, Val2 >: Val](
-      other: GenTransaction[Nid2, Cid2, Val2],
-  )(implicit ECid: Equal[Cid2], EVal: Equal[Val2]): Boolean =
-    compareForest(other)(Node.isReplayedBy(_, _))
-
   /** checks that all the values contained are serializable */
   def serializable(f: Val => ImmArray[String]): ImmArray[String] = {
     fold(BackStack.empty[String]) {
@@ -613,4 +604,193 @@ object Transaction {
       fa: FailedAuthorization,
   ) extends TransactionError
 
+  /** Whether `other` is the result of reinterpreting this transaction.
+    *
+    * @param recorded : the transaction to be validated.
+    * @param replayed : the transaction resulting from the reinterpretation of
+    *   the root nodes of [[recorded]].
+    * @note This function is asymmetric in order to provide backward compatibility.
+    *      For instance, some field may be undefined in the [[recorded]] transaction
+    *      while present in the [[replayed]] one.
+    */
+  def isReplayedBy[Nid, Cid, Val](
+      recorded: GenTransaction[Nid, Cid, Val],
+      replayed: GenTransaction[Nid, Cid, Val],
+  )(implicit ECid: Equal[Cid], EVal: Equal[Val]): Either[ReplayMismatch[Nid, Cid, Val], Unit] = {
+    import scalaz.syntax.equal._
+    import scalaz.std.option._
+
+    type Exe = Node.NodeExercises[Nid, Cid, Val]
+
+    @tailrec
+    def loop(
+        nids1: Stream[Nid],
+        nids2: Stream[Nid],
+        stack: List[(Nid, Exe, Stream[Nid], Nid, Exe, Stream[Nid])] = List.empty,
+    ): Either[ReplayMismatch[Nid, Cid, Val], Unit] =
+      (nids1, nids2) match {
+        case (nid1 #:: rest1, nid2 #:: rest2) =>
+          (recorded.nodes(nid1), replayed.nodes(nid2)) match {
+            case (
+                Node.NodeCreate(
+                  coid1,
+                  coinst1,
+                  optLocation1 @ _,
+                  signatories1,
+                  stakeholders1,
+                  key1
+                ),
+                Node.NodeCreate(
+                  coid2,
+                  coinst2,
+                  optLocation2 @ _,
+                  signatories2,
+                  stakeholders2,
+                  key2
+                ))
+                if coid1 === coid2 &&
+                  coinst1 === coinst2 &&
+                  signatories1 == signatories2 &&
+                  stakeholders1 == stakeholders2 &&
+                  key1 === key2 =>
+              loop(rest1, rest2, stack)
+            case (
+                Node.NodeFetch(
+                  coid1,
+                  templateId1,
+                  optLocation1 @ _,
+                  actingParties1,
+                  signatories1,
+                  stakeholders1,
+                  key1,
+                  byKey1 @ _,
+                ),
+                Node.NodeFetch(
+                  coid2,
+                  templateId2,
+                  optLocation2 @ _,
+                  actingParties2,
+                  signatories2,
+                  stakeholders2,
+                  key2,
+                  byKey2 @ _,
+                ))
+                if coid1 === coid2 &&
+                  templateId1 == templateId2 &&
+                  (actingParties1.isEmpty || actingParties1 == actingParties2) &&
+                  signatories1 == signatories2 &&
+                  stakeholders1 == stakeholders2 &&
+                  (key1.isEmpty || key1 === key2) =>
+              loop(rest1, rest2, stack)
+            case (
+                exe1 @ Node.NodeExercises(
+                  targetCoid1,
+                  templateId1,
+                  choiceId1,
+                  optLocation1 @ _,
+                  consuming1,
+                  actingParties1,
+                  chosenValue1,
+                  stakeholders1,
+                  signatories1,
+                  choiceObservers1,
+                  children1 @ _,
+                  exerciseResult1 @ _,
+                  key1,
+                  byKey1 @ _,
+                ),
+                exe2 @ Node.NodeExercises(
+                  targetCoid2,
+                  templateId2,
+                  choiceId2,
+                  optLocation2 @ _,
+                  consuming2,
+                  actingParties2,
+                  chosenValue2,
+                  stakeholders2,
+                  signatories2,
+                  choiceObservers2,
+                  children2 @ _,
+                  exerciseResult2 @ _,
+                  key2,
+                  byKey2 @ _,
+                ))
+                // results are checked after the children
+                if targetCoid1 === targetCoid2 &&
+                  templateId1 == templateId2 &&
+                  choiceId1 == choiceId2 &&
+                  consuming1 == consuming2 &&
+                  actingParties1 == actingParties2 &&
+                  chosenValue1 === chosenValue2 &&
+                  stakeholders1 == stakeholders2 &&
+                  signatories1 == signatories2 &&
+                  choiceObservers1 == choiceObservers2 &&
+                  (key1.isEmpty || key1 === key2) =>
+              loop(
+                children1.iterator.toStream,
+                children2.iterator.toStream,
+                (nid1, exe1, rest1, nid2, exe2, rest2) :: stack
+              )
+            case (
+                Node.NodeLookupByKey(templateId1, optLocation1 @ _, key1, result1),
+                Node.NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2)
+                )
+                if templateId1 == templateId2 &&
+                  key1 === key2 &&
+                  result1 === result2 =>
+              loop(rest1, rest2, stack)
+            case _ =>
+              Left(ReplayNodeMismatch(recorded, nid1, replayed, nid2))
+          }
+
+        case (Stream.Empty, Stream.Empty) =>
+          stack match {
+            case (nid1, exe1, nids1, nid2, exe2, nids2) :: rest =>
+              if (exe1.exerciseResult.isEmpty || exe1.exerciseResult === exe2.exerciseResult)
+                loop(nids1, nids2, rest)
+              else
+                Left(ReplayNodeMismatch(recorded, nid1, replayed, nid2))
+            case Nil =>
+              Right(())
+          }
+
+        case (nid1 #:: _, Stream.Empty) =>
+          Left(ReplayedNodeMissing(recorded, nid1, replayed))
+
+        case (Stream.Empty, nid2 #:: _) =>
+          Left(RecordedNodeMissing(recorded, replayed, nid2))
+
+      }
+
+    loop(recorded.roots.iterator.toStream, replayed.roots.iterator.toStream)
+
+  }
+
 }
+
+sealed abstract class ReplayMismatch[Nid, Cid, Val] {
+  def recordedTransaction: GenTransaction[Nid, Cid, Val]
+  def replayedTransaction: GenTransaction[Nid, Cid, Val]
+
+  def msg: String =
+    s"recreated and original transaction mismatch $recordedTransaction expected, but $replayedTransaction is recreated"
+}
+
+final case class ReplayNodeMismatch[Nid, Cid, Val](
+    override val recordedTransaction: GenTransaction[Nid, Cid, Val],
+    recordedNode: Nid,
+    override val replayedTransaction: GenTransaction[Nid, Cid, Val],
+    replayedNode: Nid,
+) extends ReplayMismatch[Nid, Cid, Val]
+
+final case class RecordedNodeMissing[Nid, Cid, Val](
+    override val recordedTransaction: GenTransaction[Nid, Cid, Val],
+    override val replayedTransaction: GenTransaction[Nid, Cid, Val],
+    replayedNode: Nid,
+) extends ReplayMismatch[Nid, Cid, Val]
+
+final case class ReplayedNodeMissing[Nid, Cid, Val](
+    override val recordedTransaction: GenTransaction[Nid, Cid, Val],
+    recordedNode: Nid,
+    override val replayedTransaction: GenTransaction[Nid, Cid, Val],
+) extends ReplayMismatch[Nid, Cid, Val]

@@ -778,7 +778,7 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
     TStruct <$> mapM (decodeFieldWithType FieldName) (V.toList flds)
   where
     decodeWithArgs :: V.Vector LF1.Type -> Decode Type -> Decode Type
-    decodeWithArgs args fun = foldl TApp <$> fun <*> traverse decodeType args
+    decodeWithArgs args fun = foldl' TApp <$> fun <*> traverse decodeType args
 
 
 decodeFieldWithType :: (T.Text -> a) -> LF1.FieldWithType -> Decode (a, Type)

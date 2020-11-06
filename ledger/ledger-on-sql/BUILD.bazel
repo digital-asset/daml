@@ -216,6 +216,7 @@ da_scala_test_suite(
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/flyway-testing",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "@maven//:com_typesafe_akka_akka_actor_2_12",

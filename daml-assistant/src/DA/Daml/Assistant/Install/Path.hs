@@ -9,6 +9,12 @@ module DA.Daml.Assistant.Install.Path
 import Control.Monad
 import System.FilePath
 
+#ifndef mingw32_HOST_OS
+import System.Directory
+import System.Environment
+import System.IO
+#endif
+
 #ifdef mingw32_HOST_OS
 import Control.Exception.Safe
 import Data.List.Extra
@@ -30,7 +36,7 @@ import DA.Daml.Assistant.Types
 updatePath :: InstallOptions -> (String -> IO ()) -> FilePath -> IO ()
 #ifdef mingw32_HOST_OS
 updatePath installOpts output targetPath
-    | SetPath b <- iSetPath installOpts, not b = suggestAddToPath output targetPath
+    | SetPath No <- iSetPath installOpts = suggestAddToPath output targetPath
     | otherwise = do
     -- Updating PATH on Windows is annoying so we do it automatically.
     bracket (regOpenKeyEx hKEY_CURRENT_USER "Environment" kEY_ALL_ACCESS) regCloseKey $ \envKey -> do
@@ -77,7 +83,62 @@ regQueryStringValue key valueName =
                 c_RegQueryValueEx p_key c_valueName nullPtr nullPtr c_value p_valueLen
             peekTString (castPtr c_value)
 #else
-updatePath _ output targetPath = suggestAddToPath output targetPath
+updatePath installOpts output targetPath
+  | SetPath No <- iSetPath installOpts = suggestAddToPath output targetPath
+  | SetPath autoOrYes <- iSetPath installOpts = do
+    searchPaths <- map dropTrailingPathSeparator <$> getSearchPath
+    unless (targetPath `elem` searchPaths) $ do
+      mbShellPath <- lookupEnv "SHELL"
+      let mbShellConfig = do
+            shellPath <- mbShellPath
+            shellConfig (takeFileName shellPath) targetPath
+      case mbShellConfig of
+        Nothing -> output setPathManualMsg
+        Just (configFile, cmd) -> do
+          home <- getHomeDirectory
+          let cfgFile = home </> configFile
+          cfgFileExists <- doesFileExist cfgFile
+          if cfgFileExists
+            then do
+              content <- readFile cfgFile
+              unless (cmd `elem` lines content) $ do
+                case autoOrYes of
+                  Auto -> do
+                    stdinIsTerminal <- hIsTerminalDevice stdin
+                    stdoutIsTerminal <- hIsTerminalDevice stdout
+                    if stdinIsTerminal && stdoutIsTerminal
+                      then do
+                        answer <- prompt output ("Add DAML Assistant executable to your PATH (in " ++ configFile ++ ")?") "Yes" ["No"]
+                        when (answer `elem` ["Yes", "yes", "y", "Y"]) $ doUpdatePath cfgFile cmd
+                      else output setPathManualMsg
+                  Yes -> doUpdatePath cfgFile cmd
+                  No -> error "updatePath: impossible case match"
+            else output setPathManualMsg
+  where
+    setPathManualMsg = "Please add " <> targetPath <> " to your PATH."
+    doUpdatePath cfg cmd = do
+      appendFile cfg cmd
+      output $
+        "Your " <> cfg <>
+        " has been updated. You need to logout and login again for the change to take effect."
+
+prompt :: (String -> IO ()) -> String -> String -> [String] -> IO String
+prompt output msg def others = do
+  output $ msg <> (unwords $ " [" <> def <> "]" : others)
+  ans <- getLine
+  return $
+    if null ans
+      then def
+      else ans
+
+shellConfig :: String -> FilePath -> Maybe (FilePath, String)
+shellConfig shell targetPath =
+  case shell of
+    "zsh" -> Just (".zprofile", "export PATH=$PATH:" <> targetPath)
+    "bash" -> Just (".bash_profile", "export PATH=$PATH:" <> targetPath)
+    "sh" -> Just (".profile", "export PATH=$PATH:" <> targetPath)
+    _other -> Nothing
+
 #endif
 
 suggestAddToPath :: (String -> IO ()) -> FilePath -> IO ()

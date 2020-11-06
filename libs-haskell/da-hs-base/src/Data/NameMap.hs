@@ -132,7 +132,7 @@ traverse f (NameMap ras _) = build <$> Prelude.traverse f' (reverse ras)
     build as = NameMap (reverse as) (HMS.fromList as)
 
 instance Foldable NameMap where
-  foldr f z (NameMap ras _) = foldl f' z ras
+  foldr f z (NameMap ras _) = foldl' f' z ras
     where
       f' acc (_, x) = f x acc
 

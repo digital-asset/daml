@@ -468,7 +468,7 @@ class EngineTest
           let,
           lookupPackage
         )
-      (tx.transaction isReplayedBy rtx.transaction) shouldBe true
+      Tx.isReplayedBy(tx.transaction, rtx.transaction) shouldBe Right(())
     }
 
     "be validated" in {
@@ -533,7 +533,7 @@ class EngineTest
       val Right((rtx, _)) = engine
         .submit(Commands(party, ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
-      (tx.transaction isReplayedBy rtx.transaction) shouldBe true
+      Tx.isReplayedBy(tx.transaction, rtx.transaction) shouldBe Right(())
     }
 
     "reinterpret to the same result" in {
@@ -548,7 +548,7 @@ class EngineTest
           lookupPackage,
           defaultContracts
         )
-      (tx.transaction isReplayedBy rtx.transaction) shouldBe true
+      Tx.isReplayedBy(tx.transaction, rtx.transaction) shouldBe Right(())
     }
 
     "be validated" in {
@@ -638,8 +638,8 @@ class EngineTest
         .submit(Commands(alice, ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
         .map(_._1)
-      (result.map(_._1) |@| submitResult)(_.transaction isReplayedBy _.transaction) shouldBe Right(
-        true)
+      (result.map(_._1) |@| submitResult)((tx, rtx) =>
+        Tx.isReplayedBy(tx.transaction, rtx.transaction)) shouldBe Right(Right(()))
     }
 
     "reinterpret to the same result" in {
@@ -647,8 +647,8 @@ class EngineTest
       val reinterpretResult =
         reinterpret(engine, Set(alice), tx.roots, tx, txMeta, let, lookupPackage, defaultContracts)
           .map(_._1)
-      (result.map(_._1) |@| reinterpretResult)(_.transaction isReplayedBy _.transaction) shouldBe Right(
-        true)
+      (result.map(_._1) |@| reinterpretResult)((tx, rtx) =>
+        Tx.isReplayedBy(tx.transaction, rtx.transaction)) shouldBe Right(Right(()))
     }
 
     "be validated" in {
@@ -841,8 +841,8 @@ class EngineTest
       val reinterpretResult =
         reinterpret(engine, Set(party), tx.roots, tx, txMeta, let, lookupPackage)
           .map(_._1)
-      (interpretResult.map(_._1) |@| reinterpretResult)(_.transaction isReplayedBy _.transaction) shouldBe Right(
-        true)
+      (interpretResult.map(_._1) |@| reinterpretResult)((tx, rtx) =>
+        Tx.isReplayedBy(tx.transaction, rtx.transaction)) shouldBe Right(Right(()))
     }
 
     "be validated" in {
@@ -1059,7 +1059,7 @@ class EngineTest
       .consume(lookupContract, lookupPackage, lookupKey)
 
     "be translated" in {
-      (rtx.transaction isReplayedBy tx.transaction) shouldBe true
+      Tx.isReplayedBy(tx.transaction, rtx.transaction) shouldBe Right(())
     }
 
     val blindingInfo = Blinding.blind(tx)
@@ -1075,8 +1075,9 @@ class EngineTest
           txMeta,
           let,
           lookupPackage,
-          defaultContracts)
-      (rtx.transaction isReplayedBy tx.transaction) shouldBe true
+          defaultContracts,
+        )
+      Tx.isReplayedBy(rtx.transaction, tx.transaction) shouldBe Right(())
     }
 
     "blinded correctly" in {
@@ -1315,7 +1316,7 @@ class EngineTest
                 case (`nid`, seed) => seed
               }, txMeta.submissionTime, let)
               .consume(lookupContract, lookupPackage, lookupKey)
-          (fetchTx isReplayedBy reinterpreted.transaction) shouldBe true
+          Tx.isReplayedBy(fetchTx, reinterpreted.transaction) shouldBe Right(())
       }
     }
 

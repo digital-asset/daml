@@ -15,9 +15,9 @@ import scala.concurrent.duration
 import scala.concurrent.duration.FiniteDuration
 
 private[trigger] final case class ServiceConfig(
-    // For convenience, we allow passing in a DAR on startup
-    // as opposed to uploading it dynamically.
-    darPath: Option[Path],
+    // For convenience, we allow passing DARs on startup
+    // as opposed to uploading them dynamically.
+    darPaths: List[Path],
     address: String,
     httpPort: Int,
     ledgerHost: String,
@@ -30,6 +30,7 @@ private[trigger] final case class ServiceConfig(
     commandTtl: Duration,
     init: Boolean,
     jdbcConfig: Option[JdbcConfig],
+    portFile: Option[Path],
 )
 
 final case class JdbcConfig(
@@ -87,14 +88,15 @@ private[trigger] object ServiceConfig {
 
     opt[String]("dar")
       .optional()
-      .action((f, c) => c.copy(darPath = Some(Paths.get(f))))
+      .unbounded()
+      .action((f, c) => c.copy(darPaths = Paths.get(f) :: c.darPaths))
       .text("Path to the dar file containing the trigger.")
 
     cliopts.Http.serverParse(this, serviceName = "Trigger")(
       address = (f, c) => c.copy(address = f(c.address)),
       httpPort = (f, c) => c.copy(httpPort = f(c.httpPort)),
       defaultHttpPort = Some(DefaultHttpPort),
-      portFile = None,
+      portFile = Some((f, c) => c.copy(portFile = f(c.portFile))),
     )
 
     opt[String]("ledger-host")
@@ -161,7 +163,7 @@ private[trigger] object ServiceConfig {
     parser.parse(
       args,
       ServiceConfig(
-        darPath = None,
+        darPaths = Nil,
         address = cliopts.Http.defaultAddress,
         httpPort = DefaultHttpPort,
         ledgerHost = null,
@@ -174,6 +176,7 @@ private[trigger] object ServiceConfig {
         commandTtl = Duration.ofSeconds(30L),
         init = false,
         jdbcConfig = None,
+        portFile = None,
       ),
     )
 }

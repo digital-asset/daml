@@ -3,7 +3,11 @@
 
 module Data.List.Extended
     ( spanMaybe
+    , lookupWithIndex
+    , module Data.List
     ) where
+
+import Data.List
 
 -- | Take from a list until a @Nothing@ is found, returning
 -- the prefix of @Just@ values, and the rest of the list.
@@ -19,3 +23,11 @@ spanMaybe f = go []
             | otherwise
             = (reverse bs, as)
 
+-- | Find a key in an associative list and return its index and value.
+lookupWithIndex :: Eq a => a -> [(a, b)] -> Maybe (Int, b)
+lookupWithIndex = go 0
+  where
+    go !_ _ [] = Nothing
+    go !n a0 ((a, b):abs)
+        | a0 == a = Just (n, b)
+        | otherwise = go (n+1) a0 abs

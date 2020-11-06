@@ -343,6 +343,40 @@ da_haskell_test(
     srcs = ["src/DA/Test/Packaging.hs"],
     data = [
         "//compiler/damlc",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "extra",
+        "ghc-lib-parser",
+        "filepath",
+        "process",
+        "safe-exceptions",
+        "tasty",
+        "tasty-hunit",
+        "zip-archive",
+    ],
+    main_function = "DA.Test.Packaging.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+# Tests for data-dependencies
+da_haskell_test(
+    name = "data-dependencies",
+    timeout = "long",
+    srcs = ["src/DA/Test/DataDependencies.hs"],
+    data = [
+        "//compiler/damlc",
         "//compiler/damlc/tests:generate-simple-dalf",
         "//daml-lf/repl",
         "@davl-v3//:released/davl-v3.dar",
@@ -361,7 +395,7 @@ da_haskell_test(
         "tasty-hunit",
         "zip-archive",
     ],
-    main_function = "DA.Test.Packaging.main",
+    main_function = "DA.Test.DataDependencies.main",
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [

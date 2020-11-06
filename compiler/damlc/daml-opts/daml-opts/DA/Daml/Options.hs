@@ -286,6 +286,10 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
   , InstanceSigs
     -- convenient syntactic sugar that does not impact the type level at all
   , MultiWayIf
+    -- the two extensions don't require any additional support for
+    -- data-dependencies to work, except for putting them into the files used
+    -- for reconstructing the interfaces, which we already do
+  , TypeOperators, UndecidableInstances
     -- there's no way for our users to actually use this and listing it here
     -- removes a lot of warning from out stdlib, script and trigger builds
     -- NOTE: This should not appear on any list of extensions that are

@@ -15,7 +15,7 @@ module DA.Daml.LF.Verify.ReferenceSolve
 
 import Data.Hashable
 import Data.Maybe (fromMaybe)
-import Data.List (intercalate)
+import Data.List (foldl', intercalate)
 import qualified Data.HashMap.Strict as HM
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
@@ -29,7 +29,7 @@ solveValueReferences :: Env 'ValueGathering -> Env 'ChoiceGathering
 solveValueReferences env =
   let val_exp_hmap = HM.map fst $ envVals env
       val_ref_hmap = HM.map snd $ envVals env
-      (_, val_sol_hmap) = foldl (\hmaps ref -> snd $ solveReference lookup_ref_in lookup_ref_out pop_upds ext_upds make_rec make_mutrec intro_cond empty_upds [] hmaps ref) (val_ref_hmap, HM.empty) (HM.keys $ envVals env)
+      (_, val_sol_hmap) = foldl' (\hmaps ref -> snd $ solveReference lookup_ref_in lookup_ref_out pop_upds ext_upds make_rec make_mutrec intro_cond empty_upds [] hmaps ref) (val_ref_hmap, HM.empty) (HM.keys $ envVals env)
       valhmap = HM.intersectionWith (\e u -> (e,u)) val_exp_hmap val_sol_hmap
   in EnvCG (envSkols env) valhmap (envDats env) (envCids env) HM.empty (envCtrs env) HM.empty
   where
@@ -70,7 +70,7 @@ solveValueReferences env =
     make_mutrec inp =
       let (strs, upds) = unzip inp
           debug = intercalate " - " $ map (show . unExprValName . qualObject) strs
-          updConcat = foldl concatUpdateSet emptyUpdateSet upds
+          updConcat = foldl' concatUpdateSet emptyUpdateSet upds
       in (map baseUpd $ makeMutRec [upd | UpdCGBase upd <- updConcat] debug)
            ++ [UpdCGChoice cho | UpdCGChoice cho <- updConcat]
 
@@ -80,8 +80,8 @@ solveValueReferences env =
     intro_cond (Conditional cond cx cy) =
       let xs = map intro_cond cx
           ys = map intro_cond cy
-          updx = foldl concatUpdateSet emptyUpdateSet xs
-          updy = foldl concatUpdateSet emptyUpdateSet ys
+          updx = foldl' concatUpdateSet emptyUpdateSet xs
+          updy = foldl' concatUpdateSet emptyUpdateSet ys
       in (introCond $ createCond cond updx updy)
 
     empty_upds :: UpdateSet 'ValueGathering
@@ -93,7 +93,7 @@ solveValueReferences env =
 -- It thus empties `_usChoice` by collecting all updates made by this closure.
 solveChoiceReferences :: Env 'ChoiceGathering -> Env 'Solving
 solveChoiceReferences env =
-  let (_, chhmap) = foldl (\hmaps ref -> snd $ solveReference lookup_ref_in lookup_ref_out pop_upds ext_upds make_rec make_mutrec intro_cond empty_upds [] hmaps ref) (envChoices env, HM.empty) (HM.keys $ envChoices env)
+  let (_, chhmap) = foldl' (\hmaps ref -> snd $ solveReference lookup_ref_in lookup_ref_out pop_upds ext_upds make_rec make_mutrec intro_cond empty_upds [] hmaps ref) (envChoices env, HM.empty) (HM.keys $ envChoices env)
       valhmap = HM.map (inlineChoices chhmap) (envVals env)
   in EnvS (envSkols env) valhmap (envDats env) (envCids env) (envPreconds env) (envCtrs env) chhmap
   where
@@ -148,7 +148,7 @@ solveChoiceReferences env =
     concat_chdats :: IsPhase ph => [ChoiceData ph] -> ChoiceData ph
     concat_chdats inp =
       let chdat = head inp
-          upds = foldl concatUpdateSet emptyUpdateSet $ map _cdUpds inp
+          upds = foldl' concatUpdateSet emptyUpdateSet $ map _cdUpds inp
       in chdat{_cdUpds = upds}
 
     intro_cond :: IsPhase ph
@@ -159,10 +159,10 @@ solveChoiceReferences env =
       let datxs = map intro_cond cdatxs
           datys = map intro_cond cdatys
           newUpds = introCond (createCond cond
-              (foldl
+              (foldl'
                 (\upd dat -> upd `concatUpdateSet` _cdUpds dat)
                 emptyUpdateSet datxs)
-              (foldl
+              (foldl'
                 (\upd dat -> upd `concatUpdateSet` _cdUpds dat)
                 emptyUpdateSet datys))
       in (head datxs){_cdUpds = newUpds}
@@ -293,9 +293,9 @@ solveReference lookupRef lookupSol popUpd extUpds makeRec makeMutRec introCond e
       -- preserved in the computed closure (update set).
       Conditional cond refs_a refs_b ->
             -- Compute the closure for the true-case.
-        let (updset_a, hmaps_a) = foldl (handle_ref vis) (updset0,hmaps0) refs_a
+        let (updset_a, hmaps_a) = foldl' (handle_ref vis) (updset0,hmaps0) refs_a
             -- Compute the closure for the false-case.
-            (updset_b, hmaps_b) = foldl (handle_ref vis) (updset0,hmaps_a) refs_b
+            (updset_b, hmaps_b) = foldl' (handle_ref vis) (updset0,hmaps_a) refs_b
             -- Move the conditional inwards, in the update set.
             -- TODO: This has the unfortunate side effect of moving all updates inside the conditional.
             updset1 = introCond $ createCond cond updset_a updset_b

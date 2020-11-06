@@ -43,6 +43,7 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/ports",
         "//libs-scala/scala-utils",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:oauth-middleware",  # TODO[AH] Extract request/response types
@@ -114,6 +115,7 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/sandbox-classic",
         "//ledger/sandbox-common",
+        "//libs-scala/flyway-testing",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
@@ -126,6 +128,7 @@ da_scala_test(
         "@maven//:com_typesafe_akka_akka_parsing_2_12",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
         "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],

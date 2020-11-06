@@ -18,7 +18,7 @@
     </appender>
 
     <!-- Disable noisy DB logging at the start of sandbox -->
-    <logger name="com.digitalasset.platform.store.FlywayMigrations" level="WARN" />
+    <logger name="com.daml.platform.store.FlywayMigrations" level="WARN" />
     <logger name="org.flywaydb" level="ERROR" />
     <logger name="com.zaxxer.hikari" level="ERROR" />
     <logger name="com.daml.ledger.on.sql" level="WARN" />

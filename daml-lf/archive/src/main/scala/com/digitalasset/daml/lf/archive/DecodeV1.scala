@@ -51,16 +51,16 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         None
       }
 
+    val env = DecoderEnv(
+      packageId,
+      internedStrings,
+      internedDottedNames,
+      Some(dependencyTracker),
+      None,
+      onlySerializableDataDefs,
+    )
     Package(
-      modules = lfPackage.getModulesList.asScala
-        .map(
-          ModuleDecoder(
-            packageId,
-            internedStrings,
-            internedDottedNames,
-            Some(dependencyTracker),
-            _,
-            onlySerializableDataDefs).decode),
+      modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_)),
       directDeps = dependencyTracker.getDependencies,
       languageVersion = languageVersion,
       metadata = metadata,
@@ -102,14 +102,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       throw ParseError(
         s"expected exactly one module in proto package, found ${lfScenarioModule.getModulesCount} modules")
 
-    ModuleDecoder(
+    DecoderEnv(
       packageId,
       internedStrings,
       internedDottedNames,
       None,
-      lfScenarioModule.getModules(0),
+      None,
       onlySerializableDataDefs = false
-    ).decode()
+    ).decodeModule(lfScenarioModule.getModules(0))
 
   }
 
@@ -146,17 +146,19 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     def getDependencies: Set[PackageId] = deps.toSet
   }
 
-  case class ModuleDecoder(
+  case class DecoderEnv(
       packageId: PackageId,
       internedStrings: ImmArraySeq[String],
       internedDottedNames: ImmArraySeq[DottedName],
       optDependencyTracker: Option[PackageDependencyTracker],
-      lfModule: PLF.Module,
+      optModuleName: Option[ModuleName],
       onlySerializableDataDefs: Boolean
   ) {
 
-    private val moduleName: ModuleName =
-      handleDottedName(
+    private var currentDefinitionRef: Option[DefinitionRef] = None
+
+    def decodeModule(lfModule: PLF.Module): Module = {
+      val moduleName = handleDottedName(
         lfModule.getNameCase,
         PLF.Module.NameCase.NAME_DNAME,
         lfModule.getNameDname,
@@ -164,10 +166,10 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         lfModule.getNameInternedDname,
         "Module.name.name"
       )
+      copy(optModuleName = Some(moduleName)).decodeModuleWithName(lfModule, moduleName)
+    }
 
-    private var currentDefinitionRef: Option[DefinitionRef] = None
-
-    def decode(): Module = {
+    private def decodeModuleWithName(lfModule: PLF.Module, moduleName: ModuleName) = {
       val defs = mutable.ArrayBuffer[(DottedName, Definition)]()
       val templates = mutable.ArrayBuffer[(DottedName, Template)]()
 
@@ -416,20 +418,21 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     private def decodeLocation(lfExpr: PLF.Expr, definition: String): Option[Location] =
       if (lfExpr.hasLocation && lfExpr.getLocation.hasRange) {
         val loc = lfExpr.getLocation
-        val (pkgId, module) =
+        val optModuleRef =
           if (loc.hasModule)
-            decodeModuleRef(loc.getModule)
+            Some(decodeModuleRef(loc.getModule))
           else
-            (packageId, moduleName)
-
-        val range = loc.getRange
-        Some(
-          Location(
-            pkgId,
-            module,
-            definition,
-            (range.getStartLine, range.getStartCol),
-            (range.getEndLine, range.getEndCol)))
+            optModuleName.map((packageId, _))
+        optModuleRef.map {
+          case (pkgId, moduleName) =>
+            val range = loc.getRange
+            Location(
+              pkgId,
+              moduleName,
+              definition,
+              (range.getStartLine, range.getStartCol),
+              (range.getEndLine, range.getEndCol))
+        }
       } else {
         None
       }
