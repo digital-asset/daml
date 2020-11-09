@@ -7,6 +7,7 @@ import org.scalacheck.Gen.listOfN
 import org.scalacheck.Arbitrary
 import org.scalatest.Assertion
 import org.scalatest.Assertions.succeed
+import org.scalatest.exceptions.TestFailedException
 import scalaz.{Applicative, Monoid}
 import scalaz.std.list._
 import scalaz.std.scalaFuture._
@@ -23,6 +24,15 @@ trait AsyncForAll {
 
     implicit val assertionMonoid: Monoid[Future[Assertion]] =
       Monoid liftMonoid (Applicative[Future], Monoid instance ((_, result) => result, succeed))
-    runs foldMap f
+    runs foldMap { a =>
+      f(a) recoverWith {
+        case ae: TestFailedException =>
+          Future failed ae.modifyMessage(_ map { msg: String =>
+            msg +
+              "\n  Random parameters:" +
+              s"\n    arg0: $a"
+          })
+      }
+    }
   }
 }
