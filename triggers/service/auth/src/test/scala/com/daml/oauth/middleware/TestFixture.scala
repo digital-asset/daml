@@ -7,7 +7,12 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import com.daml.jwt.HMAC256Verifier
 import com.daml.ledger.api.refinements.ApiTypes
-import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource, Resource, SuiteResource}
+import com.daml.ledger.api.testing.utils.{
+  AkkaBeforeAndAfterAll,
+  OwnedResource,
+  Resource,
+  SuiteResource
+}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.oauth.server.{Config => OAuthConfig}
 import com.daml.ports.Port
