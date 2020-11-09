@@ -843,7 +843,7 @@ private[validation] object Typing {
         checkExpr(exp, TScenario(typ))
     }
 
-    // we check that typ contains neither variables, nor quantifiers, nor synonyms
+    // we check that typ contains neither variables nor quantifiers
     private def checkAnyType_(typ: Type): Unit = {
       typ match {
         case TVar(_) | TForall(_, _) | TSynApp(_, _) =>
