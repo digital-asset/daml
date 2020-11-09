@@ -570,9 +570,9 @@ class Runner(
 object Runner extends StrictLogging {
 
   /** The number of submitSingleCommand invocations each trigger will
-    * attempt to execute in parallel.  As the number of submitted but
-    * incomplete commands exceeds this number, submission will slow down
-    * until reaching 1/sec at >9 excess commands.
+    * attempt to execute in parallel.  Note that this does not in any
+    * way bound the number of already-submitted, but not completed,
+    * commands that may be pending.
     */
   val maxParallelSubmissionsPerTrigger = 8
   val maxTriesWhenOverloaded = 6
