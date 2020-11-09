@@ -112,6 +112,12 @@ message AllocatePartyRequest {
   // have to be unique.
   // Optional
   string display_name = 2;
+
+  // If set to true, then the party will be allocated in read-only mode.
+  // Read-only parties may not authorize commands. They are useful for allowing other
+  // parties to read contract data on their behalf (see ``read_as`` in ``commands.proto``).
+  // Optional
+  bool read_only = 3;
 }
 
 message AllocatePartyResponse {
@@ -134,4 +140,8 @@ message PartyDetails {
   // true if party is hosted by the backing participant.
   // Required
   bool is_local = 3;
+
+  // true if party is hosted by the backing participant in read-only mode.
+  // Required
+  bool read_only = 3;
 }
