@@ -843,18 +843,18 @@ private[validation] object Typing {
         checkExpr(exp, TScenario(typ))
     }
 
-    // we check that typ contains neither variables nor quantifiers
-    private def checkGroundType_(typ: Type): Unit = {
+    // we check that typ contains neither variables, nor quantifiers, nor synonyms
+    private def checkAnyType_(typ: Type): Unit = {
       typ match {
-        case TVar(_) | TForall(_, _) =>
+        case TVar(_) | TForall(_, _) | TSynApp(_, _) =>
           throw EExpectedAnyType(ctx, typ)
         case _ =>
-          TypeTraversable(typ).foreach(checkGroundType_)
+          TypeTraversable(typ).foreach(checkAnyType_)
       }
     }
 
-    private def checkGroundType(typ: Type): Unit = {
-      checkGroundType_(typ)
+    private def checkAnyType(typ: Type): Unit = {
+      checkAnyType_(typ)
       checkType(typ, KStar)
     }
 
@@ -925,15 +925,15 @@ private[validation] object Typing {
         val _ = checkExpr(body, typ)
         TOptional(typ)
       case EToAny(typ, body) =>
-        checkGroundType(typ)
+        checkAnyType(typ)
         checkExpr(body, typ)
         TAny
       case EFromAny(typ, body) =>
-        checkGroundType(typ)
+        checkAnyType(typ)
         checkExpr(body, TAny)
         TOptional(typ)
       case ETypeRep(typ) =>
-        checkGroundType(typ)
+        checkAnyType(typ)
         TTypeRep
     }
 
