@@ -383,7 +383,8 @@ private[validation] object Typing {
             checkExpr(controllers, TParties)
           }
           choiceObservers.foreach {
-            checkExpr(_, TParties) // FIXME #7709, be conditional on: supportsContractObservers
+            introExprVar(param, paramType)
+              .checkExpr(_, TParties) // FIXME #7709, be conditional on: supportsContractObservers
           }
           introExprVar(selfBinder, TContractId(TTyCon(tplName)))
             .introExprVar(param, paramType)
