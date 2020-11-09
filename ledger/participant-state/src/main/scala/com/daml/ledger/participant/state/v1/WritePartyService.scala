@@ -27,13 +27,16 @@ trait WritePartyService {
     *
     * @param displayName  : A human readable name of the new party
     *
-    * @param submissionId: Client picked submission identifier for matching the responses with the request.
+    * @param submissionId : Client picked submission identifier for matching the responses with the request.
+    *
+    * @param readOnly     : True if the party should be hosted in read-only mode.
     *
     * @return an async result of a SubmissionResult
     */
   def allocateParty(
       hint: Option[Party],
       displayName: Option[String],
-      submissionId: SubmissionId
+      submissionId: SubmissionId,
+      readOnly: Boolean,
   ): CompletionStage[SubmissionResult]
 }

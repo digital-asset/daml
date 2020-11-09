@@ -54,6 +54,9 @@ object Update {
 
   /** Signal that a party is hosted at a participant.
     *
+    * If a party with the given party identifier is already hosted at the given participant,
+    * then this update signals changes to party details (displayName, readOnly).
+    *
     * @param party
     *   The newly allocated party identifier.
     *
@@ -69,14 +72,18 @@ object Update {
     * @param submissionId
     *   The submissionId of the command which requested party to be added.
     *
+    * @param readOnly
+    *   True if the party is hosted in read-only mode.
+    *
     */
   final case class PartyAddedToParticipant(
       party: Party,
       displayName: String,
       participantId: ParticipantId,
       recordTime: Timestamp,
-      submissionId: Option[SubmissionId])
-      extends Update {
+      submissionId: Option[SubmissionId],
+      readOnly: Boolean,
+  ) extends Update {
     override def description: String =
       s"Add party '$party' to participant"
   }
