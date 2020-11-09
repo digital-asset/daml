@@ -37,7 +37,7 @@ private[validation] class World(packages: PartialFunction[PackageId, Ast.GenPack
 
   def lookupTemplate(ctx: => Context, name: TypeConName): Ast.GenTemplate[_] =
     lookupModule(ctx, name.packageId, name.qualifiedName.module).templates
-      .getOrElse(name.qualifiedName.name, throw EUnknownDefinition(ctx, LEDataType(name)))
+      .getOrElse(name.qualifiedName.name, throw EUnknownDefinition(ctx, LETemplate(name)))
 
   def lookupChoice(
       ctx: => Context,

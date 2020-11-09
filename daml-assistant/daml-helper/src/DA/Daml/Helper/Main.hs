@@ -284,20 +284,20 @@ commandParser = subparser $ fold
         <*> fmap JsonFlag (switch $ long "json" <> help "Output party list in JSON")
 
     ledgerAllocatePartiesCmd = LedgerAllocateParties
-        <$> ledgerFlags (ShowJsonApi False)
+        <$> ledgerFlags (ShowJsonApi True)
         <*> many (argument str (metavar "PARTY" <> help "Parties to be allocated on the ledger (defaults to project parties if empty)"))
 
     -- same as allocate-parties but requires a single party.
     ledgerAllocatePartyCmd = LedgerAllocateParties
-        <$> ledgerFlags (ShowJsonApi False)
+        <$> ledgerFlags (ShowJsonApi True)
         <*> fmap (:[]) (argument str (metavar "PARTY" <> help "Party to be allocated on the ledger"))
 
     ledgerUploadDarCmd = LedgerUploadDar
-        <$> ledgerFlags (ShowJsonApi False)
+        <$> ledgerFlags (ShowJsonApi True)
         <*> optional (argument str (metavar "PATH" <> help "DAR file to upload (defaults to project DAR)"))
 
     ledgerFetchDarCmd = LedgerFetchDar
-        <$> ledgerFlags (ShowJsonApi False)
+        <$> ledgerFlags (ShowJsonApi True)
         <*> option str (long "main-package-id" <> metavar "PKGID" <> help "Fetch DAR for this package identifier.")
         <*> option str (short 'o' <> long "output" <> metavar "PATH" <> help "Save fetched DAR into this file.")
 

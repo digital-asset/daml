@@ -4,6 +4,7 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
 load("@os_info//:os_info.bzl", "is_windows")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 da_haskell_library(
     name = "daml-helper-lib",
@@ -151,23 +152,34 @@ da_haskell_test(
     srcs = ["test/DA/Daml/Helper/Test/Ledger.hs"],
     data = [
         "daml-helper",
+        ":test.dar",
         "//ledger-service/http-json:http-json-binary",
         "//ledger/sandbox:sandbox-binary",
     ],
     hackage_deps = [
         "base",
+        "bytestring",
         "extra",
         "filepath",
         "process",
         "tasty",
         "tasty-hunit",
+        "text",
+        "zip-archive",
     ],
     main_function = "DA.Daml.Helper.Test.Ledger.main",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc:damlc-lib",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
+)
+
+daml_compile(
+    name = "test",
+    srcs = glob(["test-data/Test.daml"]),
 )

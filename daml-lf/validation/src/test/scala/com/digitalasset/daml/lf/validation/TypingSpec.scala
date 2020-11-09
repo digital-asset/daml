@@ -265,7 +265,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "shadow variables properly" in {
+    "handle variable scope properly" in {
 
       val testCases = Table(
         "expression" ->
@@ -278,6 +278,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"∀ (τ : ⋆) (σ : ⋆). σ → (( τ → τ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁ : τ) (e₂: σ) → (( let x : τ = e₁ in let x : σ = e₂ in x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). τ → σ → (( σ ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (f : σ → τ) (x: σ) → (( let x : τ = f x in x ))" ->
+          T"∀ (τ : ⋆) (σ : ⋆). (σ → τ) → σ → (( τ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( λ (x : τ) → case e of Cons x t → x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). List σ → (( τ → σ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( case e of Cons x t → λ (x : τ) → x ))" ->
@@ -288,12 +290,16 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"∀ (τ : ⋆) (σ : ⋆). Scenario σ → (( τ → Scenario σ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Scenario τ) (e₂: Scenario σ)  → (( sbind x: τ ← e₁ ; x: σ ← e₂ in spure @σ x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Scenario τ → Scenario σ → (( Scenario σ ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (f : σ → τ) (x: σ) → (( sbind x : τ ← spure @τ (f x) in spure @τ x ))" ->
+          T"∀ (τ : ⋆) (σ : ⋆). (σ → τ) → σ → (( Scenario τ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: Update σ) → (( ubind x: σ ← e in upure @(τ → τ) (λ (x : τ) → x) ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Update σ → (( Update (τ  → τ) ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: Update σ) → (( λ (x : τ) → ubind x: σ ← e in upure @σ x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Update σ → (( τ → Update σ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Update τ) (e₂: Update σ)  → (( ubind x: τ ← e₁ ; x: σ ← e₂ in upure @σ x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Update τ → Update σ → (( Update σ ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (f : σ → τ) (x: σ) → (( ubind x : τ ← upure @τ (f x) in upure @τ x ))" ->
+          T"∀ (τ : ⋆) (σ : ⋆). (σ → τ) → σ → (( Update τ ))",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -302,156 +308,290 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     }
 
     "reject ill formed terms" in {
-      val testCases = Table(
-        "non-well formed expression",
+
+      // In the following test cases we use the variable `nothing` when we
+      // cannot built an expression of the expected type. In those cases we
+      // expect the type checker to fail with the error we are testing before
+      // it tries to type check the variable `nothing`.
+      // Expressions of type τ, where τ has kind ⋆ → ⋆, are examples of
+      // such expressions that cannot be constructed.
+
+      val testCases = Table[Expr, PartialFunction[ValidationError, _]](
+        "non-well formed expression" -> "error",
         // ExpDefVar
-        E"x",
+        E"⸨ x ⸩" -> //
+          { case _: EUnknownExprVar => },
         // ExpApp
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e₂ : τ₁) → (( e₁ e₂ ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : τ₂ → τ₃) (e₂ : τ₁) → (( e₁ e₂ ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : (τ₁ → τ₂) → τ₃) (e₂ : τ₁) → (( e₁ e₂ ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : Bool) (e₂ : τ₃) → (( e₁ e₂ ))",
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e₂ : τ₁) → ⸨ e₁ e₂ ⸩" -> //
+          { case _: EExpectedFunctionType => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : τ₂ → τ₃) (e₂ : τ₁) → ⸨ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : (τ₁ → τ₂) → τ₃) (e₂ : τ₁) → ⸨ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : Bool) (e₂ : τ₃) → ⸨ e₁ e₂ ⸩" -> //
+          { case _: EExpectedFunctionType => },
         // ExpTyApp
-        E"Λ (τ : ⋆ → ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → (( e @τ ))",
-        E"Λ (τ : ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆ → ⋆). σ α) → (( e @τ ))",
+        E"Λ (τ : ⋆ → ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → ⸨ e @τ ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (σ: ⋆). λ (e : σ) → ⸨ e @τ ⸩" -> //
+          { case _: EExpectedUniversalType => },
         // ExpAbs
-        E"Λ  (τ : ⋆ → ⋆) (σ: ⋆) . λ (e: τ → σ) → λ (x : τ) → (( e x ))",
+        E"⸨ λ (x : List) → () ⸩" -> //
+          { case _: EKindMismatch => },
         // ExpLet
-        E"Λ  (τ₁: ⋆) (τ₂ : ⋆) (σ: ⋆). λ (e₁ : τ₁) (e₂ : σ) → (( let x : τ₂ = e₁ in e₂ ))",
-        E"Λ (τ : ⋆ → ⋆) (σ: ⋆). λ (e₁ : τ) (e₂ : τ → σ) → (( let x : τ = e₁ in e₂ x ))",
-        // ExpLitDecimal
-        E"λ (f: Numeric 0 → Unit) → f (( 3.1415926536 ))",
+        E"Λ  (τ₁: ⋆) (τ₂ : ⋆) (σ: ⋆). λ (e₁ : τ₁) (e₂ : σ) → ⸨ let x : τ₂ = e₁ in e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆ → ⋆) (σ: ⋆). λ(e : σ) → ⸨ let x : τ = nothing in e ⸩" -> //
+          { case _: EKindMismatch => },
         // ExpListNil
-        E"Λ (τ : ⋆ → ⋆). (( Nil @τ ))",
+        E"Λ (τ : ⋆ → ⋆). ⸨ Nil @τ ⸩" -> //
+          { case _: EKindMismatch => },
         // ExpListCons
-        E"Λ (τ : ⋆ → ⋆). λ (e₁ : τ) (e₂ : τ) (e : List τ) → (( Cons @τ [e₁, e₂] e ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e₂ : τ₁) (e : List τ₁) → (( Cons @τ₁ [e₁, e₂] e ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e : List τ₁) → (( Cons @τ₁ [e₁] e ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e : List τ₁) → (( Cons @τ₁ [e₁] e ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₁) (e : List τ₂) → (( Cons @τ₁ [e₁] e ))",
-        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₁) (e : List τ₁) → (( Cons @τ₂ [e₁] e ))",
-        E"Λ (τ : ⋆). λ (e : List τ) → (( Cons @τ [] e ))",
+        E"Λ (τ : ⋆ → ⋆). ⸨ Cons @τ [nothing] nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e₂ : τ₁) (e : List τ₁) → ⸨ Cons @τ₁ [e₁, e₂] e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₂) (e : List τ₁) → ⸨ Cons @τ₁ [e₁] e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₁) (e : List τ₂) → ⸨ Cons @τ₁ [e₁] e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂: ⋆). λ (e₁: τ₁) (e: τ₂) → ⸨ Cons @τ₁ [e₁] e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ₁: ⋆) (τ₂ : ⋆). λ (e₁ : τ₁) (e : List τ₁) → ⸨ Cons @τ₂ [e₁] e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆). λ (e : List τ) → ⸨ Cons @τ [] e ⸩" -> //
+          { case _: EEmptyConsFront => },
         //ExpVal
-        E"(( Mod:g ))",
+        E"⸨ Mod:g ⸩" -> //
+          { case EUnknownDefinition(_, LEDataType(_)) => },
+        E"⸨ Mod:R ⸩" -> //
+          { case EUnknownDefinition(_, LEValue(_)) => },
         //ExpRecCon
-        E"Λ (σ : ⋆). λ (e₁ : Bool) (e₂ : List σ) → (( Mod:R @σ { f1 = e₁, f2 =e₂ } ))",
-        E"Λ (σ : ⋆ → ⋆). λ (e₁ : Int64) (e₂ : List σ) → (( Mod:R @σ { f1 = e₁, f2 =e₂ } ))",
-        E"Λ (σ : ⋆). λ (e₁ : Int64) (e₂ : List σ) → (( Mod:R @σ { f1 = e₁, f3 =e₂ } ))",
-        E"Λ (σ : ⋆). λ (e₁ : Int64) (e₂ : List σ) → (( Mod:R @σ { f1 = e₁ } ))",
-        E"Λ (σ : ⋆) (τ: ⋆). λ (e₁ : Int64) (e₂ : List σ) (e₃:τ) → (( Mod:R @σ { f1 = e₁, f2 = e₂, f3 = e₃} ))",
+        E"Λ (σ : ⋆). λ (e₁ : Bool) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁, f2 = e₂ } ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆ → ⋆). λ (e₁ : Int64) → ⸨ Mod:R @σ { f1 = e₁, f2 = nothing } ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (σ : ⋆). λ (e₁ : Int64) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁, f3 = e₂ } ⸩" -> //
+          { case _: EFieldMismatch => },
+        E"Λ (σ : ⋆). λ (e₁ : Int64) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁ } ⸩" -> //
+          { case _: EFieldMismatch => },
+        E"Λ (σ : ⋆) (τ: ⋆). λ (e₁ : Int64) (e₂ : List σ) (e₃:τ) → ⸨ Mod:R @σ { f1 = e₁, f2 = e₂, f3 = e₃} ⸩" -> //
+          { case _: EFieldMismatch => },
         // ExpRecProj
-        E"Λ (σ : ⋆ → ⋆). λ (e : Mod:R σ) → (( Mod:R @σ (e).f2 ))",
-        E"Λ (σ : ⋆). λ (e : Mod:R σ) → (( Mod:R @σ (e).f3 ))",
+        E"Λ (σ : ⋆ → ⋆). ⸨ Mod:R @σ {f2} nothing⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (σ : ⋆). λ (e : Mod:R σ) → ⸨ Mod:R @σ {f3} e ⸩" -> //
+          { case _: EUnknownField => },
+        E"Λ (τ: ⋆) (σ: ⋆). λ (e: Mod:R τ) → ⸨ Mod:R @σ {f1} e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ: ⋆) (σ: ⋆). λ (e: τ) → ⸨ Mod:R @σ {f1} e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ExpRecUpdate
-        E"Λ (σ : ⋆). λ (e : Mod:R σ) (e₂ : List σ) → (( Mod:R @σ { e  with f3 = e₂ } ))",
-        E"Λ (σ : ⋆). λ (e : Mod:R σ) (e₂ : Bool) → (( Mod:R @σ { e  with f2 = e₂ } ))",
+        E"Λ (σ: ⋆ → ⋆). λ (e: Int64) → ⸨ Mod:R @σ { nothing with f1 = e₁ } ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (σ : ⋆). λ (e : Mod:R σ) (e₂ : List σ) → ⸨ Mod:R @σ { e  with f3 = e₂ } ⸩" -> //
+          { case _: EUnknownField => },
+        E"Λ (σ : ⋆). λ (e : Mod:R σ) (e₂ : Bool) → ⸨ Mod:R @σ { e  with f2 = e₂ } ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ: ⋆) (σ: ⋆). λ (e: Mod:R τ) (e₂: List σ) → ⸨ Mod:R @τ { e  with f2 = e₂ } ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ: ⋆) (σ: ⋆). λ (e: Mod:R τ) (e₂: List σ) → ⸨ Mod:R @σ { e  with f2 = e₂ } ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ: ⋆). λ  (e: List σ) (e₂: List σ) → ⸨ Mod:R @σ { e with f2 = e₂ } ⸩" -> //
+          { case _: ETypeMismatch => },
         // ExpVarCon
-        E"Λ (σ : ⋆ → ⋆). λ (e : σ) → (( Mod:Tree:Leaf @σ e ))",
-        E"Λ (σ : ⋆). λ (e : σ) → (( Mod:Tree @σ Cons @σ [e] (Nil @σ) ))",
+        E"Λ (σ : ⋆ → ⋆). ⸨ Mod:Tree:Leaf @σ nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ Mod:Tree:Leaf @τ e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ExpStructCon
-        E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e₁ : τ₁)  → (( ⟨ f₁ = e₁, f₁ = e₁ ⟩ ))",
+        E"Λ (τ₁: ⋆) (τ₂: ⋆). λ (e₁: τ₁) (e₂: τ₂) → ⸨ ⟨ f₁ = e₁, f₁ = e₂ ⟩ ⸩" -> //
+          { case _: EDuplicateField => },
         // ExpStructProj
-        E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) → (( (e).f3 ))",
+        E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) → ⸨ (e).f3 ⸩" -> //
+          { case _: EUnknownField => },
         // ExpStructUpdate
-        E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₂ : τ₂)  → (( ⟨ e with f₃ = e₂ ⟩ ))",
-        E"Λ (τ₁ : ⋆) (τ₂ : ⋆) (τ₃: ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₃: τ₃)  → (( ⟨ e with f₂ = e₃ ⟩ ))",
+        E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₂ : τ₂)  → ⸨ ⟨ e with f₃ = e₂ ⟩ ⸩" -> //
+          { case _: EUnknownField => },
+        E"Λ (τ₁ : ⋆) (τ₂ : ⋆) (τ₃: ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₃: τ₃)  → ⸨ ⟨ e with f₂ = e₃ ⟩ ⸩" -> //
+          { case _: ETypeMismatch => },
         // ExpCaseVariant
-        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → ((  case e of Cons h t -> () ))",
-        E"Λ (τ : ⋆). λ (e : List τ) → (( case e of Mod:Tree:Node x -> () ))",
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Mod:Tree:Node x -> () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
         // ExpCaseNil
-        E"Λ (τ : ⋆). λ (e : τ) → (( case e of Nil → () ))",
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Nil → () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
         // ExpCaseCons
-        E"Λ (τ : ⋆). λ (e : τ) → (( case e of Cons x y → () ))",
-        E"Λ (τ : ⋆). λ (e: List τ) → (( case e of Cons x x → () ))",
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Cons x y → () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
+        E"Λ (τ : ⋆). λ (e: List τ) → ⸨ case e of Cons x x → () ⸩" -> //
+          { case _: EClashingPatternVariables => },
         // ExpCaseFalse & ExpCaseTrue
-        E"Λ (τ : ⋆). λ (e : τ) → (( case e of True → () ))",
-        E"Λ (τ : ⋆). λ (e : τ) → (( case e of False → () ))",
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of True → () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of False → () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
         // ExpCaseUnit
-        E"Λ (τ : ⋆). λ (e : τ) → (( case e of () → () ))",
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of () → () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
         // ExpCaseOr
-        E"Λ (τ : ⋆). λ (e : τ) → (( case e of  ))",
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of ⸩" -> //
+          { case _: EEmptyCase => },
         // ExpToAny
-        E"Λ (τ : *). λ (r: Mod:R τ) → (( to_any @Mod:R r ))",
-        E"Λ (τ : *). λ (r: Mod:R τ) → (( to_any @(Mod:R τ) r ))",
-        E"Λ (τ : *). λ (t: Mod:Tree τ) → (( to_any @Mod:Tree t ))",
-        E"Λ (τ : *). λ (t: Mod:Tree τ) → (( to_any @(Mod:Tree τ) t ))",
-        E"Λ (τ : *). λ (t: ∀ (α : ⋆). Int64) → (( to_any @(∀ (α : ⋆). Int64) t ))",
-        E"Λ (τ : *). λ (t: List (Optional (∀ (α : ⋆). Int64))) → (( to_any @(List (Optional (∀ (α : ⋆). Int64))) t ))",
+        E"⸨ to_any @Mod:R nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ :⋆). λ (r: Mod:R τ) → ⸨ to_any @(Mod:R τ) r ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"Λ (τ :⋆). λ (t: Mod:Tree τ) → ⸨ to_any @(Mod:Tree τ) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"Λ (τ :⋆). λ (t: ∀ (α : ⋆). Int64) → ⸨ to_any @(∀ (α : ⋆). Int64) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"Λ (τ :⋆). λ (t: List (Option (∀ (α: ⋆). Int64))) → ⸨ to_any @(List (Option (∀ (α: ⋆). Int64))) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"λ (e: |Mod:S|) → ⸨ to_any @|Mod:S| e ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"⸨ to_any @Int64 (Nil @Int64) ⸩" -> //
+          { case _: ETypeMismatch => },
         // ExpFromAny
-        E"λ (t: Any) → (( from_any @Mod:R t ))",
-        E"Λ (τ : *). λ (t: Any) → (( from_any @(Mod:R τ) t ))",
-        E"λ (t: Any) → (( from_any @Mod:Tree t ))",
-        E"Λ (τ : *). λ (t: Any) → (( from_any @(Mod:Tree τ) t ))",
-        E"λ (t: Mod:T) → (( from_any @Mod:T t ))",
-        E"Λ (τ : *). λ (t: Any) → (( to_any @(∀ (α : ⋆). Int64) t ))",
-        E"Λ (τ : *). λ (t: Any) → (( to_any @(List (Optional (∀ (α : ⋆). Int64))) t ))",
+        E"λ (t: Any) → ⸨ from_any @Mod:R t ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ :⋆). λ (t: Any) → ⸨ from_any @(Mod:R τ) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"Λ (τ :⋆). λ (t: Any) → ⸨ from_any @(Mod:Tree τ) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"λ (t: Mod:T) → ⸨ from_any @Mod:T t ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ :⋆). λ (t: Any) → ⸨ from_any @(∀ (α: ⋆). Int64) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"Λ (τ :⋆). λ (t: Any) → ⸨ from_any @(List (Option (∀ (α: ⋆). Int64))) t ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"λ (e: Any) → ⸨ from_any @|Mod:S| e ⸩" -> //
+          { case _: EExpectedAnyType => },
         // ExpTypeRep
-        E"(( type_rep @Mod:NoSuchType ))",
-        E"Λ (τ : *). (( type_rep @τ ))",
-        E"(( type_rep @(∀(τ : *) . Int64) ))",
+        E"⸨ type_rep @Mod:R ⸩" -> //
+          { case _: EKindMismatch => },
+        E"⸨ type_rep @Mod:NoSuchType ⸩" -> //
+          { case _: EUnknownDefinition => },
+        E"Λ (τ : ⋆). ⸨ type_rep @τ ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"⸨ type_rep @(∀(τ :⋆) . Int64) ⸩" -> //
+          { case _: EExpectedAnyType => },
+        E"⸨ type_rep @|Mod:S| ⸩" -> //
+          { case _: EExpectedAnyType => },
         // ScnPure
-        E"Λ (τ : ⋆ → ⋆). λ (e: τ) → (( spure @τ e ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → (( spure @σ e ))",
+        E"Λ (τ : ⋆ → ⋆). ⸨ spure @τ nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → ⸨ spure @σ e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnBlock
-        E"Λ (τ : ⋆ → ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆ → ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆ → ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁:  τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂:τ₂) (e: Scenario τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (f: τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → (( sbind x₁: σ  ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → (( sbind x₁: τ₁ ← e₁ ;  x₂: σ ← e₂ in e ))",
+        E"Λ (τ : ⋆) (τ₂ : ⋆ → ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← nothing in e ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆ → ⋆). λ (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← nothing ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁:  τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂:τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (f: τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in f ⸩" -> //
+          { case _: EExpectedScenarioType => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: σ  ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Scenario τ₁) (e₂: Scenario τ₂) (e: Scenario τ) → ⸨ sbind x₁: τ₁ ← e₁ ;  x₂: σ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnCommit
-        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) (e₂: Update τ) → (( commit @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: σ) (e₂: Update τ) → (( commit @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → (( commit @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: σ) → (( commit @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update τ) → (( commit @σ e₁ e₂ ))",
+        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) → ⸨ commit @τ e₁ nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: σ) (e₂: Update τ) → ⸨ commit @τ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → ⸨ commit @τ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: σ) → ⸨ commit @τ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnMustFail
-        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) (e₂: Update τ) → (( must_fail_at @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: σ) (e₂: Update τ) → (( must_fail_at @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → (( must_fail_at @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: σ) → (( must_fail_at @τ e₁ e₂ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update τ) → (( must_fail_at @σ e₁ e₂ ))",
+        E"Λ (τ : ⋆ → ⋆). λ (e₁: Party) → ⸨ must_fail_at @τ e₁ nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: σ) (e₂: Update τ) → ⸨ must_fail_at @τ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: Update σ) → ⸨ must_fail_at @τ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e₁: Party) (e₂: σ) → ⸨ must_fail_at @τ e₁ e₂ ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnPass
-        E"Λ (σ : ⋆). λ (e: σ) → (( pass e ))",
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ pass e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnGetParty
-        E"Λ (σ : ⋆). λ (e: σ) → (( sget_party e ))",
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ sget_party e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnEmbedExpr
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e : Scenario σ) → (( sembed_expr @τ e ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → (( sembed_expr @τ e ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ sembed_expr @τ e ⸩" -> //
+          { case _: ETypeMismatch => },
         //  UpdPure
-        E"Λ (τ : ⋆ → ⋆). λ (e: τ) → (( upure @τ e ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → (( upure @σ e ))",
+        E"Λ (τ : ⋆ → ⋆). ⸨ upure @τ nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → ⸨ upure @σ e ⸩" -> //
+          { case _: ETypeMismatch => },
         // UpdBlock
-        E"Λ (τ : ⋆ → ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: e: Update τ τ₁) (e₂: e: Update τ τ₂) (e: e: Update τ τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆ → ⋆) (τ₁ : ⋆). λ (e₁: e: Update τ τ₁) (e₂: e: Update τ τ₂) (e: e: Update τ τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆ → ⋆). λ (e₁: e: Update τ τ₁) (e₂: e: Update τ τ₂) (e: e: Update τ τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁:  τ₁) (e₂: e: Update τ τ₂) (e: e: Update τ τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: e: Update τ τ₁) (e₂:τ₂) (e: e: Update τ τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: e: Update τ τ₁) (e₂: e: Update τ τ₂) (f: τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: e: Update τ τ₁) (e₂: e: Update τ τ₂) (e: e: Update τ τ) → (( ubind x₁: σ  ← e₁ ;  x₂: τ₂ ← e₂ in e ))",
-        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: e: Update τ τ₁) (e₂: e: Update τ τ₂) (e: e: Update τ τ) → (( ubind x₁: τ₁ ← e₁ ;  x₂: σ ← e₂ in e ))",
+        E"Λ (τ : ⋆) (τ₂ : ⋆ → ⋆) (τ₁ : ⋆). λ (e₁: Update τ₁) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← nothing in e ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆ → ⋆). λ (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← nothing ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁:  τ₁) (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Update τ₁) (e₂:τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆). λ (e₁: Update τ₁) (e₂: Update τ₂) (f: τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: τ₂ ← e₂ in f ⸩" -> //
+          { case _: EExpectedUpdateType => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Update τ₁) (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: σ  ← e₁ ;  x₂: τ₂ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (τ₂ : ⋆) (τ₁ : ⋆) (σ : ⋆). λ (e₁: Update τ₁) (e₂: Update τ₂) (e: Update τ) → ⸨ ubind x₁: τ₁ ← e₁ ;  x₂: σ ← e₂ in e ⸩" -> //
+          { case _: ETypeMismatch => },
         // UpdCreate
-        E"λ (e: Mod:R) → (( create @Mod:R e))",
+        E"λ (e: Mod:U) → ⸨ create @Mod:U nothing ⸩" -> //
+          { case EUnknownDefinition(_, LETemplate(_)) => },
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ create @Mod:T e ⸩" -> //
+          { case _: ETypeMismatch => },
         // UpdExercise
-        E"λ (e₁: ContractId Mod:R) (e₂: List Party) (e₃: Int64) → (( exercise @Mod:R Ch e₁ e₂ e₃ ))",
-        E"λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: Int64) → (( exercise @Mod:T Not e₁ e₂ e₃ ))",
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: σ) → (( exercise @Mod:T Ch e₁ e₂ e₃ ))",
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List σ) (e₃: Int64) → (( exercise @Mod:T Ch e₁ e₂ e₃ ))",
-        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: σ) (e₃: Int64) → (( exercise @Mod:T Ch e₁ e₂ e₃ ))",
+        E"λ (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:U Ch nothing e₂ e₃ ⸩" -> //
+          { case EUnknownDefinition(_, LETemplate(_)) => },
+        E"λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:T Not e₁ e₂ e₃ ⸩" -> //
+          { case EUnknownDefinition(_, LEChoice(_, _)) => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: σ) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List σ) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: σ) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
+          { case _: ETypeMismatch => },
+        E"Λ (σ : ⋆).λ (e₁: ContractId σ) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
+          { case _: ETypeMismatch => },
         // FecthByKey & lookupByKey
-        E"""((fetch_by_key @Mod:T "Bob"))""",
-        E"""((lookup_by_key @Mod:T "Bob"))""",
+        E"""⸨ fetch_by_key @Mod:U "Bob" ⸩""" -> //
+          { case EUnknownDefinition(_, LETemplate(_)) => },
+        E"""⸨ fetch_by_key @Mod:T "Bob" ⸩""" -> //
+          { case _: ETypeMismatch => },
+        E"""⸨ lookup_by_key @Mod:T "Bob" ⸩""" -> //
+          { case _: ETypeMismatch => },
         // UpdFetch
-        E"Λ (σ : ⋆). λ (e: σ) → (( fetch @Mod:T e ))",
+        E"Λ (σ: ⋆). λ (e: ContractId Mod:U) → ⸨ fetch @Mod:U e ⸩" -> //
+          { case EUnknownDefinition(_, LETemplate(_)) => },
+        E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch @Mod:T e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScenarioEmbedExpr
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e : Udpate σ) → (( uembed_expr @τ e ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → (( uembed_expr @τ e ))",
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ uembed_expr @τ e ⸩" -> //
+          { case _: ETypeMismatch => },
       )
 
-      forEvery(testCases) { exp =>
-        a[ValidationError] should be thrownBy env.typeOf(exp)
+      val ELocation(expectedLocation, EVar("something")) = E"⸨ something ⸩"
+      val expectedContext = ContextLocation(expectedLocation)
+
+      forEvery(testCases) { (exp, checkError) =>
+        import scala.util.{Failure, Try}
+
+        val x = Try(env.typeOf(exp))
+        x should matchPattern {
+          case Failure(exception: ValidationError)
+              if exception.context == expectedContext // check the error happened between ⸨ ⸩
+                && checkError.isDefinedAt(exception) =>
+        }
       }
     }
 
@@ -936,7 +1076,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
   private val pkg =
     p"""
        module Mod {
-         record R (a: *) = {f1: Int64, f2: List a } ;
+         record R (a: *) = { f1: Int64, f2: List a } ;
 
          variant Tree (a: *) =  Node : < left: Mod:Tree a, right: Mod:Tree a > | Leaf : a ;
 
@@ -951,8 +1091,10 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
          synonym SynPair (a: *) (b: *) = <one: a, two: b>;
          synonym SynHigh (f: * -> *) = f Int64 ;
          synonym SynHigh2 (f: * -> * -> *) (a: *) = f a a ;
-
-         record T = {person: Party, name: Text };
+           
+         synonym S = Mod:U;
+         
+         record @serializable T = { person: Party, name: Text };
          template (this : T) =  {
            precondition True,
            signatories Cons @Party ['Bob'] Nil @Party,
@@ -964,7 +1106,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
            key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party ['Alice', p] (Nil @Party))
          } ;
 
-          val f : Int64 -> Bool = ERROR @(Bool -> Int64) "not implemented";
+         record @serializable U = { person: Party, name: Text };
+
+         val f : Int64 -> Bool = ERROR @(Bool -> Int64) "not implemented";
        }
      """
 

@@ -19,7 +19,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerNavigator,
     ) where
 
-import Control.Exception.Safe (catch, SomeException)
+import Control.Exception (SomeException(..), catch)
 import Control.Lens (toListOf)
 import Control.Monad.Extra hiding (fromMaybeM)
 import Data.Aeson ((.=))
@@ -34,6 +34,7 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Data.String (IsString, fromString)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
 import GHC.Generics
@@ -177,17 +178,31 @@ runLedgerUploadDar flags darPathM = do
       getDarPath
   putStrLn $ "Uploading " <> darPath <> " to " <> showHostAndPort args
   bytes <- BS.readFile darPath
-  uploadDarFile args bytes `catch` \(e :: SomeException) -> do
-    putStrLn $ unlines
-      [ "An exception was thrown during the upload-dar command"
-      , "- " <> show e
-      , "One reason for this to occur is if the size of DAR file being uploaded exceeds the gRPC maximum message size. The default value for this is 4Mb, but it may be increased when the ledger is (re)started. Please check with your ledger operator."
-      ]
-    exitFailure
-  putStrLn "DAR upload succeeded."
-  where
-    uploadDarFile args bytes =
-      runWithLedgerArgs args $ do L.uploadDarFile bytes >>= either fail return
+  result <-
+    uploadDarFile args bytes `catch` \(e :: SomeException) -> do
+      putStrLn $
+        unlines
+          [ "An exception was thrown during the upload-dar command"
+          , "- " <> show e
+          , "One reason for this to occur is if the size of DAR file being uploaded exceeds the gRPC maximum message size. The default value for this is 4Mb, but it may be increased when the ledger is (re)started. Please check with your ledger operator."
+          ]
+      exitFailure
+  case result of
+    Left err -> do
+      putStrLn $ "upload-dar did not succeed: " <> show err
+      exitFailure
+    Right () -> putStrLn "DAR upload succeeded."
+
+uploadDarFile :: LedgerArgs -> BS.ByteString -> IO (Either String ())
+uploadDarFile args bytes =
+  case api args of
+    Grpc -> runWithLedgerArgs args $ do L.uploadDarFile bytes
+    HttpJson -> do
+      (i :: Int) <- httpJsonRequest args "POST" "/v1/packages" $ setRequestBodyLBS (BSL.fromStrict bytes)
+      return $
+        if i == 1
+          then Right ()
+          else Left "An error occured. Please check the returned status."
 
 newtype JsonFlag = JsonFlag { unJsonFlag :: Bool }
 
@@ -274,16 +289,25 @@ downloadAllReachablePackages args pid = loop Map.empty [pid]
 -- | Download the Package identified by a PackageId; fail if it doesn't exist or can't be decoded.
 downloadPackage :: LedgerArgs -> LF.PackageId -> IO LF.Package
 downloadPackage args pid = do
-  let ls :: L.LedgerService (Maybe L.Package) = do
-        lid <- L.getLedgerIdentity
-        L.getPackage lid $ convPid pid
-  runWithLedgerArgs args ls >>= \case
-    Nothing -> fail $ "Unable to download package with identity: " <> show pid
-    Just (L.Package bs) -> do
-      let mode = LFArchive.DecodeAsMain
-      case LFArchive.decodePackage mode pid bs of
-        Left err -> fail $ show err
-        Right pkg -> return pkg
+  bs <-
+    case api args of
+      Grpc -> do
+        runWithLedgerArgs args $ do
+          lid <- L.getLedgerIdentity
+          mbPkg <- L.getPackage lid $ convPid pid
+          case mbPkg of
+            Nothing -> fail $ "Unable to download package with identity: " <> show pid
+            Just (L.Package bs) -> pure bs
+      HttpJson ->
+        httpBsRequest
+          args
+          "GET"
+          (Path $ unPath "/v1/packages/" <> (T.encodeUtf8 $ LF.unPackageId pid))
+          id
+  let mode = LFArchive.DecodeAsMain
+  case LFArchive.decodePackage mode pid bs of
+    Left err -> fail $ show err
+    Right pkg -> return pkg
   where
     convPid :: LF.PackageId -> L.PackageId
     convPid (LF.PackageId text) = L.PackageId $ TL.fromStrict text
@@ -292,7 +316,7 @@ listParties :: LedgerArgs -> IO [PartyDetails]
 listParties args =
   case api args of
     Grpc -> runWithLedgerArgs args L.listKnownParties
-    HttpJson -> httpJsonRequest args "GET" "/v1/parties"
+    HttpJson -> httpJsonRequest args "GET" "/v1/parties" id
 
 lookupParty :: LedgerArgs -> String -> IO (Maybe Party)
 lookupParty args name = do
@@ -302,13 +326,17 @@ lookupParty args name = do
     return $ firstJust pred xs
 
 allocateParty :: LedgerArgs -> String -> IO Party
-allocateParty args name = runWithLedgerArgs args $ do
-    let text = TL.pack name
-    let request = L.AllocatePartyRequest
-            { partyIdHint = text
-            , displayName = text }
-    PartyDetails{party} <- L.allocateParty request
-    return party
+allocateParty args name = do
+  let text = TL.pack name
+  PartyDetails {party} <-
+    case api args of
+      Grpc ->
+        runWithLedgerArgs args $
+        L.allocateParty $ L.AllocatePartyRequest {partyIdHint = text, displayName = text}
+      HttpJson ->
+        httpJsonRequest args "POST" "/v1/parties/allocate" $
+        setRequestBodyJSON $ AllocatePartyRequest {identifierHint = text, displayName = text}
+  return party
 
 -- | Run navigator against configured ledger. We supply Navigator with
 -- the list of parties from the ledger, but in the future Navigator
@@ -385,25 +413,45 @@ data HttpJsonResponseBody a = HttpJsonResponseBody
   } deriving (Generic)
 instance A.FromJSON a => A.FromJSON (HttpJsonResponseBody a)
 
+data AllocatePartyRequest = AllocatePartyRequest
+  { identifierHint :: TL.Text
+  , displayName :: TL.Text
+  } deriving (Generic)
+instance A.ToJSON AllocatePartyRequest
+
 -- | Run a request against the HTTP JSON API.
-httpJsonRequest :: A.FromJSON a => LedgerArgs -> Method -> Path -> IO a
-httpJsonRequest LedgerArgs {sslConfigM,tokM,port,host} method path = do
+httpJsonRequest :: A.FromJSON a => LedgerArgs -> Method -> Path -> (Request -> Request) -> IO a
+httpJsonRequest args method path modify = do
+  req <- makeRequest args method path modify
+  resp <- runHttp httpJSON req
+  pure $ result resp
+
+httpBsRequest :: LedgerArgs -> Method -> Path -> (Request -> Request) -> IO BS.ByteString
+httpBsRequest args method path modify = do
+  req <- makeRequest args method path modify
+  runHttp httpBS req
+
+makeRequest :: LedgerArgs -> Method -> Path -> (Request -> Request) -> IO Request
+makeRequest LedgerArgs {sslConfigM, tokM, port, host} method path modify = do
   when (isJust sslConfigM) $
     fail "The HTTP JSON API doesn't support TLS requests, but a TLS flag was set."
-  resp <-
-    httpJSON $
+  pure $
     setRequestPort port $
     setRequestHost (BSC.pack host) $
     setRequestMethod (unMethod method) $
     setRequestPath (unPath path) $
+    modify $
     setRequestHeader
       "authorization"
       [BSC.pack $ sanitizeToken tok | Just (L.Token tok) <- [tokM]]
       defaultRequest
+
+runHttp :: (Request -> IO (Response a)) -> Request -> IO a
+runHttp run req = do
+  resp <- run req
   let status = getResponseStatus resp
-  unless (statusCode status == 200) $
-    fail $ "Request failed with error code " <> show status
-  pure $ result $ getResponseBody resp
+  unless (statusCode status == 200) $ fail $ "Request failed with error code " <> show status
+  pure $ getResponseBody resp
 
 -- This matches how the com.daml.ledger.api.auth.client.LedgerCallCredentials
 -- behaves.
