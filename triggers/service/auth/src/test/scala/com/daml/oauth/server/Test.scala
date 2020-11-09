@@ -98,7 +98,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       for {
         error <- expectError(Seq("Alice", "Eve"))
       } yield {
-        assert(error == "unauthorized")
+        assert(error == "access_denied")
       }
     }
   }
