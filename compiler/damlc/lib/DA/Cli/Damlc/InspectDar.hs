@@ -4,6 +4,8 @@
 module DA.Cli.Damlc.InspectDar
     ( Format(..)
     , inspectDar
+    , InspectInfo(..)
+    , collectInfo
     ) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive

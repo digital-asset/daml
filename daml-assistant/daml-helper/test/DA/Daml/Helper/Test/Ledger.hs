@@ -7,13 +7,12 @@ module DA.Daml.Helper.Test.Ledger
 
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import DA.Bazel.Runfiles
-import qualified DA.Daml.LF.Ast.Base as LF
-import qualified DA.Daml.LF.Proto3.Archive as LF
-import qualified DA.Daml.LF.Reader as LF
+import DA.Cli.Damlc.InspectDar
 import DA.Ledger.Services.PartyManagementService (PartyDetails(..))
 import DA.Ledger.Types (Party(..))
 import DA.Test.HttpJson
 import DA.Test.Sandbox
+import qualified DA.Daml.LF.Ast.Base as LF
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
 import System.Environment.Blank
@@ -26,9 +25,8 @@ import Test.Tasty.HUnit
 readDarMainPackageId :: FilePath -> IO String
 readDarMainPackageId dar = do
   archive <- Zip.toArchive <$> BSL.readFile dar
-  LF.Dalfs {mainDalf} <- either fail pure $ LF.readDalfs archive
-  LF.PackageId pId <- either (fail . show) pure $ LF.decodeArchivePackageId (BSL.toStrict mainDalf)
-  pure $ T.unpack pId
+  InspectInfo {mainPackageId} <- either fail pure $ collectInfo archive
+  pure $ T.unpack $ LF.unPackageId $ mainPackageId
 
 main :: IO ()
 main = do

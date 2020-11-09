@@ -170,13 +170,12 @@ da_haskell_test(
     main_function = "DA.Daml.Helper.Test.Ledger.main",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/damlc:damlc-lib",
+        "//compiler/daml-lf-ast",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto",
-        "//compiler/daml-lf-reader",
     ],
 )
 
