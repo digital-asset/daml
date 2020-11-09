@@ -237,22 +237,8 @@ class Runner(
     maxParallelSubmissionsPerTrigger,
     maxTriesWhenOverloaded,
     overloadedRetryDelay,
-    preferredSubmitDelay,
     retrying,
   }
-
-  /** Delay for command submissions, based on the number of known-pending commands. */
-  private[this] def pendingCommandDelay[SR]: Flow[SR, SR, NotUsed] =
-    Flow[SR]
-      .delayWith(
-        () => (_: SR) => preferredSubmitDelay(pendingCommandIds.size),
-        DelayOverflowStrategy.backpressure
-      )
-      .addAttributes(
-        // we don't want a buffer, because we want to backpressure the interpreter
-        // loop as soon as there is any submission delay, thus keeping pendingCommandIds
-        // holding only IDs we are actively scheduling submit for
-        Attributes.inputBuffer(initial = 1, max = 1))
 
   @throws[RuntimeException]
   private def handleCommands(commands: Seq[Command]): (UUID, SubmitRequest) = {
@@ -575,7 +561,6 @@ class Runner(
     Flow
       .fromGraph(msgFlow)
       .viaMat(getTriggerEvaluator(name, acs))(Keep.both)
-      .via(pendingCommandDelay)
       .via(submitOrFail)
       .join(source)
       .run()
@@ -591,13 +576,6 @@ object Runner extends StrictLogging {
     */
   val maxParallelSubmissionsPerTrigger = 8
   val maxTriesWhenOverloaded = 6
-
-  private def preferredSubmitDelay(pendingSubmitCount: Int): FiniteDuration = {
-    val excessCmds = 0 max (pendingSubmitCount - maxParallelSubmissionsPerTrigger)
-    val delay = 10 * excessCmds * excessCmds
-    val maxDelay = 1000
-    ((maxDelay min delay) max 0).milliseconds
-  }
 
   private def overloadedRetryDelay(afterTries: Int): FiniteDuration =
     (250 * (1 << (afterTries - 1))).milliseconds
