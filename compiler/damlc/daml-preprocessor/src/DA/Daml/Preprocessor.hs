@@ -301,9 +301,9 @@ checkKinds (GHC.L _ m) = do
   where
     checkDeclKinds :: GHC.HsDecl GHC.GhcPs -> [(GHC.SrcSpan, String)]
     checkDeclKinds = \case
-        GHC.TyClD _ (GHC.SynDecl {..}) -> checkQTyVars tcdTyVars
-        GHC.TyClD _ (GHC.DataDecl {..}) -> checkQTyVars tcdTyVars
-        GHC.TyClD _ (GHC.ClassDecl {..}) -> checkQTyVars tcdTyVars
+        GHC.TyClD _ GHC.SynDecl{..} -> checkQTyVars tcdTyVars
+        GHC.TyClD _ GHC.DataDecl{..} -> checkQTyVars tcdTyVars
+        GHC.TyClD _ GHC.ClassDecl{..} -> checkQTyVars tcdTyVars
         _ -> []
 
     checkQTyVars :: GHC.LHsQTyVars GHC.GhcPs -> [(GHC.SrcSpan, String)]
