@@ -20,7 +20,7 @@ final class TlsIT
   val (dar, envIface) = readDar(stableDarFile)
 
   val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) = {
-    List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
+    List("server.cert.pem", "server.pem", "ca.cert.pem", "client.cert.pem", "client.pem").map { src =>
       Some(new File(rlocation("ledger/test-common/test-certificates/" + src)))
     }
   }
