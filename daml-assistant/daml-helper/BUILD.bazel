@@ -152,9 +152,9 @@ da_haskell_test(
     srcs = ["test/DA/Daml/Helper/Test/Ledger.hs"],
     data = [
         "daml-helper",
+        ":test.dar",
         "//ledger-service/http-json:http-json-binary",
         "//ledger/sandbox:sandbox-binary",
-        ":test.dar",
     ],
     hackage_deps = [
         "base",
@@ -170,8 +170,8 @@ da_haskell_test(
     main_function = "DA.Daml.Helper.Test.Ledger.main",
     visibility = ["//visibility:public"],
     deps = [
-        "//compiler/damlc:damlc-lib",
         "//compiler/daml-lf-ast",
+        "//compiler/damlc:damlc-lib",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
