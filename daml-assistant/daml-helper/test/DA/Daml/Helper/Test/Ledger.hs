@@ -26,7 +26,7 @@ readDarMainPackageId :: FilePath -> IO String
 readDarMainPackageId dar = do
   archive <- Zip.toArchive <$> BSL.readFile dar
   InspectInfo {mainPackageId} <- either fail pure $ collectInfo archive
-  pure $ T.unpack $ LF.unPackageId $ mainPackageId
+  pure $ T.unpack $ LF.unPackageId mainPackageId
 
 main :: IO ()
 main = do
