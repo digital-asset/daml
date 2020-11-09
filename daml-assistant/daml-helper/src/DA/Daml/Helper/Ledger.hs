@@ -19,6 +19,7 @@ module DA.Daml.Helper.Ledger (
     runLedgerNavigator,
     ) where
 
+import Control.Exception (SomeException(..), catch)
 import Control.Lens (toListOf)
 import Control.Monad.Extra hiding (fromMaybeM)
 import Data.Aeson ((.=))
@@ -177,15 +178,18 @@ runLedgerUploadDar flags darPathM = do
       getDarPath
   putStrLn $ "Uploading " <> darPath <> " to " <> showHostAndPort args
   bytes <- BS.readFile darPath
-  result <- uploadDarFile args bytes
-  case result of
-    Left err -> do
+  result <-
+    uploadDarFile args bytes `catch` \(e :: SomeException) -> do
       putStrLn $
         unlines
           [ "An exception was thrown during the upload-dar command"
-          , "- " <> show err
+          , "- " <> show e
           , "One reason for this to occur is if the size of DAR file being uploaded exceeds the gRPC maximum message size. The default value for this is 4Mb, but it may be increased when the ledger is (re)started. Please check with your ledger operator."
           ]
+      exitFailure
+  case result of
+    Left err -> do
+      putStrLn $ "upload-dar did not succeed: " <> show err
       exitFailure
     Right () -> putStrLn "DAR upload succeeded."
 
