@@ -141,39 +141,40 @@ object Server extends StrictLogging {
     concat(
       parameters(('code, 'state ?))
         .as[OAuthResponse.Authorize](OAuthResponse.Authorize) { authorize =>
-          popRequest(authorize.state) { redirectUri =>
-            extractRequest {
-              request =>
-                val body = OAuthRequest.Token(
-                  grantType = "authorization_code",
-                  code = authorize.code,
-                  redirectUri = toRedirectUri(request.uri),
-                  clientId = config.clientId,
-                  clientSecret = config.clientSecret)
-                import com.daml.oauth.server.Request.Token.marshalRequestEntity
-                val tokenRequest =
-                  for {
-                    entity <- Marshal(body).to[RequestEntity]
-                    req = HttpRequest(
-                      uri = config.oauthToken,
-                      entity = entity,
-                      method = HttpMethods.POST)
-                    resp <- Http().singleRequest(req)
-                    tokenResp <- if (resp.status != StatusCodes.OK) {
-                      Unmarshal(resp).to[String].flatMap { msg =>
-                        Future.failed(new RuntimeException(
-                          s"Failed to retrieve token at ${req.uri} (${resp.status}): $msg"))
+          popRequest(authorize.state) {
+            redirectUri =>
+              extractRequest {
+                request =>
+                  val body = OAuthRequest.Token(
+                    grantType = "authorization_code",
+                    code = authorize.code,
+                    redirectUri = toRedirectUri(request.uri),
+                    clientId = config.clientId,
+                    clientSecret = config.clientSecret)
+                  import com.daml.oauth.server.Request.Token.marshalRequestEntity
+                  val tokenRequest =
+                    for {
+                      entity <- Marshal(body).to[RequestEntity]
+                      req = HttpRequest(
+                        uri = config.oauthToken,
+                        entity = entity,
+                        method = HttpMethods.POST)
+                      resp <- Http().singleRequest(req)
+                      tokenResp <- if (resp.status != StatusCodes.OK) {
+                        Unmarshal(resp).to[String].flatMap { msg =>
+                          Future.failed(new RuntimeException(
+                            s"Failed to retrieve token at ${req.uri} (${resp.status}): $msg"))
+                        }
+                      } else {
+                        Unmarshal(resp).to[OAuthResponse.Token]
                       }
-                    } else {
-                      Unmarshal(resp).to[OAuthResponse.Token]
+                    } yield tokenResp
+                  onSuccess(tokenRequest) { token =>
+                    setCookie(HttpCookie(cookieName, token.toCookieValue)) {
+                      redirect(redirectUri, StatusCodes.Found)
                     }
-                  } yield tokenResp
-                onSuccess(tokenRequest) { token =>
-                  setCookie(HttpCookie(cookieName, token.toCookieValue)) {
-                    redirect(redirectUri, StatusCodes.Found)
                   }
-                }
-            }
+              }
           }
         },
       parameters(('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?))
