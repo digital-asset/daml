@@ -176,13 +176,14 @@ object Server extends StrictLogging {
         },
       parameters(('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?))
         .as[OAuthResponse.Error](OAuthResponse.Error) { error =>
-          popRequest(error.state) { _ =>
-            // TODO[AH] Forward errors to the callback URI
-            if (error.error.matches(".*unauthorized.*|denied")) {
-              complete((StatusCodes.Unauthorized, error.errorDescription.getOrElse(error.error)))
-            } else {
-              complete((StatusCodes.InternalServerError, error.errorDescription.getOrElse(error.error)))
+          popRequest(error.state) { redirectUri =>
+            val uri = redirectUri.withQuery {
+              var params = redirectUri.query().to[Seq]
+              params ++= Seq("error" -> error.error)
+              error.errorDescription.foreach(x => params ++= Seq("error_description" -> x))
+              Uri.Query(params: _*)
             }
+            redirect(uri, StatusCodes.Found)
           }
         }
     )

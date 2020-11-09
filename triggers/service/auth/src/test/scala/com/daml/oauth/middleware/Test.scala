@@ -170,12 +170,12 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       } yield {
         // Redirect to CALLBACK
         assert(resp.status == StatusCodes.Found)
-        assert(resp.header[Location].get.uri == Uri("http://CALLBACK"))
-        // Store token in cookie
-        val cookie = resp.header[`Set-Cookie`].get.cookie
-        assert(cookie.name == "daml-ledger-token")
-        val token = OAuthResponse.Token.fromCookieValue(cookie.value).get
-        assert(token.tokenType == "bearer")
+        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == Uri("http://CALLBACK"))
+        // with error parameter set
+        assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
+        // Without token in cookie
+        val cookie = resp.header[`Set-Cookie`]
+        assert(cookie == None)
       }
     }
   }
