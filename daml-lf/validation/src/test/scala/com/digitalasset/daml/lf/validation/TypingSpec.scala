@@ -280,9 +280,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"∀ (τ : ⋆) (σ : ⋆). τ → σ → (( σ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (f : σ → τ) (x: σ) → (( let x : τ = f x in x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). (σ → τ) → σ → (( τ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( λ (x : τ) → case e of Cons x t → x ))" ->
+        E"""Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( λ (x : τ) → case e of Cons x t → x | Nil -> ERROR @σ "error" ))""" ->
           T"∀ (τ : ⋆) (σ : ⋆). List σ → (( τ → σ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( case e of Cons x t → λ (x : τ) → x ))" ->
+        E"""Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( case e of Cons x t → λ (x : τ) → x | _ -> ERROR @(τ  → τ) "error" ))""" ->
           T"∀ (τ : ⋆) (σ : ⋆). List σ → (( τ  → τ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: Scenario σ) → (( sbind x: σ ← e in spure @(τ → τ) (λ (x : τ) → x) ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Scenario σ → (( Scenario (τ  → τ) ))",
@@ -416,21 +416,36 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆) (τ₃: ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₃: τ₃)  → ⸨ ⟨ e with f₂ = e₃ ⟩ ⸩" -> //
           { case _: ETypeMismatch => },
         // ExpCaseVariant
-        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Mod:Tree:Node x -> () ⸩" -> //
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Mod:Tree:Node x -> () | _ -> () ⸩" -> //
           { case _: EPatternTypeMismatch => },
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → ⸨ case e of Mod:Tree:Node x -> () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
+        // ExpCaseEnum
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Mod:Color:Red -> () | _ -> () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
+        E"λ (e : Mod:Color) → ⸨ case e of Mod:Color:Red -> () | Mod:Color:Green -> () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
         // ExpCaseNil
-        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Nil → () ⸩" -> //
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Nil → () | _ -> () ⸩" -> //
           { case _: EPatternTypeMismatch => },
+        E"Λ (τ : ⋆). λ (e : List τ) → ⸨ case e of Nil → () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
         // ExpCaseCons
-        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Cons x y → () ⸩" -> //
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Cons x y → () | _ -> () ⸩" -> //
           { case _: EPatternTypeMismatch => },
-        E"Λ (τ : ⋆). λ (e: List τ) → ⸨ case e of Cons x x → () ⸩" -> //
+        E"Λ (τ : ⋆). λ (e: List τ) → ⸨ case e of Cons x x → () | _ -> () ⸩" -> //
           { case _: EClashingPatternVariables => },
+        E"Λ (τ : ⋆). λ (e : List τ) → ⸨ case e of Cons x y → () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
         // ExpCaseFalse & ExpCaseTrue
-        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of True → () ⸩" -> //
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of True → () | _ -> () ⸩" -> //
           { case _: EPatternTypeMismatch => },
-        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of False → () ⸩" -> //
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of False → () | _ -> () ⸩" -> //
           { case _: EPatternTypeMismatch => },
+        E"λ (e : Bool) → ⸨ case e of True → () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
+        E"λ (e : Bool) → ⸨ case e of False → () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
         // ExpCaseUnit
         E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of () → () ⸩" -> //
           { case _: EPatternTypeMismatch => },
