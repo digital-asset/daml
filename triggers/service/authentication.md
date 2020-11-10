@@ -41,7 +41,7 @@ all that much, they just need to be fixed once).
 
 2. /login If /auth returned unauthorized, the trigger service will
    redirect users to this. The parameters will include the requested
-   claims as well as a callback URL. This will start an auth flow,
+   claims as well as a callback URL (note that this is not the OAuth2 callback url but a callback URL on the trigger service). This will start an auth flow,
    e.g., an OAuth2 authorization code grant. If the flow succeeds the
    auth service will set a cookie with the access and refresh token
    and redirect to the callback URL. At this point, a request to
