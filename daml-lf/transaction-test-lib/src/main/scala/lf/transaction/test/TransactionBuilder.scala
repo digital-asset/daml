@@ -57,7 +57,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
     val finalNodes = nodes.transform {
       case (nid, VersionedNode(version, exe: TxExercise)) =>
         VersionedNode[NodeId, ContractId](version, exe.copy(children = children(nid).toImmArray))
-      case (nid, node @ VersionedNode(version, exe: Node.LeafOnlyNode[_, _])) =>
+      case (_, node @ VersionedNode(_, _: Node.LeafOnlyNode[_, _])) =>
         node
     }
     val finalRoots = roots.toImmArray
