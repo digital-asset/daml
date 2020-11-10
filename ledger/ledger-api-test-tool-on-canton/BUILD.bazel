@@ -74,7 +74,6 @@ conformance_test(
         # The following three contract key tests require uniqueness and are tested in conformance-test-contract-keys below
         "--exclude=ContractKeysIT,ContractKeysIT:CKFetchOrLookup,ContractKeysIT:CKNoFetchUndisclosed,ContractKeysIT:CKMaintainerScoped" +
         ",ConfigManagementServiceIT,LedgerConfigurationServiceIT" +  # dynamic config management not supported by Canton
-        ",TransactionScaleIT,LotsOfPartiesIT" +  # scale tests need timeout-scale-factor 1.5 and 2.0 respectively on Canton
         ",ClosedWorldIT",  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
     ],
 ) if not is_windows else None
