@@ -282,9 +282,7 @@ private[kvutils] class TransactionCommitter(
             GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
           (allUnique, existingKeys - stateKey)
 
-        case (
-            (allUnique, existingKeys),
-            (_, create: Node.NodeCreate.WithTxValue[Value.ContractId]))
+        case ((allUnique, existingKeys), (_, create: Node.NodeCreate.WithTxValue[Value.ContractId]))
             if create.key.isDefined =>
           val stateKey = Conversions.globalKeyToStateKey(
             GlobalKey(

@@ -89,13 +89,13 @@ private[kvutils] object InputsAndEffects {
                 GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key.value)))
             }
 
-          case create: Node.NodeCreate.Node.NodeFetch.WithTxValue[Value.ContractId] =>
+          case create: Node.NodeCreate.WithTxValue[Value.ContractId] =>
             create.key.foreach { keyWithMaintainers =>
               inputs += globalKeyToStateKey(
                 GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key.value)))
             }
 
-          case exe: Node.NodeExercises.WithTxValue[NodeId,Value.ContractId] =>
+          case exe: Node.NodeExercises.WithTxValue[NodeId, Value.ContractId] =>
             addContractInput(exe.targetCoid)
 
           case lookup: Node.NodeLookupByKey.WithTxValue[Value.ContractId] =>
