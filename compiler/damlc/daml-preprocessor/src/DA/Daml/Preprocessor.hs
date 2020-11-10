@@ -325,9 +325,17 @@ checkKinds (GHC.L _ m) = do
 
     checkRdrName :: GHC.Located GHC.RdrName -> [(GHC.SrcSpan, String)]
     checkRdrName (GHC.L loc name) = case name of
+        GHC.Unqual (GHC.occNameString -> "Symbol") ->
+            [(loc, symbolKindMsg)]
         GHC.Qual (GHC.moduleNameString -> "GHC.Types") (GHC.occNameString -> "Symbol") ->
             [(loc, ghcTypesSymbolMsg)]
         _ -> []
+
+    symbolKindMsg :: String
+    symbolKindMsg = unlines
+        [ "Reference to Symbol kind will not be preserved during DAML compilation."
+        , "This will cause problems when importing this module via data-dependencies."
+        ]
 
     ghcTypesSymbolMsg :: String
     ghcTypesSymbolMsg = unlines
