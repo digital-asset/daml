@@ -276,7 +276,7 @@ private[kvutils] class TransactionCommitter(
       .fold((true, keys)) {
         case (
             (allUnique, existingKeys),
-            (_, exe: Node.NodeExercises[NodeId, Value.ContractId, Tx.Value[Value.ContractId]]))
+            (_, exe: Node.NodeExercises.WithTxValue[NodeId, Value.ContractId]))
             if exe.key.isDefined && exe.consuming =>
           val stateKey = Conversions.globalKeyToStateKey(
             GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
@@ -284,7 +284,7 @@ private[kvutils] class TransactionCommitter(
 
         case (
             (allUnique, existingKeys),
-            (_, create: Node.NodeCreate[Value.ContractId, Tx.Value[Value.ContractId]]))
+            (_, create: Node.NodeCreate.WithTxValue[Value.ContractId]))
             if create.key.isDefined =>
           val stateKey = Conversions.globalKeyToStateKey(
             GlobalKey(
