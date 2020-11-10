@@ -307,9 +307,21 @@ class Runner(
       filter: TransactionFilter): Flow[SingleCommandFailure, TriggerMsg, NotUsed] = {
 
     // A queue for command submission failures.
-    // 256 comes from the default ExecutionContext
     val submissionFailureQueue: Flow[SingleCommandFailure, Completion, NotUsed] =
       Flow[SingleCommandFailure]
+      // 256 comes from the default ExecutionContext.
+      // Why `fail`?  Consider the most obvious alternatives.
+      //
+      // `backpressure`?  This feeds into the Free interpreter flow, which may produce
+      //   many command failures for one event, hence deadlock.
+      //
+      // `drop*`?  A trigger will proceed as if everything was fine, without ever
+      //   getting the notification that its reaction to one contract and attempt to
+      //   advance its workflow failed.
+      //
+      // `fail`, on the other hand?  It far better fits the trigger model to go
+      //   tabula rasa and notice the still-unhandled contract in the ACS again
+      //   on init, as we expect triggers to be able to do anyhow.
         .buffer(256 + maxParallelSubmissionsPerTrigger, OverflowStrategy.fail)
         .map {
           case SingleCommandFailure(commandId, s) =>
