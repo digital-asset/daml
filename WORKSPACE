@@ -726,28 +726,6 @@ load("@io_bazel_rules_scala//jmh:jmh.bzl", "jmh_repositories")
 
 jmh_repositories()
 
-load("@io_bazel_rules_docker//repositories:repositories.bzl", container_repositories = "repositories")
-
-container_repositories()
-
-load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
-
-container_deps()
-
-load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
-
-container_pull(
-    name = "java_base",
-    digest = "sha256:17b8b592d923f375972a59e902426bfaa30900d18fdb5e451f48089258fd621c",
-    registry = "gcr.io",
-    repository = "distroless/java",
-    tag = "8",
-)
-
-load("@io_bazel_rules_docker//java:image.bzl", java_image_repositories = "repositories")
-
-java_image_repositories()
-
 # TODO (aherrmann) This wrapper is only used on Windows.
 #   Replace by an appropriate Windows only `dadew_tool` call.
 dev_env_tool(
