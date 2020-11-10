@@ -624,7 +624,6 @@ private[kvutils] class TransactionCommitter(
         .map(v => v.getNumber -> metrics.daml.kvutils.committer.transaction.rejection(v.name()))
         .toMap
   }
-
 }
 
 private[kvutils] object TransactionCommitter {
