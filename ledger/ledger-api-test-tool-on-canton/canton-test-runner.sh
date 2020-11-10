@@ -57,6 +57,10 @@ if [[ -z "$port_file" ]]; then
   exit 2
 fi
 
+if [[ -f $(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/unique-contract-keys.conf) ]]; then
+  command+=("--config=$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/unique-contract-keys.conf)")
+fi
+
 # Change HOME since Canton uses ammonite in the default configuration, which tries to write to
 # ~/.ammonite/cache, which is read-only when sandboxing is enabled.
 HOME="$(mktemp -d)"
