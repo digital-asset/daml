@@ -15,10 +15,8 @@ submit x _ _ = x
 submitMustFail : a -> Int -> Int -> a
 submitMustFail x _ _ = x
 
-data Phantom (a : Symbol) (b : Symbol) = Phantom {}
-
-unpackPair : forall a b c d. Phantom a b -> (c,d) -> (c,d)
-unpackPair _ c = c
+unpackPair : forall (a: Symbol) (b: Symbol) c d. (c,d) -> (c,d)
+unpackPair c = c
 
 a : ()
 a = submit () 0 0
@@ -27,4 +25,4 @@ b : ()
 b = submitMustFail () 0 0
 
 c : (Int, Int)
-c = unpackPair @"abc" @"def" Phantom (42, 42)
+c = unpackPair @"abc" @"def" (42, 42)

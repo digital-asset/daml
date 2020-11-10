@@ -55,6 +55,7 @@ da_scala_library(
     scalacopts = scalacopts,
     visibility = ["//visibility:public"],
     deps = [
+        "//language-support/scala/bindings",
         "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
         "//libs-scala/ports",
@@ -89,6 +90,7 @@ da_scala_test(
     scalacopts = scalacopts,
     deps = [
         ":oauth-test-server",
+        "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger-service/jwt",

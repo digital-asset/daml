@@ -579,7 +579,7 @@ initPackageDb opts (InitPkgDb shouldInit) =
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
 execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
   Command Build (Just projectOpts) effect
-  where effect = withProjectRoot' projectOpts $ \_relativize -> do
+  where effect = withProjectRoot' projectOpts $ \relativize -> do
             initPackageDb opts initPkgDb
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
                 putStrLn $ "Compiling " <> T.unpack (LF.unPackageName pName) <> " to a DAR."
@@ -599,11 +599,13 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
                             (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             (FromDalf False)
                     dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
-                    let fp = targetFilePath $ unitIdString (pkgNameVersion pName pVersion)
+                    fp <- targetFilePath relativize $ unitIdString (pkgNameVersion pName pVersion)
                     createDarFile fp dar
             where
-                targetFilePath name = fromMaybe (distDir </> name <.> "dar") mbOutFile
-
+                targetFilePath rel name =
+                  case mbOutFile of
+                    Nothing -> pure $ distDir </> name <.> "dar"
+                    Just out -> rel out
 execRepl
     :: ProjectOpts
     -> Options

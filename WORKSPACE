@@ -961,10 +961,10 @@ package(default_visibility = ["//visibility:public"])
 
 java_import(
     name = "lib",
-    jars = glob(["lib/**"]),
+    jars = glob(["lib/**/*.jar"]),
 )
 """,
-    sha256 = "dff85a80e893f1d4e99c3eb3cd62ed0fbb8a91d4b76aa2cc3394a635da968aed",
-    strip_prefix = "canton-0.18.2",
-    urls = ["https://www.canton.io/releases/canton-0.18.2.tar.gz"],
+    sha256 = "3c6ff12b65d9e6e85686383b811094d8b04d3f4033e725951fba95cc35bd804c",
+    strip_prefix = "canton-community-0.19.0",
+    urls = ["https://www.canton.io/releases/canton-community-0.19.0.tar.gz"],
 )

@@ -94,7 +94,7 @@ object BlindingTransaction {
     }
 
     val finalState =
-      tx.transaction.roots.foldLeft(BlindState.Empty) { (s, nodeId) =>
+      tx.roots.foldLeft(BlindState.Empty) { (s, nodeId) =>
         processNode(s, initialParentExerciseWitnesses, nodeId)
       }
 

@@ -46,6 +46,7 @@ import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 import java.io.ByteArrayInputStream
 import java.util.UUID
@@ -288,10 +289,21 @@ class Server(
         }
     }
 
-  private def authCallback(requestId: UUID): Route =
-    authCallbacks.remove(requestId) match {
-      case None => complete(StatusCodes.NotFound)
-      case Some(callback) => callback
+  private val authCallback: Route =
+    parameters('state.as[UUID]) { requestId =>
+      authCallbacks.remove(requestId) match {
+        case None => complete(StatusCodes.NotFound)
+        case Some(callback) =>
+          concat(
+            parameters(('error, 'error_description ?)) { (error, errorDescription) =>
+              complete(
+                errorResponse(
+                  StatusCodes.Forbidden,
+                  s"Failed to authenticate: $error${errorDescription.fold("")(": " + _)}"))
+            },
+            callback
+          )
+      }
     }
 
   private def route(implicit ec: ExecutionContext, system: ActorSystem) = concat(
@@ -395,13 +407,7 @@ class Server(
       }
     },
     // Authorization callback endpoint
-    path("cb") {
-      get {
-        parameters('state.as[UUID]) { requestId =>
-          authCallback(requestId)
-        }
-      }
-    },
+    path("cb") { get { authCallback } },
   )
 }
 

@@ -3,6 +3,7 @@
 
 package com.daml.oauth.server
 
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ports.Port
 
 case class Config(
@@ -13,12 +14,19 @@ case class Config(
     // Application ID of issued tokens
     applicationId: Option[String],
     // Secret used to sign JWTs
-    jwtSecret: String
+    jwtSecret: String,
+    // Only authorize requests for these parties, if set.
+    parties: Option[Set[Party]]
 )
 
 object Config {
   private val Empty =
-    Config(port = Port.Dynamic, ledgerId = null, applicationId = None, jwtSecret = null)
+    Config(
+      port = Port.Dynamic,
+      ledgerId = null,
+      applicationId = None,
+      jwtSecret = null,
+      parties = None)
 
   def parseConfig(args: Seq[String]): Option[Config] =
     configParser.parse(args, Empty)
@@ -41,6 +49,10 @@ object Config {
 
       opt[String]("secret")
         .action((x, c) => c.copy(jwtSecret = x))
+
+      opt[Seq[String]]("parties")
+        .action((x, c) => c.copy(parties = Some(Party.subst(x).toSet)))
+        .text("Only authorize requests for these parties")
 
       help("help").text("Print this usage text")
     }
