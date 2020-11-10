@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver
 
 import java.io.File
-import java.nio.file.Files
 import java.time.{Clock, Instant}
 
 import akka.actor.ActorSystem
@@ -26,6 +25,7 @@ import com.daml.platform.configuration.{
   PartyConfiguration,
   ServerRole
 }
+import com.daml.ports.{PortFiles}
 import com.daml.platform.index.JdbcIndex
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.services.time.TimeProviderType
@@ -33,7 +33,6 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
 import io.grpc.{BindableService, ServerInterceptor}
 
-import scala.collection.JavaConverters._
 import scala.collection.immutable
 
 // Main entry point to start an index server that also hosts the ledger API.
@@ -150,6 +149,6 @@ final class StandaloneApiServer(
 
   private def writePortFile(port: Port): Unit =
     config.portFile.foreach { path =>
-      Files.write(path, Seq(port.toString).asJava)
+      PortFiles.write(path, port)
     }
 }

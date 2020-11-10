@@ -90,9 +90,10 @@ createSandbox portFile sandboxOutput conf = do
 
 withSandbox :: SandboxConfig -> (IO Int -> TestTree) -> TestTree
 withSandbox conf f =
-    withResource newTempFile snd $ \getPortFile ->
+    withResource newTempDir snd $ \getTmpDir ->
         let createSandbox' = do
-                (portFile, _) <- getPortFile
+                (tempDir, _) <- getTmpDir
+                let portFile = tempDir </> "sandbox-portfile"
                 createSandbox portFile stdout conf
         in withResource createSandbox' destroySandbox (f . fmap sandboxPort)
 
