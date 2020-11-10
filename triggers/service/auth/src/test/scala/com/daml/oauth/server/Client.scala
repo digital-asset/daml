@@ -11,7 +11,7 @@ import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.unmarshalling.Unmarshal
+import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import com.daml.ports.Port
 import spray.json._
 
@@ -32,17 +32,35 @@ object Client {
 
   object JsonProtocol extends DefaultJsonProtocol {
     implicit val accessParamsFormat: RootJsonFormat[AccessParams] = jsonFormat1(AccessParams)
-    implicit val accessResponseFormat: RootJsonFormat[AccessResponse] = jsonFormat1(AccessResponse)
+    implicit object ResponseJsonFormat extends RootJsonFormat[Response] {
+      implicit private val accessFormat: RootJsonFormat[AccessResponse] = jsonFormat1(
+        AccessResponse)
+      implicit private val errorFormat: RootJsonFormat[ErrorResponse] = jsonFormat1(ErrorResponse)
+      def write(resp: Response) = resp match {
+        case resp @ AccessResponse(_) => resp.toJson
+        case resp @ ErrorResponse(_) => resp.toJson
+      }
+      def read(value: JsValue) =
+        (value.convertTo(safeReader[AccessResponse]), value.convertTo(safeReader[ErrorResponse])) match {
+          case (Right(a), _) => a
+          case (_, Right(b)) => b
+          case (Left(ea), Left(eb)) =>
+            deserializationError(s"Could not read Response value:\n$ea\n$eb")
+        }
+    }
   }
 
   case class AccessParams(parties: Seq[String])
-  case class AccessResponse(token: String)
+  sealed trait Response
+  final case class AccessResponse(token: String) extends Response
+  final case class ErrorResponse(error: String) extends Response
 
   def toRedirectUri(uri: Uri): Uri = uri.withPath(Path./("cb"))
 
   def start(
       config: Config)(implicit asys: ActorSystem, ec: ExecutionContext): Future[ServerBinding] = {
     import JsonProtocol._
+    implicit val unmarshal: Unmarshaller[String, Uri] = Unmarshaller.strict(Uri(_))
     val route = concat(
       // Some parameter that requires authorization for some parties. This will in the end return the token
       // produced by the authorization server.
@@ -96,10 +114,14 @@ object Client {
                   onSuccess(f) { tokenResp =>
                     // Now we have the access_token and potentially the refresh token. At this point,
                     // we would start the trigger.
-                    complete(AccessResponse(tokenResp.accessToken))
+                    complete(AccessResponse(tokenResp.accessToken): Response)
                   }
               }
-          }
+          } ~
+            parameters(('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?))
+              .as[Response.Error](Response.Error) { resp =>
+                complete(ErrorResponse(resp.error): Response)
+              }
         }
       }
     )
