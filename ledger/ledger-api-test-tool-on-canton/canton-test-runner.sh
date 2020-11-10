@@ -57,7 +57,7 @@ if [[ -z "$port_file" ]]; then
   exit 2
 fi
 
-UNIQUE_CONTRACT_KEYS="$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/unique-contract-keys.conf)"
+export UNIQUE_CONTRACT_KEYS="$(rlocation com_github_digital_asset_daml/ledger/ledger-api-test-tool-on-canton/unique-contract-keys.conf)"
 if [[ -f ${UNIQUE_CONTRACT_KEYS} ]]; then
   command+=("--config=${UNIQUE_CONTRACT_KEYS}")
 fi
