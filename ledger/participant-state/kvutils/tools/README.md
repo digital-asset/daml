@@ -26,6 +26,9 @@ The following options are supported:
     --help
     --skip-byte-comparison  Skips the byte-for-byte comparison. Useful when comparing behavior across versions.
     --sort-write-set        Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally.
+    --index-only            Run only the indexing step of the integrity checker (useful to benchmark the indexer).
+    --jdbc-url              External JDBC url (useful for running against PostgreSQL).
+    --report-metrics          Print all registered metrics.
 
 # `benchmark-replay`
 

@@ -49,6 +49,10 @@ final case class ContextTemplate(tycon: TypeConName) extends Context {
 final case class ContextDefValue(ref: ValueRef) extends Context {
   def pretty: String = s"value type ${ref.qualifiedName}"
 }
+final case class ContextLocation(loc: Location) extends Context {
+  def pretty: String =
+    s"definition ${loc.packageId}:${loc.module}:${loc.definition} (start: ${loc.start}, end: ${loc.end})"
+}
 
 object ContextDefDataType {
   def apply(pkgId: PackageId, module: DottedName, name: DottedName): ContextDefDataType =

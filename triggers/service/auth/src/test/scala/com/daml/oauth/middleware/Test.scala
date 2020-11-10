@@ -147,5 +147,36 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         assert(token.tokenType == "bearer")
       }
     }
+    "not authorize unauthorized parties" in {
+      val claims = "actAs:Eve"
+      val req = HttpRequest(
+        uri = middlewareUri
+          .withPath(Path./("login"))
+          .withQuery(Query(("redirect_uri", "http://CALLBACK"), ("claims", claims))))
+      for {
+        resp <- Http().singleRequest(req)
+        // Redirect to /authorize on authorization server
+        resp <- {
+          assert(resp.status == StatusCodes.Found)
+          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          Http().singleRequest(req)
+        }
+        // Redirect to /cb on middleware
+        resp <- {
+          assert(resp.status == StatusCodes.Found)
+          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          Http().singleRequest(req)
+        }
+      } yield {
+        // Redirect to CALLBACK
+        assert(resp.status == StatusCodes.Found)
+        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == Uri("http://CALLBACK"))
+        // with error parameter set
+        assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
+        // Without token in cookie
+        val cookie = resp.header[`Set-Cookie`]
+        assert(cookie == None)
+      }
+    }
   }
 }

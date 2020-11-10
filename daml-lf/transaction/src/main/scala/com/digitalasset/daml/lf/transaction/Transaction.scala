@@ -6,9 +6,7 @@ package transaction
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.language.LanguageVersion
 import com.daml.lf.ledger.FailedAuthorization
-import com.daml.lf.transaction.GenTransaction.WithTxValue
 import com.daml.lf.value.Value
 import scalaz.Equal
 
@@ -17,7 +15,8 @@ import scala.collection.immutable.HashMap
 
 final case class VersionedTransaction[Nid, +Cid] private[lf] (
     version: TransactionVersion,
-    private[lf] val transaction: GenTransaction.WithTxValue[Nid, Cid],
+    versionedNodes: Map[Nid, Node.VersionedNode[Nid, Cid]],
+    override val roots: ImmArray[Nid],
 ) extends HasTxNodes[Nid, Cid, Transaction.Value[Cid]]
     with value.CidContainer[VersionedTransaction[Nid, Cid]]
     with NoCopy {
@@ -25,44 +24,25 @@ final case class VersionedTransaction[Nid, +Cid] private[lf] (
   override protected def self: this.type = this
 
   @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
-  def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
+  def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] = {
+    val versionNode = Node.VersionedNode.map2(identity[Nid], f)
     VersionedTransaction(
       version,
-      transaction = GenTransaction.map3(identity[Nid], f, Value.VersionedValue.map1(f))(transaction)
-    )
-
-  /** Increase the `version` if appropriate for `languageVersions`.
-    *
-    * This does not recur into the values herein; it is safe to apply
-    * [[VersionedValue#typedBy]] to any subset of this `languageVersions` for all
-    * values herein, unlike most [[value.Value]] operations.
-    *
-    * {{{
-    *   val vt2 = vt.typedBy(someVers:_*)
-    *   // safe if and only if vx() yields a subset of someVers
-    *   vt2.copy(transaction = vt2.transaction
-    *              .mapContractIdAndValue(identity, _.typedBy(vx():_*)))
-    * }}}
-    *
-    * However, applying the ''same'' version set is probably not what you mean,
-    * because the set of language versions that types a whole transaction is
-    * probably not the same set as those language version[s] that type each
-    * value, since each value can be typed by different modules.
-    */
-  def typedBy(languageVersions: LanguageVersion*): VersionedTransaction[Nid, Cid] = {
-    import VersionTimeline._
-    import Implicits._
-    VersionedTransaction(
-      latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*),
-      transaction,
+      versionedNodes = versionedNodes.transform((_, node) => versionNode(node)),
+      roots,
     )
   }
 
-  override def nodes: HashMap[Nid, Node.GenNode.WithTxValue[Nid, Cid]] =
-    transaction.nodes
+  // O(1)
+  override def nodes: Map[Nid, Node.GenNode.WithTxValue[Nid, Cid]] =
+    // Here we use intentionally `mapValues` to get the time/memory complexity of the method constant.
+    // It is fine since the function `_.node` is very cheap.
+    versionedNodes.mapValues(_.node)
 
-  override def roots: ImmArray[Nid] =
-    transaction.roots
+  // O(1)
+  def transaction: GenTransaction[Nid, Cid, Transaction.Value[Cid]] =
+    GenTransaction(nodes, roots)
+
 }
 
 object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
@@ -71,22 +51,29 @@ object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
       f1: A1 => A2,
       f2: B1 => B2,
   ): VersionedTransaction[A1, B1] => VersionedTransaction[A2, B2] = {
-    case VersionedTransaction(version, transaction) =>
-      VersionedTransaction(version, transaction.map3(f1, f2, Value.VersionedValue.map1(f2)))
+    case VersionedTransaction(version, versionedNodes, roots) =>
+      val mapNode = Node.VersionedNode.map2(f1, f2)
+      VersionedTransaction(
+        version,
+        versionedNodes.map {
+          case (nid, node) => f1(nid) -> mapNode(node)
+        },
+        roots.map(f1),
+      )
   }
 
   override private[lf] def foreach2[A, B](
       f1: A => Unit,
       f2: B => Unit,
   ): VersionedTransaction[A, B] => Unit = {
-    case VersionedTransaction(_, transaction) =>
-      transaction.foreach3(f1, f2, Value.VersionedValue.foreach1(f2))
+    case VersionedTransaction(_, versionedNodes, _) =>
+      val foreachNode = Node.VersionedNode.foreach2(f1, f2)
+      versionedNodes.foreach {
+        case (nid, node) =>
+          f1(nid)
+          foreachNode(node)
+      }
   }
-
-  private[lf] def unapply[Nid, Cid](
-      arg: VersionedTransaction[Nid, Cid],
-  ): Some[(TransactionVersion, WithTxValue[Nid, Cid])] =
-    Some((arg.version, arg.transaction))
 
 }
 
@@ -102,7 +89,7 @@ object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
 final case class GenTransaction[Nid, +Cid, +Val](
-    nodes: HashMap[Nid, Node.GenNode[Nid, Cid, Val]],
+    nodes: Map[Nid, Node.GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
 ) extends HasTxNodes[Nid, Cid, Val]
     with value.CidContainer[GenTransaction[Nid, Cid, Val]] {
@@ -270,7 +257,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
 
 sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
 
-  def nodes: HashMap[Nid, Node.GenNode[Nid, Cid, Val]]
+  def nodes: Map[Nid, Node.GenNode[Nid, Cid, Val]]
 
   def roots: ImmArray[Nid]
 

@@ -85,6 +85,21 @@ object Response {
     }
   }
 
+  // https://tools.ietf.org/html/rfc6749#section-4.1.2.1
+  case class Error(
+      error: String,
+      errorDescription: Option[String],
+      errorUri: Option[Uri],
+      state: Option[String]) {
+    def toQuery: Query = {
+      var params: Seq[(String, String)] = Seq("error" -> error)
+      errorDescription.foreach(x => params ++= Seq("error_description" -> x))
+      errorUri.foreach(x => params ++= Seq("error_uri" -> x.toString))
+      state.foreach(x => params ++= Seq("state" -> x))
+      Query(params: _*)
+    }
+  }
+
   // https://tools.ietf.org/html/rfc6749#section-5.1
   case class Token(
       accessToken: String,

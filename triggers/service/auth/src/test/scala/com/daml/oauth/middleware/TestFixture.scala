@@ -6,6 +6,7 @@ package com.daml.oauth.middleware
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import com.daml.jwt.HMAC256Verifier
+import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   OwnedResource,
@@ -31,7 +32,8 @@ trait TestFixture extends AkkaBeforeAndAfterAll with SuiteResource[(ServerBindin
             port = Port.Dynamic,
             ledgerId = ledgerId,
             applicationId = Some(applicationId),
-            jwtSecret = jwtSecret))
+            jwtSecret = jwtSecret,
+            parties = Some(ApiTypes.Party.subst(Set("Alice", "Bob")))))
         serverUri = Uri()
           .withScheme("http")
           .withAuthority(server.localAddress.getHostString, server.localAddress.getPort)

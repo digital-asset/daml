@@ -41,12 +41,13 @@ all that much, they just need to be fixed once).
 
 2. /login If /auth returned unauthorized, the trigger service will
    redirect users to this. The parameters will include the requested
-   claims as well as the URL that the users tried to access originally
-   (e.g., the endpoint to start a trigger). This will start an auth
-   flow, e.g., an OAuth2 authorization code grant ending with the auth
-   service setting a cookie with the access and refresh token and
-   redirecting to the original URL. At this point, the request to
-   /auth will succeed (based on the cookie).
+   claims as well as a callback URL (note that this is not the OAuth2 callback url but a callback URL on the trigger service). This will start an auth flow,
+   e.g., an OAuth2 authorization code grant. If the flow succeeds the
+   auth service will set a cookie with the access and refresh token
+   and redirect to the callback URL. At this point, a request to
+   /auth will succeed (based on the cookie). If the flow failed the
+   auth service will not set a cookie and redirect to the callback URL
+   with an additional error and optional error_description parameter.
 
 3. /refresh This accepts a refresh token and returns a new access
    token and optionally a new refresh token (or fails).
@@ -57,24 +58,14 @@ all that much, they just need to be fixed once).
 2. /login starts an OAuth2 authorization code grant flow. After the
    redirect URI is called by the authorization server, the middleware
    makes a request to get the tokens, sets them in cookies and
-   redirects back to the original URI.
+   redirects back to the callback URI. Upon failure the middleware
+   forwards the error and error_description to the callback URI.
 3. /refresh simply proxies to the refresh endpoint on the
    authorization server adding the client id and secret.
 
 Note that the auth middleware does not need to persist any state in
 this model. The trigger service does need to persist at least the
 refresh token and potentially the access token.
-
-## Issues
-
-1. This only works if the original request was a GET
-   request. POST requests cannot be redirected in a well-supported way
-   while preserving the request body so we cannot really make this
-   work such that the final redirect to the original URL is equivalent
-   to the original one.  You could imagine a scenario where the
-   trigger service accepts both GET and POST requests so the initial
-   one is a POST request and the final redirect is a GET request but
-   at that point, only accepting GET requests is a least tempting.
 
 ## Related Projects
 

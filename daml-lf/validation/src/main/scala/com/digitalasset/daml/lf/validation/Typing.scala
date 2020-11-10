@@ -293,6 +293,9 @@ private[validation] object Typing {
     private def introExprVar(xOpt: Option[ExprVarName], t: Type): Env =
       xOpt.fold(this)(introExprVar(_, t))
 
+    private def newLocation(loc: Location): Env =
+      copy(ctx = ContextLocation(loc))
+
     private def lookupExpVar(name: ExprVarName): Type =
       eVars.getOrElse(name, throw EUnknownExprVar(ctx, name))
 
@@ -755,6 +758,7 @@ private[validation] object Typing {
     }
 
     private def typeOfFetch(tpl: TypeConName, cid: Expr): Type = {
+      lookupTemplate(ctx, tpl)
       checkExpr(cid, TContractId(TTyCon(tpl)))
       TUpdate(TTyCon(tpl))
     }
@@ -840,17 +844,17 @@ private[validation] object Typing {
     }
 
     // we check that typ contains neither variables nor quantifiers
-    private def checkGroundType_(typ: Type): Unit = {
+    private def checkAnyType_(typ: Type): Unit = {
       typ match {
-        case TVar(_) | TForall(_, _) =>
+        case TVar(_) | TForall(_, _) | TSynApp(_, _) =>
           throw EExpectedAnyType(ctx, typ)
         case _ =>
-          TypeTraversable(typ).foreach(checkGroundType_)
+          TypeTraversable(typ).foreach(checkAnyType_)
       }
     }
 
-    private def checkGroundType(typ: Type): Unit = {
-      checkGroundType_(typ)
+    private def checkAnyType(typ: Type): Unit = {
+      checkAnyType_(typ)
       checkType(typ, KStar)
     }
 
@@ -911,8 +915,8 @@ private[validation] object Typing {
         typeOfUpdate(update)
       case EScenario(scenario) =>
         typeOfScenario(scenario)
-      case ELocation(_, expr) =>
-        typeOf(expr)
+      case ELocation(loc, expr) =>
+        newLocation(loc).typeOf(expr)
       case ENone(typ) =>
         checkType(typ, KStar)
         TOptional(typ)
@@ -921,15 +925,15 @@ private[validation] object Typing {
         val _ = checkExpr(body, typ)
         TOptional(typ)
       case EToAny(typ, body) =>
-        checkGroundType(typ)
+        checkAnyType(typ)
         checkExpr(body, typ)
         TAny
       case EFromAny(typ, body) =>
-        checkGroundType(typ)
+        checkAnyType(typ)
         checkExpr(body, TAny)
         TOptional(typ)
       case ETypeRep(typ) =>
-        checkGroundType(typ)
+        checkAnyType(typ)
         TTypeRep
     }
 

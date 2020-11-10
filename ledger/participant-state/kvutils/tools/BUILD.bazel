@@ -10,22 +10,18 @@ load(
     "lf_scalacopts",
 )
 
-da_scala_binary(
-    name = "integrity-check",
-    srcs = glob(["integrity-check/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/**/*.scala"]),
-    main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.Main",
-    resources = glob(["src/main/resources/*"]),
+da_scala_library(
+    name = "tools",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    tags = ["maven_coordinates=com.daml:participant-state-kvutils-tools:__VERSION__"],
     visibility = [
         "//visibility:public",
-    ],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
         "//daml-lf/data",
         "//daml-lf/engine",
         "//ledger/ledger-api-health",
-        "//ledger/ledger-on-memory",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
@@ -45,9 +41,48 @@ da_scala_binary(
 )
 
 da_scala_test(
+    name = "tools-tests",
+    size = "small",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    deps = [
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils/tools",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_scalatest_scalatest_2_12",
+    ],
+)
+
+da_scala_binary(
+    name = "integrity-check",
+    srcs = glob(["integrity-check/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/**/*.scala"]),
+    main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.Main",
+    resources = glob(["src/main/resources/*"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//ledger/ledger-api-health",
+        "//ledger/ledger-on-memory",
+        "//ledger/metrics",
+        "//ledger/participant-state",
+        "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils:daml_kvutils_java_proto",
+        "//ledger/participant-state/kvutils/tools",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+    ],
+)
+
+da_scala_test(
     name = "integrity-check-tests",
     size = "small",
-    srcs = glob(["integrity-check/src/test/scala/ledger/participant/state/kvutils/tools/integritycheck/**/*.scala"]),
+    srcs = glob(["integrity-check/src/test/**/*.scala"]),
     deps = [
         ":integrity-check",
         "//daml-lf/data",
@@ -55,11 +90,11 @@ da_scala_test(
         "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils/tools",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_mockito_mockito_core",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
