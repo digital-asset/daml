@@ -54,20 +54,21 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
 
   def build(): Tx.Transaction = ids.synchronized {
     import VersionTimeline.Implicits._
-    val builtNodes = nodes.transform {
+    val finalNodes = nodes.transform {
       case (nid, VersionedNode(version, exe: TxExercise)) =>
         VersionedNode[NodeId, ContractId](version, exe.copy(children = children(nid).toImmArray))
-      case (_, node) =>
+      case (nid, node @ VersionedNode(version, exe: Node.LeafOnlyNode[_, _])) =>
         node
     }
+    val finalRoots = roots.toImmArray
     val nodesVersions =
-      roots.reverseIterator
-        .map(n => builtNodes(n).version: VersionTimeline.SpecifiedVersion)
+      finalRoots.iterator
+        .map(n => finalNodes(n).version: VersionTimeline.SpecifiedVersion)
         .toSeq
     val txVersion =
       VersionTimeline
         .latestWhenAllPresent(TransactionVersions.StableOutputVersions.min, nodesVersions: _*)
-    VersionedTransaction(txVersion, builtNodes, roots.toImmArray)
+    VersionedTransaction(txVersion, finalNodes, finalRoots)
   }
 
   def buildSubmitted(): SubmittedTransaction = SubmittedTransaction(build())
