@@ -5,9 +5,9 @@ package com.daml.lf
 package transaction
 package test
 
-import com.daml.lf.data.{ImmArray, Ref}
-import transaction.Node.{GenNode, VersionedNode}
-import transaction.{Transaction => Tx}
+import com.daml.lf.data.{BackStack, ImmArray, Ref}
+import com.daml.lf.transaction.Node.{GenNode, VersionedNode}
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 
 import scala.collection.immutable.HashMap
@@ -22,9 +22,11 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
     crypto.Hash.secureRandom(crypto.Hash.assertFromByteArray(bytes))
   }
 
-  private val ids = Iterator.from(0).map(NodeId(_))
-  private var nodes = HashMap.newBuilder[NodeId, TxNode]
-  private val roots = ImmArray.newBuilder[NodeId]
+  private[this] val ids = Iterator.from(0).map(NodeId(_))
+  private[this] var nodes = HashMap.empty[NodeId, TxNode]
+  private[this] var children =
+    HashMap.empty[NodeId, BackStack[NodeId]].withDefaultValue(BackStack.empty)
+  private[this] var roots = BackStack.empty[NodeId]
 
   private[this] def newNode(node: Node): NodeId = {
     lazy val nodeId = ids.next() // lazy to avoid getting the next id if the method later throws
@@ -34,42 +36,38 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
 
   def add(node: Node): NodeId = ids.synchronized {
     val nodeId = newNode(node)
-    roots += nodeId
+    roots = roots :+ nodeId
     nodeId
   }
 
-  def add(node: Node, parent: NodeId): NodeId = ids.synchronized {
+  def add(node: Node, parentId: NodeId): NodeId = ids.synchronized {
     lazy val nodeId = newNode(node) // lazy to avoid getting the next id if the method later throws
-    nodes = nodes.mapResult { ns =>
-      val VersionedNode(version, node) = ns(parent)
-      val exercise = node match {
-        case exe: TxExercise => exe
-        case _ =>
-          throw new IllegalArgumentException(
-            s"Node ${parent.index} either does not exist or is not an exercise")
-      }
-      ns.updated(
-        parent,
-        VersionedNode(
-          version,
-          exercise.copy(children = exercise.children.slowSnoc(nodeId))
-        ))
+    nodes(parentId) match {
+      case VersionedNode(_, _: TxExercise) =>
+        children += parentId -> (children(parentId) :+ nodeId)
+      case _ =>
+        throw new IllegalArgumentException(
+          s"Node ${parentId.index} either does not exist or is not an exercise")
     }
     nodeId
   }
 
   def build(): Tx.Transaction = ids.synchronized {
     import VersionTimeline.Implicits._
-    val builtNodes = nodes.result()
-    val builtRoots = roots.result()
+    val builtNodes = nodes.transform {
+      case (nid, VersionedNode(version, exe: TxExercise)) =>
+        VersionedNode[NodeId, ContractId](version, exe.copy(children = children(nid).toImmArray))
+      case (_, node) =>
+        node
+    }
     val nodesVersions =
-      builtRoots.reverseIterator
+      roots.reverseIterator
         .map(n => builtNodes(n).version: VersionTimeline.SpecifiedVersion)
         .toSeq
     val txVersion =
       VersionTimeline
         .latestWhenAllPresent(TransactionVersions.StableOutputVersions.min, nodesVersions: _*)
-    VersionedTransaction(txVersion, nodes.result(), roots.result())
+    VersionedTransaction(txVersion, builtNodes, roots.toImmArray)
   }
 
   def buildSubmitted(): SubmittedTransaction = SubmittedTransaction(build())
