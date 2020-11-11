@@ -1182,7 +1182,7 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  'pure' e  :  'Update' τ
 
       τ₁  ↠  τ₁'   Γ  ⊢  τ₁'  : ⋆       Γ  ⊢  e₁  :  'Update' τ₁'
-      Γ  ⊢  x₁ : τ₁' · Γ  ⊢  e₂  :  'Update' τ₂
+      x₁ : τ₁' · Γ  ⊢  e₂  :  'Update' τ₂
     ——————————————————————————————————————————————————————————————— UpdBlock
       Γ  ⊢  'bind' x₁ : τ₁ ← e₁ 'in' e₂  :  'Update' τ₂
 
@@ -1249,7 +1249,7 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  'spure' e  :  'Scenario' τ
 
       τ₁  ↠  τ₁'   Γ  ⊢  τ₁'  : ⋆       Γ  ⊢  e₁  :  'Scenario' τ₁'
-      Γ  ⊢  x₁ : τ₁' · Γ  ⊢  e₂  :  'Scenario' τ₂
+      x₁ : τ₁' · Γ  ⊢  e₂  :  'Scenario' τ₂
     ——————————————————————————————————————————————————————————————— ScnBlock
       Γ  ⊢  'sbind' x₁ : τ₁ ← e₁ 'in' e₂  :  'Scenario' τ₂
 
@@ -1350,14 +1350,14 @@ their patterns to be exhaustive, which is defined here. ::
   Pattern match exhaustiveness │ τ  ⊲  alt₁, …, altₙ │
                                └─────────────────────┘
 
-    'variant' T … ↦ V₁ : σ₁ | … | Vₘ : σₘ  ∈  〚Ξ〛Mod
+    'variant' T (α₁:k₁) … (αᵣ:kᵣ) ↦ V₁ : σ₁ | … | Vₘ : σₘ  ∈  〚Ξ〛Mod
     i₁, i₂, …, iₘ  ∈  {1, …, n}
     altᵢ₁  =  Mod:T:V₁ x₁  →  e₁
     altᵢ₂  =  Mod:T:V₂ x₂  →  e₂
            ⋮
     altᵢₘ  =  Mod:T:Vₘ xₘ  →  eₘ
     ——————————————————————————————————————————————————————————————— ExhaustVariant
-    Mod:T  ⊲  alt₁, …, altₙ
+    Mod:T τ₁ … τᵣ  ⊲  alt₁, …, altₙ
 
     'enum' T … ↦ E₁ | … | Eₘ  ∈  〚Ξ〛Mod
     i₁, i₂, …, iₘ  ∈  {1, …, n}
