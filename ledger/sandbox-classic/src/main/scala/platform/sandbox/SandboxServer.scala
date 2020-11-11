@@ -326,8 +326,7 @@ final class SandboxServer(
         ledgerConfiguration = ledgerConfiguration,
         commandConfig = config.commandConfig,
         partyConfig = PartyConfiguration.default.copy(
-          // sandbox-classic always allocates party implicitly
-          implicitPartyAllocation = true,
+          implicitPartyAllocation = config.implicitPartyAllocation,
         ),
         optTimeServiceBackend = timeServiceBackendO,
         metrics = metrics,
