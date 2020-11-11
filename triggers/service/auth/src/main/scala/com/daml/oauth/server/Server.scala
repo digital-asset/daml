@@ -55,18 +55,13 @@ class Server(config: Config) {
   // The token request then only does a lookup and signs the token.
   private var requests = Map.empty[UUID, AuthServiceJWTPayload]
 
-  private def requestParties(req: Request.Authorize): List[Party] =
-    Party.subst {
-      req.scope.fold(List.empty[String])(s => List[String](s.split(" "): _*)).collect {
-        case s if s.startsWith("actAs:") => s.stripPrefix("actAs:")
-      }
-    }
-
   private def toPayload(req: Request.Authorize): AuthServiceJWTPayload = {
-    val parties: List[String] =
-      req.scope.fold(List.empty[String])(s => List[String](s.split(" "): _*)).collect {
-        case s if s.startsWith("actAs:") => s.stripPrefix("actAs:")
-      }
+    var actAs: Seq[String] = Seq()
+    var readAs: Seq[String] = Seq()
+    req.scope.foreach(_.split(" ").foreach {
+      case s if s.startsWith("actAs:") => actAs ++= Seq(s.stripPrefix("actAs:"))
+      case s if s.startsWith("readAs:") => readAs ++= Seq(s.stripPrefix("readAs:"))
+    })
     AuthServiceJWTPayload(
       ledgerId = Some(config.ledgerId),
       applicationId = config.applicationId,
@@ -76,8 +71,8 @@ class Server(config: Config) {
       exp = None,
       // no admin claim for now.
       admin = false,
-      actAs = parties,
-      readAs = List()
+      actAs = actAs.toList,
+      readAs = readAs.toList,
     )
   }
 
@@ -97,8 +92,9 @@ class Server(config: Config) {
             'audience.as[Uri] ?))
           .as[Request.Authorize](Request.Authorize) {
             request =>
-              val parties = requestParties(request)
-              val denied = authorizedParties.map(parties.toSet -- _).getOrElse(Nil)
+              val payload = toPayload(request)
+              val parties = Party.subst(payload.readAs ++ payload.actAs).toSet
+              val denied = authorizedParties.map(parties -- _).getOrElse(Nil)
               if (denied.isEmpty) {
                 val authorizationCode = UUID.randomUUID()
                 val params =
