@@ -910,9 +910,9 @@ We now formally defined *well-formed types*. ::
       |  α : k · Γ                         -- CtxVarTyKind
       |  x : τ · Γ                         -- CtxVarExpType
 
-                       ┌───────────────┐
+                      ┌───────────────┐
  Well-formed types    │ Γ  ⊢  τ  :  k │
-                       └───────────────┘
+                      └───────────────┘
 
      α : k ∈ Γ
    ————————————————————————————————————————————— TyVar
@@ -1168,57 +1168,13 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpStructUpdate
       Γ  ⊢   ⟨ e 'with' fᵢ = eᵢ ⟩  :  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩
 
-      'variant' T (α₁:k₁) … (αₙ:kn) ↦ … | Vᵢ : τᵢ | …  ∈  〚Ξ〛Mod
-      τᵢ  ↠  τᵢ'      Γ  ⊢  e₁  :  Mod:T σ₁ … σₙ
-      x : τᵢ'[α₁ ↦ σ₁, …, αₙ ↦ σₙ] · Γ  ⊢  e₂  :  τ
-    ——————————————————————————————————————————————————————————————— ExpCaseVariant
-      Γ  ⊢  'case' e₁ 'of' Mod:T:V x → e₂ : τ
-
-      'enum' T ↦ … | E | …  ∈  〚Ξ〛Mod
-      Γ  ⊢  e₁  :  Mod:T
-      Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseEnum
-      Γ  ⊢  'case' e₁ 'of' Mod:T:E → e₂ : σ
-
-      Γ  ⊢  e₁  : 'List' τ      Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseNil
-      Γ  ⊢  'case' e₁ 'of' 'Nil' → e₂ : σ
-
-      xₕ ≠ xₜ
-      Γ  ⊢  e₁  : 'List' τ
-      Γ  ⊢  xₕ : τ · xₜ : 'List' τ · Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseCons
-      Γ  ⊢  'case' e₁ 'of' Cons xₕ xₜ → e₂  :  σ
-
-      Γ  ⊢  e₁  : 'Optional' τ      Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseNone
-      Γ  ⊢  'case' e₁ 'of' 'None' → e₂ : σ
-
-      Γ  ⊢  e₁  : 'Optional' τ      Γ  ⊢  x : τ · Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseSome
-      Γ  ⊢  'case' e₁ 'of' 'Some' x → e₂  :  σ
-
-      Γ  ⊢  e₁  :  'Bool'       Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseTrue
-      Γ  ⊢  'case' e₁ 'of 'True' → e₂  :  σ
-
-      Γ  ⊢  e₁  :  'Bool'       Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseFalse
-      Γ  ⊢  'case' e₁ 'of 'False' → e₂  :  σ
-
-      Γ  ⊢  e₁  :  'Unit'       Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseUnit
-      Γ  ⊢  'case' e₁ 'of' () → e₂  :  σ
-
-      Γ  ⊢  e₁  :  τ       Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseDefault
-      Γ  ⊢  'case' e₁ 'of' _ → e₂  :  σ
-
-      n > 1
-      Γ  ⊢  'case' e 'of' alt₁ : σ
+      n ≥ 1
+      Γ  ⊢  e : τ
+      Γ  ⊢  τ // alt₁ : σ
         ⋮
-      Γ  ⊢  'case' e 'of' altₙ : σ
-    ——————————————————————————————————————————————————————————————— ExpCaseOr
+      Γ  ⊢  τ // altₙ : σ
+      τ  ⊲  alt₁, …, altₙ
+    ——————————————————————————————————————————————————————————————— ExpCase
       Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ
 
       Γ  ⊢  τ  : ⋆      Γ  ⊢  e  :  τ
@@ -1325,6 +1281,120 @@ Then we define *well-formed expressions*. ::
   by the `builtin functions <Generic Map functions>`_ that are the
   only way to handle generic maps in a serialized program, the
   explicit syntax for maps being forbidden in serialized programs.
+
+
+Well-formed case alternatives
+.............................
+
+Case expressions ``Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ`` require the
+notion of well-formed case alternatives ``Γ ⊢ τ // alt : σ``  defined here.
+To simplify the presentation, we omit the assumption that the scrutinee
+type ``τ`` is well-formed, in the rules below.
+
+                                ┌──────────────────┐
+  Well-formed case alternatives │ Γ ⊢ τ // alt : σ │
+                                └──────────────────┘
+
+      'variant' T (α₁:k₁) … (αₙ:kₙ) ↦ … | Vᵢ : σᵢ | …  ∈  〚Ξ〛Mod
+      σᵢ  ↠  σᵢ'
+      x : σᵢ'[α₁ ↦ τ₁, …, αₙ ↦ τₙ] · Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltVariant
+      Γ  ⊢  Mod:T τ₁ … τₙ  //  Mod:T:V x  →  e : σ
+
+      'enum' T ↦ … | E | …  ∈  〚Ξ〛Mod
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltEnum
+      Γ  ⊢   Mod:T  //  Mod:T:E  →  e : σ
+
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltNil
+      Γ  ⊢  'List' τ  //  'Nil'  →  e : σ
+
+      xₕ ≠ xₜ
+      xₕ : τ · xₜ : 'List' τ · Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltCons
+      Γ  ⊢  'List' τ  //  'Cons' xₕ xₜ  →  e : σ
+
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltNone
+      Γ  ⊢  'Optional' τ  //  'None'  →  e : σ
+
+      x : τ · Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltSome
+      Γ  ⊢  'Optional' τ  //  'Some' x  →  e : σ
+
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltTrue
+      Γ  ⊢  'Bool'  //  'True'  →  e : σ
+
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltFalse
+      Γ  ⊢  'Bool'  //  'False'  →  e : σ
+
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltUnit
+      Γ  ⊢  'Unit'  //  ()  →  e : σ
+
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltDefault
+      Γ  ⊢  τ  //  _  →  e : σ
+
+
+Pattern match exhaustiveness
+............................
+
+Case expressions ``Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ`` also require
+their patterns to be exhaustive, which is defined here.
+
+                               ┌─────────────────────┐
+  Pattern match exhaustiveness │ τ  ⊲  alt₁, …, altₙ │
+                               └─────────────────────┘
+
+    'variant' T … ↦ V₁ : σ₁ | … | Vₘ : σₘ  ∈  〚Ξ〛Mod
+    i₁, i₂, …, iₘ  ∈  {1, …, n}
+    altᵢ₁  =  Mod:T:V₁ x₁  →  e₁
+    altᵢ₂  =  Mod:T:V₂ x₂  →  e₂
+           ⋮
+    altᵢₘ  =  Mod:T:Vₘ xₘ  →  eₘ
+    ——————————————————————————————————————————————————————————————— ExhaustVariant
+    Mod:T  ⊲  alt₁, …, altₙ
+
+    'enum' T … ↦ E₁ | … | Eₘ  ∈  〚Ξ〛Mod
+    i₁, i₂, …, iₘ  ∈  {1, …, n}
+    altᵢ₁  =  Mod:T:E₁  →  e₁
+    altᵢ₂  =  Mod:T:E₂  →  e₂
+           ⋮
+    altᵢₘ  =  Mod:T:Eₘ  →  eₘ
+    ——————————————————————————————————————————————————————————————— ExhaustEnum
+    Mod:T  ⊲  alt₁, …, altₙ
+
+    i₁, i₂  ∈  {1, …, n}
+    altᵢ₁  =  'Nil'  →  e₁
+    altᵢ₂  =  'Cons' xₕ xₜ  →  e₂
+    ——————————————————————————————————————————————————————————————— ExhaustList
+    'List' τ  ⊲  alt₁, …, altₙ
+
+    i₁, i₂  ∈  {1, …, n}
+    altᵢ₁  =  'None'  →  e₁
+    altᵢ₂  =  'Some' x  →  e₂
+    ——————————————————————————————————————————————————————————————— ExhaustOptional
+    'Optional' τ  ⊲  alt₁, …, altₙ
+
+    i₁, i₂  ∈  {1, …, n}
+    altᵢ₁  =  'True'  →  e₁
+    altᵢ₂  =  'False'  →  e₂
+    ——————————————————————————————————————————————————————————————— ExhaustBool
+    'Bool'  ⊲  alt₁, …, altₙ
+
+    i  ∈  {1, …, n}
+    altᵢ  =  ()  →  e
+    ——————————————————————————————————————————————————————————————— ExhaustUnit
+    'Unit'  ⊲  alt₁, …, altₙ
+
+    i  ∈  {1, …, n}
+    altᵢ  =  _  →  e
+    ——————————————————————————————————————————————————————————————— ExhaustDefault
+    τ  ⊲  alt₁, …, altₙ
 
 
 Serializable types
