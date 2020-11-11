@@ -59,6 +59,12 @@ private[sql] final class Cli(
             s"The JDBC URL, '${config.jdbcUrl.get}', is invalid. $Name only supports PostgreSQL.")
         else
           Right(()))
+    parser.checkConfig(
+      config =>
+        if (config.implicitPartyAllocation)
+          Left(s"Implicit party allocation is not allowed for DAML-on-SQL.")
+        else
+          Right(()))
     parser
   }
 
