@@ -30,7 +30,25 @@ import scala.language.postfixOps
 class Server(config: Config) {
   private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
 
-  var authorizedParties: Option[Set[Party]] = config.parties
+  private var authorizedParties: Option[Set[Party]] = config.parties
+
+  def authorizeParty(party: Party): Unit = {
+    authorizedParties = authorizedParties match {
+      case Some(parties) => Some(parties + party)
+      case None => None
+    }
+  }
+
+  def revokeParty(party: Party): Unit = {
+    authorizedParties = authorizedParties match {
+      case Some(parties) => Some(parties - party)
+      case None => None
+    }
+  }
+
+  def resetAuthorizedParties(): Unit = {
+    authorizedParties = config.parties
+  }
 
   // To keep things as simple as possible, we use a UUID as the authorization code
   // and in the /authorize request we already pre-compute the JWT payload based on the scope.
