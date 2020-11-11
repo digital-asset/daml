@@ -503,7 +503,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
       } yield succeed
   }
 
-  ignore should "forbid a non-authorized party to list triggers" in withTriggerService(Nil) {
+  it should "forbid a non-authorized party to list triggers" in withTriggerService(Nil) {
     uri: Uri =>
       val expectedError = StatusCodes.Forbidden
       for {
@@ -512,7 +512,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
       } yield succeed
   }
 
-  ignore should "forbid a non-authorized party to check the status of a trigger" in withTriggerService(List(dar)) {
+  it should "forbid a non-authorized party to check the status of a trigger" in withTriggerService(List(dar)) {
     uri: Uri =>
       val expectedSuccess = StatusCodes.OK
       val expectedError = StatusCodes.Forbidden
