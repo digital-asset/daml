@@ -11,6 +11,7 @@ import com.daml.platform.sandbox.cli.CommonCliSpecBase._
 
 import scala.collection.mutable
 import CliSpec._
+import org.scalatest.BeforeAndAfterEach
 
 class CliSpec
     extends CommonCliSpecBase(
@@ -26,7 +27,8 @@ class CliSpec
           ledgerIdMode = LedgerIdMode.Static(LedgerId("test-ledger")),
           jdbcUrl = Some(exampleJdbcUrl),
         )),
-    ) {
+    )
+    with BeforeAndAfterEach {
 
   "Cli" should {
     "reject when the ledgerid is not provided" in {
@@ -49,7 +51,6 @@ class CliSpec
       fakeEnv += "JDBC_URL" -> "jdbc:h2:mem"
       val config =
         cli.parse(Array("--ledgerid", "test-ledger", "--sql-backend-jdbcurl-env", "JDBC_URL"))
-      fakeEnv -= "JDBC_URL"
       config shouldEqual None
     }
 
@@ -58,7 +59,6 @@ class CliSpec
       fakeEnv += "JDBC_URL" -> jdbcUrl
       val config =
         cli.parse(Array("--ledgerid", "test-ledger", "--sql-backend-jdbcurl-env", "JDBC_URL"))
-      fakeEnv -= "JDBC_URL"
       config
         .getOrElse(fail("The configuration was not parsed correctly"))
         .jdbcUrl
@@ -78,6 +78,9 @@ class CliSpec
     }
   }
 
+  override def beforeEach(): Unit = {
+    fakeEnv.clear()
+  }
 }
 
 object CliSpec {
