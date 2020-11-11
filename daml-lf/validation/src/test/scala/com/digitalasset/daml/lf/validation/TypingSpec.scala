@@ -206,7 +206,32 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "infers proper type for Scenarios" in {
+    "not reject exhaustive patterns" in {
+
+      val testCases = Table(
+        "expression",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of Mod:Tree:Node x → () | Mod:Tree:Leaf x -> ( ) ))",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of Mod:Tree:Node x → () | Mod:Tree:Leaf x -> () |  Mod:Tree:Leaf x -> () | Mod:Tree:Node x → () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of Mod:Tree:Node x → () | _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of _ -> () | Mod:Tree:Node x → () ))",
+        E"λ (e : Mod:Color) → (( case e of Mod:Color:Red → () | Mod:Color:Green → () | Mod:Color:Blue → () ))",
+        E"λ (e : Mod:Color) → (( case e of Mod:Color:Blue → () | Mod:Color:Green → () | Mod:Color:Red → () ))",
+        E"λ (e : Mod:Color) → (( case e of Mod:Color:Red → () | _ -> () | Mod:Color:Green → () ))",
+        E"λ (e : Mod:Color) → (( case e of _ -> () ))",
+        E"λ (e : Bool) → (( case e of True → () | False → () ))",
+        E"λ (e : Bool) → (( case e of True → () | _ → () ))",
+        E"λ (e : Bool) → (( case e of _ → () ))",
+        E"(( case () of () → () ))",
+        E"(( case () of _ → () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:R τ) → (( case e of _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : τ) → (( case e of _ -> () ))",
+      )
+
+      forEvery(testCases)(env.typeOf)
+    }
+
+    "infer proper type for Scenarios" in {
       val testCases = Table(
         "expression" ->
           "expected type",
