@@ -390,7 +390,10 @@ typeOfTmLam (var, typ) body = do
   pure (typ :-> bodyType)
 
 typeOfTyLam :: MonadGamma m => (TypeVarName, Kind) -> Expr -> m Type
-typeOfTyLam (tvar, kind) expr = TForall (tvar, kind) <$> introTypeVar tvar kind (typeOf expr)
+typeOfTyLam (tvar, kind) expr = do
+    checkKind kind
+    TForall (tvar, kind) <$>
+        introTypeVar tvar kind (typeOf expr)
 
 -- | Type to track which constructor ranks have be covered in a pattern matching.
 data MatchedRanks = AllRanks | SomeRanks !IntSet.IntSet
@@ -714,6 +717,7 @@ checkExpr expr typ = void (checkExpr' expr typ)
 checkDefTypeSyn :: MonadGamma m => DefTypeSyn -> m ()
 checkDefTypeSyn DefTypeSyn{synParams,synType} = do
   checkUnique EDuplicateTypeParam $ map fst synParams
+  mapM_ (checkKind . snd) synParams
   foldr (uncurry introTypeVar) base synParams
   where
     base = checkType synType KStar
@@ -722,6 +726,7 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
 checkDefDataType :: MonadGamma m => DefDataType -> m ()
 checkDefDataType (DefDataType _loc _name _serializable params dataCons) = do
   checkUnique EDuplicateTypeParam $ map fst params
+  mapM_ (checkKind . snd) params
   foldr (uncurry introTypeVar) base params
   where
     base = case dataCons of
