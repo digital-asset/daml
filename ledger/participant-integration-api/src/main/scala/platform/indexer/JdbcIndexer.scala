@@ -3,8 +3,6 @@
 
 package com.daml.platform.indexer
 
-import java.time.Instant
-
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Flow, Keep, Sink}
@@ -227,9 +225,6 @@ private[indexer] class JdbcIndexer private[indexer] (
 
   import JdbcIndexer.logger
 
-  @volatile
-  private var lastReceivedRecordTime: Long = Instant.now().toEpochMilli
-
   override def subscription(readService: ReadService): ResourceOwner[IndexFeedHandle] =
     new SubscriptionResourceOwner(readService)
 
@@ -238,7 +233,7 @@ private[indexer] class JdbcIndexer private[indexer] (
     Flow[(Offset, Update)]
       .wireTap(Sink.foreach[(Offset, Update)] {
         case (offset, update) =>
-          lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
+          val lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
 
           logger.trace(update.description)
 
@@ -273,7 +268,7 @@ private[indexer] class JdbcIndexer private[indexer] (
             OffsetUpdate.PreparedTransactionInsert(
               offset = offset,
               update = update,
-              preparedInsert = ledgerDao.transactionsWriter.prepare(
+              preparedInsert = ledgerDao.prepareTransactionInsert(
                 submitterInfo = optSubmitterInfo,
                 workflowId = transactionMeta.workflowId,
                 transactionId = transactionId,
@@ -389,7 +384,7 @@ private[indexer] class JdbcIndexer private[indexer] (
               """For performance considerations, TransactionAccepted should be handled in a different branch.
                 |Recomputing PreparedInsert..""".stripMargin)
             ledgerDao.storeTransaction(
-              preparedInsert = ledgerDao.transactionsWriter.prepare(
+              preparedInsert = ledgerDao.prepareTransactionInsert(
                 submitterInfo = optSubmitterInfo,
                 workflowId = transactionMeta.workflowId,
                 transactionId = transactionId,

@@ -168,8 +168,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 }
 
 private[platform] trait LedgerWriteDao extends ReportsHealth {
-  def transactionsWriter: TransactionsWriter
-
   def maxConcurrentConnections: Int
 
   /**
@@ -182,6 +180,16 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   def initializeParticipantId(participantId: ParticipantId)(
       implicit loggingContext: LoggingContext,
   ): Future[Unit]
+
+  def prepareTransactionInsert(
+      submitterInfo: Option[SubmitterInfo],
+      workflowId: Option[WorkflowId],
+      transactionId: TransactionId,
+      ledgerEffectiveTime: Instant,
+      offset: Offset,
+      transaction: CommittedTransaction,
+      divulgedContracts: Iterable[DivulgedContract],
+  )(implicit loggingContext: LoggingContext): TransactionsWriter.PreparedInsert
 
   def storeTransaction(
       preparedInsert: PreparedInsert,

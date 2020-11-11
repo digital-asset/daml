@@ -441,15 +441,14 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val committedTransaction = CommittedTransaction(entry.transaction)
     val ledgerEffectiveTime = entry.ledgerEffectiveTime
     val divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
-    val preparedTransactionInsert = ledgerDao.transactionsWriter
-      .prepare(
-        submitterInfo,
-        entry.workflowId,
-        entry.transactionId,
-        ledgerEffectiveTime,
-        offset,
-        committedTransaction,
-        divulged)
+    val preparedTransactionInsert = ledgerDao.prepareTransactionInsert(
+      submitterInfo,
+      entry.workflowId,
+      entry.transactionId,
+      ledgerEffectiveTime,
+      offset,
+      committedTransaction,
+      divulged)
     ledgerDao
       .storeTransaction(
         preparedInsert = preparedTransactionInsert,

@@ -8,7 +8,7 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.WorkflowId
+import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.ledger.api.domain.{CommandId, LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
@@ -152,8 +152,6 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
-  override def transactionsWriter: TransactionsWriter = ledgerDao.transactionsWriter
-
   override def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
@@ -179,6 +177,24 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
         divulged,
       )
     )
+
+  def prepareTransactionInsert(
+      submitterInfo: Option[SubmitterInfo],
+      workflowId: Option[WorkflowId],
+      transactionId: TransactionId,
+      ledgerEffectiveTime: Instant,
+      offset: Offset,
+      transaction: CommittedTransaction,
+      divulgedContracts: Iterable[DivulgedContract],
+  )(implicit loggingContext: LoggingContext): TransactionsWriter.PreparedInsert =
+    ledgerDao.prepareTransactionInsert(
+      submitterInfo,
+      workflowId,
+      transactionId,
+      ledgerEffectiveTime,
+      offset,
+      transaction,
+      divulgedContracts)
 
   override def storeRejection(
       submitterInfo: Option[SubmitterInfo],

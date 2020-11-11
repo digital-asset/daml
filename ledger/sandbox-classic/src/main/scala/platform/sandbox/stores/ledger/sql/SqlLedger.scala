@@ -365,7 +365,7 @@ private final class SqlLedger(
               reason,
           ),
           _ => {
-            val preparedInsert = ledgerDao.transactionsWriter.prepare(
+            val preparedInsert = ledgerDao.prepareTransactionInsert(
               submitterInfo = Some(submitterInfo),
               workflowId = transactionMeta.workflowId,
               transactionId = transactionId,
