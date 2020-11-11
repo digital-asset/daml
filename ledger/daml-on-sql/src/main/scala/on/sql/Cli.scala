@@ -46,7 +46,8 @@ private[sql] final class Cli(
     parser.checkConfig(
       config =>
         if (config.jdbcUrl.isEmpty)
-          Left("The JDBC URL is required. Please set it with `--sql-backend-jdbcurl`.")
+          Left(
+            "The JDBC URL is required. Please set it with `--sql-backend-jdbcurl` or `--sql-backend-jdbcurl-env`.")
         else
           Right(()))
     parser.checkConfig(
