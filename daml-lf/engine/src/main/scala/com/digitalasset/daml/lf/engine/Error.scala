@@ -3,6 +3,7 @@
 
 package com.daml.lf
 package engine
+
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 
@@ -51,10 +52,7 @@ final case class ValidationError(override val msg: String)
 }
 
 final case class ReplayMismatch(
-    mismatch: transaction.ReplayMismatch[
-      transaction.NodeId,
-      ContractId,
-      Value.VersionedValue[ContractId]])
+    mismatch: transaction.ReplayMismatch[transaction.NodeId, ContractId])
     extends RuntimeException(s"ValidationError: ${mismatch.msg}", null, true, false)
     with Error {
   override def msg: String = mismatch.msg
