@@ -44,13 +44,7 @@ import com.daml.platform.store.dao.CommandCompletionsTable.{
 import com.daml.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
 import com.daml.platform.store.dao.PersistenceResponse.Ok
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
-import com.daml.platform.store.dao.events.{
-  ContractsReader,
-  LfValueTranslation,
-  PostCommitValidation,
-  TransactionsReader,
-  TransactionsWriter
-}
+import com.daml.platform.store.dao.events._
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -598,14 +592,14 @@ private class JdbcLedgerDao(
 
   private val SQL_SELECT_PACKAGES =
     SQL("""select package_id, source_description, known_since, size
-          |from packages
-          |""".stripMargin)
+        |from packages
+        |""".stripMargin)
 
   private val SQL_SELECT_PACKAGE =
     SQL("""select package
-          |from packages
-          |where package_id = {package_id}
-          |""".stripMargin)
+        |from packages
+        |where package_id = {package_id}
+        |""".stripMargin)
 
   private val PackageDataParser: RowParser[ParsedPackageData] =
     Macro.parser[ParsedPackageData](
@@ -647,14 +641,14 @@ private class JdbcLedgerDao(
 
   private val SQL_INSERT_PACKAGE_ENTRY_ACCEPT =
     SQL("""insert into package_entries(ledger_offset, recorded_at, submission_id, typ)
-      |values ({ledger_offset}, {recorded_at}, {submission_id}, 'accept')
-      |""".stripMargin)
+        |values ({ledger_offset}, {recorded_at}, {submission_id}, 'accept')
+        |""".stripMargin)
 
   private val SQL_INSERT_PACKAGE_ENTRY_REJECT =
     SQL(
       """insert into package_entries(ledger_offset, recorded_at, submission_id, typ, rejection_reason)
-      |values ({ledger_offset}, {recorded_at}, {submission_id}, 'reject', {rejection_reason})
-      |""".stripMargin)
+        |values ({ledger_offset}, {recorded_at}, {submission_id}, 'reject', {rejection_reason})
+        |""".stripMargin)
 
   override def storePackageEntry(
       offset: Offset,
@@ -811,8 +805,8 @@ private class JdbcLedgerDao(
     }
 
   private val SQL_DELETE_COMMAND = SQL("""
-     |delete from participant_command_submissions
-     |where deduplication_key = {deduplicationKey}
+      |delete from participant_command_submissions
+      |where deduplication_key = {deduplicationKey}
     """.stripMargin)
 
   private[this] def stopDeduplicatingCommandSync(commandId: domain.CommandId, submitter: Party)(
@@ -857,7 +851,10 @@ private class JdbcLedgerDao(
 
   private val postCommitValidation =
     if (performPostCommitValidation)
-      new PostCommitValidation.BackedBy(contractsReader.committedContracts)
+      new PostCommitValidation.BackedBy(
+        contractsReader.committedContracts,
+        parties => getParties(parties)(LoggingContext.newLoggingContext(identity)),
+      )
     else
       PostCommitValidation.Skip
 
@@ -1038,4 +1035,5 @@ private[platform] object JdbcLedgerDao {
       """.stripMargin
 
   }
+
 }
