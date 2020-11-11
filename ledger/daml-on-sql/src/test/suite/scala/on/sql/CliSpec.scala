@@ -9,9 +9,12 @@ import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.cli.CommonCliSpecBase
 import com.daml.platform.sandbox.cli.CommonCliSpecBase._
 
+import scala.collection.mutable
+import CliSpec._
+
 class CliSpec
     extends CommonCliSpecBase(
-      cli = new Cli(DefaultConfig),
+      cli = new Cli(DefaultConfig, getEnv = fakeEnv.get),
       requiredArgs = Array(
         "--ledgerid",
         "test-ledger",
@@ -42,6 +45,26 @@ class CliSpec
       config shouldEqual None
     }
 
+    "reject when sql-backend-jdbcurl-env is not a PostgreSQL URL" in {
+      fakeEnv += "JDBC_URL" -> "jdbc:h2:mem"
+      val config =
+        cli.parse(Array("--ledgerid", "test-ledger", "--sql-backend-jdbcurl-env", "JDBC_URL"))
+      fakeEnv -= "JDBC_URL"
+      config shouldEqual None
+    }
+
+    "accept a PostgreSQL JDBC URL from sql-backend-jdbcurl-env" in {
+      val jdbcUrl = "jdbc:postgresql://"
+      fakeEnv += "JDBC_URL" -> jdbcUrl
+      val config =
+        cli.parse(Array("--ledgerid", "test-ledger", "--sql-backend-jdbcurl-env", "JDBC_URL"))
+      fakeEnv -= "JDBC_URL"
+      config
+        .getOrElse(fail("The configuration was not parsed correctly"))
+        .jdbcUrl
+        .getOrElse(fail("The JDBC URL was not set")) should be(jdbcUrl)
+    }
+
     "parse the contract-id-seeding mode when given" in {
       checkOption(
         Array("--contract-id-seeding", "testing-weak"),
@@ -55,4 +78,8 @@ class CliSpec
     }
   }
 
+}
+
+object CliSpec {
+  private val fakeEnv = mutable.Map[String, String]()
 }

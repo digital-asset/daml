@@ -9,8 +9,10 @@ import com.daml.platform.sandbox.cli.{CommonCli, SandboxCli}
 import com.daml.platform.sandbox.config.SandboxConfig
 import scopt.OptionParser
 
-private[sql] final class Cli(override val defaultConfig: SandboxConfig = DefaultConfig)
-    extends SandboxCli {
+private[sql] final class Cli(
+    override val defaultConfig: SandboxConfig = DefaultConfig,
+    getEnv: String => Option[String] = sys.env.get,
+) extends SandboxCli {
 
   override protected val parser: OptionParser[SandboxConfig] = {
     val parser =
@@ -24,6 +26,13 @@ private[sql] final class Cli(override val defaultConfig: SandboxConfig = Default
       .action((_, config) => config.copy(devMode = true))
       .text("Allows development versions of DAML-LF language and transaction format.")
       .hidden()
+
+    parser
+      .opt[String]("sql-backend-jdbcurl-env")
+      .optional()
+      .text(
+        s"The environment variable containing JDBC connection URL to a Postgres database, including username and password. If present, $Name will use the database to persist its data.")
+      .action((env, config) => config.copy(jdbcUrl = getEnv(env).orElse(config.jdbcUrl)))
 
     // Ideally we would set the relevant options to `required()`, but it doesn't seem to work.
     // Even when the value is provided, it still reports that it's missing. Instead, we check the
