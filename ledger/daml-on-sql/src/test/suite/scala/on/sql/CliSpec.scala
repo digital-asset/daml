@@ -47,6 +47,12 @@ class CliSpec
       config shouldEqual None
     }
 
+    "reject when sql-backend-jdbcurl-env points to a non-existing environment variable" in {
+      val config =
+        cli.parse(Array("--ledgerid", "test-ledger", "--sql-backend-jdbcurl-env", "JDBC_URL"))
+      config shouldEqual None
+    }
+
     "reject when sql-backend-jdbcurl-env is not a PostgreSQL URL" in {
       fakeEnv += "JDBC_URL" -> "jdbc:h2:mem"
       val config =
