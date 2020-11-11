@@ -416,7 +416,7 @@ missingMR :: MatchedRanks -> Int -> Maybe Int
 missingMR AllRanks _ = Nothing
 missingMR (SomeRanks ks) n
     | IntSet.size ks == n = Nothing
-    | otherwise = IntSet.lookupGE 0 (IntSet.fromList [0..n-1] `IntSet.difference` ks)
+    | otherwise = IntSet.lookupGE 0 (IntSet.fromDistinctAscList [0..n-1] `IntSet.difference` ks)
 
 typeOfAlts :: MonadGamma m => (CaseAlternative -> m (MatchedRanks, Type)) -> [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAlts f alts = do
