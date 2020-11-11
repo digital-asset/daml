@@ -14,6 +14,32 @@ import org.scalatest.{Matchers, WordSpec}
 
 class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
+  "Checker.checkKind" should {
+    "reject invalid kinds" in {
+
+      val negativeTestCases = Table(
+        "kinds",
+        k"*",
+        k"* -> *",
+        k"* -> * -> *",
+        k"(* -> *) -> *",
+        k"(nat -> *)",
+        k"nat -> * -> *",
+        k"* -> nat -> *",
+      )
+
+      val positiveTestCases = Table(
+        "kinds",
+        k"* -> nat",
+        k"* -> * -> nat",
+        k"(* -> nat) -> *",
+      )
+
+      forEvery(negativeTestCases)(env.checkKind)
+      forEvery(positiveTestCases)(k => an[ENatKindRightOfArrow] shouldBe thrownBy(env.checkKind(k)))
+    }
+  }
+
   "Checker.kindOf" should {
 
     "infers the proper kind for builtin types (but ContractId)" in {
@@ -42,7 +68,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "infers the proper kind for complex type" in {
+    "infers the proper kind for complex types" in {
 
       val testCases = Table(
         "type" -> "expected kind",
@@ -62,6 +88,10 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       forEvery(testCases) { (typ: Type, expectedKind: Kind) =>
         env.kindOf(typ) shouldBe expectedKind
       }
+    }
+
+    "reject ill-formed types" in {
+      an[ENatKindRightOfArrow] shouldBe thrownBy(env.kindOf(T"""∀ (τ: ⋆ → nat). Unit """))
     }
   }
 
@@ -330,6 +360,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           { case _: ETypeMismatch => },
         E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : Bool) (e₂ : τ₃) → ⸨ e₁ e₂ ⸩" -> //
           { case _: EExpectedFunctionType => },
+        // ExpTyAbs
+        E"Λ (τ : ⋆) . λ (e: τ) → ⸨ Λ (σ: ⋆ → nat) . e ⸩" -> //
+          { case _: ENatKindRightOfArrow => },
         // ExpTyApp
         E"Λ (τ : ⋆ → ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → ⸨ e @τ ⸩" -> //
           { case _: EKindMismatch => },
@@ -1042,6 +1075,52 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     }
   }
 
+  "reject ill formed type record definitions" in {
+
+    def checkModule(mod: Module) = {
+      val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
+      val world = new World(Map(defaultPackageId -> pkg))
+      Typing.checkModule(world, defaultPackageId, mod)
+    }
+
+    val negativeTestCases = Table(
+      "valid module",
+      m"""module Mod { record R (a: * -> *) (b: * -> *) = { }; }""",
+    )
+
+    val positiveTestCases = Table(
+      "invalid module",
+      m"""module Mod { record R (a: * -> nat) (b: * -> *) = { }; }""",
+      m"""module Mod { record R (a: * -> *) (b: * -> nat) = { }; }""",
+    )
+
+    forEvery(negativeTestCases)(mod => checkModule(mod))
+    forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
+  }
+
+  "reject ill formed type variant definitions" in {
+
+    def checkModule(mod: Module) = {
+      val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
+      val world = new World(Map(defaultPackageId -> pkg))
+      Typing.checkModule(world, defaultPackageId, mod)
+    }
+
+    val negativeTestCases = Table(
+      "valid module",
+      m"""module Mod { variant V (a: * -> *) (b: * -> *) = ; }""",
+    )
+
+    val positiveTestCases = Table(
+      "invalid module",
+      m"""module Mod { variant V (a: * -> nat) (b: * -> *) = ; }""",
+      m"""module Mod { variant V (a: * -> *) (b: * -> nat) = ; }""",
+    )
+
+    forEvery(negativeTestCases)(mod => checkModule(mod))
+    forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
+  }
+
   "reject ill formed type synonym definitions" in {
 
     def checkModule(mod: Module) = {
@@ -1057,6 +1136,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       m"""module Mod { synonym S a b = a ; }""",
       m"""module Mod { synonym S (f: *) = f ; }""",
       m"""module Mod { synonym S (f: * -> *) = f Int64; }""",
+      m"""module Mod { synonym S (f: * -> *) = Unit ; }""",
     )
 
     val positiveTestCases = Table(
@@ -1067,6 +1147,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       m"""module Mod { synonym S = List ; }""",
       m"""module Mod { synonym S (f: * -> *) = f ; }""",
       m"""module Mod { synonym S (f: *) = f Int64; }""",
+      m"""module Mod { synonym S (f: * -> nat) = Unit ; }""",
     )
 
     forEvery(negativeTestCases)(mod => checkModule(mod))

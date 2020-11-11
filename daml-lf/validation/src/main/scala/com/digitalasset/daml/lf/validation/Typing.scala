@@ -235,6 +235,7 @@ private[validation] object Typing {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
           Env(languageVersion, world, ContextDefDataType(pkgId, mod.name, dfnName), params.toMap)
+        params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         def tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
         cons match {
@@ -250,6 +251,7 @@ private[validation] object Typing {
       case (dfnName, DTypeSyn(params, replacementTyp)) =>
         val env =
           Env(languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+        params.values.foreach(env.checkKind)
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         env.checkType(replacementTyp, KStar)
     }
@@ -301,6 +303,25 @@ private[validation] object Typing {
 
     private def lookupTypeVar(name: TypeVarName): Kind =
       tVars.getOrElse(name, throw EUnknownTypeVar(ctx, name))
+
+    def checkKind(kind: Kind): Unit = {
+      @tailrec
+      def loop(k: Kind, stack: List[Kind] = List.empty): Unit =
+        k match {
+          case KArrow(_, KNat) =>
+            throw ENatKindRightOfArrow(ctx, k)
+          case KArrow(param, result) =>
+            loop(param, result :: stack)
+          case KStar | KNat =>
+            stack match {
+              case head :: tail =>
+                loop(head, tail)
+              case Nil =>
+            }
+        }
+
+      loop(kind)
+    }
 
     /* Typing Ops*/
 
@@ -443,6 +464,7 @@ private[validation] object Typing {
       case TBuiltin(bType) =>
         kindOfBuiltin(bType)
       case TForall((v, k), b) =>
+        checkKind(k)
         introTypeVar(v, k).checkType(b, KStar)
         KStar
       case TStruct(fields) =>
@@ -583,8 +605,10 @@ private[validation] object Typing {
       typ ->: introExprVar(x, typ).typeOf(body)
     }
 
-    private def typeofTyLam(tVar: TypeVarName, kind: Kind, expr: Expr): Type =
+    private def typeofTyLam(tVar: TypeVarName, kind: Kind, expr: Expr): Type = {
+      checkKind(kind)
       TForall(tVar -> kind, introTypeVar(tVar, kind).typeOf(expr))
+    }
 
     private[this] def introPatternVariant(
         scrutTCon: TypeConName,

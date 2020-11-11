@@ -166,7 +166,9 @@ abstract class ValidationError extends java.lang.RuntimeException with Product w
   override def getMessage: String = pretty
   protected def prettyInternal: String
 }
-
+final case class ENatKindRightOfArrow(context: Context, kind: Kind) extends ValidationError {
+  protected def prettyInternal: String = s"invalid kind ${kind.pretty}"
+}
 final case class EUnknownTypeVar(context: Context, varName: TypeVarName) extends ValidationError {
   protected def prettyInternal: String = s"unknown type variable: $varName"
 }
