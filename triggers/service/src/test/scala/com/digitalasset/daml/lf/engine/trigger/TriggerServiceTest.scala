@@ -70,7 +70,7 @@ trait AbstractTriggerServiceTest
   def startTrigger(uri: Uri, triggerName: String, party: Party): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.POST,
-      uri = uri.withPath(Uri.Path("/v1/start")),
+      uri = uri.withPath(Uri.Path("/v1/triggers")),
       entity = HttpEntity(
         ContentTypes.`application/json`,
         s"""{"triggerName": "$triggerName", "party": "$party"}"""
@@ -82,7 +82,7 @@ trait AbstractTriggerServiceTest
   def listTriggers(uri: Uri, party: Party): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.GET,
-      uri = uri.withPath(Uri.Path(s"/v1/list")),
+      uri = uri.withPath(Uri.Path(s"/v1/triggers")),
       entity = HttpEntity(
         ContentTypes.`application/json`,
         s"""{"party": "$party"}"""
@@ -95,7 +95,7 @@ trait AbstractTriggerServiceTest
     val id = triggerInstance.toString
     val req = HttpRequest(
       method = HttpMethods.GET,
-      uri = uri.withPath(Uri.Path(s"/v1/status/$id")),
+      uri = uri.withPath(Uri.Path(s"/v1/triggers/$id")),
     )
     httpRequestFollow(req)
   }
@@ -107,7 +107,7 @@ trait AbstractTriggerServiceTest
     val id = triggerInstance.toString
     val req = HttpRequest(
       method = HttpMethods.DELETE,
-      uri = uri.withPath(Uri.Path(s"/v1/stop/$id")),
+      uri = uri.withPath(Uri.Path(s"/v1/triggers/$id")),
     )
     httpRequestFollow(req)
   }
@@ -121,7 +121,7 @@ trait AbstractTriggerServiceTest
         Map("filename" -> file.toString)))
     val req = HttpRequest(
       method = HttpMethods.POST,
-      uri = uri.withPath(Uri.Path(s"/v1/upload_dar")),
+      uri = uri.withPath(Uri.Path(s"/v1/packages")),
       entity = multipartForm.toEntity
     )
     Http().singleRequest(req)
@@ -134,8 +134,8 @@ trait AbstractTriggerServiceTest
   // Check the response was successful and extract the "result" field.
   def parseResult(resp: HttpResponse): Future[JsValue] = {
     for {
-      _ <- assert(resp.status.isSuccess)
       body <- responseBodyToString(resp)
+      _ <- assert(resp.status.isSuccess)
       JsObject(fields) = body.parseJson
       Some(result) = fields.get("result")
     } yield result
@@ -379,7 +379,7 @@ trait AbstractTriggerServiceTest
     val uuid: String = "No More Mr Nice Guy"
     val req = HttpRequest(
       method = HttpMethods.DELETE,
-      uri = uri.withPath(Uri.Path(s"/v1/stop/$uuid")),
+      uri = uri.withPath(Uri.Path(s"/v1/triggers/$uuid")),
     )
     for {
       resp <- Http().singleRequest(req)

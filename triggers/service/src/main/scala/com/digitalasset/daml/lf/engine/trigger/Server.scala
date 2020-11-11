@@ -307,104 +307,105 @@ class Server(
     }
 
   private def route(implicit ec: ExecutionContext, system: ActorSystem) = concat(
-    post {
+    pathPrefix("v1" / "triggers") {
       concat(
-        // Start a new trigger given its identifier and the party it
-        // should be running as.  Returns a UUID for the newly
-        // started trigger.
-        path("v1" / "start") {
-          entity(as[StartParams]) {
-            params =>
-              val claims =
-                AuthRequest.Claims(actAs = List(params.party))
-              // TODO[AH] Why do we need to pass ec, system explicitly?
-              authorize(claims)(ec, system) { token =>
-                startTrigger(params.party, params.triggerName, token) match {
-                  case Left(err) =>
-                    complete(errorResponse(StatusCodes.UnprocessableEntity, err))
-                  case Right(triggerInstance) =>
-                    complete(successResponse(triggerInstance))
-                }
-              }
-          }
-        },
-        // upload a DAR as a multi-part form request with a single field called
-        // "dar".
-        path("v1" / "upload_dar") {
-          fileUpload("dar") {
-            case (_, byteSource) =>
-              val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
-              onSuccess(byteStringF) {
-                byteString =>
-                  val inputStream = new ByteArrayInputStream(byteString.toArray)
-                  DarReader()
-                    .readArchive("package-upload", new ZipInputStream(inputStream)) match {
-                    case Failure(err) =>
-                      complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
-                    case Success(dar) =>
-                      try {
-                        addDar(dar) match {
-                          case Left(err) =>
-                            complete(errorResponse(StatusCodes.InternalServerError, err))
-                          case Right(()) =>
-                            val mainPackageId =
-                              JsObject(("mainPackageId", dar.main._1.name.toJson))
-                            complete(successResponse(mainPackageId))
-                        }
-                      } catch {
-                        case err: ParseError =>
-                          complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
-                      }
+        pathEnd {
+          concat(
+            // Start a new trigger given its identifier and the party it
+            // should be running as.  Returns a UUID for the newly
+            // started trigger.
+            post {
+              entity(as[StartParams]) {
+                params =>
+                  val claims =
+                    AuthRequest.Claims(actAs = List(params.party))
+                  // TODO[AH] Why do we need to pass ec, system explicitly?
+                  authorize(claims)(ec, system) { token =>
+                    startTrigger(params.party, params.triggerName, token) match {
+                      case Left(err) =>
+                        complete(errorResponse(StatusCodes.UnprocessableEntity, err))
+                      case Right(triggerInstance) =>
+                        complete(successResponse(triggerInstance))
+                    }
                   }
               }
-          }
-        }
-      )
-    },
-    get {
-      // Convenience endpoint for tests (roughly follow
-      // https://tools.ietf.org/id/draft-inadarei-api-health-check-01.html).
-      concat(
-        path("v1" / "health") {
-          complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
-        },
-        // List triggers currently running for the given party.
-        path("v1" / "list") {
-          entity(as[ListParams]) { params =>
-            val claims = Claims(readAs = List(params.party))
-            authorize(claims)(ec, system) { _ =>
-              listTriggers(params.party) match {
-                case Left(err) =>
-                  complete(errorResponse(StatusCodes.InternalServerError, err))
-                case Right(triggerInstances) => complete(successResponse(triggerInstances))
+            },
+            // List triggers currently running for the given party.
+            get {
+              entity(as[ListParams]) { params =>
+                val claims = Claims(readAs = List(params.party))
+                authorize(claims)(ec, system) { _ =>
+                  listTriggers(params.party) match {
+                    case Left(err) =>
+                      complete(errorResponse(StatusCodes.InternalServerError, err))
+                    case Right(triggerInstances) => complete(successResponse(triggerInstances))
+                  }
+                }
               }
             }
-          }
+          )
         },
-        // Produce logs for the given trigger.
-        pathPrefix("v1" / "status" / JavaUUID) { uuid =>
-          authorizeForTrigger(uuid, readOnly = true)(ec, system) { _ =>
-            complete(successResponse(JsObject(("logs", getTriggerStatus(uuid).toJson))))
-          }
+        path(JavaUUID) {
+          uuid =>
+            // Produce logs for the given trigger.
+            concat(
+              get {
+                authorizeForTrigger(uuid, readOnly = true)(ec, system) { _ =>
+                  complete(successResponse(JsObject(("logs", getTriggerStatus(uuid).toJson))))
+                }
+              },
+              delete {
+                authorizeForTrigger(uuid)(ec, system) { _ =>
+                  stopTrigger(uuid) match {
+                    case Left(err) =>
+                      complete(errorResponse(StatusCodes.InternalServerError, err))
+                    case Right(None) =>
+                      val err = s"No trigger running with id $uuid"
+                      complete(errorResponse(StatusCodes.NotFound, err))
+                    case Right(Some(stoppedTriggerId)) =>
+                      complete(successResponse(stoppedTriggerId))
+                  }
+                }
+              }
+            )
         }
       )
     },
-    // Stop a trigger given its UUID
-    delete {
-      pathPrefix("v1" / "stop" / JavaUUID) {
-        uuid =>
-          authorizeForTrigger(uuid)(ec, system) { _ =>
-            stopTrigger(uuid) match {
-              case Left(err) =>
-                complete(errorResponse(StatusCodes.InternalServerError, err))
-              case Right(None) =>
-                val err = s"No trigger running with id $uuid"
-                complete(errorResponse(StatusCodes.NotFound, err))
-              case Right(Some(stoppedTriggerId)) =>
-                complete(successResponse(stoppedTriggerId))
+    path("v1" / "packages") {
+      // upload a DAR as a multi-part form request with a single field called
+      // "dar".
+      post {
+        fileUpload("dar") {
+          case (_, byteSource) =>
+            val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
+            onSuccess(byteStringF) {
+              byteString =>
+                val inputStream = new ByteArrayInputStream(byteString.toArray)
+                DarReader()
+                  .readArchive("package-upload", new ZipInputStream(inputStream)) match {
+                  case Failure(err) =>
+                    complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
+                  case Success(dar) =>
+                    try {
+                      addDar(dar) match {
+                        case Left(err) =>
+                          complete(errorResponse(StatusCodes.InternalServerError, err))
+                        case Right(()) =>
+                          val mainPackageId =
+                            JsObject(("mainPackageId", dar.main._1.name.toJson))
+                          complete(successResponse(mainPackageId))
+                      }
+                    } catch {
+                      case err: ParseError =>
+                        complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
+                    }
+                }
             }
-          }
+        }
       }
+    },
+    path("livez") {
+      complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
     },
     // Authorization callback endpoint
     path("cb") { get { authCallback } },
