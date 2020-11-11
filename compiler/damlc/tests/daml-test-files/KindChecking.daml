@@ -1,0 +1,9 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Make sure that invalid kinds are reported as errors by the DAML compiler.
+module KindChecking where
+
+-- @ERROR range=9:1-9:4; Nat kind on the right-hand side of kind arrow
+foo : forall (f: * -> GHC.Types.Nat). Numeric (f ()) -> Numeric (f ()) -> Numeric (f ())
+foo = (+)

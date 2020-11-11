@@ -129,6 +129,16 @@ kindOfBuiltin = \case
   BTAny -> KStar
   BTTypeRep -> KStar
 
+checkKind :: MonadGamma m => Kind -> m ()
+checkKind = \case
+  KNat -> pure ()
+  KStar -> pure ()
+  k@(KArrow _ KNat) ->
+    throwWithContext (ENatKindRightOfArrow k)
+  KArrow a b -> do
+    checkKind a
+    checkKind b
+
 kindOf :: MonadGamma m => Type -> m Kind
 kindOf = \case
   TVar v -> lookupTypeVar v
@@ -149,7 +159,9 @@ kindOf = \case
     checkType targ argKind
     pure resKind
   TBuiltin btype -> pure (kindOfBuiltin btype)
-  TForall (v, k) t1 -> introTypeVar v k $ checkType t1 KStar $> KStar
+  TForall (v, k) t1 -> do
+    checkKind k
+    introTypeVar v k $ checkType t1 KStar $> KStar
   TStruct recordType -> checkRecordType recordType $> KStar
   TNat _ -> pure KNat
 

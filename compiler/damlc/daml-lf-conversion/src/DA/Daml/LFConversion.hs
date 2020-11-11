@@ -1720,12 +1720,14 @@ convertKind x@(TypeCon t ts)
     | t == typeSymbolKindCon, null ts = pure KStar
     | t == tYPETyCon, [_] <- ts = pure KStar
     | t == runtimeRepTyCon, null ts = pure KStar
-    -- TODO (drsk): We want to check that the 'Meta' constructor really comes from GHC.Generics.
-    | getOccFS t == "Meta", null ts = pure KStar
-    | Just m <- nameModule_maybe (getName t)
-    , GHC.moduleName m == mkModuleName "GHC.Types"
-    , getOccFS t == "Nat", null ts = pure KNat
-    | t == funTyCon, [_,_,t1,t2] <- ts = KArrow <$> convertKind t1 <*> convertKind t2
+    | NameIn DA_Generics "Meta" <- getName t, null ts = pure KStar
+    | NameIn GHC_Types "Nat" <- getName t, null ts = pure KNat
+    | t == funTyCon, [_,_,t1,t2] <- ts = do
+        k1 <- convertKind t1
+        k2 <- convertKind t2
+        case k2 of
+            KNat -> unsupported "Nat kind on the right-hand side of kind arrow" x
+            _ -> pure (KArrow k1 k2)
 convertKind (TyVarTy x) = convertKind $ tyVarKind x
 convertKind x = unhandled "Kind" x
 
