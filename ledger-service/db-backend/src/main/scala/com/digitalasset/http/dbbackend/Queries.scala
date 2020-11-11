@@ -244,6 +244,23 @@ object Queries {
     }
   }
 
+  private[http] def fetchById(
+      parties: OneAnd[Set, String],
+      tpid: SurrogateTpId,
+      contractId: String)(
+      implicit log: LogHandler,
+      gvs: Get[Vector[String]],
+      pvs: Put[Vector[String]])
+    : ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
+    selectContracts(parties, tpid, sql"contract_id = $contractId").option
+
+  private[http] def fetchByKey(parties: OneAnd[Set, String], tpid: SurrogateTpId, key: JsValue)(
+      implicit log: LogHandler,
+      gvs: Get[Vector[String]],
+      pvs: Put[Vector[String]])
+    : ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
+    selectContracts(parties, tpid, sql"key = $key").option
+
   object Implicits {
     implicit val `JsValue put`: Meta[JsValue] =
       Meta[String].timap(_.parseJson)(_.compactPrint)
