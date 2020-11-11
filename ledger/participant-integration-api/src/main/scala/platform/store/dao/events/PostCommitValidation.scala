@@ -57,7 +57,7 @@ private[dao] object PostCommitValidation {
 
   final class BackedBy(
       data: PostCommitValidationData,
-      getParties: Seq[Party] => Future[List[PartyDetails]],
+      getParties: Option[Seq[Party] => Future[List[PartyDetails]]] = None,
   ) extends PostCommitValidation {
 
     def validate(
@@ -135,7 +135,12 @@ private[dao] object PostCommitValidation {
     }
 
     private def getPartiesSync(parties: Seq[Party]): List[PartyDetails] =
-      Await.result(getParties(parties), AwaitDuration)
+      Await.result(getParties.getOrElse(identityGetParties)(parties), AwaitDuration)
+
+    private def identityGetParties(parties: Seq[Party]): Future[List[PartyDetails]] =
+      Future.successful(parties.map { party =>
+        PartyDetails(party, None, isLocal = true)
+      }.toList)
 
     private def collectReferredContracts(
         transaction: CommittedTransaction,

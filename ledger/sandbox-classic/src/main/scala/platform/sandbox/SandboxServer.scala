@@ -278,7 +278,8 @@ final class SandboxServer(
           packageStore,
           config.eventsPageSize,
           metrics,
-          lfValueTranslationCache
+          lfValueTranslationCache,
+          !config.implicitPartyAllocation
         )
 
       case None =>

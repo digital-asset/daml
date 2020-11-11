@@ -81,6 +81,7 @@ private class JdbcLedgerDao(
     performPostCommitValidation: Boolean,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslation.Cache,
+    validatePartyAllocation: Boolean,
 ) extends LedgerDao {
 
   private val queries = dbType match {
@@ -853,7 +854,10 @@ private class JdbcLedgerDao(
     if (performPostCommitValidation)
       new PostCommitValidation.BackedBy(
         contractsReader.committedContracts,
-        parties => getParties(parties)(LoggingContext.newLoggingContext(identity)),
+        if (validatePartyAllocation)
+          Some(parties => getParties(parties)(LoggingContext.newLoggingContext(identity)))
+        else
+          None,
       )
     else
       PostCommitValidation.Skip
@@ -915,6 +919,7 @@ private[platform] object JdbcLedgerDao {
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
+      validatePartyAllocation: Boolean = false,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
@@ -926,8 +931,9 @@ private[platform] object JdbcLedgerDao {
       eventsPageSize,
       validate = true,
       metrics,
-      lfValueTranslationCache)
-      .map(new MeteredLedgerDao(_, metrics))
+      lfValueTranslationCache,
+      validatePartyAllocation
+    ).map(new MeteredLedgerDao(_, metrics))
   }
 
   private def owner(
@@ -938,6 +944,7 @@ private[platform] object JdbcLedgerDao {
       validate: Boolean,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
+      validatePartyAllocation: Boolean = false,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(serverRole, jdbcUrl, maxConnections, metrics)
@@ -952,6 +959,7 @@ private[platform] object JdbcLedgerDao {
         validate,
         metrics,
         lfValueTranslationCache,
+        validatePartyAllocation,
       )
 
   sealed trait Queries {
