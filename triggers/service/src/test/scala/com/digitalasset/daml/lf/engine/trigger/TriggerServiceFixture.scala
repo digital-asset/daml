@@ -110,6 +110,13 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
       case resp => Future(resp)
     }
   }
+
+  /**
+   * Remove all stored cookies.
+   */
+  def deleteCookies(): Unit = {
+    cookieJar.clear()
+  }
 }
 
 trait AbstractAuthFixture extends SuiteMixin {
