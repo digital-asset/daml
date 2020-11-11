@@ -1289,7 +1289,7 @@ Well-formed case alternatives
 Case expressions ``Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ`` require the
 notion of well-formed case alternatives ``Γ ⊢ τ // alt : σ``  defined here.
 To simplify the presentation, we omit the assumption that the scrutinee
-type ``τ`` is well-formed, in the rules below.
+type ``τ`` is well-formed, in the rules below. ::
 
                                 ┌──────────────────┐
   Well-formed case alternatives │ Γ ⊢ τ // alt : σ │
@@ -1344,7 +1344,7 @@ Pattern match exhaustiveness
 ............................
 
 Case expressions ``Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ`` also require
-their patterns to be exhaustive, which is defined here.
+their patterns to be exhaustive, which is defined here. ::
 
                                ┌─────────────────────┐
   Pattern match exhaustiveness │ τ  ⊲  alt₁, …, altₙ │
