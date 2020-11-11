@@ -4,7 +4,6 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 
 //TODO: Errors
