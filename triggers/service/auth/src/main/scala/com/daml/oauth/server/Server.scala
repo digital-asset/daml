@@ -132,12 +132,14 @@ class Server(config: Config) {
       }
     }
   )
+
+  def start()(implicit system: ActorSystem): Future[ServerBinding] = {
+    Http().bindAndHandle(route, "localhost", config.port.value)
+  }
 }
 
 object Server {
-  def start(config: Config)(implicit system: ActorSystem): Future[ServerBinding] = {
-    Http().bindAndHandle(new Server(config).route, "localhost", config.port.value)
-  }
+  def apply(config: Config) = new Server(config)
   def stop(f: Future[ServerBinding])(implicit ec: ExecutionContext): Future[Done] =
     f.flatMap(_.unbind())
 }

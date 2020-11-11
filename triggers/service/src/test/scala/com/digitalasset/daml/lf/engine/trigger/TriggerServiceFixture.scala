@@ -176,7 +176,7 @@ trait AuthMiddlewareFixture
     resource = new OwnedResource(new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
         for {
-          oauth <- Resource(OAuthServer.start(oauthConfig))(closeServerBinding)
+          oauth <- Resource(OAuthServer(oauthConfig).start())(closeServerBinding)
           uri = Uri()
             .withScheme("http")
             .withAuthority(oauth.localAddress.getHostString, oauth.localAddress.getPort)
