@@ -30,6 +30,8 @@ import scala.language.postfixOps
 class Server(config: Config) {
   private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
 
+  var authorizedParties: Option[Set[Party]] = config.parties
+
   // To keep things as simple as possible, we use a UUID as the authorization code
   // and in the /authorize request we already pre-compute the JWT payload based on the scope.
   // The token request then only does a lookup and signs the token.
@@ -78,7 +80,7 @@ class Server(config: Config) {
           .as[Request.Authorize](Request.Authorize) {
             request =>
               val parties = requestParties(request)
-              val denied = config.parties.map(parties.toSet -- _).getOrElse(Nil)
+              val denied = authorizedParties.map(parties.toSet -- _).getOrElse(Nil)
               if (denied.isEmpty) {
                 val authorizationCode = UUID.randomUUID()
                 val params =
