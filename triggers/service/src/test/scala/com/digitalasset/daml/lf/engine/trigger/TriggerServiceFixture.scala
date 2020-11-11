@@ -112,8 +112,8 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
   }
 
   /**
-   * Remove all stored cookies.
-   */
+    * Remove all stored cookies.
+    */
   def deleteCookies(): Unit = {
     cookieJar.clear()
   }
@@ -183,7 +183,8 @@ trait AuthMiddlewareFixture
       parties = authParties,
     )
     resource = new OwnedResource(new ResourceOwner[(OAuthServer, ServerBinding)] {
-      override def acquire()(implicit context: ResourceContext): Resource[(OAuthServer, ServerBinding)] = {
+      override def acquire()(
+          implicit context: ResourceContext): Resource[(OAuthServer, ServerBinding)] = {
         val oauthServer = OAuthServer(oauthConfig)
         for {
           oauth <- Resource(oauthServer.start())(closeServerBinding)

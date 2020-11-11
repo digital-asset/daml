@@ -512,19 +512,19 @@ trait AbstractTriggerServiceTestAuthMiddleware
       } yield succeed
   }
 
-  it should "forbid a non-authorized party to check the status of a trigger" in withTriggerService(List(dar)) {
-    uri: Uri =>
-      val expectedSuccess = StatusCodes.OK
-      val expectedError = StatusCodes.Forbidden
-      for {
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
-        _ <- resp.status should equal(expectedSuccess)
-        triggerId <- parseTriggerId(resp)
-        _ = authServer.revokeParty(alice)
-        _ = deleteCookies()
-        resp <- triggerStatus(uri, triggerId)
-        _ <- resp.status should equal(expectedError)
-      } yield succeed
+  it should "forbid a non-authorized party to check the status of a trigger" in withTriggerService(
+    List(dar)) { uri: Uri =>
+    val expectedSuccess = StatusCodes.OK
+    val expectedError = StatusCodes.Forbidden
+    for {
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+      _ <- resp.status should equal(expectedSuccess)
+      triggerId <- parseTriggerId(resp)
+      _ = authServer.revokeParty(alice)
+      _ = deleteCookies()
+      resp <- triggerStatus(uri, triggerId)
+      _ <- resp.status should equal(expectedError)
+    } yield succeed
   }
 
   it should "forbid a non-authorized party to stop a trigger" in withTriggerService(List(dar)) {
