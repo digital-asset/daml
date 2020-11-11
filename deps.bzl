@@ -148,14 +148,6 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
-    if "io_bazel_rules_docker" not in native.existing_rules():
-        http_archive(
-            name = "io_bazel_rules_docker",
-            url = "https://github.com/bazelbuild/rules_docker/releases/download/v0.14.3/rules_docker-v0.14.3.tar.gz",
-            strip_prefix = "rules_docker-0.14.3",
-            sha256 = "6287241e033d247e9da5ff705dd6ef526bac39ae82f3d17de1b69f8cb313f9cd",
-        )
-
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
