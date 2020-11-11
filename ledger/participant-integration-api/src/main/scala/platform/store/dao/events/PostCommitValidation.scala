@@ -135,7 +135,7 @@ private[dao] object PostCommitValidation {
     }
 
     private def getPartiesSync(parties: Seq[Party]): List[PartyDetails] =
-      Await.result(getParties.getOrElse(identityGetParties)(parties), AwaitDuration)
+      Await.result(getParties.getOrElse(identityGetParties _)(parties), AwaitDuration)
 
     private def identityGetParties(parties: Seq[Party]): Future[List[PartyDetails]] =
       Future.successful(parties.map { party =>
