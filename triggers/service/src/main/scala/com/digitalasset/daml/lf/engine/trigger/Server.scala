@@ -4,59 +4,51 @@
 package com.daml.lf
 package engine.trigger
 
+import java.io.ByteArrayInputStream
+import java.time.LocalDateTime
+import java.util.UUID
+import java.util.zip.ZipInputStream
+
 import akka.actor.ActorSystem
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.scaladsl.adapter._
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.actor.typed.{ActorRef, Behavior}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.server.{Directive, Directive1}
+import akka.http.scaladsl.model.Uri.Path
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.unmarshalling.Unmarshal
+import akka.http.scaladsl.server.{Directive, Directive1, Route}
+import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import akka.stream.Materializer
 import akka.util.ByteString
-import spray.json.DefaultJsonProtocol._
-import spray.json._
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.lf.archive.Reader.ParseError
+import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.data.Ref.{Identifier, PackageId}
+import com.daml.lf.engine.trigger.Request.StartParams
+import com.daml.lf.engine.trigger.Response._
+import com.daml.lf.engine.trigger.Tagged.AccessToken
+import com.daml.lf.engine.trigger.dao._
+import com.daml.lf.engine._
+import com.daml.oauth.middleware.Request.Claims
 import com.daml.oauth.middleware.{
   JsonProtocol => AuthJsonProtocol,
   Request => AuthRequest,
   Response => AuthResponse
 }
-import com.daml.ledger.api.refinements.ApiTypes.Party
-import com.daml.lf.archive.{Dar, DarReader, Decode}
-import com.daml.lf.archive.Reader.ParseError
-import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.engine.{
-  ConcurrentCompiledPackages,
-  MutableCompiledPackages,
-  Result,
-  ResultDone,
-  ResultNeedPackage
-}
-import com.daml.lf.engine.trigger.dao._
-import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
-import com.daml.lf.engine.trigger.Response._
-import com.daml.daml_lf_dev.DamlLf
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
+import spray.json.DefaultJsonProtocol._
+import spray.json._
 
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
-import java.io.ByteArrayInputStream
-import java.util.UUID
-import java.util.zip.ZipInputStream
-import java.time.LocalDateTime
-
-import com.daml.lf.engine.trigger.Tagged.AccessToken
-import com.daml.oauth.middleware.Request.Claims
-
-import scala.collection.concurrent.TrieMap
 
 class Server(
     authConfig: AuthConfig,
@@ -306,6 +298,8 @@ class Server(
       }
     }
 
+  private implicit val unmarshalParty: Unmarshaller[String, Party] = Unmarshaller.strict(Party(_))
+
   private def route(implicit ec: ExecutionContext, system: ActorSystem) = concat(
     pathPrefix("v1" / "triggers") {
       concat(
@@ -332,10 +326,10 @@ class Server(
             },
             // List triggers currently running for the given party.
             get {
-              entity(as[ListParams]) { params =>
-                val claims = Claims(readAs = List(params.party))
+              parameters('party.as[Party]) { party =>
+                val claims = Claims(readAs = List(party))
                 authorize(claims)(ec, system) { _ =>
-                  listTriggers(params.party) match {
+                  listTriggers(party) match {
                     case Left(err) =>
                       complete(errorResponse(StatusCodes.InternalServerError, err))
                     case Right(triggerInstances) => complete(successResponse(triggerInstances))

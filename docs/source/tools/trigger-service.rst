@@ -97,14 +97,8 @@ List the Triggers running on behalf of a given party.
 HTTP Request
 ============
 
-- URL: ``/v1/triggers``
+- URL: ``/v1/triggers?party=:party``
 - Method: ``GET``
-- Content-Type: ``application/json``
-- Content:
-
-.. code-block:: json
-
-    {"party": "alice"}
 
 HTTP Response
 =============
@@ -129,8 +123,6 @@ HTTP Request
 
 - URL: ``/v1/triggers/:id``
 - Method: ``GET``
-- Content-Type: ``application/json``
-- Content:
 
 HTTP Response
 =============
@@ -183,8 +175,6 @@ HTTP Request
 
 - URL: ``/livez``
 - Method: ``GET``
-- Content-Type: ``application/json``
-- Content:
 
 .. code-block:: json
 

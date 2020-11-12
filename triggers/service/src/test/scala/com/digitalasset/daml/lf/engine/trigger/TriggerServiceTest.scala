@@ -12,6 +12,7 @@ import akka.stream.scaladsl.{FileIO, Sink, Source}
 import java.io.File
 import java.util.UUID
 
+import akka.http.scaladsl.model.Uri.Query
 import org.scalatest._
 
 import scala.concurrent.Future
@@ -82,11 +83,7 @@ trait AbstractTriggerServiceTest
   def listTriggers(uri: Uri, party: Party): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.GET,
-      uri = uri.withPath(Uri.Path(s"/v1/triggers")),
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        s"""{"party": "$party"}"""
-      )
+      uri = uri.withPath(Uri.Path(s"/v1/triggers")).withQuery(Query(("party", party.toString))),
     )
     httpRequestFollow(req)
   }
