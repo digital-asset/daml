@@ -44,9 +44,7 @@ class Server(config: Config) {
   // Remove the given party from the set of authorized parties,
   // if authorization of individual parties is enabled.
   def revokeParty(party: Party): Unit = {
-    authorizedParties = authorizedParties match {
-      case Some(parties) => Some(parties - party)
-      case None => None
+    authorizedParties = authorizedParties.map(_ - party)
     }
   }
 
