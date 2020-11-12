@@ -41,7 +41,8 @@ object TriggerRunnerImpl {
       trigger.loggingExtension + ("triggerId" -> triggerInstance.toString)
   }
 
-  import TriggerRunner.{Message, Stop}
+  import TriggerRunner._
+  // TODO Properly seal this instead of extending the one from TriggerRunner
   final private case class Failed(error: Throwable) extends Message
   final private case class QueryACSFailed(cause: Throwable) extends Message
   final private case class QueriedACS(runner: Runner, acs: Seq[CreatedEvent], offset: LedgerOffset)
@@ -75,6 +76,9 @@ object TriggerRunnerImpl {
       // initial state.
       def queryingACS(wasStopped: Boolean): Behaviors.Receive[Message] =
         Behaviors.receiveMessagePartial[Message] {
+          case Status(replyTo) =>
+            replyTo ! QueryingACS
+            Behaviors.same
           case QueryACSFailed(cause) =>
             if (wasStopped) {
               // The stop endpoint can't send a message to a runner
@@ -129,11 +133,13 @@ object TriggerRunnerImpl {
                 // Report to the server that this trigger is entering
                 // the running state.
                 config.server ! TriggerStarted(triggerInstance)
+                logger.info(s"Trigger $name is starting")
                 running(killSwitch)
               } catch {
                 case cause: Throwable =>
                   // Report the failure to the server.
                   config.server ! TriggerInitializationFailure(triggerInstance, cause.toString)
+                  logger.info(s"Trigger $name failed during initialization: $cause")
                   // Tell our monitor there's been a failure. The
                   // monitor's supervisor strategy will respond to
                   // this by writing the exception to the log and
@@ -152,6 +158,9 @@ object TriggerRunnerImpl {
       def running(killSwitch: KillSwitch) =
         Behaviors
           .receiveMessagePartial[Message] {
+            case Status(replyTo) =>
+              replyTo ! Running
+              Behaviors.same
             case Stop =>
               logger.info(s"Trigger $name is stopping")
               // Don't think about trying to send the server a message
@@ -160,6 +169,7 @@ object TriggerRunnerImpl {
             case Failed(cause) =>
               // Report the failure to the server.
               config.server ! TriggerRuntimeFailure(triggerInstance, cause.toString)
+              logger.info(s"Trigger $name failed: $cause")
               // Tell our monitor there's been a failure. The
               // monitor's supervisor strategy will respond to this by
               // writing the exception to the log and attempting to

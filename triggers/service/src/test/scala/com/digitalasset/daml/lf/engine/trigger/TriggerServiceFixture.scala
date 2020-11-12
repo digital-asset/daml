@@ -5,6 +5,9 @@ package com.daml.lf.engine.trigger
 
 import java.io.File
 import java.net.InetAddress
+import java.time.LocalDateTime
+import java.util.UUID
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 
 import io.grpc.Channel
 import com.daml.ledger.api.testing.utils.OwnedResource
@@ -12,6 +15,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.resources.FutureResourceOwner
+import com.daml.scalautil.Statement.discard
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -385,6 +389,17 @@ trait TriggerServiceFixture
     with StrictLogging {
   self: Suite =>
 
+  private val triggerLog: ConcurrentMap[UUID, Vector[(LocalDateTime, String)]] =
+    new ConcurrentHashMap
+
+  def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] =
+    triggerLog.getOrDefault(uuid, Vector.empty)
+
+  private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
+    val entry = (LocalDateTime.now, msg)
+    discard(triggerLog.merge(triggerInstance, Vector(entry), _ ++ _))
+  }
+
   // Use a small initial interval so we can test restart behaviour more easily.
   private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
   private def triggerServiceOwner(encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]]) =
@@ -414,6 +429,7 @@ trait TriggerServiceFixture
                 restartConfig,
                 encodedDars,
                 jdbcConfig,
+                logTriggerStatus
               )
               _ = lock.unlock()
             } yield r

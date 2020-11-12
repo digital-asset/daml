@@ -119,6 +119,7 @@ da_scala_test(
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
         "//triggers/service/auth:oauth-middleware",
         "//triggers/service/auth:oauth-test-server",

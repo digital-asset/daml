@@ -116,7 +116,9 @@ HTTP Response
 Status of a trigger
 *******************
 
-It's sometimes useful to get information about the history of a specific trigger. This can be done with the "status" endpoint.
+The status endoint returns you metadata about the trigger like the
+party it is running as and the trigger id as well as the state the
+trigger is in (querying the acs, running, stopped).
 
 HTTP Request
 ============
@@ -133,8 +135,13 @@ HTTP Response
 .. code-block:: json
 
     {
-      "result": {"logs":[["2020-06-12T12:35:49.863","starting"],["2020-06-12T12:35:50.89","running"],["2020-06-12T12:51:57.557","stopped: by user request"]]},
-      "status": 200
+      "result":
+        {
+          "party": "Alice",
+          "triggerId":"312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14:TestTrigger:trigger",
+          "status": "running"
+        },
+      "status":200
     }
 
 Upload a new DAR

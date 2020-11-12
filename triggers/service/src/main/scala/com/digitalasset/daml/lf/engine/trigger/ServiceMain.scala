@@ -3,6 +3,8 @@
 
 package com.daml.lf.engine.trigger
 
+import java.util.UUID
+
 import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.http.scaladsl.Http.ServerBinding
@@ -35,6 +37,7 @@ object ServiceMain {
       restartConfig: TriggerRestartConfig,
       encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
+      logTriggerStatus: (UUID, String) => Unit = (_, _) => ()
   ): Future[(ServerBinding, ActorSystem[Message])] = {
 
     val system: ActorSystem[Message] =
@@ -47,7 +50,8 @@ object ServiceMain {
           restartConfig,
           encodedDars,
           jdbcConfig,
-          initDb = false // for tests we initialize the database in beforeEach clause
+          initDb = false, // for tests we initialize the database in beforeEach clause
+          logTriggerStatus
         ),
         "TriggerService"
       )
