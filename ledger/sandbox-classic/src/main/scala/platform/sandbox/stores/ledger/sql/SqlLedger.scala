@@ -364,8 +364,18 @@ private final class SqlLedger(
               offset,
               reason,
           ),
-          _ =>
+          _ => {
+            val preparedInsert = ledgerDao.prepareTransactionInsert(
+              submitterInfo = Some(submitterInfo),
+              workflowId = transactionMeta.workflowId,
+              transactionId = transactionId,
+              ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
+              offset = offset,
+              transaction = transactionCommitter.commitTransaction(transactionId, transaction),
+              divulgedContracts = Nil,
+            )
             ledgerDao.storeTransaction(
+              preparedInsert,
               Some(submitterInfo),
               transactionMeta.workflowId,
               transactionId,
@@ -374,7 +384,8 @@ private final class SqlLedger(
               offset,
               transactionCommitter.commitTransaction(transactionId, transaction),
               Nil,
-          )
+            )
+          }
         )
         .transform(
           _.map(_ => ()).recover {

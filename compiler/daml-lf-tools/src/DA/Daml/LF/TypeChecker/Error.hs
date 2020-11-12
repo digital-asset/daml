@@ -91,6 +91,7 @@ data Error
   | EKindMismatch          {foundKind :: !Kind, expectedKind :: !Kind}
   | ETypeMismatch          {foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
   | EPatternTypeMismatch   {pattern :: !CasePattern, scrutineeType :: !Type}
+  | ENonExhaustivePatterns {missingPattern :: !CasePattern, scrutineeType :: !Type}
   | EExpectedHigherKind    !Kind
   | EExpectedFunctionType  !Type
   | EExpectedUniversalType !Type
@@ -116,6 +117,7 @@ data Error
   | EUnsupportedFeature !Feature
   | EForbiddenNameCollision !T.Text ![T.Text]
   | ESynAppWrongArity       !DefTypeSyn ![Type]
+  | ENatKindRightOfArrow    !Kind
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -246,6 +248,14 @@ instance Pretty Error where
       , "* scrutinee type:"
       , nest 4 (pretty scrutineeType)
       ]
+    ENonExhaustivePatterns{missingPattern, scrutineeType} ->
+      vcat $
+      [ "non-exhaustive pattern match:"
+      , "* missing pattern:"
+      , nest 4 (pretty missingPattern)
+      , "* scrutinee type:"
+      , nest 4 (pretty scrutineeType)
+      ]
 
     EExpectedFunctionType foundType ->
       "expected function type, but found: " <> pretty foundType
@@ -321,6 +331,11 @@ instance Pretty Error where
     ESynAppWrongArity DefTypeSyn{synName,synParams} args ->
       vcat ["wrong arity in type synonym application: " <> pretty synName,
             "expected: " <> pretty (length synParams) <> ", found: " <> pretty (length args)]
+    ENatKindRightOfArrow k ->
+      vcat
+        [ "Kind is invalid: " <> pretty k
+        , "Nat kind is not allowed on the right side of kind arrow."
+        ]
 
 instance Pretty Context where
   pPrint = \case

@@ -438,16 +438,28 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val submitterInfo =
       for (submitter <- entry.submittingParty; app <- entry.applicationId; cmd <- entry.commandId)
         yield v1.SubmitterInfo(submitter, app, cmd, Instant.EPOCH)
+    val committedTransaction = CommittedTransaction(entry.transaction)
+    val ledgerEffectiveTime = entry.ledgerEffectiveTime
+    val divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
+    val preparedTransactionInsert = ledgerDao.prepareTransactionInsert(
+      submitterInfo,
+      entry.workflowId,
+      entry.transactionId,
+      ledgerEffectiveTime,
+      offset,
+      committedTransaction,
+      divulged)
     ledgerDao
       .storeTransaction(
+        preparedInsert = preparedTransactionInsert,
         submitterInfo = submitterInfo,
         workflowId = entry.workflowId,
         transactionId = entry.transactionId,
-        transaction = CommittedTransaction(entry.transaction),
+        transaction = committedTransaction,
         recordTime = entry.recordedAt,
-        ledgerEffectiveTime = entry.ledgerEffectiveTime,
+        ledgerEffectiveTime = ledgerEffectiveTime,
         offset = offset,
-        divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
+        divulged = divulged
       )
       .map(_ => offsetAndTx)
   }

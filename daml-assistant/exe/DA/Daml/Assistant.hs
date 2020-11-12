@@ -137,7 +137,7 @@ autoInstall env@Env{..} = do
                 , iAssistant = InstallAssistant Auto
                 , iActivate = ActivateInstall False
                 , iForce = ForceInstall False
-                , iSetPath = SetPath True
+                , iSetPath = SetPath Auto
                 , iBashCompletions = BashCompletions Auto
                 , iZshCompletions = ZshCompletions Auto
                 }

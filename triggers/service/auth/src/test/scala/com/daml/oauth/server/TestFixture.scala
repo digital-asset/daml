@@ -13,6 +13,7 @@ import com.daml.ledger.api.testing.utils.{
 }
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ports.Port
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import org.scalatest.Suite
 
 trait TestFixture extends AkkaBeforeAndAfterAll with SuiteResource[(ServerBinding, ServerBinding)] {
@@ -29,7 +30,8 @@ trait TestFixture extends AkkaBeforeAndAfterAll with SuiteResource[(ServerBindin
             port = Port.Dynamic,
             ledgerId = ledgerId,
             applicationId = Some(applicationId),
-            jwtSecret = jwtSecret))
+            jwtSecret = jwtSecret,
+            parties = Some(Party.subst(Set("Alice", "Bob")))))
         client <- Resources.authClient(
           Client.Config(
             port = Port.Dynamic,

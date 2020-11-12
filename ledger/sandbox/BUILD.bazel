@@ -3,8 +3,6 @@
 
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
 load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
-load("@io_bazel_rules_docker//container:container.bzl", "container_image")
-load("@io_bazel_rules_docker//java:image.bzl", "java_image")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
 
@@ -96,25 +94,6 @@ genrule(
     tools = ["//bazel_tools/sh:mktgz"],
     visibility = ["//visibility:public"],
 )
-
-container_image(
-    name = "sandbox-image-base",
-    base = "@java_base//image",
-    cmd = None,
-    directory = "/usr/bin",
-    files = [
-        "@com_github_grpc_ecosystem_grpc_health_probe_binary//file",
-    ],
-) if not is_windows else None
-
-java_image(
-    name = "sandbox-image",
-    base = ":sandbox-image-base",
-    main_class = "com.daml.platform.sandboxnext.Main",
-    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
-    visibility = ["//visibility:public"],
-    runtime_deps = [":sandbox"],
-) if not is_windows else None
 
 da_scala_library(
     name = "sandbox-scala-tests-lib",

@@ -167,12 +167,6 @@ class KeyValueParticipantStateReaderSpec
     }
 
     "throw in case of an envelope without a log entry received" in {
-      val aStateValue = DamlStateValue.newBuilder
-        .setParty(
-          DamlPartyAllocation.newBuilder
-            .setParticipantId("aParticipantId")
-            .setDisplayName("participant"))
-        .build
       val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue)
       val reader = readerStreamingFrom(
         offset = None,
@@ -181,6 +175,18 @@ class KeyValueParticipantStateReaderSpec
 
       offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>
         succeed
+      }
+    }
+
+    "skip in case of an envelope without a log entry received and `failOnUnexpectedEvent` is `false`" in {
+      val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue)
+      val reader = readerStreamingFrom(
+        offset = None,
+        LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelopeMessage))
+      val instance = createInstance(reader, failOnUnexpectedEvent = false)
+
+      offsetsFrom(instance.stateUpdates(None)).map { offsets =>
+        offsets shouldBe Seq.empty
       }
     }
   }
@@ -260,10 +266,22 @@ object KeyValueParticipantStateReaderSpec {
   private def createInstance(
       reader: LedgerReader,
       logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] =
-        singleUpdateGenerator): KeyValueParticipantStateReader =
+        singleUpdateGenerator,
+      failOnUnexpectedEvent: Boolean = true,
+  ): KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
       new Metrics(new MetricRegistry),
       logEntryToUpdate,
-      () => None)
+      () => None,
+      failOnUnexpectedEvent,
+    )
+
+  private def aStateValue =
+    DamlStateValue.newBuilder
+      .setParty(
+        DamlPartyAllocation.newBuilder
+          .setParticipantId("aParticipantId")
+          .setDisplayName("participant"))
+      .build
 }

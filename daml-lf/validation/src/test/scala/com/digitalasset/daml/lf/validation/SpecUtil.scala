@@ -32,6 +32,8 @@ private[validation] object SpecUtil {
     'ᵢ' -> "_i",
     '⟨' -> "<",
     '⟩' -> ">",
+    '⸨' -> "( loc(actual, test, 0, 0, 0, 0)( ",
+    '⸩' -> " ))",
   )
 
   implicit class SyntaxHelper2(val sc: StringContext) extends AnyVal {

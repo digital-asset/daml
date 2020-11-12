@@ -19,7 +19,7 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.DbType
 
-private[dao] object TransactionsWriter {
+object TransactionsWriter {
 
   final class PreparedInsert private[TransactionsWriter] (
       eventBatches: EventsTable.PreparedBatches,

@@ -65,6 +65,7 @@ trait AbstractTriggerServiceTest
 
   protected val alice: Party = Tag("Alice")
   protected val bob: Party = Tag("Bob")
+  protected val eve: Party = Tag("Eve")
 
   def startTrigger(uri: Uri, triggerName: String, party: Party): Future[HttpResponse] = {
     val req = HttpRequest(
@@ -487,7 +488,21 @@ trait AbstractTriggerServiceTestNoAuth extends AbstractTriggerServiceTest with N
 // Tests for authenticated trigger service configurations go here
 trait AbstractTriggerServiceTestAuthMiddleware
     extends AbstractTriggerServiceTest
-    with AuthMiddlewareFixture {}
+    with AuthMiddlewareFixture {
+
+  override protected val authParties = Some(Set(alice, bob))
+
+  behavior of "authenticated service"
+
+  it should "forbid a non-authorized party to start a trigger" in withTriggerService(List(dar)) {
+    uri: Uri =>
+      val expectedError = StatusCodes.Forbidden
+      for {
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", eve)
+        _ <- resp.status should equal(expectedError)
+      } yield succeed
+  }
+}
 
 class TriggerServiceTestInMem
     extends AbstractTriggerServiceTest
