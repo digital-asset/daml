@@ -35,10 +35,7 @@ class Server(config: Config) {
   // Add the given party to the set of authorized parties,
   // if authorization of individual parties is enabled.
   def authorizeParty(party: Party): Unit = {
-    authorizedParties = authorizedParties match {
-      case Some(parties) => Some(parties + party)
-      case None => None
-    }
+    authorizedParties = authorizedParties.map(_ + party)
   }
 
   // Remove the given party from the set of authorized parties,
