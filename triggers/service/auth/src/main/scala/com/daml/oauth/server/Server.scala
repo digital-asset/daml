@@ -30,6 +30,7 @@ import scala.language.postfixOps
 class Server(config: Config) {
   private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
 
+  // None indicates that all parties are authorized, Some that only the given set of parties is authorized.
   private var authorizedParties: Option[Set[Party]] = config.parties
 
   // Add the given party to the set of authorized parties,
