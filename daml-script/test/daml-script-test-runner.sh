@@ -41,6 +41,8 @@ MultiTest:listKnownPartiesTest SUCCESS
 MultiTest:multiTest SUCCESS
 MultiTest:partyIdHintTest SUCCESS
 ScriptExample:test SUCCESS
+ScriptExample:queryParties SUCCESS
+ScriptExample:initializeFromQuery FAILURE (com.daml.lf.speedy.SError$DamlEUserError)
 ScriptTest:failingTest FAILURE (com.daml.lf.speedy.SError$DamlEUserError)
 ScriptTest:listKnownPartiesTest SUCCESS
 ScriptTest:test0 SUCCESS
