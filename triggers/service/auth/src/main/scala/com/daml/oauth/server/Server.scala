@@ -43,7 +43,6 @@ class Server(config: Config) {
   // if authorization of individual parties is enabled.
   def revokeParty(party: Party): Unit = {
     authorizedParties = authorizedParties.map(_ - party)
-    }
   }
 
   // Reset party authorization to the initially configured state.
