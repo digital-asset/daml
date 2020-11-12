@@ -125,7 +125,7 @@ getDefaultArgs LedgerFlags { fApi
       , tokM = tokM
       , timeout = fTimeout
       , sslConfigM = fSslConfigM
-      , grpcArgs = MaxReceiveMessageLength <$> toList fMaxReceiveLengthM
+      , grpcArgs = MaxReceiveMessageLength <$> maybeToList fMaxReceiveLengthM
       }
 
 getTokFromFile :: Maybe FilePath -> IO (Maybe L.Token)
