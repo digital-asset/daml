@@ -835,7 +835,7 @@ private class JdbcLedgerDao(
     }
 
   private val translation: LfValueTranslation =
-    new LfValueTranslation(lfValueTranslationCache)
+    new LfValueTranslation(lfValueTranslationCache)(metrics)
 
   private val transactionsWriter: TransactionsWriter =
     new TransactionsWriter(dbType, metrics, translation)

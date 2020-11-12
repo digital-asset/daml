@@ -39,7 +39,7 @@ private[dao] sealed abstract class ContractsReader(
     str("template_id")
 
   private val translation: LfValueTranslation =
-    new LfValueTranslation(lfValueTranslationCache)
+    new LfValueTranslation(lfValueTranslationCache)(metrics)
 
   protected def lookupContractKeyQuery(submitter: Party, key: Key): SimpleSql[Row]
 

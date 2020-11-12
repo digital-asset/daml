@@ -458,6 +458,11 @@ final class Metrics(val registry: MetricRegistry) {
       )
 
       val stateUpdateProcessing: Timer = registry.timer(Prefix :+ "processed_state_updates")
+
+      val compression: Timer = registry.timer(Prefix :+ "compression")
+
+      val serializedSize: Histogram = registry.histogram(Prefix :+ "serialized_size")
+      val compressedSize: Histogram = registry.histogram(Prefix :+ "compressed_size")
     }
 
     object services {

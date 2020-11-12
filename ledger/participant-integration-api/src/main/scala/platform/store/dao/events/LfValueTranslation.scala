@@ -13,7 +13,7 @@ import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.dao.events.{Value => LfValue}
 import com.daml.platform.store.serialization.ValueSerializer
 
-final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
+final class LfValueTranslation(val cache: LfValueTranslation.Cache)(implicit metrics: Metrics) {
 
   private def cantSerialize(attribute: String, forContract: ContractId): String =
     s"Cannot serialize $attribute for ${forContract.coid}"
