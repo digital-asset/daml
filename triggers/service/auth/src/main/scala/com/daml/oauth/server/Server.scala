@@ -32,6 +32,8 @@ class Server(config: Config) {
 
   private var authorizedParties: Option[Set[Party]] = config.parties
 
+  // Add the given party to the set of authorized parties,
+  // if authorization of individual parties is enabled.
   def authorizeParty(party: Party): Unit = {
     authorizedParties = authorizedParties match {
       case Some(parties) => Some(parties + party)
@@ -39,6 +41,8 @@ class Server(config: Config) {
     }
   }
 
+  // Remove the given party from the set of authorized parties,
+  // if authorization of individual parties is enabled.
   def revokeParty(party: Party): Unit = {
     authorizedParties = authorizedParties match {
       case Some(parties) => Some(parties - party)
@@ -46,6 +50,7 @@ class Server(config: Config) {
     }
   }
 
+  // Reset party authorization to the initially configured state.
   def resetAuthorizedParties(): Unit = {
     authorizedParties = config.parties
   }
