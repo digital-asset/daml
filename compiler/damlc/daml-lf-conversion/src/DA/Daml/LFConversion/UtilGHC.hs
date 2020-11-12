@@ -265,3 +265,19 @@ unpackCStringUtf8 :: BS.ByteString -> T.Text
 unpackCStringUtf8 bs = unsafePerformIO $
     BS.useAsCString bs $ \(Ptr a) -> do
         evaluate $ T.unpackCString# a
+
+collectNonRecLets :: GHC.Expr Var -> ([(GHC.Var, GHC.Expr Var)], GHC.Expr Var)
+collectNonRecLets = \case
+    Let (NonRec x y) rest ->
+        let (lets, body) = collectNonRecLets rest
+        in ((x,y):lets, body)
+    expr ->
+        ([], expr)
+
+makeNonRecLets :: [(GHC.Var, GHC.Expr Var)] -> GHC.Expr Var -> GHC.Expr Var
+makeNonRecLets lets body =
+    case lets of
+        (x,y):lets ->
+            Let (NonRec x y) (makeNonRecLets lets body)
+        [] ->
+            body
