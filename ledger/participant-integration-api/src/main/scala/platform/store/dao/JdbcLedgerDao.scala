@@ -43,6 +43,7 @@ import com.daml.platform.store.dao.CommandCompletionsTable.{
 }
 import com.daml.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
 import com.daml.platform.store.dao.PersistenceResponse.Ok
+import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.events.{
   ContractsReader,
   LfValueTranslation,
@@ -400,7 +401,26 @@ private class JdbcLedgerDao(
   ): Future[Option[ContractId]] =
     contractsReader.lookupContractKey(forParty, key)
 
+  override def prepareTransactionInsert(
+      submitterInfo: Option[SubmitterInfo],
+      workflowId: Option[WorkflowId],
+      transactionId: TransactionId,
+      ledgerEffectiveTime: Instant,
+      offset: Offset,
+      transaction: CommittedTransaction,
+      divulgedContracts: Iterable[DivulgedContract])(
+      implicit loggingContext: LoggingContext): PreparedInsert =
+    transactionsWriter.prepare(
+      submitterInfo,
+      workflowId,
+      transactionId,
+      ledgerEffectiveTime,
+      offset,
+      transaction,
+      divulgedContracts)
+
   override def storeTransaction(
+      preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
@@ -410,19 +430,6 @@ private class JdbcLedgerDao(
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
-    val preparedTransactionInsert =
-      Timed.value(
-        metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
-        transactionsWriter.prepare(
-          submitterInfo = submitterInfo,
-          workflowId = workflowId,
-          transactionId = transactionId,
-          ledgerEffectiveTime = ledgerEffectiveTime,
-          offset = offset,
-          transaction = transaction,
-          divulgedContracts = divulged,
-        )
-      )
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
         val error =
@@ -435,7 +442,7 @@ private class JdbcLedgerDao(
             )
           )
         if (error.isEmpty) {
-          preparedTransactionInsert.write(metrics)
+          preparedInsert.write(metrics)
           Timed.value(
             metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
             submitterInfo
@@ -485,17 +492,15 @@ private class JdbcLedgerDao(
                   for (submitter <- tx.submittingParty; appId <- tx.applicationId;
                     cmdId <- tx.commandId)
                     yield SubmitterInfo(submitter, appId, cmdId, Instant.EPOCH)
-                transactionsWriter
-                  .prepare(
-                    submitterInfo = submitterInfo,
-                    workflowId = tx.workflowId,
-                    transactionId = tx.transactionId,
-                    ledgerEffectiveTime = tx.ledgerEffectiveTime,
-                    offset = offset,
-                    transaction = tx.transaction,
-                    divulgedContracts = Nil,
-                  )
-                  .write(metrics)
+                prepareTransactionInsert(
+                  submitterInfo = submitterInfo,
+                  workflowId = tx.workflowId,
+                  transactionId = tx.transactionId,
+                  ledgerEffectiveTime = tx.ledgerEffectiveTime,
+                  offset = offset,
+                  transaction = tx.transaction,
+                  divulgedContracts = Nil,
+                ).write(metrics)
                 submitterInfo
                   .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
                   .foreach(_.execute())
