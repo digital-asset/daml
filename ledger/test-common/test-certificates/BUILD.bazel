@@ -27,6 +27,7 @@ genrule(
         "ocsp.csr.pem",
         "ocsp.cert.pem",
         "client-revoked.key.pem",
+        "client-revoked.pem",
         "client-revoked.csr.pem",
         "client-revoked.cert.pem",
     ],
@@ -50,7 +51,7 @@ chmod 400 $(location ca.key.pem)
 $(location @openssl_dev_env//:openssl) req -config $(location openssl.cnf) \
     -key $(location ca.key.pem) \
     -new -x509 -days 7300 -sha256 -extensions v3_ca \
-    -subj '/CN=0.0.0.0.ca' \
+    -subj '/CN=ca.127.0.0.1' \
     -out $(location ca.cert.pem)
 # Dump out cert details
 $(location @openssl_dev_env//:openssl) x509 -noout -text -in $(location ca.cert.pem)
@@ -62,7 +63,7 @@ $(location @openssl_dev_env//:openssl) pkey -in $(location server.key.pem) -out 
 chmod 400 $(location server.key.pem)
 # Create Server certificate
 $(location @openssl_dev_env//:openssl) req -config $(location openssl.cnf) \
-    -subj '/CN=0.0.0.0.server' \
+    -subj '/CN=server.127.0.0.1' \
     -addext "subjectAltName = DNS:localhost, IP:127.0.0.1" \
     -key $(location server.key.pem) \
     -new -sha256 -out $(location server.csr.pem)
@@ -80,7 +81,7 @@ $(location @openssl_dev_env//:openssl) x509 -noout -text \
 $(location @openssl_dev_env//:openssl) genpkey -out $(location client.key.pem) -algorithm RSA -pkeyopt rsa_keygen_bits:2048
 $(location @openssl_dev_env//:openssl) pkey -in $(location client.key.pem) -out $(location client.pem)
 $(location @openssl_dev_env//:openssl) req -new -key $(location client.key.pem) \
-    -subj '/CN=0.0.0.0.client' \
+    -subj '/CN=client.127.0.0.1' \
     -addext "subjectAltName = DNS:localhost, IP:127.0.0.1" \
     -out $(location client.csr.pem)
 # Sign Client Cert
@@ -98,7 +99,7 @@ $(location @openssl_dev_env//:openssl) genrsa \
     -out $(location ocsp.key.pem) 4096
 # Sign OCSP Server certificate
 $(location @openssl_dev_env//:openssl) req -config $(location openssl.cnf) -new -sha256 \
-    -subj '/CN=0.0.0.0.ocsp' \
+    -subj '/CN=ocsp.127.0.0.1' \
     -key $(location ocsp.key.pem) \
     -out $(location ocsp.csr.pem)
 $(location @openssl_dev_env//:openssl) ca -batch -config $(location openssl.cnf) \
@@ -112,6 +113,7 @@ $(location @openssl_dev_env//:openssl) x509 -noout -text \
 
 # Generate Client-Revoked CA private key
 $(location @openssl_dev_env//:openssl) genpkey -out $(location client-revoked.key.pem) -algorithm RSA -pkeyopt rsa_keygen_bits:2048
+$(location @openssl_dev_env//:openssl) pkey -in $(location client-revoked.key.pem) -out $(location client-revoked.pem)
 $(location @openssl_dev_env//:openssl) req -new -key $(location client-revoked.key.pem) \
     -subj '/CN=0.0.0.0.clientrevoked' \
     -addext "subjectAltName = DNS:localhost, IP:127.0.0.1" \
@@ -126,6 +128,20 @@ $(location @openssl_dev_env//:openssl) verify -CAfile $(location ca.cert.pem) \
     $(location client-revoked.cert.pem)
 # Revoke
 $(location @openssl_dev_env//:openssl) ca -batch -config $(location openssl.cnf) -revoke $(location client-revoked.cert.pem)
+
+    $(location @openssl_dev_env//:openssl) ocsp -port 2560 -text \
+        -index $(location index.txt) \
+        -CA $(location ca.cert.pem) \
+        -rkey $(location ocsp.key.pem) \
+        -rsigner $(location ocsp.cert.pem) &
+
+    sleep 5
+
+    $(location @openssl_dev_env//:openssl) ocsp -CAfile $(location ca.cert.pem) \
+        -url http://127.0.0.1:2560 -resp_text \
+        -issuer $(location ca.cert.pem) \
+        -cert $(location client-revoked.cert.pem)
+
 
     """,
     tools = [

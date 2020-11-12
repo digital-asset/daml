@@ -152,6 +152,11 @@ da_scala_library(
 da_scala_test_suite(
     name = "test",
     srcs = glob(["src/com/**/*.scala"]),
+    # TODO: remove jvm_flag checkRevocation
+    jvm_flags = [
+        "-Dcom.sun.net.ssl.checkRevocation=true",
+        """-Djava.security.debug=\"certpath ocsp\""""
+    ],
     data = [
         ":script-test.dar",
         ":script-test-1.dev.dar",
@@ -191,6 +196,7 @@ da_scala_test_suite(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
+        "//libs-scala/grpc-utils",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
