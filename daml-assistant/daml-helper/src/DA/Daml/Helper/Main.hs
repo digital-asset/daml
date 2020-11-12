@@ -8,6 +8,7 @@ import Control.Monad
 import DA.Bazel.Runfiles
 import Data.Foldable
 import Data.List.Extra
+import Numeric.Natural
 import Options.Applicative.Extended
 import System.Environment
 import System.Exit
@@ -312,6 +313,7 @@ commandParser = subparser $ fold
         <*> hostFlag
         <*> portFlag
         <*> accessTokenFileFlag
+        <*> maxInboundSizeFlag
 
     sslConfig :: Parser (Maybe ClientSSLConfig)
     sslConfig = do
@@ -366,6 +368,12 @@ commandParser = subparser $ fold
         long "access-token-file"
         <> metavar "TOKEN_PATH"
         <> help "Path to the token-file for ledger authorization"
+
+    maxInboundSizeFlag :: Parser (Maybe Natural)
+    maxInboundSizeFlag = optional . option auto $
+        long "max-inbound-message-size"
+        <> metavar "INT"
+        <> help "Optional max inbound message size in bytes. This only affect connections via gRPC."
 
     timeoutOption :: Parser TimeoutSeconds
     timeoutOption = option auto $ mconcat
