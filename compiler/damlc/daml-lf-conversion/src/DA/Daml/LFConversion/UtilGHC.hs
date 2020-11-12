@@ -276,8 +276,4 @@ collectNonRecLets = \case
 
 makeNonRecLets :: [(GHC.Var, GHC.Expr Var)] -> GHC.Expr Var -> GHC.Expr Var
 makeNonRecLets lets body =
-    case lets of
-        (x,y):lets ->
-            Let (NonRec x y) (makeNonRecLets lets body)
-        [] ->
-            body
+    foldr (\(x,y) b -> Let (NonRec x y) b) body lets

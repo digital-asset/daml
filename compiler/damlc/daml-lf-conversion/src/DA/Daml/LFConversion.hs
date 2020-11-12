@@ -763,12 +763,12 @@ convertBind env (name, x)
     --  >    let { x_1 = e_1 ; ... ; x_m = e_m } in
     --  >    \v -> let f = name @a_1 ... @a_n in y
     --
-    | let (args, body1) = collectBinders x
+    | let (params, body1) = collectBinders x
     , let (lets, body2) = collectNonRecLets body1
     , Let (Rec [(f, Lam v y)]) (Var f') <- body2
     , f == f'
-    = convertBind env $ (,) name $ mkLams args $ makeNonRecLets lets $
-        Lam v $ Let (NonRec f $ mkVarApps (Var name) args) y
+    = convertBind env $ (,) name $ mkLams params $ makeNonRecLets lets $
+        Lam v $ Let (NonRec f $ mkVarApps (Var name) params) y
 
     -- Constraint tuple projections are turned into LF struct projections at use site.
     | ConstraintTupleProjectionName _ _ <- name
