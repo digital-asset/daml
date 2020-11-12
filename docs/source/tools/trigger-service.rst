@@ -29,75 +29,163 @@ Although as we'll see, the Trigger Service exposes an endpoint for end-users to 
 
    daml trigger-service --ledger-host localhost --ledger-port 6865 --wall-clock-time
 
-End-user interaction with the Trigger Service
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Endpoints
+~~~~~~~~~
 
-``start``
-*********
+Start a trigger
+***************
 
 Start a trigger. In this example, Alice starts the trigger called ``trigger`` in a module called ``TestTrigger`` of a package with ID ``312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14``. The response contains an identifier for the running trigger that Alice can use in subsequent commands involving the trigger.
 
-.. code-block:: bash
+HTTP Request
+============
 
-   $curl \
-      -X POST localhost:8088/v1/start \
-      -H "Content-type: application/json" -H "Accept: application/json" \
-      -d '{"triggerName":"312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14:TestTrigger:trigger", "party": "alice"}'
-   {"result":{"triggerId":"4d539e9c-b962-4762-be71-40a5c97a47a6"},"status":200}
+- URL: ``/v1/triggers``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
 
-``stop``
-********
+.. code-block:: json
+
+    {
+      "triggerName": "312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14:TestTrigger:trigger",
+      "party": "alice"
+    }
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result":{"triggerId":"4d539e9c-b962-4762-be71-40a5c97a47a6"},
+      "status":200
+    }
+
+
+Stop a trigger
+**************
 
 Stop a running trigger. Alice stops her running trigger like so.
 
-.. code-block:: bash
+HTTP Request
+============
 
-   $curl \
-      -X DELETE localhost:8088/v1/stop/4d539e9c-b962-4762-be71-40a5c97a47a6 \
-      -H "Content-type: application/json" -H "Accept: application/json"
-   {"result":{"triggerId":"4d539e9c-b962-4762-be71-40a5c97a47a6"},"status":200}
+- URL: ``/v1/triggers/:id``
+- Method: ``DELETE``
+- Content-Type: ``application/json``
+- Content:
 
-``upload_dar``
-**************
+HTTP Response
+=============
 
-Upload an automation DAR. If successful, the DAR's "main package ID" will be in the response (the main package ID for a DAR can also be obtained using ``daml damlc inspect-dar path/to/dar``).
+- Content-Type: ``application/json``
+- Content:
 
-.. code-block:: bash
+.. code-block:: json
 
-   $ curl -F 'dar=@/home/alice/test-model.dar' localhost:8088/v1/upload_dar
-   {"result":{"mainPackageId":"312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14"},"status":200}
+   {
+     "result": {"triggerId":"4d539e9c-b962-4762-be71-40a5c97a47a6"},
+     "status":200
+   }
 
-``list``
-********
+List running triggers
+*********************
 
-List the DARS running on behalf of a given party. Alice can check on her running triggers as follows.
+List the Triggers running on behalf of a given party.
 
-.. code-block:: bash
+HTTP Request
+============
 
-   $curl \
-       -X GET localhost:8088/v1/list \
-       -H "Content-type: application/json" -H "Accept: application/json"
-       -d '{"party": "alice"}'
-   {"result":{"triggerIds":["4d539e9c-b962-4762-be71-40a5c97a47a6"],"status":200}
+- URL: ``/v1/triggers?party=:party``
+- Method: ``GET``
 
-``status``
-**********
+HTTP Response
+=============
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "result": {"triggerIds":["4d539e9c-b962-4762-be71-40a5c97a47a6"]},
+      "status":200
+    }
+
+Status of a trigger
+*******************
 
 It's sometimes useful to get information about the history of a specific trigger. This can be done with the "status" endpoint.
 
-.. code-block:: bash
+HTTP Request
+============
 
-   $curl \
-      -X GET localhost:8088/v1/status/4d539e9c-b962-4762-be71-40a5c97a47a6 \
-      -H "Content-type: application/json" -H "Accept: application/json"
-  {"result":{"logs":[["2020-06-12T12:35:49.863","starting"],["2020-06-12T12:35:50.89","running"],["2020-06-12T12:51:57.557","stopped: by user request"]]},"status":200}
+- URL: ``/v1/triggers/:id``
+- Method: ``GET``
 
-``health``
-**********
+HTTP Response
+=============
 
-Test connectivity.
+- Content-Type: ``application/json``
+- Content:
 
-.. code-block:: bash
+.. code-block:: json
 
-   $curl -X GET localhost:8088/v1/health
+    {
+      "result": {"logs":[["2020-06-12T12:35:49.863","starting"],["2020-06-12T12:35:50.89","running"],["2020-06-12T12:51:57.557","stopped: by user request"]]},
+      "status": 200
+    }
+
+Upload a new DAR
+****************
+
+Upload a DAR containing one or more triggers. If successful, the DAR's "main package ID" will be in the response (the main package ID for a DAR can also be obtained using ``daml damlc inspect-dar path/to/dar``).
+
+HTTP Request
+============
+
+- URL: ``/v1/packages``
+- Method: ``POST``
+- Content-Type: ``multipart/form-data``
+- Content:
+
+  ``dar=$dar_content``
+
+HTTP Response
+=============
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "result": {"mainPackageId":"312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14"},
+      "status": 200
+    }
+
+Liveness check
+**************
+
+This can be used as a liveness probe, e.g., in Kubernetes.
+
+HTTP Request
+============
+
+- URL: ``/livez``
+- Method: ``GET``
+
+.. code-block:: json
+
    {"status":"pass"}
+
+HTTP Response
+=============
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    { "status": "pass" }
