@@ -759,7 +759,7 @@ convertBind env (name, x)
     --
     -- is rewritten to
     --
-    --  > name \@a_1 ... @a_n ->
+    --  > name = \@a_1 ... @a_n ->
     --  >    let { x_1 = e_1 ; ... ; x_m = e_m } in
     --  >    \v -> let f = name @a_1 ... @a_n in y
     --
