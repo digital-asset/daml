@@ -61,6 +61,7 @@ class Server(config: Config) {
     req.scope.foreach(_.split(" ").foreach {
       case s if s.startsWith("actAs:") => actAs ++= Seq(s.stripPrefix("actAs:"))
       case s if s.startsWith("readAs:") => readAs ++= Seq(s.stripPrefix("readAs:"))
+      case _ => ()
     })
     AuthServiceJWTPayload(
       ledgerId = Some(config.ledgerId),
