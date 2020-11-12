@@ -496,49 +496,43 @@ trait AbstractTriggerServiceTestAuthMiddleware
 
   it should "forbid a non-authorized party to start a trigger" in withTriggerService(List(dar)) {
     uri: Uri =>
-      val expectedError = StatusCodes.Forbidden
       for {
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", eve)
-        _ <- resp.status should equal(expectedError)
+        _ <- resp.status should equal(StatusCodes.Forbidden)
       } yield succeed
   }
 
   it should "forbid a non-authorized party to list triggers" in withTriggerService(Nil) {
     uri: Uri =>
-      val expectedError = StatusCodes.Forbidden
       for {
         resp <- listTriggers(uri, eve)
-        _ <- resp.status should equal(expectedError)
+        _ <- resp.status should equal(StatusCodes.Forbidden)
       } yield succeed
   }
 
   it should "forbid a non-authorized party to check the status of a trigger" in withTriggerService(
     List(dar)) { uri: Uri =>
-    val expectedSuccess = StatusCodes.OK
-    val expectedError = StatusCodes.Forbidden
     for {
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
-      _ <- resp.status should equal(expectedSuccess)
+      _ <- resp.status should equal(StatusCodes.OK)
       triggerId <- parseTriggerId(resp)
       _ = authServer.revokeParty(alice)
       _ = deleteCookies()
       resp <- triggerStatus(uri, triggerId)
-      _ <- resp.status should equal(expectedError)
+      _ <- resp.status should equal(StatusCodes.Forbidden)
     } yield succeed
   }
 
   it should "forbid a non-authorized party to stop a trigger" in withTriggerService(List(dar)) {
     uri: Uri =>
-      val expectedSuccess = StatusCodes.OK
-      val expectedError = StatusCodes.Forbidden
       for {
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
-        _ <- resp.status should equal(expectedSuccess)
+        _ <- resp.status should equal(StatusCodes.OK)
         triggerId <- parseTriggerId(resp)
         _ = authServer.revokeParty(alice)
         _ = deleteCookies()
         resp <- stopTrigger(uri, triggerId, alice)
-        _ <- resp.status should equal(expectedError)
+        _ <- resp.status should equal(StatusCodes.Forbidden)
       } yield succeed
   }
 }
