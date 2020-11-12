@@ -498,7 +498,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
     uri: Uri =>
       for {
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", eve)
-        _ <- resp.status should equal(StatusCodes.Forbidden)
+        _ <- resp.status shouldBe StatusCodes.Forbidden
       } yield succeed
   }
 
@@ -506,7 +506,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
     uri: Uri =>
       for {
         resp <- listTriggers(uri, eve)
-        _ <- resp.status should equal(StatusCodes.Forbidden)
+        _ <- resp.status shouldBe StatusCodes.Forbidden
       } yield succeed
   }
 
@@ -514,12 +514,12 @@ trait AbstractTriggerServiceTestAuthMiddleware
     List(dar)) { uri: Uri =>
     for {
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
-      _ <- resp.status should equal(StatusCodes.OK)
+      _ <- resp.status shouldBe StatusCodes.OK
       triggerId <- parseTriggerId(resp)
       _ = authServer.revokeParty(alice)
       _ = deleteCookies()
       resp <- triggerStatus(uri, triggerId)
-      _ <- resp.status should equal(StatusCodes.Forbidden)
+      _ <- resp.status shouldBe StatusCodes.Forbidden
     } yield succeed
   }
 
@@ -527,12 +527,12 @@ trait AbstractTriggerServiceTestAuthMiddleware
     uri: Uri =>
       for {
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
-        _ <- resp.status should equal(StatusCodes.OK)
+        _ <- resp.status shouldBe StatusCodes.OK
         triggerId <- parseTriggerId(resp)
         _ = authServer.revokeParty(alice)
         _ = deleteCookies()
         resp <- stopTrigger(uri, triggerId, alice)
-        _ <- resp.status should equal(StatusCodes.Forbidden)
+        _ <- resp.status shouldBe StatusCodes.Forbidden
       } yield succeed
   }
 }
