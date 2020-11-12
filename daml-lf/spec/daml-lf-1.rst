@@ -1295,9 +1295,9 @@ type ``τ`` is well-formed, in the rules below. ::
   Well-formed case alternatives │ Γ ⊢ τ // alt : σ │
                                 └──────────────────┘
 
-      'variant' T (α₁:k₁) … (αₙ:kₙ) ↦ … | Vᵢ : σᵢ | …  ∈  〚Ξ〛Mod
-      σᵢ  ↠  σᵢ'
-      x : σᵢ'[α₁ ↦ τ₁, …, αₙ ↦ τₙ] · Γ  ⊢  e : σ
+      'variant' T (α₁:k₁) … (αₙ:kₙ) ↦ … | V : τ | …  ∈  〚Ξ〛Mod
+      τ  ↠  τ'
+      x : τ'[α₁ ↦ τ₁, …, αₙ ↦ τₙ] · Γ  ⊢  e : σ
     ——————————————————————————————————————————————————————————————— AltVariant
       Γ  ⊢  Mod:T τ₁ … τₙ  //  Mod:T:V x  →  e : σ
 
@@ -1359,7 +1359,7 @@ their patterns to be exhaustive, which is defined here. ::
     ——————————————————————————————————————————————————————————————— ExhaustVariant
     Mod:T τ₁ … τᵣ  ⊲  alt₁, …, altₙ
 
-    'enum' T … ↦ E₁ | … | Eₘ  ∈  〚Ξ〛Mod
+    'enum' T ↦ E₁ | … | Eₘ  ∈  〚Ξ〛Mod
     i₁, i₂, …, iₘ  ∈  {1, …, n}
     altᵢ₁  =  Mod:T:E₁  →  e₁
     altᵢ₂  =  Mod:T:E₂  →  e₂
@@ -1368,21 +1368,21 @@ their patterns to be exhaustive, which is defined here. ::
     ——————————————————————————————————————————————————————————————— ExhaustEnum
     Mod:T  ⊲  alt₁, …, altₙ
 
-    i₁, i₂  ∈  {1, …, n}
-    altᵢ₁  =  'Nil'  →  e₁
-    altᵢ₂  =  'Cons' xₕ xₜ  →  e₂
+    i, j  ∈  {1, …, n}
+    altᵢ  =  'Nil'  →  e₁
+    altⱼ  =  'Cons' xₕ xₜ  →  e₂
     ——————————————————————————————————————————————————————————————— ExhaustList
     'List' τ  ⊲  alt₁, …, altₙ
 
-    i₁, i₂  ∈  {1, …, n}
-    altᵢ₁  =  'None'  →  e₁
-    altᵢ₂  =  'Some' x  →  e₂
+    i, j  ∈  {1, …, n}
+    altᵢ  =  'None'  →  e₁
+    altⱼ  =  'Some' x  →  e₂
     ——————————————————————————————————————————————————————————————— ExhaustOptional
     'Optional' τ  ⊲  alt₁, …, altₙ
 
-    i₁, i₂  ∈  {1, …, n}
-    altᵢ₁  =  'True'  →  e₁
-    altᵢ₂  =  'False'  →  e₂
+    i, j  ∈  {1, …, n}
+    altᵢ  =  'True'  →  e₁
+    altⱼ  =  'False'  →  e₂
     ——————————————————————————————————————————————————————————————— ExhaustBool
     'Bool'  ⊲  alt₁, …, altₙ
 
