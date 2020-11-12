@@ -516,6 +516,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
       _ <- resp.status shouldBe StatusCodes.OK
       triggerId <- parseTriggerId(resp)
+      // emulate access by a different user by revoking access to alice and deleting the current token cookie
       _ = authServer.revokeParty(alice)
       _ = deleteCookies()
       resp <- triggerStatus(uri, triggerId)
@@ -529,6 +530,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
         _ <- resp.status shouldBe StatusCodes.OK
         triggerId <- parseTriggerId(resp)
+        // emulate access by a different user by revoking access to alice and deleting the current token cookie
         _ = authServer.revokeParty(alice)
         _ = deleteCookies()
         resp <- stopTrigger(uri, triggerId, alice)
