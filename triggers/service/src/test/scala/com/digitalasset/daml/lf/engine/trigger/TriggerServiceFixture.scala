@@ -110,6 +110,13 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
       case resp => Future(resp)
     }
   }
+
+  /**
+    * Remove all stored cookies.
+    */
+  def deleteCookies(): Unit = {
+    cookieJar.clear()
+  }
 }
 
 trait AbstractAuthFixture extends SuiteMixin {
@@ -131,6 +138,7 @@ trait NoAuthFixture extends AbstractAuthFixture {
 trait AuthMiddlewareFixture
     extends AbstractAuthFixture
     with BeforeAndAfterAll
+    with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
   self: Suite =>
 
@@ -146,16 +154,17 @@ trait AuthMiddlewareFixture
     jwt.value
   }
   protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri)
+  protected def authServer: OAuthServer = resource.value._1
 
   private def authVerifier: JwtVerifierBase = HMAC256Verifier(authSecret).toOption.get
-  private def authMiddleware: ServerBinding = resource.value
+  private def authMiddleware: ServerBinding = resource.value._2
   private def authMiddlewareUri: Uri =
     Uri()
       .withScheme("http")
       .withAuthority(authMiddleware.localAddress.getHostString, authMiddleware.localAddress.getPort)
 
   private val authSecret: String = "secret"
-  private var resource: OwnedResource[ResourceContext, ServerBinding] = null
+  private var resource: OwnedResource[ResourceContext, (OAuthServer, ServerBinding)] = null
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -173,10 +182,12 @@ trait AuthMiddlewareFixture
       jwtSecret = authSecret,
       parties = authParties,
     )
-    resource = new OwnedResource(new ResourceOwner[ServerBinding] {
-      override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
+    resource = new OwnedResource(new ResourceOwner[(OAuthServer, ServerBinding)] {
+      override def acquire()(
+          implicit context: ResourceContext): Resource[(OAuthServer, ServerBinding)] = {
+        val oauthServer = OAuthServer(oauthConfig)
         for {
-          oauth <- Resource(OAuthServer.start(oauthConfig))(closeServerBinding)
+          oauth <- Resource(oauthServer.start())(closeServerBinding)
           uri = Uri()
             .withScheme("http")
             .withAuthority(oauth.localAddress.getHostString, oauth.localAddress.getPort)
@@ -189,7 +200,8 @@ trait AuthMiddlewareFixture
             tokenVerifier = authVerifier,
           )
           middleware <- Resource(MiddlewareServer.start(middlewareConfig))(closeServerBinding)
-        } yield middleware
+        } yield (oauthServer, middleware)
+      }
     })
     resource.setup()
   }
@@ -198,6 +210,12 @@ trait AuthMiddlewareFixture
     resource.close()
 
     super.afterAll()
+  }
+
+  override protected def afterEach(): Unit = {
+    authServer.resetAuthorizedParties()
+
+    super.afterEach()
   }
 }
 

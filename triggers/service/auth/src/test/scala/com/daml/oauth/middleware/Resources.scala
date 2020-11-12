@@ -12,7 +12,7 @@ object Resources {
   def authServer(config: OAuthConfig)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
-        Resource(OAuthServer.start(config))(_.unbind().map(_ => ()))
+        Resource(OAuthServer(config).start())(_.unbind().map(_ => ()))
     }
   def authMiddleware(config: Config)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
