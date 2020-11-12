@@ -206,13 +206,13 @@ trait AbstractTriggerServiceTest
     val expectedError = StatusCodes.UnprocessableEntity
     for {
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:foobar", alice)
-      _ <- resp.status should equal(expectedError)
+      _ <- resp.status shouldBe expectedError
       // Check the "status" and "errors" fields
       body <- responseBodyToString(resp)
       JsObject(fields) = body.parseJson
-      _ <- fields.get("status") should equal(Some(JsNumber(expectedError.intValue)))
-      _ <- fields.get("errors") should equal(
-        Some(JsArray(JsString("Could not find name foobar in module TestTrigger"))))
+      _ <- fields.get("status") shouldBe Some(JsNumber(expectedError.intValue))
+      _ <- fields.get("errors") shouldBe
+        Some(JsArray(JsString("Could not find name foobar in module TestTrigger")))
     } yield succeed
   }
 
@@ -227,7 +227,7 @@ trait AbstractTriggerServiceTest
       _ <- assertTriggerIds(uri, alice, Vector(triggerId))
       resp <- stopTrigger(uri, triggerId, alice)
       stoppedTriggerId <- parseTriggerId(resp)
-      _ <- stoppedTriggerId should equal(triggerId)
+      _ <- stoppedTriggerId shouldBe triggerId
     } yield succeed
   }
 
@@ -236,7 +236,7 @@ trait AbstractTriggerServiceTest
       for {
         resp <- listTriggers(uri, alice)
         result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector())
+        _ <- result shouldBe Vector()
         // Start trigger for Alice.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
         aliceTrigger <- parseTriggerId(resp)
@@ -383,7 +383,7 @@ trait AbstractTriggerServiceTest
     )
     for {
       resp <- Http().singleRequest(req)
-      _ <- resp.status should equal(StatusCodes.NotFound)
+      _ <- resp.status shouldBe StatusCodes.NotFound
     } yield succeed
   }
 
@@ -392,12 +392,12 @@ trait AbstractTriggerServiceTest
     val uuid = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
     for {
       resp <- stopTrigger(uri, uuid, alice)
-      _ <- resp.status should equal(StatusCodes.NotFound)
+      _ <- resp.status shouldBe StatusCodes.NotFound
       body <- responseBodyToString(resp)
       JsObject(fields) = body.parseJson
-      _ <- fields.get("status") should equal(Some(JsNumber(StatusCodes.NotFound.intValue)))
-      _ <- fields.get("errors") should equal(
-        Some(JsArray(JsString(s"No trigger running with id $uuid"))))
+      _ <- fields.get("status") shouldBe Some(JsNumber(StatusCodes.NotFound.intValue))
+      _ <- fields.get("errors") shouldBe
+        Some(JsArray(JsString(s"No trigger running with id $uuid")))
     } yield succeed
   }
 }
