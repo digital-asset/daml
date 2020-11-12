@@ -748,8 +748,27 @@ convertBind env (name, x)
     -- lifting where the lifted version of `f` happens to be `name`.)
     -- This workaround should be removed once we either have a proper lambda
     -- lifter or DAML-LF supports local recursion.
-    | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectBinders x, f == f'
-    = convertBind env $ (,) name $ mkLams as $ Lam v $ Let (NonRec f $ mkVarApps (Var name) as) y
+    --
+    -- NOTE(SF): Due to issue #7953, this has been modified to allow for
+    -- additional (nonrecursive) let bindings between the top-level
+    -- arguments and the letrec. In particular,
+    --
+    --  > name = \@a_1 ... @a_n ->
+    --  >    let { x_1 = e_1 ; ... ; x_m = e_m } in
+    --  >    letrec f = \v -> y in f
+    --
+    -- is rewritten to
+    --
+    --  > name = \@a_1 ... @a_n ->
+    --  >    let { x_1 = e_1 ; ... ; x_m = e_m } in
+    --  >    \v -> let f = name @a_1 ... @a_n in y
+    --
+    | let (params, body1) = collectBinders x
+    , let (lets, body2) = collectNonRecLets body1
+    , Let (Rec [(f, Lam v y)]) (Var f') <- body2
+    , f == f'
+    = convertBind env $ (,) name $ mkLams params $ makeNonRecLets lets $
+        Lam v $ Let (NonRec f $ mkVarApps (Var name) params) y
 
     -- Constraint tuple projections are turned into LF struct projections at use site.
     | ConstraintTupleProjectionName _ _ <- name
