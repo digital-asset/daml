@@ -76,7 +76,7 @@ There are two interesting things going on here:
 Function Application
 ....................
 
-Let's start by looking at the right hand part ``a -> a -> a``. The ``->`` is right associative, meaning ``a -> a -> a`` is equivalent to ``a -> (a -> a)``. Using the "maps to" way of reading ``->`` we get "a maps to a function that maps a to a``.
+Let's start by looking at the right hand part ``a -> a -> a``. The ``->`` is right associative, meaning ``a -> a -> a`` is equivalent to ``a -> (a -> a)``. Using the "maps to" way of reading ``->`` we get "a maps to a function that maps a to a".
 
 And this is indeed what happens. We can define a different version of ``increment`` by *partially applying* ``add``:
 
@@ -469,7 +469,7 @@ The folds and ``map`` function above are pure in the sense introduced in :doc:`5
   :start-after: -- MAPA_BEGIN
   :end-before: -- MAPA_END
 
-Here we have a list of relationships (type ``[Relationship]`` and a function ``setupRelationship : Relationship -> Script (ContractId AssetHolder) ``. We want the ``AssetHolder`` contracts for those relationships, ie something of type ``[ContractId AssetHolder]``. Using the map function almost gets us there. ``map setupRelationship rels : [Update (ContractId AssetHolder)]``. This is a list of ``Update`` actions, each resulting in a ``ContractId AssetHolder``. What we need is an ``Update`` action resulting in a ``[ContractId AssetHolder]``. The list and ``Update`` are the wrong way around for our purposes.
+Here we have a list of relationships (type ``[Relationship]`` and a function ``setupRelationship : Relationship -> Script (ContractId AssetHolder)``. We want the ``AssetHolder`` contracts for those relationships, ie something of type ``[ContractId AssetHolder]``. Using the map function almost gets us there. ``map setupRelationship rels : [Update (ContractId AssetHolder)]``. This is a list of ``Update`` actions, each resulting in a ``ContractId AssetHolder``. What we need is an ``Update`` action resulting in a ``[ContractId AssetHolder]``. The list and ``Update`` are the wrong way around for our purposes.
 
 Intuitively, it's clear how to fix this: we want the compound action consisting of performing each of the actions in the list in turn. There's a function for that, of course. ``sequence : : Applicative m => [m a] -> m [a]`` implements that intuition and allows us to take the ``Update`` out of the list. So we could write ``sequence (map setupRelationship rels)``. This is so common that it's encapsulated in the ``mapA`` function, a possible implementation of which is
 
