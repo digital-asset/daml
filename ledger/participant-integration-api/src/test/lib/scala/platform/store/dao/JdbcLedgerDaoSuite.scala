@@ -437,7 +437,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     val (offset, entry) = offsetAndTx
     val submitterInfo =
       for (submitter <- entry.submittingParty; app <- entry.applicationId; cmd <- entry.commandId)
-        yield v1.SubmitterInfo(submitter, app, cmd, Instant.EPOCH)
+        yield v1.SubmitterInfo.withSingleSubmitter(submitter, app, cmd, Instant.EPOCH)
     val committedTransaction = CommittedTransaction(entry.transaction)
     val ledgerEffectiveTime = entry.ledgerEffectiveTime
     val divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
