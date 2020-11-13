@@ -11,7 +11,7 @@ import org.scalatest.{Matchers, WordSpec}
 
 class TransactionVersionSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
 
-  "TransactionVersions.assignVersions" should {
+  "TransactionVersions.assignNodeVersion" should {
 
     val Seq(v1_6, v1_7, v1_8) = Seq("6", "7", "8").map(minor =>
       LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor.Stable(minor)))
@@ -27,17 +27,9 @@ class TransactionVersionSpec extends WordSpec with Matchers with TableDrivenProp
       v1_dev -> TransactionVersion("dev"),
     )
 
-    "pick version 10 by default" in {
-
-      TransactionVersions.assignVersions(Seq.empty) shouldBe TransactionVersion("10")
-
-    }
-
     "be stable" in {
-      import VersionTimeline.Implicits._
-
       forEvery(testCases) { (languageVersion, transactionVersions) =>
-        TransactionVersions.assignVersions(List(languageVersion)) shouldBe transactionVersions
+        TransactionVersions.assignNodeVersion(languageVersion) shouldBe transactionVersions
       }
     }
 
