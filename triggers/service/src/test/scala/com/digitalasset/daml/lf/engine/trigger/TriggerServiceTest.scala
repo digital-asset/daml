@@ -14,6 +14,7 @@ import java.util.UUID
 
 import akka.http.scaladsl.model.Uri.Query
 import org.scalatest._
+import org.scalatest.concurrent.Eventually
 
 import scala.concurrent.Future
 import scalaz.Tag
@@ -28,6 +29,7 @@ import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, Tra
 import com.daml.ledger.client.LedgerClient
 import com.daml.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
+import org.scalatest.time.{Seconds, Span}
 
 import scala.concurrent.duration._
 
@@ -37,7 +39,11 @@ trait AbstractTriggerServiceTest
     with HttpCookies
     with TriggerServiceFixture
     with Matchers
-    with StrictLogging {
+    with StrictLogging
+    with Eventually {
+
+  implicit override val patienceConfig: PatienceConfig =
+    PatienceConfig(timeout = scaled(Span(10, Seconds)))
 
   import AbstractTriggerServiceTest.CompatAssertion
 
@@ -65,6 +71,10 @@ trait AbstractTriggerServiceTest
   protected override def actorSystemName = testId
 
   protected val alice: Party = Tag("Alice")
+  // This party is used by the test that queries the ACS.
+  // To avoid mixing this up with the other tests, we use a separate
+  // party.
+  protected val aliceAcs: Party = Tag("Alice_acs")
   protected val bob: Party = Tag("Bob")
   protected val eve: Party = Tag("Eve")
 
@@ -88,23 +98,21 @@ trait AbstractTriggerServiceTest
     httpRequestFollow(req)
   }
 
-  def triggerStatus(uri: Uri, triggerInstance: UUID): Future[HttpResponse] = {
-    val id = triggerInstance.toString
-    val req = HttpRequest(
-      method = HttpMethods.GET,
-      uri = uri.withPath(Uri.Path(s"/v1/triggers/$id")),
-    )
-    httpRequestFollow(req)
-  }
-
   def stopTrigger(uri: Uri, triggerInstance: UUID, party: Party): Future[HttpResponse] = {
     // silence unused warning, we probably need this parameter again when we
     // support auth.
     val _ = party
-    val id = triggerInstance.toString
     val req = HttpRequest(
       method = HttpMethods.DELETE,
-      uri = uri.withPath(Uri.Path(s"/v1/triggers/$id")),
+      uri = uri.withPath(Uri.Path(s"/v1/triggers") / (triggerInstance.toString)),
+    )
+    httpRequestFollow(req)
+  }
+
+  def triggerStatus(uri: Uri, triggerInstance: UUID): Future[HttpResponse] = {
+    val req = HttpRequest(
+      method = HttpMethods.GET,
+      uri = uri.withPath(Uri.Path("/v1/triggers") / (triggerInstance.toString))
     )
     httpRequestFollow(req)
   }
@@ -162,27 +170,11 @@ trait AbstractTriggerServiceTest
       result <- parseTriggerIds(resp)
     } yield assert(result == expected)
 
-  def parseTriggerStatus(resp: HttpResponse): Future[Vector[String]] = {
-    for {
-      JsObject(fields) <- parseResult(resp)
-      Some(JsArray(list)) = fields.get("logs")
-      statusMsgs = list map {
-        case JsArray(Vector(JsString(_), JsString(msg))) => msg
-        case _ => fail("""Unexpected format in the "logs" field""")
-      }
-    } yield statusMsgs
-  }
-
-  def assertTriggerStatus[A](uri: Uri, triggerInstance: UUID, pred: Vector[String] => A)(
-      implicit A: CompatAssertion[A]): Future[Assertion] = {
-    // eventually doesn’t handle Futures in the version of scalatest we’re using.
-    RetryStrategy.constant(15, 1.seconds) { (_, _) =>
-      for {
-        resp <- triggerStatus(uri, triggerInstance)
-        result <- parseTriggerStatus(resp)
-      } yield A(pred(result))
+  def assertTriggerStatus[A](triggerInstance: UUID, pred: Vector[String] => A)(
+      implicit A: CompatAssertion[A]): Future[Assertion] =
+    eventually {
+      A(pred(getTriggerStatus(triggerInstance).map(_._2)))
     }
-  }
 
   it should "start up and shut down server" in
     withTriggerService(List(dar)) { _ =>
@@ -262,12 +254,26 @@ trait AbstractTriggerServiceTest
 
   it should "should enable a trigger on http request" in withTriggerService(List(dar)) { uri: Uri =>
     for {
+      client <- sandboxClient(
+        ApiTypes.ApplicationId(testId),
+        actAs = List(ApiTypes.Party(aliceAcs.unwrap)))
+      filter = TransactionFilter(
+        List(
+          (
+            aliceAcs.unwrap,
+            Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
+      // Make sure that no contracts exist initially to guard against accidental
+      // party reuse.
+      acs <- client.activeContractSetClient
+        .getActiveContracts(filter)
+        .runWith(Sink.seq)
+        .map(acsPages => acsPages.flatMap(_.activeContracts))
+      _ = acs shouldBe Vector()
       // Start the trigger
-      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", aliceAcs)
       triggerId <- parseTriggerId(resp)
 
       // Trigger is running, create an A contract
-      client <- sandboxClient(ApiTypes.ApplicationId(testId), actAs = List(ApiTypes.Party("Alice")))
       _ <- {
         val cmd = Command().withCreate(
           CreateCommand(
@@ -276,23 +282,24 @@ trait AbstractTriggerServiceTest
               Record(
                 None,
                 Seq(
-                  RecordField(value = Some(Value().withParty("Alice"))),
+                  RecordField(value = Some(Value().withParty(aliceAcs.unwrap))),
                   RecordField(value = Some(Value().withInt64(42)))))),
           ))
-        submitCmd(client, "Alice", cmd)
+        submitCmd(client, aliceAcs.unwrap, cmd)
       }
       // Query ACS until we see a B contract
-      // format: off
-        _ <- Future {
-          val filter = TransactionFilter(List(("Alice", Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
-          // eventually doesn’t handle Futures in the version of scalatest we’re using.
-          RetryStrategy.constant(5, 1.seconds) { (_, _) =>
-            for {
-              acs <- client.activeContractSetClient.getActiveContracts(filter).runWith(Sink.seq).map(acsPages => acsPages.flatMap(_.activeContracts))
-            } yield assert(acs.length == 1)
-          }
-        }
-        // format: on
+      _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
+        for {
+          acs <- client.activeContractSetClient
+            .getActiveContracts(filter)
+            .runWith(Sink.seq)
+            .map(acsPages => acsPages.flatMap(_.activeContracts))
+        } yield assert(acs.length == 1)
+      }
+      status <- triggerStatus(uri, triggerId)
+      _ = status.status shouldBe StatusCodes.OK
+      body <- responseBodyToString(status)
+      _ = body shouldBe s"""{"result":{"party":"Alice_acs","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
       resp <- stopTrigger(uri, triggerId, alice)
       _ <- assert(resp.status.isSuccess)
     } yield succeed
@@ -309,10 +316,10 @@ trait AbstractTriggerServiceTest
       aliceTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
       // Check the log for an initialization failure.
-      _ <- assertTriggerStatus(uri, aliceTrigger, _.contains("stopped: initialization failure"))
+      _ <- assertTriggerStatus(aliceTrigger, _.contains("stopped: initialization failure"))
       // Finally establish the connection and check that the trigger eventually starts.
       _ <- Future(toxiSandboxProxy.enable())
-      _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
+      _ <- assertTriggerStatus(aliceTrigger, _.last == "running")
     } yield succeed
   }
 
@@ -326,13 +333,13 @@ trait AbstractTriggerServiceTest
       aliceTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
       // Proceed when it's confirmed to be running.
-      _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
+      _ <- assertTriggerStatus(aliceTrigger, _.last == "running")
       // Simulate brief network connectivity loss and observe the trigger fail.
       _ <- Future(toxiSandboxProxy.disable())
-      _ <- assertTriggerStatus(uri, aliceTrigger, _.contains("stopped: runtime failure"))
+      _ <- assertTriggerStatus(aliceTrigger, _.contains("stopped: runtime failure"))
       // Finally check the trigger is restarted after the connection returns.
       _ <- Future(toxiSandboxProxy.enable())
-      _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
+      _ <- assertTriggerStatus(aliceTrigger, _.last == "running")
     } yield succeed
   }
 
@@ -346,11 +353,8 @@ trait AbstractTriggerServiceTest
         // Just check that we see a few failures and restart attempts.
         // This relies on a small minimum restart interval as the interval doubles after each
         // failure.
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") > 2)
-        _ <- assertTriggerStatus(
-          uri,
-          aliceTrigger,
-          _.count(_ == "stopped: initialization failure") > 2)
+        _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "starting") > 2)
+        _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "stopped: initialization failure") > 2)
       } yield succeed
   }
 
@@ -363,11 +367,8 @@ trait AbstractTriggerServiceTest
       // Just check that we see a few failures and restart attempts.
       // This relies on a small minimum restart interval as the interval doubles after each
       // failure.
-      _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") should be > 2)
-      _ <- assertTriggerStatus(
-        uri,
-        aliceTrigger,
-        _.count(_ == "stopped: runtime failure") should be > 2)
+      _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "starting") should be > 2)
+      _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "stopped: runtime failure") should be > 2)
     } yield succeed
   }
 
@@ -454,7 +455,7 @@ trait AbstractTriggerServiceTestWithDb
         triggerId <- parseTriggerId(resp)
         // The new trigger should be in the running trigger store and eventually running.
         _ <- assertTriggerIds(uri, alice, Vector(triggerId))
-        _ <- assertTriggerStatus(uri, triggerId, _.last should ===("running"))
+        _ <- assertTriggerStatus(triggerId, _.last should ===("running"))
       } yield succeed
     }
     // Once service is shutdown, start a new one and check the previously running trigger is restarted.
@@ -468,12 +469,12 @@ trait AbstractTriggerServiceTestWithDb
         aliceTrigger = triggerIds.head
         // Currently the logs aren't persisted so we can check that the trigger was restarted by
         // inspecting the new log.
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.last should ===("running"))
+        _ <- assertTriggerStatus(aliceTrigger, _.last should ===("running"))
 
         // Finally go ahead and stop the trigger.
         _ <- stopTrigger(uri, aliceTrigger, alice)
         _ <- assertTriggerIds(uri, alice, Vector())
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.last should ===("stopped: by user request"))
+        _ <- assertTriggerStatus(aliceTrigger, _.last should ===("stopped: by user request"))
       } yield succeed
     }
   } yield succeed)
@@ -487,7 +488,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
     extends AbstractTriggerServiceTest
     with AuthMiddlewareFixture {
 
-  override protected val authParties = Some(Set(alice, bob))
+  override protected val authParties = Some(Set(alice, aliceAcs, bob))
 
   behavior of "authenticated service"
 
