@@ -49,11 +49,7 @@ object Server extends StrictLogging {
       path("auth") { get { auth(config) } },
       path("login") { get { login(config, requests) } },
       path("cb") { get { loginCallback(config, requests) } },
-      path("refresh") {
-        get {
-          complete((StatusCodes.NotImplemented, "The /refresh endpoint is not implemented yet"))
-        }
-      }
+      path("refresh") { post { refresh(config) } },
     )
 
     Http().bindAndHandle(route, "localhost", config.port.value)
@@ -193,4 +189,34 @@ object Server extends StrictLogging {
         }
     )
   }
+
+  private def refresh(config: Config)(implicit system: ActorSystem, ec: ExecutionContext) =
+    entity(as[Request.Refresh]) { refresh =>
+      val body = OAuthRequest.Refresh(
+        grantType = "refresh_token",
+        refreshToken = refresh.refreshToken,
+        clientId = config.clientId,
+        clientSecret = config.clientSecret)
+      import com.daml.oauth.server.Request.Refresh.marshalRequestEntity
+      val tokenRequest =
+        for {
+          entity <- Marshal(body).to[RequestEntity]
+          req = HttpRequest(uri = config.oauthToken, entity = entity, method = HttpMethods.POST)
+          resp <- Http().singleRequest(req)
+          tokenResp <- if (resp.status != StatusCodes.OK) {
+            Unmarshal(resp).to[String].flatMap { msg =>
+              Future.failed(
+                new RuntimeException(
+                  s"Failed to retrieve token at ${req.uri} (${resp.status}): $msg"))
+            }
+          } else {
+            Unmarshal(resp).to[OAuthResponse.Token]
+          }
+        } yield tokenResp
+      onSuccess(tokenRequest) { token =>
+        complete(
+          Response
+            .Authorize(accessToken = token.accessToken, refreshToken = token.refreshToken))
+      }
+    }
 }

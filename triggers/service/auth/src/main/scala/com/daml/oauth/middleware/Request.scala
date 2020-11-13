@@ -83,6 +83,10 @@ object Request {
     }
   }
 
+  /** Refresh endpoint request entity
+    */
+  case class Refresh(refreshToken: String)
+
 }
 
 object Response {
@@ -99,6 +103,8 @@ object JsonProtocol extends DefaultJsonProtocol {
     }
     def write(uri: Uri) = JsString(uri.toString)
   }
+  implicit val requestRefreshFormat: RootJsonFormat[Request.Refresh] =
+    jsonFormat(Request.Refresh, "refresh_token")
   implicit val responseAuthorizeFormat: RootJsonFormat[Response.Authorize] =
     jsonFormat(Response.Authorize, "access_token", "refresh_token")
 }
