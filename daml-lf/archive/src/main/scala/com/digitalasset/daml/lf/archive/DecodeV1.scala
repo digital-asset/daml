@@ -55,7 +55,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       packageId,
       internedStrings,
       internedDottedNames,
-      IndexedSeq(),
+      IndexedSeq.empty,
       Some(dependencyTracker),
       None,
       onlySerializableDataDefs,
@@ -110,7 +110,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       packageId,
       internedStrings,
       internedDottedNames,
-      IndexedSeq(),
+      IndexedSeq.empty,
       None,
       None,
       onlySerializableDataDefs = false
@@ -680,11 +680,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
                 identity
               ))
         case PLF.Type.SumCase.INTERNED =>
-          val index = lfType.getInterned
-          if (internedTypes.isDefinedAt(index))
-            internedTypes(index)
-          else
-            throw ParseError(s"invalid internedTypes table index $index")
+          internedTypes.applyOrElse(lfType.getInterned, (index: Int) => throw ParseError(s"invalid internedTypes table index $index"))
         case PLF.Type.SumCase.SUM_NOT_SET =>
           throw ParseError("Type.SUM_NOT_SET")
       }
