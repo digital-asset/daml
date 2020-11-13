@@ -141,10 +141,43 @@ class TransactionCoderSpec
       }
     }
 
+    "do transactions" in
+      forAll(noDanglingRefGenVersionedTransaction, minSuccessful(50)) { tx =>
+        val tx2 = VersionedTransaction(
+          tx.version,
+          tx.versionedNodes.transform((_, node) =>
+            VersionedNode(node.version, minimalistNode(node.version)(node.node))),
+          tx.roots,
+        )
+        inside(
+          TransactionCoder
+            .encodeTransactionWithCustomVersion(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              tx2,
+            ),
+        ) {
+          case Left(EncodeError(msg)) =>
+            // fuzzy sort of "failed because of the version override" test
+            msg should include(tx2.version.protoValue)
+          case Right(encodedTx) =>
+            val decodedVersionedTx = assertRight(
+              TransactionCoder
+                .decodeTransaction(
+                  TransactionCoder.NidDecoder,
+                  ValueCoder.CidDecoder,
+                  encodedTx,
+                ),
+            )
+            decodedVersionedTx shouldBe tx2
+        }
+      }
+
     "succeed with encoding under later version if succeeded under earlier version" in
       forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
         forAll(transactionVersionGen, transactionVersionGen, minSuccessful(20)) {
           (txVer1, txVer2) =>
+            import VersionTimeline.Implicits._
             import scalaz.std.tuple._
             import scalaz.syntax.bifunctor._
             whenever(txVer1 != txVer2) {
