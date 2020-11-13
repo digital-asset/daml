@@ -58,13 +58,7 @@ trait OCSPResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
 
   private def responderResourceOwner: ResourceOwner[Process] =
     new ResourceOwner[Process] {
-
-      /**
-        * Acquires the [[Resource]].
-        *
-        * @param context The acquisition context, including the asynchronous task execution engine.
-        * @return The acquired [[Resource]].
-        */
+      
       override def acquire()(implicit context: ResourceContext): Resource[Process] = {
         def start(): Future[Process] =
           for {
