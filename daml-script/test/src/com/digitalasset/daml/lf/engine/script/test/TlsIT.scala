@@ -25,11 +25,11 @@ final class TlsIT
   val (dar, envIface) = readDar(stableDarFile)
 
   val List(serverCrt, serverPem, caCrt, clientCrt, clientPem, index, ocspKey, ocspCert, clientRevokedCrt, clientRevokedPem) = {
-    List("server.cert.pem", "server.pem", "ca.cert.pem", "client.cert.pem", "client.pem", "index.txt", "ocsp.key.pem", "ocsp.cert.pem", "client-revoked.cert.pem", "client-revoked.pem").map { src =>
+    List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem", "index.txt", "ocsp.key.pem", "ocsp.crt", "client-revoked.crt", "client-revoked.pem").map { src =>
       Some(new File(rlocation("ledger/test-common/test-certificates/" + src)))
     }
   }
-  
+
   val indexPath = index.get.getAbsolutePath
   val caCertPath = caCrt.get.getAbsolutePath
   val ocspKeyPath = ocspKey.get.getAbsolutePath
@@ -44,7 +44,6 @@ final class TlsIT
 
   "DAML Script against ledger with TLS" can {
     "test0" should {
-      // TODO: remove this
       "ocsp property test" in {
         sys.props.get("com.sun.net.ssl.checkRevocation") shouldBe Some("true")
       }
