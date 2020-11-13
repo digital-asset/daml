@@ -131,6 +131,9 @@ object JdbcIndexer {
 
   }
 
+  private def loggingContextPartiesValue(parties: List[Party]) =
+    parties.mkString("[", ", ", "]")
+
   private def loggingContextFor(update: Update): Map[String, String] =
     update match {
       case ConfigurationChanged(_, submissionId, participantId, newConfiguration) =>
@@ -187,7 +190,7 @@ object JdbcIndexer {
           .map(
             info =>
               Map(
-                "updateSubmitter" -> info.actAs.mkString("[", ", ", "]"),
+                "updateSubmitter" -> loggingContextPartiesValue(info.actAs),
                 "updateApplicationId" -> info.applicationId,
                 "updateCommandId" -> info.commandId,
                 "updateDeduplicateUntil" -> info.deduplicateUntil.toString,
@@ -195,7 +198,7 @@ object JdbcIndexer {
           .getOrElse(Map.empty)
       case CommandRejected(_, submitterInfo, reason) =>
         Map(
-          "updateSubmitter" -> submitterInfo.actAs.mkString("[", ", ", "]"),
+          "updateSubmitter" -> loggingContextPartiesValue(submitterInfo.actAs),
           "updateApplicationId" -> submitterInfo.applicationId,
           "updateCommandId" -> submitterInfo.commandId,
           "updateDeduplicateUntil" -> submitterInfo.deduplicateUntil.toString,
