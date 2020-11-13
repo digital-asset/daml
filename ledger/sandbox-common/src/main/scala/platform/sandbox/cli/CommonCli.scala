@@ -137,6 +137,15 @@ class CommonCli(name: LedgerName) {
           config.copy(tlsConfig = config.tlsConfig
             .fold(Some(TlsConfiguration(enabled = true, None, None, None, clientAuth)))(c =>
               Some(c.copy(clientAuth = clientAuth)))))
+      
+      opt[Boolean]("cert-revocation-checks")
+          .optional()
+          .text("TLS: Enable/disable certificate revocation checks with the OCSP. Default is to disable checks.")
+          .action((checksEnabled, config) =>
+            config.copy(
+              tlsConfig = config.tlsConfig
+                .fold(Some(TlsConfiguration.Empty.copy(revocationChecks = checksEnabled)))(config => Some(config.copy(revocationChecks = checksEnabled)))
+            ))
 
       opt[Int]("max-inbound-message-size")
         .optional()
