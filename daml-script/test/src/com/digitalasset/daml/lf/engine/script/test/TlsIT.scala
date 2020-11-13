@@ -29,9 +29,7 @@ final class TlsIT
       Some(new File(rlocation("ledger/test-common/test-certificates/" + src)))
     }
   }
-
-  // TODO: use the openssl bazel tool
-  val ocspCommandPath = "/usr/local/opt/openssl/bin/openssl"
+  
   val indexPath = index.get.getAbsolutePath
   val caCertPath = caCrt.get.getAbsolutePath
   val ocspKeyPath = ocspKey.get.getAbsolutePath

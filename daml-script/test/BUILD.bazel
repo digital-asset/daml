@@ -8,6 +8,7 @@ load(
 )
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_windows")
 
 genrule(
     name = "script-test",
@@ -161,6 +162,7 @@ da_scala_test_suite(
         ":script-test-1.dev.dar",
         ":script-test-no-ledger.dar",
         "//ledger/test-common/test-certificates",
+        "@openssl_dev_env//:bin/openssl" if not is_windows else "@openssl_dev_env//:usr/bin/openssl.exe",
     ],
     resources = glob(["src/main/resources/**/*"]),
     deps = [

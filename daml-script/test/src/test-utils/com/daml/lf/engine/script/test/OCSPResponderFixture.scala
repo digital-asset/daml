@@ -1,5 +1,6 @@
 package com.daml.lf.engine.script.test
 
+import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.testing.utils.OwnedResource
 import com.daml.ledger.api.testing.utils.{Resource => TestResource}
@@ -21,7 +22,6 @@ trait OCSPResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
   private val RESPONDER_HOST: String = "127.0.0.1"
   private val RESPONDER_PORT: Int = 2560
 
-  def ocspCommandPath: String
   def indexPath: String
   def caCertPath: String
   def ocspKeyPath: String
@@ -37,6 +37,12 @@ trait OCSPResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
     responderResource.close()
     super.afterAll()
   }
+
+  private val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
+
+  private val opensslExecutable: String =
+    if (!isWindows) BazelRunfiles.rlocation("external/openssl_dev_env/bin/openssl")
+    else BazelRunfiles.rlocation("external/openssl_dev_env/usr/bin/openssl.exe")
 
   lazy val responderResource: TestResource[Any] = {
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
@@ -80,7 +86,7 @@ trait OCSPResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
     }
 
   private def ocspServerCommand = List(
-    ocspCommandPath,
+    opensslExecutable,
     "ocsp",
     "-port",
     RESPONDER_PORT.toString,
@@ -92,7 +98,7 @@ trait OCSPResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
   )
 
   private def testOCSPRequestCommand = List(
-    ocspCommandPath,
+    opensslExecutable,
     "ocsp",
     "-CAfile",
     caCertPath,
