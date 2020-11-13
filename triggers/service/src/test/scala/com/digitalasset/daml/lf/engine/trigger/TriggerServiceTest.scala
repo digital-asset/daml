@@ -71,6 +71,10 @@ trait AbstractTriggerServiceTest
   protected override def actorSystemName = testId
 
   protected val alice: Party = Tag("Alice")
+  // This party is used by the test that queries the ACS.
+  // To avoid mixing this up with the other tests, we use a separate
+  // party.
+  protected val aliceAcs: Party = Tag("Alice_acs")
   protected val bob: Party = Tag("Bob")
   protected val eve: Party = Tag("Eve")
 
@@ -250,12 +254,26 @@ trait AbstractTriggerServiceTest
 
   it should "should enable a trigger on http request" in withTriggerService(List(dar)) { uri: Uri =>
     for {
+      client <- sandboxClient(
+        ApiTypes.ApplicationId(testId),
+        actAs = List(ApiTypes.Party(aliceAcs.unwrap)))
+      filter = TransactionFilter(
+        List(
+          (
+            aliceAcs.unwrap,
+            Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
+      // Make sure that no contracts exist initially to guard against accidental
+      // party reuse.
+      acs <- client.activeContractSetClient
+        .getActiveContracts(filter)
+        .runWith(Sink.seq)
+        .map(acsPages => acsPages.flatMap(_.activeContracts))
+      _ = acs shouldBe Vector()
       // Start the trigger
-      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", aliceAcs)
       triggerId <- parseTriggerId(resp)
 
       // Trigger is running, create an A contract
-      client <- sandboxClient(ApiTypes.ApplicationId(testId), actAs = List(ApiTypes.Party("Alice")))
       _ <- {
         val cmd = Command().withCreate(
           CreateCommand(
@@ -264,27 +282,24 @@ trait AbstractTriggerServiceTest
               Record(
                 None,
                 Seq(
-                  RecordField(value = Some(Value().withParty("Alice"))),
+                  RecordField(value = Some(Value().withParty(aliceAcs.unwrap))),
                   RecordField(value = Some(Value().withInt64(42)))))),
           ))
-        submitCmd(client, "Alice", cmd)
+        submitCmd(client, aliceAcs.unwrap, cmd)
       }
       // Query ACS until we see a B contract
-      // format: off
-        _ <- Future {
-          val filter = TransactionFilter(List(("Alice", Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
-          // eventually doesn’t handle Futures in the version of scalatest we’re using.
-          RetryStrategy.constant(5, 1.seconds) { (_, _) =>
-            for {
-              acs <- client.activeContractSetClient.getActiveContracts(filter).runWith(Sink.seq).map(acsPages => acsPages.flatMap(_.activeContracts))
-            } yield assert(acs.length == 1)
-          }
-        }
+      _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
+        for {
+          acs <- client.activeContractSetClient
+            .getActiveContracts(filter)
+            .runWith(Sink.seq)
+            .map(acsPages => acsPages.flatMap(_.activeContracts))
+        } yield assert(acs.length == 1)
+      }
       status <- triggerStatus(uri, triggerId)
       _ = status.status shouldBe StatusCodes.OK
       body <- responseBodyToString(status)
-      _ = body shouldBe s"""{"result":{"party":"Alice","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
-        // format: on
+      _ = body shouldBe s"""{"result":{"party":"Alice_acs","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
       resp <- stopTrigger(uri, triggerId, alice)
       _ <- assert(resp.status.isSuccess)
     } yield succeed
@@ -473,7 +488,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
     extends AbstractTriggerServiceTest
     with AuthMiddlewareFixture {
 
-  override protected val authParties = Some(Set(alice, bob))
+  override protected val authParties = Some(Set(alice, aliceAcs, bob))
 
   behavior of "authenticated service"
 
