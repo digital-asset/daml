@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 genrule(
     name = "test-certificates",
     srcs = [
-        ":root-ca.cnf.sample"
+        ":root-ca.cnf.sample",
     ],
     outs = [
         "openssl.cnf",
@@ -129,20 +129,20 @@ $(location @openssl_dev_env//:openssl) verify -CAfile $(location ca.crt) \
 # Revoke
 $(location @openssl_dev_env//:openssl) ca -batch -config $(location openssl.cnf) -revoke $(location client-revoked.crt)
 
-    $(location @openssl_dev_env//:openssl) ocsp -port 2560 -text \
-        -index $(location index.txt) \
-        -CA $(location ca.crt) \
-        -rkey $(location ocsp.key.pem) \
-        -rsigner $(location ocsp.crt) &
 
-    sleep 5
+# Following is a simple-smoke test for the generated certificates
+$(location @openssl_dev_env//:openssl) ocsp -port 2560 -text \
+    -index $(location index.txt) \
+    -CA $(location ca.crt) \
+    -rkey $(location ocsp.key.pem) \
+    -rsigner $(location ocsp.crt) &
 
-    $(location @openssl_dev_env//:openssl) ocsp -CAfile $(location ca.crt) \
-        -url http://127.0.0.1:2560 -resp_text \
-        -issuer $(location ca.crt) \
-        -cert $(location client-revoked.crt)
+sleep 5
 
-
+$(location @openssl_dev_env//:openssl) ocsp -CAfile $(location ca.crt) \
+    -url http://127.0.0.1:2560 -resp_text \
+    -issuer $(location ca.crt) \
+    -cert $(location client-revoked.crt)
     """,
     tools = [
         "@openssl_dev_env//:openssl",

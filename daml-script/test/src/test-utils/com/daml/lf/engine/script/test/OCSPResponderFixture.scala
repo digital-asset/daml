@@ -1,3 +1,6 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.lf.engine.script.test
 
 import com.daml.bazeltools.BazelRunfiles
@@ -55,12 +58,13 @@ trait OCSPResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
 
   private def responderResourceOwner: ResourceOwner[Process] =
     new ResourceOwner[Process] {
+
       /**
-       * Acquires the [[Resource]].
-       *
-       * @param context The acquisition context, including the asynchronous task execution engine.
-       * @return The acquired [[Resource]].
-       */
+        * Acquires the [[Resource]].
+        *
+        * @param context The acquisition context, including the asynchronous task execution engine.
+        * @return The acquired [[Resource]].
+        */
       override def acquire()(implicit context: ResourceContext): Resource[Process] = {
         def start(): Future[Process] =
           for {
@@ -91,10 +95,14 @@ trait OCSPResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
     "-port",
     RESPONDER_PORT.toString,
     "-text",
-    "-index", indexPath,
-    "-CA", caCertPath,
-    "-rkey", ocspKeyPath,
-    "-rsigner", ocspCertPath
+    "-index",
+    indexPath,
+    "-CA",
+    caCertPath,
+    "-rkey",
+    ocspKeyPath,
+    "-rsigner",
+    ocspCertPath
   )
 
   private def testOCSPRequestCommand = List(

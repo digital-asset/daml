@@ -1,3 +1,6 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.api.tls
 
 import org.scalatest.WordSpec
@@ -11,10 +14,12 @@ class TlsConfigurationTest extends WordSpec with Matchers {
       disableChecks()
       verifyOCSP(DISABLED)
 
-      TlsConfiguration.Empty.copy(
-        enabled = true,
-        revocationChecks = true
-      ).setJvmTlsProperties()
+      TlsConfiguration.Empty
+        .copy(
+          enabled = true,
+          revocationChecks = true
+        )
+        .setJvmTlsProperties()
 
       verifyOCSP(ENABLED)
     }

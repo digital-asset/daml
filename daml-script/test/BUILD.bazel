@@ -154,15 +154,15 @@ da_scala_library(
 da_scala_test_suite(
     name = "test",
     srcs = glob(["src/com/**/*.scala"]),
-    jvm_flags = [
-        """-Djava.security.debug=\"certpath ocsp\"""" # This facilitates debugging of the OCSP checks mechanism
-    ],
     data = [
         ":script-test.dar",
         ":script-test-1.dev.dar",
         ":script-test-no-ledger.dar",
         "//ledger/test-common/test-certificates",
         "@openssl_dev_env//:bin/openssl" if not is_windows else "@openssl_dev_env//:usr/bin/openssl.exe",
+    ],
+    jvm_flags = [
+        """-Djava.security.debug=\"certpath ocsp\"""",  # This facilitates debugging of the OCSP checks mechanism
     ],
     resources = glob(["src/main/resources/**/*"]),
     deps = [

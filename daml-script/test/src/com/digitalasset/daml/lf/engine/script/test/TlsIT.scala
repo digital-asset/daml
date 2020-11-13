@@ -16,7 +16,7 @@ import org.scalatest._
 import scala.concurrent.Future
 
 final class TlsIT
-  extends AsyncWordSpec
+    extends AsyncWordSpec
     with SandboxParticipantFixture
     with Matchers
     with SuiteResourceManagementAroundAll
@@ -24,8 +24,28 @@ final class TlsIT
 
   val (dar, envIface) = readDar(stableDarFile)
 
-  val List(serverCrt, serverPem, caCrt, clientCrt, clientPem, index, ocspKey, ocspCert, clientRevokedCrt, clientRevokedPem) = {
-    List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem", "index.txt", "ocsp.key.pem", "ocsp.crt", "client-revoked.crt", "client-revoked.pem").map { src =>
+  val List(
+    serverCrt,
+    serverPem,
+    caCrt,
+    clientCrt,
+    clientPem,
+    index,
+    ocspKey,
+    ocspCert,
+    clientRevokedCrt,
+    clientRevokedPem) = {
+    List(
+      "server.crt",
+      "server.pem",
+      "ca.crt",
+      "client.crt",
+      "client.pem",
+      "index.txt",
+      "ocsp.key.pem",
+      "ocsp.crt",
+      "client-revoked.crt",
+      "client-revoked.pem").map { src =>
       Some(new File(rlocation("ledger/test-common/test-certificates/" + src)))
     }
   }
@@ -40,7 +60,9 @@ final class TlsIT
 
   override protected def config =
     super.config
-      .copy(tlsConfig = Some(TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt, revocationChecks = true)))
+      .copy(
+        tlsConfig = Some(
+          TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt, revocationChecks = true)))
 
   "DAML Script against ledger with TLS" can {
     "test0" should {
@@ -54,8 +76,7 @@ final class TlsIT
       }
 
       "fail to create and accept Proposal with a revoked client certificate" in {
-        executeSampleRequest(clientRevokedCrt, clientRevokedPem)
-          .failed
+        executeSampleRequest(clientRevokedCrt, clientRevokedPem).failed
           .collect {
             case com.daml.grpc.GrpcException.UNAVAILABLE() =>
               succeed
@@ -66,7 +87,9 @@ final class TlsIT
     }
   }
 
-  private def executeSampleRequest(keyCertChainFile: Option[File], keyFile: Option[File]): Future[SValue] = {
+  private def executeSampleRequest(
+      keyCertChainFile: Option[File],
+      keyFile: Option[File]): Future[SValue] = {
     participantClients(
       tlsConfiguration = TlsConfiguration(
         enabled = true,
