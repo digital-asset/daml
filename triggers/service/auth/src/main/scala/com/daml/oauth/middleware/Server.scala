@@ -115,7 +115,9 @@ object Server extends StrictLogging {
             responseType = "code",
             clientId = config.clientId,
             redirectUri = toRedirectUri(request.uri),
-            scope = Some(login.claims.toQueryString),
+            // Auth0 will only issue a refresh token if the offline_access claim is present.
+            // TODO[AH] Make the request configurable, see https://github.com/digital-asset/daml/issues/7957
+            scope = Some("offline_access " + login.claims.toQueryString),
             state = Some(requestId.toString),
             audience = Some("https://daml.com/ledger-api")
           )
