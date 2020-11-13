@@ -153,10 +153,8 @@ da_scala_library(
 da_scala_test_suite(
     name = "test",
     srcs = glob(["src/com/**/*.scala"]),
-    # TODO: remove jvm_flag checkRevocation
     jvm_flags = [
-        "-Dcom.sun.net.ssl.checkRevocation=true",
-        """-Djava.security.debug=\"certpath ocsp\""""
+        """-Djava.security.debug=\"certpath ocsp\"""" # This facilitates debugging of the OCSP checks mechanism
     ],
     data = [
         ":script-test.dar",

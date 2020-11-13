@@ -21,10 +21,6 @@ final class TlsIT
     with Matchers
     with SuiteResourceManagementAroundAll
     with OCSPResponderFixture {
-  // TODO: this should go to a proper place (for testing only here)
-  //  System.setProperty("com.sun.net.ssl.checkRevocation", "true")
-  //  System.setProperty("com.sun.security.enableCRLDP", "true")
-  java.security.Security.setProperty("ocsp.enable", "true")
 
   val (dar, envIface) = readDar(stableDarFile)
 
@@ -46,7 +42,7 @@ final class TlsIT
 
   override protected def config =
     super.config
-      .copy(tlsConfig = Some(TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)))
+      .copy(tlsConfig = Some(TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt, revocationChecks = true)))
 
   "DAML Script against ledger with TLS" can {
     "test0" should {

@@ -109,6 +109,7 @@ final class StandaloneApiServer(
         AuthorizationInterceptor(authService, executionContext) :: otherInterceptors,
         metrics
       )
+      _ = config.tlsConfig.foreach(_.setJvmTlsProperties())
     } yield {
       writePortFile(apiServer.port)
       logger.info(

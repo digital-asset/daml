@@ -349,6 +349,7 @@ final class SandboxServer(
         ),
         metrics
       ).acquire()
+      _ = config.tlsConfig.foreach(_.setJvmTlsProperties())
       _ <- Resource.fromFuture(writePortFile(apiServer.port))
     } yield {
       Banner.show(Console.out)

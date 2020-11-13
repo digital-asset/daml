@@ -13,7 +13,8 @@ final case class TlsConfiguration(
     keyCertChainFile: Option[File], // mutual auth is disabled if null
     keyFile: Option[File],
     trustCertCollectionFile: Option[File], // System default if null
-    clientAuth: ClientAuth = ClientAuth.REQUIRE // Client auth setting used by the server. This is not used in the client configuration.
+    clientAuth: ClientAuth = ClientAuth.REQUIRE, // Client auth setting used by the server. This is not used in the client configuration.
+    revocationChecks: Boolean = false
 ) {
 
   def keyFileOrFail: File =
@@ -51,6 +52,20 @@ final case class TlsConfiguration(
           .build
       )
     else None
+
+  /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS configuration. */
+  def setJvmTlsProperties(): Unit =
+    if (enabled && revocationChecks) enableOCSP()
+
+  /**
+   * Enables certificate revocation checks with OCSP.
+   * See: https://tersesystems.com/blog/2014/03/22/fixing-certificate-revocation/
+   */
+  private def enableOCSP(): Unit = {
+    System.setProperty("com.sun.net.ssl.checkRevocation", "true")
+    java.security.Security.setProperty("ocsp.enable", "true")
+  }
+
 }
 
 object TlsConfiguration {
