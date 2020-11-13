@@ -48,7 +48,7 @@ class DecodeV1Spec
   private def moduleDecoder(
       minVersion: LV.Minor,
       stringTable: ImmArraySeq[String] = ImmArraySeq.empty,
-      dottedNameTable: ImmArraySeq[DottedName] = ImmArraySeq.empty
+      dottedNameTable: ImmArraySeq[DottedName] = ImmArraySeq.empty,
   ) = {
     new DecodeV1(minVersion).DecoderEnv(
       Ref.PackageId.assertFromString("noPkgId"),
@@ -119,6 +119,13 @@ class DecodeV1Spec
     LV.Minor.Stable("7"),
     LV.Minor.Stable("8"),
     LV.Minor.Dev,
+  )
+
+  private val preTypeInterningVersions = Table(
+    "minVersion",
+    LV.Minor.Stable("6"),
+    LV.Minor.Stable("7"),
+    LV.Minor.Stable("8"),
   )
 
   private val postContractIdTextConversionVersions = Table(
@@ -872,4 +879,33 @@ class DecodeV1Spec
     }
   }
 
+  "decodeInternedTypes" should {
+    def pkgWithInternedTypes: DamlLf1.Package = {
+      val typeNat1 = DamlLf1.Type.newBuilder().setNat(1).build()
+      DamlLf1.Package
+        .newBuilder()
+        .addInternedTypes(typeNat1)
+        .build()
+    }
+
+    "reject PackageMetadata if lf version < 1.8" in {
+      forEvery(preTypeInterningVersions) { minVersion =>
+        val decoder = new DecodeV1(minVersion)
+        val env = decoder.DecoderEnv(
+          Ref.PackageId.assertFromString("noPkgId"),
+          ImmArraySeq.empty,
+          ImmArraySeq.empty,
+          IndexedSeq.empty,
+          None,
+          None,
+          onlySerializableDataDefs = false
+        )
+        val parseError = the[ParseError] thrownBy decoder.decodeInternedTypes(
+          env,
+          pkgWithInternedTypes,
+        )
+        parseError.toString should include("interned types table is not supported")
+      }
+    }
+  }
 }

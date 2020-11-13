@@ -60,7 +60,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       None,
       onlySerializableDataDefs,
     )
-    val internedTypes = decodeInternedTypes(env0, lfPackage.getInternedTypesList.asScala.toSeq)
+    val internedTypes = decodeInternedTypes(env0, lfPackage)
     val env = env0.copy(internedTypes = internedTypes)
 
     Package(
@@ -116,7 +116,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       onlySerializableDataDefs = false
     )
     val internedTypes =
-      decodeInternedTypes(env0, lfScenarioModule.getInternedTypesList.asScala.toSeq)
+      decodeInternedTypes(env0, lfScenarioModule)
     val env = env0.copy(internedTypes = internedTypes)
     env.decodeModule(lfScenarioModule.getModules(0))
 
@@ -147,22 +147,19 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       case Right(x) => x
     }
 
-  private[this] def decodeInternedTypes(
+  private[archive] def decodeInternedTypes(
       env: DecoderEnv,
-      lfTypes: Seq[PLF.Type],
+      lfPackage: PLF.Package,
   ): IndexedSeq[Type] = {
-    if (lfTypes.nonEmpty)
+    val lfTypes = lfPackage.getInternedTypesList
+    if (!lfTypes.isEmpty)
       assertSince(LV.Features.internedTypes, "interned types table")
-    val internedTypes = Array.ofDim[Type](lfTypes.length)
-    var i = 0
-    while (i < internedTypes.length) {
-      val typ = env.copy(internedTypes = internedTypes.view.slice(0, i)).decodeType(lfTypes(i))
-      internedTypes(i) = typ
-      i += 1
-    }
-    internedTypes
+    lfTypes.iterator.asScala
+      .foldLeft(new mutable.ArrayBuffer[Type](lfTypes.size)) { (buf, typ) =>
+        buf += env.copy(internedTypes = buf).decodeType(typ)
+      }
+      .toIndexedSeq
   }
-
   case class PackageDependencyTracker(self: PackageId) {
     private val deps = mutable.Set.empty[PackageId]
     def markDependency(pkgId: PackageId): Unit =
@@ -680,7 +677,10 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
                 identity
               ))
         case PLF.Type.SumCase.INTERNED =>
-          internedTypes.applyOrElse(lfType.getInterned, (index: Int) => throw ParseError(s"invalid internedTypes table index $index"))
+          internedTypes.applyOrElse(
+            lfType.getInterned,
+            (index: Int) => throw ParseError(s"invalid internedTypes table index $index"),
+          )
         case PLF.Type.SumCase.SUM_NOT_SET =>
           throw ParseError("Type.SUM_NOT_SET")
       }
