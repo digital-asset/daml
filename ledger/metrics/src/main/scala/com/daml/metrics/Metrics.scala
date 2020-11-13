@@ -469,7 +469,7 @@ final class Metrics(val registry: MetricRegistry) {
     }
 
     object indexer {
-      private val Prefix: MetricName = daml.Prefix :+ "indexer"
+      val Prefix: MetricName = daml.Prefix :+ "indexer"
 
       val lastReceivedRecordTime = new VarGauge[Long](0)
       registry.register(Prefix :+ "last_received_record_time", lastReceivedRecordTime)

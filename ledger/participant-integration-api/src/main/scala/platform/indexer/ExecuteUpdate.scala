@@ -372,7 +372,7 @@ class PipelinedExecuteUpdate(
 
   private[indexer] val flow: ExecuteUpdateFlow =
     Flow[OffsetUpdate]
-      .mapAsync(1)(prepareUpdate)
+      .mapAsync(4)(prepareUpdate)
       .map(PipelinedUpdateWithTimer(_, metrics.daml.index.db.storeTransaction.time()))
       .mapAsync(1)(insertTransactionState)
       .mapAsync(1)(insertTransactionEvents)

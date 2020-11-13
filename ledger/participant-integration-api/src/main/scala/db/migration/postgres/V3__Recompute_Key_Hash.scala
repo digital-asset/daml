@@ -11,6 +11,7 @@ import anorm.{BatchSql, NamedParameter}
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
+import com.daml.platform.store.dao.events.LfValueTranslation.Compression
 import com.daml.platform.store.serialization.{KeyHasher, ValueSerializer}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
@@ -56,7 +57,7 @@ private[migration] class V3__Recompute_Key_Hash extends BaseJavaMigration {
           qualifiedName = Ref.QualifiedName.assertFromString(rows.getString("template_name")),
         )
         val key = ValueSerializer
-          .deserializeValue(rows.getBinaryStream("contract_key"))
+          .deserializeValue(Compression.decompressStream(rows.getBinaryStream("contract_key")))
           .assertNoCid(coid => s"Found contract ID $coid in contract key")
 
         hasNext = rows.next()

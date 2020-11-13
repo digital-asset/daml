@@ -5,7 +5,8 @@ package com.daml.platform.db.migration.postgres
 
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GlobalKey
-import com.daml.platform.db.migration.translation.ValueSerializer
+import com.daml.platform.store.dao.events.LfValueTranslation.Compression
+import com.daml.platform.store.serialization.ValueSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 private[migration] final class V32_1__Fix_key_hashes extends BaseJavaMigration {
@@ -32,7 +33,7 @@ private[migration] final class V32_1__Fix_key_hashes extends BaseJavaMigration {
         val rawTemplateId = keysRows.getString("template_id")
         val templateId = Ref.Identifier.assertFromString(rawTemplateId)
         val rawKeyValue = keysRows.getBinaryStream("create_key_value")
-        val keyValue = ValueSerializer.deserializeValue(rawKeyValue)
+        val keyValue = ValueSerializer.deserializeValue(Compression.decompressStream(rawKeyValue))
         val key = GlobalKey.assertBuild(templateId, keyValue.value)
         val hashBytes = key.hash.bytes.toInputStream
 

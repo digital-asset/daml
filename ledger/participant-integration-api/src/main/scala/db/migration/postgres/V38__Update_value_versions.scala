@@ -8,6 +8,7 @@ package postgres
 import java.sql.{Connection, ResultSet}
 
 import anorm.{BatchSql, NamedParameter}
+import com.daml.platform.store.dao.events.LfValueTranslation.Compression
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 import scala.collection.compat.immutable.LazyList
@@ -65,7 +66,9 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
       rows: ResultSet,
       label: String,
   ): (String, Option[Value]) =
-    label -> Option(rows.getBinaryStream(label)).map(ValueSerializer.deserializeValue)
+    label -> Option(rows.getBinaryStream(label))
+      .map(Compression.decompressStream)
+      .map(ValueSerializer.deserializeValue)
 
   private[this] def valueNeedUpdate(namedValue: (String, Option[Value])): Boolean =
     namedValue._2.exists(_.version.protoValue.toInt < stableValueVersionAsInt)

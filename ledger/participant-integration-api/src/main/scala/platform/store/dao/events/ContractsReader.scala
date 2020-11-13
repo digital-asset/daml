@@ -16,6 +16,7 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.dao.events.SqlFunctions.{H2SqlFunctions, PostgresSqlFunctions}
+import com.daml.platform.store.dao.events.LfValueTranslation.Compression
 import com.daml.platform.store.serialization.ValueSerializer
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -40,7 +41,7 @@ private[dao] sealed class ContractsReader(
     str("template_id")
 
   private val translation: LfValueTranslation =
-    new LfValueTranslation(lfValueTranslationCache)
+    new LfValueTranslation(lfValueTranslationCache)(metrics)
 
   /** Lookup of a contract in the case the contract value is not already known */
   private def lookupActiveContractAndLoadArgument(
@@ -159,7 +160,7 @@ private[dao] object ContractsReader {
       arg = Timed.value(
         timer = deserializationTimer,
         value = ValueSerializer.deserializeValue(
-          stream = createArgument,
+          stream = Compression.decompressStream(createArgument),
           errorContext = s"Failed to deserialize create argument for contract ${contractId.coid}",
         ),
       ),
