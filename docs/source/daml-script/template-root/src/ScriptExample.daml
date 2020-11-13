@@ -96,3 +96,21 @@ initializeFixed = do
   let parties = LedgerParties{..}
   initialize parties
 -- INITIALIZE_FIXED_END
+
+-- INITIALIZE_QUERY_BEGIN
+queryParties : Script (Optional LedgerParties)
+queryParties = do
+  knownParties <- listKnownParties
+  pure $ do
+    bank <- party <$> find (\p -> p.displayName == Some "Bank") knownParties
+    alice <- party <$> find (\p -> p.displayName == Some "Alice") knownParties
+    bob <- party <$> find (\p -> p.displayName == Some "Bob") knownParties
+    pure LedgerParties{..}
+
+initializeFromQuery : Script ()
+initializeFromQuery = do
+  optParties <- queryParties
+  case optParties of
+    None -> fail "Could not find parties with correct display names"
+    Some parties -> initialize parties
+-- INITIALIZE_QUERY_END
