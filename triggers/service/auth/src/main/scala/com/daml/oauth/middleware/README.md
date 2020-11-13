@@ -18,6 +18,7 @@ repository](https://github.com/digital-asset/ex-secure-daml-infra).
   - Provide a name (`ex-daml-api`).
   - Provide an Identifier (`https://daml.com/ledger-api`).
   - Select Signing Algorithm of `RS256`.
+  - Allow offline access to enable refresh token generation.
 * Create a new native application.
   - Provide a name (`ex-daml-auth-middleware`).
   - Select the authorized API (`ex-daml-api`).
@@ -31,8 +32,14 @@ repository](https://github.com/digital-asset/ex-secure-daml-infra).
   - Provide a script
     ``` javascript
     function (user, context, callback) {
+      // Only handle ledger-api audience.
+      const audience = context.request.query && context.request.query.audience || "";
+      if (audience !== "https://daml.com/ledger-api") {
+        return callback(null, user, context);
+      }
+
       // Grant all requested claims
-      const scope = (context.request.query.scope || "").split(" ");
+      const scope = (context.request.query && context.request.query.scope || "").split(" ");
       var actAs = [];
       var readAs = [];
       var admin = false;
@@ -41,7 +48,7 @@ repository](https://github.com/digital-asset/ex-secure-daml-infra).
           actAs.push(s.slice(6));
         } else if (s.startsWith("readAs:")) {
           readAs.push(s.slice(7));
-        } else if (s.startsWith("admin")) {
+        } else if (s === "admin") {
           admin = true;
         }
       });
