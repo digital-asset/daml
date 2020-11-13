@@ -34,6 +34,7 @@ final class TlsIT
     }
   }
 
+  // TODO: use the openssl bazel tool
   val ocspCommandPath = "/usr/local/opt/openssl/bin/openssl"
   val indexPath = index.get.getAbsolutePath
   val caCertPath = caCrt.get.getAbsolutePath
