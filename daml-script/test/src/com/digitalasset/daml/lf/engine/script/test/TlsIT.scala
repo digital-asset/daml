@@ -64,26 +64,26 @@ final class TlsIT
         tlsConfig = Some(
           TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt, revocationChecks = true)))
 
-  "DAML Script against ledger with TLS" can {
-    "test0" should {
-      "ocsp property test" in {
-        sys.props.get("com.sun.net.ssl.checkRevocation") shouldBe Some("true")
-      }
+  "The test runner" should {
+    "be configured to enable OCSP revocation checks" in {
+      sys.props.get("com.sun.net.ssl.checkRevocation") shouldBe Some("true")
+    }
+  }
 
-      "create and accept Proposal" in {
-        executeSampleRequest(clientCrt, clientPem)
-          .map(_ => succeed) // No assertion, we just want to see that it succeeds
-      }
+  "DAML Script against ledger with TLS" should {
+    "create and accept Proposal" in {
+      executeSampleRequest(clientCrt, clientPem)
+        .map(_ => succeed) // No assertion, we just want to see that it succeeds
+    }
 
-      "fail to create and accept Proposal with a revoked client certificate" in {
-        executeSampleRequest(clientRevokedCrt, clientRevokedPem).failed
-          .collect {
-            case com.daml.grpc.GrpcException.UNAVAILABLE() =>
-              succeed
-            case ex =>
-              fail(s"Invalid exception: ${ex.getClass.getCanonicalName}: ${ex.getMessage}")
-          }
-      }
+    "fail to create and accept Proposal with a revoked client certificate" in {
+      executeSampleRequest(clientRevokedCrt, clientRevokedPem).failed
+        .collect {
+          case com.daml.grpc.GrpcException.UNAVAILABLE() =>
+            succeed
+          case ex =>
+            fail(s"Invalid exception: ${ex.getClass.getCanonicalName}: ${ex.getMessage}")
+        }
     }
   }
 
