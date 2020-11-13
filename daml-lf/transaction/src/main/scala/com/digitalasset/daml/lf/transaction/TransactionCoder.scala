@@ -275,11 +275,15 @@ object TransactionCoder {
       version <- if (enclosingVersion precedes TransactionVersions.minNodeVersion) {
         Right(enclosingVersion)
       } else {
-        decodeVersion(protoNode.getVersion).filterOrElse(
-          nodeVersion => !(enclosingVersion precedes nodeVersion),
-          DecodeError(
-            s"A transaction of version $enclosingVersion cannot contain node of newer version (${protoNode.getVersion})")
-        )
+        decodeVersion(protoNode.getVersion) match {
+          case Left(err) => Left(err)
+          case Right(nodeVersion) =>
+            if enclosingVersion precedes nodeVersion
+              Left(DecodeError(
+                s"A transaction of version $enclosingVersion cannot contain node of newer version (${protoNode.getVersion})"))
+            else
+              Right(nodeVersion)
+        }
       }
       node <- decodeNode(decodeNid, decodeCid, version, protoNode)
     } yield node
