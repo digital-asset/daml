@@ -135,7 +135,8 @@ $(location @openssl_dev_env//:openssl) ocsp -port 2560 -text \
     -index $(location index.txt) \
     -CA $(location ca.crt) \
     -rkey $(location ocsp.key.pem) \
-    -rsigner $(location ocsp.crt) &
+    -rsigner $(location ocsp.crt) \
+    -nrequest 1 &
 
 sleep 5
 
