@@ -60,7 +60,7 @@ class Server(
     restartConfig: TriggerRestartConfig,
     triggerDao: RunningTriggerDao,
     val logTriggerStatus: (UUID, String) => Unit)(
-    implicit ctx: ActorContext[Message],
+    implicit ctx: ActorContext[Server.Message],
     materializer: Materializer,
     esf: ExecutionSequencerFactory)
     extends StrictLogging {
@@ -426,6 +426,32 @@ class Server(
 }
 
 object Server {
+
+  sealed trait Message
+
+  final case class GetServerBinding(replyTo: ActorRef[ServerBinding]) extends Message
+
+  final case class StartFailed(cause: Throwable) extends Message
+
+  final case class Started(binding: ServerBinding) extends Message
+
+  case object Stop extends Message
+
+  // Messages passed to the server from a TriggerRunnerImpl
+
+  final case class TriggerStarting(triggerInstance: UUID) extends Message
+
+  final case class TriggerStarted(triggerInstance: UUID) extends Message
+
+  final case class TriggerInitializationFailure(
+      triggerInstance: UUID,
+      cause: String
+  ) extends Message
+
+  final case class TriggerRuntimeFailure(
+      triggerInstance: UUID,
+      cause: String
+  ) extends Message
 
   def apply(
       host: String,

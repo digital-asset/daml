@@ -38,9 +38,9 @@ object ServiceMain {
       encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
       logTriggerStatus: (UUID, String) => Unit = (_, _) => ()
-  ): Future[(ServerBinding, ActorSystem[Message])] = {
+  ): Future[(ServerBinding, ActorSystem[Server.Message])] = {
 
-    val system: ActorSystem[Message] =
+    val system: ActorSystem[Server.Message] =
       ActorSystem(
         Server(
           host,
@@ -60,7 +60,7 @@ object ServiceMain {
     implicit val ec: ExecutionContext = system.executionContext
 
     val serviceF: Future[ServerBinding] =
-      system.ask((ref: ActorRef[ServerBinding]) => GetServerBinding(ref))
+      system.ask((ref: ActorRef[ServerBinding]) => Server.GetServerBinding(ref))
     serviceF.map(server => (server, system))
   }
 
@@ -89,7 +89,7 @@ object ServiceMain {
           config.minRestartInterval,
           config.maxRestartInterval,
         )
-        val system: ActorSystem[Message] =
+        val system: ActorSystem[Server.Message] =
           ActorSystem(
             Server(
               config.address,
@@ -109,12 +109,12 @@ object ServiceMain {
 
         // Shutdown gracefully on SIGINT.
         val serviceF: Future[ServerBinding] =
-          system.ask((ref: ActorRef[ServerBinding]) => GetServerBinding(ref))
+          system.ask((ref: ActorRef[ServerBinding]) => Server.GetServerBinding(ref))
         config.portFile.foreach(portFile =>
           serviceF.foreach(serverBinding =>
             PortFiles.write(portFile, Port(serverBinding.localAddress.getPort))))
         val _: ShutdownHookThread = sys.addShutdownHook {
-          system ! Stop
+          system ! Server.Stop
           serviceF.onComplete {
             case Success(_) =>
               system.log.info("Server is offline, the system will now terminate")

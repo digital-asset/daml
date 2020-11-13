@@ -453,7 +453,7 @@ trait TriggerServiceFixture
             } yield r
           } {
             case (_, system) => {
-              system ! Stop
+              system ! Server.Stop
               system.whenTerminated.map(_ => ())
             }
           }

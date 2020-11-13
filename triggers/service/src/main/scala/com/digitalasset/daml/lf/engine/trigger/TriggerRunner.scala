@@ -20,7 +20,7 @@ object TriggerRunner {
 
   type Config = TriggerRunnerImpl.Config
 
-  trait Message
+  sealed trait Message
   final case object Stop extends Message
   final case class Status(replyTo: ActorRef[TriggerStatus]) extends Message
 
@@ -71,8 +71,7 @@ object TriggerRunner {
             .receiveMessagePartial[Message] {
               case Status(replyTo) =>
                 // pass through
-                logger.error("PROXYING STATUS")
-                runner ! Status(replyTo)
+                runner ! TriggerRunnerImpl.Status(replyTo)
                 Behaviors.same
               case Stop =>
                 Behaviors.stopped // Automatically stops the child actor if running.
