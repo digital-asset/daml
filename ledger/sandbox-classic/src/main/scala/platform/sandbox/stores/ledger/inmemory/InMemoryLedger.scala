@@ -348,7 +348,9 @@ private[sandbox] final class InMemoryLedger(
       implicit loggingContext: LoggingContext,
   ): Unit = {
     logger.warn(s"Publishing error to ledger: ${reason.description}")
-    stopDeduplicatingCommand(CommandId(submitterInfo.commandId), submitterInfo.singleSubmitterOrThrow())
+    stopDeduplicatingCommand(
+      CommandId(submitterInfo.commandId),
+      submitterInfo.singleSubmitterOrThrow())
     entries.publish(
       InMemoryLedgerEntry(
         LedgerEntry.Rejection(

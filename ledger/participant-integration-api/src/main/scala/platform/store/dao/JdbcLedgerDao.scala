@@ -506,7 +506,11 @@ private class JdbcLedgerDao(
                   .foreach(_.execute())
               case LedgerEntry.Rejection(recordTime, commandId, applicationId, submitter, reason) =>
                 val _ = prepareRejectionInsert(
-                  submitterInfo = SubmitterInfo.withSingleSubmitter(submitter, applicationId, commandId, Instant.EPOCH),
+                  submitterInfo = SubmitterInfo.withSingleSubmitter(
+                    submitter,
+                    applicationId,
+                    commandId,
+                    Instant.EPOCH),
                   offset = offset,
                   recordTime = recordTime,
                   reason = toParticipantRejection(reason),

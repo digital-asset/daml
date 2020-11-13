@@ -50,10 +50,10 @@ object SubmitterInfo {
   // Note: this function is only available temporarily until the entire DAML code base
   // supports multi-party submissions. Use at your own risk.
   def withSingleSubmitter(
-    submitter: Party,
-    applicationId: ApplicationId,
-    commandId: CommandId,
-    deduplicateUntil: Instant,
+      submitter: Party,
+      applicationId: ApplicationId,
+      commandId: CommandId,
+      deduplicateUntil: Instant,
   ): SubmitterInfo = SubmitterInfo.apply(
     actAs = List(submitter),
     applicationId = applicationId,
