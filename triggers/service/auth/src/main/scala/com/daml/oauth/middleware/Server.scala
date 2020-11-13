@@ -203,20 +203,27 @@ object Server extends StrictLogging {
           entity <- Marshal(body).to[RequestEntity]
           req = HttpRequest(uri = config.oauthToken, entity = entity, method = HttpMethods.POST)
           resp <- Http().singleRequest(req)
-          tokenResp <- if (resp.status != StatusCodes.OK) {
-            Unmarshal(resp).to[String].flatMap { msg =>
-              Future.failed(
-                new RuntimeException(
-                  s"Failed to retrieve token at ${req.uri} (${resp.status}): $msg"))
+        } yield resp
+      onSuccess(tokenRequest) { resp =>
+        resp.status match {
+          // Return access and refresh token on success.
+          case StatusCodes.OK =>
+            val authResponse = Unmarshal(resp).to[OAuthResponse.Token].map { token =>
+              Response.Authorize(accessToken = token.accessToken, refreshToken = token.refreshToken)
             }
-          } else {
-            Unmarshal(resp).to[OAuthResponse.Token]
-          }
-        } yield tokenResp
-      onSuccess(tokenRequest) { token =>
-        complete(
-          Response
-            .Authorize(accessToken = token.accessToken, refreshToken = token.refreshToken))
+            complete(authResponse)
+          // Forward unauthorized and forbidden responses.
+          case StatusCodes.Unauthorized =>
+            complete(HttpResponse.apply(status = StatusCodes.Unauthorized, entity = resp.entity))
+          case StatusCodes.Forbidden =>
+            complete(HttpResponse.apply(status = StatusCodes.Forbidden, entity = resp.entity))
+          // Fail on unexpected responses.
+          case _ =>
+            onSuccess(Unmarshal(resp).to[String]) { msg =>
+              failWith(
+                new RuntimeException(s"Failed to retrieve refresh token (${resp.status}): $msg"))
+            }
+        }
       }
     }
 }
