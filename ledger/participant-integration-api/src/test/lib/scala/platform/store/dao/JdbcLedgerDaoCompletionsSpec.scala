@@ -124,7 +124,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     lazy val offset = nextOffset()
     ledgerDao
       .storeRejection(
-        submitterInfo = Some(SubmitterInfo(party, applicationId, commandId, Instant.EPOCH)),
+        submitterInfo = Some(SubmitterInfo.withSingleSubmitter(party, applicationId, commandId, Instant.EPOCH)),
         recordTime = Instant.now,
         offset = offset,
         reason = reason,

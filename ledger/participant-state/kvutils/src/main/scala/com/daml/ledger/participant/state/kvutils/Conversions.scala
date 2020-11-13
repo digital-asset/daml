@@ -109,7 +109,7 @@ private[state] object Conversions {
 
   def buildSubmitterInfo(subInfo: SubmitterInfo): DamlSubmitterInfo =
     DamlSubmitterInfo.newBuilder
-      .setSubmitter(subInfo.submitter)
+      .setSubmitter(subInfo.singleSubmitterOrThrow())
       .setApplicationId(subInfo.applicationId)
       .setCommandId(subInfo.commandId)
       .setDeduplicateUntil(
@@ -117,7 +117,7 @@ private[state] object Conversions {
       .build
 
   def parseSubmitterInfo(subInfo: DamlSubmitterInfo): SubmitterInfo =
-    SubmitterInfo(
+    SubmitterInfo.withSingleSubmitter(
       submitter = Party.assertFromString(subInfo.getSubmitter),
       applicationId = LedgerString.assertFromString(subInfo.getApplicationId),
       commandId = LedgerString.assertFromString(subInfo.getCommandId),

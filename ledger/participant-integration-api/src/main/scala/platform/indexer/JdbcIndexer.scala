@@ -187,7 +187,7 @@ object JdbcIndexer {
           .map(
             info =>
               Map(
-                "updateSubmitter" -> info.submitter,
+                "updateSubmitter" -> info.actAs.mkString("[", ", ", "]"),
                 "updateApplicationId" -> info.applicationId,
                 "updateCommandId" -> info.commandId,
                 "updateDeduplicateUntil" -> info.deduplicateUntil.toString,
@@ -195,7 +195,7 @@ object JdbcIndexer {
           .getOrElse(Map.empty)
       case CommandRejected(_, submitterInfo, reason) =>
         Map(
-          "updateSubmitter" -> submitterInfo.submitter,
+          "updateSubmitter" -> submitterInfo.actAs.mkString("[", ", ", "]"),
           "updateApplicationId" -> submitterInfo.applicationId,
           "updateCommandId" -> submitterInfo.commandId,
           "updateDeduplicateUntil" -> submitterInfo.deduplicateUntil.toString,

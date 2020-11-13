@@ -311,7 +311,7 @@ private[sandbox] final class InMemoryLedger(
             transactionMeta.ledgerEffectiveTime.toInstant,
             transactionId,
             transactionMeta.workflowId,
-            Some(submitterInfo.submitter),
+            Some(submitterInfo.singleSubmitterOrThrow()),
             committedTransaction,
             disclosureForIndex,
             divulgence,
@@ -329,7 +329,7 @@ private[sandbox] final class InMemoryLedger(
                   Some(submitterInfo.commandId),
                   transactionId,
                   Some(submitterInfo.applicationId),
-                  Some(submitterInfo.submitter),
+                  Some(submitterInfo.singleSubmitterOrThrow()),
                   transactionMeta.workflowId,
                   transactionMeta.ledgerEffectiveTime.toInstant,
                   recordTime,
@@ -348,14 +348,14 @@ private[sandbox] final class InMemoryLedger(
       implicit loggingContext: LoggingContext,
   ): Unit = {
     logger.warn(s"Publishing error to ledger: ${reason.description}")
-    stopDeduplicatingCommand(CommandId(submitterInfo.commandId), submitterInfo.submitter)
+    stopDeduplicatingCommand(CommandId(submitterInfo.commandId), submitterInfo.singleSubmitterOrThrow())
     entries.publish(
       InMemoryLedgerEntry(
         LedgerEntry.Rejection(
           timeProvider.getCurrentTime,
           submitterInfo.commandId,
           submitterInfo.applicationId,
-          submitterInfo.submitter,
+          submitterInfo.singleSubmitterOrThrow(),
           reason)
       )
     )

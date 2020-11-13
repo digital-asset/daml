@@ -450,8 +450,8 @@ private class JdbcLedgerDao(
               .foreach(_.execute())
           )
         } else {
-          for (info @ SubmitterInfo(submitter, _, commandId, _) <- submitterInfo) {
-            stopDeduplicatingCommandSync(domain.CommandId(commandId), submitter)
+          for (info @ SubmitterInfo(actAs, _, commandId, _) <- submitterInfo) {
+            stopDeduplicatingCommandSync(domain.CommandId(commandId), info.singleSubmitterOrThrow())
             prepareRejectionInsert(info, offset, recordTime, error.get).execute()
           }
         }
@@ -470,8 +470,8 @@ private class JdbcLedgerDao(
       reason: RejectionReason,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher.executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
-      for (info @ SubmitterInfo(submitter, _, commandId, _) <- submitterInfo) {
-        stopDeduplicatingCommandSync(domain.CommandId(commandId), submitter)
+      for (info @ SubmitterInfo(actAs, _, commandId, _) <- submitterInfo) {
+        stopDeduplicatingCommandSync(domain.CommandId(commandId), info.singleSubmitterOrThrow())
         prepareRejectionInsert(info, offset, recordTime, reason).execute()
       }
       ParametersTable.updateLedgerEnd(offset)
@@ -491,7 +491,7 @@ private class JdbcLedgerDao(
                 val submitterInfo =
                   for (submitter <- tx.submittingParty; appId <- tx.applicationId;
                     cmdId <- tx.commandId)
-                    yield SubmitterInfo(submitter, appId, cmdId, Instant.EPOCH)
+                    yield SubmitterInfo.withSingleSubmitter(submitter, appId, cmdId, Instant.EPOCH)
                 prepareTransactionInsert(
                   submitterInfo = submitterInfo,
                   workflowId = tx.workflowId,
@@ -506,7 +506,7 @@ private class JdbcLedgerDao(
                   .foreach(_.execute())
               case LedgerEntry.Rejection(recordTime, commandId, applicationId, submitter, reason) =>
                 val _ = prepareRejectionInsert(
-                  submitterInfo = SubmitterInfo(submitter, applicationId, commandId, Instant.EPOCH),
+                  submitterInfo = SubmitterInfo.withSingleSubmitter(submitter, applicationId, commandId, Instant.EPOCH),
                   offset = offset,
                   recordTime = recordTime,
                   reason = toParticipantRejection(reason),
