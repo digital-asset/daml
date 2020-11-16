@@ -3,6 +3,7 @@
 
 package com.daml.oauth.server
 
+import java.time.Instant
 import java.util.UUID
 
 import akka.Done
@@ -18,6 +19,7 @@ import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes.Party
 
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
@@ -29,6 +31,7 @@ import scala.language.postfixOps
 // request to /authorize are immediately redirected to the redirect_uri.
 class Server(config: Config) {
   private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
+  private val tokenLifetimeSeconds = 24 * 60 * 60
 
   // None indicates that all parties are authorized, Some that only the given set of parties is authorized.
   private var authorizedParties: Option[Set[Party]] = config.parties
@@ -50,11 +53,13 @@ class Server(config: Config) {
     authorizedParties = config.parties
   }
 
-  // To keep things as simple as possible, we use a UUID as the authorization code
+  // To keep things as simple as possible, we use a UUID as the authorization code and refresh token
   // and in the /authorize request we already pre-compute the JWT payload based on the scope.
   // The token request then only does a lookup and signs the token.
-  private var requests = Map.empty[UUID, AuthServiceJWTPayload]
+  private val requests = TrieMap.empty[UUID, AuthServiceJWTPayload]
 
+  private def tokenExpiry(): Instant =
+    Instant.now().plusSeconds(tokenLifetimeSeconds.asInstanceOf[Long])
   private def toPayload(req: Request.Authorize): AuthServiceJWTPayload = {
     var actAs: Seq[String] = Seq()
     var readAs: Seq[String] = Seq()
@@ -68,7 +73,7 @@ class Server(config: Config) {
       applicationId = config.applicationId,
       // Not required by the default auth service
       participantId = None,
-      // Only for testing, expire never.
+      // Expiry is set when the token is retrieved
       exp = None,
       // no admin claim for now.
       admin = false,
@@ -122,30 +127,41 @@ class Server(config: Config) {
     },
     path("token") {
       post {
-        entity(as[Request.Token]) {
-          request =>
-            // No validation to keep things simple
-            requests.get(UUID.fromString(request.code)) match {
-              case None => sys.exit(2)
-              case Some(payload) =>
-                import JsonProtocol._
-                complete(
-                  Response.Token(
-                    accessToken = JwtSigner.HMAC256
-                      .sign(
-                        DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(payload)),
-                        config.jwtSecret)
-                      .getOrElse(
-                        throw new IllegalArgumentException("Failed to sign a token")
-                      )
-                      .value,
-                    refreshToken = None,
-                    expiresIn = None,
-                    scope = None,
-                    tokenType = "bearer"
-                  ))
-            }
+        def returnToken(uuid: UUID) = {
+          requests.remove(uuid) match {
+            case Some(payload) =>
+              // Generate refresh token
+              val refreshCode = UUID.randomUUID()
+              requests += (refreshCode -> payload)
+              // Construct access token with expiry
+              val accessToken = JwtSigner.HMAC256
+                .sign(
+                  DecodedJwt(
+                    jwtHeader,
+                    AuthServiceJWTCodec.compactPrint(payload.copy(exp = Some(tokenExpiry())))),
+                  config.jwtSecret)
+                .getOrElse(throw new IllegalArgumentException("Failed to sign a token"))
+                .value
+              import JsonProtocol._
+              complete(
+                Response.Token(
+                  accessToken = accessToken,
+                  refreshToken = Some(refreshCode.toString),
+                  expiresIn = Some(tokenLifetimeSeconds),
+                  scope = None,
+                  tokenType = "bearer"))
+            case None =>
+              complete(StatusCodes.NotFound)
+          }
         }
+        concat(
+          entity(as[Request.Token]) { request =>
+            returnToken(UUID.fromString(request.code))
+          },
+          entity(as[Request.Refresh]) { request =>
+            returnToken(UUID.fromString(request.refreshToken))
+          },
+        )
       }
     }
   )
