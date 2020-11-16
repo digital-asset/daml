@@ -20,7 +20,7 @@ import org.scalatest.AsyncWordSpec
 class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
   import JsonProtocol._
   lazy private val middlewareUri = {
-    lazy val middlewareBinding = suiteResource.value._2.localAddress
+    lazy val middlewareBinding = suiteResource.value._3.localAddress
     Uri()
       .withScheme("http")
       .withAuthority(middlewareBinding.getHostString, middlewareBinding.getPort)

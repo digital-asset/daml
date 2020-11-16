@@ -22,7 +22,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
   import Client.JsonProtocol._
   private def requestToken(
       parties: Seq[String]): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
-    lazy val clientBinding = suiteResource.value._2.localAddress
+    lazy val clientBinding = suiteResource.value._3.localAddress
     lazy val clientUri = Uri().withAuthority(clientBinding.getHostString, clientBinding.getPort)
     val req = HttpRequest(
       uri = clientUri.withPath(Path./("access")).withScheme("http"),
@@ -63,7 +63,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
 
   private def requestRefresh(
       refreshToken: String): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
-    lazy val clientBinding = suiteResource.value._2.localAddress
+    lazy val clientBinding = suiteResource.value._3.localAddress
     lazy val clientUri = Uri().withAuthority(clientBinding.getHostString, clientBinding.getPort)
     val req = HttpRequest(
       uri = clientUri.withPath(Path./("refresh")).withScheme("http"),

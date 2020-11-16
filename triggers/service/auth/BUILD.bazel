@@ -125,6 +125,7 @@ da_scala_test(
         "//ledger/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_http_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
