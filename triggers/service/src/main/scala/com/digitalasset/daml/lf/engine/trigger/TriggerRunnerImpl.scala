@@ -5,7 +5,7 @@ package com.daml.lf.engine.trigger
 
 import java.util.UUID
 
-import akka.actor.typed.scaladsl.{Behaviors}
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior, PostStop, PreRestart}
 import akka.stream.{KillSwitch, KillSwitches, Materializer}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
