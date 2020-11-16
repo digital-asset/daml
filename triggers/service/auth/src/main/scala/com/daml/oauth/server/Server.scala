@@ -102,7 +102,7 @@ class Server(config: Config) {
                   Response
                     .Authorize(code = authorizationCode.toString, state = request.state)
                     .toQuery
-                requests += (authorizationCode -> toPayload(request))
+                requests += (authorizationCode -> payload)
                 // We skip any actual consent screen since this is only intended for testing and
                 // this is outside of the scope of the trigger service anyway.
                 redirect(request.redirectUri.withQuery(params), StatusCodes.Found)
