@@ -515,9 +515,9 @@ private class JdbcLedgerDao(
             entry match {
               case tx: LedgerEntry.Transaction =>
                 val submitterInfo =
-                  for (submitter <- tx.submittingParty; appId <- tx.applicationId;
-                    cmdId <- tx.commandId)
-                    yield SubmitterInfo.withSingleSubmitter(submitter, appId, cmdId, Instant.EPOCH)
+                  for (appId <- tx.applicationId;
+                    actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs); cmdId <- tx.commandId)
+                    yield SubmitterInfo(actAs, appId, cmdId, Instant.EPOCH)
                 prepareTransactionInsert(
                   submitterInfo = submitterInfo,
                   workflowId = tx.workflowId,
@@ -531,13 +531,9 @@ private class JdbcLedgerDao(
                 submitterInfo
                   .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
                   .foreach(_.execute())
-              case LedgerEntry.Rejection(recordTime, commandId, applicationId, submitter, reason) =>
+              case LedgerEntry.Rejection(recordTime, commandId, applicationId, actAs, reason) =>
                 val _ = prepareRejectionInsert(
-                  submitterInfo = SubmitterInfo.withSingleSubmitter(
-                    submitter,
-                    applicationId,
-                    commandId,
-                    Instant.EPOCH),
+                  submitterInfo = SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
                   offset = offset,
                   recordTime = recordTime,
                   reason = toParticipantRejection(reason),

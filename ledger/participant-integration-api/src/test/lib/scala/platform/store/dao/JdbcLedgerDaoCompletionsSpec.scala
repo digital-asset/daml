@@ -29,7 +29,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       (offset, tx) <- store(singleCreate)
       to <- ledgerDao.lookupLedgerEnd()
       (_, response) <- ledgerDao.completions
-        .getCommandCompletions(from, to, tx.applicationId.get, Set(tx.submittingParty.get))
+        .getCommandCompletions(from, to, tx.applicationId.get, tx.actAs.toSet)
         .runWith(Sink.head)
     } yield {
       offsetOf(response) shouldBe offset

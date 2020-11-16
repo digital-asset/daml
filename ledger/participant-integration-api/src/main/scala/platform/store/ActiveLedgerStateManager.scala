@@ -63,7 +63,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
       let: Instant,
       transactionId: TransactionId,
       workflowId: Option[WorkflowId],
-      submitter: Option[Party],
+      actAs: List[Party],
       transaction: CommittedTransaction,
       disclosure: Relation[NodeId, Party],
       divulgence: Relation[ContractId, Party],
@@ -172,29 +172,28 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                 val gk = GlobalKey(nlkup.templateId, key.value)
                 val nodeParties = nlkup.key.maintainers
 
-                submitter match {
-                  case Some(_) =>
-                    // If the submitter is known, look up the contract
-                    // Submitter being know means the transaction was submitted on this participant.
-                    val currentResult = acc.lookupContractByKey(gk)
-                    if (currentResult == nlkup.result) {
-                      ats.copy(
-                        parties = parties.union(nodeParties),
-                      )
-                    } else {
-                      ats.copy(
-                        errs = errs + Inconsistent(
-                          s"Contract key lookup with different results: expected [${nlkup.result}], actual [${currentResult}]")
-                      )
-                    }
+                if (actAs.nonEmpty) {
+                  // If the submitter is known, look up the contract
+                  // Submitters being know means the transaction was submitted on this participant.
+                  val currentResult = acc.lookupContractByKey(gk)
+                  if (currentResult == nlkup.result) {
+                    ats.copy(
+                      parties = parties.union(nodeParties),
+                    )
+                  } else {
+                    ats.copy(
+                      errs = errs + Inconsistent(
+                        s"Contract key lookup with different results: expected [${nlkup.result}], actual [${currentResult}]")
+                    )
+                  }
+                } else {
                   // Otherwise, trust that the lookup was valid.
                   // The submitter being unknown means the transaction was submitted on a different participant,
                   // and (A) this participant may not know the authoritative answer to whether the key exists and
                   // (B) this code is called from a Indexer and not from the sandbox ledger.
-                  case None =>
-                    ats.copy(
-                      parties = parties.union(nodeParties),
-                    )
+                  ats.copy(
+                    parties = parties.union(nodeParties),
+                  )
                 }
             }
         }

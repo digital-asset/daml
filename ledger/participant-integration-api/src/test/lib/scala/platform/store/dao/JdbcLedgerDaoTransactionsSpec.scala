@@ -35,7 +35,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     for {
       (_, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(transactionId = "WRONG", Set(tx.submittingParty.get))
+        .lookupFlatTransactionById(transactionId = "WRONG", tx.actAs.toSet)
     } yield {
       result shouldBe None
     }
@@ -55,7 +55,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     for {
       (offset, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(tx.transactionId, Set(tx.submittingParty.get))
+        .lookupFlatTransactionById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
@@ -70,7 +70,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               val (nodeId, createNode: NodeCreate.WithTxValue[ContractId]) =
                 tx.transaction.nodes.head
               created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
-              created.witnessParties should contain only tx.submittingParty.get
+              created.witnessParties should contain only (tx.actAs: _*)
               created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
               created.contractKey shouldBe None
               created.createArguments shouldNot be(None)
@@ -88,7 +88,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       (_, create) <- store(singleCreate)
       (offset, exercise) <- store(singleExercise(nonTransient(create).loneElement))
       result <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(exercise.transactionId, Set(exercise.submittingParty.get))
+        .lookupFlatTransactionById(exercise.transactionId, exercise.actAs.toSet)
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
@@ -103,7 +103,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               val (nodeId, exerciseNode: NodeExercises.WithTxValue[NodeId, ContractId]) =
                 exercise.transaction.nodes.head
               archived.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
-              archived.witnessParties should contain only exercise.submittingParty.get
+              archived.witnessParties should contain only (exercise.actAs: _*)
               archived.contractId shouldBe exerciseNode.targetCoid.coid
               archived.templateId shouldNot be(None)
           }
@@ -115,7 +115,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     for {
       (offset, tx) <- store(fullyTransient)
       result <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(tx.transactionId, Set(tx.submittingParty.get))
+        .lookupFlatTransactionById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
@@ -379,7 +379,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         .getFlatTransactions(
           from,
           offset,
-          Map(exercise.submittingParty.get -> Set.empty[Identifier]),
+          exercise.actAs.map(submitter => submitter -> Set.empty[Identifier]).toMap,
           verbose = true)
         .runWith(Sink.seq)
     } yield {
@@ -413,7 +413,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         .getFlatTransactions(
           offset1,
           offset2,
-          Map(exercise.submittingParty.get -> Set.empty[Identifier]),
+          exercise.actAs.map(submitter => submitter -> Set.empty[Identifier]).toMap,
           verbose = true)
         .runWith(Sink.seq)
 

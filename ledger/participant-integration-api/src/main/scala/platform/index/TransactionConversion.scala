@@ -46,10 +46,10 @@ private[platform] object TransactionConversion {
 
   private def maskCommandId(
       commandId: Option[CommandId],
-      submittingParty: Option[Ref.Party],
+      actAs: List[Ref.Party],
       requestingParties: Set[Ref.Party],
   ): String =
-    commandId.filter(_ => submittingParty.exists(requestingParties)).getOrElse("")
+    commandId.filter(_ => actAs.exists(requestingParties)).getOrElse("")
 
   private def toFlatEvent(
       trId: TransactionId,
@@ -92,7 +92,7 @@ private[platform] object TransactionConversion {
     val flatEvents = removeTransient(allFlatEvents)
     val filtered = flatEvents.flatMap(EventFilter(_)(filter).toList)
     val requestingParties = filter.filtersByParty.keySet
-    val commandId = maskCommandId(entry.commandId, entry.submittingParty, requestingParties)
+    val commandId = maskCommandId(entry.commandId, entry.actAs, requestingParties)
     Some(
       ApiTransaction(
         transactionId = entry.transactionId,
@@ -209,7 +209,7 @@ private[platform] object TransactionConversion {
     filteredTree.map(
       _.copy(
         transactionId = entry.transactionId,
-        commandId = maskCommandId(entry.commandId, entry.submittingParty, requestingParties),
+        commandId = maskCommandId(entry.commandId, entry.actAs, requestingParties),
         workflowId = entry.workflowId.getOrElse(""),
         effectiveAt = Some(TimestampConversion.fromInstant(entry.ledgerEffectiveTime)),
         offset = offset.value,
