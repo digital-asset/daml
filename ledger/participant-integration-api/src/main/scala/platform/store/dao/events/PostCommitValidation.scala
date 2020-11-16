@@ -6,11 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
-import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.participant.state.v1.{CommittedTransaction, RejectionReason}
-
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
 
 /**
   * Performs post-commit validation on transactions for Sandbox Classic.
@@ -55,10 +51,8 @@ private[dao] object PostCommitValidation {
       None
   }
 
-  final class BackedBy(
-      data: PostCommitValidationData,
-      getParties: Option[Seq[Party] => Future[List[PartyDetails]]] = None,
-  ) extends PostCommitValidation {
+  final class BackedBy(data: PostCommitValidationData, validatePartyAllocation: Boolean)
+      extends PostCommitValidation {
 
     def validate(
         transaction: CommittedTransaction,
@@ -71,7 +65,11 @@ private[dao] object PostCommitValidation {
 
       val invalidKeyUsage = validateKeyUsages(transaction)
 
-      val unallocatedParties = validatePartiesAllocation(transaction)
+      val unallocatedParties =
+        if (validatePartyAllocation)
+          validateParties(transaction)
+        else
+          None
 
       unallocatedParties.orElse(invalidKeyUsage.orElse(causalMonotonicityViolation))
     }
@@ -114,8 +112,9 @@ private[dao] object PostCommitValidation {
           }
         )
 
-    private def validatePartiesAllocation(
-        transaction: CommittedTransaction): Option[RejectionReason] = {
+    private def validateParties(
+        transaction: CommittedTransaction,
+    )(implicit connection: Connection): Option[RejectionReason] = {
       def foldInformees[T](tx: CommittedTransaction, init: T)(
           f: (T, String) => T
       ): T =
@@ -127,20 +126,12 @@ private[dao] object PostCommitValidation {
       val informees = foldInformees(transaction, Seq.empty[Party]) { (informeesSoFar, partyId) =>
         Party.assertFromString(partyId) +: informeesSoFar
       }
-      val allocatedInformees = getPartiesSync(informees).map(_.party)
+      val allocatedInformees = data.lookupParties(informees).map(_.party)
       if (allocatedInformees.toSet == informees.toSet)
         None
       else
         Some(RejectionReason.PartyNotKnownOnLedger("Some parties are unallocated"))
     }
-
-    private def getPartiesSync(parties: Seq[Party]): List[PartyDetails] =
-      Await.result(getParties.getOrElse(identityGetParties _)(parties), AwaitDuration)
-
-    private def identityGetParties(parties: Seq[Party]): Future[List[PartyDetails]] =
-      Future.successful(parties.map { party =>
-        PartyDetails(party, None, isLocal = true)
-      }.toList)
 
     private def collectReferredContracts(
         transaction: CommittedTransaction,
@@ -272,6 +263,4 @@ private[dao] object PostCommitValidation {
     RejectionReason.InvalidLedgerTime(
       s"Encountered contract with LET [$contractLedgerEffectiveTime] greater than the LET of the transaction [$transactionLedgerEffectiveTime]"
     )
-
-  private val AwaitDuration: Duration = 30.seconds
 }

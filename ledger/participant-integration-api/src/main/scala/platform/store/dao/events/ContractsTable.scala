@@ -6,11 +6,13 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.{CommittedTransaction, DivulgedContract}
 import anorm.SqlParser.int
 import anorm.{BatchSql, NamedParameter, SqlStringInterpolation, ~}
+import com.daml.ledger.api.domain.PartyDetails
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, DivulgedContract}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
+import com.daml.platform.store.dao.JdbcLedgerDao
 import com.daml.platform.store.dao.events.RawBatch.PartialParameters
 
 import scala.util.{Failure, Success, Try}
@@ -195,6 +197,9 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
             })
     }
 
+  override final def lookupParties(parties: Seq[Party])(
+      implicit connection: Connection): List[PartyDetails] =
+    JdbcLedgerDao.selectParties(parties).map(JdbcLedgerDao.constructPartyDetails)
 }
 
 private[events] object ContractsTable {

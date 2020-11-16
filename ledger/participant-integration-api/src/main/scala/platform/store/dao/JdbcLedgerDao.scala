@@ -41,7 +41,6 @@ import com.daml.platform.store.dao.CommandCompletionsTable.{
   prepareCompletionInsert,
   prepareRejectionInsert
 }
-import com.daml.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
 import com.daml.platform.store.dao.PersistenceResponse.Ok
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.events._
@@ -83,6 +82,8 @@ private class JdbcLedgerDao(
     lfValueTranslationCache: LfValueTranslation.Cache,
     validatePartyAllocation: Boolean,
 ) extends LedgerDao {
+
+  import JdbcLedgerDao._
 
   private val queries = dbType match {
     case DbType.Postgres => PostgresQueries
@@ -544,21 +545,8 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[Option[ContractInst]] =
     contractsReader.lookupActiveContract(forParty, contractId)
 
-  private val SQL_SELECT_MULTIPLE_PARTIES =
-    SQL(
-      "select party, display_name, ledger_offset, explicit, is_local from parties where party in ({parties})")
-
   private val SQL_SELECT_ALL_PARTIES =
     SQL("select party, display_name, ledger_offset, explicit, is_local from parties")
-
-  private val PartyDataParser: RowParser[ParsedPartyData] =
-    Macro.parser[ParsedPartyData](
-      "party",
-      "display_name",
-      "ledger_offset",
-      "explicit",
-      "is_local"
-    )
 
   override def getParties(parties: Seq[Party])(
       implicit loggingContext: LoggingContext,
@@ -568,9 +556,7 @@ private class JdbcLedgerDao(
     else
       dbDispatcher
         .executeSql(metrics.daml.index.db.loadParties) { implicit conn =>
-          SQL_SELECT_MULTIPLE_PARTIES
-            .on("parties" -> parties)
-            .as(PartyDataParser.*)
+          selectParties(parties)
         }
         .map(_.map(constructPartyDetails))(executionContext)
 
@@ -583,9 +569,6 @@ private class JdbcLedgerDao(
           .as(PartyDataParser.*)
       }
       .map(_.map(constructPartyDetails))(executionContext)
-
-  private def constructPartyDetails(data: ParsedPartyData): PartyDetails =
-    PartyDetails(Party.assertFromString(data.party), data.displayName, data.isLocal)
 
   private val SQL_INSERT_PARTY =
     SQL("""insert into parties(party, display_name, ledger_offset, explicit, is_local)
@@ -852,13 +835,7 @@ private class JdbcLedgerDao(
 
   private val postCommitValidation =
     if (performPostCommitValidation)
-      new PostCommitValidation.BackedBy(
-        contractsReader.committedContracts,
-        if (validatePartyAllocation)
-          Some(parties => getParties(parties)(LoggingContext.newLoggingContext(identity)))
-        else
-          None,
-      )
+      new PostCommitValidation.BackedBy(contractsReader.committedContracts, validatePartyAllocation)
     else
       PostCommitValidation.Skip
 
@@ -935,6 +912,29 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation
     ).map(new MeteredLedgerDao(_, metrics))
   }
+
+  private[dao] def selectParties(parties: Seq[Party])(
+      implicit connection: Connection,
+  ): List[ParsedPartyData] =
+    SQL_SELECT_MULTIPLE_PARTIES
+      .on("parties" -> parties)
+      .as(PartyDataParser.*)
+
+  private[dao] def constructPartyDetails(data: ParsedPartyData): PartyDetails =
+    PartyDetails(Party.assertFromString(data.party), data.displayName, data.isLocal)
+
+  private val SQL_SELECT_MULTIPLE_PARTIES =
+    SQL(
+      "select party, display_name, ledger_offset, explicit, is_local from parties where party in ({parties})")
+
+  private val PartyDataParser: RowParser[ParsedPartyData] =
+    Macro.parser[ParsedPartyData](
+      "party",
+      "display_name",
+      "ledger_offset",
+      "explicit",
+      "is_local"
+    )
 
   private def owner(
       serverRole: ServerRole,
