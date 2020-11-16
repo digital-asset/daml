@@ -27,7 +27,7 @@ import akka.util.{ByteString, Timeout}
 import scala.concurrent.duration._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
@@ -103,9 +103,11 @@ class Server(
   }
 
   private def restartTriggers(triggers: Vector[RunningTrigger]): Either[String, Unit] = {
-    import cats.implicits._ // needed for traverse
-    triggers.traverse_(t =>
-      startTrigger(t.triggerParty, t.triggerName, t.triggerToken, Some(t.triggerInstance)))
+    import cats.implicits._ // needed for traverse for
+    triggers.traverse_(runningTrigger =>
+      for {
+        trigger <- Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName)
+      } yield startTrigger(trigger, runningTrigger))
   }
 
   private def triggerRunnerName(triggerInstance: UUID): String =
@@ -116,38 +118,44 @@ class Server(
       .child(triggerRunnerName(triggerInstance))
       .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
 
-  private def startTrigger(
+  // Add a new trigger to the database and return the resulting RunningTrigger.
+  // Note that this does not yet start the trigger.
+  private def addNewTrigger(
       party: Party,
       triggerName: Identifier,
-      token: Option[AccessToken],
-      existingInstance: Option[UUID] = None): Either[String, JsValue] = {
+      optApplicationId: Option[ApplicationId],
+      token: Option[AccessToken]
+  ): Either[String, (Trigger, RunningTrigger)] = {
+    val newInstance = UUID.randomUUID()
+    val applicationId = optApplicationId.getOrElse(Tag(newInstance.toString): ApplicationId)
+    val runningTrigger = RunningTrigger(newInstance, triggerName, party, applicationId, token)
     for {
-      trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
-      triggerInstance <- existingInstance match {
-        case None =>
-          val newInstance = UUID.randomUUID
-          triggerDao
-            .addRunningTrigger(RunningTrigger(newInstance, triggerName, party, token))
-            .map(_ => newInstance)
-        case Some(instance) => Right(instance)
-      }
-      _ = ctx.spawn(
+      // Validate trigger id before persisting to DB
+      trigger <- Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName)
+      _ <- triggerDao.addRunningTrigger(runningTrigger).map(_ => runningTrigger)
+    } yield (trigger, runningTrigger)
+  }
+
+  private def startTrigger(trigger: Trigger, runningTrigger: RunningTrigger): JsValue = {
+    discard[ActorRef[Message]](
+      ctx.spawn(
         TriggerRunner(
           new TriggerRunner.Config(
             ctx.self,
-            triggerInstance,
-            party,
-            AccessToken.unsubst(token),
+            runningTrigger.triggerInstance,
+            runningTrigger.triggerParty,
+            runningTrigger.triggerApplicationId,
+            AccessToken.unsubst(runningTrigger.triggerToken),
             compiledPackages,
             trigger,
             ledgerConfig,
             restartConfig
           ),
-          triggerInstance.toString
+          runningTrigger.triggerInstance.toString
         ),
-        triggerRunnerName(triggerInstance)
-      )
-    } yield JsObject(("triggerId", triggerInstance.toString.toJson))
+        triggerRunnerName(runningTrigger.triggerInstance)
+      ))
+    JsObject(("triggerId", runningTrigger.triggerInstance.toString.toJson))
   }
 
   private def stopTrigger(uuid: UUID): Either[String, Option[JsValue]] = {
@@ -328,13 +336,19 @@ class Server(
                   val claims =
                     AuthRequest.Claims(actAs = List(params.party))
                   // TODO[AH] Why do we need to pass ec, system explicitly?
-                  authorize(claims)(ec, system) { token =>
-                    startTrigger(params.party, params.triggerName, token) match {
-                      case Left(err) =>
-                        complete(errorResponse(StatusCodes.UnprocessableEntity, err))
-                      case Right(triggerInstance) =>
-                        complete(successResponse(triggerInstance))
-                    }
+                  authorize(claims)(ec, system) {
+                    token =>
+                      val instOrErr =
+                        addNewTrigger(params.party, params.triggerName, params.applicationId, token)
+                          .map {
+                            case (trigger, runningTrigger) => startTrigger(trigger, runningTrigger)
+                          }
+                      instOrErr match {
+                        case Left(err) =>
+                          complete(errorResponse(StatusCodes.UnprocessableEntity, err))
+                        case Right(triggerInstance) =>
+                          complete(successResponse(triggerInstance))
+                      }
                   }
               }
             },

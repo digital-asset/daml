@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.lf.archive.DarReader
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
@@ -24,9 +24,13 @@ import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.command_service._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.services.commands.CompletionStreamElement
 import com.daml.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.time.{Seconds, Span}
@@ -78,13 +82,18 @@ trait AbstractTriggerServiceTest
   protected val bob: Party = Tag("Bob")
   protected val eve: Party = Tag("Eve")
 
-  def startTrigger(uri: Uri, triggerName: String, party: Party): Future[HttpResponse] = {
+  def startTrigger(
+      uri: Uri,
+      triggerName: String,
+      party: Party,
+      applicationId: Option[ApplicationId] = None): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.POST,
       uri = uri.withPath(Uri.Path("/v1/triggers")),
       entity = HttpEntity(
         ContentTypes.`application/json`,
-        s"""{"triggerName": "$triggerName", "party": "$party"}"""
+        s"""{"triggerName": "$triggerName", "party": "$party", "applicationId": "${applicationId
+          .getOrElse("null")}"}"""
       )
     )
     httpRequestFollow(req)
@@ -255,7 +264,7 @@ trait AbstractTriggerServiceTest
   it should "should enable a trigger on http request" in withTriggerService(List(dar)) { uri: Uri =>
     for {
       client <- sandboxClient(
-        ApiTypes.ApplicationId(testId),
+        ApiTypes.ApplicationId("my-app-id"),
         actAs = List(ApiTypes.Party(aliceAcs.unwrap)))
       filter = TransactionFilter(
         List(
@@ -270,7 +279,11 @@ trait AbstractTriggerServiceTest
         .map(acsPages => acsPages.flatMap(_.activeContracts))
       _ = acs shouldBe Vector()
       // Start the trigger
-      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", aliceAcs)
+      resp <- startTrigger(
+        uri,
+        s"$testPkgId:TestTrigger:trigger",
+        aliceAcs,
+        Some(ApplicationId("my-app-id")))
       triggerId <- parseTriggerId(resp)
 
       // Trigger is running, create an A contract
@@ -296,6 +309,17 @@ trait AbstractTriggerServiceTest
             .map(acsPages => acsPages.flatMap(_.activeContracts))
         } yield assert(acs.length == 1)
       }
+      // Read completions to make sure we set the right app id.
+      r <- client.commandClient
+        .completionSource(List(aliceAcs.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
+        .collect({
+          case CompletionStreamElement.CompletionElement(completion)
+              if !completion.transactionId.isEmpty =>
+            completion
+        })
+        .take(1)
+        .runWith(Sink.seq)
+      _ = r.length shouldBe 1
       status <- triggerStatus(uri, triggerId)
       _ = status.status shouldBe StatusCodes.OK
       body <- responseBodyToString(status)

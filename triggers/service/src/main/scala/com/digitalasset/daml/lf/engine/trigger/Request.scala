@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.lf.data.Ref.Identifier
 import scalaz.Tag
 import spray.json.DefaultJsonProtocol._
@@ -22,13 +22,18 @@ object Request {
   private[Request] implicit val PartyFormat: JsonFormat[Party] =
     Tag.subst(implicitly[JsonFormat[String]])
 
-  final case class StartParams(triggerName: Identifier, party: Party)
-  object StartParams extends ((Identifier, Party) => StartParams) {
-    implicit val startParamsFormat: RootJsonFormat[StartParams] = jsonFormat2(StartParams)
+  final case class StartParams(
+      triggerName: Identifier,
+      party: Party,
+      applicationId: Option[ApplicationId])
+  object StartParams {
+    implicit val applicationIdFormat: JsonFormat[ApplicationId] =
+      Tag.subst(implicitly[JsonFormat[String]])
+    implicit val startParamsFormat: RootJsonFormat[StartParams] = jsonFormat3(StartParams.apply)
   }
 
   final case class ListParams(party: Party)
-  object ListParams extends (Party => ListParams) {
-    implicit val listParamsFormat: RootJsonFormat[ListParams] = jsonFormat1(ListParams)
+  object ListParams {
+    implicit val listParamsFormat: RootJsonFormat[ListParams] = jsonFormat1(ListParams.apply)
   }
 }
