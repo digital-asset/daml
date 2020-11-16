@@ -15,3 +15,11 @@ referenceReturn = do
   -- this let matters as well
   let _ = ()
   pure ()
+
+-- Issue #4555: Check that ($) works in the last line
+-- of an applicative do block.
+pureDollar : Applicative m => m Int -> m Int
+pureDollar m = do
+    x <- m
+    y <- m
+    pure $ x + y

@@ -849,7 +849,7 @@ convertExpr env0 e = do
     go env (x `App` y) args
         = go env x ((Nothing, y) : args)
     -- see through $ to give better matching power
-    go env (VarIn DA_Internal_Prelude "$") (LType _ : LType _ : LExpr x : y : args)
+    go env (VarIn GHC_Base "$") (LType _ : LType _ : LType _ : LExpr x : y : args)
         = go env x (y : args)
     go env (VarIn DA_Internal_LF "unpackPair") (LType (StrLitTy f1) : LType (StrLitTy f2) : LType t1 : LType t2 : args)
         = fmap (, args) $ do
