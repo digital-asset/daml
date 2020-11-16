@@ -266,20 +266,20 @@ final class SandboxServer(
     val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
-          name,
-          config.ledgerIdMode,
-          config.participantId,
-          jdbcUrl,
-          timeProvider,
-          ledgerEntries,
-          startMode,
-          config.commandConfig.maxParallelSubmissions,
-          transactionCommitter,
-          packageStore,
-          config.eventsPageSize,
-          metrics,
-          lfValueTranslationCache,
-          !config.implicitPartyAllocation
+          name = name,
+          providedLedgerId = config.ledgerIdMode,
+          participantId = config.participantId,
+          jdbcUrl = jdbcUrl,
+          timeProvider = timeProvider,
+          ledgerEntries = ledgerEntries,
+          startMode = startMode,
+          queueDepth = config.commandConfig.maxParallelSubmissions,
+          transactionCommitter = transactionCommitter,
+          templateStore = packageStore,
+          eventsPageSize = config.eventsPageSize,
+          metrics = metrics,
+          lfValueTranslationCache = lfValueTranslationCache,
+          validatePartyAllocation = !config.implicitPartyAllocation,
         )
 
       case None =>
