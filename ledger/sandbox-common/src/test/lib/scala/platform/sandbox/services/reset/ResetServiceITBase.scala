@@ -208,7 +208,7 @@ abstract class ResetServiceITBase
           .map(ids => ids.distinct should have size 20L)
       }
 
-      // 5 attempts with 5 transactions each seem to strike the right balance to complete before the
+      // 4 attempts with 5 transactions each seem to strike the right balance to complete before the
       // 30 seconds test timeout in normal conditions while still causing the test to fail if
       // something goes wrong.
       //
@@ -217,7 +217,7 @@ abstract class ResetServiceITBase
       val expectedResetCompletionTime = Span.convertSpanToDuration(scaled(5.seconds))
       s"consistently complete within $expectedResetCompletionTime" in {
         val numberOfCommands = 5
-        val numberOfAttempts = 5
+        val numberOfAttempts = 4
         Future
           .sequence(
             Iterator
