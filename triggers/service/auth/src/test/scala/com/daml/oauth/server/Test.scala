@@ -20,7 +20,8 @@ import scala.concurrent.Future
 
 class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
   import Client.JsonProtocol._
-  private def requestToken(parties: Seq[String]): Future[Either[String, AuthServiceJWTPayload]] = {
+  private def requestToken(
+      parties: Seq[String]): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
     lazy val clientBinding = suiteResource.value._2.localAddress
     lazy val clientUri = Uri().withAuthority(clientBinding.getHostString, clientBinding.getPort)
     val req = HttpRequest(
@@ -46,7 +47,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       // Actual token response (proxied from auth server to us via the client)
       body <- Unmarshal(resp).to[Client.Response]
       result <- body match {
-        case Client.AccessResponse(token) =>
+        case Client.AccessResponse(token, refreshToken) =>
           for {
             decodedJwt <- JwtDecoder
               .decode(Jwt(token))
@@ -54,13 +55,13 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
                 e => Future.failed(new IllegalArgumentException(e.toString)),
                 Future.successful(_))
             payload <- Future.fromTry(AuthServiceJWTCodec.readFromString(decodedJwt.payload))
-          } yield Right(payload)
+          } yield Right((payload, refreshToken))
         case Client.ErrorResponse(error) => Future(Left(error))
       }
     } yield result
   }
 
-  private def expectToken(parties: Seq[String]): Future[AuthServiceJWTPayload] =
+  private def expectToken(parties: Seq[String]): Future[(AuthServiceJWTPayload, String)] =
     requestToken(parties).flatMap {
       case Left(error) => fail(s"Expected token but got error-code $error")
       case Right(token) => Future(token)
@@ -75,21 +76,21 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
   "the auth server" should {
     "issue a token with no parties" in {
       for {
-        token <- expectToken(Seq())
+        (token, _) <- expectToken(Seq())
       } yield {
         assert(token.actAs == Seq())
       }
     }
     "issue a token with 1 party" in {
       for {
-        token <- expectToken(Seq("Alice"))
+        (token, _) <- expectToken(Seq("Alice"))
       } yield {
         assert(token.actAs == Seq("Alice"))
       }
     }
     "issue a token with multiple parties" in {
       for {
-        token <- expectToken(Seq("Alice", "Bob"))
+        (token, _) <- expectToken(Seq("Alice", "Bob"))
       } yield {
         assert(token.actAs == Seq("Alice", "Bob"))
       }

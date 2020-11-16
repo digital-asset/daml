@@ -33,11 +33,11 @@ object Client {
   object JsonProtocol extends DefaultJsonProtocol {
     implicit val accessParamsFormat: RootJsonFormat[AccessParams] = jsonFormat1(AccessParams)
     implicit object ResponseJsonFormat extends RootJsonFormat[Response] {
-      implicit private val accessFormat: RootJsonFormat[AccessResponse] = jsonFormat1(
+      implicit private val accessFormat: RootJsonFormat[AccessResponse] = jsonFormat2(
         AccessResponse)
       implicit private val errorFormat: RootJsonFormat[ErrorResponse] = jsonFormat1(ErrorResponse)
       def write(resp: Response) = resp match {
-        case resp @ AccessResponse(_) => resp.toJson
+        case resp @ AccessResponse(_, _) => resp.toJson
         case resp @ ErrorResponse(_) => resp.toJson
       }
       def read(value: JsValue) =
@@ -52,7 +52,7 @@ object Client {
 
   case class AccessParams(parties: Seq[String])
   sealed trait Response
-  final case class AccessResponse(token: String) extends Response
+  final case class AccessResponse(token: String, refresh: String) extends Response
   final case class ErrorResponse(error: String) extends Response
 
   def toRedirectUri(uri: Uri): Uri = uri.withPath(Path./("cb"))
@@ -114,7 +114,8 @@ object Client {
                   onSuccess(f) { tokenResp =>
                     // Now we have the access_token and potentially the refresh token. At this point,
                     // we would start the trigger.
-                    complete(AccessResponse(tokenResp.accessToken): Response)
+                    complete(
+                      AccessResponse(tokenResp.accessToken, tokenResp.refreshToken.get): Response)
                   }
               }
           } ~
