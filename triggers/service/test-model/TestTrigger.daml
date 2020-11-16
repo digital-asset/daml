@@ -7,6 +7,7 @@ module TestTrigger where
 import DA.Action
 import DA.Foldable
 import Daml.Trigger
+import Daml.Script (script)
 
 template A
   with
@@ -38,3 +39,40 @@ triggerRule p = do
     when ((x,y) `notElem`  bs) $
     void $ emitCommands [createCmd (B x y)] [toAnyContractId aCid]
   pure ()
+
+-- This is a dummy definition to make sure
+-- that we blow the default protobuf recursion limit
+-- and thereby test that we decode using the raised limit.
+_protobufrecursionlimit y = script do
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  pure ()
+  y
