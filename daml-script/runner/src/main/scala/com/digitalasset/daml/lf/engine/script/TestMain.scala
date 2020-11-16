@@ -133,7 +133,7 @@ object TestMain extends StrictLogging {
           }
           success = new AtomicBoolean(true)
           // Sort in case scripts depend on each other.
-          _ <- sequentialTraverse(testScripts.toList.sortBy({ case (id, _) => id})) {
+          _ <- sequentialTraverse(testScripts.toList.sortBy({ case (id, _) => id })) {
             case (id, script) =>
               val runner =
                 new Runner(compiledPackages, script, config.timeMode)
