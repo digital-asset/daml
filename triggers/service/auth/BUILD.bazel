@@ -124,6 +124,7 @@ da_scala_test(
         "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-resources",
+        "//libs-scala/adjustable-clock",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_auth0_java_jwt",

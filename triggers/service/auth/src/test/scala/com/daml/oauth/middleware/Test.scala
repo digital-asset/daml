@@ -3,6 +3,8 @@
 
 package com.daml.oauth.middleware
 
+import java.time.Duration
+
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.Uri.{Path, Query}
@@ -25,13 +27,16 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       .withScheme("http")
       .withAuthority(middlewareBinding.getHostString, middlewareBinding.getPort)
   }
-  private def makeToken(claims: Request.Claims, secret: String = "secret"): OAuthResponse.Token = {
+  private def makeToken(
+      claims: Request.Claims,
+      secret: String = "secret",
+      expiresIn: Option[Duration] = None): OAuthResponse.Token = {
     val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
     val jwtPayload = AuthServiceJWTPayload(
       ledgerId = Some("test-ledger"),
       applicationId = Some("test-application"),
       participantId = None,
-      exp = None,
+      exp = expiresIn.map(in => suiteResource.value._1.instant.plus(in)),
       admin = claims.admin,
       actAs = claims.actAs.map(ApiTypes.Party.unwrap(_)),
       readAs = claims.readAs.map(ApiTypes.Party.unwrap(_))
@@ -44,7 +49,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         )
         .value,
       tokenType = "bearer",
-      expiresIn = None,
+      expiresIn = expiresIn.map(in => in.getSeconds.toInt),
       refreshToken = None,
       scope = Some(claims.toQueryString())
     )
@@ -101,6 +106,23 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     "return unauthorized on an invalid token" in {
       val claims = Request.Claims(actAs = List(ApiTypes.Party("Alice")))
       val token = makeToken(claims, "wrong-secret")
+      val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
+      val req = HttpRequest(
+        uri = middlewareUri
+          .withPath(Path./("auth"))
+          .withQuery(Query(("claims", claims.toQueryString))),
+        headers = List(cookieHeader)
+      )
+      for {
+        resp <- Http().singleRequest(req)
+      } yield {
+        assert(resp.status == StatusCodes.Unauthorized)
+      }
+    }
+    "return unauthorized on an expired token" in {
+      val claims = Request.Claims(actAs = List(ApiTypes.Party("Alice")))
+      val token = makeToken(claims, expiresIn = Some(Duration.ZERO))
+      val _ = suiteResource.value._1.fastForward(Duration.ofSeconds(1))
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
       val req = HttpRequest(
         uri = middlewareUri

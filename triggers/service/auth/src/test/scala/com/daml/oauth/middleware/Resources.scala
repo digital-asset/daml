@@ -3,20 +3,22 @@
 
 package com.daml.oauth.middleware
 
-import java.time.{Clock, Instant, ZoneId}
+import java.time.{Clock, Duration, Instant, ZoneId}
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
+import com.daml.clock.AdjustableClock
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.oauth.server.{Config => OAuthConfig, Server => OAuthServer}
 
 import scala.concurrent.Future
 
 object Resources {
-  def clock(start: Instant, zoneId: ZoneId): ResourceOwner[Clock] =
-    new ResourceOwner[Clock] {
-      override def acquire()(implicit context: ResourceContext): Resource[Clock] = {
-        Resource(Future(Clock.fixed(start, zoneId)))(_ => Future(()))
+  def clock(start: Instant, zoneId: ZoneId): ResourceOwner[AdjustableClock] =
+    new ResourceOwner[AdjustableClock] {
+      override def acquire()(implicit context: ResourceContext): Resource[AdjustableClock] = {
+        Resource(Future(AdjustableClock(Clock.fixed(start, zoneId), Duration.ZERO)))(_ =>
+          Future(()))
       }
     }
   def authServer(config: OAuthConfig)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
