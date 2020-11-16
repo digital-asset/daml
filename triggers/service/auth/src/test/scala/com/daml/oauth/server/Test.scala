@@ -61,6 +61,36 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     } yield result
   }
 
+  private def requestRefresh(
+      refreshToken: String): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
+    lazy val clientBinding = suiteResource.value._2.localAddress
+    lazy val clientUri = Uri().withAuthority(clientBinding.getHostString, clientBinding.getPort)
+    val req = HttpRequest(
+      uri = clientUri.withPath(Path./("refresh")).withScheme("http"),
+      method = HttpMethods.POST,
+      entity = HttpEntity(
+        MediaTypes.`application/json`,
+        Client.RefreshParams(refreshToken).toJson.compactPrint)
+    )
+    for {
+      resp <- Http().singleRequest(req)
+      // Token response (proxied from auth server to us via the client)
+      body <- Unmarshal(resp).to[Client.Response]
+      result <- body match {
+        case Client.AccessResponse(token, refreshToken) =>
+          for {
+            decodedJwt <- JwtDecoder
+              .decode(Jwt(token))
+              .fold(
+                e => Future.failed(new IllegalArgumentException(e.toString)),
+                Future.successful(_))
+            payload <- Future.fromTry(AuthServiceJWTCodec.readFromString(decodedJwt.payload))
+          } yield Right((payload, refreshToken))
+        case Client.ErrorResponse(error) => Future(Left(error))
+      }
+    } yield result
+  }
+
   private def expectToken(parties: Seq[String]): Future[(AuthServiceJWTPayload, String)] =
     requestToken(parties).flatMap {
       case Left(error) => fail(s"Expected token but got error-code $error")
@@ -71,6 +101,12 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     requestToken(parties).flatMap {
       case Left(error) => Future(error)
       case Right(_) => fail("Expected an error but got a token")
+    }
+
+  private def expectRefresh(refreshToken: String): Future[(AuthServiceJWTPayload, String)] =
+    requestRefresh(refreshToken).flatMap {
+      case Left(error) => fail(s"Expected token but got error-code $error")
+      case Right(token) => Future(token)
     }
 
   "the auth server" should {
@@ -100,6 +136,18 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         error <- expectError(Seq("Alice", "Eve"))
       } yield {
         assert(error == "access_denied")
+      }
+    }
+    "refresh a token" in {
+      for {
+        (token1, refresh1) <- expectToken(Seq())
+        (token2, refresh2) <- expectRefresh(refresh1)
+        (token3, _) <- expectRefresh(refresh2)
+      } yield {
+        assert(!token1.exp.get.isAfter(token2.exp.get))
+        assert(!token2.exp.get.isAfter(token3.exp.get))
+        assert(token1.copy(exp = None) == token2.copy(exp = None))
+        assert(token2.copy(exp = None) == token3.copy(exp = None))
       }
     }
   }

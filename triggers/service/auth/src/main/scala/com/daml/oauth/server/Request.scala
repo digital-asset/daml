@@ -94,7 +94,7 @@ object Request {
       Unmarshaller.defaultUrlEncodedFormDataUnmarshaller.map { form =>
         Refresh(
           grantType = form.fields.get("grant_type").get,
-          refreshToken = form.fields.get("code").get,
+          refreshToken = form.fields.get("refresh_token").get,
           clientId = form.fields.get("client_id").get,
           clientSecret = form.fields.get("client_secret").get,
         )

@@ -83,6 +83,7 @@ class Server(config: Config) {
   }
 
   import Request.Token.unmarshalHttpEntity
+  import Request.Refresh.unmarshalHttpEntity
   implicit val unmarshal: Unmarshaller[String, Uri] = Unmarshaller.strict(Uri(_))
 
   val route = concat(

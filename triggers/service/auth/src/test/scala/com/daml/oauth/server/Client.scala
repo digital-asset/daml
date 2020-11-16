@@ -32,6 +32,7 @@ object Client {
 
   object JsonProtocol extends DefaultJsonProtocol {
     implicit val accessParamsFormat: RootJsonFormat[AccessParams] = jsonFormat1(AccessParams)
+    implicit val refreshParamsFormat: RootJsonFormat[RefreshParams] = jsonFormat1(RefreshParams)
     implicit object ResponseJsonFormat extends RootJsonFormat[Response] {
       implicit private val accessFormat: RootJsonFormat[AccessResponse] = jsonFormat2(
         AccessResponse)
@@ -51,6 +52,7 @@ object Client {
   }
 
   case class AccessParams(parties: Seq[String])
+  case class RefreshParams(refreshToken: String)
   sealed trait Response
   final case class AccessResponse(token: String, refresh: String) extends Response
   final case class ErrorResponse(error: String) extends Response
@@ -124,7 +126,42 @@ object Client {
                 complete(ErrorResponse(resp.error): Response)
               }
         }
-      }
+      },
+      path("refresh") {
+        post {
+          entity(as[RefreshParams]) { params =>
+            val body = Request.Refresh(
+              grantType = "refresh_token",
+              refreshToken = params.refreshToken,
+              clientId = config.clientId,
+              clientSecret = config.clientSecret,
+            )
+            val f =
+              for {
+                entity <- Marshal(body).to[RequestEntity]
+                req = HttpRequest(
+                  uri = config.authServerUrl.withPath(Path./("token")),
+                  entity = entity,
+                  method = HttpMethods.POST,
+                )
+                resp <- Http().singleRequest(req)
+                tokenResp <- if (resp.status != StatusCodes.OK) {
+                  Unmarshal(resp).to[String].flatMap { msg =>
+                    throw new RuntimeException(
+                      s"Failed to fetch refresh token (${resp.status}): $msg.")
+                  }
+                } else {
+                  Unmarshal(resp).to[Response.Token]
+                }
+              } yield tokenResp
+            onSuccess(f) { tokenResp =>
+              // Now we have the access_token and potentially the refresh token. At this point,
+              // we would start the trigger.
+              complete(AccessResponse(tokenResp.accessToken, tokenResp.refreshToken.get): Response)
+            }
+          }
+        }
+      },
     )
     Http().bindAndHandle(route, "localhost", config.port.value)
   }
