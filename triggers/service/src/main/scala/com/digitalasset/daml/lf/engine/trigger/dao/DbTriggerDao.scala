@@ -11,7 +11,7 @@ import cats.syntax.apply._
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.refinements.ApiTypes.Party
-import com.daml.lf.archive.Dar
+import com.daml.lf.archive.{Dar, Reader}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.trigger.{JdbcConfig, RunningTrigger}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
@@ -153,7 +153,8 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
       pkgPayload: Array[Byte]): Either[String, (PackageId, DamlLf.ArchivePayload)] =
     for {
       pkgId <- PackageId.fromString(pkgIdString)
-      payload <- Try(DamlLf.ArchivePayload.parseFrom(pkgPayload)) match {
+      cos = Reader.damlLfCodedInputStreamFromBytes(pkgPayload)
+      payload <- Try(DamlLf.ArchivePayload.parseFrom(cos)) match {
         case Failure(err) => Left(s"Failed to parse package with id $pkgId.\n" ++ err.toString)
         case Success(pkg) => Right(pkg)
       }
