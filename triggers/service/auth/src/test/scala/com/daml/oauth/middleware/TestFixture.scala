@@ -33,7 +33,9 @@ trait TestFixture extends AkkaBeforeAndAfterAll with SuiteResource[(ServerBindin
             ledgerId = ledgerId,
             applicationId = Some(applicationId),
             jwtSecret = jwtSecret,
-            parties = Some(ApiTypes.Party.subst(Set("Alice", "Bob")))))
+            parties = Some(ApiTypes.Party.subst(Set("Alice", "Bob"))),
+            clock = None
+          ))
         serverUri = Uri()
           .withScheme("http")
           .withAuthority(server.localAddress.getHostString, server.localAddress.getPort)

@@ -31,7 +31,8 @@ trait TestFixture extends AkkaBeforeAndAfterAll with SuiteResource[(ServerBindin
             ledgerId = ledgerId,
             applicationId = Some(applicationId),
             jwtSecret = jwtSecret,
-            parties = Some(Party.subst(Set("Alice", "Bob")))))
+            parties = Some(Party.subst(Set("Alice", "Bob"))),
+            clock = None))
         client <- Resources.authClient(
           Client.Config(
             port = Port.Dynamic,

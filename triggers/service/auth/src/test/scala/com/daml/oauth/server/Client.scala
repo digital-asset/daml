@@ -129,36 +129,38 @@ object Client {
       },
       path("refresh") {
         post {
-          entity(as[RefreshParams]) { params =>
-            val body = Request.Refresh(
-              grantType = "refresh_token",
-              refreshToken = params.refreshToken,
-              clientId = config.clientId,
-              clientSecret = config.clientSecret,
-            )
-            val f =
-              for {
-                entity <- Marshal(body).to[RequestEntity]
-                req = HttpRequest(
-                  uri = config.authServerUrl.withPath(Path./("token")),
-                  entity = entity,
-                  method = HttpMethods.POST,
-                )
-                resp <- Http().singleRequest(req)
-                tokenResp <- if (resp.status != StatusCodes.OK) {
-                  Unmarshal(resp).to[String].flatMap { msg =>
-                    throw new RuntimeException(
-                      s"Failed to fetch refresh token (${resp.status}): $msg.")
+          entity(as[RefreshParams]) {
+            params =>
+              val body = Request.Refresh(
+                grantType = "refresh_token",
+                refreshToken = params.refreshToken,
+                clientId = config.clientId,
+                clientSecret = config.clientSecret,
+              )
+              val f =
+                for {
+                  entity <- Marshal(body).to[RequestEntity]
+                  req = HttpRequest(
+                    uri = config.authServerUrl.withPath(Path./("token")),
+                    entity = entity,
+                    method = HttpMethods.POST,
+                  )
+                  resp <- Http().singleRequest(req)
+                  tokenResp <- if (resp.status != StatusCodes.OK) {
+                    Unmarshal(resp).to[String].flatMap { msg =>
+                      throw new RuntimeException(
+                        s"Failed to fetch refresh token (${resp.status}): $msg.")
+                    }
+                  } else {
+                    Unmarshal(resp).to[Response.Token]
                   }
-                } else {
-                  Unmarshal(resp).to[Response.Token]
-                }
-              } yield tokenResp
-            onSuccess(f) { tokenResp =>
-              // Now we have the access_token and potentially the refresh token. At this point,
-              // we would start the trigger.
-              complete(AccessResponse(tokenResp.accessToken, tokenResp.refreshToken.get): Response)
-            }
+                } yield tokenResp
+              onSuccess(f) { tokenResp =>
+                // Now we have the access_token and potentially the refresh token. At this point,
+                // we would start the trigger.
+                complete(
+                  AccessResponse(tokenResp.accessToken, tokenResp.refreshToken.get): Response)
+              }
           }
         }
       },

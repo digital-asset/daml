@@ -3,6 +3,8 @@
 
 package com.daml.oauth.server
 
+import java.time.Clock
+
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ports.Port
 
@@ -16,7 +18,9 @@ case class Config(
     // Secret used to sign JWTs
     jwtSecret: String,
     // Only authorize requests for these parties, if set.
-    parties: Option[Set[Party]]
+    parties: Option[Set[Party]],
+    // Use the provided clock instead of system time for token generation. For testing only.
+    clock: Option[Clock],
 )
 
 object Config {
@@ -26,7 +30,8 @@ object Config {
       ledgerId = null,
       applicationId = None,
       jwtSecret = null,
-      parties = None)
+      parties = None,
+      clock = None)
 
   def parseConfig(args: Seq[String]): Option[Config] =
     configParser.parse(args, Empty)

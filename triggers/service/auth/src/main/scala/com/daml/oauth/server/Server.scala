@@ -58,8 +58,13 @@ class Server(config: Config) {
   // The token request then only does a lookup and signs the token.
   private val requests = TrieMap.empty[UUID, AuthServiceJWTPayload]
 
-  private def tokenExpiry(): Instant =
-    Instant.now().plusSeconds(tokenLifetimeSeconds.asInstanceOf[Long])
+  private def tokenExpiry(): Instant = {
+    val now = config.clock match {
+      case Some(clock) => Instant.now(clock)
+      case None => Instant.now()
+    }
+    now.plusSeconds(tokenLifetimeSeconds.asInstanceOf[Long])
+  }
   private def toPayload(req: Request.Authorize): AuthServiceJWTPayload = {
     var actAs: Seq[String] = Seq()
     var readAs: Seq[String] = Seq()
