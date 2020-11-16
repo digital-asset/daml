@@ -76,6 +76,7 @@ private[sandbox] object SqlLedger {
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
+      validatePartyAllocation: Boolean = false,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[Ledger] {
 
@@ -225,6 +226,7 @@ private[sandbox] object SqlLedger {
         eventsPageSize,
         metrics,
         lfValueTranslationCache,
+        validatePartyAllocation,
       )
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =

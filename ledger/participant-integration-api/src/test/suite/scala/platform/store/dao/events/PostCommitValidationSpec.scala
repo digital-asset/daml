@@ -7,10 +7,12 @@ import java.sql.Connection
 import java.time.Instant
 import java.util.UUID
 
+import com.daml.ledger.participant.state.v1.RejectionReason
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import org.scalatest.{Matchers, WordSpec}
 
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 final class PostCommitValidationSpec extends WordSpec with Matchers {
@@ -367,8 +369,25 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
       }
     }
 
-  }
+    "run with unallocated parties" should {
+      val store =
+        new PostCommitValidation.BackedBy(
+          noCommittedContract,
+          Some(_ => Future.successful(List.empty)))
 
+      "reject" in {
+        val createWithKey = genTestCreate()
+        val error =
+          store.validate(
+            transaction = TxBuilder.justCommitted(createWithKey),
+            transactionLedgerEffectiveTime = Instant.now(),
+            divulged = Set.empty,
+          )
+
+        error shouldBe Some(RejectionReason.PartyNotKnownOnLedger("Some parties are unallocated"))
+      }
+    }
+  }
 }
 
 object PostCommitValidationSpec {
@@ -452,5 +471,4 @@ object PostCommitValidationSpec {
       None,
       None,
     )
-
 }
