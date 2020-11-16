@@ -353,7 +353,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
           ledgerEffectiveTime,
           transactionId,
           workflowId,
-          tx.submittingParty,
+          tx.actAs,
           transaction,
           mappedDisclosure,
           divulgence,
@@ -448,7 +448,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
         Some(commandId),
         transactionId,
         Some(applicationId),
-        Some(submitter),
+        List(submitter),
         workflowId,
         effectiveAt.toInstant,
         recordedAt.toInstant,
@@ -472,7 +472,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
         offset) =>
       val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
       offset -> LedgerEntry
-        .Rejection(recordedAt.toInstant, commandId, applicationId, submitter, rejectionReason)
+        .Rejection(recordedAt.toInstant, commandId, applicationId, List(submitter), rejectionReason)
     case invalidRow =>
       sys.error(s"invalid ledger entry for offset: ${invalidRow.offset}. database row: $invalidRow")
   }

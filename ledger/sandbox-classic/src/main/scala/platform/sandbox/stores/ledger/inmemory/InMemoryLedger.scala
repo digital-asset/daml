@@ -312,7 +312,7 @@ private[sandbox] final class InMemoryLedger(
             transactionMeta.ledgerEffectiveTime.toInstant,
             transactionId,
             transactionMeta.workflowId,
-            Some(submitterInfo.singleSubmitterOrThrow()),
+            submitterInfo.actAs,
             committedTransaction,
             disclosureForIndex,
             divulgence,
@@ -330,7 +330,7 @@ private[sandbox] final class InMemoryLedger(
                   Some(submitterInfo.commandId),
                   transactionId,
                   Some(submitterInfo.applicationId),
-                  Some(submitterInfo.singleSubmitterOrThrow()),
+                  submitterInfo.actAs,
                   transactionMeta.workflowId,
                   transactionMeta.ledgerEffectiveTime.toInstant,
                   recordTime,
@@ -358,7 +358,7 @@ private[sandbox] final class InMemoryLedger(
           timeProvider.getCurrentTime,
           submitterInfo.commandId,
           submitterInfo.applicationId,
-          submitterInfo.singleSubmitterOrThrow(),
+          submitterInfo.actAs,
           reason)
       )
     )

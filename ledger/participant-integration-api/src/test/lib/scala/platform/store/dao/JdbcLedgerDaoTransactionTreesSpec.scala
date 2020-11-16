@@ -32,7 +32,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (_, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(transactionId = "WRONG", Set(tx.submittingParty.get))
+        .lookupTransactionTreeById(transactionId = "WRONG", tx.actAs.toSet)
     } yield {
       result shouldBe None
     }
@@ -52,7 +52,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (offset, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(tx.transactionId, Set(tx.submittingParty.get))
+        .lookupTransactionTreeById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
@@ -67,7 +67,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           val created = transaction.eventsById.values.loneElement.getCreated
           transaction.rootEventIds.loneElement shouldEqual created.eventId
           created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
-          created.witnessParties should contain only tx.submittingParty.get
+          created.witnessParties should contain only (tx.actAs: _*)
           created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
           created.contractKey shouldBe None
           created.createArguments shouldNot be(None)
@@ -84,7 +84,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       (_, create) <- store(singleCreate)
       (offset, exercise) <- store(singleExercise(nonTransient(create).loneElement))
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(exercise.transactionId, Set(exercise.submittingParty.get))
+        .lookupTransactionTreeById(exercise.transactionId, exercise.actAs.toSet)
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
@@ -99,7 +99,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           val exercised = transaction.eventsById.values.loneElement.getExercised
           transaction.rootEventIds.loneElement shouldEqual exercised.eventId
           exercised.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
-          exercised.witnessParties should contain only exercise.submittingParty.get
+          exercised.witnessParties should contain only (exercise.actAs: _*)
           exercised.contractId shouldBe exerciseNode.targetCoid.coid
           exercised.templateId shouldNot be(None)
           exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
@@ -116,7 +116,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (offset, tx) <- store(fullyTransient)
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(tx.transactionId, Set(tx.submittingParty.get))
+        .lookupTransactionTreeById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
@@ -150,7 +150,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             .getExercised
 
           created.eventId shouldBe EventId(transaction.transactionId, createNodeId).toLedgerString
-          created.witnessParties should contain only tx.submittingParty.get
+          created.witnessParties should contain only (tx.actAs: _*)
           created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
           created.contractKey shouldBe None
           created.createArguments shouldNot be(None)
@@ -160,7 +160,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           created.templateId shouldNot be(None)
 
           exercised.eventId shouldBe EventId(transaction.transactionId, exerciseNodeId).toLedgerString
-          exercised.witnessParties should contain only tx.submittingParty.get
+          exercised.witnessParties should contain only (tx.actAs: _*)
           exercised.contractId shouldBe exerciseNode.targetCoid.coid
           exercised.templateId shouldNot be(None)
           exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
