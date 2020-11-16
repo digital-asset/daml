@@ -256,7 +256,7 @@ abstract class AbstractFuncIT
     }
     "traceOrder" should {
       "emit trace statements in correct order" in {
-        def traceMsg(msg: String) = s"""[DA.Internal.Prelude:540]: "$msg""""
+        def traceMsg(msg: String) = s"""[DA.Internal.Prelude:532]: "$msg""""
         for {
           clients <- participantClients()
           _ = LogCollector.clear()
