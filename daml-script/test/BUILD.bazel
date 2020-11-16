@@ -164,7 +164,7 @@ da_scala_test_suite(
         openssl_executable,
     ],
     jvm_flags = [
-        """-Djava.security.debug=\"certpath ocsp\"""",  # This facilitates debugging of the OCSP checks mechanism
+        "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
     ],
     resources = glob(["src/main/resources/**/*"]),
     deps = [
