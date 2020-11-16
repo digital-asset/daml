@@ -3,10 +3,11 @@
 
 package com.daml.oauth.server
 
-import java.time.{Clock, Instant, ZoneId}
+import java.time.{Instant, ZoneId}
 
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
+import com.daml.clock.AdjustableClock
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   OwnedResource,
@@ -20,14 +21,15 @@ import org.scalatest.Suite
 
 trait TestFixture
     extends AkkaBeforeAndAfterAll
-    with SuiteResource[(Clock, ServerBinding, ServerBinding)] {
+    with SuiteResource[(AdjustableClock, ServerBinding, ServerBinding)] {
   self: Suite =>
   protected val ledgerId: String = "test-ledger"
   protected val applicationId: String = "test-application"
   protected val jwtSecret: String = "secret"
-  override protected lazy val suiteResource: Resource[(Clock, ServerBinding, ServerBinding)] = {
+  override protected lazy val suiteResource
+    : Resource[(AdjustableClock, ServerBinding, ServerBinding)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[ResourceContext, (Clock, ServerBinding, ServerBinding)](
+    new OwnedResource[ResourceContext, (AdjustableClock, ServerBinding, ServerBinding)](
       for {
         clock <- Resources.clock(Instant.now(), ZoneId.systemDefault())
         server <- Resources.authServer(

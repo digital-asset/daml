@@ -141,13 +141,11 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     "refresh a token" in {
       for {
         (token1, refresh1) <- expectToken(Seq())
-        (token2, refresh2) <- expectRefresh(refresh1)
-        (token3, _) <- expectRefresh(refresh2)
+        _ <- Future(suiteResource.value._1.set(token1.exp.get.plusSeconds(1)))
+        (token2, _) <- expectRefresh(refresh1)
       } yield {
-        assert(!token1.exp.get.isAfter(token2.exp.get))
-        assert(!token2.exp.get.isAfter(token3.exp.get))
+        assert(token2.exp.get.isAfter(token1.exp.get))
         assert(token1.copy(exp = None) == token2.copy(exp = None))
-        assert(token2.copy(exp = None) == token3.copy(exp = None))
       }
     }
   }
