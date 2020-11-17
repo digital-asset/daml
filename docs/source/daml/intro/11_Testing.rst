@@ -19,8 +19,8 @@ DAML Test Tooling
 
 There are three primary tools available in the SDK to test and interact with DAML contracts. It is highly recommended to explore the respective docs. The chapter 8 model lends itself well to being tested using these tools.
 
-:doc:`DAML Script </daml-script/index>` 
-  
+:doc:`DAML Script </daml-script/index>`
+
    :doc:`DAML Script </daml-script/index>` should be familiar by now. It's a way to script commands and queries from multiple parties against a DAML Ledger. Unless you've browsed other sections of the documentation already, you have probably used it mostly in the IDE. However, DAML Script can do much more than that. It has four different modes of operation:
 
    1. Run on a special Script Service in the IDE, providing the Script Views.
@@ -42,7 +42,7 @@ Debug, Trace, and Stacktraces
 The above demonstrates nicely how to test the happy path, but what if a function doesn't behave as you expected? DAML has two functions that allow you to do fine-grained printf debugging: ``debug`` and ``trace``. Both allow you to print something to StdOut if the code is reached. The difference between ``debug`` and ``trace`` is similar to the relationship between ``abort`` and ``error``:
 
 - ``debug : Text -> m ()`` maps a text to an Action that has the side-effect of printing to StdOut.
-- ``trace : Text -> a -> a`` prints to StdOut when the expression is evaluated. 
+- ``trace : Text -> a -> a`` prints to StdOut when the expression is evaluated.
 
 .. code-block:: none
 
@@ -50,9 +50,9 @@ The above demonstrates nicely how to test the happy path, but what if a function
   daml> let b : Script () = trace "bar" (debug "baz")
   [Daml.Script:378]: "bar"
   daml> a
-  [DA.Internal.Prelude:540]: "foo"
+  [DA.Internal.Prelude:532]: "foo"
   daml> b
-  [DA.Internal.Prelude:540]: "baz"
+  [DA.Internal.Prelude:532]: "baz"
   daml>
 
 If in doubt, use ``debug``. It's the easier of the two to interpret the results of.
@@ -72,7 +72,7 @@ If we look back at :ref:`execution_model` we'll see there are three places where
 2. During interpretation, ledger state is used to to look up active contracts.
 3. During commit, ledger state is again used to look up contracts and validate the transaction by reinterpreting it.
 
-Collisions can occur both between 1 and 2 and between 2 and 3. Only during the commit phase is the complete relevant ledger state at the time of the transaction known, which means the ledger state at commit time is king. As a DAML contract developer, you need to understand the different causes of contention, be able to diagnose the root cause if errors of this type occur, and be able to avoid collisions by designing contracts appropriately. 
+Collisions can occur both between 1 and 2 and between 2 and 3. Only during the commit phase is the complete relevant ledger state at the time of the transaction known, which means the ledger state at commit time is king. As a DAML contract developer, you need to understand the different causes of contention, be able to diagnose the root cause if errors of this type occur, and be able to avoid collisions by designing contracts appropriately.
 
 Common Errors
 ~~~~~~~~~~~~~
@@ -88,7 +88,7 @@ Following the possible error messages, we'll discuss a few possible causes and r
 ContractId Not Found During Interpretation
 ..........................................
 
-.. code-block:: none 
+.. code-block:: none
 
   Command interpretation error in LF-DAMLe: dependency error: couldn't find contract ContractId(004481eb78464f1ed3291b06504d5619db4f110df71cb5764717e1c4d3aa096b9f).
 
@@ -128,10 +128,10 @@ The first thing to avoid is write-write or write-read contention on contracts. I
 Here are a few scenarios and measures you can take to reduce this type of collision:
 
 1. Shard data. Imagine you want to store a user directory on the Ledger. At the core, this is of type ``[(Text, Party)]``, where ``Text`` is a display name and `Party` the associated Party. If you store this entire list on a single contract, any two users wanting to update their display name at the same time will cause a collision. If you instead keep each ``(Text, Party)`` on a separate contract, these write operations become independent from each other.
-   
+
    The Analogy to keep in mind when structuring your data is that a template defines a table, and a contract is a row in that table. Keeping large pieces of data on a contract is like storing big blobs in a database row. If these blobs can change through different actions, you get write conflicts.
 2. Use nonconsuming choices if you can. Nonconsuming exercises have the same contention properties as fetches: they don't collide with each other.
-   
+
    Contract keys can seem like a way out, but they are not. Contract keys are resolved to Contract IDs during the interpretation phase on the participant node. So it reduces latencies slightly by moving resolution from the client layer to the participant layer, but it doesn't remove the issue. Going back to the auction example above, if Alice sent a command ``exerciseByKey @Auction auctionKey Bid with amount = 100``, this would be resolved to an ``exercise cid Bid with amount = 100`` during interpretation, where ``cid`` is the participant's best guess what ContractId the key refers to.
 3. Avoid workflows that encourage multiple parties to simultaneously try to exercise a consuming choice on the same contract. For example, imagine an ``Auction`` contract containing a field ``highestBid : (Party, Decimal)``. If Alice tries to bid $100 at the same time that Bob tries to bid $90, it doesn't matter that Alice's bid is higher. The second transaction to be sequenced will be rejected as it has a write collision with the first. It's better to record the bids in separate ``Bid`` contracts, which can be written to independently. Again, think about how you would structure this data in a relational database to avoid data loss due to race conditions.
 4. Think carefully about storing ContractIds. Imagine you had created a sharded user directory according to 1. Each user has a ``User`` contract that store their display name and party. Now you write a chat application where each ``Message`` contract refers to the sender by ``ContractId User``. If the user changes their display name, that reference goes stale. You either have to modify all messages that user ever sent, or become unable to use the sender contract in DAML. If you need to be able to make this link inside DAML, Contract Keys help here. If the only place you need to link ``Party`` to ``User`` is the UI, it might be best to not store contract references in DAML at all.

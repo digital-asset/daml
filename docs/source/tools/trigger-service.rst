@@ -29,75 +29,182 @@ Although as we'll see, the Trigger Service exposes an endpoint for end-users to 
 
    daml trigger-service --ledger-host localhost --ledger-port 6865 --wall-clock-time
 
-End-user interaction with the Trigger Service
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Endpoints
+~~~~~~~~~
 
-``start``
-*********
+Start a trigger
+***************
 
 Start a trigger. In this example, Alice starts the trigger called ``trigger`` in a module called ``TestTrigger`` of a package with ID ``312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14``. The response contains an identifier for the running trigger that Alice can use in subsequent commands involving the trigger.
 
-.. code-block:: bash
+HTTP Request
+============
 
-   $curl \
-      -X POST localhost:8088/v1/start \
-      -H "Content-type: application/json" -H "Accept: application/json" \
-      -d '{"triggerName":"312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14:TestTrigger:trigger", "party": "alice"}'
-   {"result":{"triggerId":"4d539e9c-b962-4762-be71-40a5c97a47a6"},"status":200}
+- URL: ``/v1/triggers``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
 
-``stop``
-********
+.. code-block:: json
+
+    {
+      "triggerName": "312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14:TestTrigger:trigger",
+      "party": "alice",
+      "applicationId": "my-app-id"
+    }
+
+where
+
+- ``triggerName`` contains the identifier for the trigger in the form
+  ``${packageId}:${moduleName}:${identifierName}``. You can find the
+  package id using ``daml damlc inspect path/to/trigger.dar``.
+- ``party`` is the party the trigger will be running as.
+- ``applicationId`` is an optional field to specify the application ID
+  the trigger will use for command submissions. If omitted, the
+  trigger will default to using its random UUID identifier returned in
+  the start request as the application ID.
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result":{"triggerId":"4d539e9c-b962-4762-be71-40a5c97a47a6"},
+      "status":200
+    }
+
+
+Stop a trigger
+**************
 
 Stop a running trigger. Alice stops her running trigger like so.
 
-.. code-block:: bash
+HTTP Request
+============
 
-   $curl \
-      -X DELETE localhost:8088/v1/stop/4d539e9c-b962-4762-be71-40a5c97a47a6 \
-      -H "Content-type: application/json" -H "Accept: application/json"
-   {"result":{"triggerId":"4d539e9c-b962-4762-be71-40a5c97a47a6"},"status":200}
+- URL: ``/v1/triggers/:id``
+- Method: ``DELETE``
+- Content-Type: ``application/json``
+- Content:
 
-``upload_dar``
+HTTP Response
+=============
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+   {
+     "result": {"triggerId":"4d539e9c-b962-4762-be71-40a5c97a47a6"},
+     "status":200
+   }
+
+List running triggers
+*********************
+
+List the Triggers running on behalf of a given party.
+
+HTTP Request
+============
+
+- URL: ``/v1/triggers?party=:party``
+- Method: ``GET``
+
+HTTP Response
+=============
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "result": {"triggerIds":["4d539e9c-b962-4762-be71-40a5c97a47a6"]},
+      "status":200
+    }
+
+Status of a trigger
+*******************
+
+The status endoint returns you metadata about the trigger like the
+party it is running as and the trigger id as well as the state the
+trigger is in (querying the acs, running, stopped).
+
+HTTP Request
+============
+
+- URL: ``/v1/triggers/:id``
+- Method: ``GET``
+
+HTTP Response
+=============
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "result":
+        {
+          "party": "Alice",
+          "triggerId":"312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14:TestTrigger:trigger",
+          "status": "running"
+        },
+      "status":200
+    }
+
+Upload a new DAR
+****************
+
+Upload a DAR containing one or more triggers. If successful, the DAR's "main package ID" will be in the response (the main package ID for a DAR can also be obtained using ``daml damlc inspect-dar path/to/dar``).
+
+HTTP Request
+============
+
+- URL: ``/v1/packages``
+- Method: ``POST``
+- Content-Type: ``multipart/form-data``
+- Content:
+
+  ``dar=$dar_content``
+
+HTTP Response
+=============
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "result": {"mainPackageId":"312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14"},
+      "status": 200
+    }
+
+Liveness check
 **************
 
-Upload an automation DAR. If successful, the DAR's "main package ID" will be in the response (the main package ID for a DAR can also be obtained using ``daml damlc inspect-dar path/to/dar``).
+This can be used as a liveness probe, e.g., in Kubernetes.
 
-.. code-block:: bash
+HTTP Request
+============
 
-   $ curl -F 'dar=@/home/alice/test-model.dar' localhost:8088/v1/upload_dar
-   {"result":{"mainPackageId":"312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14"},"status":200}
+- URL: ``/livez``
+- Method: ``GET``
 
-``list``
-********
+.. code-block:: json
 
-List the DARS running on behalf of a given party. Alice can check on her running triggers as follows.
-
-.. code-block:: bash
-
-   $curl \
-       -X GET localhost:8088/v1/list \
-       -H "Content-type: application/json" -H "Accept: application/json"
-       -d '{"party": "alice"}'
-   {"result":{"triggerIds":["4d539e9c-b962-4762-be71-40a5c97a47a6"],"status":200}
-
-``status``
-**********
-
-It's sometimes useful to get information about the history of a specific trigger. This can be done with the "status" endpoint.
-
-.. code-block:: bash
-
-   $curl \
-      -X GET localhost:8088/v1/status/4d539e9c-b962-4762-be71-40a5c97a47a6 \
-      -H "Content-type: application/json" -H "Accept: application/json"
-  {"result":{"logs":[["2020-06-12T12:35:49.863","starting"],["2020-06-12T12:35:50.89","running"],["2020-06-12T12:51:57.557","stopped: by user request"]]},"status":200}
-
-``health``
-**********
-
-Test connectivity.
-
-.. code-block:: bash
-
-   $curl -X GET localhost:8088/v1/health
    {"status":"pass"}
+
+HTTP Response
+=============
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    { "status": "pass" }

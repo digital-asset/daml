@@ -6,6 +6,8 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
+import com.daml.ledger.api.domain.PartyDetails
+
 import scala.util.Try
 
 private[events] trait PostCommitValidationData {
@@ -15,4 +17,5 @@ private[events] trait PostCommitValidationData {
   def lookupMaximumLedgerTime(ids: Set[ContractId])(
       implicit connection: Connection): Try[Option[Instant]]
 
+  def lookupParties(parties: Seq[Party])(implicit connection: Connection): List[PartyDetails]
 }

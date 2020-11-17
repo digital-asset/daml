@@ -38,8 +38,10 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
 import GHC.Generics
+import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
 import Network.HTTP.Simple
 import Network.HTTP.Types (statusCode)
+import Numeric.Natural
 import System.Environment
 import System.Exit
 import System.FilePath
@@ -72,6 +74,7 @@ data LedgerFlags = LedgerFlags
   , fHostM :: Maybe String
   , fPortM :: Maybe Int
   , fTokFileM :: Maybe FilePath
+  , fMaxReceiveLengthM :: Maybe Natural
   }
 
 defaultLedgerFlags :: LedgerApi -> LedgerFlags
@@ -82,6 +85,7 @@ defaultLedgerFlags api = LedgerFlags
   , fHostM = Nothing
   , fPortM = Nothing
   , fTokFileM = Nothing
+  , fMaxReceiveLengthM = Nothing
   }
 
 data LedgerArgs = LedgerArgs
@@ -92,6 +96,7 @@ data LedgerArgs = LedgerArgs
   , host :: String
   , port :: Int
   , tokM :: Maybe L.Token
+  , grpcArgs :: [Arg]
   }
 
 showHostAndPort :: LedgerArgs -> String
@@ -107,6 +112,7 @@ getDefaultArgs LedgerFlags { fApi
                            , fHostM
                            , fPortM
                            , fTokFileM
+                           , fMaxReceiveLengthM
                            } = do
   host <- fromMaybeM getProjectLedgerHost fHostM
   port <- fromMaybeM getProjectLedgerPort fPortM
@@ -119,6 +125,7 @@ getDefaultArgs LedgerFlags { fApi
       , tokM = tokM
       , timeout = fTimeout
       , sslConfigM = fSslConfigM
+      , grpcArgs = MaxReceiveMessageLength <$> maybeToList fMaxReceiveLengthM
       }
 
 getTokFromFile :: Maybe FilePath -> IO (Maybe L.Token)
@@ -386,12 +393,13 @@ runLedgerNavigator flags remainingArguments = do
 --------------------------------------
 
 runWithLedgerArgs :: LedgerArgs -> L.LedgerService a -> IO a
-runWithLedgerArgs LedgerArgs{host,port,tokM,timeout, sslConfigM} ls = do
+runWithLedgerArgs LedgerArgs{host,port,tokM,timeout, sslConfigM, grpcArgs} ls = do
     let ls' = case tokM of Nothing -> ls; Just tok -> L.setToken tok ls
     let ledgerClientConfig =
             L.configOfHostAndPort
                 (L.Host $ fromString host)
                 (L.Port port)
+                grpcArgs
                 sslConfigM
     L.runLedgerService ls' timeout ledgerClientConfig
 

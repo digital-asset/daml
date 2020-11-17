@@ -682,7 +682,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
   }
 
   private def submitterInfo(party: Ref.Party, commandId: String = "X") =
-    SubmitterInfo(
+    SubmitterInfo.withSingleSubmitter(
       submitter = party,
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),

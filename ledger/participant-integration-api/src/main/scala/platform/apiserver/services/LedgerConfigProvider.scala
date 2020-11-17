@@ -4,7 +4,7 @@
 package com.daml.platform.apiserver.services
 
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
 import akka.{Done, NotUsed}
 import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
@@ -49,6 +49,7 @@ private[apiserver] final class LedgerConfigProvider private (
   // The latest offset that was read (if any), and the latest ledger configuration found (if any)
   private[this] type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
   private[this] val state: AtomicReference[StateType] = new AtomicReference(None -> None)
+  private[this] val closed: AtomicBoolean = new AtomicBoolean(false)
   private[this] val killSwitch: AtomicReference[Option[UniqueKillSwitch]] = new AtomicReference(
     None)
   private[this] val readyPromise: Promise[Unit] = Promise()
@@ -64,7 +65,7 @@ private[apiserver] final class LedgerConfigProvider private (
   })
   optWriteService.foreach { writeService =>
     materializer.scheduleOnce(config.initialConfigurationSubmitDelay.toNanos.nanos, () => {
-      if (latestConfiguration.isEmpty) submitInitialConfig(writeService)
+      if (latestConfiguration.isEmpty && !closed.get) submitInitialConfig(writeService)
       ()
     })
   }
@@ -109,7 +110,7 @@ private[apiserver] final class LedgerConfigProvider private (
                   logger.info(s"New ledger configuration $config found at $offset")
                   configFound(offset, config)
                 case (offset, domain.ConfigurationEntry.Rejected(_, _, _)) =>
-                  logger.trace(s"New ledger configuration rejection found at $offset")
+                  logger.info(s"New ledger configuration rejection found at $offset")
                   state.updateAndGet(previous => Some(offset) -> previous._2)
                   ()
               }
@@ -161,6 +162,7 @@ private[apiserver] final class LedgerConfigProvider private (
   def ready: Future[Unit] = readyPromise.future
 
   override def close(): Unit = {
+    closed.set(true)
     killSwitch.get.foreach(k => k.shutdown())
   }
 }

@@ -49,11 +49,7 @@ object Server extends StrictLogging {
       path("auth") { get { auth(config) } },
       path("login") { get { login(config, requests) } },
       path("cb") { get { loginCallback(config, requests) } },
-      path("refresh") {
-        get {
-          complete((StatusCodes.NotImplemented, "The /refresh endpoint is not implemented yet"))
-        }
-      }
+      path("refresh") { post { refresh(config) } },
     )
 
     Http().bindAndHandle(route, "localhost", config.port.value)
@@ -115,7 +111,9 @@ object Server extends StrictLogging {
             responseType = "code",
             clientId = config.clientId,
             redirectUri = toRedirectUri(request.uri),
-            scope = Some(login.claims.toQueryString),
+            // Auth0 will only issue a refresh token if the offline_access claim is present.
+            // TODO[AH] Make the request configurable, see https://github.com/digital-asset/daml/issues/7957
+            scope = Some("offline_access " + login.claims.toQueryString),
             state = Some(requestId.toString),
             audience = Some("https://daml.com/ledger-api")
           )
@@ -191,4 +189,39 @@ object Server extends StrictLogging {
         }
     )
   }
+
+  private def refresh(config: Config)(implicit system: ActorSystem, ec: ExecutionContext) =
+    entity(as[Request.Refresh]) { refresh =>
+      val body = OAuthRequest.Refresh(
+        grantType = "refresh_token",
+        refreshToken = refresh.refreshToken,
+        clientId = config.clientId,
+        clientSecret = config.clientSecret)
+      import com.daml.oauth.server.Request.Refresh.marshalRequestEntity
+      val tokenRequest =
+        for {
+          entity <- Marshal(body).to[RequestEntity]
+          req = HttpRequest(uri = config.oauthToken, entity = entity, method = HttpMethods.POST)
+          resp <- Http().singleRequest(req)
+        } yield resp
+      onSuccess(tokenRequest) { resp =>
+        resp.status match {
+          // Return access and refresh token on success.
+          case StatusCodes.OK =>
+            val authResponse = Unmarshal(resp).to[OAuthResponse.Token].map { token =>
+              Response.Authorize(accessToken = token.accessToken, refreshToken = token.refreshToken)
+            }
+            complete(authResponse)
+          // Forward client errors.
+          case status: StatusCodes.ClientError =>
+            complete(HttpResponse.apply(status = status, entity = resp.entity))
+          // Fail on unexpected responses.
+          case _ =>
+            onSuccess(Unmarshal(resp).to[String]) { msg =>
+              failWith(
+                new RuntimeException(s"Failed to retrieve refresh token (${resp.status}): $msg"))
+            }
+        }
+      }
+    }
 }

@@ -57,7 +57,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         } yield {
           val interpretationTimeNanos = System.nanoTime() - start
           CommandExecutionResult(
-            submitterInfo = SubmitterInfo(
+            submitterInfo = SubmitterInfo.withSingleSubmitter(
               commands.submitter,
               commands.applicationId.unwrap,
               commands.commandId.unwrap,

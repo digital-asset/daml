@@ -344,8 +344,10 @@ data TemplateDef = TemplateDef
   , tplPkgId :: PackageId
   , tplModule :: ModuleName
   , tplDecoder :: Decoder
+  , tplEncode :: Encode
   , tplKeyDecoder :: Maybe Decoder
   -- ^ Nothing if we do not have a key.
+  , tplKeyEncode :: Encode
   , tplChoices' :: [ChoiceDef]
   }
 
@@ -355,14 +357,18 @@ renderTemplateDef TemplateDef{..} =
           [ [ "exports." <> tplName <> " = {"
             , "  templateId: '" <> templateId <> "',"
             , "  keyDecoder: " <> renderDecoder (DecoderLazy keyDec) <> ","
+            , "  keyEncode: " <> renderEncode tplKeyEncode <> ","
             , "  decoder: " <> renderDecoder (DecoderLazy tplDecoder) <> ","
+            , "  encode: " <> renderEncode tplEncode <> ","
             ]
           , concat
             [ [ "  " <> chcName' <> ": {"
               , "    template: function () { return exports." <> tplName <> "; },"
               , "    choiceName: '" <> chcName' <> "',"
               , "    argumentDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcArgTy)) <> ","
+              , "    argumentEncode: " <> renderEncode (EncodeRef chcArgTy) <> ","
               , "    resultDecoder: " <> renderDecoder (DecoderLazy (DecoderRef chcRetTy)) <> ","
+              , "    resultEncode: " <> renderEncode (EncodeRef chcRetTy) <> ","
               , "  },"
               ]
             | ChoiceDef{..} <- tplChoices'
@@ -403,8 +409,15 @@ data SerializableDef = SerializableDef
   -- ^ Keys for enums. Note that enums never have type parameters
   -- but for simplicity we do not express this in this type.
   , serDecoder :: Decoder
-  , serNestedDecoders :: [(T.Text, Decoder)]
+  , serEncode :: Encode
+  , serNested :: [NestedSerializable]
   -- ^ For sums of products, e.g., `data X = Y { a : Int }
+  }
+
+data NestedSerializable = NestedSerializable
+  { field :: T.Text
+  , decoder :: Decoder
+  , encode :: Encode
   }
 
 renderSerializableDef :: SerializableDef -> (T.Text, T.Text)
@@ -414,7 +427,7 @@ renderSerializableDef SerializableDef{..}
             [ [ "export declare const " <> serName <> ":"
               , "  damlTypes.Serializable<" <> serName <> "> & {"
               ]
-            , [ "  " <> n <> ": damlTypes.Serializable<" <> serName <.> n <> ">;" | (n, _) <- serNestedDecoders ]
+            , [ "  " <> field <> ": damlTypes.Serializable<" <> serName <.> field <> ">;" | NestedSerializable { field } <- serNested ]
             , [ "  }"
               ]
             , [ "& { readonly keys: " <> serName <> "[] } & { readonly [e in " <> serName <> "]: e }" | notNull serKeys ]
@@ -424,14 +437,16 @@ renderSerializableDef SerializableDef{..}
           [ ["exports." <> serName <> " = {"]
           , [ "  " <> k <> ": " <> "'" <> k <> "'," | k <- serKeys ]
           , [ "  keys: [" <> T.concat (map (\s -> "'" <> s <> "',") serKeys) <> "]," | notNull serKeys ]
-          , [ "  decoder: " <> renderDecoder (DecoderLazy serDecoder) <> ","
+          , [ "  decoder: " <> renderDecoder (DecoderLazy serDecoder) <> ",",
+              "  encode: " <> renderEncode serEncode <> ","
             ]
           , concat $
-            [ [ "  " <> n <> ":({"
-              , "    decoder: " <> renderDecoder (DecoderLazy d) <> ","
+            [ [ "  " <> field <> ":({"
+              , "    decoder: " <> renderDecoder (DecoderLazy decoder) <> ","
+              , "    encode: " <> renderEncode encode <> ","
               , "  }),"
               ]
-            | (n, d) <- serNestedDecoders
+            | NestedSerializable { field, decoder, encode } <- serNested
             ]
           , [ "};" ]
           ]
@@ -444,8 +459,8 @@ renderSerializableDef SerializableDef{..}
             [ "export declare const " <> serName <> " :"
             , "  (" <> tyArgs <> " => damlTypes.Serializable<" <> serName <> tyParams <> ">) & {"
             ] ++
-            [ "  " <> n <> ": (" <> tyArgs <> " => damlTypes.Serializable<" <> serName <.> n <> tyParams <> ">);"
-            | (n, _) <- serNestedDecoders
+            [ "  " <> field <> ": (" <> tyArgs <> " => damlTypes.Serializable<" <> serName <.> field <> tyParams <> ">);"
+            | NestedSerializable { field } <- serNested
             ] ++
             [ "};"
             ]
@@ -455,13 +470,15 @@ renderSerializableDef SerializableDef{..}
             -- for each nested decoder.
             [ "exports" <.> serName <> " = function " <> jsTyArgs <> " { return ({"
             , "  decoder: " <> renderDecoder (DecoderLazy serDecoder) <> ","
+            , "  encode: " <> renderEncode serEncode <> ","
             , "}); };"
             ] <> concat
-            [ [ "exports" <.> serName <.> n <> " = function " <> jsTyArgs <> " { return ({"
-              , "  decoder: " <> renderDecoder (DecoderLazy d) <> ","
+            [ [ "exports" <.> serName <.> field <> " = function " <> jsTyArgs <> " { return ({"
+              , "  decoder: " <> renderDecoder (DecoderLazy decoder) <> ","
+              , "  encode: " <> renderEncode encode <> ","
               , "}); };"
               ]
-            | (n, d) <- serNestedDecoders
+            | NestedSerializable { field, encode, decoder } <- serNested
             ]
     in (jsSource, tsDecl)
   where tyParams = "<" <> T.intercalate ", " serParams <> ">"
@@ -474,7 +491,7 @@ data TypeRef = TypeRef
   }
 
 data Decoder
-    = DecoderOneOf T.Text [Decoder]
+    = DecoderOneOf [Decoder]
     | DecoderObject [(T.Text, Decoder)]
     | DecoderConstant DecoderConstant
     | DecoderRef TypeRef -- ^ Reference to an object with a .decoder field
@@ -495,7 +512,7 @@ renderDecoderConstant = \case
 
 renderDecoder :: Decoder -> T.Text
 renderDecoder = \case
-    DecoderOneOf _constr branches ->
+    DecoderOneOf branches ->
         "jtv.oneOf(" <>
         T.intercalate ", " (map renderDecoder branches) <>
         ")"
@@ -506,6 +523,35 @@ renderDecoder = \case
     DecoderConstant c -> "jtv.constant(" <> renderDecoderConstant c <> ")"
     DecoderRef t -> snd (genType t) <> ".decoder"
     DecoderLazy d -> "damlTypes.lazyMemo(function () { return " <> renderDecoder d <> "; })"
+
+data Encode
+    = EncodeRef TypeRef
+    | EncodeVariant T.Text [(T.Text, TypeRef)]
+    | EncodeAsIs
+    | EncodeRecord [(T.Text, TypeRef)]
+    | EncodeThrow
+
+renderEncode :: Encode -> T.Text
+renderEncode = \case
+    EncodeRef ref -> let (_, companion) = genType ref in
+        "function (__typed__) { return " <> companion <> ".encode(__typed__); }"
+    EncodeVariant typ alts -> T.unlines $ concat
+        [ [ "function (__typed__) {" -- Note: switch uses ===
+          , "  switch(__typed__.tag) {" ]
+        , [ "    case '" <> name <> "': return {tag: __typed__.tag, value: " <> companion <> ".encode(__typed__.value)};"
+          | (name, tr) <- alts, let (_, companion) = genType tr ]
+        , [ "    default: throw 'unrecognized type tag: ' + __typed__.tag + ' while serializing a value of type " <> typ <> "';"
+          , "  }"
+          , "}" ] ]
+    EncodeAsIs -> "function (__typed__) { return __typed__; }"
+    EncodeRecord fields -> T.unlines $ concat
+        [ [ "function (__typed__) {"
+          , "  return {" ]
+        , [ "    " <> name <> ": " <> companion <> ".encode(__typed__." <> name <> "),"
+          | (name, tr) <- fields, let (_, companion) = genType tr ]
+        , [ "  };"
+          , "}" ] ]
+    EncodeThrow -> "function () { throw 'EncodeError'; }"
 
 data TypeDef
     = UnionDef T.Text [T.Text] [(T.Text, TypeRef)]
@@ -540,14 +586,21 @@ genSerializableDef :: PackageId -> T.Text -> Module -> DefDataType -> Serializab
 genSerializableDef curPkgId conName mod def =
     case dataCons def of
         DataVariant bs ->
-            let typ = conName <> typeParams
-            in SerializableDef
+            SerializableDef
                  { serName = conName
                  , serParams = paramNames
                  , serKeys = []
-                 , serDecoder = DecoderOneOf typ (map genBranch bs)
-                 , serNestedDecoders =
-                   [ (name, serDecoder (genSerializableDef curPkgId (conName <.> name) mod b)) | (name, b) <- nestedDefDataTypes ]
+                 , serDecoder = DecoderOneOf (map genDecBranch bs)
+                 , serEncode = EncodeVariant conName (map genEncBranch bs)
+                 , serNested =
+                   [ NestedSerializable
+                       { field = name
+                       , decoder = serDecoder nested
+                       , encode = serEncode nested
+                       }
+                   | (name, b) <- nestedDefDataTypes
+                   , let nested = genSerializableDef curPkgId (conName <.> name) mod b
+                   ]
                  }
         DataEnum enumCons ->
             let cs = map unVariantConName enumCons
@@ -555,29 +608,30 @@ genSerializableDef curPkgId conName mod def =
                  { serName = conName
                  , serParams = []
                  , serKeys = cs
-                 , serDecoder = DecoderOneOf conName [DecoderConstant (ConstantRef ("exports" <.> conName <.> cons)) | cons <- cs]
-                 , serNestedDecoders = []
+                 , serDecoder = DecoderOneOf [DecoderConstant (ConstantRef ("exports" <.> conName <.> cons)) | cons <- cs]
+                 , serEncode = EncodeAsIs
+                 , serNested = []
                  }
         DataRecord fields ->
             let (fieldNames, fieldTypesLf) = unzip [(unFieldName x, t) | (x, t) <- fields]
-                fieldSers = map (\t -> TypeRef (moduleName mod) t) fieldTypesLf
+                fieldTypes = map (\t -> TypeRef (moduleName mod) t) fieldTypesLf
             in SerializableDef
                  { serName = conName
                  , serParams = paramNames
                  , serKeys = []
-                 , serDecoder = DecoderObject [(x, DecoderRef ser) | (x, ser) <- zip fieldNames fieldSers]
-                 , serNestedDecoders = []
+                 , serDecoder = DecoderObject [(x, DecoderRef ser) | (x, ser) <- zip fieldNames fieldTypes]
+                 , serEncode = EncodeRecord $ zip fieldNames fieldTypes
+                 , serNested = []
                  }
   where
     paramNames = map (unTypeVarName . fst) (dataParams def)
-    typeParams
-        | null paramNames = ""
-        | otherwise = "<" <> T.intercalate ", " paramNames <> ">"
-    genBranch (VariantConName cons, t) =
+    genDecBranch (VariantConName cons, t) =
         DecoderObject
             [ ("tag", DecoderConstant (ConstantString cons))
             , ("value", DecoderRef $ TypeRef (moduleName mod) t)
             ]
+    genEncBranch (VariantConName cons, t) =
+        (cons, TypeRef (moduleName mod) t)
     nestedDefDataTypes =
         [ (sub, def)
         | def <- defDataTypes mod
@@ -623,7 +677,7 @@ genDefDataType curPkgId conName mod tpls def =
           ([DeclTypeDef typeDesc, DeclSerializableDef serDesc], Set.empty)
         DataRecord fields ->
             let (fieldNames, fieldTypesLf) = unzip [(unFieldName x, t) | (x, t) <- fields]
-                fieldSers = map (TypeRef (moduleName mod)) fieldTypesLf
+                fieldTypes = map (TypeRef (moduleName mod)) fieldTypesLf
                 fieldRefs = map (Set.setOf typeModuleRef . snd) fields
                 typeDesc = genTypeDef conName mod def
             in
@@ -638,18 +692,23 @@ genDefDataType curPkgId conName mod tpls def =
                             , let argRefs = Set.setOf typeModuleRef (refType argTy)
                             , let retRefs = Set.setOf typeModuleRef (refType rTy)
                             ]
-                        (keyDecoder, keyRefs) = case tplKey tpl of
-                            Nothing -> (Nothing, Set.empty)
+                        (keyDecoder, keyEncode, keyRefs) = case tplKey tpl of
+                            Nothing -> (Nothing, EncodeThrow, Set.empty)
                             Just key ->
                                 let keyType = tplKeyType key
+                                    typeRef = TypeRef (moduleName mod) keyType
                                 in
-                                (Just (DecoderRef $ TypeRef (moduleName mod) keyType), Set.setOf typeModuleRef keyType)
+                                ( Just $ DecoderRef typeRef
+                                , EncodeRef typeRef
+                                , Set.setOf typeModuleRef keyType)
                         dict = TemplateDef
                             { tplName = conName
                             , tplPkgId = curPkgId
                             , tplModule = moduleName mod
-                            , tplDecoder = DecoderObject [(x, DecoderRef ser) | (x, ser) <- zip fieldNames fieldSers]
+                            , tplDecoder = DecoderObject [(x, DecoderRef ser) | (x, ser) <- zip fieldNames fieldTypes]
+                            , tplEncode = EncodeRecord $ zip fieldNames fieldTypes
                             , tplKeyDecoder = keyDecoder
+                            , tplKeyEncode = keyEncode
                             , tplChoices' = chcs
                             }
                         associatedTypes = TemplateNamespace
@@ -666,7 +725,7 @@ infixr 6 <.> -- This is the same fixity as '<>'.
 (<.>) u v = u <> "." <> v
 
 -- | Returns a pair of the type and a reference to the
--- serializer object.
+-- companion object/function.
 genType :: TypeRef -> (T.Text, T.Text)
 genType (TypeRef curModName t) = go t
   where

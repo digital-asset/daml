@@ -16,6 +16,7 @@ package object sql {
     participantId = v1.ParticipantId.assertFromString(Name.unwrap.toLowerCase()),
     ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
     devMode = false,
+    implicitPartyAllocation = false,
   )
 
 }

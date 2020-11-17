@@ -725,7 +725,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
               triggerServicePort :: Int <- fromIntegral <$> getFreePort
               let triggerServiceProc = (shell $ unwords ["daml", "trigger-service", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show triggerServicePort, "--wall-clock-time"]) { std_out = UseHandle devNull2, std_err = UseHandle devNull3, std_in = CreatePipe }
               withCreateProcess triggerServiceProc $ \_ _ _ triggerServicePh -> race_ (waitForProcess' triggerServiceProc triggerServicePh) $ do
-                let endpoint = "http://localhost:" <> show triggerServicePort <> "/v1/health"
+                let endpoint = "http://localhost:" <> show triggerServicePort <> "/livez"
                 waitForHttpServer (threadDelay 100000) endpoint []
                 req <- parseRequest endpoint
                 manager <- newManager defaultManagerSettings

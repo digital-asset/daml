@@ -4,15 +4,19 @@ import * as jtv from '@mojotech/json-type-validation';
 
 /**
  * Interface for companion objects of serializable types. Its main purpose is
- * to describe the JSON encoding of values of the serializable type.
+ * to serialize and deserialize values between raw JSON and typed values.
  *
  * @typeparam T The template type.
  */
 export interface Serializable<T> {
   /**
-   * @internal The decoder for a contract of template T.
+   * @internal
    */
   decoder: jtv.Decoder<T>;
+  /**
+   * @internal Encodes T in expected shape for JSON API.
+   */
+  encode: (t: T) => unknown;
 }
 
 /**
@@ -30,6 +34,10 @@ export interface Template<T extends object, K = unknown, I extends string = stri
    * @internal
    */
   keyDecoder: jtv.Decoder<K>;
+  /**
+   * @internal
+   */
+  keyEncode: (k: K) => unknown;
   Archive: Choice<T, {}, {}, K>;
 }
 
@@ -49,12 +57,20 @@ export interface Choice<T extends object, C, R, K = unknown> {
   template: () => Template<T, K>;
   /**
    * @internal Returns a decoder to decode the choice arguments.
+   *
+   * Note: we never need to decode the choice arguments, as they are sent over
+   * the API but not received.
    */
   argumentDecoder: jtv.Decoder<C>;
+  /**
+   * @internal
+   */
+  argumentEncode: (c: C) => unknown;
   /**
    * @internal Returns a deocoder to decode the return value.
    */
   resultDecoder: jtv.Decoder<R>;
+  // note: no encoder for result, as they cannot be sent, only received.
   /**
    * The choice name.
    */
@@ -73,7 +89,7 @@ export const registerTemplate = <T extends object>(template: Template<T>): void 
   const templateId = template.templateId;
   const oldTemplate = registeredTemplates[templateId];
   if (oldTemplate === undefined) {
-    registeredTemplates[templateId] = template;
+    registeredTemplates[templateId] = template as unknown as Template<object, unknown, string>;
     console.debug(`Registered template ${templateId}.`);
   } else {
     console.warn(`Trying to re-register template ${templateId}.`);
@@ -136,6 +152,7 @@ export interface Unit {
  */
 export const Unit: Serializable<Unit> = {
   decoder: jtv.object({}),
+  encode: (t: Unit) => t,
 }
 
 /**
@@ -148,6 +165,7 @@ export type Bool = boolean;
  */
 export const Bool: Serializable<Bool> = {
   decoder: jtv.boolean(),
+  encode: (b: Bool) => b,
 }
 
 /**
@@ -162,6 +180,7 @@ export type Int = string;
  */
 export const Int: Serializable<Int> = {
   decoder: jtv.string(),
+  encode: (i: Int) => i,
 }
 
 /**
@@ -187,6 +206,7 @@ export type Decimal = Numeric;
 export const Numeric = (_: number): Serializable<Numeric> =>
   ({
     decoder: jtv.string(),
+    encode: (n: Numeric): unknown => n,
   })
 
 /**
@@ -204,6 +224,7 @@ export type Text = string;
  */
 export const Text: Serializable<Text> = {
   decoder: jtv.string(),
+  encode: (t: Text) => t,
 }
 
 /**
@@ -218,6 +239,7 @@ export type Time = string;
  */
 export const Time: Serializable<Time> = {
   decoder: jtv.string(),
+  encode: (t: Time) => t,
 }
 
 /**
@@ -232,6 +254,7 @@ export type Party = string;
  */
 export const Party: Serializable<Party> = {
   decoder: jtv.string(),
+  encode: (p: Party) => p,
 }
 
 /**
@@ -248,6 +271,7 @@ export type List<T> = T[];
  */
 export const List = <T>(t: Serializable<T>): Serializable<T[]> => ({
   decoder: jtv.array(t.decoder),
+  encode: (l: List<T>): unknown => l.map((element: T) => t.encode(element)),
 });
 
 /**
@@ -262,6 +286,7 @@ export type Date = string;
  */
 export const Date: Serializable<Date> = {
   decoder: jtv.string(),
+  encode: (d: Date) => d,
 }
 
 /**
@@ -290,6 +315,7 @@ export type ContractId<T> = string & { [ContractIdBrand]: T }
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const ContractId = <T>(_t: Serializable<T>): Serializable<ContractId<T>> => ({
   decoder: jtv.string() as jtv.Decoder<ContractId<T>>,
+  encode: (c: ContractId<T>): unknown => c,
 });
 
 /**
@@ -314,6 +340,7 @@ type OptionalInner<T> = null extends T ? [] | [Exclude<T, null>] : T
 class OptionalWorker<T> implements Serializable<Optional<T>> {
   decoder: jtv.Decoder<Optional<T>>;
   private innerDecoder: jtv.Decoder<OptionalInner<T>>;
+  encode: (o: Optional<T>) => unknown;
 
   constructor(payload: Serializable<T>) {
     if (payload instanceof OptionalWorker) {
@@ -329,10 +356,35 @@ class OptionalWorker<T> implements Serializable<Optional<T>> {
         jtv.constant<[]>([]),
         jtv.tuple([payloadInnerDecoder]),
       ) as jtv.Decoder<OptionalInner<T>>;
+      this.encode = (o: Optional<T>): unknown => {
+        if (o === null) {
+          // Top-level enclosing Optional where the type argument is also
+          // Optional and we represent None.
+          return null;
+        } else {
+          // The current type is Optional<Optional<...>> and the current value
+          // is Some x. Therefore the nested value is represented as [] for
+          // x = None or as [y] for x = Some y. In both cases mapping the
+          // encoder of the type parameter does the right thing.
+          return (o as unknown as T[]).map(nested => payload.encode(nested));
+        }
+      }
     } else {
       // NOTE(MH): `T` is not of the form `Optional<U>` here and hence `null`
       // does not extend `T`. Thus, `OptionalInner<T> = T`.
       this.innerDecoder = payload.decoder as jtv.Decoder<OptionalInner<T>>;
+      this.encode = (o: Optional<T>): unknown => {
+        if (o === null) {
+          // This branch is only reached if we are at the top-level and the
+          // entire type is a non-nested Optional, i.e. Optional<U> where U is
+          // not Optional. Recursive calls from the other branch would stop
+          // before reaching this case, as nested None are empty lists and
+          // never null.
+          return null;
+        } else {
+          return payload.encode(o as unknown as T);
+        }
+      }
     }
     this.decoder = jtv.oneOf(jtv.constant(null), this.innerDecoder);
   }
@@ -357,7 +409,14 @@ export type TextMap<T> = { [key: string]: T };
  * Companion object of the [[TextMap]] type.
  */
 export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
-    decoder: jtv.dict(t.decoder),
+  decoder: jtv.dict(t.decoder),
+  encode: (tm: TextMap<T>): unknown => {
+    const out: {[key: string]: unknown} = {};
+    Object.keys(tm).forEach((k) => {
+      out[k] = t.encode(tm[k]);
+    });
+    return out;
+  }
 });
 
 // TODO(MH): `Map` type.
