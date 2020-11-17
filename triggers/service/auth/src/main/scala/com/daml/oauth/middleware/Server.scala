@@ -212,11 +212,9 @@ object Server extends StrictLogging {
               Response.Authorize(accessToken = token.accessToken, refreshToken = token.refreshToken)
             }
             complete(authResponse)
-          // Forward unauthorized and forbidden responses.
-          case StatusCodes.Unauthorized =>
-            complete(HttpResponse.apply(status = StatusCodes.Unauthorized, entity = resp.entity))
-          case StatusCodes.Forbidden =>
-            complete(HttpResponse.apply(status = StatusCodes.Forbidden, entity = resp.entity))
+          // Forward client errors.
+          case status: StatusCodes.ClientError =>
+            complete(HttpResponse.apply(status = status, entity = resp.entity))
           // Fail on unexpected responses.
           case _ =>
             onSuccess(Unmarshal(resp).to[String]) { msg =>
