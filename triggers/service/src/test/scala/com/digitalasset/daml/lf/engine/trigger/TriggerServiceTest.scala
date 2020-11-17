@@ -560,23 +560,3 @@ trait AbstractTriggerServiceTestAuthMiddleware
       } yield succeed
   }
 }
-
-class TriggerServiceTestInMem
-    extends AbstractTriggerServiceTest
-    with AbstractTriggerServiceTestInMem
-    with AbstractTriggerServiceTestNoAuth {}
-
-class TriggerServiceTestWithDb
-    extends AbstractTriggerServiceTest
-    with AbstractTriggerServiceTestWithDb
-    with AbstractTriggerServiceTestNoAuth {}
-
-class TriggerServiceTestAuth
-    extends AbstractTriggerServiceTest
-    with AbstractTriggerServiceTestInMem
-    with AbstractTriggerServiceTestAuthMiddleware {}
-
-class TriggerServiceTestAuthWithDb
-    extends AbstractTriggerServiceTest
-    with AbstractTriggerServiceTestWithDb
-    with AbstractTriggerServiceTestAuthMiddleware {}
