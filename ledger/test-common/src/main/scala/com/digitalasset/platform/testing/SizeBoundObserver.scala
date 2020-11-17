@@ -6,35 +6,32 @@ package com.daml.platform.testing
 import io.grpc.Context
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.{Future, Promise}
-
-private[testing] final class SizeBoundObserver[A](cap: Int, p: A => Boolean)
+private[testing] final class SizeBoundObserver[A](sizeCap: Int)(delegate: StreamObserver[A])
     extends StreamObserver[A] {
 
-  private val promise = Promise[Vector[A]]()
-  private val items = Vector.newBuilder[A]
+  if (sizeCap < 0) {
+    throw new IllegalArgumentException(
+      s"sizeCap = $sizeCap. The size of the stream cannot be less than 0.")
+  } else if (sizeCap == 0) {
+    delegate.onCompleted()
+  }
+
   private var counter = 0
 
-  val result: Future[Vector[A]] = promise.future
-
-  // Since builders don't guarantee to return a reliable size when asked
-  // we rely on a simple mutable variable and synchronize on the promise
-  override def onNext(value: A): Unit = promise.synchronized {
-    if (p(value)) {
-      items += value
-      counter += 1
-    }
-    if (counter == cap) {
-      promise.trySuccess(items.result())
+  override def onNext(value: A): Unit = synchronized {
+    delegate.onNext(value)
+    counter += 1
+    if (counter == sizeCap) {
+      delegate.onCompleted()
       val _ = Context.current().withCancellation().cancel(null)
     }
   }
 
-  override def onError(t: Throwable): Unit = promise.synchronized {
-    val _ = promise.tryFailure(t)
+  override def onError(t: Throwable): Unit = synchronized {
+    delegate.onError(t)
   }
 
-  override def onCompleted(): Unit = promise.synchronized {
-    val _ = promise.trySuccess(items.result())
+  override def onCompleted(): Unit = synchronized {
+    delegate.onCompleted()
   }
 }
