@@ -57,8 +57,6 @@ trait ErrorFactories {
 
   def grpcError(status: Status) = new ApiException(status)
 
-  def fromGrpcStatus(status: Status): StatusRuntimeException = grpcError(status)
-
 }
 
 object ErrorFactories extends ErrorFactories

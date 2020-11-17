@@ -43,69 +43,96 @@ final class ApiParticipantPruningService private (
     ParticipantPruningServiceGrpc.bindService(this, DirectExecutionContext)
 
   override def prune(request: PruneRequest): Future[Empty] = {
-    val submissionId =
-      if (request.submissionId.isEmpty)
-        SubmissionId.assertFromString(UUID.randomUUID().toString)
-      else
-        SubmissionId.assertFromString(request.submissionId)
+    val submissionIdOrErr = SubmissionId
+      .fromString(
+        if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString)
+      .left
+      .map(err => ErrorFactories.invalidArgument(s"submission_id $err"))
 
-    LoggingContext.withEnrichedLoggingContext("submissionId" -> submissionId) { implicit logCtx =>
-      val pruneUpToOffset: Either[StatusRuntimeException, (Offset, String)] = for {
-        pruneUpToProto <- request.pruneUpTo.toRight(
-          ErrorFactories.invalidArgument("prune_up_to not specified"))
-
-        pruneUpToString <- pruneUpToProto.value match {
-          case LedgerOffset.Value.Absolute(offset) => Right(offset)
-          case LedgerOffset.Value.Boundary(boundary) =>
-            Left(
-              ErrorFactories.invalidArgument(
-                s"prune_up_to needs to be absolute and not a boundary ${boundary.toString}"))
-          case LedgerOffset.Value.Empty =>
-            Left(
-              ErrorFactories.invalidArgument(
-                s"prune_up_to needs to be absolute and not empty ${pruneUpToProto.value}"))
-        }
-
-        pruneUpTo <- Ref.HexString
-          .fromString(pruneUpToString)
-          .left
-          .map(err =>
-            ErrorFactories.invalidArgument(
-              s"prune_up_to needs to be a hexadecimal string and not ${pruneUpToString}: ${err}"))
-          .map(Offset.fromHexString)
-
-      } yield (pruneUpTo, pruneUpToString)
-
-      pruneUpToOffset.fold(
-        Future.failed, {
-          case (pruneUpTo, pruneUpToString) =>
+    submissionIdOrErr.fold(
+      Future.failed,
+      submissionId =>
+        LoggingContext.withEnrichedLoggingContext("submissionId" -> submissionId) {
+          implicit logCtx =>
             (for {
-              ledgerEnd <- readBackend.currentLedgerEnd()
-              _ <- if (pruneUpToString < ledgerEnd.value) Future.successful(())
-              else
-                Future.failed(
-                  ErrorFactories.invalidArgument(
-                    s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"))
 
-              _ <- FutureConverters.toScala(writeBackend.prune(pruneUpTo, submissionId)).flatMap {
-                case NotPruned(status) => Future.failed(ErrorFactories.fromGrpcStatus(status))
-                case ParticipantPruned =>
-                  logger.info(s"Pruned participant ledger up to ${pruneUpTo.toString} inclusively.")
-                  Future.successful(())
-              }
+              pruneUpTo <- validateRequest(request: PruneRequest)
 
-              pruneResponse <- readBackend
-                .prune(pruneUpTo)
-                .map { _ =>
-                  logger.info(s"Pruned ledger api server index up to ${pruneUpTo} inclusively.")
-                  Empty()
-                }
+              _ <- pruneWriteService(pruneUpTo, submissionId)
+
+              pruneResponse <- pruneLedgerApiServerIndex(pruneUpTo)
 
             } yield pruneResponse).andThen(logger.logErrorsOnCall[Empty])
-        }
-      )
-    }
+      }
+    )
   }
+
+  private def validateRequest(request: PruneRequest)(
+      implicit logCtx: LoggingContext): Future[Offset] = {
+    (for {
+      pruneUpToProto <- checkOffsetIsSpecified(request.pruneUpTo)
+      pruneUpToString <- checkOffsetIsAbsolute(pruneUpToProto)
+      pruneUpTo <- checkOffsetIsHexadecimal(pruneUpToString)
+    } yield (pruneUpTo, pruneUpToString))
+      .fold(Future.failed, o => checkOffsetIsBeforeLedgerEnd(o._1, o._2))
+  }
+
+  private def pruneWriteService(pruneUpTo: Offset, submissionId: SubmissionId)(
+      implicit logCtx: LoggingContext): Future[Unit] =
+    FutureConverters
+      .toScala(writeBackend.prune(pruneUpTo, submissionId))
+      .flatMap {
+        case NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
+        case ParticipantPruned =>
+          logger.info(s"Pruned participant ledger up to ${pruneUpTo.toString} inclusively.")
+          Future.successful(())
+      }
+
+  private def pruneLedgerApiServerIndex(pruneUpTo: Offset)(implicit logCtx: LoggingContext) =
+    readBackend
+      .prune(pruneUpTo)
+      .map { _ =>
+        logger.info(s"Pruned ledger api server index up to ${pruneUpTo} inclusively.")
+        Empty()
+      }
+
+  private def checkOffsetIsSpecified(optOffset: Option[LedgerOffset]) =
+    optOffset.toRight(ErrorFactories.invalidArgument("prune_up_to not specified"))
+
+  private def checkOffsetIsAbsolute(
+      pruneUpToProto: LedgerOffset): Either[StatusRuntimeException, String] =
+    pruneUpToProto.value match {
+      case LedgerOffset.Value.Absolute(offset) => Right(offset)
+      case LedgerOffset.Value.Boundary(boundary) =>
+        Left(
+          ErrorFactories.invalidArgument(
+            s"prune_up_to needs to be absolute and not a boundary ${boundary.toString}"))
+      case LedgerOffset.Value.Empty =>
+        Left(
+          ErrorFactories.invalidArgument(
+            s"prune_up_to needs to be absolute and not empty ${pruneUpToProto.value}"))
+    }
+
+  private def checkOffsetIsHexadecimal(
+      pruneUpToString: String): Either[StatusRuntimeException, Offset] =
+    Ref.HexString
+      .fromString(pruneUpToString)
+      .left
+      .map(err =>
+        ErrorFactories.invalidArgument(
+          s"prune_up_to needs to be a hexadecimal string and not ${pruneUpToString}: ${err}"))
+      .map(Offset.fromHexString)
+
+  private def checkOffsetIsBeforeLedgerEnd(pruneUpToProto: Offset, pruneUpToString: String)(
+      implicit logCtx: LoggingContext): Future[Offset] =
+    for {
+      ledgerEnd <- readBackend.currentLedgerEnd()
+      _ <- if (pruneUpToString < ledgerEnd.value) Future.successful(())
+      else
+        Future.failed(
+          ErrorFactories.invalidArgument(
+            s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"))
+    } yield pruneUpToProto
 
   override def close(): Unit = ()
 
