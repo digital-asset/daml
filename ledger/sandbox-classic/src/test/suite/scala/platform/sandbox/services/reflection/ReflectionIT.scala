@@ -30,7 +30,7 @@ final class ReflectionIT
     "accessed" should {
 
       "provide a list of exposed services" in {
-        val expectedServiceCount: Int = 16
+        val expectedServiceCount: Int = 17
         for {
           response <- execRequest(listServices)
         } yield {

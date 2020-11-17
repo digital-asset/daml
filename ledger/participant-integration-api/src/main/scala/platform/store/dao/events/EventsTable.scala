@@ -37,6 +37,7 @@ import com.google.protobuf.timestamp.Timestamp
 private[events] object EventsTable
     extends EventsTable
     with EventsTableInsert
+    with EventsTableDelete
     with EventsTableFlatEvents
     with EventsTableTreeEvents {
 

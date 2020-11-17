@@ -167,4 +167,9 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
   def removeExpiredDeduplicationData(
       currentTime: Instant,
   )(implicit loggingContext: LoggingContext): Future[Unit]
+
+  /**
+    * Performs participant ledger pruning up to and including the specified offset.
+    */
+  def prune(pruneUpToInclusive: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
 }

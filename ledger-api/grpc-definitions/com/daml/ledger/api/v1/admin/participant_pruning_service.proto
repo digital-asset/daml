@@ -1,0 +1,40 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1.admin;
+
+import "com/daml/ledger/api/v1/ledger_offset.proto";
+
+import "google/protobuf/empty.proto";
+
+option java_outer_classname = "ParticipantPruningServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+// Status: experimental interface, will change before it is deemed production
+// ready
+
+// Prunes/truncates the "oldest" transactions from the participant (the participant Ledger Api Server plus any other
+// participant-local state) by removing a portion of the ledger in such a way that the set of future, allowed
+// commands are not affected.
+//
+// This enables:
+// 1. keeping the "inactive" portion of the ledger to a manageable size and
+// 2. removing inactive state to honor the right to be forgotten.
+service ParticipantPruningService {
+
+  // Prune the ledger specifying the offset before and at which ledger transactions should be removed.
+  rpc Prune (PruneRequest) returns (google.protobuf.Empty);
+
+}
+
+message PruneRequest {
+  // Inclusive offset up to and at which the ledger is to be pruned.
+  LedgerOffset prune_up_to = 1;
+
+  // Unique submission identifier.
+  // Optional, defaults to a random identifier, used for logging.
+  string submission_id = 2;
+}

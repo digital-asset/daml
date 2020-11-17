@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.BatchSql
+import anorm.{BatchSql, Row, SimpleSql}
 import com.daml.ledger.participant.state.v1.{
   CommittedTransaction,
   DivulgedContract,
@@ -207,4 +207,8 @@ private[dao] final class TransactionsWriter(
     )
 
   }
+
+  def prepareEventsDelete(endInclusive: Offset): SimpleSql[Row] =
+    EventsTable.prepareEventsDelete(endInclusive)
+
 }
