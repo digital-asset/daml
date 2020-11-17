@@ -22,6 +22,7 @@ import com.daml.ledger.api.refinements.ApiTypes.Party
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
+import scala.util.{Failure, Success, Try}
 
 // This is a test authorization server that implements the OAuth2 authorization code flow.
 // This is primarily intended for use in the trigger service tests but could also serve
@@ -133,39 +134,43 @@ class Server(config: Config) {
     },
     path("token") {
       post {
-        def returnToken(uuid: UUID) = {
-          requests.remove(uuid) match {
-            case Some(payload) =>
-              // Generate refresh token
-              val refreshCode = UUID.randomUUID()
-              requests += (refreshCode -> payload)
-              // Construct access token with expiry
-              val accessToken = JwtSigner.HMAC256
-                .sign(
-                  DecodedJwt(
-                    jwtHeader,
-                    AuthServiceJWTCodec.compactPrint(payload.copy(exp = Some(tokenExpiry())))),
-                  config.jwtSecret)
-                .getOrElse(throw new IllegalArgumentException("Failed to sign a token"))
-                .value
-              import JsonProtocol._
-              complete(
-                Response.Token(
-                  accessToken = accessToken,
-                  refreshToken = Some(refreshCode.toString),
-                  expiresIn = Some(tokenLifetimeSeconds),
-                  scope = None,
-                  tokenType = "bearer"))
-            case None =>
-              complete(StatusCodes.NotFound)
+        def returnToken(uuid: String) =
+          Try(UUID.fromString(uuid)) match {
+            case Failure(_) =>
+              complete((StatusCodes.BadRequest, "Malformed code or refresh token"))
+            case Success(uuid) =>
+              requests.remove(uuid) match {
+                case Some(payload) =>
+                  // Generate refresh token
+                  val refreshCode = UUID.randomUUID()
+                  requests += (refreshCode -> payload)
+                  // Construct access token with expiry
+                  val accessToken = JwtSigner.HMAC256
+                    .sign(
+                      DecodedJwt(
+                        jwtHeader,
+                        AuthServiceJWTCodec.compactPrint(payload.copy(exp = Some(tokenExpiry())))),
+                      config.jwtSecret)
+                    .getOrElse(throw new IllegalArgumentException("Failed to sign a token"))
+                    .value
+                  import JsonProtocol._
+                  complete(
+                    Response.Token(
+                      accessToken = accessToken,
+                      refreshToken = Some(refreshCode.toString),
+                      expiresIn = Some(tokenLifetimeSeconds),
+                      scope = None,
+                      tokenType = "bearer"))
+                case None =>
+                  complete(StatusCodes.NotFound)
+              }
           }
-        }
         concat(
           entity(as[Request.Token]) { request =>
-            returnToken(UUID.fromString(request.code))
+            returnToken(request.code)
           },
           entity(as[Request.Refresh]) { request =>
-            returnToken(UUID.fromString(request.refreshToken))
+            returnToken(request.refreshToken)
           },
         )
       }
