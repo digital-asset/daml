@@ -24,7 +24,7 @@ import System.Environment (getEnvironment)
 import System.Exit (exitFailure)
 import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError)
-import System.IO.Extra (Handle, IOMode (..), hClose, newTempFile, openBinaryFile, stderr)
+import System.IO.Extra (Handle, IOMode (..), hClose, newTempDir, openBinaryFile, stderr)
 import System.Info.Extra (isWindows)
 import System.Process
 import Test.Tasty (TestTree, withResource)
@@ -113,9 +113,10 @@ createSandbox portFile sandboxOutput conf = do
 withSandbox :: IO SandboxConfig -> (IO Int -> TestTree) -> TestTree
 withSandbox getConf f =
     withResource (openBinaryFile nullDevice ReadWriteMode) hClose $ \getDevNull ->
-    withResource newTempFile snd $ \getPortFile ->
+    withResource newTempDir snd $ \getTempDir ->
         let createSandbox' = do
-                (portFile, _) <- getPortFile
+                (tempDir, _) <- getTempDir
+                let portFile = tempDir </> "sandbox-portfile"
                 devNull <- getDevNull
                 conf <- getConf
                 createSandbox portFile devNull conf
