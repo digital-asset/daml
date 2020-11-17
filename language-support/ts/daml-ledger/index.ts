@@ -407,8 +407,8 @@ class Ledger {
    * @typeparam C The type of the contract choice.
    * @typeparam R The return type of the choice.
    *
-   * @returns The return value of the choice together with a list of [[event]]'s that where created
-   * as a result of exercising the choice.
+   * @returns The return value of the choice together with a list of
+   * [[event]]'s that were created as a result of exercising the choice.
    */
   async exercise<T extends object, C, R>(choice: Choice<T, C, R>, contractId: ContractId<T>, argument: C): Promise<[R , Event<object>[]]> {
     const payload = {
@@ -419,6 +419,45 @@ class Ledger {
     };
     const json = await this.submit('v1/exercise', payload);
     // Decode the server response into a tuple.
+    const responseDecoder: jtv.Decoder<{exerciseResult: R; events: Event<object>[]}> = jtv.object({
+      exerciseResult: choice.resultDecoder,
+      events: jtv.array(decodeEventUnknown),
+    });
+    const {exerciseResult, events} = jtv.Result.withException(responseDecoder.run(json));
+    return [exerciseResult, events];
+  }
+
+  /**
+   * Create a contract for a given template, then immediately exercise a choice
+   * on the created contract.
+   *
+   * @param template The template of the contract to be created.
+   * @param payload The template arguments for the contract to be created.
+   * @param choice The choice to exercise.
+   * @param argument The choice arguments.
+   *
+   * @typeparam T The contract template type.
+   * @typeparam K The contract key type.
+   * @typeparam I The contract id type.
+   * @typeparam C The type of the contract choice.
+   * @typeparam R The return type of the choice.
+   *
+   * @returns The return value of the choice together with a list of
+   * [[event]]'s that includes the creation event for the created contract as
+   * well as all the events that were created as a result of exercising the
+   * choice, including the archive event for the created contract if the choice
+   * is consuming (or otherwise archives it as part of its execution).
+   *
+   */
+  async createAndExercise<T extends object, K, I extends string, C, R>(template: Template<T, K, I>, payload: T, choice: Choice<T, C, R>, argument: C): Promise<[R, Event<object>[]]> {
+    const command = {
+      templateId: template.templateId,
+      payload: template.encode(payload),
+      choice: choice.choiceName,
+      argument: choice.argumentEncode(argument),
+    };
+    const json = await this.submit('v1/create-and-exercise', command);
+
     const responseDecoder: jtv.Decoder<{exerciseResult: R; events: Event<object>[]}> = jtv.object({
       exerciseResult: choice.resultDecoder,
       events: jtv.array(decodeEventUnknown),
