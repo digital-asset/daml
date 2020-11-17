@@ -98,12 +98,15 @@ abstract class ResetServiceITBase
         fetchLedgerId()
       }
       // Completions won't work until a ledger configuration is in place, so we wait for one.
-      _ <- new StreamConsumer[GetLedgerConfigurationResponse](responseObserver =>
+      configurations <- new StreamConsumer[GetLedgerConfigurationResponse](responseObserver =>
         LedgerConfigurationServiceGrpc
           .stub(channel)
           .getLedgerConfiguration(GetLedgerConfigurationRequest(ledgerId.unwrap), responseObserver))
         .firstWithin(Span.convertSpanToDuration(scaled(1.second)))
-    } yield ledgerId
+    } yield {
+      configurations should have size 1
+      ledgerId
+    }
 
   protected def fetchLedgerId(): Future[LedgerId] =
     LedgerIdentityServiceGrpc
