@@ -103,7 +103,7 @@ class Server(
   }
 
   private def restartTriggers(triggers: Vector[RunningTrigger]): Either[String, Unit] = {
-    import cats.implicits._ // needed for traverse for
+    import cats.implicits._ // needed for traverse
     triggers.traverse_(runningTrigger =>
       for {
         trigger <- Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName)
