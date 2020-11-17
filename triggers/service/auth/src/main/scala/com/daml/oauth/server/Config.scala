@@ -19,7 +19,7 @@ case class Config(
     jwtSecret: String,
     // Only authorize requests for these parties, if set.
     parties: Option[Set[Party]],
-    // Use the provided clock instead of system time for token generation. For testing only.
+    // Use the provided clock instead of system time for token generation.
     clock: Option[Clock],
 )
 
