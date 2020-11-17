@@ -32,6 +32,7 @@ object TriggerRunnerImpl {
       server: ActorRef[Server.Message],
       triggerInstance: UUID,
       party: Party,
+      applicationId: ApplicationId,
       token: Option[String],
       compiledPackages: CompiledPackages,
       trigger: Trigger,
@@ -62,9 +63,8 @@ object TriggerRunnerImpl {
       // Report to the server that this trigger is starting.
       config.server ! Server.TriggerStarting(triggerInstance)
       logger.info(s"Trigger $name is starting")
-      val appId = ApplicationId(name)
       val clientConfig = LedgerClientConfiguration(
-        applicationId = appId.unwrap,
+        applicationId = config.applicationId.unwrap,
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default.copy(
           defaultDeduplicationTime = config.ledgerConfig.commandTtl),
@@ -176,7 +176,7 @@ object TriggerRunnerImpl {
           config.trigger,
           client,
           config.ledgerConfig.timeProvider,
-          appId,
+          config.applicationId,
           config.party.unwrap)
         (acs, offset) <- runner.queryACS()
       } yield QueriedACS(runner, acs, offset)

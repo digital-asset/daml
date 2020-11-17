@@ -49,8 +49,20 @@ HTTP Request
 
     {
       "triggerName": "312094804c1468e2166bae3c9ba8b5cc0d285e31356304a2e9b0ac549df59d14:TestTrigger:trigger",
-      "party": "alice"
+      "party": "alice",
+      "applicationId": "my-app-id"
     }
+
+where
+
+- ``triggerName`` contains the identifier for the trigger in the form
+  ``${packageId}:${moduleName}:${identifierName}``. You can find the
+  package id using ``daml damlc inspect path/to/trigger.dar``.
+- ``party`` is the party the trigger will be running as.
+- ``applicationId`` is an optional field to specify the application ID
+  the trigger will use for command submissions. If omitted, the
+  trigger will default to using its random UUID identifier returned in
+  the start request as the application ID.
 
 HTTP Response
 =============

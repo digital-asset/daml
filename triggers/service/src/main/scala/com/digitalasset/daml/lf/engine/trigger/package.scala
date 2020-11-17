@@ -26,6 +26,7 @@ package trigger {
     val AccessToken = Tag.of[AccessTokenTag]
   }
   import Tagged._
+  import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 
   case class LedgerConfig(
       host: String,
@@ -45,6 +46,7 @@ package trigger {
       triggerInstance: UUID,
       triggerName: Identifier,
       triggerParty: Party,
+      triggerApplicationId: ApplicationId,
       triggerToken: Option[AccessToken],
   )
 }
