@@ -223,7 +223,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
           val req = HttpRequest(uri = resp.header[Location].get.uri)
           Http().singleRequest(req)
         }
-        // Extract token from cookiee
+        // Extract token from cookie
         (token1, refreshToken) = {
           val cookie = resp.header[`Set-Cookie`].get.cookie
           val token = OAuthResponse.Token.fromCookieValue(cookie.value).get
@@ -248,6 +248,19 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         assert(authorize.accessToken != token1)
         // Test that we got a new refresh token
         assert(authorize.refreshToken.get != refreshToken)
+      }
+    }
+    "fail on an invalid refresh token" in {
+      for {
+        refreshEntity <- Marshal(Request.Refresh("made-up-token")).to[RequestEntity]
+        refreshReq = HttpRequest(
+          method = HttpMethods.POST,
+          uri = middlewareUri.withPath(Path./("refresh")),
+          entity = refreshEntity,
+        )
+        resp <- Http().singleRequest(refreshReq)
+      } yield {
+        assert(resp.status.isInstanceOf[StatusCodes.ClientError])
       }
     }
   }
