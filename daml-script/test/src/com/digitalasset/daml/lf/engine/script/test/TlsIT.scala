@@ -19,8 +19,7 @@ final class TlsIT
     extends AsyncWordSpec
     with SandboxParticipantFixture
     with Matchers
-    with SuiteResourceManagementAroundAll
-    with OCSPResponderFixture {
+    with SuiteResourceManagementAroundAll {
 
   val (dar, envIface) = readDar(stableDarFile)
 
@@ -29,32 +28,16 @@ final class TlsIT
     serverPem,
     caCrt,
     clientCrt,
-    clientPem,
-    index,
-    ocspKey,
-    ocspCert,
-    clientRevokedCrt,
-    clientRevokedPem) = {
+    clientPem) = {
     List(
       "server.crt",
       "server.pem",
       "ca.crt",
       "client.crt",
-      "client.pem",
-      "index.txt",
-      "ocsp.key.pem",
-      "ocsp.crt",
-      "client-revoked.crt",
-      "client-revoked.pem").map { src =>
+      "client.pem").map { src =>
       Some(new File(rlocation("ledger/test-common/test-certificates/" + src)))
     }
   }
-
-  val indexPath = index.get.getAbsolutePath
-  val caCertPath = caCrt.get.getAbsolutePath
-  val ocspKeyPath = ocspKey.get.getAbsolutePath
-  val ocspCertPath = ocspCert.get.getAbsolutePath
-  val clientCertPath = clientCrt.get.getAbsolutePath
 
   override def timeMode = ScriptTimeMode.WallClock
 
@@ -62,28 +45,12 @@ final class TlsIT
     super.config
       .copy(
         tlsConfig = Some(
-          TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt, revocationChecks = true)))
-
-  "The test runner" should {
-    "be configured to enable OCSP revocation checks" in {
-      sys.props.get("com.sun.net.ssl.checkRevocation") shouldBe Some("true")
-    }
-  }
+          TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)))
 
   "DAML Script against ledger with TLS" should {
     "create and accept Proposal" in {
       executeSampleRequest(clientCrt, clientPem)
         .map(_ => succeed) // No assertion, we just want to see that it succeeds
-    }
-
-    "fail to create and accept Proposal with a revoked client certificate" in {
-      executeSampleRequest(clientRevokedCrt, clientRevokedPem).failed
-        .collect {
-          case com.daml.grpc.GrpcException.UNAVAILABLE() =>
-            succeed
-          case ex =>
-            fail(s"Invalid exception: ${ex.getClass.getCanonicalName}: ${ex.getMessage}")
-        }
     }
   }
 

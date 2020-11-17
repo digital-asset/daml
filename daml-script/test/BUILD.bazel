@@ -8,7 +8,6 @@ load(
 )
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("@os_info//:os_info.bzl", "is_windows")
 
 genrule(
     name = "script-test",
@@ -141,7 +140,6 @@ da_scala_library(
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
-        "//libs-scala/timer-utils",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_spray_spray_json_2_12",
@@ -151,8 +149,6 @@ da_scala_library(
     ],
 )
 
-openssl_executable = "@openssl_dev_env//:bin/openssl" if not is_windows else "@openssl_dev_env//:usr/bin/openssl.exe"
-
 da_scala_test_suite(
     name = "test",
     srcs = glob(["src/com/**/*.scala"]),
@@ -161,10 +157,6 @@ da_scala_test_suite(
         ":script-test-1.dev.dar",
         ":script-test-no-ledger.dar",
         "//ledger/test-common/test-certificates",
-        openssl_executable,
-    ],
-    jvm_flags = [
-        "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
     ],
     resources = glob(["src/main/resources/**/*"]),
     deps = [
