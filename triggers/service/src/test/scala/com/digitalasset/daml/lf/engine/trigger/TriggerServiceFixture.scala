@@ -385,11 +385,11 @@ trait TriggerDaoPostgresFixture
   override protected def beforeEach(): Unit = {
     super.beforeEach()
 
-    triggerDao.initialize fold (fail(_), identity)
+    Await.result(triggerDao.initialize, Duration(30, SECONDS))
   }
 
   override protected def afterEach(): Unit = {
-    triggerDao.destroy() fold (fail(_), identity)
+    Await.result(triggerDao.destroy, Duration(30, SECONDS))
 
     super.afterEach()
   }

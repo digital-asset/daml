@@ -10,15 +10,18 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.http.scaladsl.Http.ServerBinding
 import akka.util.Timeout
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.dec.DirectExecutionContext
 import com.daml.lf.archive.{Dar, DarReader}
 import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.engine.trigger.dao.DbTriggerDao
+import com.daml.logging.ContextualizedLogger
 import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.sys.ShutdownHookThread
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 import scalaz.syntax.traverse._
 import scalaz.std.list._
 import scalaz.std.either._
@@ -50,7 +53,6 @@ object ServiceMain {
           restartConfig,
           encodedDars,
           jdbcConfig,
-          initDb = false, // for tests we initialize the database in beforeEach clause
           logTriggerStatus
         ),
         "TriggerService"
@@ -68,6 +70,7 @@ object ServiceMain {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) =>
+        val logger = ContextualizedLogger.get(this.getClass)
         val encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]] =
           config.darPaths.traverse(p => DarReader().readArchiveFromFile(p.toFile).toEither) match {
             case Left(err) => sys.error(s"Failed to read archive: $err")
@@ -89,6 +92,28 @@ object ServiceMain {
           config.minRestartInterval,
           config.maxRestartInterval,
         )
+
+        // Init db and exit immediately.
+        if (config.init) {
+          config.jdbcConfig match {
+            case None =>
+              logger.withoutContext.error("No JDBC configuration for database initialization.")
+              sys.exit(1)
+            case Some(c) =>
+              Try(
+                Await.result(
+                  DbTriggerDao(c)(DirectExecutionContext).initialize(DirectExecutionContext),
+                  Duration(30, SECONDS))) match {
+                case Failure(exception) =>
+                  logger.withoutContext.error(s"Failed to initialize database: $exception")
+                  sys.exit(1)
+                case Success(()) =>
+                  logger.withoutContext.info("Successfully initialized database.")
+                  sys.exit(0)
+              }
+          }
+        }
+
         val system: ActorSystem[Server.Message] =
           ActorSystem(
             Server(
@@ -99,7 +124,6 @@ object ServiceMain {
               restartConfig,
               encodedDars,
               config.jdbcConfig,
-              config.init,
             ),
             "TriggerService"
           )

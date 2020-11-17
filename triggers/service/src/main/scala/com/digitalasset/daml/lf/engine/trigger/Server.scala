@@ -44,6 +44,7 @@ import com.daml.oauth.middleware.{
   Response => AuthResponse
 }
 import com.daml.scalautil.Statement.discard
+import com.daml.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Tag
 import spray.json.DefaultJsonProtocol._
@@ -97,9 +98,11 @@ class Server(
 
   // Add a dar to compiledPackages (in memory) and to persistent storage if using it.
   // Uploads of packages that already exist are considered harmless and are ignored.
-  private def addDar(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
-    addPackagesInMemory(encodedDar.all)
-    triggerDao.persistPackages(encodedDar)
+  private def addDar(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)])(
+      implicit ec: ExecutionContext): Future[Unit] = {
+    Future { addPackagesInMemory(encodedDar.all) }.flatMap { _ =>
+      triggerDao.persistPackages(encodedDar)
+    }
   }
 
   private def restartTriggers(triggers: Vector[RunningTrigger]): Either[String, Unit] = {
@@ -125,15 +128,16 @@ class Server(
       triggerName: Identifier,
       optApplicationId: Option[ApplicationId],
       token: Option[AccessToken]
-  ): Either[String, (Trigger, RunningTrigger)] = {
+  )(implicit ec: ExecutionContext): Future[Either[String, (Trigger, RunningTrigger)]] = {
     val newInstance = UUID.randomUUID()
     val applicationId = optApplicationId.getOrElse(Tag(newInstance.toString): ApplicationId)
     val runningTrigger = RunningTrigger(newInstance, triggerName, party, applicationId, token)
-    for {
-      // Validate trigger id before persisting to DB
-      trigger <- Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName)
-      _ <- triggerDao.addRunningTrigger(runningTrigger).map(_ => runningTrigger)
-    } yield (trigger, runningTrigger)
+    // Validate trigger id before persisting to DB
+    Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName) match {
+      case Left(value) => Future.successful(Left(value))
+      case Right(trigger) =>
+        triggerDao.addRunningTrigger(runningTrigger).map(_ => Right((trigger, runningTrigger)))
+    }
   }
 
   private def startTrigger(trigger: Trigger, runningTrigger: RunningTrigger): JsValue = {
@@ -158,7 +162,7 @@ class Server(
     JsObject(("triggerId", runningTrigger.triggerInstance.toString.toJson))
   }
 
-  private def stopTrigger(uuid: UUID): Either[String, Option[JsValue]] = {
+  private def stopTrigger(uuid: UUID)(implicit ec: ExecutionContext): Future[Option[JsValue]] = {
     triggerDao.removeRunningTrigger(uuid) map {
       case false => None
       case true =>
@@ -173,32 +177,29 @@ class Server(
   }
 
   // Left for errors, None for not found, Right(Some(_)) for everything else
-  private def triggerStatus(uuid: UUID)(
-      implicit ec: ExecutionContext,
-      sys: ActorSystem): Future[Either[String, Option[JsValue]]] = {
-    // TODO avoid unsafeRunSync in DbTriggerDao
+  private def triggerStatus(
+      uuid: UUID)(implicit ec: ExecutionContext, sys: ActorSystem): Future[Option[JsValue]] = {
     import Request.IdentifierFormat
     final case class Result(status: TriggerStatus, triggerId: Identifier, party: Party)
     implicit val partyFormat: JsonFormat[Party] = Tag.subst(implicitly[JsonFormat[String]])
     implicit val resultFormat: RootJsonFormat[Result] = jsonFormat3(Result)
-    Future { triggerDao.getRunningTrigger(uuid) }.flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(None) => Future.successful(Right(None))
-      case Right(Some(t)) =>
+    triggerDao.getRunningTrigger(uuid).flatMap {
+      case None => Future.successful(None)
+      case Some(t) =>
         getRunner(uuid) match {
           case None =>
-            Future.successful(Right(Some(Result(Stopped, t.triggerName, t.triggerParty).toJson)))
+            Future.successful(Some(Result(Stopped, t.triggerName, t.triggerParty).toJson))
           case Some(act) =>
             implicit val timeout: Timeout = Timeout(5 seconds)
             implicit val scheduler: Scheduler = schedulerFromActorSystem(sys.toTyped)
             act.ask(TriggerRunner.Status).map { status =>
-              Right(Some(Result(status, t.triggerName, t.triggerParty).toJson))
+              Some(Result(status, t.triggerName, t.triggerParty).toJson)
             }
         }
     }
   }
 
-  private def listTriggers(party: Party): Either[String, JsValue] = {
+  private def listTriggers(party: Party)(implicit ec: ExecutionContext): Future[JsValue] = {
     triggerDao.listRunningTriggers(party) map { triggerInstances =>
       JsObject(("triggerIds", triggerInstances.map(_.toString).toJson))
     }
@@ -293,10 +294,10 @@ class Server(
     authConfig match {
       case NoAuth => provide(None)
       case AuthMiddleware(_) =>
-        triggerDao.getRunningTrigger(uuid) match {
-          case Left(err) => complete(errorResponse(StatusCodes.InternalServerError, err))
-          case Right(None) => provide(None)
-          case Right(Some(trigger)) =>
+        onComplete(triggerDao.getRunningTrigger(uuid)).flatMap {
+          case Failure(e) => complete(errorResponse(StatusCodes.InternalServerError, e.description))
+          case Success(None) => provide(None)
+          case Success(Some(trigger)) =>
             val parties = List(trigger.triggerParty)
             val claims = if (readOnly) Claims(readAs = parties) else Claims(actAs = parties)
             authorize(claims)
@@ -338,16 +339,18 @@ class Server(
                   // TODO[AH] Why do we need to pass ec, system explicitly?
                   authorize(claims)(ec, system) {
                     token =>
-                      val instOrErr =
+                      val instOrErr: Future[Either[String, JsValue]] =
                         addNewTrigger(params.party, params.triggerName, params.applicationId, token)
-                          .map {
+                          .map(_.map {
                             case (trigger, runningTrigger) => startTrigger(trigger, runningTrigger)
-                          }
-                      instOrErr match {
-                        case Left(err) =>
+                          })
+                      onComplete(instOrErr) {
+                        case Failure(exception) =>
+                          complete(
+                            errorResponse(StatusCodes.InternalServerError, exception.description))
+                        case Success(Left(err)) =>
                           complete(errorResponse(StatusCodes.UnprocessableEntity, err))
-                        case Right(triggerInstance) =>
-                          complete(successResponse(triggerInstance))
+                        case Success(triggerInstance) => complete(successResponse(triggerInstance))
                       }
                   }
               }
@@ -357,10 +360,10 @@ class Server(
               parameters('party.as[Party]) { party =>
                 val claims = Claims(readAs = List(party))
                 authorize(claims)(ec, system) { _ =>
-                  listTriggers(party) match {
-                    case Left(err) =>
-                      complete(errorResponse(StatusCodes.InternalServerError, err))
-                    case Right(triggerInstances) => complete(successResponse(triggerInstances))
+                  onComplete(listTriggers(party)) {
+                    case Failure(err) =>
+                      complete(errorResponse(StatusCodes.InternalServerError, err.description))
+                    case Success(triggerInstances) => complete(successResponse(triggerInstances))
                   }
                 }
               }
@@ -372,26 +375,28 @@ class Server(
             concat(
               get {
                 authorizeForTrigger(uuid, readOnly = true)(ec, system) { _ =>
-                  onSuccess(triggerStatus(uuid)) {
-                    case Left(err) => complete(errorResponse(StatusCodes.InternalServerError, err))
-                    case Right(None) =>
+                  onComplete(triggerStatus(uuid)) {
+                    case Failure(err) =>
+                      complete(errorResponse(StatusCodes.InternalServerError, err.description))
+                    case Success(None) =>
                       complete(
                         errorResponse(StatusCodes.NotFound, s"No trigger found with id $uuid"))
-                    case Right(Some(status)) => complete(successResponse(status))
+                    case Success(Some(status)) => complete(successResponse(status))
                   }
                 }
               },
               delete {
-                authorizeForTrigger(uuid)(ec, system) { _ =>
-                  stopTrigger(uuid) match {
-                    case Left(err) =>
-                      complete(errorResponse(StatusCodes.InternalServerError, err))
-                    case Right(None) =>
-                      val err = s"No trigger running with id $uuid"
-                      complete(errorResponse(StatusCodes.NotFound, err))
-                    case Right(Some(stoppedTriggerId)) =>
-                      complete(successResponse(stoppedTriggerId))
-                  }
+                authorizeForTrigger(uuid)(ec, system) {
+                  _ =>
+                    onComplete(stopTrigger(uuid)) {
+                      case Failure(err) =>
+                        complete(errorResponse(StatusCodes.InternalServerError, err.description))
+                      case Success(None) =>
+                        val err = s"No trigger running with id $uuid"
+                        complete(errorResponse(StatusCodes.NotFound, err))
+                      case Success(Some(stoppedTriggerId)) =>
+                        complete(successResponse(stoppedTriggerId))
+                    }
                 }
               }
             )
@@ -413,18 +418,16 @@ class Server(
                   case Failure(err) =>
                     complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
                   case Success(dar) =>
-                    try {
-                      addDar(dar) match {
-                        case Left(err) =>
-                          complete(errorResponse(StatusCodes.InternalServerError, err))
-                        case Right(()) =>
-                          val mainPackageId =
-                            JsObject(("mainPackageId", dar.main._1.name.toJson))
-                          complete(successResponse(mainPackageId))
-                      }
-                    } catch {
-                      case err: ParseError =>
-                        complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
+                    onComplete(addDar(dar)) {
+                      case Failure(err: ParseError) =>
+                        complete(errorResponse(StatusCodes.UnprocessableEntity, err.description))
+                      case Failure(exception) =>
+                        complete(
+                          errorResponse(StatusCodes.InternalServerError, exception.description))
+                      case Success(()) =>
+                        val mainPackageId =
+                          JsObject(("mainPackageId", dar.main._1.name.toJson))
+                        complete(successResponse(mainPackageId))
                     }
                 }
             }
@@ -475,7 +478,6 @@ object Server {
       restartConfig: TriggerRestartConfig,
       initialDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
-      initDb: Boolean,
       logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
     // Implicit boilerplate.
@@ -488,57 +490,27 @@ object Server {
     implicit val esf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
 
-    if (initDb) sys.exit(jdbcConfig match {
-      case None =>
-        ctx.log.error("No JDBC configuration for database initialization.")
-        1
-      case Some(c) =>
-        DbTriggerDao(c).initialize match {
-          case Left(err) =>
-            ctx.log.error(err)
-            1
-          case Right(()) =>
-            ctx.log.info("Successfully initialized database.")
-            0
-        }
-    })
-
-    val (dao, server): (RunningTriggerDao, Server) = jdbcConfig match {
+    val (dao, server, initializeF): (RunningTriggerDao, Server, Future[Unit]) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
         val server = new Server(authConfig, ledgerConfig, restartConfig, dao, logTriggerStatus)
-        (dao, server)
+        (dao, server, Future.successful(()))
       case Some(c) =>
         val dao = DbTriggerDao(c)
         val server = new Server(authConfig, ledgerConfig, restartConfig, dao, logTriggerStatus)
-        val recovery: Either[String, Unit] = for {
+        val initialize = for {
           _ <- dao.initialize
           packages <- dao.readPackages
           _ = server.addPackagesInMemory(packages)
           triggers <- dao.readRunningTriggers
-          _ <- server.restartTriggers(triggers)
+          _ = server.restartTriggers(triggers)
         } yield ()
-        recovery match {
-          case Left(err) =>
-            ctx.log.error("Failed to recover state from database.\n" + err)
-            sys.exit(1)
-          case Right(()) =>
-            ctx.log.info("Successfully recovered state from database.")
-            (dao, server)
-        }
-    }
-
-    initialDars foreach { dar =>
-      server.addDar(dar) match {
-        case Left(err) =>
-          ctx.log.error("Failed to upload provided DAR.\n" ++ err)
-          sys.exit(1)
-        case Right(()) =>
-      }
+        (dao, server, initialize)
     }
 
     def logTriggerStarting(m: TriggerStarting): Unit =
       server.logTriggerStatus(m.triggerInstance, "starting")
+
     def logTriggerStarted(m: TriggerStarted): Unit =
       server.logTriggerStatus(m.triggerInstance, "running")
 
@@ -632,7 +604,11 @@ object Server {
 
     // The server binding is a future that on completion will be piped
     // to a message to this actor.
-    val serverBinding = Http().bindAndHandle(Route.handlerFlow(server.route), host, port)
+    val serverBinding = for {
+      _ <- initializeF
+      _ <- Future.traverse(initialDars)(server.addDar(_))
+      binding <- Http().bindAndHandle(Route.handlerFlow(server.route), host, port)
+    } yield binding
     ctx.pipeToSelf(serverBinding) {
       case Success(binding) => Started(binding)
       case Failure(ex) => StartFailed(ex)
