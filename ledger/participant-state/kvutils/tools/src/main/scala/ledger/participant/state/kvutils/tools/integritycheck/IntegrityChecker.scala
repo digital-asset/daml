@@ -112,7 +112,6 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
         actualReadServiceFactory,
         config,
       )
-      _ <- stateUpdates.compare()
       _ <- if (!config.indexOnly) stateUpdates.compare() else Future.unit
       _ <- indexStateUpdates(
         exportFileName = config.exportFileName,
