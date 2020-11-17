@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
+import java.nio.file.Paths
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.export.WriteSet
@@ -116,6 +118,20 @@ class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with MockitoSugar
           verify(mockStateUpdates, times(0)).compare()
           succeed
         }, _ => fail())
+    }
+  }
+
+  "createIndexerConfig" should {
+    "use configured jdbcUrl if available" in {
+      val configuredJdbcUrl = "aJdbcUrl"
+      val config = Config.ParseInput.copy(jdbcUrl = Some(configuredJdbcUrl))
+      IntegrityChecker.createIndexerConfig(config).jdbcUrl should be(configuredJdbcUrl)
+    }
+
+    "use default jdbcUrl if none configured" in {
+      val config = Config.ParseInput.copy(exportFilePath = Paths.get("aFilePath"))
+      IntegrityChecker.createIndexerConfig(config).jdbcUrl should be(
+        IntegrityChecker.defaultJdbcUrl("aFilePath"))
     }
   }
 
