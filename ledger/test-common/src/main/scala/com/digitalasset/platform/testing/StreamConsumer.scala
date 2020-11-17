@@ -6,8 +6,8 @@ package com.daml.platform.testing
 import com.daml.dec.DirectExecutionContext
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future}
 
 final class StreamConsumer[A](attach: StreamObserver[A] => Unit) {
 
@@ -43,6 +43,12 @@ final class StreamConsumer[A](attach: StreamObserver[A] => Unit) {
 
   def within(duration: FiniteDuration)(implicit ec: ExecutionContext): Future[Vector[A]] = {
     val observer = new TimeBoundObserver[A](duration)
+    attach(observer)
+    observer.result
+  }
+
+  def firstWithin(duration: FiniteDuration)(implicit ec: ExecutionContext): Future[Vector[A]] = {
+    val observer = new TimeBoundObserver[A](duration, maximumResults = Some(1))
     attach(observer)
     observer.result
   }

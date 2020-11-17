@@ -98,9 +98,11 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       expectedReadServiceFactory: ReplayingReadServiceFactory,
       actualReadServiceFactory: ReplayingReadServiceFactory,
       stateUpdates: StateUpdates,
-      metrics: Metrics)(
+      metrics: Metrics,
+  )(
       implicit executionContext: ExecutionContext,
-      materializer: Materializer): Future[Unit] =
+      materializer: Materializer,
+  ): Future[Unit] =
     for {
       _ <- processSubmissions(
         importer,
@@ -112,10 +114,9 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
         actualReadServiceFactory,
         config,
       )
-      _ <- stateUpdates.compare()
-      _ <- if (!config.indexOnly) stateUpdates.compare() else Future.unit
+      _ <- compareStateUpdates(config, stateUpdates)
       _ <- indexStateUpdates(
-        exportFileName = config.exportFileName,
+        config = config,
         metrics = metrics,
         readService =
           if (config.indexOnly)
@@ -125,18 +126,23 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       )
     } yield ()
 
+  private[integritycheck] def compareStateUpdates(
+      config: Config,
+      stateUpdates: StateUpdates,
+  )(
+      implicit executionContext: ExecutionContext,
+      materializer: Materializer,
+  ): Future[Unit] =
+    if (!config.indexOnly)
+      stateUpdates.compare()
+    else
+      Future.unit
+
   private def indexStateUpdates(
-      exportFileName: String,
+      config: Config,
       metrics: Metrics,
       readService: ReplayingReadService,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
-    val jdbcUrl = s"jdbc:h2:mem:$exportFileName;db_close_delay=-1;db_close_on_exit=false"
-    val indexerConfig = IndexerConfig(
-      participantId = ParticipantId.assertFromString("IntegrityCheckerParticipant"),
-      jdbcUrl = jdbcUrl,
-      startupMode = IndexerStartupMode.MigrateAndStart,
-    )
-
     implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
     // Start the indexer consuming the recorded state updates
@@ -147,7 +153,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
           .forFuture(
             () =>
               migrateAndStartIndexer(
-                indexerConfig,
+                createIndexerConfig(config),
                 readService,
                 metrics,
                 LfValueTranslation.Cache.none,
@@ -353,7 +359,9 @@ object IntegrityChecker {
       args: Array[String],
       commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[LogResult],
   ): Unit =
-    run(Config.parse(args).getOrElse { sys.exit(1) }, commitStrategySupportFactory)
+    run(Config.parse(args).getOrElse {
+      sys.exit(1)
+    }, commitStrategySupportFactory)
 
   def run[LogResult](
       config: Config,
@@ -368,6 +376,19 @@ object IntegrityChecker {
           sys.exit(1)
       }(DirectExecutionContext)
   }
+
+  private[integritycheck] def createIndexerConfig(config: Config): IndexerConfig =
+    IndexerConfig(
+      participantId = ParticipantId.assertFromString("IntegrityCheckerParticipant"),
+      jdbcUrl = jdbcUrl(config),
+      startupMode = IndexerStartupMode.MigrateAndStart,
+    )
+
+  private[integritycheck] def jdbcUrl(config: Config): String =
+    config.jdbcUrl.getOrElse(defaultJdbcUrl(config.exportFileName))
+
+  private[integritycheck] def defaultJdbcUrl(exportFileName: String): String =
+    s"jdbc:h2:mem:$exportFileName;db_close_delay=-1;db_close_on_exit=false"
 
   private def runAsync[LogResult](
       config: Config,

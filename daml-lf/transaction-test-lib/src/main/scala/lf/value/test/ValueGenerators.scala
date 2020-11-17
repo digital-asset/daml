@@ -166,7 +166,7 @@ object ValueGenerators {
   } yield Bytes fromByteArray ab
 
   val cidV0Gen: Gen[ContractId.V0] =
-    Gen.alphaStr.map(t => Value.ContractId.V0.assertFromString('#' +: t))
+    Gen.alphaStr.map(t => Value.ContractId.V0.assertFromString('#' +: t.take(254)))
   private val cidV1Gen: Gen[ContractId.V1] =
     Gen.zip(genHash, genSuffixes) map {
       case (h, b) => ContractId.V1.assertBuild(h, b)
@@ -235,7 +235,7 @@ object ValueGenerators {
   def party: Gen[Party] = {
     Gen
       .nonEmptyListOf(Gen.oneOf(simpleChars))
-      .map(s => Party.assertFromString(s.mkString))
+      .map(s => Party.assertFromString(s.take(255).mkString))
   }
 
   def valueGen: Gen[Value[ContractId]] = valueGen(0)
@@ -465,7 +465,7 @@ object ValueGenerators {
     stringVersionGen.map(ValueVersion).filter(x => !ValueVersions.acceptedVersions.contains(x))
 
   def transactionVersionGen: Gen[TransactionVersion] =
-    Gen.oneOf(TransactionVersions.acceptedVersions.toSeq)
+    Gen.oneOf(TransactionVersions.acceptedVersions)
 
   def unsupportedTransactionVersionGen: Gen[TransactionVersion] =
     stringVersionGen

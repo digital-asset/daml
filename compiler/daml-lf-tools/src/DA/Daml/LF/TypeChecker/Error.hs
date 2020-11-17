@@ -117,6 +117,7 @@ data Error
   | EUnsupportedFeature !Feature
   | EForbiddenNameCollision !T.Text ![T.Text]
   | ESynAppWrongArity       !DefTypeSyn ![Type]
+  | ENatKindRightOfArrow    !Kind
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -330,6 +331,11 @@ instance Pretty Error where
     ESynAppWrongArity DefTypeSyn{synName,synParams} args ->
       vcat ["wrong arity in type synonym application: " <> pretty synName,
             "expected: " <> pretty (length synParams) <> ", found: " <> pretty (length args)]
+    ENatKindRightOfArrow k ->
+      vcat
+        [ "Kind is invalid: " <> pretty k
+        , "Nat kind is not allowed on the right side of kind arrow."
+        ]
 
 instance Pretty Context where
   pPrint = \case

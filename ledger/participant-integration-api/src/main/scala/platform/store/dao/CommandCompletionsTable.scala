@@ -55,7 +55,8 @@ private[platform] object CommandCompletionsTable {
       transactionId: TransactionId,
       recordTime: Instant,
   ): SimpleSql[Row] =
-    SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitting_party, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.submitter}, ${submitterInfo.commandId}, $transactionId)"
+    SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitting_party, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo
+      .singleSubmitterOrThrow()}, ${submitterInfo.commandId}, $transactionId)"
 
   def prepareRejectionInsert(
       submitterInfo: SubmitterInfo,
@@ -64,7 +65,8 @@ private[platform] object CommandCompletionsTable {
       reason: RejectionReason,
   ): SimpleSql[Row] = {
     val (code, message) = toStatus(reason)
-    SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitting_party, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.submitter}, ${submitterInfo.commandId}, $code, $message)"
+    SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitting_party, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo
+      .singleSubmitterOrThrow()}, ${submitterInfo.commandId}, $code, $message)"
   }
 
   private def toStatus(rejection: RejectionReason): (Int, String) = {

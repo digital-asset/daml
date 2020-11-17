@@ -24,7 +24,7 @@ object Main extends StrictLogging {
 
     def terminate() = Await.result(system.terminate(), 10.seconds)
 
-    val bindingFuture = Server.start(config)
+    val bindingFuture = Server(config).start()
 
     sys.addShutdownHook {
       Server

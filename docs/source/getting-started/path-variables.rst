@@ -21,6 +21,7 @@ Setting the PATH variable
 =========================
 If you have downloaded and installed the SDK using our `Windows installer <https://github.com/digital-asset/daml/releases/latest>`_ your ``PATH`` variable is already set up.
 
+
 Mac OS
 ******
 We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Mac OS with ``zsh`` shell.
@@ -35,7 +36,8 @@ Run the following command in your terminal::
 
 Setting the PATH variable
 =========================
-Run the following command in your terminal::
+The installer will ask you and set the ``PATH`` variable for you. If you want to set your ``PATH`` variable
+manually instead, run the following command in your terminal::
 
         echo 'export PATH="$HOME/.daml/bin:$PATH"' >> ~/.zprofile
 
@@ -80,7 +82,8 @@ make sure to change the ``java-version`` with the actual folder found on your co
 Setting the PATH variable
 =========================
 
-Run the following command::
+The installer will ask you and set the ``PATH`` variable for you. If you want to set the ``PATH`` variable
+manually instead, run the following command::
 
         echo 'export PATH="$HOME/.daml/bin:$PATH"' >> ~/.bash_profile
 

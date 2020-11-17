@@ -81,7 +81,9 @@ object BlindingTransaction {
 
         case ex: NodeExercises.WithTxValue[NodeId, ContractId] =>
           val state1 =
-            state.divulgeCoidTo(parentExerciseWitnesses -- ex.stakeholders, ex.targetCoid)
+            state.divulgeCoidTo(
+              (parentExerciseWitnesses union ex.choiceObservers) -- ex.stakeholders,
+              ex.targetCoid)
 
           ex.children.foldLeft(state1) { (s, childNodeId) =>
             processNode(

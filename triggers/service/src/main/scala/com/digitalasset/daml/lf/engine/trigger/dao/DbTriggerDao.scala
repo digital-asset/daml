@@ -10,8 +10,8 @@ import cats.effect.{Blocker, ContextShift, IO}
 import cats.syntax.apply._
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.api.refinements.ApiTypes.Party
-import com.daml.lf.archive.Dar
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
+import com.daml.lf.archive.{Dar, Reader}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.trigger.{JdbcConfig, RunningTrigger}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
@@ -74,6 +74,10 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   implicit val partyGet: Get[Party] = Tag.subst(implicitly[Get[String]])
 
+  implicit val appIdPut: Put[ApplicationId] = Tag.subst(implicitly[Put[String]])
+
+  implicit val appIdGet: Get[ApplicationId] = Tag.subst(implicitly[Get[String]])
+
   implicit val accessTokenPut: Put[AccessToken] = Tag.subst(implicitly[Put[String]])
 
   implicit val accessTokenGet: Get[AccessToken] = Tag.subst(implicitly[Get[String]])
@@ -99,18 +103,21 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   private def insertRunningTrigger(t: RunningTrigger): ConnectionIO[Unit] = {
     val insert: Fragment = sql"""
-        insert into running_triggers values (${t.triggerInstance}, ${t.triggerParty}, ${t.triggerName}, ${t.triggerToken})
+        insert into running_triggers
+          (trigger_instance, trigger_party, full_trigger_name, access_token, application_id)
+        values
+          (${t.triggerInstance}, ${t.triggerParty}, ${t.triggerName}, ${t.triggerToken}, ${t.triggerApplicationId})
       """
     insert.update.run.void
   }
 
   private def queryRunningTrigger(triggerInstance: UUID): ConnectionIO[Option[RunningTrigger]] = {
     val select: Fragment = sql"""
-        select trigger_instance, full_trigger_name, trigger_party, access_token from running_triggers
+        select trigger_instance, full_trigger_name, trigger_party, application_id, access_token from running_triggers
         where trigger_instance = $triggerInstance
       """
     select
-      .query[(UUID, Identifier, Party, Option[AccessToken])]
+      .query[(UUID, Identifier, Party, ApplicationId, Option[AccessToken])]
       .map(RunningTrigger.tupled)
       .option
   }
@@ -153,7 +160,8 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
       pkgPayload: Array[Byte]): Either[String, (PackageId, DamlLf.ArchivePayload)] =
     for {
       pkgId <- PackageId.fromString(pkgIdString)
-      payload <- Try(DamlLf.ArchivePayload.parseFrom(pkgPayload)) match {
+      cos = Reader.damlLfCodedInputStreamFromBytes(pkgPayload)
+      payload <- Try(DamlLf.ArchivePayload.parseFrom(cos)) match {
         case Failure(err) => Left(s"Failed to parse package with id $pkgId.\n" ++ err.toString)
         case Success(pkg) => Right(pkg)
       }
@@ -161,10 +169,10 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   private def selectAllTriggers: ConnectionIO[Vector[RunningTrigger]] = {
     val select: Fragment = sql"""
-      select trigger_instance, full_trigger_name, trigger_party, access_token from running_triggers order by trigger_instance
+      select trigger_instance, full_trigger_name, trigger_party, application_id, access_token from running_triggers order by trigger_instance
     """
     select
-      .query[(UUID, Identifier, Party, Option[AccessToken])]
+      .query[(UUID, Identifier, Party, ApplicationId, Option[AccessToken])]
       .map(RunningTrigger.tupled)
       .to[Vector]
   }

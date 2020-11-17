@@ -129,6 +129,16 @@ kindOfBuiltin = \case
   BTAny -> KStar
   BTTypeRep -> KStar
 
+checkKind :: MonadGamma m => Kind -> m ()
+checkKind = \case
+  KNat -> pure ()
+  KStar -> pure ()
+  k@(KArrow _ KNat) ->
+    throwWithContext (ENatKindRightOfArrow k)
+  KArrow a b -> do
+    checkKind a
+    checkKind b
+
 kindOf :: MonadGamma m => Type -> m Kind
 kindOf = \case
   TVar v -> lookupTypeVar v
@@ -149,7 +159,9 @@ kindOf = \case
     checkType targ argKind
     pure resKind
   TBuiltin btype -> pure (kindOfBuiltin btype)
-  TForall (v, k) t1 -> introTypeVar v k $ checkType t1 KStar $> KStar
+  TForall (v, k) t1 -> do
+    checkKind k
+    introTypeVar v k $ checkType t1 KStar $> KStar
   TStruct recordType -> checkRecordType recordType $> KStar
   TNat _ -> pure KNat
 
@@ -378,7 +390,10 @@ typeOfTmLam (var, typ) body = do
   pure (typ :-> bodyType)
 
 typeOfTyLam :: MonadGamma m => (TypeVarName, Kind) -> Expr -> m Type
-typeOfTyLam (tvar, kind) expr = TForall (tvar, kind) <$> introTypeVar tvar kind (typeOf expr)
+typeOfTyLam (tvar, kind) expr = do
+    checkKind kind
+    TForall (tvar, kind) <$>
+        introTypeVar tvar kind (typeOf expr)
 
 -- | Type to track which constructor ranks have be covered in a pattern matching.
 data MatchedRanks = AllRanks | SomeRanks !IntSet.IntSet
@@ -401,7 +416,7 @@ missingMR :: MatchedRanks -> Int -> Maybe Int
 missingMR AllRanks _ = Nothing
 missingMR (SomeRanks ks) n
     | IntSet.size ks == n = Nothing
-    | otherwise = IntSet.lookupGE 0 (IntSet.fromList [0..n-1] `IntSet.difference` ks)
+    | otherwise = IntSet.lookupGE 0 (IntSet.fromDistinctAscList [0..n-1] `IntSet.difference` ks)
 
 typeOfAlts :: MonadGamma m => (CaseAlternative -> m (MatchedRanks, Type)) -> [CaseAlternative] -> m (MatchedRanks, Type)
 typeOfAlts f alts = do
@@ -702,6 +717,7 @@ checkExpr expr typ = void (checkExpr' expr typ)
 checkDefTypeSyn :: MonadGamma m => DefTypeSyn -> m ()
 checkDefTypeSyn DefTypeSyn{synParams,synType} = do
   checkUnique EDuplicateTypeParam $ map fst synParams
+  mapM_ (checkKind . snd) synParams
   foldr (uncurry introTypeVar) base synParams
   where
     base = checkType synType KStar
@@ -710,6 +726,7 @@ checkDefTypeSyn DefTypeSyn{synParams,synType} = do
 checkDefDataType :: MonadGamma m => DefDataType -> m ()
 checkDefDataType (DefDataType _loc _name _serializable params dataCons) = do
   checkUnique EDuplicateTypeParam $ map fst params
+  mapM_ (checkKind . snd) params
   foldr (uncurry introTypeVar) base params
   where
     base = case dataCons of

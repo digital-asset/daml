@@ -355,7 +355,7 @@ object KVTest {
       commandId: CommandId,
       deduplicationTime: Duration,
       testState: KVTestState): SubmitterInfo =
-    SubmitterInfo(
+    SubmitterInfo.withSingleSubmitter(
       submitter = submitter,
       applicationId = Ref.LedgerString.assertFromString("test"),
       commandId = commandId,

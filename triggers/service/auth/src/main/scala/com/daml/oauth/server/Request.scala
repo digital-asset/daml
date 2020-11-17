@@ -73,6 +73,34 @@ object Request {
       }
   }
 
+  // https://tools.ietf.org/html/rfc6749#section-6
+  case class Refresh(
+      grantType: String,
+      refreshToken: String,
+      clientId: String,
+      clientSecret: String)
+
+  object Refresh {
+    implicit val marshalRequestEntity: Marshaller[Refresh, RequestEntity] =
+      Marshaller.combined { refresh =>
+        FormData(
+          "grant_type" -> refresh.grantType,
+          "refresh_token" -> refresh.refreshToken,
+          "client_id" -> refresh.clientId,
+          "client_secret" -> refresh.clientSecret,
+        )
+      }
+    implicit val unmarshalHttpEntity: Unmarshaller[HttpEntity, Refresh] =
+      Unmarshaller.defaultUrlEncodedFormDataUnmarshaller.map { form =>
+        Refresh(
+          grantType = form.fields.get("grant_type").get,
+          refreshToken = form.fields.get("refresh_token").get,
+          clientId = form.fields.get("client_id").get,
+          clientSecret = form.fields.get("client_secret").get,
+        )
+      }
+  }
+
 }
 
 object Response {

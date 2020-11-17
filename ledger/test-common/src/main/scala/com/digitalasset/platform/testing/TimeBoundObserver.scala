@@ -10,12 +10,13 @@ import io.grpc.stub.StreamObserver
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-final class TimeBoundObserver[T](duration: FiniteDuration)(
+final class TimeBoundObserver[T](duration: FiniteDuration, maximumResults: Option[Int] = None)(
     implicit executionContext: ExecutionContext)
     extends StreamObserver[T] {
 
   private val promise = Promise[Vector[T]]
   private val buffer = Vector.newBuilder[T]
+  private var size = 0
 
   Delayed.by(duration)(onCompleted())
 
@@ -23,6 +24,10 @@ final class TimeBoundObserver[T](duration: FiniteDuration)(
 
   override def onNext(value: T): Unit = {
     buffer += value
+    size += 1
+    if (maximumResults.exists(size >= _)) {
+      onCompleted()
+    }
   }
 
   override def onError(t: Throwable): Unit = {

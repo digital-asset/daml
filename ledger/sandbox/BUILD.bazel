@@ -135,10 +135,7 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "sandbox-tests",
-    srcs = glob(
-        ["src/test/suite/**/*.scala"],
-        exclude = ["src/test/suite/**/ResetService*IT.scala"],
-    ),
+    srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
         "//ledger/test-common:model-tests.dar",
         "//ledger/test-common/test-certificates",
@@ -203,41 +200,6 @@ da_scala_test_suite(
         "@maven//:org_mockito_mockito_scala_2_12",
         "@maven//:org_reactivestreams_reactive_streams",
         "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
-)
-
-da_scala_test_suite(
-    name = "sandbox-resetservice-tests",
-    srcs = glob(
-        ["src/test/suite/**/ResetService*IT.scala"],
-    ),
-    data = [
-        "//ledger/test-common:model-tests.dar",
-        "//ledger/test-common/test-certificates",
-    ],
-    flaky = True,
-    resources = glob(["src/test/resources/**/*"]),
-    deps = [
-        ":sandbox-scala-tests-lib",
-        "//daml-lf/data",
-        "//language-support/scala/bindings",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/testing-utils",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//ledger/ledger-resources",
-        "//ledger/ledger-resources:ledger-resources-test-lib",
-        "//ledger/sandbox-common",
-        "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
-        "//ledger/test-common",
-        "//libs-scala/ports",
-        "//libs-scala/resources",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",

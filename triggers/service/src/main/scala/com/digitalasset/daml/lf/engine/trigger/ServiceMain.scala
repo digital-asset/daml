@@ -3,6 +3,8 @@
 
 package com.daml.lf.engine.trigger
 
+import java.util.UUID
+
 import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.http.scaladsl.Http.ServerBinding
@@ -35,9 +37,10 @@ object ServiceMain {
       restartConfig: TriggerRestartConfig,
       encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
-  ): Future[(ServerBinding, ActorSystem[Message])] = {
+      logTriggerStatus: (UUID, String) => Unit = (_, _) => ()
+  ): Future[(ServerBinding, ActorSystem[Server.Message])] = {
 
-    val system: ActorSystem[Message] =
+    val system: ActorSystem[Server.Message] =
       ActorSystem(
         Server(
           host,
@@ -47,7 +50,8 @@ object ServiceMain {
           restartConfig,
           encodedDars,
           jdbcConfig,
-          initDb = false // for tests we initialize the database in beforeEach clause
+          initDb = false, // for tests we initialize the database in beforeEach clause
+          logTriggerStatus
         ),
         "TriggerService"
       )
@@ -56,7 +60,7 @@ object ServiceMain {
     implicit val ec: ExecutionContext = system.executionContext
 
     val serviceF: Future[ServerBinding] =
-      system.ask((ref: ActorRef[ServerBinding]) => GetServerBinding(ref))
+      system.ask((ref: ActorRef[ServerBinding]) => Server.GetServerBinding(ref))
     serviceF.map(server => (server, system))
   }
 
@@ -85,7 +89,7 @@ object ServiceMain {
           config.minRestartInterval,
           config.maxRestartInterval,
         )
-        val system: ActorSystem[Message] =
+        val system: ActorSystem[Server.Message] =
           ActorSystem(
             Server(
               config.address,
@@ -105,12 +109,12 @@ object ServiceMain {
 
         // Shutdown gracefully on SIGINT.
         val serviceF: Future[ServerBinding] =
-          system.ask((ref: ActorRef[ServerBinding]) => GetServerBinding(ref))
+          system.ask((ref: ActorRef[ServerBinding]) => Server.GetServerBinding(ref))
         config.portFile.foreach(portFile =>
           serviceF.foreach(serverBinding =>
             PortFiles.write(portFile, Port(serverBinding.localAddress.getPort))))
         val _: ShutdownHookThread = sys.addShutdownHook {
-          system ! Stop
+          system ! Server.Stop
           serviceF.onComplete {
             case Success(_) =>
               system.log.info("Server is offline, the system will now terminate")

@@ -14,6 +14,32 @@ import org.scalatest.{Matchers, WordSpec}
 
 class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
+  "Checker.checkKind" should {
+    "reject invalid kinds" in {
+
+      val negativeTestCases = Table(
+        "kinds",
+        k"*",
+        k"* -> *",
+        k"* -> * -> *",
+        k"(* -> *) -> *",
+        k"(nat -> *)",
+        k"nat -> * -> *",
+        k"* -> nat -> *",
+      )
+
+      val positiveTestCases = Table(
+        "kinds",
+        k"* -> nat",
+        k"* -> * -> nat",
+        k"(* -> nat) -> *",
+      )
+
+      forEvery(negativeTestCases)(env.checkKind)
+      forEvery(positiveTestCases)(k => an[ENatKindRightOfArrow] shouldBe thrownBy(env.checkKind(k)))
+    }
+  }
+
   "Checker.kindOf" should {
 
     "infers the proper kind for builtin types (but ContractId)" in {
@@ -42,7 +68,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "infers the proper kind for complex type" in {
+    "infers the proper kind for complex types" in {
 
       val testCases = Table(
         "type" -> "expected kind",
@@ -62,6 +88,10 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       forEvery(testCases) { (typ: Type, expectedKind: Kind) =>
         env.kindOf(typ) shouldBe expectedKind
       }
+    }
+
+    "reject ill-formed types" in {
+      an[ENatKindRightOfArrow] shouldBe thrownBy(env.kindOf(T"""∀ (τ: ⋆ → nat). Unit """))
     }
   }
 
@@ -206,7 +236,45 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
     }
 
-    "infers proper type for Scenarios" in {
+    "not reject exhaustive patterns" in {
+
+      val testCases = Table(
+        "expression",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of Mod:Tree:Node x → () | Mod:Tree:Leaf x -> () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of Mod:Tree:Node x → () | Mod:Tree:Leaf x -> () |  Mod:Tree:Leaf x -> () | Mod:Tree:Node x → () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of Mod:Tree:Node x → () | _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of _ -> () | Mod:Tree:Node x → () ))",
+        E"λ (e : Mod:Color) → (( case e of Mod:Color:Red → () | Mod:Color:Green → () | Mod:Color:Blue → () ))",
+        E"λ (e : Mod:Color) → (( case e of Mod:Color:Blue → () | Mod:Color:Green → () | Mod:Color:Red → () ))",
+        E"λ (e : Mod:Color) → (( case e of Mod:Color:Red → () | Mod:Color:Blue → () | _ -> () ))",
+        E"λ (e : Mod:Color) → (( case e of Mod:Color:Green → () | _ -> () | Mod:Color:Red → () ))",
+        E"λ (e : Mod:Color) → (( case e of _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : List τ) → (( case e of Cons x y → () | Nil -> () ))",
+        E"Λ (τ : ⋆). λ (e : List τ) → (( case e of Nil -> () | Cons x y → () ))",
+        E"Λ (τ : ⋆). λ (e : List τ) → (( case e of Nil → () | _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : List τ) → (( case e of Cons x y → () | _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : List τ) → (( case e of _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : Option τ) → (( case e of None → () | Some x -> () ))",
+        E"Λ (τ : ⋆). λ (e : Option τ) → (( case e of Some x -> () | None → () ))",
+        E"Λ (τ : ⋆). λ (e : Option τ) → (( case e of None -> () | _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : Option τ) → (( case e of Some x → () | _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : Option τ) → (( case e of _ -> () ))",
+        E"λ (e : Bool) → (( case e of True → () | False → () ))",
+        E"λ (e : Bool) → (( case e of False → () | True → () ))",
+        E"λ (e : Bool) → (( case e of True → () | _ → () ))",
+        E"λ (e : Bool) → (( case e of False  → () | _ → () ))",
+        E"λ (e : Bool) → (( case e of _ → () ))",
+        E"(( case () of () → () ))",
+        E"(( case () of _ → () ))",
+        E"Λ (τ : ⋆). λ (e : Mod:R τ) → (( case e of _ -> () ))",
+        E"Λ (τ : ⋆). λ (e : τ) → (( case e of _ -> () ))",
+      )
+
+      forEvery(testCases)(env.typeOf)
+    }
+
+    "infer proper type for Scenarios" in {
       val testCases = Table(
         "expression" ->
           "expected type",
@@ -280,9 +348,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"∀ (τ : ⋆) (σ : ⋆). τ → σ → (( σ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (f : σ → τ) (x: σ) → (( let x : τ = f x in x ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). (σ → τ) → σ → (( τ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( λ (x : τ) → case e of Cons x t → x ))" ->
+        E"""Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( λ (x : τ) → case e of Cons x t → x | Nil -> ERROR @σ "error" ))""" ->
           T"∀ (τ : ⋆) (σ : ⋆). List σ → (( τ → σ ))",
-        E"Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( case e of Cons x t → λ (x : τ) → x ))" ->
+        E"""Λ (τ : ⋆) (σ : ⋆). λ (e: List σ) → (( case e of Cons x t → λ (x : τ) → x | _ -> ERROR @(τ  → τ) "error" ))""" ->
           T"∀ (τ : ⋆) (σ : ⋆). List σ → (( τ  → τ ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: Scenario σ) → (( sbind x: σ ← e in spure @(τ → τ) (λ (x : τ) → x) ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). Scenario σ → (( Scenario (τ  → τ) ))",
@@ -330,6 +398,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           { case _: ETypeMismatch => },
         E"Λ (τ₁: ⋆) (τ₂ : ⋆) (τ₃ : ⋆). λ (e₁ : Bool) (e₂ : τ₃) → ⸨ e₁ e₂ ⸩" -> //
           { case _: EExpectedFunctionType => },
+        // ExpTyAbs
+        E"Λ (τ : ⋆) . λ (e: τ) → ⸨ Λ (σ: ⋆ → nat) . e ⸩" -> //
+          { case _: ENatKindRightOfArrow => },
         // ExpTyApp
         E"Λ (τ : ⋆ → ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → ⸨ e @τ ⸩" -> //
           { case _: EKindMismatch => },
@@ -416,21 +487,36 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆) (τ₃: ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₃: τ₃)  → ⸨ ⟨ e with f₂ = e₃ ⟩ ⸩" -> //
           { case _: ETypeMismatch => },
         // ExpCaseVariant
-        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Mod:Tree:Node x -> () ⸩" -> //
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Mod:Tree:Node x -> () | _ -> () ⸩" -> //
           { case _: EPatternTypeMismatch => },
+        E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → ⸨ case e of Mod:Tree:Node x -> () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
+        // ExpCaseEnum
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Mod:Color:Red -> () | _ -> () ⸩" -> //
+          { case _: EPatternTypeMismatch => },
+        E"λ (e : Mod:Color) → ⸨ case e of Mod:Color:Red -> () | Mod:Color:Green -> () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
         // ExpCaseNil
-        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Nil → () ⸩" -> //
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Nil → () | _ -> () ⸩" -> //
           { case _: EPatternTypeMismatch => },
+        E"Λ (τ : ⋆). λ (e : List τ) → ⸨ case e of Nil → () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
         // ExpCaseCons
-        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Cons x y → () ⸩" -> //
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of Cons x y → () | _ -> () ⸩" -> //
           { case _: EPatternTypeMismatch => },
-        E"Λ (τ : ⋆). λ (e: List τ) → ⸨ case e of Cons x x → () ⸩" -> //
+        E"Λ (τ : ⋆). λ (e: List τ) → ⸨ case e of Cons x x → () | _ -> () ⸩" -> //
           { case _: EClashingPatternVariables => },
+        E"Λ (τ : ⋆). λ (e : List τ) → ⸨ case e of Cons x y → () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
         // ExpCaseFalse & ExpCaseTrue
-        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of True → () ⸩" -> //
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of True → () | _ -> () ⸩" -> //
           { case _: EPatternTypeMismatch => },
-        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of False → () ⸩" -> //
+        E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of False → () | _ -> () ⸩" -> //
           { case _: EPatternTypeMismatch => },
+        E"λ (e : Bool) → ⸨ case e of True → () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
+        E"λ (e : Bool) → ⸨ case e of False → () ⸩" -> //
+          { case _: ENonExhaustivePatterns => },
         // ExpCaseUnit
         E"Λ (τ : ⋆). λ (e : τ) → ⸨ case e of () → () ⸩" -> //
           { case _: EPatternTypeMismatch => },
@@ -1042,6 +1128,52 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     }
   }
 
+  "reject ill formed type record definitions" in {
+
+    def checkModule(mod: Module) = {
+      val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
+      val world = new World(Map(defaultPackageId -> pkg))
+      Typing.checkModule(world, defaultPackageId, mod)
+    }
+
+    val negativeTestCases = Table(
+      "valid module",
+      m"""module Mod { record R (a: * -> *) (b: * -> *) = { }; }""",
+    )
+
+    val positiveTestCases = Table(
+      "invalid module",
+      m"""module Mod { record R (a: * -> nat) (b: * -> *) = { }; }""",
+      m"""module Mod { record R (a: * -> *) (b: * -> nat) = { }; }""",
+    )
+
+    forEvery(negativeTestCases)(mod => checkModule(mod))
+    forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
+  }
+
+  "reject ill formed type variant definitions" in {
+
+    def checkModule(mod: Module) = {
+      val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
+      val world = new World(Map(defaultPackageId -> pkg))
+      Typing.checkModule(world, defaultPackageId, mod)
+    }
+
+    val negativeTestCases = Table(
+      "valid module",
+      m"""module Mod { variant V (a: * -> *) (b: * -> *) = ; }""",
+    )
+
+    val positiveTestCases = Table(
+      "invalid module",
+      m"""module Mod { variant V (a: * -> nat) (b: * -> *) = ; }""",
+      m"""module Mod { variant V (a: * -> *) (b: * -> nat) = ; }""",
+    )
+
+    forEvery(negativeTestCases)(mod => checkModule(mod))
+    forEvery(positiveTestCases)(mod => a[ValidationError] should be thrownBy checkModule(mod))
+  }
+
   "reject ill formed type synonym definitions" in {
 
     def checkModule(mod: Module) = {
@@ -1057,6 +1189,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       m"""module Mod { synonym S a b = a ; }""",
       m"""module Mod { synonym S (f: *) = f ; }""",
       m"""module Mod { synonym S (f: * -> *) = f Int64; }""",
+      m"""module Mod { synonym S (f: * -> *) = Unit ; }""",
     )
 
     val positiveTestCases = Table(
@@ -1067,6 +1200,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       m"""module Mod { synonym S = List ; }""",
       m"""module Mod { synonym S (f: * -> *) = f ; }""",
       m"""module Mod { synonym S (f: *) = f Int64; }""",
+      m"""module Mod { synonym S (f: * -> nat) = Unit ; }""",
     )
 
     forEvery(negativeTestCases)(mod => checkModule(mod))

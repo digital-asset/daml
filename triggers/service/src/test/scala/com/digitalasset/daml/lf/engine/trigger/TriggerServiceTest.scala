@@ -3,7 +3,7 @@
 
 package com.daml.lf.engine.trigger
 
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import com.daml.lf.archive.DarReader
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
@@ -12,7 +12,9 @@ import akka.stream.scaladsl.{FileIO, Sink, Source}
 import java.io.File
 import java.util.UUID
 
+import akka.http.scaladsl.model.Uri.Query
 import org.scalatest._
+import org.scalatest.concurrent.Eventually
 
 import scala.concurrent.Future
 import scalaz.Tag
@@ -22,11 +24,16 @@ import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.command_service._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.services.commands.CompletionStreamElement
 import com.daml.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
+import org.scalatest.time.{Seconds, Span}
 
 import scala.concurrent.duration._
 
@@ -36,7 +43,11 @@ trait AbstractTriggerServiceTest
     with HttpCookies
     with TriggerServiceFixture
     with Matchers
-    with StrictLogging {
+    with StrictLogging
+    with Eventually {
+
+  implicit override val patienceConfig: PatienceConfig =
+    PatienceConfig(timeout = scaled(Span(10, Seconds)))
 
   import AbstractTriggerServiceTest.CompatAssertion
 
@@ -64,16 +75,25 @@ trait AbstractTriggerServiceTest
   protected override def actorSystemName = testId
 
   protected val alice: Party = Tag("Alice")
+  // This party is used by the test that queries the ACS.
+  // To avoid mixing this up with the other tests, we use a separate
+  // party.
+  protected val aliceAcs: Party = Tag("Alice_acs")
   protected val bob: Party = Tag("Bob")
   protected val eve: Party = Tag("Eve")
 
-  def startTrigger(uri: Uri, triggerName: String, party: Party): Future[HttpResponse] = {
+  def startTrigger(
+      uri: Uri,
+      triggerName: String,
+      party: Party,
+      applicationId: Option[ApplicationId] = None): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.POST,
-      uri = uri.withPath(Uri.Path("/v1/start")),
+      uri = uri.withPath(Uri.Path("/v1/triggers")),
       entity = HttpEntity(
         ContentTypes.`application/json`,
-        s"""{"triggerName": "$triggerName", "party": "$party"}"""
+        s"""{"triggerName": "$triggerName", "party": "$party", "applicationId": "${applicationId
+          .getOrElse("null")}"}"""
       )
     )
     httpRequestFollow(req)
@@ -82,20 +102,7 @@ trait AbstractTriggerServiceTest
   def listTriggers(uri: Uri, party: Party): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.GET,
-      uri = uri.withPath(Uri.Path(s"/v1/list")),
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        s"""{"party": "$party"}"""
-      )
-    )
-    httpRequestFollow(req)
-  }
-
-  def triggerStatus(uri: Uri, triggerInstance: UUID): Future[HttpResponse] = {
-    val id = triggerInstance.toString
-    val req = HttpRequest(
-      method = HttpMethods.GET,
-      uri = uri.withPath(Uri.Path(s"/v1/status/$id")),
+      uri = uri.withPath(Uri.Path(s"/v1/triggers")).withQuery(Query(("party", party.toString))),
     )
     httpRequestFollow(req)
   }
@@ -104,10 +111,17 @@ trait AbstractTriggerServiceTest
     // silence unused warning, we probably need this parameter again when we
     // support auth.
     val _ = party
-    val id = triggerInstance.toString
     val req = HttpRequest(
       method = HttpMethods.DELETE,
-      uri = uri.withPath(Uri.Path(s"/v1/stop/$id")),
+      uri = uri.withPath(Uri.Path(s"/v1/triggers") / (triggerInstance.toString)),
+    )
+    httpRequestFollow(req)
+  }
+
+  def triggerStatus(uri: Uri, triggerInstance: UUID): Future[HttpResponse] = {
+    val req = HttpRequest(
+      method = HttpMethods.GET,
+      uri = uri.withPath(Uri.Path("/v1/triggers") / (triggerInstance.toString))
     )
     httpRequestFollow(req)
   }
@@ -121,7 +135,7 @@ trait AbstractTriggerServiceTest
         Map("filename" -> file.toString)))
     val req = HttpRequest(
       method = HttpMethods.POST,
-      uri = uri.withPath(Uri.Path(s"/v1/upload_dar")),
+      uri = uri.withPath(Uri.Path(s"/v1/packages")),
       entity = multipartForm.toEntity
     )
     Http().singleRequest(req)
@@ -134,8 +148,8 @@ trait AbstractTriggerServiceTest
   // Check the response was successful and extract the "result" field.
   def parseResult(resp: HttpResponse): Future[JsValue] = {
     for {
-      _ <- assert(resp.status.isSuccess)
       body <- responseBodyToString(resp)
+      _ <- assert(resp.status.isSuccess)
       JsObject(fields) = body.parseJson
       Some(result) = fields.get("result")
     } yield result
@@ -165,27 +179,11 @@ trait AbstractTriggerServiceTest
       result <- parseTriggerIds(resp)
     } yield assert(result == expected)
 
-  def parseTriggerStatus(resp: HttpResponse): Future[Vector[String]] = {
-    for {
-      JsObject(fields) <- parseResult(resp)
-      Some(JsArray(list)) = fields.get("logs")
-      statusMsgs = list map {
-        case JsArray(Vector(JsString(_), JsString(msg))) => msg
-        case _ => fail("""Unexpected format in the "logs" field""")
-      }
-    } yield statusMsgs
-  }
-
-  def assertTriggerStatus[A](uri: Uri, triggerInstance: UUID, pred: Vector[String] => A)(
-      implicit A: CompatAssertion[A]): Future[Assertion] = {
-    // eventually doesn’t handle Futures in the version of scalatest we’re using.
-    RetryStrategy.constant(15, 1.seconds) { (_, _) =>
-      for {
-        resp <- triggerStatus(uri, triggerInstance)
-        result <- parseTriggerStatus(resp)
-      } yield A(pred(result))
+  def assertTriggerStatus[A](triggerInstance: UUID, pred: Vector[String] => A)(
+      implicit A: CompatAssertion[A]): Future[Assertion] =
+    eventually {
+      A(pred(getTriggerStatus(triggerInstance).map(_._2)))
     }
-  }
 
   it should "start up and shut down server" in
     withTriggerService(List(dar)) { _ =>
@@ -206,13 +204,13 @@ trait AbstractTriggerServiceTest
     val expectedError = StatusCodes.UnprocessableEntity
     for {
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:foobar", alice)
-      _ <- resp.status should equal(expectedError)
+      _ <- resp.status shouldBe expectedError
       // Check the "status" and "errors" fields
       body <- responseBodyToString(resp)
       JsObject(fields) = body.parseJson
-      _ <- fields.get("status") should equal(Some(JsNumber(expectedError.intValue)))
-      _ <- fields.get("errors") should equal(
-        Some(JsArray(JsString("Could not find name foobar in module TestTrigger"))))
+      _ <- fields.get("status") shouldBe Some(JsNumber(expectedError.intValue))
+      _ <- fields.get("errors") shouldBe
+        Some(JsArray(JsString("Could not find name foobar in module TestTrigger")))
     } yield succeed
   }
 
@@ -227,7 +225,7 @@ trait AbstractTriggerServiceTest
       _ <- assertTriggerIds(uri, alice, Vector(triggerId))
       resp <- stopTrigger(uri, triggerId, alice)
       stoppedTriggerId <- parseTriggerId(resp)
-      _ <- stoppedTriggerId should equal(triggerId)
+      _ <- stoppedTriggerId shouldBe triggerId
     } yield succeed
   }
 
@@ -236,7 +234,7 @@ trait AbstractTriggerServiceTest
       for {
         resp <- listTriggers(uri, alice)
         result <- parseTriggerIds(resp)
-        _ <- result should equal(Vector())
+        _ <- result shouldBe Vector()
         // Start trigger for Alice.
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
         aliceTrigger <- parseTriggerId(resp)
@@ -265,12 +263,30 @@ trait AbstractTriggerServiceTest
 
   it should "should enable a trigger on http request" in withTriggerService(List(dar)) { uri: Uri =>
     for {
+      client <- sandboxClient(
+        ApiTypes.ApplicationId("my-app-id"),
+        actAs = List(ApiTypes.Party(aliceAcs.unwrap)))
+      filter = TransactionFilter(
+        List(
+          (
+            aliceAcs.unwrap,
+            Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
+      // Make sure that no contracts exist initially to guard against accidental
+      // party reuse.
+      acs <- client.activeContractSetClient
+        .getActiveContracts(filter)
+        .runWith(Sink.seq)
+        .map(acsPages => acsPages.flatMap(_.activeContracts))
+      _ = acs shouldBe Vector()
       // Start the trigger
-      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+      resp <- startTrigger(
+        uri,
+        s"$testPkgId:TestTrigger:trigger",
+        aliceAcs,
+        Some(ApplicationId("my-app-id")))
       triggerId <- parseTriggerId(resp)
 
       // Trigger is running, create an A contract
-      client <- sandboxClient(ApiTypes.ApplicationId(testId), actAs = List(ApiTypes.Party("Alice")))
       _ <- {
         val cmd = Command().withCreate(
           CreateCommand(
@@ -279,23 +295,35 @@ trait AbstractTriggerServiceTest
               Record(
                 None,
                 Seq(
-                  RecordField(value = Some(Value().withParty("Alice"))),
+                  RecordField(value = Some(Value().withParty(aliceAcs.unwrap))),
                   RecordField(value = Some(Value().withInt64(42)))))),
           ))
-        submitCmd(client, "Alice", cmd)
+        submitCmd(client, aliceAcs.unwrap, cmd)
       }
       // Query ACS until we see a B contract
-      // format: off
-        _ <- Future {
-          val filter = TransactionFilter(List(("Alice", Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
-          // eventually doesn’t handle Futures in the version of scalatest we’re using.
-          RetryStrategy.constant(5, 1.seconds) { (_, _) =>
-            for {
-              acs <- client.activeContractSetClient.getActiveContracts(filter).runWith(Sink.seq).map(acsPages => acsPages.flatMap(_.activeContracts))
-            } yield assert(acs.length == 1)
-          }
-        }
-        // format: on
+      _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
+        for {
+          acs <- client.activeContractSetClient
+            .getActiveContracts(filter)
+            .runWith(Sink.seq)
+            .map(acsPages => acsPages.flatMap(_.activeContracts))
+        } yield assert(acs.length == 1)
+      }
+      // Read completions to make sure we set the right app id.
+      r <- client.commandClient
+        .completionSource(List(aliceAcs.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
+        .collect({
+          case CompletionStreamElement.CompletionElement(completion)
+              if !completion.transactionId.isEmpty =>
+            completion
+        })
+        .take(1)
+        .runWith(Sink.seq)
+      _ = r.length shouldBe 1
+      status <- triggerStatus(uri, triggerId)
+      _ = status.status shouldBe StatusCodes.OK
+      body <- responseBodyToString(status)
+      _ = body shouldBe s"""{"result":{"party":"Alice_acs","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
       resp <- stopTrigger(uri, triggerId, alice)
       _ <- assert(resp.status.isSuccess)
     } yield succeed
@@ -312,10 +340,10 @@ trait AbstractTriggerServiceTest
       aliceTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
       // Check the log for an initialization failure.
-      _ <- assertTriggerStatus(uri, aliceTrigger, _.contains("stopped: initialization failure"))
+      _ <- assertTriggerStatus(aliceTrigger, _.contains("stopped: initialization failure"))
       // Finally establish the connection and check that the trigger eventually starts.
       _ <- Future(toxiSandboxProxy.enable())
-      _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
+      _ <- assertTriggerStatus(aliceTrigger, _.last == "running")
     } yield succeed
   }
 
@@ -329,13 +357,13 @@ trait AbstractTriggerServiceTest
       aliceTrigger <- parseTriggerId(resp)
       _ <- assertTriggerIds(uri, alice, Vector(aliceTrigger))
       // Proceed when it's confirmed to be running.
-      _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
+      _ <- assertTriggerStatus(aliceTrigger, _.last == "running")
       // Simulate brief network connectivity loss and observe the trigger fail.
       _ <- Future(toxiSandboxProxy.disable())
-      _ <- assertTriggerStatus(uri, aliceTrigger, _.contains("stopped: runtime failure"))
+      _ <- assertTriggerStatus(aliceTrigger, _.contains("stopped: runtime failure"))
       // Finally check the trigger is restarted after the connection returns.
       _ <- Future(toxiSandboxProxy.enable())
-      _ <- assertTriggerStatus(uri, aliceTrigger, _.last == "running")
+      _ <- assertTriggerStatus(aliceTrigger, _.last == "running")
     } yield succeed
   }
 
@@ -349,11 +377,8 @@ trait AbstractTriggerServiceTest
         // Just check that we see a few failures and restart attempts.
         // This relies on a small minimum restart interval as the interval doubles after each
         // failure.
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") > 2)
-        _ <- assertTriggerStatus(
-          uri,
-          aliceTrigger,
-          _.count(_ == "stopped: initialization failure") > 2)
+        _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "starting") > 2)
+        _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "stopped: initialization failure") > 2)
       } yield succeed
   }
 
@@ -366,11 +391,8 @@ trait AbstractTriggerServiceTest
       // Just check that we see a few failures and restart attempts.
       // This relies on a small minimum restart interval as the interval doubles after each
       // failure.
-      _ <- assertTriggerStatus(uri, aliceTrigger, _.count(_ == "starting") should be > 2)
-      _ <- assertTriggerStatus(
-        uri,
-        aliceTrigger,
-        _.count(_ == "stopped: runtime failure") should be > 2)
+      _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "starting") should be > 2)
+      _ <- assertTriggerStatus(aliceTrigger, _.count(_ == "stopped: runtime failure") should be > 2)
     } yield succeed
   }
 
@@ -379,11 +401,11 @@ trait AbstractTriggerServiceTest
     val uuid: String = "No More Mr Nice Guy"
     val req = HttpRequest(
       method = HttpMethods.DELETE,
-      uri = uri.withPath(Uri.Path(s"/v1/stop/$uuid")),
+      uri = uri.withPath(Uri.Path(s"/v1/triggers/$uuid")),
     )
     for {
       resp <- Http().singleRequest(req)
-      _ <- resp.status should equal(StatusCodes.NotFound)
+      _ <- resp.status shouldBe StatusCodes.NotFound
     } yield succeed
   }
 
@@ -392,12 +414,12 @@ trait AbstractTriggerServiceTest
     val uuid = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
     for {
       resp <- stopTrigger(uri, uuid, alice)
-      _ <- resp.status should equal(StatusCodes.NotFound)
+      _ <- resp.status shouldBe StatusCodes.NotFound
       body <- responseBodyToString(resp)
       JsObject(fields) = body.parseJson
-      _ <- fields.get("status") should equal(Some(JsNumber(StatusCodes.NotFound.intValue)))
-      _ <- fields.get("errors") should equal(
-        Some(JsArray(JsString(s"No trigger running with id $uuid"))))
+      _ <- fields.get("status") shouldBe Some(JsNumber(StatusCodes.NotFound.intValue))
+      _ <- fields.get("errors") shouldBe
+        Some(JsArray(JsString(s"No trigger running with id $uuid")))
     } yield succeed
   }
 }
@@ -457,7 +479,7 @@ trait AbstractTriggerServiceTestWithDb
         triggerId <- parseTriggerId(resp)
         // The new trigger should be in the running trigger store and eventually running.
         _ <- assertTriggerIds(uri, alice, Vector(triggerId))
-        _ <- assertTriggerStatus(uri, triggerId, _.last should ===("running"))
+        _ <- assertTriggerStatus(triggerId, _.last should ===("running"))
       } yield succeed
     }
     // Once service is shutdown, start a new one and check the previously running trigger is restarted.
@@ -471,12 +493,12 @@ trait AbstractTriggerServiceTestWithDb
         aliceTrigger = triggerIds.head
         // Currently the logs aren't persisted so we can check that the trigger was restarted by
         // inspecting the new log.
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.last should ===("running"))
+        _ <- assertTriggerStatus(aliceTrigger, _.last should ===("running"))
 
         // Finally go ahead and stop the trigger.
         _ <- stopTrigger(uri, aliceTrigger, alice)
         _ <- assertTriggerIds(uri, alice, Vector())
-        _ <- assertTriggerStatus(uri, aliceTrigger, _.last should ===("stopped: by user request"))
+        _ <- assertTriggerStatus(aliceTrigger, _.last should ===("stopped: by user request"))
       } yield succeed
     }
   } yield succeed)
@@ -490,36 +512,51 @@ trait AbstractTriggerServiceTestAuthMiddleware
     extends AbstractTriggerServiceTest
     with AuthMiddlewareFixture {
 
-  override protected val authParties = Some(Set(alice, bob))
+  override protected val authParties = Some(Set(alice, aliceAcs, bob))
 
   behavior of "authenticated service"
 
   it should "forbid a non-authorized party to start a trigger" in withTriggerService(List(dar)) {
     uri: Uri =>
-      val expectedError = StatusCodes.Forbidden
       for {
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", eve)
-        _ <- resp.status should equal(expectedError)
+        _ <- resp.status shouldBe StatusCodes.Forbidden
+      } yield succeed
+  }
+
+  it should "forbid a non-authorized party to list triggers" in withTriggerService(Nil) {
+    uri: Uri =>
+      for {
+        resp <- listTriggers(uri, eve)
+        _ <- resp.status shouldBe StatusCodes.Forbidden
+      } yield succeed
+  }
+
+  it should "forbid a non-authorized party to check the status of a trigger" in withTriggerService(
+    List(dar)) { uri: Uri =>
+    for {
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+      _ <- resp.status shouldBe StatusCodes.OK
+      triggerId <- parseTriggerId(resp)
+      // emulate access by a different user by revoking access to alice and deleting the current token cookie
+      _ = authServer.revokeParty(alice)
+      _ = deleteCookies()
+      resp <- triggerStatus(uri, triggerId)
+      _ <- resp.status shouldBe StatusCodes.Forbidden
+    } yield succeed
+  }
+
+  it should "forbid a non-authorized party to stop a trigger" in withTriggerService(List(dar)) {
+    uri: Uri =>
+      for {
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
+        _ <- resp.status shouldBe StatusCodes.OK
+        triggerId <- parseTriggerId(resp)
+        // emulate access by a different user by revoking access to alice and deleting the current token cookie
+        _ = authServer.revokeParty(alice)
+        _ = deleteCookies()
+        resp <- stopTrigger(uri, triggerId, alice)
+        _ <- resp.status shouldBe StatusCodes.Forbidden
       } yield succeed
   }
 }
-
-class TriggerServiceTestInMem
-    extends AbstractTriggerServiceTest
-    with AbstractTriggerServiceTestInMem
-    with AbstractTriggerServiceTestNoAuth {}
-
-class TriggerServiceTestWithDb
-    extends AbstractTriggerServiceTest
-    with AbstractTriggerServiceTestWithDb
-    with AbstractTriggerServiceTestNoAuth {}
-
-class TriggerServiceTestAuth
-    extends AbstractTriggerServiceTest
-    with AbstractTriggerServiceTestInMem
-    with AbstractTriggerServiceTestAuthMiddleware {}
-
-class TriggerServiceTestAuthWithDb
-    extends AbstractTriggerServiceTest
-    with AbstractTriggerServiceTestWithDb
-    with AbstractTriggerServiceTestAuthMiddleware {}

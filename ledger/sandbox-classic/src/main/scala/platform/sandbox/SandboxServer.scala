@@ -267,19 +267,20 @@ final class SandboxServer(
     val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
-          name,
-          config.ledgerIdMode,
-          config.participantId,
-          jdbcUrl,
-          timeProvider,
-          ledgerEntries,
-          startMode,
-          config.commandConfig.maxParallelSubmissions,
-          transactionCommitter,
-          packageStore,
-          config.eventsPageSize,
-          metrics,
-          lfValueTranslationCache
+          name = name,
+          providedLedgerId = config.ledgerIdMode,
+          participantId = config.participantId,
+          jdbcUrl = jdbcUrl,
+          timeProvider = timeProvider,
+          ledgerEntries = ledgerEntries,
+          startMode = startMode,
+          queueDepth = config.commandConfig.maxParallelSubmissions,
+          transactionCommitter = transactionCommitter,
+          templateStore = packageStore,
+          eventsPageSize = config.eventsPageSize,
+          metrics = metrics,
+          lfValueTranslationCache = lfValueTranslationCache,
+          validatePartyAllocation = !config.implicitPartyAllocation,
         )
 
       case None =>
@@ -331,8 +332,7 @@ final class SandboxServer(
         ledgerConfiguration = ledgerConfiguration,
         commandConfig = config.commandConfig,
         partyConfig = PartyConfiguration.default.copy(
-          // sandbox-classic always allocates party implicitly
-          implicitPartyAllocation = true,
+          implicitPartyAllocation = config.implicitPartyAllocation,
         ),
         optTimeServiceBackend = timeServiceBackendO,
         servicesExecutionContext = servicesExecutionContext,
