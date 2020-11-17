@@ -116,7 +116,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       )
       _ <- compareStateUpdates(config, stateUpdates)
       _ <- indexStateUpdates(
-        exportFileName = config.exportFileName,
+        config = config,
         metrics = metrics,
         readService =
           if (config.indexOnly)
@@ -139,17 +139,10 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       Future.unit
 
   private def indexStateUpdates(
-      exportFileName: String,
+      config: Config,
       metrics: Metrics,
       readService: ReplayingReadService,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
-    val jdbcUrl = s"jdbc:h2:mem:$exportFileName;db_close_delay=-1;db_close_on_exit=false"
-    val indexerConfig = IndexerConfig(
-      participantId = ParticipantId.assertFromString("IntegrityCheckerParticipant"),
-      jdbcUrl = jdbcUrl,
-      startupMode = IndexerStartupMode.MigrateAndStart,
-    )
-
     implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
 
     // Start the indexer consuming the recorded state updates
@@ -160,7 +153,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
           .forFuture(
             () =>
               migrateAndStartIndexer(
-                indexerConfig,
+                createIndexerConfig(config),
                 readService,
                 metrics,
                 LfValueTranslation.Cache.none,
@@ -383,6 +376,19 @@ object IntegrityChecker {
           sys.exit(1)
       }(DirectExecutionContext)
   }
+
+  private[integritycheck] def createIndexerConfig(config: Config): IndexerConfig =
+    IndexerConfig(
+      participantId = ParticipantId.assertFromString("IntegrityCheckerParticipant"),
+      jdbcUrl = jdbcUrl(config),
+      startupMode = IndexerStartupMode.MigrateAndStart,
+    )
+
+  private[integritycheck] def jdbcUrl(config: Config): String =
+    config.jdbcUrl.getOrElse(defaultJdbcUrl(config.exportFileName))
+
+  private[integritycheck] def defaultJdbcUrl(exportFileName: String): String =
+    s"jdbc:h2:mem:$exportFileName;db_close_delay=-1;db_close_on_exit=false"
 
   private def runAsync[LogResult](
       config: Config,
