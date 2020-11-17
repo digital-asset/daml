@@ -100,6 +100,7 @@ final class StandaloneApiServer(
         managementServiceTimeout = config.managementServiceTimeout,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
+      _ = config.tlsConfig.foreach(_.setJvmTlsProperties())
       apiServer <- new LedgerApiServer(
         apiServicesOwner,
         config.port,
@@ -109,7 +110,6 @@ final class StandaloneApiServer(
         AuthorizationInterceptor(authService, executionContext) :: otherInterceptors,
         metrics
       )
-      _ = config.tlsConfig.foreach(_.setJvmTlsProperties())
     } yield {
       writePortFile(apiServer.port)
       logger.info(
