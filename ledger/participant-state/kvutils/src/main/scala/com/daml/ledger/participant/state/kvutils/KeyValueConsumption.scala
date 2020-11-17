@@ -265,7 +265,8 @@ object KeyValueConsumption {
       transactionId = hexTxId,
       recordTime = recordTime,
       divulgedContracts = List.empty,
-      blindingInfo = None, // Currently derived from Fetch and LookupByKey nodes (soon to be trimmed)
+      // Currently derived from Fetch and LookupByKey nodes, soon pre-computed
+      blindingInfo = None,
     )
   }
 

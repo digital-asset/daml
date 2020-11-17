@@ -368,7 +368,7 @@ private final class SqlLedger(
           ),
           _ => {
             val divulgedContracts = Nil
-            val blindingInfo = None // Currently derived from Fetch and LookupByKey nodes (soon to be trimmed)
+            val blindingInfo = None // Currently derived from Fetch and LookupByKey nodes, soon pre-computed
 
             val preparedInsert = ledgerDao.prepareTransactionInsert(
               submitterInfo = Some(submitterInfo),
