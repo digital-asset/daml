@@ -98,9 +98,11 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       expectedReadServiceFactory: ReplayingReadServiceFactory,
       actualReadServiceFactory: ReplayingReadServiceFactory,
       stateUpdates: StateUpdates,
-      metrics: Metrics)(
+      metrics: Metrics,
+  )(
       implicit executionContext: ExecutionContext,
-      materializer: Materializer): Future[Unit] =
+      materializer: Materializer,
+  ): Future[Unit] =
     for {
       _ <- processSubmissions(
         importer,
@@ -112,7 +114,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
         actualReadServiceFactory,
         config,
       )
-      _ <- if (!config.indexOnly) stateUpdates.compare() else Future.unit
+      _ <- compareStateUpdates(config, stateUpdates)
       _ <- indexStateUpdates(
         exportFileName = config.exportFileName,
         metrics = metrics,
@@ -123,6 +125,18 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
             actualReadServiceFactory.createReadService,
       )
     } yield ()
+
+  private[integritycheck] def compareStateUpdates(
+      config: Config,
+      stateUpdates: StateUpdates,
+  )(
+      implicit executionContext: ExecutionContext,
+      materializer: Materializer,
+  ): Future[Unit] =
+    if (!config.indexOnly)
+      stateUpdates.compare()
+    else
+      Future.unit
 
   private def indexStateUpdates(
       exportFileName: String,
@@ -352,7 +366,9 @@ object IntegrityChecker {
       args: Array[String],
       commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[LogResult],
   ): Unit =
-    run(Config.parse(args).getOrElse { sys.exit(1) }, commitStrategySupportFactory)
+    run(Config.parse(args).getOrElse {
+      sys.exit(1)
+    }, commitStrategySupportFactory)
 
   def run[LogResult](
       config: Config,
