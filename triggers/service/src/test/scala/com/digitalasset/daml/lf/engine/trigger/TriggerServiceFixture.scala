@@ -185,6 +185,7 @@ trait AuthMiddlewareFixture
       applicationId = None,
       jwtSecret = authSecret,
       parties = authParties,
+      clock = None,
     )
     resource = new OwnedResource(new ResourceOwner[(OAuthServer, ServerBinding)] {
       override def acquire()(
