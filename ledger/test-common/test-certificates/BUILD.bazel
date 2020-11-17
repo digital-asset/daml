@@ -6,27 +6,27 @@ load("@os_info//:os_info.bzl", "is_windows")
 genrule(
     name = "test-certificates",
     srcs = [
-        ":root-ca.cnf.sample",
+        ":openssl.cnf.sample"
     ],
     outs = [
         "openssl.cnf",
         "newcerts",
         "index.txt",
         "serial",
-        "ca.key.pem",
+        "ca.key",
         "ca.crt",
-        "server.key.pem",
-        "server.pem",
-        "server.csr",
-        "server.crt",
-        "client.key.pem",
+        "client.key",
         "client.pem",
         "client.csr",
         "client.crt",
+        "server.key",
+        "server.pem",
+        "server.csr",
+        "server.crt",
         "ocsp.key.pem",
         "ocsp.csr",
         "ocsp.crt",
-        "client-revoked.key.pem",
+        "client-revoked.key",
         "client-revoked.pem",
         "client-revoked.csr",
         "client-revoked.crt",
@@ -37,7 +37,7 @@ set -eou pipefail
 ABSOLUTE_OUT=$$( cd "$$(dirname $(location openssl.cnf))" >/dev/null 2>&1 && pwd )
 
 # Generate SSL config from the template
-cat $(location root-ca.cnf.sample) | sed -e "s;<ROOTDIR>;$$ABSOLUTE_OUT;g" > $(location openssl.cnf)
+cat $(location openssl.cnf.sample) | sed -e "s;<ROOTDIR>;$$ABSOLUTE_OUT;g" > $(location openssl.cnf)
 
 # Setup directories
 mkdir $(location newcerts)
@@ -45,43 +45,36 @@ touch $(location index.txt)
 echo 1000 > $(location serial)
 
 # Generate Root CA private key
-$(location @openssl_dev_env//:openssl) genrsa -out $(location ca.key.pem) 4096
-chmod 400 $(location ca.key.pem)
+$(location @openssl_dev_env//:openssl) genrsa -out $(location ca.key) 4096
+chmod 400 $(location ca.key)
 # Create Root Certificate (self-signed)
 $(location @openssl_dev_env//:openssl) req -config $(location openssl.cnf) \
-    -key $(location ca.key.pem) \
+    -key $(location ca.key) \
     -new -x509 -days 7300 -sha256 -extensions v3_ca \
-    -subj '/CN=ca.127.0.0.1' \
+    -subj '/CN=0.0.0.0.ca' \
     -out $(location ca.crt)
 # Dump out cert details
 $(location @openssl_dev_env//:openssl) x509 -noout -text -in $(location ca.crt)
 
-
-# Generate Server private key
-$(location @openssl_dev_env//:openssl) genrsa -out $(location server.key.pem) 4096
-$(location @openssl_dev_env//:openssl) pkey -in $(location server.key.pem) -out $(location server.pem)
-chmod 400 $(location server.key.pem)
-# Create Server certificate
+# Generate server key, csr and crt
+$(location @openssl_dev_env//:openssl) genrsa -out $(location server.key) 4096
+$(location @openssl_dev_env//:openssl) pkey -in $(location server.key) -out $(location server.pem)
 $(location @openssl_dev_env//:openssl) req -config $(location openssl.cnf) \
-    -subj '/CN=server.127.0.0.1' \
+    -subj '/CN=0.0.0.0.server' \
     -addext "subjectAltName = DNS:localhost, IP:127.0.0.1" \
-    -key $(location server.key.pem) \
+    -key $(location server.pem) \
     -new -sha256 -out $(location server.csr)
-# Sign Certificate
 $(location @openssl_dev_env//:openssl) ca -batch -config $(location openssl.cnf) \
     -extensions server_cert -days 365 -notext -md sha256 \
     -in $(location server.csr) \
     -out $(location server.crt)
 chmod 444 $(location server.crt)
 
-$(location @openssl_dev_env//:openssl) x509 -noout -text \
-    -in $(location server.crt)
-
 # Generate Client CA private key
-$(location @openssl_dev_env//:openssl) genpkey -out $(location client.key.pem) -algorithm RSA -pkeyopt rsa_keygen_bits:2048
-$(location @openssl_dev_env//:openssl) pkey -in $(location client.key.pem) -out $(location client.pem)
-$(location @openssl_dev_env//:openssl) req -new -key $(location client.key.pem) \
-    -subj '/CN=client.127.0.0.1' \
+$(location @openssl_dev_env//:openssl) genrsa -out $(location client.key) 4096
+$(location @openssl_dev_env//:openssl) pkey -in $(location client.key) -out $(location client.pem)
+$(location @openssl_dev_env//:openssl) req -new -key $(location client.pem) \
+    -subj '/CN=0.0.0.0.client' \
     -addext "subjectAltName = DNS:localhost, IP:127.0.0.1" \
     -out $(location client.csr)
 # Sign Client Cert
@@ -112,9 +105,9 @@ $(location @openssl_dev_env//:openssl) x509 -noout -text \
 
 
 # Generate Client-Revoked CA private key
-$(location @openssl_dev_env//:openssl) genpkey -out $(location client-revoked.key.pem) -algorithm RSA -pkeyopt rsa_keygen_bits:2048
-$(location @openssl_dev_env//:openssl) pkey -in $(location client-revoked.key.pem) -out $(location client-revoked.pem)
-$(location @openssl_dev_env//:openssl) req -new -key $(location client-revoked.key.pem) \
+$(location @openssl_dev_env//:openssl) genpkey -out $(location client-revoked.key) -algorithm RSA -pkeyopt rsa_keygen_bits:2048
+$(location @openssl_dev_env//:openssl) pkey -in $(location client-revoked.key) -out $(location client-revoked.pem)
+$(location @openssl_dev_env//:openssl) req -new -key $(location client-revoked.pem) \
     -subj '/CN=0.0.0.0.clientrevoked' \
     -addext "subjectAltName = DNS:localhost, IP:127.0.0.1" \
     -out $(location client-revoked.csr)
