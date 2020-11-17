@@ -367,6 +367,9 @@ private final class SqlLedger(
               reason,
           ),
           _ => {
+            val divulgedContracts = Nil
+            val blindingInfo = None // Currently derived from Fetch and LookupByKey nodes (soon to be trimmed)
+
             val preparedInsert = ledgerDao.prepareTransactionInsert(
               submitterInfo = Some(submitterInfo),
               workflowId = transactionMeta.workflowId,
@@ -374,7 +377,8 @@ private final class SqlLedger(
               ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
               offset = offset,
               transaction = transactionCommitter.commitTransaction(transactionId, transaction),
-              divulgedContracts = Nil,
+              divulgedContracts = divulgedContracts,
+              blindingInfo = blindingInfo
             )
             ledgerDao.storeTransaction(
               preparedInsert,
@@ -385,7 +389,8 @@ private final class SqlLedger(
               transactionMeta.ledgerEffectiveTime.toInstant,
               offset,
               transactionCommitter.commitTransaction(transactionId, transaction),
-              Nil,
+              divulgedContracts,
+              blindingInfo,
             )
           }
         )

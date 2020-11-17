@@ -30,6 +30,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
       create = nonTransient(tx).loneElement
       _ <- store(
         divulgedContracts = Map((create, someVersionedContractInstance) -> Set(charlie)),
+        blindingInfo = None,
         offsetAndTx = divulgeAlreadyCommittedContract(id = create, divulgees = Set(charlie)),
       )
       result <- ledgerDao.lookupActiveOrDivulgedContract(create, charlie)
@@ -78,6 +79,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
         divulgedContracts = Map(
           (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
         ),
+        blindingInfo = None,
         offsetAndTx = singleNonConsumingExercise(divulgedContractId)
       )
       (_, tx) <- store(singleCreate)
@@ -97,6 +99,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
         divulgedContracts = Map(
           (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
         ),
+        blindingInfo = None,
         offsetAndTx = singleNonConsumingExercise(divulgedContractId)
       )
       result <- ledgerDao.lookupMaximumLedgerTime(Set(divulgedContractId))
@@ -113,6 +116,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
         divulgedContracts = Map(
           (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
         ),
+        blindingInfo = None,
         offsetAndTx = singleExercise(divulgedContractId)
       )
       failure <- ledgerDao.lookupMaximumLedgerTime(Set(divulgedContractId)).failed

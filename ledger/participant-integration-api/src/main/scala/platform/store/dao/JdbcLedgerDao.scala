@@ -28,7 +28,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -408,8 +408,9 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract])(
-      implicit loggingContext: LoggingContext): PreparedInsert =
+      divulgedContracts: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
+  )(implicit loggingContext: LoggingContext): PreparedInsert =
     transactionsWriter.prepare(
       submitterInfo,
       workflowId,
@@ -417,7 +418,9 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime,
       offset,
       transaction,
-      divulgedContracts)
+      divulgedContracts,
+      blindingInfo,
+    )
 
   override def storeTransaction(
       preparedInsert: PreparedInsert,
@@ -429,6 +432,7 @@ private class JdbcLedgerDao(
       offset: Offset,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) {
@@ -505,6 +509,7 @@ private class JdbcLedgerDao(
                   offset = offset,
                   transaction = tx.transaction,
                   divulgedContracts = Nil,
+                  blindingInfo = None,
                 ).write(metrics)
                 submitterInfo
                   .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))

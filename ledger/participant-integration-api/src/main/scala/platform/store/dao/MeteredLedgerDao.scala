@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, P
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
@@ -162,6 +162,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       offset: Offset,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storeTransaction,
@@ -175,6 +176,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
         offset,
         transaction,
         divulged,
+        blindingInfo,
       )
     )
 
@@ -186,6 +188,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       offset: Offset,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
   )(implicit loggingContext: LoggingContext): TransactionsWriter.PreparedInsert =
     ledgerDao.prepareTransactionInsert(
       submitterInfo,
@@ -194,7 +197,9 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       ledgerEffectiveTime,
       offset,
       transaction,
-      divulgedContracts)
+      divulgedContracts,
+      blindingInfo,
+    )
 
   override def storeRejection(
       submitterInfo: Option[SubmitterInfo],
