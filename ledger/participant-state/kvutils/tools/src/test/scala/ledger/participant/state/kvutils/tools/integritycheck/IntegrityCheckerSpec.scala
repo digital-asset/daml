@@ -129,9 +129,10 @@ class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with MockitoSugar
     }
 
     "use the default jdbcUrl if none is configured" in {
-      val config = Config.ParseInput.copy(exportFilePath = Paths.get("aFilePath"))
+      val aFilePath = "aFilePath"
+      val config = Config.ParseInput.copy(exportFilePath = Paths.get(aFilePath))
       IntegrityChecker.createIndexerConfig(config).jdbcUrl should be(
-        IntegrityChecker.defaultJdbcUrl("aFilePath"))
+        IntegrityChecker.defaultJdbcUrl(aFilePath))
     }
   }
 
