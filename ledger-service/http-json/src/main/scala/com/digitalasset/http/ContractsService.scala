@@ -99,11 +99,7 @@ class ContractsService(
 
       predicate = domain.ActiveContract.matchesKey(contractKey) _
 
-      errorOrAc <- searchInMemoryOneTpId(jwt, parties, resolvedTemplateId, Map.empty)
-        .collect {
-          case e @ -\/(_) => e
-          case a @ \/-(ac) if predicate(ac) => a
-        }
+      errorOrAc <- searchInMemoryOneTpId(jwt, parties, resolvedTemplateId, predicate)
         .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract[LfValue]]]
 
       result <- lookupResult(errorOrAc)
@@ -123,11 +119,7 @@ class ContractsService(
         Future.successful(allTemplateIds()),
       ): Future[Set[domain.TemplateId.RequiredPkg]]
 
-      errorOrAc <- searchInMemory(jwt, parties, resolvedTemplateIds, Map.empty)
-        .collect {
-          case e @ -\/(_) => e
-          case a @ \/-(ac) if isContractId(contractId)(ac) => a
-        }
+      errorOrAc <- searchInMemory(jwt, parties, resolvedTemplateIds, isContractId(contractId) _)
         .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract[LfValue]]]
 
       result <- lookupResult(errorOrAc)
@@ -154,7 +146,8 @@ class ContractsService(
       parties: OneAnd[Set, domain.Party],
   ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
     domain.OkResponse(
-      Source(allTemplateIds()).flatMapConcat(x => searchInMemoryOneTpId(jwt, parties, x, Map.empty))
+      Source(allTemplateIds()).flatMapConcat(x =>
+        searchInMemoryOneTpId(jwt, parties, x, (_: Any) => true))
     )
 
   def search(
@@ -234,19 +227,19 @@ class ContractsService(
     ContractDao.selectContracts(parties, templateId, predicate.toSqlWhereClause)(doobieLog)
   }
 
-  private def searchInMemory(
+  private[this] def searchInMemory[Q](
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
       templateIds: Set[domain.TemplateId.RequiredPkg],
-      queryParams: Map[String, JsValue],
-  ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
+      queryParams: Q,
+  )(implicit Q: InMemoryQuery[Q]): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
 
     type Ac = domain.ActiveContract[LfValue]
     val empty = (Vector.empty[Error], Vector.empty[Ac])
     import InsertDeleteStep.appendForgettingDeletes
 
-    val funPredicates: Map[domain.TemplateId.RequiredPkg, LfValue => Boolean] =
-      templateIds.iterator.map(tid => (tid, valuePredicate(tid, queryParams).toFunPredicate)).toMap
+    val funPredicates: Map[domain.TemplateId.RequiredPkg, Ac => Boolean] =
+      templateIds.iterator.map(tid => (tid, Q(tid, queryParams))).toMap
 
     insertDeleteStepSource(jwt, parties, templateIds.toList)
       .map { step =>
@@ -257,7 +250,7 @@ class ContractsService(
             .flatMap(apiAcToLfAc): Error \/ Ac
         }
         val convertedInserts = converted.inserts filter { ac =>
-          funPredicates.get(ac.templateId).exists(_(ac.payload))
+          funPredicates.get(ac.templateId).exists(_(ac))
         }
         (errors, converted.copy(inserts = convertedInserts))
       }
@@ -271,13 +264,33 @@ class ContractsService(
       }
   }
 
-  private def searchInMemoryOneTpId(
+  private[this] def searchInMemoryOneTpId[Q: InMemoryQuery](
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
-      queryParams: Map[String, JsValue],
+      queryParams: Q,
   ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
     searchInMemory(jwt, parties, Set(templateId), queryParams)
+
+  private[this] sealed abstract class InMemoryQuery[-Q] extends InMemoryQuery.T[Q]
+
+  private[this] object InMemoryQuery {
+    type T[-Q] = (domain.TemplateId.RequiredPkg, Q) => domain.ActiveContract[LfValue] => Boolean
+
+    private[this] def imq[Q](f: T[Q]): InMemoryQuery[Q] = new InMemoryQuery[Q] {
+      override def apply(tid: domain.TemplateId.RequiredPkg, q: Q) = f(tid, q)
+    }
+
+    implicit val queryParams: InMemoryQuery[Map[String, JsValue]] =
+      imq { (tid, q) =>
+        val vp = valuePredicate(tid, q).toFunPredicate
+        ac =>
+          vp(ac.payload)
+      }
+
+    implicit val filter: InMemoryQuery[domain.ActiveContract[LfValue] => Boolean] =
+      imq((_, f) => f)
+  }
 
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
