@@ -19,6 +19,7 @@ repository](https://github.com/digital-asset/ex-secure-daml-infra).
   - Provide an Identifier (`https://daml.com/ledger-api`).
   - Select Signing Algorithm of `RS256`.
   - Allow offline access to enable refresh token generation.
+    This allows the OAuth2 client, i.e. the auth middleware, to request access through a refresh token when the resource owner, i.e. the user, is offline. 
 * Create a new native application.
   - Provide a name (`ex-daml-auth-middleware`).
   - Select the authorized API (`ex-daml-api`).
