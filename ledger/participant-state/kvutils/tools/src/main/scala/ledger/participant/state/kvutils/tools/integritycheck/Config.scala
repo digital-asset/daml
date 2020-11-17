@@ -20,13 +20,13 @@ case class Config(
 }
 
 object Config {
-  private implicit val `Read Path`: scopt.Read[Path] = scopt.Read.reads(Paths.get(_))
-
-  private val ParseInput: Config = Config(
+  private[integritycheck] val ParseInput: Config = Config(
     exportFilePath = null,
     performByteComparison = true,
     sortWriteSet = false,
   )
+
+  private implicit val `Read Path`: scopt.Read[Path] = scopt.Read.reads(Paths.get(_))
 
   private val Parser: OptionParser[Config] =
     new OptionParser[Config]("integrity-checker") {

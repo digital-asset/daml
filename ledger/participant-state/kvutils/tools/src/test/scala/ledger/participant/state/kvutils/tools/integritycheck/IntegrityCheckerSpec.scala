@@ -3,15 +3,19 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
+import akka.actor.ActorSystem
+import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.export.WriteSet
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{AsyncWordSpec, Matchers}
 
-class IntegrityCheckerSpec extends WordSpec with Matchers with MockitoSugar {
+import scala.concurrent.Future
+
+class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with MockitoSugar {
   "compareSameSizeWriteSets" should {
     "return None in case strategy cannot explain difference" in {
       val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
@@ -23,8 +27,7 @@ class IntegrityCheckerSpec extends WordSpec with Matchers with MockitoSugar {
     }
 
     "return None in case of no difference" in {
-      val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
-      val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
+      val instance = createMockIntegrityChecker()
       val aWriteSet = toWriteSet("key" -> "value")
 
       instance.compareSameSizeWriteSets(aWriteSet, aWriteSet) shouldBe None
@@ -69,8 +72,7 @@ class IntegrityCheckerSpec extends WordSpec with Matchers with MockitoSugar {
     }
 
     "return differing keys" in {
-      val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
-      val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
+      val instance = createMockIntegrityChecker()
 
       val actual =
         instance.compareSameSizeWriteSets(toWriteSet("key1" -> "a"), toWriteSet("key2" -> "b"))
@@ -87,6 +89,42 @@ class IntegrityCheckerSpec extends WordSpec with Matchers with MockitoSugar {
     }
   }
 
+  "compareStateUpdates" should {
+    "call compare if not in index-only mode" in {
+      val mockStateUpdates = mock[StateUpdates]
+      when(mockStateUpdates.compare()).thenReturn(Future.unit)
+      val config = Config.ParseInput.copy(indexOnly = false)
+      val instance = createMockIntegrityChecker()
+
+      instance
+        .compareStateUpdates(config, mockStateUpdates)
+        .transform(_ => {
+          verify(mockStateUpdates, times(1)).compare()
+          succeed
+        }, _ => fail())
+    }
+
+    "skip compare if in index-only mode" in {
+      val mockStateUpdates = mock[StateUpdates]
+      when(mockStateUpdates.compare()).thenReturn(Future.unit)
+      val config = Config.ParseInput.copy(indexOnly = true)
+      val instance = createMockIntegrityChecker()
+
+      instance
+        .compareStateUpdates(config, mockStateUpdates)
+        .transform(_ => {
+          verify(mockStateUpdates, times(0)).compare()
+          succeed
+        }, _ => fail())
+    }
+  }
+
+  private def createMockIntegrityChecker(): IntegrityChecker[Unit] = {
+    val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
+    val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
+    instance
+  }
+
   private def countOccurrences(input: String, pattern: String): Int =
     input.sliding(pattern.length).count(_ == pattern)
 
@@ -94,4 +132,7 @@ class IntegrityCheckerSpec extends WordSpec with Matchers with MockitoSugar {
     values.map {
       case (key, value) => ByteString.copyFromUtf8(key) -> ByteString.copyFromUtf8(value)
     }
+
+  private lazy val actorSystem: ActorSystem = ActorSystem("IntegrityCheckerSpec")
+  private lazy implicit val materializer: Materializer = Materializer(actorSystem)
 }
