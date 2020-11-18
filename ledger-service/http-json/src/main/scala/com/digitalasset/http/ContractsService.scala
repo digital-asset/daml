@@ -22,6 +22,7 @@ import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => api}
 import com.daml.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
@@ -88,44 +89,87 @@ class ContractsService(
         findByContractId(jwt, jwtPayload.parties, templateId, contractId)
     }
 
-  def findByContractKey(
+  private[this] def findByContractKey(
       jwt: Jwt,
       parties: OneAnd[Set, lar.Party],
       templateId: TemplateId.OptionalPkg,
       contractKey: LfValue,
-  ): Future[Option[domain.ActiveContract[LfValue]]] =
-    for {
+  ): Future[Option[domain.ActiveContract[JsValue]]] = {
+    val search = SearchDb getOrElse SearchInMemory
+    val result = search.findByContractKey(jwt, parties, templateId, contractKey)
+    search.lfvToJsValue match {
+      case SearchValueFormat.Final => result
+      case SearchValueFormat.Intermediate(convert) =>
+        result flatMap (oac => toFuture(oac traverse (_ traverse convert)))
+    }
+  }
 
-      resolvedTemplateId <- toFuture(resolveTemplateId(templateId)): Future[TemplateId.RequiredPkg]
-
-      predicate = domain.ActiveContract.matchesKey(contractKey) _
-
-      errorOrAc <- searchInMemoryOneTpId(jwt, parties, resolvedTemplateId, predicate)
-        .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract[LfValue]]]
-
-      result <- lookupResult(errorOrAc)
-
-    } yield result
-
-  def findByContractId(
+  private[this] def findByContractId(
       jwt: Jwt,
       parties: OneAnd[Set, lar.Party],
       templateId: Option[domain.TemplateId.OptionalPkg],
       contractId: domain.ContractId,
-  ): Future[Option[domain.ActiveContract[LfValue]]] =
-    for {
+  ): Future[Option[domain.ActiveContract[JsValue]]] = {
+    val search = SearchDb getOrElse SearchInMemory
+    val result = search.findByContractId(jwt, parties, templateId, contractKey)
+    search.lfvToJsValue match {
+      case SearchValueFormat.Final => result
+      case SearchValueFormat.Intermediate(convert) =>
+        result flatMap (oac => toFuture(oac traverse (_ traverse convert)))
+    }
+  }
 
-      resolvedTemplateIds <- templateId.cata(
-        x => toFuture(resolveTemplateId(x).map(Set(_))),
-        Future.successful(allTemplateIds()),
-      ): Future[Set[domain.TemplateId.RequiredPkg]]
+  private object SearchInMemory extends Search {
+    type LfV = LfValue
+    override val lfvToJsValue = SearchValueFormat.Intermediate(lfValueToJsValue)
 
-      errorOrAc <- searchInMemory(jwt, parties, resolvedTemplateIds, isContractId(contractId) _)
-        .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract[LfValue]]]
+    override def findByContractKey(
+        jwt: Jwt,
+        parties: OneAnd[Set, lar.Party],
+        templateId: TemplateId.OptionalPkg,
+        contractKey: LfValue,
+    ): Future[Option[domain.ActiveContract[LfValue]]] =
+      for {
 
-      result <- lookupResult(errorOrAc)
+        resolvedTemplateId <- toFuture(resolveTemplateId(templateId)): Future[
+          TemplateId.RequiredPkg]
 
-    } yield result
+        predicate = domain.ActiveContract.matchesKey(contractKey) _
+
+        errorOrAc <- searchInMemoryOneTpId(jwt, parties, resolvedTemplateId, predicate)
+          .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract[LfValue]]]
+
+        result <- lookupResult(errorOrAc)
+
+      } yield result
+
+    override def findByContractId(
+        jwt: Jwt,
+        parties: OneAnd[Set, lar.Party],
+        templateId: Option[domain.TemplateId.OptionalPkg],
+        contractId: domain.ContractId,
+    ): Future[Option[domain.ActiveContract[LfValue]]] =
+      for {
+
+        resolvedTemplateIds <- templateId.cata(
+          x => toFuture(resolveTemplateId(x).map(Set(_))),
+          Future.successful(allTemplateIds()),
+        ): Future[Set[domain.TemplateId.RequiredPkg]]
+
+        errorOrAc <- searchInMemory(jwt, parties, resolvedTemplateIds, isContractId(contractId) _)
+          .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract[LfValue]]]
+
+        result <- lookupResult(errorOrAc)
+
+      } yield result
+
+    override def search(
+        jwt: Jwt,
+        parties: OneAnd[Set, domain.Party],
+        templateIds: Set[domain.TemplateId.RequiredPkg],
+        queryParams: Map[String, JsValue]) =
+      searchInMemory(jwt, parties, templateIds, queryParams)
+  }
 
   private def lookupResult(
       errorOrAc: Option[Error \/ domain.ActiveContract[LfValue]],
@@ -180,7 +224,8 @@ class ContractsService(
     } else {
       val source = SearchDb.cata(
         x => x.search(jwt, parties, resolvedTemplateIds, queryParams),
-        searchInMemory(jwt, parties, resolvedTemplateIds, queryParams)
+        SearchInMemory
+          .search(jwt, parties, resolvedTemplateIds, queryParams)
           .map(_.flatMap(lfAcToJsAc)),
       )
       domain.OkResponse(source, warnings)
@@ -191,21 +236,32 @@ class ContractsService(
     case (dao, fetch) =>
       new Search {
         type LfV = JsValue
-        override val lfvToJsValue = \/-(Liskov.refl)
+        override val lfvToJsValue = SearchValueFormat.Final
 
         override def findByContractId(
             jwt: Jwt,
             parties: OneAnd[Set, lar.Party],
             templateId: Option[domain.TemplateId.OptionalPkg],
             contractId: domain.ContractId,
-        ): Future[Option[domain.ActiveContract[LfV]]] = ???
+        ): Future[Option[domain.ActiveContract[LfV]]] =
+          SearchInMemory
+            .findByContractId(jwt, parties, templateId, contractId)
+            .flatMap(convertFromInMemory)
 
         override def findByContractKey(
             jwt: Jwt,
             parties: OneAnd[Set, lar.Party],
             templateId: TemplateId.OptionalPkg,
             contractKey: LfValue,
-        ): Future[Option[domain.ActiveContract[LfV]]] = ???
+        ): Future[Option[domain.ActiveContract[LfV]]] =
+          SearchInMemory
+            .findByContractKey(jwt, parties, templateId, contractKey)
+            .flatMap(convertFromInMemory)
+
+        private[this] def convertFromInMemory(
+            result: Option[domain.ActiveContract[SearchInMemory.LfV]])
+          : Future[Option[domain.ActiveContract[LfV]]] =
+          toFuture(result traverse (_ traverse SearchInMemory.lfvToJsValue.encode))
 
         // we store create arguments as JSON in DB, that is why it is `domain.ActiveContract[JsValue]` in the result
         override def search(
@@ -385,9 +441,15 @@ object ContractsService {
 
   private type LfValue = lf.value.Value[lf.value.Value.ContractId]
 
+  private sealed abstract class SearchValueFormat[-T]
+  private object SearchValueFormat {
+    case object Final extends SearchValueFormat[JsValue]
+    final case class Intermediate[T](encode: T => (Error \/ JsValue))
+  }
+
   private sealed abstract class Search {
     type LfV
-    val lfvToJsValue: (LfV => JsValue) \/ (LfV <~< JsValue)
+    val lfvToJsValue: SearchValueFormat[LfV]
 
     def findByContractId(
         jwt: Jwt,
