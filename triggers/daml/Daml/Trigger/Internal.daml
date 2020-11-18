@@ -3,6 +3,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
+-- | MOVE Daml.Trigger
 module Daml.Trigger.Internal
   ( ACS (..)
   , TriggerA (..)
@@ -34,7 +35,7 @@ import Daml.Trigger.LowLevel hiding (Trigger)
 
 -- public API
 
--- | Active contract set, you can use `getContracts` to access the templates of
+-- | HIDE Active contract set, you can use `getContracts` to access the templates of
 -- a given type.
 
 -- This will change to a Map once we have proper maps in DAML-LF
@@ -52,7 +53,9 @@ data ACS = ACS
 -- | TriggerA is the type used in the `rule` of a DAML trigger.
 -- Its main feature is that you can call `emitCommands` to
 -- send commands to the ledger.
-newtype TriggerA s a = TriggerA { runTriggerA : ACS -> TriggerRule (TriggerAState s) a }
+newtype TriggerA s a =
+  -- | HIDE
+  TriggerA { runTriggerA : ACS -> TriggerRule (TriggerAState s) a }
 
 instance Functor (TriggerA s) where
   fmap f (TriggerA r) = TriggerA $ rliftFmap fmap f r
@@ -74,7 +77,9 @@ instance HasTime (TriggerA s) where
 -- | TriggerUpdateA is the type used in the `updateState` of a DAML
 -- trigger.  It has similar actions in common with `TriggerA`, but
 -- cannot use `emitCommands` or `getTime`.
-newtype TriggerUpdateA s a = TriggerUpdateA { runTriggerUpdateA : (Map CommandId [Command], ACS) -> State s a }
+newtype TriggerUpdateA s a =
+  -- | HIDE
+  TriggerUpdateA { runTriggerUpdateA : (Map CommandId [Command], ACS) -> State s a }
 
 instance Functor (TriggerUpdateA s) where
   fmap f (TriggerUpdateA r) = TriggerUpdateA $ rliftFmap fmap f r
@@ -93,14 +98,18 @@ instance ActionState s (TriggerUpdateA s) where
 
 -- | TriggerInitializeA is the type used in the `initialize` of a DAML
 -- trigger.  It can query, but not emit commands or update the state.
-newtype TriggerInitializeA a = TriggerInitializeA { runTriggerInitializeA : ACS -> a }
+newtype TriggerInitializeA a =
+  -- | HIDE
+  TriggerInitializeA { runTriggerInitializeA : ACS -> a }
   deriving (Functor, Applicative, Action)
 
 -- Internal API
 
+-- | HIDE
 addCommands : Map CommandId [Command] -> Commands -> Map CommandId [Command]
 addCommands m (Commands cid cmds) = Map.insert cid cmds m
 
+-- | HIDE
 insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 insertTpl cid tpl acs = acs { activeContracts = GMap.alter addct cid.templateId acs.activeContracts }
@@ -109,6 +118,7 @@ insertTpl cid tpl acs = acs { activeContracts = GMap.alter addct cid.templateId 
 insertTpl cid tpl acs = acs { activeContracts = (cid, tpl) :: acs.activeContracts }
 #endif
 
+-- | HIDE
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 groupActiveContracts :
   [(AnyContractId, AnyTemplate)] -> GMap.Map TemplateTypeRep (GMap.Map AnyContractId AnyTemplate)
@@ -119,6 +129,7 @@ groupActiveContracts : forall a. a -> a
 groupActiveContracts a = a
 #endif
 
+-- | HIDE
 deleteTpl : AnyContractId -> ACS -> ACS
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 deleteTpl cid acs = acs { activeContracts = GMap.alter rmct cid.templateId acs.activeContracts }
@@ -130,6 +141,7 @@ deleteTpl cid acs = acs { activeContracts = GMap.alter rmct cid.templateId acs.a
 deleteTpl cid acs = acs { activeContracts = filter (\(cid', _) -> cid /= cid') acs.activeContracts }
 #endif
 
+-- | HIDE
 lookupTpl : Template a => AnyContractId -> ACS -> Optional a
 lookupTpl cid acs = do
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
@@ -139,14 +151,17 @@ lookupTpl cid acs = do
 #endif
   fromAnyTemplate tpl
 
+-- | HIDE
 applyEvent : Event -> ACS -> ACS
 applyEvent ev acs = case ev of
   CreatedEvent (Created _ cid tpl) -> insertTpl cid tpl acs
   ArchivedEvent (Archived _ cid) -> deleteTpl cid acs
 
+-- | HIDE
 applyTransaction : Transaction -> ACS -> ACS
 applyTransaction (Transaction _ _ evs) acs = foldl (flip applyEvent) acs evs
 
+-- | HIDE
 runRule
   : (Party -> TriggerA s a)
   -> TriggerRule (TriggerState s) a
@@ -161,9 +176,11 @@ runRule rule = do
               userState = aState.userState
           in state { commandsInFlight, acs, userState }
 
+-- | HIDE
 liftTriggerRule : TriggerRule (TriggerAState s) a -> TriggerA s a
 liftTriggerRule = TriggerA . const
 
+-- | HIDE
 data TriggerAState s = TriggerAState
   { commandsInFlight : Map CommandId [Command]
   -- ^ Zoomed from TriggerState; used for dedupCreateCmd/dedupExerciseCmd
@@ -175,6 +192,7 @@ data TriggerAState s = TriggerAState
   -- ^ zoomed from TriggerState
   }
 
+-- | HIDE
 data TriggerState s = TriggerState
   { acs : ACS
   , party : Party
@@ -182,17 +200,23 @@ data TriggerState s = TriggerState
   , commandsInFlight : Map CommandId [Command]
   }
 
+-- | HIDE
+--
 -- unboxed newtype for common Trigger*A additions
 type TriggerAT r f a = r -> f a
 
+-- | HIDE
 rliftFmap : ((a -> b) -> f a -> f b) -> (a -> b) -> TriggerAT r f a -> TriggerAT r f b
 rliftFmap ub f r = ub f . r
 
+-- | HIDE
 rliftPure : (a -> f a) -> a -> TriggerAT r f a
 rliftPure ub = const . ub
 
+-- | HIDE
 rliftAp : (f (a -> b) -> f a -> f b) -> TriggerAT r f (a -> b) -> TriggerAT r f a -> TriggerAT r f b
 rliftAp ub ff fa r = ff r `ub` fa r
 
+-- | HIDE
 rliftBind : (f a -> (a -> f b) -> f b) -> TriggerAT r f a -> (a -> TriggerAT r f b) -> TriggerAT r f b
 rliftBind ub fa f r = fa r `ub` \a -> f a r
