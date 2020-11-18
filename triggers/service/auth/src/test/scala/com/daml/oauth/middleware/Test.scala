@@ -88,7 +88,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         assert(auth.refreshToken == token.refreshToken)
       }
     }
-    "return unauthorized on insufficient claims" in {
+    "return unauthorized on insufficient party claims" in {
       val token = makeToken(Request.Claims(actAs = List(ApiTypes.Party("Alice"))))
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
       val req = HttpRequest(
@@ -96,6 +96,32 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
           .withPath(Path./("auth"))
           .withQuery(
             Query(("claims", Request.Claims(actAs = List(ApiTypes.Party("Bob"))).toQueryString))),
+        headers = List(cookieHeader)
+      )
+      for {
+        resp <- Http().singleRequest(req)
+      } yield {
+        assert(resp.status == StatusCodes.Unauthorized)
+      }
+    }
+    "return unauthorized on insufficient app id claims" in {
+      val token = makeToken(
+        Request.Claims(
+          actAs = List(ApiTypes.Party("Alice")),
+          applicationId = Some(ApiTypes.ApplicationId("my-app-id"))))
+      val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
+      val req = HttpRequest(
+        uri = middlewareUri
+          .withPath(Path./("auth"))
+          .withQuery(
+            Query(
+              (
+                "claims",
+                Request
+                  .Claims(
+                    actAs = List(ApiTypes.Party("Alice")),
+                    applicationId = Some(ApiTypes.ApplicationId("other-id")))
+                  .toQueryString))),
         headers = List(cookieHeader)
       )
       for {
