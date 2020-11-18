@@ -194,13 +194,13 @@ message DamlTransactionBlindingInfo {
   // The disclosure of a transaction node to a set of local parties
   message DisclosureEntry {
     string node_id = 1;
-    repeated string party = 2;
+    repeated string disclosed_to = 2;
   }
 
   // The divulgence of a contract to a set of local parties
   message DivulgenceEntry {
     com.daml.lf.value.ContractId contract_id = 1;
-    repeated string party = 2;
+    repeated string divulged_to = 2;
   }
 
   // Disclosure, specified in terms of local transaction node IDs
