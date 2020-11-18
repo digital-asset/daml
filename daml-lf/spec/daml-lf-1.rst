@@ -302,6 +302,8 @@ Version: 1.dev
 
   + **Add** `exercise_by_key` Update.
 
+  + **Add** choice observers.
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -4236,7 +4238,14 @@ the choice argument in a controller expression.
 Choice observers
 ................
 
-  FIXME: https://github.com/digital-asset/daml/issues/7709
+[*Available in versions >= 1.dev*]
+
+An optional `observer` expression may be attached to a flexible
+choice. This allows the specification of additional parties to whom
+the sub-transaction is disclosed.
+
+The type checker will reject any DAML-LF < 1.dev program which
+includes choice observers.
 
 
 Validation
