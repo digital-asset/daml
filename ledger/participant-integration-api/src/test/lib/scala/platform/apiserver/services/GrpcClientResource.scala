@@ -25,14 +25,15 @@ object GrpcClientResource {
         port,
         EventLoopGroupOwner.clientChannelType,
         eventLoopGroup,
-        sslContext)
+        sslContext,
+      )
     } yield channel
 
   private def channelOwner(
       port: Port,
       channelType: Class[_ <: io.netty.channel.Channel],
       eventLoopGroup: EventLoopGroup,
-      sslContext: Option[SslContext]
+      sslContext: Option[SslContext],
   ): ResourceOwner[Channel] =
     new ResourceOwner[Channel] {
       override def acquire()(implicit context: ResourceContext): Resource[Channel] = {
