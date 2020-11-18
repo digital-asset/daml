@@ -188,6 +188,8 @@ custom root CA certificate used to validate client certificates via ``--cacrt ca
 You can change the client authentication mode via ``--client-auth none`` which
 will disable it completely, ``--client-auth optional`` which makes it optional
 or specify the default explicitly via ``--client-auth require``.
+To enable certificate revocation checking using the Online Certificate Status
+Protocol (OCSP) use ``--cert-revocation-checks true``.
 
 Ledger API Authorization
 ========================
