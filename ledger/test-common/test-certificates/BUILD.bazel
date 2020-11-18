@@ -10,7 +10,6 @@ genrule(
     ],
     outs = [
         "openssl.cnf",
-        "newcerts",
         "index.txt",
         "serial",
         "ca.key",
@@ -35,12 +34,13 @@ genrule(
 set -eou pipefail
 
 ABSOLUTE_OUT=$$( cd "$$(dirname $(location openssl.cnf))" >/dev/null 2>&1 && pwd )
+NEWCERTS_DIR=$$ABSOLUTE_OUT/newcerts
 
 # Generate SSL config from the template
 cat $(location openssl.cnf.sample) | sed -e "s;<ROOTDIR>;$$ABSOLUTE_OUT;g" > $(location openssl.cnf)
 
 # Setup directories
-mkdir $(location newcerts)
+mkdir $$NEWCERTS_DIR
 touch $(location index.txt)
 echo 1000 > $(location serial)
 
