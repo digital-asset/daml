@@ -264,7 +264,9 @@ object KeyValueConsumption {
       transaction = CommittedTransaction(transaction),
       transactionId = hexTxId,
       recordTime = recordTime,
-      divulgedContracts = List.empty
+      divulgedContracts = List.empty,
+      // Currently derived from Fetch and LookupByKey nodes, soon pre-computed
+      blindingInfo = None,
     )
   }
 
