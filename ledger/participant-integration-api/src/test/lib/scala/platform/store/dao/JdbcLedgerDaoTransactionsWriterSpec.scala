@@ -59,8 +59,8 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
     } yield {
       TransactionsWriter.extractBlindingInfo(
         transaction.CommittedTransaction(tx.transaction),
-        Some(ABlindingInfo),
-      ) should be(ABlindingInfo)
+        Some(aBlindingInfo),
+      ) should be(aBlindingInfo)
     }
   }
 
@@ -76,6 +76,6 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
     }
   }
 
-  private lazy val ABlindingInfo =
+  private lazy val aBlindingInfo =
     BlindingInfo(Map(NodeId(0) -> Set(Ref.Party.assertFromString("aParty"))), Map())
 }
