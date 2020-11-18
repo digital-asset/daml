@@ -86,7 +86,7 @@ object LedgerApiTestTool {
 
     val allTests: Vector[LedgerTestSuite] = Tests.all(config)
     val allTestCaseNames: Set[String] =
-      (allTests ++ Tests.retired).flatMap(_.tests).map(_.name).toSet
+      (allTests ++ Tests.retired ++ Tests.separate).flatMap(_.tests).map(_.name).toSet
     val missingTests = (config.included ++ config.excluded).filterNot(prefix =>
       allTestCaseNames.exists(_.startsWith(prefix)))
     if (missingTests.nonEmpty) {
@@ -133,11 +133,11 @@ object LedgerApiTestTool {
       })
 
     val allCases = allTests.flatMap(_.tests)
-    val retiredCases = Tests.retired.flatMap(_.tests)
+    val casesSkippedByDefault = (Tests.retired ++ Tests.separate).flatMap(_.tests)
 
     val includedTests =
       if (config.included.isEmpty) allCases
-      else (allCases ++ retiredCases).filter(matches(config.included))
+      else (allCases ++ casesSkippedByDefault).filter(matches(config.included))
 
     val testsToRun: Iterable[LedgerTestCase] =
       includedTests.filterNot(matches(config.excluded))

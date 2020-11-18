@@ -106,3 +106,33 @@ conformance_test(
         "--include=ContractKeysIT",
     ],
 ) if not is_windows else None
+
+conformance_test(
+    name = "conformance-test-participant-pruning",
+    # Ideally these would be part of the script definition above, but that doesn't seem to work.
+    extra_data = [
+        ":bootstrap.canton",
+        ":canton",
+        ":canton.conf",
+        ":enable-faster-pruning.conf",  # needed to prevent timing out on prune requests
+        ":logback-debug.xml",
+        "@coreutils_nix//:bin/base64",
+        "@curl_nix//:bin/curl",
+        "@grpcurl_nix//:bin/grpcurl",
+        "@jq_dev_env//:jq",
+    ],
+    ports = [
+        5011,
+        5021,
+        5031,
+        5041,
+    ],
+    runner = "@//bazel_tools/client_server/runner:runner",
+    server = ":canton-test-runner-with-dependencies",
+    test_tool_args = [
+        "--verbose",
+        "--concurrent-test-runs=1",  # pruning tests would interfere with each other when run in parallel
+        "--include=ParticipantPruningIT",
+        "--exclude=ParticipantPruningIT:PRFailPruneByOutOfBoundsOffset",  # on behalf of bug not yet fixed in canton 0.19.0
+    ],
+) if not is_windows else None

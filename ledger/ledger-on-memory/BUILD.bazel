@@ -214,6 +214,22 @@ conformance_test(
 )
 
 conformance_test(
+    name = "conformance-test-participant-pruning",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=example,port=6865",
+        "--batching enable=true,max-batch-size-bytes=262144",
+    ],
+    test_tool_args = [
+        "--include=ParticipantPruningIT",
+        "--concurrent-test-runs=1",  # lowered to 1 as the pruning tests are not concurrency safe
+        "--verbose",
+    ],
+)
+
+conformance_test(
     name = "benchmark-performance-envelope",
     ports = [6865],
     server = ":app",

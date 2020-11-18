@@ -41,6 +41,14 @@ object Tests {
     )
 
   /**
+    * These are test suites that manipulate the ledger in such a way as they would perturb the results of other tests
+    */
+  val separate: Vector[LedgerTestSuite] =
+    Vector(
+      new ParticipantPruningIT,
+    )
+
+  /**
     * These are performance envelope tests that also provide benchmarks and are always run
     * sequentially; they also must be specified explicitly with --perf-tests and will exclude
     * all other tests.
@@ -51,7 +59,9 @@ object Tests {
         .map(BenchmarkReporter.toFile)
         .getOrElse(BenchmarkReporter.toStream(System.out))
 
-    Envelope.All.iterator.map(e => e.name -> PerformanceEnvelope(e, target.addReport)).toMap
+    Envelope.All.iterator
+      .map(e => e.name -> PerformanceEnvelope(e, target.addReport))
+      .toMap
   }
 
   private[testtool] val PerformanceTestsKeys: SortedSet[String] =

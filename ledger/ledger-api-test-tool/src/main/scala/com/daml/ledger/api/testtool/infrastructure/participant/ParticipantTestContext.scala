@@ -29,6 +29,7 @@ import com.daml.ledger.api.v1.admin.package_management_service.{
   PackageDetails,
   UploadDarFileRequest
 }
+import com.daml.ledger.api.v1.admin.participant_pruning_service.PruneRequest
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   GetParticipantIdRequest,
@@ -71,6 +72,7 @@ import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.client.binding.{Primitive, Template}
 import com.daml.platform.testing.StreamConsumer
 import com.google.protobuf.ByteString
+import com.google.protobuf.empty.Empty
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
 import io.grpc.stub.StreamObserver
 import scalaz.Tag
@@ -83,7 +85,9 @@ import scala.util.control.NonFatal
 private[testtool] object ParticipantTestContext {
 
   private[this] def filter(templateIds: Seq[Identifier]): Filters =
-    new Filters(if (templateIds.isEmpty) None else Some(new InclusiveFilters(templateIds)))
+    new Filters(
+      if (templateIds.isEmpty) None
+      else Some(new InclusiveFilters(templateIds)))
 
   private def transactionFilter(
       parties: Seq[String],
@@ -115,7 +119,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
   val end: LedgerOffset =
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
 
-  private[this] val identifierPrefix = s"$applicationId-$endpointId-$identifierSuffix"
+  private[this] val identifierPrefix =
+    s"$applicationId-$endpointId-$identifierSuffix"
   private[this] def nextId(idType: String): () => String =
     Identification.indexSuffix(s"$identifierPrefix-$idType")
 
@@ -129,7 +134,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
     * a reference to the moving end of the ledger.
     */
   def currentEnd(): Future[LedgerOffset] =
-    services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
+    services.transaction
+      .getLedgerEnd(new GetLedgerEndRequest(ledgerId))
+      .map(_.getOffset)
 
   /**
     * Works just like [[currentEnd]] but allows to override the ledger identifier.
@@ -138,7 +145,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
     * behavior of the ledger end endpoint with a wrong ledger identifier.
     */
   def currentEnd(overrideLedgerId: String): Future[LedgerOffset] =
-    services.transaction.getLedgerEnd(new GetLedgerEndRequest(overrideLedgerId)).map(_.getOffset)
+    services.transaction
+      .getLedgerEnd(new GetLedgerEndRequest(overrideLedgerId))
+      .map(_.getOffset)
 
   /**
     * Returns an absolute offset that is beyond the current ledger end.
@@ -162,7 +171,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
       }
 
   def listKnownPackages(): Future[Seq[PackageDetails]] =
-    services.packageManagement.listKnownPackages(new ListKnownPackagesRequest).map(_.packageDetails)
+    services.packageManagement
+      .listKnownPackages(new ListKnownPackagesRequest)
+      .map(_.packageDetails)
 
   def uploadDarFile(bytes: ByteString): Future[Unit] =
     services.packageManagement
@@ -170,10 +181,14 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .map(_ => ())
 
   def participantId(): Future[String] =
-    services.partyManagement.getParticipantId(new GetParticipantIdRequest).map(_.participantId)
+    services.partyManagement
+      .getParticipantId(new GetParticipantIdRequest)
+      .map(_.participantId)
 
   def listPackages(): Future[Seq[String]] =
-    services.packages.listPackages(new ListPackagesRequest(ledgerId)).map(_.packageIds)
+    services.packages
+      .listPackages(new ListPackagesRequest(ledgerId))
+      .map(_.packageIds)
 
   def getPackage(packageId: String): Future[GetPackageResponse] =
     services.packages.getPackage(new GetPackageRequest(ledgerId, packageId))
@@ -282,10 +297,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def getTransactionsRequest(
       parties: Seq[Party],
       templateIds: Seq[TemplateId] = Seq.empty,
+      begin: LedgerOffset = referenceOffset
   ): GetTransactionsRequest =
     new GetTransactionsRequest(
       ledgerId = ledgerId,
-      begin = Some(referenceOffset),
+      begin = Some(begin),
       end = Some(end),
       filter = transactionFilter(Tag.unsubst(parties), Tag.unsubst(templateIds)),
       verbose = true,
@@ -319,7 +335,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     * Non-managed version of [[flatTransactions]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactions(request: GetTransactionsRequest): Future[Vector[Transaction]] =
-    transactions(request, services.transaction.getTransactions).map(_.flatMap(_.transactions))
+    transactions(request, services.transaction.getTransactions)
+      .map(_.flatMap(_.transactions))
 
   /**
     * Managed version of [[flatTransactions]], use this unless you need to tweak the request (i.e. to test low-level details)
@@ -331,7 +348,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     * Non-managed version of [[flatTransactions]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactions(take: Int, request: GetTransactionsRequest): Future[Vector[Transaction]] =
-    transactions(take, request, services.transaction.getTransactions).map(_.flatMap(_.transactions))
+    transactions(take, request, services.transaction.getTransactions)
+      .map(_.flatMap(_.transactions))
 
   /**
     * Managed version of [[flatTransactions]], use this unless you need to tweak the request (i.e. to test low-level details)
@@ -349,7 +367,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     * Non-managed version of [[transactionTrees]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def transactionTrees(request: GetTransactionsRequest): Future[Vector[TransactionTree]] =
-    transactions(request, services.transaction.getTransactionTrees).map(_.flatMap(_.transactions))
+    transactions(request, services.transaction.getTransactionTrees)
+      .map(_.flatMap(_.transactions))
 
   /**
     * Managed version of [[transactionTrees]], use this unless you need to tweak the request (i.e. to test low-level details)
@@ -437,7 +456,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
     * Non-managed version of [[flatTransactionByEventId]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactionByEventId(request: GetTransactionByEventIdRequest): Future[Transaction] =
-    services.transaction.getFlatTransactionByEventId(request).map(_.getTransaction)
+    services.transaction
+      .getFlatTransactionByEventId(request)
+      .map(_.getTransaction)
 
   /**
     * Managed version of [[flatTransactionByEventId]], use this unless you need to tweak the request (i.e. to test low-level details)
@@ -557,7 +578,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
     services.command.submitAndWaitForTransaction(request).map(_.getTransaction)
 
   def submitAndWaitForTransactionTree(request: SubmitAndWaitRequest): Future[TransactionTree] =
-    services.command.submitAndWaitForTransactionTree(request).map(_.getTransaction)
+    services.command
+      .submitAndWaitForTransactionTree(request)
+      .map(_.getTransaction)
 
   def completionStreamRequest(from: LedgerOffset = referenceOffset)(parties: Party*) =
     new CompletionStreamRequest(ledgerId, applicationId, parties.map(_.unwrap), Some(from))
@@ -641,6 +664,14 @@ private[testtool] final class ParticipantTestContext private[participant] (
     services.configManagement.setTimeModel(
       SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel)),
     )
+
+  def prune(pruneUpTo: Option[LedgerOffset], attempts: Int): Future[Empty] =
+    eventually(attempts = attempts, runAssertion = {
+      services.participantPruning.prune(PruneRequest(pruneUpTo, nextSubmissionId()))
+    })
+
+  def prune(pruneUpTo: LedgerOffset, attempts: Int = 10): Future[Empty] =
+    prune(Some(pruneUpTo), attempts)
 
   private[infrastructure] def preallocateParties(
       n: Int,
