@@ -397,7 +397,7 @@ rewriteLets = fmap onModule
         GHC.L loc (GHC.HsLet GHC.NoExt letBinds letBody) ->
             foldr (\bind body -> GHC.L loc (GHC.HsLet GHC.NoExt bind body))
                 letBody
-                (orderLocalBinds letBinds)
+                (sequenceLocalBinds letBinds)
 
         GHC.L loc1 (GHC.HsDo GHC.NoExt doContext (GHC.L loc2 doStmts)) ->
             GHC.L loc1 (GHC.HsDo GHC.NoExt doContext
@@ -408,11 +408,11 @@ rewriteLets = fmap onModule
     onStmt :: GHC.ExprLStmt GHC.GhcPs -> [GHC.ExprLStmt GHC.GhcPs]
     onStmt = \case
         GHC.L loc (GHC.LetStmt GHC.NoExt letBinds) ->
-            map (GHC.L loc . GHC.LetStmt GHC.NoExt) (orderLocalBinds letBinds)
+            map (GHC.L loc . GHC.LetStmt GHC.NoExt) (sequenceLocalBinds letBinds)
         x -> [x]
 
-    orderLocalBinds :: GHC.LHsLocalBinds GHC.GhcPs -> [GHC.LHsLocalBinds GHC.GhcPs]
-    orderLocalBinds = \case
+    sequenceLocalBinds :: GHC.LHsLocalBinds GHC.GhcPs -> [GHC.LHsLocalBinds GHC.GhcPs]
+    sequenceLocalBinds = \case
         GHC.L loc (GHC.HsValBinds GHC.NoExt valBinds)
             | GHC.ValBinds GHC.NoExt bindBag sigs <- valBinds
             , binds <- GHC.bagToList bindBag
@@ -425,11 +425,18 @@ rewriteLets = fmap onModule
         -> [GHC.LSig GHC.GhcPs]
         -> [GHC.LHsLocalBinds GHC.GhcPs]
     makeLocalValBinds _ [] _ = []
+    makeLocalValBinds loc [bind] sigs = [ makeLocalValBind loc bind sigs ]
     makeLocalValBinds loc (bind1 : bindRest) sigs =
         let (sig1, sigRest) = peelRelevantSigs bind1 sigs
-        in GHC.L loc (GHC.HsValBinds GHC.NoExt
-            (GHC.ValBinds GHC.NoExt (GHC.unitBag bind1) sig1))
-          : makeLocalValBinds loc bindRest sigRest
+        in makeLocalValBind loc bind1 sig1 : makeLocalValBinds loc bindRest sigRest
+
+    makeLocalValBind :: GHC.SrcSpan
+        -> GHC.LHsBindLR GHC.GhcPs GHC.GhcPs
+        -> [GHC.LSig GHC.GhcPs]
+        -> GHC.LHsLocalBinds GHC.GhcPs
+    makeLocalValBind loc bind sigs =
+        GHC.L loc (GHC.HsValBinds GHC.NoExt
+            (GHC.ValBinds GHC.NoExt (GHC.unitBag bind) sigs))
 
     -- | List of names bound in HsBindLR
     bindNames :: GHC.HsBindLR GHC.GhcPs GHC.GhcPs -> [GHC.RdrName]

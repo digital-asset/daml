@@ -3,6 +3,9 @@
 
 -- | Check that damlc preserves local type signatures
 -- in sequential let statements.
+--
+-- NB: The SequentialLetSig* tests cannot be combined because
+-- they test/raise errors at different GHC phases.
 module SequentialLetSig where
 
 preservesLocalTypeSigs : ()
