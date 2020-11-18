@@ -20,11 +20,11 @@ trait OCSPResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
   private val RESPONDER_HOST: String = "127.0.0.1"
   private val RESPONDER_PORT: Int = 2560
 
-  def indexPath: String
-  def caCertPath: String
-  def ocspKeyPath: String
-  def ocspCertPath: String
-  def ocspTestCertificate: String
+  protected def indexPath: String
+  protected def caCertPath: String
+  protected def ocspKeyPath: String
+  protected def ocspCertPath: String
+  protected def ocspTestCertificate: String
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()

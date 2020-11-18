@@ -21,7 +21,7 @@ trait SandboxNextFixture extends AbstractSandboxFixture with SuiteResource[(Port
 
   override protected def channel: Channel = suiteResource.value._2
 
-  def clientSslContext: Option[SslContext] = None
+  protected def clientSslContext: Option[SslContext] = None
 
   override protected lazy val suiteResource: Resource[(Port, Channel)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
