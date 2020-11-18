@@ -29,9 +29,9 @@ In contrast, if you start with ``controller``, the ``controller`` is automatical
 
 .. _daml-ref-choice-observers:
 
-A secondary difference is that starting with ``choice`` allows choice observers to be attached to the choice. They will see all consequences of the action, along with other stakeholders.
+A secondary difference is that starting with ``choice`` allows *choice observers* to be attached to the choice using the ``observer`` keyword. The choice observers are a list of parties that, in addition to the stakeholders, will see all consequences of the action.
 
-Choice observers are in "Early Access". They are only available if you target LF 1.dev by ``--target 1.dev`` or similar.
+Choice observers are an "Early Access" feature. They are only available if you target DAML-LF 1.dev by ``--target=1.dev``.
 
 .. literalinclude:: ../code-snippets-dev/Structure.daml
    :language: daml
