@@ -27,6 +27,17 @@ The main difference is that starting with ``choice`` means that you can pass in 
 
 In contrast, if you start with ``controller``, the ``controller`` is automatically added as an observer when you compile your DAML files.
 
+.. _daml-ref-choice-observers:
+
+A secondary difference is that starting with ``choice`` allows *choice observers* to be attached to the choice using the ``observer`` keyword. The choice observers are a list of parties that, in addition to the stakeholders, will see all consequences of the action.
+
+Choice observers are an "Early Access" feature. They are only available if you target DAML-LF 1.dev by ``--target=1.dev``.
+
+.. literalinclude:: ../code-snippets-dev/Structure.daml
+   :language: daml
+   :start-after: -- start of choice observer snippet
+   :end-before: -- end of choice observer snippet
+
 .. _daml-ref-choice-name:
 
 Choice name
