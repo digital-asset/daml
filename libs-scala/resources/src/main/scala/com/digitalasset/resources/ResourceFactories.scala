@@ -132,7 +132,7 @@ final class ResourceFactories[Context: HasExecutionContext] {
   def sequenceIgnoringValues[T, C[X] <: Traversable[X]](seq: C[Resource[Context, T]])(
       implicit context: Context
   ): R[Unit] =
-    sequence(seq)(new UnitCanBuildFrom, context).map(_ => ())
+    sequence(seq)(new UnitCanBuildFrom, context)
 
   final class UnitCanBuildFrom[T, C[X] <: Traversable[X]] extends CanBuildFrom[C[R[T]], T, Unit] {
     override def apply(from: C[R[T]]): mutable.Builder[T, Unit] = apply()
