@@ -10,13 +10,14 @@ import com.daml.lf.value.Value.ContractId
 /** A transaction's blinding information, consisting of disclosure and
   * divulgence info.
   *
-  * "Disclosure" tells us which transaction nodes to communicate to which parties.
+  * "Disclosure" tells us which transaction nodes to communicate to which
+  * parties.
   * See https://docs.daml.com/concepts/ledger-model/ledger-privacy.html
   *
-  * "Divulgence" tells us which contracts to which parties so that
-  * their participant nodes can perform post-commit validation.
-  * Note that divulgence can also divulge contract ids -- e.g. contract
-  * ids that were created _outside_ this transaction.
+  * "Divulgence" tells us which contracts to communicate to which parties
+  * so that their participant nodes can perform post-commit validation.
+  * Note that divulgence can also divulge e.g. contract IDs that were
+  * created _outside_ this transaction.
   * See also https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#divulgence-when-non-stakeholders-see-contracts
   *
   * @param disclosure Disclosure, specified in terms of local transaction node IDs
