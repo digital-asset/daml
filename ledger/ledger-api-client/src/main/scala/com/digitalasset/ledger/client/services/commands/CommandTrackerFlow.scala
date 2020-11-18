@@ -6,7 +6,7 @@ package com.daml.ledger.client.services.commands
 import java.time.{Duration => JDuration}
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Merge, Source}
+import akka.stream.scaladsl.{Concat, Flow, GraphDSL, MergePreferred, Source}
 import akka.stream.{DelayOverflowStrategy, FlowShape, OverflowStrategy}
 import com.daml.ledger.api.v1.command_submission_service._
 import com.daml.ledger.api.v1.completion._
@@ -57,8 +57,11 @@ object CommandTrackerFlow {
 
         val wrapCompletion = builder.add(Flow[CompletionStreamElement].map(Right.apply))
 
-        val merge = builder.add(
-          Merge[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]](2, false))
+        val merge =
+          builder.add(
+            MergePreferred[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]](
+              1,
+              eagerComplete = false))
 
         val startAt = builder.add(Source.single(startingOffset))
         val concat = builder.add(Concat[LedgerOffset](2))
@@ -85,9 +88,12 @@ object CommandTrackerFlow {
         tracker.offsetOut ~> concat
         concat.out        ~> completionFlow.in
 
-        tracker.submitRequestOut ~> submissionFlow ~> wrapResult ~> merge.in(0)
+        // Giving the output of submissionFlow a higher priority than completionFlow.out,
+        // to avoid back-pressuring from tracker.resultOut to the submissionFlow.
+        // This is required to meet the contract of CommandClient.trackCommandsUnbounded.
+        tracker.submitRequestOut ~> submissionFlow ~> wrapResult ~> merge.preferred
         tracker.commandResultIn  <~ merge.out
-        merge.in(1) <~ wrapCompletion <~ completionFlow.out
+        merge.in(0) <~ wrapCompletion <~ completionFlow.out
         // format: ON
 
         FlowShape(tracker.submitRequestIn, tracker.resultOut)

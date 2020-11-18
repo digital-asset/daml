@@ -102,6 +102,9 @@ final class CommandClient(
 
   /**
     * Tracks the results (including timeouts) of incoming commands.
+    * The resulting flow back-pressures, if `config.maxParallelSubmissions` submissions have been sent to the
+    * command submission service, but the service has not yet acknowledged the submission.
+    * Apart from that, allows for submitting an unbounded number of commands to the ledger.
     *
     * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
     */
