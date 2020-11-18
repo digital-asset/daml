@@ -442,6 +442,7 @@ rewriteLets = fmap onModule
         GHC.AbsBinds {} -> unexpected "AbsBinds"
         GHC.XHsBindsLR {} -> unexpected "XHsBindsLR"
 
+    -- Given a binding and a set of signatures, split it into the signatures relevant to this binding and other signatures.
     peelRelevantSigs :: GHC.LHsBindLR GHC.GhcPs GHC.GhcPs
         -> [GHC.LSig GHC.GhcPs]
         -> ([GHC.LSig GHC.GhcPs], [GHC.LSig GHC.GhcPs])
