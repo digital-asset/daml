@@ -158,7 +158,7 @@ object Config {
           config.withTlsConfig(c => c.copy(trustCertCollectionFile = Some(new File(path)))))
       opt[Boolean]("cert-revocation-checks")
         .optional()
-        .text("TLS: Enable/disable certificate revocation checks with the OCSP. Default is to disable checks.")
+        .text("TLS: enable/disable certificate revocation checks with the OCSP. Disabled by default.")
         .action((checksEnabled, config) =>
           config.withTlsConfig(c => c.copy(revocationChecks = checksEnabled)))
 
