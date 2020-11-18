@@ -137,6 +137,8 @@ da_haskell_test(
         "http-client",
         "http-types",
         "jwt",
+        "lens",
+        "lens-aeson",
         "network",
         "process",
         "safe",
