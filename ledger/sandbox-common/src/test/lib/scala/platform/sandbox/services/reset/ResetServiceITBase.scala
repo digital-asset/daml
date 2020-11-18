@@ -12,7 +12,7 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{
   IsStatusException,
-  SuiteResourceManagementAroundEach,
+  SuiteResourceManagementAroundAll,
   MockMessages => M
 }
 import com.daml.ledger.api.v1.active_contracts_service.{
@@ -74,7 +74,7 @@ abstract class ResetServiceITBase
     with ScalaFutures
     with TestResourceContext
     with AbstractSandboxFixture
-    with SuiteResourceManagementAroundEach
+    with SuiteResourceManagementAroundAll
     with TestCommands {
 
   override def timeLimit: Span = scaled(30.seconds)
