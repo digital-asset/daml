@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 genrule(
     name = "test-certificates",
     srcs = [
-        ":openssl.cnf.sample"
+        ":openssl-template.cnf"
     ],
     outs = [
         "openssl.cnf",
@@ -37,7 +37,7 @@ ABSOLUTE_OUT=$$( cd "$$(dirname $(location openssl.cnf))" >/dev/null 2>&1 && pwd
 NEWCERTS_DIR=$$ABSOLUTE_OUT/newcerts
 
 # Generate SSL config from the template
-cat $(location openssl.cnf.sample) | sed -e "s;<ROOTDIR>;$$ABSOLUTE_OUT;g" > $(location openssl.cnf)
+cat $(location openssl-template.cnf) | sed -e "s;<ROOTDIR>;$$ABSOLUTE_OUT;g" > $(location openssl.cnf)
 
 # Setup directories
 mkdir $$NEWCERTS_DIR
