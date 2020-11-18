@@ -33,7 +33,7 @@ A secondary difference is that starting with ``choice`` allows choice observers 
 
 Choice observers are in "Early Access". They are only available if you target LF 1.dev by ``--target 1.dev`` or similar.
 
-.. literalinclude:: ../code-snippets/Structure.daml
+.. literalinclude:: ../code-snippets-dev/Structure.daml
    :language: daml
    :start-after: -- start of choice observer snippet
    :end-before: -- end of choice observer snippet

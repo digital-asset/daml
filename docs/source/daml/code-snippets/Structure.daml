@@ -47,15 +47,3 @@ template NameOfTemplate
         do
           return () -- replace the line with the choice body
       -- end of choice snippet
-
-    -- start of choice observer snippet
-    -- choice observers may be specified if option 1 is used
-    choice NameOfChoiceWithObserver :
-          () -- replace () with the actual return type
-        with
-        party : Party -- parameters here
-      observer party -- optional specification of choice observers
-      controller exampleParty
-        do
-          return () -- replace this line with the choice body
-    -- end of choice observer snippet

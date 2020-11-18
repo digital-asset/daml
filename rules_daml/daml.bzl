@@ -319,6 +319,7 @@ def daml_test(
         deps = [],
         data_deps = [],
         damlc = "//compiler/damlc",
+        target = None,
         **kwargs):
     sh_inline_test(
         name = name,
@@ -334,6 +335,7 @@ DATA_DEPS=($$(rlocations {data_deps}))
 JOINED_DATA_DEPS="$$(printf ',"%s"' $${{DATA_DEPS[@]}})"
 echo "$$JOINED_DATA_DEPS"
 cat << EOF > $$tmpdir/daml.yaml
+build-options: [{target}]
 sdk-version: {sdk_version}
 name: test
 version: 0.0.1
@@ -358,6 +360,7 @@ $$DAMLC test --files {files}
                 )
                 for src in srcs
             ]),
+            target = "--target=" + target if (target) else "",
         ),
         **kwargs
     )
