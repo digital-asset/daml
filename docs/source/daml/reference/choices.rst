@@ -31,6 +31,8 @@ In contrast, if you start with ``controller``, the ``controller`` is automatical
 
 A secondary difference is that starting with ``choice`` allows choice observers to be attached to the choice. They will see all consequences of the action, along with other stakeholders.
 
+Choice observers are in "Early Access". They are only available if you target LF 1.dev by ``--target 1.dev`` or similar.
+
 .. literalinclude:: ../code-snippets/Structure.daml
    :language: daml
    :start-after: -- start of choice observer snippet
