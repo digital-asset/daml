@@ -113,7 +113,7 @@ Controllers must be at least an `observer`_, otherwise they can't see the contra
 Choice Observer
 ---------------
 
-A **choice observer** is a `party <#party>`__ on a `choice <#choice>`__. Being a choice observer allows them to see when that choice is exercised.
+A **choice observer** is a `party <#party>`__ on a `choice <#choice>`__. Choice observers are guaranteed to see the choice being exercised and all its consequences with it.
 
 Stakeholder
 -----------

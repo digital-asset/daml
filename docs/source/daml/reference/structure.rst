@@ -98,7 +98,7 @@ Here's the structure of a choice inside a template. There are two ways of specif
 :ref:`choice observers <daml-ref-choice-observers>`
     ``observer`` keyword
 
-    Optional. Parties that aren't stakeholder but who you still want to be able to see this choice.
+    Optional. Additional parties that are guaranteed to be informed of an exercise of the choice.
 
     To specify choice observers, you must start you choice with the ``choice`` keyword.
 
