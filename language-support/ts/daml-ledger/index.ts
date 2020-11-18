@@ -428,17 +428,13 @@ class Ledger {
   }
 
   /**
-   * Create a contract for a given template, then immediately exercise a choice
-   * on the created contract.
+   * Exercse a choice on a newly-created contract, in a single transaction.
    *
-   * @param template The template of the contract to be created.
-   * @param payload The template arguments for the contract to be created.
    * @param choice The choice to exercise.
+   * @param init The template arguments for the newly-created contract.
    * @param argument The choice arguments.
    *
    * @typeparam T The contract template type.
-   * @typeparam K The contract key type.
-   * @typeparam I The contract id type.
    * @typeparam C The type of the contract choice.
    * @typeparam R The return type of the choice.
    *
@@ -449,10 +445,10 @@ class Ledger {
    * is consuming (or otherwise archives it as part of its execution).
    *
    */
-  async createAndExercise<T extends object, K, I extends string, C, R>(template: Template<T, K, I>, payload: T, choice: Choice<T, C, R>, argument: C): Promise<[R, Event<object>[]]> {
+  async createAndExercise<T extends object, C, R>(choice: Choice<T, C, R>, payload: T, argument: C): Promise<[R, Event<object>[]]> {
     const command = {
-      templateId: template.templateId,
-      payload: template.encode(payload),
+      templateId: choice.template().templateId,
+      payload: choice.template().encode(payload),
       choice: choice.choiceName,
       argument: choice.argumentEncode(argument),
     };

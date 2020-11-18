@@ -320,9 +320,8 @@ test("createAndExercise", async () => {
   const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
 
   const [result, events] = await ledger.createAndExercise(
-    buildAndLint.Main.Person,
-    {name: 'Alice', party: ALICE_PARTY, age: '5', friends: []},
     buildAndLint.Main.Person.Birthday,
+    {name: 'Alice', party: ALICE_PARTY, age: '5', friends: []},
     {});
   expect(events).toMatchObject(
     [{created: {templateId: buildAndLint.Main.Person.templateId,
