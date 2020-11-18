@@ -100,7 +100,8 @@ navigatorURL :: NavigatorPort -> String
 navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
 withSandbox :: SandboxClassic -> SandboxPortSpec -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
-withSandbox (SandboxClassic classic) portSpec extraArgs a = withTempFile $ \portFile -> do
+withSandbox (SandboxClassic classic) portSpec extraArgs a = withTempDir $ \tempDir -> do
+    let portFile = tempDir </> "sandbox-portfile"
     let sandbox = if classic then "sandbox-classic" else "sandbox"
     let args = [ sandbox
                , "--port", show (fromSandboxPortSpec portSpec)

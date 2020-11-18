@@ -765,7 +765,9 @@ tests Tools{damlc} = testGroup "Packaging" $
             [ "module A where"
             , "dep1 = 0"
             ]
-          callProcessSilent damlc ["build", "--project-root", dir </> "dep1", "-o", "dep1.dar"]
+          callProcessSilent
+            damlc
+            ["build", "--project-root", dir </> "dep1", "-o", dir </> "dep1" </> "dep1.dar"]
           createDirectoryIfMissing True (dir </> "dep2")
           writeFileUTF8 (dir </> "dep2" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -778,7 +780,9 @@ tests Tools{damlc} = testGroup "Packaging" $
             [ "module A where"
             , "dep2 = 0"
             ]
-          callProcessSilent damlc ["build", "--project-root", dir </> "dep2", "-o", "dep2.dar"]
+          callProcessSilent
+            damlc
+            ["build", "--project-root", dir </> "dep2", "-o", dir </> "dep2" </> "dep2.dar"]
           step "Building main"
           createDirectoryIfMissing True (dir </> "main")
           writeFileUTF8 (dir </> "main" </> "daml.yaml") $ unlines
@@ -801,6 +805,24 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "main = dep1 + dep2"
             ]
           callProcessSilent damlc ["build", "--project-root", dir </> "main", "-o", "main.dar"]
+    , testCaseSteps "relative output filepath" $ \step -> withTempDir $ \dir -> do
+          step "Create project"
+          writeFileUTF8 (dir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: dep"
+            , "version: 1.0.0"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (dir </> "A.daml") $ unlines
+            [ "module A where"
+            , "dep1 = 0"
+            ]
+          let outDir = dir </> "out"
+          createDirectoryIfMissing True outDir
+          withCurrentDirectory outDir $
+            callProcessSilent damlc ["build", "--project-root", dir, "-o", "A.dar"]
+          assertFileExists $ outDir </> "A.dar"
     ] <>
     [ lfVersionTests damlc
     ]

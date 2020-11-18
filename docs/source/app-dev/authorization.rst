@@ -71,7 +71,7 @@ Access tokens contain information about the capabilities held by the bearer of t
 The claims can express the following capabilities:
 
 - ``public``: ability to retrieve publicly available information, such as the ledger identity
-- ``admin``: ability to interact with admin-level services, such as package uploading and user allocation
+- ``admin``: ability to interact with admin-level services, such as package uploading and party allocation
 - ``canReadAs(p)``: ability to read information off the ledger (like the active contracts) visible to the party ``p``
 - ``canActsAs(p)``: same as ``canReadAs(p)``, with the added ability of issuing commands on behalf of the party ``p``
 

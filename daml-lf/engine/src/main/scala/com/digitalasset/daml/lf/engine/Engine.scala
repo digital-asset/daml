@@ -218,7 +218,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       )
       (rtx, _) = result
       validationResult <- Tx
-        .isReplayedBy(tx.transaction, rtx.transaction)
+        .isReplayedBy(tx, rtx)
         .fold(e => ResultError(ReplayMismatch(e)), _ => ResultDone.Unit)
     } yield validationResult
   }

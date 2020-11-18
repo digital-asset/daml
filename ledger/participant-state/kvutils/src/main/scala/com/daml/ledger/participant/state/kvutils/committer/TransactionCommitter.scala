@@ -70,8 +70,6 @@ private[kvutils] class TransactionCommitter(
     "blind" -> blind
   )
 
-  // -------------------------------------------------------------------------------
-
   private def contractIsActiveAndVisibleToSubmitter(
       transactionEntry: DamlTransactionEntrySummary,
       contractState: DamlContractState,
@@ -128,9 +126,6 @@ private[kvutils] class TransactionCommitter(
 
   /** Authorize the submission by looking up the party allocation and verifying
     * that the submitting party is indeed hosted by the submitting participant.
-    *
-    * If the "open world" setting is enabled we allow the submission even if the
-    * party is unallocated.
     */
   private def authorizeSubmitter: Step = (commitContext, transactionEntry) => {
     commitContext.get(partyStateKey(transactionEntry.submitter)) match {
@@ -281,13 +276,13 @@ private[kvutils] class TransactionCommitter(
       .fold((true, keys)) {
         case (
             (allUnique, existingKeys),
-            (_, exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _)))
+            (_, exe: Node.NodeExercises.WithTxValue[NodeId, Value.ContractId]))
             if exe.key.isDefined && exe.consuming =>
           val stateKey = Conversions.globalKeyToStateKey(
             GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
           (allUnique, existingKeys - stateKey)
 
-        case ((allUnique, existingKeys), (_, create @ Node.NodeCreate(_, _, _, _, _, _)))
+        case ((allUnique, existingKeys), (_, create: Node.NodeCreate.WithTxValue[Value.ContractId]))
             if create.key.isDefined =>
           val stateKey = Conversions.globalKeyToStateKey(
             GlobalKey(

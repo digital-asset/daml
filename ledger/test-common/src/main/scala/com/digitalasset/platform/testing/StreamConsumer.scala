@@ -3,11 +3,10 @@
 
 package com.daml.platform.testing
 
-import com.daml.dec.DirectExecutionContext
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future}
 
 final class StreamConsumer[A](attach: StreamObserver[A] => Unit) {
 
@@ -21,29 +20,35 @@ final class StreamConsumer[A](attach: StreamObserver[A] => Unit) {
   }
 
   /**
-    * Filters the items coming via the observer and takes the first `n`
+    * Filters the items coming via the observer and takes the first N.
     */
-  def filterTake(p: A => Boolean)(n: Int): Future[Vector[A]] =
-    if (n < 0) {
-      Future.failed(new IllegalArgumentException(s"Bad argument $n, non-negative integer required"))
-    } else if (n == 0) {
-      Future.successful(Vector.empty[A])
-    } else {
-      val observer = new SizeBoundObserver[A](n, p)
-      attach(observer)
-      observer.result
-    }
+  def filterTake(predicate: A => Boolean)(sizeCap: Int): Future[Vector[A]] = {
+    val observer = new FiniteStreamObserver[A]
+    attach(new SizeBoundObserver(sizeCap)(new ObserverFilter(predicate)(observer)))
+    observer.result
+  }
 
-  def take(n: Int): Future[Vector[A]] = filterTake(_ => true)(n)
+  def take(sizeCap: Int): Future[Vector[A]] = {
+    val observer = new FiniteStreamObserver[A]
+    attach(new SizeBoundObserver(sizeCap)(observer))
+    observer.result
+  }
 
-  def find(p: A => Boolean): Future[Option[A]] =
-    filterTake(p)(1).map(_.headOption)(DirectExecutionContext)
+  def find(predicate: A => Boolean)(implicit ec: ExecutionContext): Future[Option[A]] =
+    filterTake(predicate)(sizeCap = 1).map(_.headOption)
 
-  def first(): Future[Option[A]] = find(_ => true)
+  def first()(implicit ec: ExecutionContext): Future[Option[A]] =
+    take(1).map(_.headOption)
 
   def within(duration: FiniteDuration)(implicit ec: ExecutionContext): Future[Vector[A]] = {
-    val observer = new TimeBoundObserver[A](duration)
-    attach(observer)
+    val observer = new FiniteStreamObserver[A]
+    attach(new TimeBoundObserver(duration)(observer))
+    observer.result
+  }
+
+  def firstWithin(duration: FiniteDuration)(implicit ec: ExecutionContext): Future[Vector[A]] = {
+    val observer = new FiniteStreamObserver[A]
+    attach(new TimeBoundObserver(duration)(new SizeBoundObserver(sizeCap = 1)(observer)))
     observer.result
   }
 

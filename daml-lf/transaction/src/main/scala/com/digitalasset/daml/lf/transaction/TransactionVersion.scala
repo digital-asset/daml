@@ -6,7 +6,7 @@ package transaction
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.value.Value.VersionedValue
+import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueVersion, ValueVersions}
 
 import scala.collection.immutable.HashMap
@@ -37,19 +37,11 @@ private[lf] object TransactionVersions
   val Empty: VersionRange[TransactionVersion] =
     VersionRange(acceptedVersions.last, acceptedVersions.head)
 
-  private[lf] def assignValueVersion(transactionVersion: TransactionVersion): ValueVersion =
-    latestWhenAllPresent(
-      ValueVersions.acceptedVersions.head,
-      transactionVersion,
-    )
+  private[lf] def assignValueVersion(nodeVersion: TransactionVersion): ValueVersion =
+    latestWhenAllPresent(ValueVersions.acceptedVersions.head, nodeVersion)
 
-  private[lf] def assignVersions(
-      as: Seq[SpecifiedVersion],
-  ): TransactionVersion =
-    VersionTimeline.latestWhenAllPresent(
-      minVersion,
-      (DevOutputVersions.min: SpecifiedVersion) +: as: _*,
-    )
+  private[lf] def assignNodeVersion(langVersion: LanguageVersion): TransactionVersion =
+    VersionTimeline.latestWhenAllPresent(TransactionVersions.minVersion, langVersion)
 
   type UnversionedNode = Node.GenNode[NodeId, Value.ContractId, Value[Value.ContractId]]
   type VersionedNode = Node.GenNode[NodeId, Value.ContractId, VersionedValue[Value.ContractId]]
@@ -60,18 +52,22 @@ private[lf] object TransactionVersions
       nodes: HashMap[NodeId, UnversionedNode],
   ): VersionedTransaction[NodeId, Value.ContractId] = {
 
-    import VersionTimeline.Implicits._
+    val versionedNodes = nodes.transform { (_, node) =>
+      val nodeVersion = assignNodeVersion(pkgLangVersions(node.templateId.packageId))
+      val valueVersion = assignValueVersion(nodeVersion)
+      Node.VersionedNode(
+        nodeVersion,
+        Node.GenNode.map3(
+          identity[NodeId],
+          identity[ContractId],
+          VersionedValue[ContractId](valueVersion, _))(node),
+      )
+    }
 
-    val langVersions: Iterator[SpecifiedVersion] =
-      roots.iterator.map(nid => pkgLangVersions(nodes(nid).templateId.packageId))
+    val txVersion = roots.iterator.foldLeft(TransactionVersions.minVersion)((acc, nodeId) =>
+      VersionTimeline.maxVersion(acc, versionedNodes(nodeId).version))
 
-    val txVersion = assignVersions(langVersions.toList)
-    val versionNode: UnversionedNode => VersionedNode =
-      Node.GenNode.map3(identity, identity, VersionedValue(assignValueVersion(txVersion), _))
-    VersionedTransaction(
-      assignVersions(langVersions.toList),
-      GenTransaction(nodes = nodes.transform((_, n) => versionNode(n)), roots = roots)
-    )
+    VersionedTransaction(txVersion, versionedNodes, roots)
   }
 
 }

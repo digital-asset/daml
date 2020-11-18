@@ -27,6 +27,7 @@ module DA.Ledger ( -- High level interface to the Ledger API
 
 import Network.GRPC.HighLevel.Generated(Port(..),Host(..),ClientConfig(..))
 import Network.GRPC.HighLevel.Client (ClientSSLConfig(..), ClientSSLKeyCertPair(..))
+import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
 import DA.Ledger.LedgerService
 import DA.Ledger.PastAndFuture
 import DA.Ledger.Services
@@ -37,13 +38,13 @@ import UnliftIO (liftIO,timeout,bracket)
 
 -- | Note: This does not enable TLS
 configOfPort :: Port -> ClientConfig
-configOfPort port = configOfHostAndPort "localhost" port Nothing
+configOfPort port = configOfHostAndPort "localhost" port [] Nothing
 
-configOfHostAndPort :: Host -> Port -> Maybe ClientSSLConfig -> ClientConfig
-configOfHostAndPort host port sslConfig =
+configOfHostAndPort :: Host -> Port -> [Arg] -> Maybe ClientSSLConfig -> ClientConfig
+configOfHostAndPort host port args sslConfig =
     ClientConfig { clientServerHost = host
                  , clientServerPort = port
-                 , clientArgs = []
+                 , clientArgs = args
                  , clientSSLConfig = sslConfig
                  , clientAuthority = Nothing
                  }

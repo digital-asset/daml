@@ -23,6 +23,12 @@ final case class LETypeSyn(syn: TypeSynName) extends LookupError {
 final case class LEDataType(conName: TypeConName) extends LookupError {
   def pretty: String = s"unknown data type: ${conName.qualifiedName}"
 }
+final case class LEDataVariant(conName: TypeConName) extends LookupError {
+  def pretty: String = s"unknown variant: ${conName.qualifiedName}"
+}
+final case class LEDataEnum(conName: TypeConName) extends LookupError {
+  def pretty: String = s"unknown enumeration: ${conName.qualifiedName}"
+}
 final case class LEValue(valName: ValueRef) extends LookupError {
   def pretty: String = s"unknown value: ${valName.qualifiedName}"
 }
@@ -166,7 +172,9 @@ abstract class ValidationError extends java.lang.RuntimeException with Product w
   override def getMessage: String = pretty
   protected def prettyInternal: String
 }
-
+final case class ENatKindRightOfArrow(context: Context, kind: Kind) extends ValidationError {
+  protected def prettyInternal: String = s"invalid kind ${kind.pretty}"
+}
 final case class EUnknownTypeVar(context: Context, varName: TypeVarName) extends ValidationError {
   protected def prettyInternal: String = s"unknown type variable: $varName"
 }
@@ -268,7 +276,17 @@ final case class EPatternTypeMismatch(
   protected def prettyInternal: String =
     s"""pattern type mismatch:
        | * pattern: $pattern
-       | *  scrutinee type: ${scrutineeType.pretty}""".stripMargin
+       | * scrutinee type: ${scrutineeType.pretty}""".stripMargin
+}
+final case class ENonExhaustivePatterns(
+    context: Context,
+    missingPatterns: List[CasePat],
+    scrutineeType: Type,
+) extends ValidationError {
+  protected def prettyInternal: String =
+    s"""non-exhaustive pattern match:
+       | * missing patterns: ${missingPatterns.mkString(", ")}
+       | * scrutinee type: ${scrutineeType.pretty}""".stripMargin
 }
 final case class EExpectedAnyType(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String =

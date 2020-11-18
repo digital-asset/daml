@@ -10,7 +10,8 @@ import java.time.Instant
   * Note that this is used for party-originating changes only. They are
   * usually issued via the Ledger API.
   *
-  * @param submitter: the party that submitted the change.
+  * @param actAs: the non-empty set of parties that submitted the change.
+  *
   *
   * @param applicationId: an identifier for the DAML application that
   *   submitted the command. This is used for monitoring and to allow DAML
@@ -26,12 +27,37 @@ import java.time.Instant
   *   command deduplication. If it chooses to do so, it must follow the
   *   same rules as the participant:
   *   - Deduplication is based on the (submitter, commandId) tuple.
-  *   - Commands must not be deduplicated after the `deduplicateUntil` time has passed.
+  *   - Commands must not be deduplicated after the deduplicateUntil time has passed.
   *   - Commands should not be deduplicated after the command was rejected.
   */
 final case class SubmitterInfo(
-    submitter: Party,
+    actAs: List[Party],
     applicationId: ApplicationId,
     commandId: CommandId,
     deduplicateUntil: Instant,
-)
+) {
+  // Note: this function is only available temporarily until the entire DAML code base
+  // supports multi-party submissions. Use at your own risk.
+  def singleSubmitterOrThrow(): Party = {
+    if (actAs.length == 1)
+      actAs.head
+    else
+      throw new RuntimeException("SubmitterInfo contains more than one acting party")
+  }
+}
+
+object SubmitterInfo {
+  // Note: this function is only available temporarily until the entire DAML code base
+  // supports multi-party submissions. Use at your own risk.
+  def withSingleSubmitter(
+      submitter: Party,
+      applicationId: ApplicationId,
+      commandId: CommandId,
+      deduplicateUntil: Instant,
+  ): SubmitterInfo = SubmitterInfo.apply(
+    actAs = List(submitter),
+    applicationId = applicationId,
+    commandId = commandId,
+    deduplicateUntil = deduplicateUntil,
+  )
+}

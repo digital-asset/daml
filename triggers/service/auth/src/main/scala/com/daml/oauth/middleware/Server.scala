@@ -49,11 +49,7 @@ object Server extends StrictLogging {
       path("auth") { get { auth(config) } },
       path("login") { get { login(config, requests) } },
       path("cb") { get { loginCallback(config, requests) } },
-      path("refresh") {
-        get {
-          complete((StatusCodes.NotImplemented, "The /refresh endpoint is not implemented yet"))
-        }
-      }
+      path("refresh") { post { refresh(config) } },
     )
 
     Http().bindAndHandle(route, "localhost", config.port.value)
@@ -115,7 +111,9 @@ object Server extends StrictLogging {
             responseType = "code",
             clientId = config.clientId,
             redirectUri = toRedirectUri(request.uri),
-            scope = Some(login.claims.toQueryString),
+            // Auth0 will only issue a refresh token if the offline_access claim is present.
+            // TODO[AH] Make the request configurable, see https://github.com/digital-asset/daml/issues/7957
+            scope = Some("offline_access " + login.claims.toQueryString),
             state = Some(requestId.toString),
             audience = Some("https://daml.com/ledger-api")
           )
@@ -125,49 +123,105 @@ object Server extends StrictLogging {
 
   private def loginCallback(config: Config, requests: TrieMap[UUID, Uri])(
       implicit system: ActorSystem,
-      ec: ExecutionContext) =
-    // TODO[AH] Implement error response handler https://tools.ietf.org/html/rfc6749#section-4.1.2.1
-    parameters(('code, 'state ?))
-      .as[OAuthResponse.Authorize](OAuthResponse.Authorize) { authorize =>
-        extractRequest { request =>
-          val redirectUri = for {
-            state <- authorize.state
-            requestId <- Try(UUID.fromString(state)).toOption
-            redirectUri <- requests.remove(requestId)
-          } yield redirectUri
-          redirectUri match {
-            case None =>
-              complete(StatusCodes.NotFound)
-            case Some(redirectUri) =>
-              val body = OAuthRequest.Token(
-                grantType = "authorization_code",
-                code = authorize.code,
-                redirectUri = toRedirectUri(request.uri),
-                clientId = config.clientId,
-                clientSecret = config.clientSecret)
-              import com.daml.oauth.server.Request.Token.marshalRequestEntity
-              val tokenRequest = for {
-                entity <- Marshal(body).to[RequestEntity]
-                req = HttpRequest(
-                  uri = config.oauthToken,
-                  entity = entity,
-                  method = HttpMethods.POST)
-                resp <- Http().singleRequest(req)
-                tokenResp <- if (resp.status != StatusCodes.OK) {
-                  Unmarshal(resp).to[String].flatMap { msg =>
-                    Future.failed(new RuntimeException(
-                      s"Failed to retrieve token at ${req.uri} (${resp.status}): $msg"))
+      ec: ExecutionContext) = {
+    def popRequest(optState: Option[String]): Directive1[Uri] = {
+      val redirectUri = for {
+        state <- optState
+        requestId <- Try(UUID.fromString(state)).toOption
+        redirectUri <- requests.remove(requestId)
+      } yield redirectUri
+      redirectUri match {
+        case Some(redirectUri) => provide(redirectUri)
+        case None => complete(StatusCodes.NotFound)
+      }
+    }
+
+    concat(
+      parameters(('code, 'state ?))
+        .as[OAuthResponse.Authorize](OAuthResponse.Authorize) { authorize =>
+          popRequest(authorize.state) {
+            redirectUri =>
+              extractRequest {
+                request =>
+                  val body = OAuthRequest.Token(
+                    grantType = "authorization_code",
+                    code = authorize.code,
+                    redirectUri = toRedirectUri(request.uri),
+                    clientId = config.clientId,
+                    clientSecret = config.clientSecret)
+                  import com.daml.oauth.server.Request.Token.marshalRequestEntity
+                  val tokenRequest =
+                    for {
+                      entity <- Marshal(body).to[RequestEntity]
+                      req = HttpRequest(
+                        uri = config.oauthToken,
+                        entity = entity,
+                        method = HttpMethods.POST)
+                      resp <- Http().singleRequest(req)
+                      tokenResp <- if (resp.status != StatusCodes.OK) {
+                        Unmarshal(resp).to[String].flatMap { msg =>
+                          Future.failed(new RuntimeException(
+                            s"Failed to retrieve token at ${req.uri} (${resp.status}): $msg"))
+                        }
+                      } else {
+                        Unmarshal(resp).to[OAuthResponse.Token]
+                      }
+                    } yield tokenResp
+                  onSuccess(tokenRequest) { token =>
+                    setCookie(HttpCookie(cookieName, token.toCookieValue)) {
+                      redirect(redirectUri, StatusCodes.Found)
+                    }
                   }
-                } else {
-                  Unmarshal(resp).to[OAuthResponse.Token]
-                }
-              } yield tokenResp
-              onSuccess(tokenRequest) { token =>
-                setCookie(HttpCookie(cookieName, token.toCookieValue)) {
-                  redirect(redirectUri, StatusCodes.Found)
-                }
               }
           }
+        },
+      parameters(('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?))
+        .as[OAuthResponse.Error](OAuthResponse.Error) { error =>
+          popRequest(error.state) { redirectUri =>
+            val uri = redirectUri.withQuery {
+              var params = redirectUri.query().to[Seq]
+              params ++= Seq("error" -> error.error)
+              error.errorDescription.foreach(x => params ++= Seq("error_description" -> x))
+              Uri.Query(params: _*)
+            }
+            redirect(uri, StatusCodes.Found)
+          }
+        }
+    )
+  }
+
+  private def refresh(config: Config)(implicit system: ActorSystem, ec: ExecutionContext) =
+    entity(as[Request.Refresh]) { refresh =>
+      val body = OAuthRequest.Refresh(
+        grantType = "refresh_token",
+        refreshToken = refresh.refreshToken,
+        clientId = config.clientId,
+        clientSecret = config.clientSecret)
+      import com.daml.oauth.server.Request.Refresh.marshalRequestEntity
+      val tokenRequest =
+        for {
+          entity <- Marshal(body).to[RequestEntity]
+          req = HttpRequest(uri = config.oauthToken, entity = entity, method = HttpMethods.POST)
+          resp <- Http().singleRequest(req)
+        } yield resp
+      onSuccess(tokenRequest) { resp =>
+        resp.status match {
+          // Return access and refresh token on success.
+          case StatusCodes.OK =>
+            val authResponse = Unmarshal(resp).to[OAuthResponse.Token].map { token =>
+              Response.Authorize(accessToken = token.accessToken, refreshToken = token.refreshToken)
+            }
+            complete(authResponse)
+          // Forward client errors.
+          case status: StatusCodes.ClientError =>
+            complete(HttpResponse.apply(status = status, entity = resp.entity))
+          // Fail on unexpected responses.
+          case _ =>
+            onSuccess(Unmarshal(resp).to[String]) { msg =>
+              failWith(
+                new RuntimeException(s"Failed to retrieve refresh token (${resp.status}): $msg"))
+            }
         }
       }
+    }
 }

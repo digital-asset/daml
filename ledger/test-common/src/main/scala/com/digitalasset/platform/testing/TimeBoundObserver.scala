@@ -7,31 +7,28 @@ import com.daml.timer.Delayed
 import io.grpc.Context
 import io.grpc.stub.StreamObserver
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future, Promise}
 
-final class TimeBoundObserver[T](duration: FiniteDuration)(
-    implicit executionContext: ExecutionContext)
-    extends StreamObserver[T] {
+final class TimeBoundObserver[A](
+    duration: FiniteDuration
+)(delegate: StreamObserver[A])(implicit executionContext: ExecutionContext)
+    extends StreamObserver[A] {
 
-  private val promise = Promise[Vector[T]]
-  private val buffer = Vector.newBuilder[T]
-
-  Delayed.by(duration)(onCompleted())
-
-  def result: Future[Vector[T]] = promise.future
-
-  override def onNext(value: T): Unit = {
-    buffer += value
-  }
-
-  override def onError(t: Throwable): Unit = {
-    val _ = promise.tryFailure(t)
-  }
-
-  override def onCompleted(): Unit = {
-    promise.trySuccess(buffer.result())
+  Delayed.by(duration)(synchronized {
+    onCompleted()
     Context.current().withCancellation().cancel(null)
-    ()
+  })
+
+  override def onNext(value: A): Unit = synchronized {
+    delegate.onNext(value)
+  }
+
+  override def onError(t: Throwable): Unit = synchronized {
+    delegate.onError(t)
+  }
+
+  override def onCompleted(): Unit = synchronized {
+    delegate.onCompleted()
   }
 }

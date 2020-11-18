@@ -29,22 +29,26 @@ Download and run the installer_, which will install DAML and set up your PATH.
 Mac and Linux
 =============
 
-To install the SDK on Mac or Linux:
-
-1. In a terminal, run:
+To install the SDK on Mac or Linux open a terminal and run:
 
    .. code-block:: shell
 
       curl -sSL https://get.daml.com/ | sh
 
-2. Add ``~/.daml/bin`` to your PATH. You can find the Mac OS and Linux instructions :doc:`here <path-variables>`.
+The installer will setup the ``PATH`` variable for you. In order for it to take effect, you will have to
+log out and log in again.
+
 
 Next steps
 **********
 
 - Follow the :doc:`getting started guide </getting-started/index>`.
 - Use ``daml --help`` to see all the commands that the DAML assistant (``daml``) provides.
-- If you run into any problems, :doc:`use the support page </support/support>` to get in touch with us.
+- If the ``daml`` command is not available in your terminal after logging out and logging in again, you need to set the ``PATH`` environment variable
+  manually. You can find instructions on how to do this :doc:`here <path-variables>`.
+- If you run into any other problems, you can use the :doc:`support page </support/support>` to get in touch with us.
+
+
 
 Alternative: manual download
 ****************************
@@ -56,4 +60,3 @@ If you want to verify the SDK download for security purposes before installing, 
 
    path-variables
    manual-download
-

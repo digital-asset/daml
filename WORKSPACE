@@ -726,28 +726,6 @@ load("@io_bazel_rules_scala//jmh:jmh.bzl", "jmh_repositories")
 
 jmh_repositories()
 
-load("@io_bazel_rules_docker//repositories:repositories.bzl", container_repositories = "repositories")
-
-container_repositories()
-
-load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
-
-container_deps()
-
-load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
-
-container_pull(
-    name = "java_base",
-    digest = "sha256:17b8b592d923f375972a59e902426bfaa30900d18fdb5e451f48089258fd621c",
-    registry = "gcr.io",
-    repository = "distroless/java",
-    tag = "8",
-)
-
-load("@io_bazel_rules_docker//java:image.bzl", java_image_repositories = "repositories")
-
-java_image_repositories()
-
 # TODO (aherrmann) This wrapper is only used on Windows.
 #   Replace by an appropriate Windows only `dadew_tool` call.
 dev_env_tool(
@@ -961,10 +939,10 @@ package(default_visibility = ["//visibility:public"])
 
 java_import(
     name = "lib",
-    jars = glob(["lib/**"]),
+    jars = glob(["lib/**/*.jar"]),
 )
 """,
-    sha256 = "dff85a80e893f1d4e99c3eb3cd62ed0fbb8a91d4b76aa2cc3394a635da968aed",
-    strip_prefix = "canton-0.18.2",
-    urls = ["https://www.canton.io/releases/canton-0.18.2.tar.gz"],
+    sha256 = "3c6ff12b65d9e6e85686383b811094d8b04d3f4033e725951fba95cc35bd804c",
+    strip_prefix = "canton-community-0.19.0",
+    urls = ["https://www.canton.io/releases/canton-community-0.19.0.tar.gz"],
 )

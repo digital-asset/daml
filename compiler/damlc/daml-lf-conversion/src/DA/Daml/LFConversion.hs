@@ -748,8 +748,27 @@ convertBind env (name, x)
     -- lifting where the lifted version of `f` happens to be `name`.)
     -- This workaround should be removed once we either have a proper lambda
     -- lifter or DAML-LF supports local recursion.
-    | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectBinders x, f == f'
-    = convertBind env $ (,) name $ mkLams as $ Lam v $ Let (NonRec f $ mkVarApps (Var name) as) y
+    --
+    -- NOTE(SF): Due to issue #7953, this has been modified to allow for
+    -- additional (nonrecursive) let bindings between the top-level
+    -- arguments and the letrec. In particular,
+    --
+    --  > name = \@a_1 ... @a_n ->
+    --  >    let { x_1 = e_1 ; ... ; x_m = e_m } in
+    --  >    letrec f = \v -> y in f
+    --
+    -- is rewritten to
+    --
+    --  > name = \@a_1 ... @a_n ->
+    --  >    let { x_1 = e_1 ; ... ; x_m = e_m } in
+    --  >    \v -> let f = name @a_1 ... @a_n in y
+    --
+    | let (params, body1) = collectBinders x
+    , let (lets, body2) = collectNonRecLets body1
+    , Let (Rec [(f, Lam v y)]) (Var f') <- body2
+    , f == f'
+    = convertBind env $ (,) name $ mkLams params $ makeNonRecLets lets $
+        Lam v $ Let (NonRec f $ mkVarApps (Var name) params) y
 
     -- Constraint tuple projections are turned into LF struct projections at use site.
     | ConstraintTupleProjectionName _ _ <- name
@@ -830,7 +849,7 @@ convertExpr env0 e = do
     go env (x `App` y) args
         = go env x ((Nothing, y) : args)
     -- see through $ to give better matching power
-    go env (VarIn DA_Internal_Prelude "$") (LType _ : LType _ : LExpr x : y : args)
+    go env (VarIn GHC_Base "$") (LType _ : LType _ : LType _ : LExpr x : y : args)
         = go env x (y : args)
     go env (VarIn DA_Internal_LF "unpackPair") (LType (StrLitTy f1) : LType (StrLitTy f2) : LType t1 : LType t2 : args)
         = fmap (, args) $ do
@@ -1720,12 +1739,14 @@ convertKind x@(TypeCon t ts)
     | t == typeSymbolKindCon, null ts = pure KStar
     | t == tYPETyCon, [_] <- ts = pure KStar
     | t == runtimeRepTyCon, null ts = pure KStar
-    -- TODO (drsk): We want to check that the 'Meta' constructor really comes from GHC.Generics.
-    | getOccFS t == "Meta", null ts = pure KStar
-    | Just m <- nameModule_maybe (getName t)
-    , GHC.moduleName m == mkModuleName "GHC.Types"
-    , getOccFS t == "Nat", null ts = pure KNat
-    | t == funTyCon, [_,_,t1,t2] <- ts = KArrow <$> convertKind t1 <*> convertKind t2
+    | NameIn DA_Generics "Meta" <- getName t, null ts = pure KStar
+    | NameIn GHC_Types "Nat" <- getName t, null ts = pure KNat
+    | t == funTyCon, [_,_,t1,t2] <- ts = do
+        k1 <- convertKind t1
+        k2 <- convertKind t2
+        case k2 of
+            KNat -> unsupported "Nat kind on the right-hand side of kind arrow" x
+            _ -> pure (KArrow k1 k2)
 convertKind (TyVarTy x) = convertKind $ tyVarKind x
 convertKind x = unhandled "Kind" x
 

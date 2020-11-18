@@ -8,7 +8,6 @@ load(
     "da_scala_test_suite",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
-load("@io_bazel_rules_docker//java:image.bzl", "java_image")
 load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_library(
@@ -229,12 +228,3 @@ conformance_test(
         "--perf-tests=PerformanceEnvelope.TransactionSize.1000KB",
     ],
 )
-
-java_image(
-    name = "app-image",
-    base = "@java_base//image",
-    main_class = "com.daml.ledger.on.memory.Main",
-    resources = ["src/app/resources/logback.xml"],
-    visibility = ["//visibility:public"],
-    runtime_deps = [":ledger-on-memory-app"],
-) if not is_windows else None

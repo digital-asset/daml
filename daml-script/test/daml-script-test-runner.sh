@@ -18,7 +18,6 @@ TEST_RUNNER=$(rlocation $TEST_WORKSPACE/$1)
 DAR_FILE=$(rlocation $TEST_WORKSPACE/$2)
 DIFF=$3
 GREP=$4
-SORT=$5
 
 set +e
 TEST_OUTPUT="$($TEST_RUNNER --dar=$DAR_FILE --max-inbound-message-size 41943040 2>&1)"
@@ -36,34 +35,36 @@ if [[ $TEST_RESULT = 0 ]]; then
   echo "Expected non-zero exit-code." >&2
 fi
 
-EXPECTED="$($SORT <<'EOF'
+EXPECTED="$(cat <<'EOF'
 MultiTest:listKnownPartiesTest SUCCESS
 MultiTest:multiTest SUCCESS
 MultiTest:partyIdHintTest SUCCESS
+ScriptExample:initializeFixed SUCCESS
+ScriptExample:initializeFromQuery SUCCESS
+ScriptExample:queryParties SUCCESS
 ScriptExample:test SUCCESS
 ScriptTest:failingTest FAILURE (com.daml.lf.speedy.SError$DamlEUserError)
 ScriptTest:listKnownPartiesTest SUCCESS
+ScriptTest:partyIdHintTest SUCCESS
+ScriptTest:sleepTest SUCCESS
 ScriptTest:test0 SUCCESS
 ScriptTest:test1 SUCCESS
 ScriptTest:test3 SUCCESS
 ScriptTest:test4 SUCCESS
 ScriptTest:testCreateAndExercise SUCCESS
-ScriptTest:testKey SUCCESS
 ScriptTest:testGetTime SUCCESS
-ScriptTest:testSetTime SUCCESS
-ScriptTest:traceOrder SUCCESS
-ScriptTest:partyIdHintTest SUCCESS
-ScriptTest:sleepTest SUCCESS
-ScriptExample:initializeFixed SUCCESS
-ScriptTest:testStack SUCCESS
+ScriptTest:testKey SUCCESS
 ScriptTest:testMaxInboundMessageSize SUCCESS
+ScriptTest:testMultiPartyQueries SUCCESS
 ScriptTest:testQueryContractId SUCCESS
 ScriptTest:testQueryContractKey SUCCESS
-ScriptTest:testMultiPartyQueries SUCCESS
+ScriptTest:testSetTime SUCCESS
+ScriptTest:testStack SUCCESS
+ScriptTest:traceOrder SUCCESS
 EOF
 )"
 
-ACTUAL="$(echo -n "$TEST_OUTPUT" | $GREP "SUCCESS\|FAILURE" | $SORT)"
+ACTUAL="$(echo -n "$TEST_OUTPUT" | $GREP "SUCCESS\|FAILURE")"
 
 if ! $DIFF -du0 --label expected <(echo -n "$EXPECTED") --label actual <(echo -n "$ACTUAL") >&2; then
   FAIL=1

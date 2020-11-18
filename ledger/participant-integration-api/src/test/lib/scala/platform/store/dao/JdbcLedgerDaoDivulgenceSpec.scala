@@ -85,7 +85,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           ),
           byKey = false
         ),
-        parent = rootExercise,
+        parentId = rootExercise,
       )
       val nestedExercise = builder.add(
         NodeExercises(
@@ -106,7 +106,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           ),
           byKey = false,
         ),
-        parent = rootExercise,
+        parentId = rootExercise,
       )
       builder.add(
         NodeCreate(
@@ -119,7 +119,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
             KeyWithMaintainers(ValueParty(bob), Set(bob))
           )
         ),
-        parent = nestedExercise,
+        parentId = nestedExercise,
       )
       builder.buildCommitted()
     }

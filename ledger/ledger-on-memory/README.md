@@ -22,35 +22,6 @@ Alternatively, the application can be run using the Bazel command:
 
     bazel run //ledger/ledger-on-memory:app -- --participant participant-id=foo,port=6861
 
-## Docker
-
-Ledger On Memory can be put into a Docker container by first building it:
-
-    bazel build ledger/ledger-on-memory:app-image
-
-Then by running the Bazel target that imports the image into your local Docker repository, and then
-runs a container from that image.
-
-    bazel run ledger/ledger-on-memory:app-image
-    
-The container will fail to run, but the image has now been loaded into your local Docker
-repository under the name `bazel/ledger/ledger-on-memory`.
-
-It can then be run using Docker:
-
-    docker run \
-        -it \
-        --rm \
-        --name ledger \
-        --network docker_default \
-        -p 6861:6865 \
-        bazel/ledger/ledger-on-memory:app-image \
-            --participant participant-id=foo,port=6865,address=0.0.0.0
-            
-The above command makes the ledger available to clients from the host machine at the address 
-`localhost:6861`. It is also available to other docker containers on the `docker_default`
-network under `ledger:6865`.
-
 ## Creating ledger exports
 
 Ledger On Memory can be used to generate ledger exports through an environment variable:
@@ -58,17 +29,3 @@ Ledger On Memory can be used to generate ledger exports through an environment v
     export KVUTILS_LEDGER_EXPORT=/path/to/export/file
 
 Then launch the ledger using the Bazel or Java command as described above.
-
-In case the ledger is run from within the Docker container, use following syntax:
-
-    export KVUTILS_LEDGER_EXPORT=/path/to/export/directory"
-    docker run \
-            -it \
-            --rm \
-            --name ledger \
-            --network docker_default \
-            -p 6861:6865 \
-            -v ${KVUTILS_LEDGER_EXPORT}:/export \
-            -e KVUTILS_LEDGER_EXPORT=/export/my-ledger.export \
-            bazel/ledger/ledger-on-memory:app-image \
-                --participant participant-id=foo,port=6865,address=0.0.0.0

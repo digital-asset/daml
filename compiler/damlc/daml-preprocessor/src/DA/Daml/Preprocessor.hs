@@ -70,6 +70,7 @@ damlPreprocessor dataDependableExtensions mbUnitId dflags x
             , checkVariantUnitConstructors x
             , checkLanguageExtensions dataDependableExtensions dflags x
             , checkImportsWrtDataDependencies x
+            , checkKinds x
             ]
         , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x ++ checkRecordConstructor x ++ checkModuleName x
         , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbUnitId $ enumTypePreprocessor "GHC.Types" x
@@ -291,3 +292,53 @@ universeConDecl m = concat
     [ dd_cons
     | GHC.TyClD _ GHC.DataDecl{tcdDataDefn=GHC.HsDataDefn{dd_cons}} <- map GHC.unLoc $ GHC.hsmodDecls $ GHC.unLoc m
     ]
+
+-- | Emit a warning if GHC.Types.Symbol was used in a top-level kind signature.
+checkKinds :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkKinds (GHC.L _ m) = do
+    GHC.L _ decl <- GHC.hsmodDecls m
+    checkDeclKinds decl
+  where
+    checkDeclKinds :: GHC.HsDecl GHC.GhcPs -> [(GHC.SrcSpan, String)]
+    checkDeclKinds = \case
+        GHC.TyClD _ GHC.SynDecl{..} -> checkQTyVars tcdTyVars
+        GHC.TyClD _ GHC.DataDecl{..} -> checkQTyVars tcdTyVars
+        GHC.TyClD _ GHC.ClassDecl{..} -> checkQTyVars tcdTyVars
+        _ -> []
+
+    checkQTyVars :: GHC.LHsQTyVars GHC.GhcPs -> [(GHC.SrcSpan, String)]
+    checkQTyVars = \case
+        GHC.HsQTvs{..} -> concatMap checkTyVarBndr hsq_explicit
+        _ -> []
+
+    checkTyVarBndr :: GHC.LHsTyVarBndr GHC.GhcPs -> [(GHC.SrcSpan, String)]
+    checkTyVarBndr (GHC.L _ var) = case var of
+        GHC.KindedTyVar _ _ kind -> checkKind kind
+        _ -> []
+
+    checkKind :: GHC.LHsKind GHC.GhcPs -> [(GHC.SrcSpan, String)]
+    checkKind (GHC.L _ kind) = case kind of
+        GHC.HsTyVar _ _ v -> checkRdrName v
+        GHC.HsFunTy _ k1 k2 -> checkKind k1 ++ checkKind k2
+        GHC.HsParTy _ k -> checkKind k
+        _ -> []
+
+    checkRdrName :: GHC.Located GHC.RdrName -> [(GHC.SrcSpan, String)]
+    checkRdrName (GHC.L loc name) = case name of
+        GHC.Unqual (GHC.occNameString -> "Symbol") ->
+            [(loc, symbolKindMsg)]
+        GHC.Qual (GHC.moduleNameString -> "GHC.Types") (GHC.occNameString -> "Symbol") ->
+            [(loc, ghcTypesSymbolMsg)]
+        _ -> []
+
+    symbolKindMsg :: String
+    symbolKindMsg = unlines
+        [ "Reference to Symbol kind will not be preserved during DAML compilation."
+        , "This will cause problems when importing this module via data-dependencies."
+        ]
+
+    ghcTypesSymbolMsg :: String
+    ghcTypesSymbolMsg = unlines
+        [ "Reference to GHC.Types.Symbol will not be preserved during DAML compilation."
+        , "This will cause problems when importing this module via data-dependencies."
+        ]

@@ -245,3 +245,29 @@ These translate to the DAML-LF record declarations:
 
 	record DoNothing ↦ {}
 	record Transfer ↦ { newOwner: Party }
+
+Names with special characters
+*****************************
+
+All names in DAML—of types, templates, choices, fields, and variant data constructors—are translated to the more restrictive rules of DAML-LF.  ASCII letters, digits, and ``_`` underscore are unchanged in DAML-LF; all other characters must be mangled in some way, as follows:
+
+- ``$`` changes to ``$$``,
+- Unicode codepoints less than 65536 translate to ``$uABCD``, where ``ABCD`` are exactly four (zero-padded) hexadecimal digits of the codepoint in question, using only lowercase ``a-f``, and
+- Unicode codepoints greater translate to ``$UABCD1234``, where ``ABCD1234`` are exactly eight (zero-padded) hexadecimal digits of the codepoint in question, with the same ``a-f`` rule.
+
+.. list-table::
+   :widths: 10 15
+   :header-rows: 1
+
+   * - DAML name
+     - DAML-LF identifier
+   * - ``Foo_bar``
+     - ``Foo_bar``
+   * - ``baz'``
+     - ``baz$u0027``
+   * - ``:+:``
+     - ``$u003a$u002b$u003a``
+   * - ``naïveté``
+     - ``na$u00efvet$u00e9``
+   * - ``:🙂:``
+     - ``$u003a$U0001f642$u003a``

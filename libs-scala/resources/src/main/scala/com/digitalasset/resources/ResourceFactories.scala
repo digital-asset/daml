@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import com.daml.resources.HasExecutionContext.executionContext
 
 import scala.collection.generic.CanBuildFrom
+import scala.collection.mutable
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
@@ -90,20 +91,21 @@ final class ResourceFactories[Context: HasExecutionContext] {
     fromFuture(Future.failed(exception))
 
   /**
-    * Sequences a [[TraversableOnce]] of [[Resource]]s into a [[Resource]] of the [[TraversableOnce]] of their values.
+    * Sequences a [[Traversable]] of [[Resource]]s into a [[Resource]] of the [[Traversable]] of their values.
     *
-    * @param seq The [[TraversableOnce]] of [[Resource]]s.
-    * @param bf The projection from a [[TraversableOnce]] of resources into one of their values.
+    * @param seq     The [[Traversable]] of [[Resource]]s.
+    * @param bf      The projection from a [[Traversable]] of resources into one of their values.
     * @param context The asynchronous task execution engine.
     * @tparam T The value type.
-    * @tparam C The [[TraversableOnce]] actual type.
+    * @tparam C The [[Traversable]] actual type.
+    * @tparam U The return type.
     * @return A [[Resource]] with a sequence of the values of the sequenced [[Resource]]s as its underlying value.
     */
-  def sequence[T, C[X] <: TraversableOnce[X]](seq: C[R[T]])(
-      implicit bf: CanBuildFrom[C[R[T]], T, C[T]],
+  def sequence[T, C[X] <: Traversable[X], U](seq: C[R[T]])(
+      implicit bf: CanBuildFrom[C[R[T]], T, U],
       context: Context,
-  ): R[C[T]] =
-    seq
+  ): R[U] = new R[U] {
+    private val resource = seq
       .foldLeft(successful(bf()))((builderResource, elementResource) =>
         for {
           builder <- builderResource // Consider the builder in the accumulator resource
@@ -111,22 +113,39 @@ final class ResourceFactories[Context: HasExecutionContext] {
         } yield builder += element) // Append the element to the builder
       .map(_.result()) // Yield a resource of collection resulting from the builder
 
+    override def asFuture: Future[U] =
+      resource.asFuture
+
+    override def release(): Future[Unit] =
+      Future.sequence(seq.map(_.release())).map(_ => ())
+  }
+
   /**
-    * Sequences a [[TraversableOnce]] of [[Resource]]s into a [[Resource]] with no underlying value.
+    * Sequences a [[Traversable]] of [[Resource]]s into a [[Resource]] with no underlying value.
     *
-    * @param seq The [[TraversableOnce]] of [[Resource]]s.
+    * @param seq     The [[Traversable]] of [[Resource]]s.
     * @param context The asynchronous task execution engine.
     * @tparam T The value type.
-    * @tparam C The [[TraversableOnce]] actual type.
+    * @tparam C The [[Traversable]] actual type.
     * @return A [[Resource]] sequencing the [[Resource]]s and no underlying value.
     */
-  def sequenceIgnoringValues[T, C[X] <: TraversableOnce[X]](seq: C[Resource[Context, T]])(
+  def sequenceIgnoringValues[T, C[X] <: Traversable[X]](seq: C[R[T]])(
       implicit context: Context
-  ): Resource[Context, Unit] =
-    seq
-      .foldLeft(unit)((builderResource, elementResource) =>
-        for {
-          _ <- builderResource
-          _ <- elementResource
-        } yield ())
+  ): R[Unit] =
+    sequence(seq)(new UnitCanBuildFrom, context)
+
+  final class UnitCanBuildFrom[T, C[X] <: Traversable[X]] extends CanBuildFrom[C[R[T]], T, Unit] {
+    override def apply(from: C[R[T]]): mutable.Builder[T, Unit] = apply()
+
+    override def apply(): mutable.Builder[T, Unit] = UnitBuilder
+  }
+
+  object UnitBuilder extends mutable.Builder[Any, Unit] {
+    override def +=(elem: Any): this.type = this
+
+    override def clear(): Unit = ()
+
+    override def result(): Unit = ()
+  }
+
 }

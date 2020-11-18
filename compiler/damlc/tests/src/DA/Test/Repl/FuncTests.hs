@@ -60,7 +60,9 @@ main = do
     -- pulling apart functions like `withGrpcClient`. Therefore we just
     -- allocate the resources before handing over to tasty and accept that
     -- it will spin up sandbox and the repl client.
-    withTempFile $ \portFile ->
+    withTempDir $ \tmpDir ->
+        let portFile = tmpDir </> "sandbox-portfile"
+        in
         withBinaryFile nullDevice WriteMode $ \devNull ->
         bracket (createSandbox portFile devNull defaultSandboxConf { dars = testDars }) destroySandbox $ \SandboxResource{sandboxPort} ->
         ReplClient.withReplClient (ReplClient.Options replJar (Just ("localhost", show sandboxPort)) Nothing Nothing Nothing Nothing ReplClient.ReplWallClock CreatePipe) $ \replHandle mbServiceOut processHandle ->
