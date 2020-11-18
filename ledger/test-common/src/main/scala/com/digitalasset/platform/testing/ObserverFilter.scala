@@ -3,25 +3,15 @@
 
 package com.daml.platform.testing
 
-import com.daml.timer.Delayed
-import io.grpc.Context
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.FiniteDuration
-
-final class TimeBoundObserver[A](
-    duration: FiniteDuration
-)(delegate: StreamObserver[A])(implicit executionContext: ExecutionContext)
+private[testing] final class ObserverFilter[A](predicate: A => Boolean)(delegate: StreamObserver[A])
     extends StreamObserver[A] {
 
-  Delayed.by(duration)(synchronized {
-    onCompleted()
-    Context.current().withCancellation().cancel(null)
-  })
-
   override def onNext(value: A): Unit = synchronized {
-    delegate.onNext(value)
+    if (predicate(value)) {
+      delegate.onNext(value)
+    }
   }
 
   override def onError(t: Throwable): Unit = synchronized {
