@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 genrule(
     name = "test-certificates",
     srcs = [
-        ":openssl-template.cnf"
+        ":openssl-template.cnf",
     ],
     outs = [
         "openssl.cnf",

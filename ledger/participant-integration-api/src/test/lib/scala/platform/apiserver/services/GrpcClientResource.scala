@@ -21,7 +21,11 @@ object GrpcClientResource {
   def owner(port: Port, sslContext: Option[SslContext] = None): ResourceOwner[Channel] =
     for {
       eventLoopGroup <- new EventLoopGroupOwner("api-client", sys.runtime.availableProcessors())
-      channel <- channelOwner(port, EventLoopGroupOwner.clientChannelType, eventLoopGroup, sslContext)
+      channel <- channelOwner(
+        port,
+        EventLoopGroupOwner.clientChannelType,
+        eventLoopGroup,
+        sslContext)
     } yield channel
 
   private def channelOwner(
@@ -40,7 +44,8 @@ object GrpcClientResource {
             .directExecutor()
 
           sslContext
-            .fold(builder.usePlaintext())(builder.sslContext(_).negotiationType(NegotiationType.TLS))
+            .fold(builder.usePlaintext())(
+              builder.sslContext(_).negotiationType(NegotiationType.TLS))
             .build()
         })(channel =>
           Future {

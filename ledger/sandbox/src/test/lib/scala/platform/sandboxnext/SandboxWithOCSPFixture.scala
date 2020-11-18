@@ -1,3 +1,6 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.sandboxnext
 
 import java.io.File
@@ -20,10 +23,10 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
 trait SandboxWithOCSPFixture
-  extends AkkaBeforeAndAfterAll
-  with SuiteResourceManagementAroundEach
-  with SandboxNextFixture
-  with OCSPResponderFixture {
+    extends AkkaBeforeAndAfterAll
+    with SuiteResourceManagementAroundEach
+    with SandboxNextFixture
+    with OCSPResponderFixture {
   this: Suite =>
 
   private implicit val ec: ExecutionContext = system.dispatcher
@@ -81,6 +84,7 @@ trait SandboxWithOCSPFixture
     trustCertCollectionFile = Some(caCrt)
   )
 
-  protected def resource(src: String) = new File(rlocation("ledger/test-common/test-certificates/" + src))
+  protected def resource(src: String) =
+    new File(rlocation("ledger/test-common/test-certificates/" + src))
 
 }
