@@ -91,13 +91,13 @@ final class ResourceFactories[Context: HasExecutionContext] {
     fromFuture(Future.failed(exception))
 
   /**
-    * Sequences a [[TraversableOnce]] of [[Resource]]s into a [[Resource]] of the [[TraversableOnce]] of their values.
+    * Sequences a [[Traversable]] of [[Resource]]s into a [[Resource]] of the [[Traversable]] of their values.
     *
-    * @param seq     The [[TraversableOnce]] of [[Resource]]s.
-    * @param bf      The projection from a [[TraversableOnce]] of resources into one of their values.
+    * @param seq     The [[Traversable]] of [[Resource]]s.
+    * @param bf      The projection from a [[Traversable]] of resources into one of their values.
     * @param context The asynchronous task execution engine.
     * @tparam T The value type.
-    * @tparam C The [[TraversableOnce]] actual type.
+    * @tparam C The [[Traversable]] actual type.
     * @tparam U The return type.
     * @return A [[Resource]] with a sequence of the values of the sequenced [[Resource]]s as its underlying value.
     */
@@ -121,15 +121,15 @@ final class ResourceFactories[Context: HasExecutionContext] {
   }
 
   /**
-    * Sequences a [[TraversableOnce]] of [[Resource]]s into a [[Resource]] with no underlying value.
+    * Sequences a [[Traversable]] of [[Resource]]s into a [[Resource]] with no underlying value.
     *
-    * @param seq     The [[TraversableOnce]] of [[Resource]]s.
+    * @param seq     The [[Traversable]] of [[Resource]]s.
     * @param context The asynchronous task execution engine.
     * @tparam T The value type.
-    * @tparam C The [[TraversableOnce]] actual type.
+    * @tparam C The [[Traversable]] actual type.
     * @return A [[Resource]] sequencing the [[Resource]]s and no underlying value.
     */
-  def sequenceIgnoringValues[T, C[X] <: Traversable[X]](seq: C[Resource[Context, T]])(
+  def sequenceIgnoringValues[T, C[X] <: Traversable[X]](seq: C[R[T]])(
       implicit context: Context
   ): R[Unit] =
     sequence(seq)(new UnitCanBuildFrom, context)
