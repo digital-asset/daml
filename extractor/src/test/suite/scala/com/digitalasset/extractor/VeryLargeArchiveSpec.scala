@@ -7,9 +7,10 @@ import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.extractor.services.ExtractorFixture
+import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.testing.postgresql.PostgresAroundEach
-import io.grpc.StatusRuntimeException
+import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest._
 
 import scala.concurrent.Await
@@ -21,7 +22,8 @@ class VeryLargeArchiveSpec
     with PostgresAroundEach
     with SuiteResourceManagementAroundAll
     with ExtractorFixture
-    with Matchers {
+    with Matchers
+    with Inside {
   override protected def darFile = new File(rlocation("extractor/VeryLargeArchive.dar"))
 
   private def runWithInboundLimit[Z](bytes: Int)(f: => Z): Z = {
@@ -52,8 +54,10 @@ class VeryLargeArchiveSpec
     val e = the[StatusRuntimeException] thrownBy runWithInboundLimit(failMB * 1024 * 1024) {
       fail("shouldn't successfully run")
     }
-    e.getStatus.getCode should ===(io.grpc.Status.Code.RESOURCE_EXHAUSTED)
-    e.getStatus.getDescription should startWith("gRPC message exceeds maximum size")
+    inside(e) {
+      case GrpcException((GrpcStatus(Status.Code.`RESOURCE_EXHAUSTED`, Some(description)), _)) =>
+        description should startWith("gRPC message exceeds maximum size")
+    }
   }
 
   s"${successMB}MiB" should "succeed" in {
