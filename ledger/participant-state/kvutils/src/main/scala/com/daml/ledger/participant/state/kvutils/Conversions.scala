@@ -15,6 +15,8 @@ import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
 import com.google.protobuf.Empty
 
+import scala.collection.JavaConverters._
+
 /** Utilities for converting between protobuf messages and our scala
   * data structures.
   */
@@ -215,4 +217,20 @@ private[state] object Conversions {
       )
     )
 
+  def encodeBlindingInfo(blindingInfo: BlindingInfo): DamlTransactionBlindingInfo = {
+    val protoBlindingInfoBuilder = DamlTransactionBlindingInfo.newBuilder
+    blindingInfo.disclosure.foreach { disclosureEntry =>
+      val protoDisclosureEntryBuilder = DamlTransactionBlindingInfo.DisclosureEntry.newBuilder
+      protoDisclosureEntryBuilder.setNodeId(disclosureEntry._1.toString)
+      protoDisclosureEntryBuilder.addAllDisclosedTo(
+        disclosureEntry._2.asInstanceOf[Set[String]].asJava)
+    }
+    blindingInfo.divulgence.foreach { divulgenceEntry =>
+      val protoDivulgenceEntryBuilder = DamlTransactionBlindingInfo.DivulgenceEntry.newBuilder
+      protoDivulgenceEntryBuilder.setContractId(divulgenceEntry._1.coid)
+      protoDivulgenceEntryBuilder.addAllDivulgedTo(
+        divulgenceEntry._2.asInstanceOf[Set[String]].asJava)
+    }
+    protoBlindingInfoBuilder.build()
+  }
 }

@@ -244,10 +244,17 @@ private[kvutils] class TransactionCommitter(
       })
 
   /** Validate the submission's conformance to the DAML model */
-  private def blind: Step =
+  private[committer] def blind: Step =
     (commitContext, transactionEntry) => {
       val blindingInfo = Blinding.blind(transactionEntry.transaction)
-      buildFinalResult(commitContext, transactionEntry, blindingInfo)
+      buildFinalResult(
+        commitContext,
+        transactionEntry.copy(
+          submission = transactionEntry.submission.toBuilder
+            .setBlindingInfo(Conversions.encodeBlindingInfo(blindingInfo))
+            .build),
+        blindingInfo,
+      )
     }
 
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
