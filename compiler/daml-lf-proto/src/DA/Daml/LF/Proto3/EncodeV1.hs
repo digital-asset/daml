@@ -19,6 +19,7 @@ import           Data.Either
 import           Data.Functor.Identity
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
+import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
@@ -51,6 +52,8 @@ data EncodeEnv = EncodeEnv
     , internedDottedNames :: !(HMS.HashMap [Int32] Int32)
     , nextInternedDottedNameId :: !Int32
       -- ^ We track the size of `internedDottedNames` explicitly since `HMS.size` is `O(n)`.
+    , internedTypes :: !(Map.Map P.TypeSum Int32)
+    , nextInternedTypeId :: !Int32
     }
 
 initEncodeEnv :: Version -> WithInterning -> EncodeEnv
@@ -60,6 +63,8 @@ initEncodeEnv version withInterning =
     , internedStrings = HMS.empty
     , internedDottedNames = HMS.empty
     , nextInternedDottedNameId = 0
+    , internedTypes = Map.empty
+    , nextInternedTypeId = 0
     , ..
     }
 
@@ -290,7 +295,8 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTTypeRep -> P.PrimTypeTYPE_REP
 
 encodeType' :: Type -> Encode P.Type
-encodeType' typ = fmap (P.Type . Just) $ case typ ^. _TApps of
+encodeType' typ = do
+  ptyp <- case typ ^. _TApps of
     (TVar var, args) -> do
         type_VarVar <- encodeName unTypeVarName var
         type_VarArgs <- encodeList encodeType' args
@@ -326,9 +332,27 @@ encodeType' typ = fmap (P.Type . Just) $ case typ ^. _TApps of
     -- which we don't support.
     (TForall{}, _:_) -> error "Application of TForall"
     (TSynApp{}, _:_) -> error "Application of TSynApp"
+  allocType ptyp
 
 encodeType :: Type -> Encode (Just P.Type)
 encodeType t = Just <$> encodeType' t
+
+allocType :: P.TypeSum -> Encode P.Type
+allocType ptyp = fmap (P.Type . Just) $ do
+    env@EncodeEnv{version, withInterning, internedTypes, nextInternedTypeId = n} <- get
+    if getWithInterning withInterning && version `supports` featureTypeInterning then
+        case ptyp `Map.lookup` internedTypes of
+            Just n -> pure (P.TypeSumInterned n)
+            Nothing -> do
+                when (n == maxBound) $
+                    error "Type interning table grew too large"
+                put $! env
+                    { internedTypes = Map.insert ptyp n internedTypes
+                    , nextInternedTypeId = n + 1
+                    }
+                pure (P.TypeSumInterned n)
+    else
+        pure ptyp
 
 ------------------------------------------------------------------------
 -- Encoding of expressions
@@ -855,12 +879,14 @@ encodePackageMetadata PackageMetadata{..} = do
 encodePackage :: Package -> P.Package
 encodePackage (Package version mods metadata) =
     let env = initEncodeEnv version (WithInterning True)
-        ((packageModules, packageMetadata), EncodeEnv{internedStrings, internedDottedNames}) =
+        ((packageModules, packageMetadata), EncodeEnv{internedStrings, internedDottedNames, internedTypes}) =
             runState ((,) <$> encodeNameMap encodeModule mods <*> traverse encodePackageMetadata metadata) env
         packageInternedStrings =
             V.fromList $ map (encodeString . fst) $ L.sortOn snd $ HMS.toList internedStrings
         packageInternedDottedNames =
             V.fromList $ map (P.InternedDottedName . V.fromList . fst) $ L.sortOn snd $ HMS.toList internedDottedNames
+        packageInternedTypes =
+            V.fromList $ map (P.Type . Just . fst) $ L.sortOn snd $ Map.toList internedTypes
     in
     P.Package{..}
 
