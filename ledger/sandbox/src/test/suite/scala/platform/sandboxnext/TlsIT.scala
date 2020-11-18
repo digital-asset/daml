@@ -28,33 +28,22 @@ class TlsIT
     with OCSPResponderFixture
 {
 
-  val List(
-  serverCrt,
-  serverKey,
-  clientCrt,
-  clientKey,
-  caCrt,
-  index,
-  ocspKey,
-  ocspCert) = {
-    List(
-      "server.crt",
-      "server.pem",
-      "client.crt",
-      "client.pem",
-      "ca.crt",
-      "index.txt",
-      "ocsp.key.pem",
-      "ocsp.crt").map { src =>
-      Some(new File(rlocation("ledger/test-common/test-certificates/" + src)))
-    }
-  }
+  val serverCrt = resource("server.crt")
+  val serverKey = resource("server.pem")
+  val clientCrt = resource("client.crt")
+  val clientKey = resource("client.pem")
+  val caCrt = resource("ca.crt")
+  val ocspCrt = resource("ocsp.crt")
+  val ocspKey = resource("ocsp.key.pem")
+  val index = resource("index.txt")
 
-  val indexPath = index.get.getAbsolutePath
-  val caCertPath = caCrt.get.getAbsolutePath
-  val ocspKeyPath = ocspKey.get.getAbsolutePath
-  val ocspCertPath = ocspCert.get.getAbsolutePath
-  val ocspTestCertificate = clientCrt.get.getAbsolutePath
+  val indexPath = index.getAbsolutePath
+  val caCertPath = caCrt.getAbsolutePath
+  val ocspKeyPath = ocspKey.getAbsolutePath
+  val ocspCertPath = ocspCrt.getAbsolutePath
+  val ocspTestCertificate = clientCrt.getAbsolutePath
+
+  private def resource(src: String) = new File(rlocation("ledger/test-common/test-certificates/" + src))
 
   override def clientSslContext: Option[SslContext] = clientTlsConfig.client
 
@@ -94,17 +83,17 @@ class TlsIT
 
   private lazy val serverTlsConfig = TlsConfiguration(
     enabled = true,
-    keyCertChainFile = serverCrt,
-    keyFile = serverKey,
-    trustCertCollectionFile = caCrt,
+    keyCertChainFile = Some(serverCrt),
+    keyFile = Some(serverKey),
+    trustCertCollectionFile = Some(caCrt),
     revocationChecks = true
   )
 
   private lazy val clientTlsConfig = TlsConfiguration(
     enabled = true,
-    keyCertChainFile = clientCrt,
-    keyFile = clientKey,
-    trustCertCollectionFile = caCrt
+    keyCertChainFile = Some(clientCrt),
+    keyFile = Some(clientKey),
+    trustCertCollectionFile = Some(caCrt)
   )
 
 }
