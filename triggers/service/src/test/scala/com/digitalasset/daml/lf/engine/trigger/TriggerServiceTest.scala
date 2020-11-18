@@ -10,6 +10,7 @@ import akka.http.scaladsl.model._
 import akka.util.ByteString
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import java.io.File
+import java.time.{Duration => JDuration}
 import java.util.UUID
 
 import akka.http.scaladsl.model.Uri.Query
@@ -557,6 +558,18 @@ trait AbstractTriggerServiceTestAuthMiddleware
         _ = deleteCookies()
         resp <- stopTrigger(uri, triggerId, alice)
         _ <- resp.status shouldBe StatusCodes.Forbidden
+      } yield succeed
+  }
+
+  it should "request a fresh token after expiry on user request" in withTriggerService(Nil) {
+    uri: Uri =>
+      for {
+        resp <- listTriggers(uri, alice)
+        _ <- resp.status shouldBe StatusCodes.OK
+        // Expire old token and test the trigger service transparently requests a new token.
+        _ = authClock.fastForward(JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
+        resp <- listTriggers(uri, alice)
+        _ <- resp.status shouldBe StatusCodes.OK
       } yield succeed
   }
 }

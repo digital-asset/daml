@@ -32,7 +32,7 @@ import scala.util.{Failure, Success, Try}
 // request to /authorize are immediately redirected to the redirect_uri.
 class Server(config: Config) {
   private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
-  private val tokenLifetimeSeconds = 24 * 60 * 60
+  val tokenLifetimeSeconds = 24 * 60 * 60
 
   // None indicates that all parties are authorized, Some that only the given set of parties is authorized.
   private var authorizedParties: Option[Set[Party]] = config.parties
