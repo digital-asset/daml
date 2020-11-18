@@ -199,7 +199,7 @@ message DamlTransactionBlindingInfo {
 
   // The divulgence of a contract to a set of local parties
   message DivulgenceEntry {
-    com.daml.lf.value.ContractId contract_id = 1;
+    string contract_id = 1;
     repeated string divulged_to = 2;
   }
 
