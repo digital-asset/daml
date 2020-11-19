@@ -112,7 +112,7 @@ abstract class CommonCliSpecBase(
 
     "set certificate revocation checks property" in {
       checkOption(
-        Array("--cert-revocation-checks", "true"),
+        Array("--cert-revocation-checking", "true"),
         _.copy(
           tlsConfig =
             Some(TlsConfiguration(enabled = true, None, None, None, revocationChecks = true)))

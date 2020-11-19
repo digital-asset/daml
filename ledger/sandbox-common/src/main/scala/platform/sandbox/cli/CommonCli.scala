@@ -138,7 +138,7 @@ class CommonCli(name: LedgerName) {
             .fold(Some(TlsConfiguration(enabled = true, None, None, None, clientAuth)))(c =>
               Some(c.copy(clientAuth = clientAuth)))))
 
-      opt[Boolean]("cert-revocation-checks")
+      opt[Boolean]("cert-revocation-checking")
         .optional()
         .text("TLS: enable/disable certificate revocation checks with the OCSP. Disabled by default.")
         .action(

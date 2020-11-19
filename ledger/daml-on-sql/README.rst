@@ -189,7 +189,7 @@ You can change the client authentication mode via ``--client-auth none`` which
 will disable it completely, ``--client-auth optional`` which makes it optional
 or specify the default explicitly via ``--client-auth require``.
 To enable certificate revocation checking using the Online Certificate Status
-Protocol (OCSP) use ``--cert-revocation-checks true``.
+Protocol (OCSP) use ``--cert-revocation-checking true``.
 
 Ledger API Authorization
 ========================
