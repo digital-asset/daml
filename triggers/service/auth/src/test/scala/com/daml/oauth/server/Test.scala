@@ -21,14 +21,16 @@ import scala.concurrent.Future
 class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
   import Client.JsonProtocol._
   private def requestToken(
-      parties: Seq[String]): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
+      parties: Seq[String],
+      applicationId: Option[String]): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
     lazy val clientBinding = suiteResource.value._3.localAddress
     lazy val clientUri = Uri().withAuthority(clientBinding.getHostString, clientBinding.getPort)
     val req = HttpRequest(
       uri = clientUri.withPath(Path./("access")).withScheme("http"),
       method = HttpMethods.POST,
-      entity =
-        HttpEntity(MediaTypes.`application/json`, Client.AccessParams(parties).toJson.compactPrint)
+      entity = HttpEntity(
+        MediaTypes.`application/json`,
+        Client.AccessParams(parties, applicationId).toJson.compactPrint)
     )
     for {
       resp <- Http().singleRequest(req)
@@ -91,14 +93,18 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     } yield result
   }
 
-  private def expectToken(parties: Seq[String]): Future[(AuthServiceJWTPayload, String)] =
-    requestToken(parties).flatMap {
+  private def expectToken(
+      parties: Seq[String],
+      applicationId: Option[String] = None): Future[(AuthServiceJWTPayload, String)] =
+    requestToken(parties, applicationId).flatMap {
       case Left(error) => fail(s"Expected token but got error-code $error")
       case Right(token) => Future(token)
     }
 
-  private def expectError(parties: Seq[String]): Future[String] =
-    requestToken(parties).flatMap {
+  private def expectError(
+      parties: Seq[String],
+      applicationId: Option[String] = None): Future[String] =
+    requestToken(parties, applicationId).flatMap {
       case Left(error) => Future(error)
       case Right(_) => fail("Expected an error but got a token")
     }
@@ -146,6 +152,20 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       } yield {
         assert(token2.exp.get.isAfter(token1.exp.get))
         assert(token1.copy(exp = None) == token2.copy(exp = None))
+      }
+    }
+    "return a token with the requested app id" in {
+      for {
+        (token, __) <- expectToken(Seq(), Some("my-app-id"))
+      } yield {
+        assert(token.applicationId == Some("my-app-id"))
+      }
+    }
+    "return a token with no app id if non is requested" in {
+      for {
+        (token, __) <- expectToken(Seq(), None)
+      } yield {
+        assert(token.applicationId == None)
       }
     }
   }

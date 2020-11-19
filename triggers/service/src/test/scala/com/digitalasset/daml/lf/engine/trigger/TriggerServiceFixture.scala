@@ -181,8 +181,6 @@ trait AuthMiddlewareFixture
     val oauthConfig = OAuthConfig(
       port = Port.Dynamic,
       ledgerId = this.getClass.getSimpleName,
-      // TODO[AH] Choose application ID, see https://github.com/digital-asset/daml/issues/7671
-      applicationId = None,
       jwtSecret = authSecret,
       parties = authParties,
       clock = None,

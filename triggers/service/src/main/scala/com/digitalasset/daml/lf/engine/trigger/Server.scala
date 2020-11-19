@@ -121,17 +121,32 @@ class Server(
       .child(triggerRunnerName(triggerInstance))
       .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
 
-  // Add a new trigger to the database and return the resulting RunningTrigger.
-  // Note that this does not yet start the trigger.
-  private def addNewTrigger(
+  // The static config of a trigger, i.e., RunningTrigger but without a token.
+  case class TriggerConfig(
+      instance: UUID,
+      name: Identifier,
+      party: Party,
+      applicationId: ApplicationId
+  )
+
+  private def newTrigger(
       party: Party,
       triggerName: Identifier,
       optApplicationId: Option[ApplicationId],
-      token: Option[AccessToken]
-  )(implicit ec: ExecutionContext): Future[Either[String, (Trigger, RunningTrigger)]] = {
+  ): TriggerConfig = {
     val newInstance = UUID.randomUUID()
     val applicationId = optApplicationId.getOrElse(Tag(newInstance.toString): ApplicationId)
-    val runningTrigger = RunningTrigger(newInstance, triggerName, party, applicationId, token)
+    TriggerConfig(newInstance, triggerName, party, applicationId)
+  }
+
+  // Add a new trigger to the database and return the resulting Trigger.
+  // Note that this does not yet start the trigger.
+  private def addNewTrigger(
+      config: TriggerConfig,
+      token: Option[AccessToken]
+  )(implicit ec: ExecutionContext): Future[Either[String, (Trigger, RunningTrigger)]] = {
+    val runningTrigger =
+      RunningTrigger(config.instance, config.name, config.party, config.applicationId, token)
     // Validate trigger id before persisting to DB
     Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName) match {
       case Left(value) => Future.successful(Left(value))
@@ -334,13 +349,16 @@ class Server(
             post {
               entity(as[StartParams]) {
                 params =>
+                  val config = newTrigger(params.party, params.triggerName, params.applicationId)
                   val claims =
-                    AuthRequest.Claims(actAs = List(params.party))
+                    AuthRequest.Claims(
+                      actAs = List(params.party),
+                      applicationId = Some(config.applicationId))
                   // TODO[AH] Why do we need to pass ec, system explicitly?
                   authorize(claims)(ec, system) {
                     token =>
                       val instOrErr: Future[Either[String, JsValue]] =
-                        addNewTrigger(params.party, params.triggerName, params.applicationId, token)
+                        addNewTrigger(config, token)
                           .map(_.map {
                             case (trigger, runningTrigger) => startTrigger(trigger, runningTrigger)
                           })
