@@ -34,11 +34,15 @@ class ConversionsSpec extends WordSpec with Matchers {
 
   private lazy val anEncodedBlindingInfo =
     DamlTransactionBlindingInfo.newBuilder
-      .addDisclosure(
-        DisclosureEntry.newBuilder.addDisclosedTo(aParty).setNodeId(aNode.index.toString)
+      .addDisclosures(
+        DisclosureEntry.newBuilder
+          .addDisclosedToLocalParties(aParty)
+          .setNodeId(aNode.index.toString)
       )
-      .addDivulgence(
-        DivulgenceEntry.newBuilder.addDivulgedTo(aParty).setContractId(aCid.coid)
+      .addDivulgences(
+        DivulgenceEntry.newBuilder
+          .addDivulgedToLocalParties(aParty)
+          .setContractId(aCid.coid)
       )
       .build
 }

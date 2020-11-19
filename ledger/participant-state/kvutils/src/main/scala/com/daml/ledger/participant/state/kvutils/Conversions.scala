@@ -219,16 +219,16 @@ private[state] object Conversions {
 
   def encodeBlindingInfo(blindingInfo: BlindingInfo): DamlTransactionBlindingInfo =
     DamlTransactionBlindingInfo.newBuilder
-      .addAllDisclosure(blindingInfo.disclosure.map { disclosureEntry =>
+      .addAllDisclosures(blindingInfo.disclosure.map { disclosureEntry =>
         DamlTransactionBlindingInfo.DisclosureEntry.newBuilder
           .setNodeId(disclosureEntry._1.index.toString)
-          .addAllDisclosedTo(disclosureEntry._2.asInstanceOf[Set[String]].asJava)
+          .addAllDisclosedToLocalParties(disclosureEntry._2.asInstanceOf[Set[String]].asJava)
           .build
       }.asJava)
-      .addAllDivulgence(blindingInfo.divulgence.map { divulgenceEntry =>
+      .addAllDivulgences(blindingInfo.divulgence.map { divulgenceEntry =>
         DamlTransactionBlindingInfo.DivulgenceEntry.newBuilder
           .setContractId(divulgenceEntry._1.coid)
-          .addAllDivulgedTo(divulgenceEntry._2.asInstanceOf[Set[String]].asJava)
+          .addAllDivulgedToLocalParties(divulgenceEntry._2.asInstanceOf[Set[String]].asJava)
           .build
       }.asJava)
       .build
