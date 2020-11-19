@@ -30,7 +30,7 @@ import Control.Monad.Extra
 import qualified CmdLineParser as Cmd (warnMsg)
 import Data.IORef
 import Data.List.Extra
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import DynFlags (parseDynamicFilePragma)
 import qualified EnumSet as ES
 import qualified Data.Map.Strict as Map
@@ -404,7 +404,7 @@ adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir dflag
                 -- sometimes this is required by CPP?
             }
 
-    cppFlags = map LF.featureCppFlag (LF.allFeaturesForVersion optDamlLfVersion)
+    cppFlags = mapMaybe LF.featureCppFlag (LF.allFeaturesForVersion optDamlLfVersion)
 
     -- We need to add platform info in order to run CPP. To prevent
     -- .hi file incompatibilities, we set the platform the same way

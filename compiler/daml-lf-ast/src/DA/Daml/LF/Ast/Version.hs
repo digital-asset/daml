@@ -49,7 +49,7 @@ supportedInputVersions = supportedOutputVersions
 data Feature = Feature
     { featureName :: !T.Text
     , featureMinVersion :: !Version
-    , featureCppFlag :: !T.Text
+    , featureCppFlag :: Maybe T.Text
         -- ^ CPP flag to test for availability of the feature.
     } deriving Show
 
@@ -57,56 +57,56 @@ featureNumeric :: Feature
 featureNumeric = Feature
     { featureName = "Numeric type"
     , featureMinVersion = version1_7
-    , featureCppFlag = "DAML_NUMERIC"
+    , featureCppFlag = Just "DAML_NUMERIC"
     }
 
 featureAnyType :: Feature
 featureAnyType = Feature
    { featureName = "Any type"
    , featureMinVersion = version1_7
-   , featureCppFlag = "DAML_ANY_TYPE"
+   , featureCppFlag = Just "DAML_ANY_TYPE"
    }
 
 featureTypeRep :: Feature
 featureTypeRep = Feature
     { featureName = "TypeRep type"
     , featureMinVersion = version1_7
-    , featureCppFlag = "DAML_TYPE_REP"
+    , featureCppFlag = Just "DAML_TYPE_REP"
     }
 
 featureStringInterning :: Feature
 featureStringInterning = Feature
     { featureName = "String interning"
     , featureMinVersion = version1_7
-    , featureCppFlag = "DAML_STRING_INTERNING"
+    , featureCppFlag = Nothing
     }
 
 featureGenericComparison :: Feature
 featureGenericComparison = Feature
     { featureName = "Generic order relation"
     , featureMinVersion = versionDev
-    , featureCppFlag = "DAML_GENERIC_COMPARISON"
+    , featureCppFlag = Just "DAML_GENERIC_COMPARISON"
     }
 
 featureGenMap :: Feature
 featureGenMap = Feature
     { featureName = "Generic map"
     , featureMinVersion = versionDev
-    , featureCppFlag = "DAML_GENMAP"
+    , featureCppFlag = Just "DAML_GENMAP"
     }
 
 featureTypeSynonyms :: Feature
 featureTypeSynonyms = Feature
     { featureName = "LF type synonyms"
     , featureMinVersion = version1_8
-    , featureCppFlag = "DAML_TYPE_SYNONYMS"
+    , featureCppFlag = Nothing
     }
 
 featurePackageMetadata :: Feature
 featurePackageMetadata = Feature
     { featureName = "Package metadata"
     , featureMinVersion = version1_8
-    , featureCppFlag = "DAML_PACKAGE_METADATA"
+    , featureCppFlag = Nothing
     }
 
 -- Unstable, experimental features. This should stay in 1.dev forever.
@@ -116,7 +116,7 @@ featureUnstable :: Feature
 featureUnstable = Feature
     { featureName = "Unstable, experimental features"
     , featureMinVersion = versionDev
-    , featureCppFlag = "DAML_UNSTABLE"
+    , featureCppFlag = Just "DAML_UNSTABLE"
     }
 
 featureToTextContractId :: Feature
@@ -124,7 +124,7 @@ featureToTextContractId = Feature
     { featureName = "TO_TEXT_CONTRACT_ID primitive"
     -- TODO Change as part of #7139
     , featureMinVersion = versionDev
-    , featureCppFlag = "DAML_TO_TEXT_CONTRACT_ID"
+    , featureCppFlag = Just "DAML_TO_TEXT_CONTRACT_ID"
     }
 
 featureChoiceObservers :: Feature  -- issue #7709
@@ -132,7 +132,7 @@ featureChoiceObservers = Feature
     { featureName = "Choice observers"
     -- TODO Change as part of #7139
     , featureMinVersion = versionDev
-    , featureCppFlag = "DAML_CHOICE_OBSERVERS"
+    , featureCppFlag = Just "DAML_CHOICE_OBSERVERS"
     }
 
 featureTypeInterning :: Feature
@@ -140,7 +140,7 @@ featureTypeInterning = Feature
     { featureName = "Type interning"
     -- TODO Change as part of #7139
     , featureMinVersion = versionDev
-    , featureCppFlag = "DAML_TYPE_INTERNING"
+    , featureCppFlag = Nothing
     }
 
 allFeatures :: [Feature]
@@ -156,6 +156,7 @@ allFeatures =
     , featureUnstable
     , featureToTextContractId
     , featureChoiceObservers
+    , featureTypeInterning
     ]
 
 allFeaturesForVersion :: Version -> [Feature]
