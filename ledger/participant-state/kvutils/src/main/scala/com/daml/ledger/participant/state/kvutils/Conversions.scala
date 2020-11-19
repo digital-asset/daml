@@ -217,20 +217,19 @@ private[state] object Conversions {
       )
     )
 
-  def encodeBlindingInfo(blindingInfo: BlindingInfo): DamlTransactionBlindingInfo = {
-    val protoBlindingInfoBuilder = DamlTransactionBlindingInfo.newBuilder
-    blindingInfo.disclosure.foreach { disclosureEntry =>
-      val protoDisclosureEntryBuilder = DamlTransactionBlindingInfo.DisclosureEntry.newBuilder
-      protoDisclosureEntryBuilder.setNodeId(disclosureEntry._1.toString)
-      protoDisclosureEntryBuilder.addAllDisclosedTo(
-        disclosureEntry._2.asInstanceOf[Set[String]].asJava)
-    }
-    blindingInfo.divulgence.foreach { divulgenceEntry =>
-      val protoDivulgenceEntryBuilder = DamlTransactionBlindingInfo.DivulgenceEntry.newBuilder
-      protoDivulgenceEntryBuilder.setContractId(divulgenceEntry._1.coid)
-      protoDivulgenceEntryBuilder.addAllDivulgedTo(
-        divulgenceEntry._2.asInstanceOf[Set[String]].asJava)
-    }
-    protoBlindingInfoBuilder.build()
-  }
+  def encodeBlindingInfo(blindingInfo: BlindingInfo): DamlTransactionBlindingInfo =
+    DamlTransactionBlindingInfo.newBuilder
+      .addAllDisclosure(blindingInfo.disclosure.map { disclosureEntry =>
+        DamlTransactionBlindingInfo.DisclosureEntry.newBuilder
+          .setNodeId(disclosureEntry._1.index.toString)
+          .addAllDisclosedTo(disclosureEntry._2.asInstanceOf[Set[String]].asJava)
+          .build
+      }.asJava)
+      .addAllDivulgence(blindingInfo.divulgence.map { divulgenceEntry =>
+        DamlTransactionBlindingInfo.DivulgenceEntry.newBuilder
+          .setContractId(divulgenceEntry._1.coid)
+          .addAllDivulgedTo(divulgenceEntry._2.asInstanceOf[Set[String]].asJava)
+          .build
+      }.asJava)
+      .build
 }
