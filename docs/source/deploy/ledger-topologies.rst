@@ -69,15 +69,15 @@ Scaling
 
 The main functionalities of a system providing the Ledger API are:
 
-1. handling the gRPC connections,
+1. serving the API itself (handling the gRPC connections, authenticating users, etc),
 
 #. allowing the API users to access their :ref:`ledger projection <da-model-projections>` (reading the ledger), and
 
 #. allowing the API users to issue commands and thus attempt to append commits to the shared ledger (writing to the ledger).
 
-The implementation thus naturally splits up into components for handling gRPC, reading from the ledger, and writing to the ledger.
-Handling gRPC and reading can be scaled out horizontally.
-Reading can be scaled out by building caches of the ledger contents; as the projections are streams, no additional synchronization between the different caches is necessary.
+The implementation thus naturally splits up into components for serving the API, reading from the ledger, and writing to the ledger.
+Serving the API and reading can be scaled out horizontally.
+Reading can be scaled out by building caches of the ledger contents; as the projections are streams, no synchronization between the different caches is necessary.
 
 To ensure ledger integrity, the writing component must preserve the ledger's :ref:`validity conditions <da-model-validity>`.
 Writing can thus be further split up into three sub-components, one for each of the three validity conditions:
