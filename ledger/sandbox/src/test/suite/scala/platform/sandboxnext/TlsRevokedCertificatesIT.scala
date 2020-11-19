@@ -13,13 +13,6 @@ class TlsRevokedCertificatesIT extends AsyncWordSpec with Matchers with SandboxW
   override val clientCrt: File = resource("client-revoked.crt")
   override val clientKey: File = resource("client-revoked.pem")
 
-  "The test runner" should {
-    "be configured to enable OCSP revocation checks" in {
-      sys.props.get("com.sun.net.ssl.checkRevocation") shouldBe Some("true")
-      java.security.Security.getProperty("ocsp.enable") shouldBe "true"
-    }
-  }
-
   "The Ledger API Server" should {
     "not allow connections with revoked TLS certificates" in {
       connect().failed

@@ -9,6 +9,7 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundEach
+import com.daml.ledger.api.tls.OCSPProperties
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.CommandClientConfiguration
@@ -46,6 +47,18 @@ trait SandboxWithOCSPFixture
   override protected def ocspKeyPath = ocspKey.getAbsolutePath
   override protected def ocspCertPath = ocspCrt.getAbsolutePath
   override protected def ocspTestCertificate = clientCrt.getAbsolutePath
+
+  override def beforeEach(): Unit = {
+    super.beforeEach()
+    assertOCSPPropertiesConfigured()
+    ()
+  }
+
+  private def assertOCSPPropertiesConfigured() = {
+    assert(sys.props.get(OCSPProperties.CHECK_REVOCATION_PROPERTY_SUN).contains("true"))
+    assert(sys.props.get(OCSPProperties.CHECK_REVOCATION_PROPERTY_IBM).contains("true"))
+    assert(java.security.Security.getProperty(OCSPProperties.ENABLE_OCSP_PROPERTY) == "true")
+  }
 
   override protected def clientSslContext: Option[SslContext] = clientTlsConfig.client
 
