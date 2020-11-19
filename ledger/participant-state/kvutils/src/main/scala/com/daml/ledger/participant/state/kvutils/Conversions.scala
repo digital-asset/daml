@@ -228,31 +228,29 @@ private[state] object Conversions {
       .addAllDivulgences(encodeDivulgence(blindingInfo.divulgence).asJava)
       .build
 
-  private[kvutils] def encodeParties(parties: Iterable[Party]): List[String] =
+  private def encodeParties(parties: Iterable[Party]): List[String] =
     parties.asInstanceOf[Set[String]].toList.sorted // Deterministic
 
-  private[kvutils] def encodeDisclosureEntry(
-      disclosureEntry: (NodeId, Set[Party])): DisclosureEntry =
+  private def encodeDisclosureEntry(disclosureEntry: (NodeId, Set[Party])): DisclosureEntry =
     DisclosureEntry.newBuilder
       .setNodeId(disclosureEntry._1.index.toString)
       .addAllDisclosedToLocalParties(encodeParties(disclosureEntry._2).asJava)
       .build
 
-  private[kvutils] def encodeDisclosure(
+  private def encodeDisclosure(
       disclosure: Relation[NodeId, Party],
   ): List[DisclosureEntry] =
     disclosure.toList
       .sortBy(_._1.index) // Deterministic
       .map(encodeDisclosureEntry)
 
-  private[kvutils] def encodeDivulgenceEntry(
-      divulgenceEntry: (ContractId, Set[Party])): DivulgenceEntry =
+  private def encodeDivulgenceEntry(divulgenceEntry: (ContractId, Set[Party])): DivulgenceEntry =
     DamlTransactionBlindingInfo.DivulgenceEntry.newBuilder
       .setContractId(divulgenceEntry._1.coid)
       .addAllDivulgedToLocalParties(encodeParties(divulgenceEntry._2).asJava)
       .build
 
-  private[kvutils] def encodeDivulgence(
+  private def encodeDivulgence(
       divulgence: Relation[ContractId, Party],
   ): List[DivulgenceEntry] =
     divulgence.toList
