@@ -1,0 +1,47 @@
+{
+	"𝕆": {
+		"prefix": "\\mathbb{O}",
+		"body": "𝕆",
+		"description": "black board capital O"
+	},
+	"≠": {
+		"prefix": ["\\neq", "\\not="],
+		"body": "≠",
+		"description": "not equals"
+	},
+	"≤": {
+		"prefix": ["\\leq"],
+		"body": "≤",
+		"description": "less or equals"
+	},
+	"≥": {
+		"prefix": ["\\geq"],
+		"body": "≥",
+		"description": "greater or equals"
+	},
+	"‖": {
+		"prefix": ["\\parallel", "\\||"],
+        "body": "‖",
+        "description": "parallel, double vertical line"
+	},
+	"↠": {
+		"prefix": ["\\twoheadrightarrow"],
+		"body": "↠",
+		"description": "two head right arrow"
+	},
+	"⇝": {
+		"prefix": ["\\rightsquigarrow"],
+		"body": "⇝",
+		"description": "squiggly right arrow"
+	},
+	"⟦": {
+		"prefix": ["\\llbracket"],
+		"body": "⟦",
+		"description": "left semantic bracket"
+	},
+	"⟧": {
+		"prefix": ["\\rrbracket"],
+		"body": "⟧",
+		"description": "right semantic bracket"
+	},
+}
