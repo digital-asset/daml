@@ -133,7 +133,6 @@ da_scala_library(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
-        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/ports",

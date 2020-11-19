@@ -172,6 +172,36 @@ message DamlTransactionEntry {
 
   // The time used to derive contract ids
   google.protobuf.Timestamp submission_time = 6;
+
+  // The pre-computed transaction blinding information. Optional.
+  DamlTransactionBlindingInfo blinding_info = 7;
+}
+
+// A transaction's blinding information, consisting of disclosure and
+// divulgence info.
+//
+// See com.daml.lf.transaction.BlindingInfo for more details.
+message DamlTransactionBlindingInfo {
+  // The disclosure of a transaction node to a set of local parties.
+  message DisclosureEntry {
+    string node_id = 1;
+    repeated string disclosed_to_local_parties = 2;
+  }
+
+  // The divulgence of a contract to a set of local parties.
+  message DivulgenceEntry {
+    string contract_id = 1;
+    repeated string divulged_to_local_parties = 2;
+  }
+
+  // Disclosure, specified in terms of local transaction node IDs.
+  repeated DisclosureEntry disclosures = 1;
+
+  // Divulgence, specified in terms of contract IDs.
+  // Note: if this info was produced by blinding a transaction
+  // containing only contract ids, it may also contain contracts
+  // produced in the same transaction.
+  repeated DivulgenceEntry divulgences = 2;
 }
 
 // A transaction rejection entry.

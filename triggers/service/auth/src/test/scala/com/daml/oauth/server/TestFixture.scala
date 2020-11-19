@@ -36,7 +36,6 @@ trait TestFixture
           Config(
             port = Port.Dynamic,
             ledgerId = ledgerId,
-            applicationId = Some(applicationId),
             jwtSecret = jwtSecret,
             parties = Some(Party.subst(Set("Alice", "Bob"))),
             clock = Some(clock)

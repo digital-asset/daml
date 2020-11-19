@@ -26,9 +26,10 @@ import java.io.{Closeable, IOException}
 import com.daml.lf.engine.trigger.Tagged.AccessToken
 import javax.sql.DataSource
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import scala.language.existentials
+import scala.util.control.NonFatal
 
 object Connection {
 
@@ -188,50 +189,63 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
       *> dropDalfTable.update.run).void
   }
 
-  private def run[T](query: ConnectionIO[T], errorContext: String = ""): Either[String, T] = {
-    Try(query.transact(xa).unsafeRunSync) match {
-      case Failure(err) => Left(errorContext ++ "\n" ++ err.toString)
-      case Success(res) => Right(res)
+  final class DatabaseError(errorContext: String, e: Throwable)
+      extends RuntimeException(errorContext + "\n" + e.toString)
+
+  private def run[T](query: ConnectionIO[T], errorContext: String = "")(
+      implicit ec: ExecutionContext): Future[T] = {
+    query.transact(xa).unsafeToFuture.recoverWith {
+      case NonFatal(e) => Future.failed(new DatabaseError(errorContext, e))
     }
   }
 
-  override def addRunningTrigger(t: RunningTrigger): Either[String, Unit] =
+  override def addRunningTrigger(t: RunningTrigger)(implicit ec: ExecutionContext): Future[Unit] =
     run(insertRunningTrigger(t))
 
-  override def getRunningTrigger(triggerInstance: UUID): Either[String, Option[RunningTrigger]] =
+  override def getRunningTrigger(triggerInstance: UUID)(
+      implicit ec: ExecutionContext): Future[Option[RunningTrigger]] =
     run(queryRunningTrigger(triggerInstance))
 
-  override def removeRunningTrigger(triggerInstance: UUID): Either[String, Boolean] =
+  override def removeRunningTrigger(triggerInstance: UUID)(
+      implicit ec: ExecutionContext): Future[Boolean] =
     run(deleteRunningTrigger(triggerInstance))
 
-  override def listRunningTriggers(party: Party): Either[String, Vector[UUID]] = {
+  override def listRunningTriggers(party: Party)(
+      implicit ec: ExecutionContext): Future[Vector[UUID]] = {
     // Note(RJR): Postgres' ordering of UUIDs is different to Scala/Java's.
     // We sort them after the query to be consistent with the ordering when not using a database.
     run(selectRunningTriggers(party)).map(_.sorted)
   }
 
   // Write packages to the `dalfs` table so we can recover state after a shutdown.
-  override def persistPackages(
-      dar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
+  override def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)])(
+      implicit ec: ExecutionContext): Future[Unit] = {
     import cats.implicits._ // needed for traverse
     val insertAll = dar.all.traverse_((insertPackage _).tupled)
     run(insertAll)
   }
 
-  def readPackages: Either[String, List[(PackageId, DamlLf.ArchivePayload)]] = {
+  class InvalidPackage(s: String) extends RuntimeException(s"Invalid package: $s")
+
+  def readPackages(
+      implicit ec: ExecutionContext): Future[List[(PackageId, DamlLf.ArchivePayload)]] = {
     import cats.implicits._ // needed for traverse
     run(selectPackages, "Failed to read packages from database").flatMap(
-      _.traverse((parsePackage _).tupled)
+      _.traverse {
+        case (pkgId, pkg) =>
+          parsePackage(pkgId, pkg)
+            .fold(err => Future.failed(new InvalidPackage(err)), Future.successful(_))
+      }
     )
   }
 
-  def readRunningTriggers: Either[String, Vector[RunningTrigger]] =
+  def readRunningTriggers(implicit ec: ExecutionContext): Future[Vector[RunningTrigger]] =
     run(selectAllTriggers, "Failed to read running triggers from database")
 
-  def initialize: Either[String, Unit] =
+  def initialize(implicit ec: ExecutionContext): Future[Unit] =
     run(createTables, "Failed to initialize database.")
 
-  private[trigger] def destroy(): Either[String, Unit] =
+  private[trigger] def destroy(implicit ec: ExecutionContext): Future[Unit] =
     run(dropTables, "Failed to remove database objects.")
 
   private[trigger] def destroyPermanently(): Try[Unit] =

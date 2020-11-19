@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver.services.tracking
 
-import akka.NotUsed
+import akka.{Done, NotUsed}
 import akka.stream.scaladsl.{Flow, Keep, Sink, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy}
 import com.codahale.metrics.{Counter, Timer}
@@ -28,7 +28,9 @@ import scala.util.{Failure, Success}
   * Tracks SubmitAndWaitRequests.
   * @param queue The input queue to the tracking flow.
   */
-private[services] final class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput])(
+private[services] final class TrackerImpl(
+    queue: SourceQueueWithComplete[TrackerImpl.QueueInput],
+    done: Future[Done])(
     implicit loggingContext: LoggingContext,
 ) extends Tracker {
 
@@ -64,6 +66,7 @@ private[services] final class TrackerImpl(queue: SourceQueueWithComplete[Tracker
     logger.debug("Shutting down tracking component.")
     queue.complete()
     Await.result(queue.watchCompletion(), 30.seconds)
+    Await.result(done, 30.seconds)
     ()
   }
 }
@@ -82,7 +85,7 @@ private[services] object TrackerImpl {
       lengthCounter: Counter,
       delayTimer: Timer,
   )(implicit materializer: Materializer, loggingContext: LoggingContext): TrackerImpl = {
-    val ((queue, mat), foreachMat) = InstrumentedSource
+    val ((queue, mat), done) = InstrumentedSource
       .queue[QueueInput](
         inputBufferSize,
         OverflowStrategy.dropNew,
@@ -114,7 +117,7 @@ private[services] object TrackerImpl {
       })(Keep.both)
       .run()
 
-    foreachMat.onComplete { success =>
+    done.onComplete { success =>
       val (promiseCancellationDescription, error) = success match {
         case Success(_) => "Unknown" -> null // in this case, there should be no promises cancelled
         case Failure(t: Exception) =>
@@ -134,7 +137,7 @@ private[services] object TrackerImpl {
       )(DirectExecutionContext)
     }(DirectExecutionContext)
 
-    new TrackerImpl(queue)
+    new TrackerImpl(queue, done)
   }
 
   type QueueInput = Ctx[Promise[Completion], SubmitRequest]

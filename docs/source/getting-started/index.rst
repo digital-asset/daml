@@ -42,7 +42,7 @@ Running the app
 
 We'll start by getting the app up and running, and then explain the different components which we will later extend.
 
-First off, open a terminal and instantiate the template project.
+First off, open a terminal, change to a folder in which to create your first application, and instantiate the template project.
 ::
 
     daml new create-daml-app --template create-daml-app
@@ -67,7 +67,7 @@ command line tool in the SDK for building and running DAML apps.
 
 You will know that the command has started successfully when you see the ``INFO  com.daml.http.Main$ - Started server: ServerBinding(/127.0.0.1:7575)`` message in the terminal. The command does a few things:
 
-    1. Compiles the DAML code to a DAR file.
+    1. Compiles the DAML code to a DAR (DAML Archive) file.
     2. Generates a JavaScript library in ``ui/daml.js`` to connect the UI with your DAML code.
     3. Starts an instance of the :doc:`Sandbox </tools/sandbox>`, an in-memory ledger useful for development, loaded with our DAR.
     4. Starts a server for the :doc:`HTTP JSON API </json-api/index>`, a simple way to run commands against a DAML ledger (in this case the running Sandbox).

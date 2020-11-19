@@ -406,7 +406,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
             [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
             | (name, v) <- binds
             , "_choice_" `T.isPrefixOf` getOccText name
-            , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _]]) <- [varType name]
+            , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
             ]
         templateBinds = scrapeTemplateBinds binds
 
@@ -690,9 +690,20 @@ convertChoices env tplTypeCon tbinds =
 convertChoice :: Env -> TemplateBinds -> ChoiceData -> ConvertM TemplateChoice
 convertChoice env tbinds (ChoiceData ty expr)
     | Just fArchive <- tbArchive tbinds = do
-    TConApp _ [_, _ :-> _ :-> choiceTy@(TConApp choiceTyCon _) :-> TUpdate choiceRetTy, consumingTy] <- convertType env ty
+    TConApp _ [_, _ :-> _ :-> choiceTy@(TConApp choiceTyCon _) :-> TUpdate choiceRetTy, consumingTy, _] <- convertType env ty
     let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
-    ERecCon _ [(_, controllers), (_, action), _] <- convertExpr env expr
+    ERecCon _ [ (_, controllers)
+              , (_, action)
+              , _
+              , (_, optObservers)
+              ] <- convertExpr env expr
+
+    mbObservers <-
+      case optObservers of
+        ENone{} -> pure Nothing
+        ESome{someBody} -> pure $ Just someBody
+        _ -> unhandled "choice observers function" optObservers
+
     consuming <- case consumingTy of
         TConApp Qualified { qualObject = TypeConName con } _
             | con == ["NonConsuming"] -> pure NonConsuming
@@ -716,13 +727,15 @@ convertChoice env tbinds (ChoiceData ty expr)
         { chcLocation = Nothing
         , chcName = choiceName
         , chcConsuming = consuming == Consuming
-        , chcControllers = controllers `ETmApp` EVar this `ETmApp` EVar arg
-        , chcObservers = Nothing -- FIXME #7709, need syntax for non-empty choice-observers
+        , chcControllers = applyThisAndArg controllers
+        , chcObservers = applyThisAndArg <$> mbObservers
         , chcSelfBinder = self
         , chcArgBinder = (arg, choiceTy)
         , chcReturnType = choiceRetTy
         , chcUpdate = update
         }
+      where
+        applyThisAndArg func = func `ETmApp` EVar this `ETmApp` EVar arg
 
 
 convertBind :: Env -> (Var, GHC.Expr Var) -> ConvertM [Definition]

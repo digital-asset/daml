@@ -221,6 +221,13 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       case Failure(e: SError) =>
         // SError are the errors that should be handled and displayed as
         // failed partial transactions.
+
+        // We copy tracelogs after every submit but on failures we need
+        // to copy the tracelog from the partial transaction as well since we
+        // don’t reach the end of the submit.
+        for ((msg, optLoc) <- ledgerClient.tracelogIterator) {
+          clientMachine.traceLog.add(msg, optLoc)
+        }
         Success(
           Some(
             (ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Left(e))))

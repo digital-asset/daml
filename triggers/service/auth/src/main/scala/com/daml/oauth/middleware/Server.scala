@@ -14,6 +14,7 @@ import akka.http.scaladsl.model.headers.{HttpCookie, HttpCookiePair}
 import akka.http.scaladsl.server.Directive1
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.oauth.server.{Request => OAuthRequest, Response => OAuthResponse}
 import com.typesafe.scalalogging.StrictLogging
 import java.util.UUID
@@ -78,7 +79,14 @@ object Server extends StrictLogging {
     } yield {
       (tokenPayload.admin || !claims.admin) &&
       tokenPayload.actAs.toSet.subsetOf(claims.actAs.map(_.toString).toSet) &&
-      tokenPayload.readAs.toSet.subsetOf(claims.readAs.map(_.toString).toSet)
+      tokenPayload.readAs.toSet.subsetOf(claims.readAs.map(_.toString).toSet) &&
+      ((claims.applicationId, tokenPayload.applicationId) match {
+        // No requirement on app id
+        case (None, _) => true
+        // Token valid for all app ids.
+        case (_, None) => true
+        case (Some(expectedAppId), Some(actualAppId)) => expectedAppId == ApplicationId(actualAppId)
+      })
     }
   }.getOrElse(false)
 

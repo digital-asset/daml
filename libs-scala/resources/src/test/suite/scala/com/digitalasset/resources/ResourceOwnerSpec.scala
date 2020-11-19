@@ -9,6 +9,7 @@ import java.util.{Timer, TimerTask}
 
 import com.daml.resources.FailingResourceOwner.FailingResourceFailedToOpen
 import com.daml.resources.{Resource => AbstractResource}
+import com.daml.timer.Delayed
 import com.github.ghik.silencer.silent
 import org.scalatest.{AsyncWordSpec, Matchers}
 
@@ -25,7 +26,7 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       TestContext.`TestContext has ExecutionContext`
   }
 
-  private implicit val context: TestContext = new TestContext(executionContext)
+  private implicit val context: TestContext = new TestContext(ExecutionContext.global)
 
   "a resource owner" should {
     "acquire and release a resource" in {
@@ -588,14 +589,14 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
   "many resources in a sequence" should {
     "be able to be sequenced" in {
       val acquireOrder = mutable.Buffer[Int]()
-      val releaseOrder = mutable.Buffer[Int]()
+      val released = mutable.Set[Int]()
       val owners = (1 to 10).map(value =>
         new AbstractResourceOwner[TestContext, Int] {
           override def acquire()(implicit context: TestContext): Resource[Int] = {
             acquireOrder += value
             Resource(Future(value))(v =>
               Future {
-                releaseOrder += v
+                released += v
             })
           }
       })
@@ -616,7 +617,77 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
         _ <- resource.release()
       } yield {
         withClue("after releasing,") {
-          releaseOrder should be(10.to(1, step = -1))
+          released.toSet should be((1 to 10).toSet)
+        }
+      }
+    }
+
+    "sequence, ignoring values if asked" in {
+      val acquired = mutable.Set[Int]()
+      val released = mutable.Set[Int]()
+      val owners = (1 to 10).map(value =>
+        new AbstractResourceOwner[TestContext, Int] {
+          override def acquire()(implicit context: TestContext): Resource[Int] =
+            Resource(Future {
+              acquired += value
+              value
+            })(v =>
+              Future {
+                released += v
+            })
+      })
+      val resources = owners.map(_.acquire())
+
+      val resource = for {
+        values <- Resource.sequenceIgnoringValues(resources)
+      } yield {
+        withClue("after sequencing,") {
+          acquired.toSet should be((1 to 10).toSet)
+          values should be(())
+        }
+        ()
+      }
+
+      for {
+        _ <- resource.asFuture
+        _ <- resource.release()
+      } yield {
+        withClue("after releasing,") {
+          released.toSet should be((1 to 10).toSet)
+        }
+      }
+    }
+
+    "release in parallel" in {
+      val releaseOrder = mutable.Buffer[Int]()
+      val owners = (1 to 4).map(value =>
+        new AbstractResourceOwner[TestContext, Int] {
+          override def acquire()(implicit context: TestContext): Resource[Int] = {
+            Resource(Future(value)) { v =>
+              Delayed.by((v * 200).milliseconds) {
+                releaseOrder += v
+                ()
+              }
+            }
+          }
+      })
+      val resources = owners.map(_.acquire())
+
+      val resource = for {
+        values <- Resource.sequence(resources)
+      } yield {
+        withClue("after sequencing,") {
+          values should be(1 to 4)
+        }
+        ()
+      }
+
+      for {
+        _ <- resource.asFuture
+        _ <- resource.release()
+      } yield {
+        withClue("after releasing,") {
+          releaseOrder should be(1 to 4)
         }
       }
     }

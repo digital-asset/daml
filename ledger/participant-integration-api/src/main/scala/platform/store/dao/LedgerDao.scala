@@ -23,7 +23,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
@@ -189,6 +189,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       offset: Offset,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
   )(implicit loggingContext: LoggingContext): TransactionsWriter.PreparedInsert
 
   def storeTransaction(
@@ -201,6 +202,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       offset: Offset,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   def storeRejection(

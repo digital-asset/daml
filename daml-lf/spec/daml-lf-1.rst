@@ -302,6 +302,8 @@ Version: 1.dev
 
   + **Add** `exercise_by_key` Update.
 
+  + **Add** choice observers.
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -391,13 +393,13 @@ We first define two types of *strings*::
     EscapedStrChar  ∈  \\\n|\\\r|\\\"|\\\\          -- EscapedStrChar
 
 *Strings* are possibly empty sequences of legal `Unicode
-<https://en.wikipedia.org/wiki/Unicode>` code points where the line
+<https://en.wikipedia.org/wiki/Unicode>`_ code points where the line
 feed character ``\n``, the carriage return character ``\r``, the
 double quote character ``\"``, and the backslash character ``\\`` must
 be escaped with backslash ``\\``. DAML-LF considers legal `Unicode
-code point <https://unicode.org/glossary/#code_point>` that is not a
+code point <https://unicode.org/glossary/#code_point>`_ that is not a
 `Surrogate Code Point
-<https://unicode.org/glossary/#surrogate_code_point>`, in other words
+<https://unicode.org/glossary/#surrogate_code_point>`_, in other words
 any code point with an integer value in the range from ``0x000000`` to
 ``0x00D7FF`` or in the range from ``0x00DFFF`` to ``0x10FFFF`` (bounds
 included).
@@ -4236,7 +4238,14 @@ the choice argument in a controller expression.
 Choice observers
 ................
 
-  FIXME: https://github.com/digital-asset/daml/issues/7709
+[*Available in versions >= 1.dev*]
+
+An optional `observer` expression may be attached to a flexible
+choice. This allows the specification of additional parties to whom
+the sub-transaction is disclosed.
+
+The type checker will reject any DAML-LF < 1.dev program which
+includes choice observers.
 
 
 Validation
@@ -4377,7 +4386,7 @@ interning* mechanism allows the *names* within messages to be stored
 in a global table and be referenced by their index.
 
 ``InternedDottedName`` is a non-empty list of valid `interned
-identifiers`. Such message is interpreted as the name built from the
+identifiers`_. Such message is interpreted as the name built from the
 sequence the interned identifiers it contains.  The field
 ``Package.interned_dotted_names`` is a list of such messages. A
 so-called `interned name` is a valid zero-based index of this list. An

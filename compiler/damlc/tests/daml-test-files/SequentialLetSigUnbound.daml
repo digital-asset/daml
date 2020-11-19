@@ -1,0 +1,17 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- | Check that damlc requires local type signatures
+-- in sequential let statements to be used.
+--
+-- NB: The SequentialLetSig* tests cannot be combined because
+-- they test/raise errors at different GHC phases.
+module SequentialLetSigUnbound where
+
+-- @ERROR range=14:9-14:10; The type signature for 'x' lacks an accompanying binding
+unboundSig : ()
+unboundSig =
+    let x : Int
+        y = 10
+        z = 20
+    in ()

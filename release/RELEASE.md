@@ -81,16 +81,8 @@ patches we backport to the 1.0 release branch).
    > Windows machines come with both Internet Explorer and Firefox installed.
    > Do not make the mistake of trying to use Internet Explorer.
    >
-   > Install Java from [adoptopenjdk]. The installer has an option, unticked by
-   > default, to set the `JAVA_HOME` variable. Tick it.
-   >
-   > [adoptopenjdk]: https://adoptopenjdk.net
-   >
-   > [node] and [VS Code] installers add to PATH by default so those are just
-   > download > next > next installations.
-   >
-   > [node]: https://nodejs.org/en/
-   > [VS Code]: https://code.visualstudio.com
+   > Ad-hoc machines also come with Node, VSCode and OpenJDK preinstalled, so
+   > you don't need to worry about those.
    >
    > All of the commands mentioned in this document can be run from a simple
    > DOS prompt (start menu -> type "cmd" -> click "Command prompt").
@@ -199,7 +191,7 @@ patches we backport to the 1.0 release branch).
 
    While this is no longer the default getting started guide we still test it
    for now since it covers things not covered by the new GSG
-   (Navigator, scenarios, Maven artifacts, …)
+   (Navigator, Scripts, Maven artifacts, …)
 
     1. Create a new project with `daml new quickstart --template quickstart-java`
        and switch to it using `cd quickstart`.
@@ -285,9 +277,9 @@ patches we backport to the 1.0 release branch).
       Alice and there is one template and one contract.
    1. Kill `daml start` with `Ctrl-C`.
    1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
-      the scenario result appears within 30 seconds.
-   1. Add `+` at the end of line 14 after `(PartyIdHint "Alice")` and verify that
-      you get an error on line 15.
+      the script result appears within 30 seconds.
+   1. Add `+` at the end of line 25 after `(PartyIdHint "Alice")` and verify that
+      you get an error on line 26.
 
 1. On your PR, add the comment:
 
@@ -296,7 +288,7 @@ patches we backport to the 1.0 release branch).
 1. If the release is bad, delete the release from [the releases page]. Mention
    why it is bad as a comment on your PR, and **stop the process here**.
 
-1. Announce the release on the relevant internal Slack channels (`#product-daml-connect`,
+1. Announce the release on the relevant internal Slack channels (`#product-daml`,
    `#team-daml`). For a stable release, direct people to the release blog post;
    for a prerelease, you can include the raw output of the `unreleased.sh`
    script.

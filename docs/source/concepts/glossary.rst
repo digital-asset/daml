@@ -110,6 +110,11 @@ A **controller** is a `party <#party>`__ that is able to `exercise <#exercise>`_
 
 Controllers must be at least an `observer`_, otherwise they can't see the contract to exercise it on. But they don't have to be a `signatory`_. this enables the :doc:`propose-accept pattern </daml/patterns/initaccept>`.
 
+Choice Observer
+---------------
+
+A **choice observer** is a `party <#party>`__ on a `choice <#choice>`__. Choice observers are guaranteed to see the choice being exercised and all its consequences with it.
+
 Stakeholder
 -----------
 

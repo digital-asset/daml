@@ -181,8 +181,6 @@ trait AuthMiddlewareFixture
     val oauthConfig = OAuthConfig(
       port = Port.Dynamic,
       ledgerId = this.getClass.getSimpleName,
-      // TODO[AH] Choose application ID, see https://github.com/digital-asset/daml/issues/7671
-      applicationId = None,
       jwtSecret = authSecret,
       parties = authParties,
       clock = None,
@@ -385,11 +383,11 @@ trait TriggerDaoPostgresFixture
   override protected def beforeEach(): Unit = {
     super.beforeEach()
 
-    triggerDao.initialize fold (fail(_), identity)
+    Await.result(triggerDao.initialize, Duration(30, SECONDS))
   }
 
   override protected def afterEach(): Unit = {
-    triggerDao.destroy() fold (fail(_), identity)
+    Await.result(triggerDao.destroy, Duration(30, SECONDS))
 
     super.afterEach()
   }

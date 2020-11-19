@@ -180,7 +180,7 @@ object JdbcIndexer {
           "updateSubmissionId" -> submissionId,
           "updateRejectionReason" -> rejectionReason,
         )
-      case TransactionAccepted(optSubmitterInfo, transactionMeta, _, transactionId, _, _) =>
+      case TransactionAccepted(optSubmitterInfo, transactionMeta, _, transactionId, _, _, _) =>
         Map(
           "updateTransactionId" -> transactionId,
           "updateLedgerTime" -> transactionMeta.ledgerEffectiveTime.toInstant.toString,
@@ -264,7 +264,9 @@ private[daml] class JdbcIndexer private[indexer] (
             transaction,
             transactionId,
             _,
-            divulgedContracts) =>
+            divulgedContracts,
+            blindingInfo,
+          ) =>
         Timed.future(
           metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
           Future {
@@ -279,6 +281,7 @@ private[daml] class JdbcIndexer private[indexer] (
                 offset = offset,
                 transaction = transaction,
                 divulgedContracts = divulgedContracts,
+                blindingInfo = blindingInfo,
               )
             )
           }(mat.executionContext)
@@ -297,7 +300,9 @@ private[daml] class JdbcIndexer private[indexer] (
             transaction,
             transactionId,
             recordTime,
-            divulgedContracts),
+            divulgedContracts,
+            blindingInfo,
+          ),
           preparedInsert) =>
         ledgerDao.storeTransaction(
           preparedInsert,
@@ -309,6 +314,7 @@ private[daml] class JdbcIndexer private[indexer] (
           offset = offset,
           transaction = transaction,
           divulged = divulgedContracts,
+          blindingInfo = blindingInfo,
         )
       case OffsetUpdate.OffsetUpdatePair(offset, update) =>
         update match {
@@ -395,6 +401,7 @@ private[daml] class JdbcIndexer private[indexer] (
                 offset = offset,
                 transaction = transaction,
                 divulgedContracts = divulgedContracts,
+                blindingInfo = blindingInfo,
               ),
               submitterInfo = optSubmitterInfo,
               workflowId = transactionMeta.workflowId,
@@ -404,6 +411,7 @@ private[daml] class JdbcIndexer private[indexer] (
               offset = offset,
               transaction = transaction,
               divulged = divulgedContracts,
+              blindingInfo = blindingInfo,
             )
         }
     }
