@@ -112,6 +112,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
           offsetToPruneUpTo = offsetAt[TransactionTree](txBeforePrune, itemsToPrune, _.offset)
 
+          offsetOfSecondToLastPrunedTransaction = offsetAt[TransactionTree](
+            txBeforePrune,
+            itemsToPrune - 1, // This offset is the largest exclusive offset we can no longer read from after
+            _.offset)
+
           offsetOfFirstSurvivingTransaction = offsetAt[TransactionTree](
             txBeforePrune,
             itemsToPrune + 1,
@@ -121,18 +126,14 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
           txAfterPrune <- participant.transactionTrees(
             participant
-              .getTransactionsRequest(Seq(submitter))
+              .getTransactionsRequest(parties = Seq(submitter))
               .update(_.begin := offsetToPruneUpTo))
 
           cannotReadAnymore <- participant
             .transactionTrees(
               participant
-                .getTransactionsRequest(Seq(submitter))
-                .update(
-                  _.begin := offsetAt[TransactionTree](
-                    txBeforePrune,
-                    itemsToPrune - 1, // This offset is the largest exclusive offset we can no longer read from after
-                    _.offset))
+                .getTransactionsRequest(parties = Seq(submitter))
+                .update(_.begin := offsetOfSecondToLastPrunedTransaction)
             )
             .failed
         } yield {
@@ -164,6 +165,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
           offsetToPruneUpTo = offsetAt[Transaction](txBeforePrune, itemsToPrune, _.offset)
 
+          offsetOfSecondToLastPrunedTransaction = offsetAt[Transaction](
+            txBeforePrune,
+            itemsToPrune - 1, // This offset is the largest exclusive offset we can no longer read from after
+            _.offset)
+
           offsetOfFirstSurvivingTransaction = offsetAt[Transaction](
             txBeforePrune,
             itemsToPrune + 1,
@@ -173,18 +179,14 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
           txAfterPrune <- participant.flatTransactions(
             participant
-              .getTransactionsRequest(Seq(submitter))
+              .getTransactionsRequest(parties = Seq(submitter))
               .update(_.begin := offsetToPruneUpTo))
 
           cannotReadAnymore <- participant
             .flatTransactions(
               participant
-                .getTransactionsRequest(Seq(submitter))
-                .update(
-                  _.begin := offsetAt[Transaction](
-                    txBeforePrune,
-                    itemsToPrune - 1, // This offset is the largest exclusive offset we can no longer read from after
-                    _.offset))
+                .getTransactionsRequest(parties = Seq(submitter))
+                .update(_.begin := offsetOfSecondToLastPrunedTransaction)
             )
             .failed
         } yield {
@@ -222,6 +224,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
         offsetToPruneUpTo = offsetAt[TransactionTree](transactionsLookup, itemsToPrune, _.offset)
 
+        offsetOfSecondToLastPrunedCheckpoint = offsetAt[TransactionTree](
+          transactionsLookup,
+          itemsToPrune - 1, // This offset is the largest exclusive offset we can no longer read from after
+          _.offset)
+
         offsetOfFirstSurvivingCheckpoint = offsetAt[TransactionTree](
           transactionsLookup,
           itemsToPrune + 1,
@@ -236,12 +243,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         cannotReadAnymore <- participant
           .checkpoints(
             1,
-            participant.completionStreamRequest(
-              offsetAt[TransactionTree](
-                transactionsLookup,
-                itemsToPrune - 1, // This offset is the largest exclusive offset we can no longer read from after
-                _.offset))(submitter)
-          )
+            participant.completionStreamRequest(offsetOfSecondToLastPrunedCheckpoint)(submitter))
           .failed
       } yield {
         assert(firstCheckpointsBeforePrune.offset.exists(o =>
@@ -316,15 +318,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
         prunedTransactionTrees <- Future.sequence(
           prunedTransactionIds.map(participant.transactionTreeById(_, submitter).failed))
 
-        unprunedTransactionTrees <- Future.sequence(
+        _ <- Future.sequence(
           unprunedTransactionIds.map(participant.transactionTreeById(_, submitter)))
       } yield {
-        assert(
-          prunedTransactionTrees.size == transactionsPerBatch,
-          "None of the pruned transaction trees should be visible")
-        assert(
-          unprunedTransactionTrees.size == transactionsPerBatch,
-          "All unpruned transaction trees should be visible")
         prunedTransactionTrees.foreach(
           assertGrpcError(_, Status.Code.NOT_FOUND, "Transaction not found, or not visible."))
       }
@@ -359,15 +355,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
         prunedFlatTransactions <- Future.sequence(
           prunedTransactionIds.map(participant.flatTransactionById(_, submitter).failed))
 
-        unprunedFlatTransactions <- Future.sequence(
+        _ <- Future.sequence(
           unprunedTransactionIds.map(participant.flatTransactionById(_, submitter)))
       } yield {
-        assert(
-          prunedFlatTransactions.size == transactionsPerBatch,
-          "None of the pruned flat transactions should be visible")
-        assert(
-          unprunedFlatTransactions.size == transactionsPerBatch,
-          "All unpruned flat transactions should be visible")
         prunedFlatTransactions.foreach(
           assertGrpcError(_, Status.Code.NOT_FOUND, "Transaction not found, or not visible."))
       }
@@ -411,15 +401,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
         prunedEventsViaTree <- Future.sequence(
           prunedEventIds.map(participant.transactionTreeByEventId(_, submitter).failed))
 
-        unprunedEventsViaTree <- Future.sequence(
+        _ <- Future.sequence(
           unprunedEventIds.map(participant.transactionTreeByEventId(_, submitter)))
       } yield {
-        assert(
-          prunedEventsViaTree.size == transactionsPerBatch,
-          "None of the pruned events via transaction trees should be visible")
-        assert(
-          unprunedEventsViaTree.size == transactionsPerBatch,
-          "All unpruned events via transaction trees should be visible")
         prunedEventsViaTree.foreach(
           assertGrpcError(_, Status.Code.NOT_FOUND, "Transaction not found, or not visible."))
       }
@@ -463,15 +447,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
         prunedEventsViaFlat <- Future.sequence(
           prunedEventIds.map(participant.flatTransactionByEventId(_, submitter).failed))
 
-        unprunedEventsViaFlat <- Future.sequence(
+        _ <- Future.sequence(
           unprunedEventIds.map(participant.flatTransactionByEventId(_, submitter)))
       } yield {
-        assert(
-          prunedEventsViaFlat.size == transactionsPerBatch,
-          "None of the pruned events via flat transactions should be visible")
-        assert(
-          unprunedEventsViaFlat.size == transactionsPerBatch,
-          "All unpruned events via flat transactions should be visible")
         prunedEventsViaFlat.foreach(
           assertGrpcError(_, Status.Code.NOT_FOUND, "Transaction not found, or not visible."))
       }
@@ -500,7 +478,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
           txAfterPrune <- participant.transactionTrees(
             participant
-              .getTransactionsRequest(Seq(submitter))
+              .getTransactionsRequest(parties = Seq(submitter))
               .update(_.begin := offsetToPruneUpTo))
 
           offsetAlreadyPruned = offsetAt[TransactionTree](txBeforePrune, itemsToPrune / 2, _.offset)
@@ -509,7 +487,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
           txAfterRedundantPrune <- participant.transactionTrees(
             participant
-              .getTransactionsRequest(Seq(submitter))
+              .getTransactionsRequest(parties = Seq(submitter))
               .update(_.begin := offsetToPruneUpTo))
 
           offsetToPruneUpToInSecondRealPrune = offsetAt[TransactionTree](
@@ -522,11 +500,11 @@ class ParticipantPruningIT extends LedgerTestSuite {
             itemsToPrune * 2 + 1,
             _.offset)
 
-          _ <- participant.prune(offsetToPruneUpTo)
+          _ <- participant.prune(offsetToPruneUpToInSecondRealPrune)
 
           txAfterSecondPrune <- participant.transactionTrees(
             participant
-              .getTransactionsRequest(Seq(submitter))
+              .getTransactionsRequest(parties = Seq(submitter))
               .update(_.begin := offsetToPruneUpToInSecondRealPrune))
 
         } yield {

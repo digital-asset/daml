@@ -17,8 +17,20 @@ trait WriteParticipantPruningService {
     * Ledgers that do not elect to support participant pruning, return NotPruned(Status.UNIMPLEMENTED). Returning an
     * error also keeps the ledger api server from pruning its index.
     *
-    * Ledgers whose participants hold no participant-local state, but want the ledger api server to prune, return the
-    * input offset as the output.
+    * Ledgers whose participants hold no participant-local state, but want the ledger api server to prune, return
+    * ParticipantPruned.
+    *
+    * For pruning implementations to be fault tolerant, the following aspects are important:
+    * - Consider failing a prune request before embarking on destructive operations for example if certain safety
+    *   conditions are not met (such as being low on resources). This helps minimize the chances of partially performed
+    *   prune operations. If the system cannot prune up to the specified offset, the call should not alter the system
+    *   and return NotPruned rather than prune partially.
+    * - Implement pruning either atomically (performing all operations or none), or break down pruning steps into
+    *   idempotent pieces that pick up after retries or system recovery in case of a mid-pruning crash.
+    * - To the last point, be aware that pruning of the ledger api server index happens in such an idempotent follow-up
+    *   step upon successful completion of each prune call. To reach eventual consistency upon failures, be sure
+    *   to return ParticipantPruned even if the specified offset has already been pruned to allow ledger api server
+    *   index pruning to proceed in case of an earlier failure.
     */
   def prune(pruneUpToInclusive: Offset, submissionId: SubmissionId): CompletionStage[PruningResult]
 

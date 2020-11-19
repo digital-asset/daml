@@ -8,7 +8,7 @@ import io.grpc.Status
 sealed trait PruningResult extends Product with Serializable
 
 /**
-  * Pruning has been performed. Indicates readiness to prune the ledger api server at the same offset passed to the
+  * Pruning has been performed. Commits the ledger api server to prune at the same offset passed to the
   * WriteService.
   */
 case object ParticipantPruned extends PruningResult

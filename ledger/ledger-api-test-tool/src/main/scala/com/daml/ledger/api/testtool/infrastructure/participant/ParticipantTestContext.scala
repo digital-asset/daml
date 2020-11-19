@@ -666,6 +666,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     )
 
   def prune(pruneUpTo: Option[LedgerOffset], attempts: Int): Future[Empty] =
+    // Distributed ledger participants need to reach global consensus prior to pruning. Hence the "eventually" here:
     eventually(attempts = attempts, runAssertion = {
       services.participantPruning.prune(PruneRequest(pruneUpTo, nextSubmissionId()))
     })

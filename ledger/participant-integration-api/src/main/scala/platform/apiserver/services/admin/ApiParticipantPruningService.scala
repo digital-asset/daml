@@ -19,8 +19,8 @@ import com.daml.ledger.participant.state.v1.{
   SubmissionId,
   WriteParticipantPruningService
 }
-import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.ApiOffset
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.empty.Empty
@@ -58,6 +58,8 @@ final class ApiParticipantPruningService private (
 
               pruneUpTo <- validateRequest(request: PruneRequest)
 
+              // If write service pruning succeeds but ledger api server index pruning fails, the user can bring the
+              // systems back in sync by reissuing the prune request at the currently specified or later offset.
               _ <- pruneWriteService(pruneUpTo, submissionId)
 
               pruneResponse <- pruneLedgerApiServerIndex(pruneUpTo)
@@ -115,13 +117,13 @@ final class ApiParticipantPruningService private (
 
   private def checkOffsetIsHexadecimal(
       pruneUpToString: String): Either[StatusRuntimeException, Offset] =
-    Ref.HexString
+    ApiOffset
       .fromString(pruneUpToString)
+      .toEither
       .left
-      .map(err =>
+      .map(t =>
         ErrorFactories.invalidArgument(
-          s"prune_up_to needs to be a hexadecimal string and not ${pruneUpToString}: ${err}"))
-      .map(Offset.fromHexString)
+          s"prune_up_to needs to be a hexadecimal string and not ${pruneUpToString}: ${t.getMessage}"))
 
   private def checkOffsetIsBeforeLedgerEnd(pruneUpToProto: Offset, pruneUpToString: String)(
       implicit logCtx: LoggingContext): Future[Offset] =
