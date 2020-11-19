@@ -4,6 +4,7 @@
 package com.daml.platform.store.dao
 
 import akka.stream.scaladsl.Source
+import anorm.{BatchSql, NamedParameter}
 
 /**
   * Type aliases used throughout the package
@@ -85,5 +86,8 @@ package object events {
 
   private[events] def convert(template: Identifier, key: lftx.Node.KeyWithMaintainers[Value]): Key =
     Key.assertBuild(template, key.key.value)
+
+  private[events] def batch(query: String, parameters: Seq[Seq[NamedParameter]]): Option[BatchSql] =
+    if (parameters.isEmpty) None else Some(BatchSql(query, parameters.head, parameters.tail: _*))
 
 }

@@ -4,189 +4,194 @@
 package com.daml.platform.store.dao.events
 
 import java.time.Instant
+
 import anorm.{BatchSql, NamedParameter}
-import com.daml.ledger.participant.state.v1.{CommittedTransaction, Offset, SubmitterInfo}
-import com.daml.ledger._
+import com.daml.ledger.{EventId, TransactionId}
+import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo, WorkflowId}
 import com.daml.platform.store.Conversions._
 
 private[events] trait EventsTableInsert { this: EventsTable =>
 
-  private def insertEvent(
-      commonPrefix: Seq[(String, String)],
-      columnNameAndValues: (String, String)*): String = {
-    val (columns, values) = (commonPrefix ++ columnNameAndValues).unzip
-    s"insert into participant_events(${columns.mkString(", ")}) values (${values.mkString(", ")})"
-  }
-
-  private def commonPrefix = Seq(
-    "event_id" -> "{event_id}",
-    "event_offset" -> "{event_offset}",
-    "contract_id" -> "{contract_id}",
-    "transaction_id" -> "{transaction_id}",
-    "workflow_id" -> "{workflow_id}",
-    "ledger_effective_time" -> "{ledger_effective_time}",
-    "template_id" -> "{template_id}",
-    "node_index" -> "{node_index}",
-    "command_id" -> "{command_id}",
-    "application_id" -> "{application_id}",
-    "submitter" -> "{submitter}",
-    "flat_event_witnesses" -> "{flat_event_witnesses}",
-    "tree_event_witnesses" -> "{tree_event_witnesses}",
-  )
-
-  private val insertEvent: String =
-    insertEvent(
-      commonPrefix,
-      // create event values
+  private val insertEvent: String = {
+    val (columns, values) = Seq(
+      "event_id" -> "{event_id}",
+      "event_offset" -> "{event_offset}",
+      "contract_id" -> "{contract_id}",
+      "transaction_id" -> "{transaction_id}",
+      "workflow_id" -> "{workflow_id}",
+      "ledger_effective_time" -> "{ledger_effective_time}",
+      "template_id" -> "{template_id}",
+      "node_index" -> "{node_index}",
+      "command_id" -> "{command_id}",
+      "application_id" -> "{application_id}",
+      "submitter" -> "{submitter}",
+      "flat_event_witnesses" -> "{flat_event_witnesses}",
+      "tree_event_witnesses" -> "{tree_event_witnesses}",
       "create_argument" -> "{create_argument}",
       "create_signatories" -> "{create_signatories}",
       "create_observers" -> "{create_observers}",
       "create_agreement_text" -> "{create_agreement_text}",
       "create_consumed_at" -> "null",
       "create_key_value" -> "{create_key_value}",
-      // exercise event values
       "exercise_consuming" -> "{exercise_consuming}",
       "exercise_choice" -> "{exercise_choice}",
       "exercise_argument" -> "{exercise_argument}",
       "exercise_result" -> "{exercise_result}",
       "exercise_actors" -> "{exercise_actors}",
       "exercise_child_event_ids" -> "{exercise_child_event_ids}"
-    )
+    ).unzip
+    s"insert into participant_events(${columns.mkString(", ")}) values (${values.mkString(", ")})"
+  }
+
+  private def transaction(
+      offset: Offset,
+      transactionId: TransactionId,
+      workflowId: Option[WorkflowId],
+      ledgerEffectiveTime: Instant,
+      submitterInfo: Option[SubmitterInfo],
+      events: Vector[(NodeId, Node)],
+      stakeholders: WitnessRelation[NodeId],
+      disclosure: WitnessRelation[NodeId],
+      createArguments: Map[NodeId, Array[Byte]],
+      createKeyValues: Map[NodeId, Array[Byte]],
+      exerciseArguments: Map[NodeId, Array[Byte]],
+      exerciseResults: Map[NodeId, Array[Byte]],
+  ): Vector[Vector[NamedParameter]] = {
+    val shared =
+      Vector[NamedParameter](
+        "event_offset" -> offset,
+        "transaction_id" -> transactionId,
+        "workflow_id" -> workflowId,
+        "ledger_effective_time" -> ledgerEffectiveTime,
+        "command_id" -> submitterInfo.map(_.commandId),
+        "application_id" -> submitterInfo.map(_.applicationId),
+        "submitter" -> submitterInfo.map(_.singleSubmitterOrThrow()),
+      )
+    for ((nodeId, node) <- events)
+      yield
+        shared ++ event(
+          transactionId,
+          nodeId,
+          stakeholders(nodeId),
+          disclosure(nodeId),
+          node,
+          createArguments.get(nodeId),
+          createKeyValues.get(nodeId),
+          exerciseArguments.get(nodeId),
+          exerciseResults.get(nodeId),
+        )
+  }
+
+  private def event(
+      transactionId: TransactionId,
+      nodeId: NodeId,
+      stakeholders: Set[Party],
+      disclosure: Set[Party],
+      node: Node,
+      createArgument: Option[Array[Byte]],
+      createKeyValue: Option[Array[Byte]],
+      exerciseArgument: Option[Array[Byte]],
+      exerciseResult: Option[Array[Byte]],
+  ): Vector[NamedParameter] = {
+    val shared =
+      Vector[NamedParameter](
+        "event_id" -> EventId(transactionId, nodeId).toLedgerString,
+        "node_index" -> nodeId.index,
+        "flat_event_witnesses" -> Party.Array(stakeholders.toSeq: _*),
+        "tree_event_witnesses" -> Party.Array(disclosure.toSeq: _*),
+      )
+    val nonShared =
+      node match {
+        case event: Create => create(event, createArgument.get, createKeyValue)
+        case event: Exercise => exercise(event, transactionId, exerciseArgument.get, exerciseResult)
+        case _ => throw new UnexpectedNodeException(nodeId, transactionId)
+      }
+    shared ++ nonShared
+  }
+
+  private def create(
+      event: Create,
+      argument: Array[Byte],
+      key: Option[Array[Byte]],
+  ): Vector[NamedParameter] =
+    Vector[NamedParameter](
+      "contract_id" -> event.coid.coid,
+      "template_id" -> event.coinst.template,
+      "create_argument" -> argument,
+      "create_signatories" -> event.signatories.toArray[String],
+      "create_observers" -> event.stakeholders.diff(event.signatories).toArray[String],
+      "create_agreement_text" -> event.coinst.agreementText,
+      "create_key_value" -> key,
+    ) ++ emptyExerciseFields
+
+  private def exercise(
+      event: Exercise,
+      transactionId: TransactionId,
+      argument: Array[Byte],
+      result: Option[Array[Byte]],
+  ): Vector[NamedParameter] =
+    Vector[NamedParameter](
+      "contract_id" -> event.targetCoid,
+      "template_id" -> event.templateId,
+      "exercise_consuming" -> event.consuming,
+      "exercise_choice" -> event.choiceId,
+      "exercise_argument" -> argument,
+      "exercise_result" -> result,
+      "exercise_actors" -> event.actingParties.toArray[String],
+      "exercise_child_event_ids" -> event.children
+        .map(EventId(transactionId, _).toLedgerString)
+        .toArray[String],
+    ) ++ emptyCreateFields
+
+  private val emptyCreateFields = Vector[NamedParameter](
+    "create_argument" -> Option.empty[Array[Byte]],
+    "create_signatories" -> Option.empty[Array[String]],
+    "create_observers" -> Option.empty[Array[String]],
+    "create_agreement_text" -> Option.empty[String],
+    "create_key_value" -> Option.empty[Array[Byte]],
+  )
+
+  private val emptyExerciseFields = Vector[NamedParameter](
+    "exercise_consuming" -> Option.empty[Boolean],
+    "exercise_choice" -> Option.empty[String],
+    "exercise_argument" -> Option.empty[Array[Byte]],
+    "exercise_result" -> Option.empty[Array[Byte]],
+    "exercise_actors" -> Option.empty[Array[String]],
+    "exercise_child_event_ids" -> Option.empty[Array[String]],
+  )
 
   private val updateArchived =
     """update participant_events set create_consumed_at={consumed_at} where contract_id={contract_id} and create_argument is not null"""
 
-  private def archive(
-      contractId: ContractId,
-      consumedAt: Offset,
-  ): Vector[NamedParameter] =
+  private def archive(consumedAt: Offset)(contractId: ContractId): Vector[NamedParameter] =
     Vector[NamedParameter](
       "consumed_at" -> consumedAt,
       "contract_id" -> contractId.coid,
     )
 
-  final class RawBatches private[EventsTableInsert] (
-      events: Option[RawBatch],
-      archives: Option[BatchSql],
-  ) {
-    def applySerialization(
-        lfValueTranslation: LfValueTranslation,
-    ): SerializedBatches =
-      new SerializedBatches(
-        events = events.map(_.applySerialization(lfValueTranslation)),
-        archives = archives,
-      )
-  }
-
-  final class SerializedBatches(
-      events: Option[Vector[Vector[NamedParameter]]],
-      archives: Option[BatchSql],
-  ) {
-    def applyBatching(): PreparedBatches =
-      new PreparedBatches(
-        events = events.map(cs => BatchSql(insertEvent, cs.head, cs.tail: _*)),
-        archives = archives,
-      )
-  }
-
-  final class PreparedBatches(
-      events: Option[BatchSql],
-      archives: Option[BatchSql],
-  ) {
-    def isEmpty: Boolean = events.isEmpty && archives.isEmpty
-    def foreach[U](f: BatchSql => U): Unit = {
-      events.foreach(f)
-      archives.foreach(f)
-    }
-  }
-
-  private case class AccumulatingBatches(
-      events: Vector[RawBatch.Event[RawBatch.Event.Specific]],
-      archives: Vector[Vector[NamedParameter]],
-  ) {
-
-    def add(event: RawBatch.Event[RawBatch.Event.Specific]): AccumulatingBatches =
-      copy(events = this.events :+ event)
-
-    def add(archive: Vector[NamedParameter]): AccumulatingBatches =
-      copy(archives = archives :+ archive)
-
-    private def prepareRawNonEmpty(
-        params: Vector[RawBatch.Event[_]],
-    ): Option[RawBatch] =
-      if (params.nonEmpty) Some(new RawBatch(params)) else None
-
-    private def prepareNonEmpty(
-        query: String,
-        params: Vector[Vector[NamedParameter]],
-    ): Option[BatchSql] =
-      if (params.nonEmpty) Some(BatchSql(query, params.head, params.tail: _*)) else None
-
-    def prepare: RawBatches =
-      new RawBatches(
-        prepareRawNonEmpty(events),
-        prepareNonEmpty(updateArchived, archives),
-      )
-
-  }
-
-  private object AccumulatingBatches {
-    val empty: AccumulatingBatches = AccumulatingBatches(
-      events = Vector.empty,
-      archives = Vector.empty,
+  def toExecutables(
+      serialized: TransactionIndexingInfo.Serialized,
+  ): (Option[BatchSql], Option[BatchSql]) = {
+    val events = transaction(
+      offset = serialized.info.offset,
+      transactionId = serialized.info.transactionId,
+      workflowId = serialized.info.workflowId,
+      ledgerEffectiveTime = serialized.info.ledgerEffectiveTime,
+      submitterInfo = serialized.info.submitterInfo,
+      events = serialized.info.events,
+      stakeholders = serialized.info.stakeholders,
+      disclosure = serialized.info.disclosure,
+      createArguments = serialized.createArguments,
+      createKeyValues = serialized.createKeyValues,
+      exerciseArguments = serialized.exerciseArguments,
+      exerciseResults = serialized.exerciseResults,
     )
-  }
-
-  /**
-    * @throws RuntimeException If a value cannot be serialized into an array of bytes
-    */
-  @throws[RuntimeException]
-  def prepareBatchInsert(
-      submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      ledgerEffectiveTime: Instant,
-      offset: Offset,
-      transaction: CommittedTransaction,
-      flatWitnesses: WitnessRelation[NodeId],
-      treeWitnesses: WitnessRelation[NodeId],
-  ): RawBatches = {
-    def event[Sp <: RawBatch.Event.Specific](nodeId: NodeId, sp: Sp) =
-      new RawBatch.Event(
-        applicationId = submitterInfo.map(_.applicationId),
-        workflowId = workflowId,
-        commandId = submitterInfo.map(_.commandId),
-        transactionId = transactionId,
-        nodeId = nodeId,
-        submitter = submitterInfo.map(_.singleSubmitterOrThrow()),
-        ledgerEffectiveTime = ledgerEffectiveTime,
-        offset = offset,
-        flatWitnesses = flatWitnesses getOrElse (nodeId, Set.empty),
-        treeWitnesses = treeWitnesses getOrElse (nodeId, Set.empty),
-        specific = sp,
-      )
-
-    transaction
-      .fold(AccumulatingBatches.empty) {
-        case (batches, (nodeId, node: Create)) =>
-          batches.add(event(nodeId, new RawBatch.Event.Created(node)))
-        case (batches, (nodeId, node: Exercise)) =>
-          val batchWithExercises =
-            batches.add(event(nodeId, new RawBatch.Event.Exercised(node)))
-          if (node.consuming) {
-            batchWithExercises.add(
-              archive(
-                contractId = node.targetCoid,
-                consumedAt = offset,
-              )
-            )
-          } else {
-            batchWithExercises
-          }
-        case (batches, _) =>
-          batches // ignore any event which is neither a create nor an exercise
-      }
-      .prepare
+    val archivals =
+      serialized.info.archives.iterator.map(archive(serialized.info.offset)).toList
+    (
+      batch(insertEvent, events),
+      batch(updateArchived, archivals),
+    )
   }
 
 }

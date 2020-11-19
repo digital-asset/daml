@@ -260,30 +260,22 @@ private[daml] class JdbcIndexer private[indexer] (
 
   private def prepareTransactionInsert(offset: Offset, update: Update): Future[OffsetUpdate] =
     update match {
-      case update @ TransactionAccepted(
-            optSubmitterInfo,
-            transactionMeta,
-            transaction,
-            transactionId,
-            _,
-            divulgedContracts,
-            blindingInfo,
-          ) =>
+      case tx: TransactionAccepted =>
         Timed.future(
           metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
           Future {
             OffsetUpdate.PreparedTransactionInsert(
               offset = offset,
-              update = update,
+              update = tx,
               preparedInsert = ledgerDao.prepareTransactionInsert(
-                submitterInfo = optSubmitterInfo,
-                workflowId = transactionMeta.workflowId,
-                transactionId = transactionId,
-                ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
+                submitterInfo = tx.optSubmitterInfo,
+                workflowId = tx.transactionMeta.workflowId,
+                transactionId = tx.transactionId,
+                ledgerEffectiveTime = tx.transactionMeta.ledgerEffectiveTime.toInstant,
                 offset = offset,
-                transaction = transaction,
-                divulgedContracts = divulgedContracts,
-                blindingInfo = blindingInfo,
+                transaction = tx.transaction,
+                divulgedContracts = tx.divulgedContracts,
+                blindingInfo = tx.blindingInfo,
               )
             )
           }(mat.executionContext)
@@ -309,7 +301,6 @@ private[daml] class JdbcIndexer private[indexer] (
         ledgerDao.storeTransaction(
           preparedInsert,
           submitterInfo = optSubmitterInfo,
-          workflowId = transactionMeta.workflowId,
           transactionId = transactionId,
           recordTime = recordTime.toInstant,
           ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
@@ -406,7 +397,6 @@ private[daml] class JdbcIndexer private[indexer] (
                 blindingInfo = blindingInfo,
               ),
               submitterInfo = optSubmitterInfo,
-              workflowId = transactionMeta.workflowId,
               transactionId = transactionId,
               recordTime = recordTime.toInstant,
               ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,

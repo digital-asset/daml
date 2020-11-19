@@ -436,7 +436,6 @@ private class JdbcLedgerDao(
   override def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
@@ -468,8 +467,10 @@ private class JdbcLedgerDao(
               .foreach(_.execute())
           )
         } else {
-          for (info @ SubmitterInfo(_, _, commandId, _) <- submitterInfo) {
-            stopDeduplicatingCommandSync(domain.CommandId(commandId), info.singleSubmitterOrThrow())
+          for (info <- submitterInfo) {
+            stopDeduplicatingCommandSync(
+              domain.CommandId(info.commandId),
+              info.singleSubmitterOrThrow())
             prepareRejectionInsert(info, offset, recordTime, error.get).execute()
           }
         }
@@ -490,8 +491,10 @@ private class JdbcLedgerDao(
       if (enableAsyncCommits) {
         queries.enableAsyncCommit
       }
-      for (info @ SubmitterInfo(_, _, commandId, _) <- submitterInfo) {
-        stopDeduplicatingCommandSync(domain.CommandId(commandId), info.singleSubmitterOrThrow())
+      for (info <- submitterInfo) {
+        stopDeduplicatingCommandSync(
+          domain.CommandId(info.commandId),
+          info.singleSubmitterOrThrow())
         prepareRejectionInsert(info, offset, recordTime, reason).execute()
       }
       ParametersTable.updateLedgerEnd(offset)

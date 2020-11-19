@@ -9,11 +9,10 @@ import java.time.Instant
 import anorm.SqlParser.int
 import anorm.{BatchSql, NamedParameter, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.PartyDetails
-import com.daml.ledger.participant.state.v1.{CommittedTransaction, DivulgedContract}
+import com.daml.ledger.participant.state.v1.DivulgedContract
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.JdbcLedgerDao
-import com.daml.platform.store.dao.events.RawBatch.PartialParameters
 
 import scala.util.{Failure, Success, Try}
 
@@ -23,159 +22,63 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
 
   private val deleteContractQuery =
     s"delete from participant_contracts where contract_id = {contract_id}"
+
   private def deleteContract(contractId: ContractId): Vector[NamedParameter] =
     Vector[NamedParameter]("contract_id" -> contractId)
 
-  private case class AccumulatingBatches(
-      insertions: Map[ContractId, PartialParameters],
-      deletions: Map[ContractId, Vector[NamedParameter]],
-      transientContracts: Set[ContractId],
-  ) {
+  private def insertContract(
+      contractId: ContractId,
+      templateId: Identifier,
+      createArgument: Array[Byte],
+      ledgerEffectiveTime: Option[Instant],
+      stakeholders: Set[Party],
+      key: Option[Key],
+  ): Vector[NamedParameter] =
+    Vector[NamedParameter](
+      "contract_id" -> contractId,
+      "template_id" -> templateId,
+      "create_argument" -> createArgument,
+      "create_ledger_effective_time" -> ledgerEffectiveTime,
+      "create_stakeholders" -> stakeholders.toArray[String],
+      "create_key_hash" -> key.map(_.hash),
+    )
 
-    def insert(contractId: ContractId, insertion: PartialParameters): AccumulatingBatches =
-      copy(insertions = insertions.updated(contractId, insertion))
-
-    // If the batch contains the contractId, remove the insertion.
-    // Otherwise, add a delete. This prevents the insertion of transient contracts.
-    def delete(contractId: ContractId, deletion: => Vector[NamedParameter]): AccumulatingBatches =
-      if (insertions.contains(contractId))
-        copy(
-          insertions = insertions - contractId,
-          transientContracts = transientContracts + contractId,
+  def toExecutables(
+      serialized: TransactionIndexingInfo.Serialized,
+  ): (Option[BatchSql], Option[BatchSql]) = {
+    val deletes =
+      serialized.info.netArchives.iterator
+        .map(deleteContract)
+    val localInserts =
+      for {
+        create <- serialized.info.netCreates.iterator
+      } yield
+        insertContract(
+          contractId = create.coid,
+          templateId = create.templateId,
+          createArgument = serialized.createArgumentsByContract(create.coid),
+          ledgerEffectiveTime = Some(serialized.info.ledgerEffectiveTime),
+          stakeholders = create.stakeholders,
+          key = create.key.map(convert(create.templateId, _))
         )
-      else
-        copy(deletions = deletions.updated(contractId, deletion))
-
-    def contains(contractId: ContractId): Boolean =
-      insertions.contains(contractId) ||
-        deletions.contains(contractId) ||
-        transientContracts.contains(contractId)
-
-    private def prepareRawNonEmpty(
-        contractIdToParameters: Map[ContractId, PartialParameters],
-    ): Option[(Set[ContractId], RawBatch)] = {
-      if (contractIdToParameters.nonEmpty) {
-        val contractIds = contractIdToParameters.keySet
-        val parameters = contractIdToParameters.valuesIterator.toVector
-        val batch = new RawBatch(parameters)
-        Some(contractIds -> batch)
-      } else {
-        None
+    val divulgedInserts =
+      for {
+        DivulgedContract(contractId, contractInst) <- serialized.info.divulgedContracts.iterator
+      } yield {
+        insertContract(
+          contractId = contractId,
+          templateId = contractInst.template,
+          createArgument = serialized.createArgumentsByContract(contractId),
+          ledgerEffectiveTime = None,
+          stakeholders = Set.empty,
+          key = None,
+        )
       }
-    }
-
-    private def prepareNonEmpty(
-        query: String,
-        contractIdToParameters: Map[ContractId, Vector[NamedParameter]],
-    ): Option[(Set[ContractId], BatchSql)] = {
-      if (contractIdToParameters.nonEmpty) {
-        val contractIds = contractIdToParameters.keySet
-        val parameters = contractIdToParameters.valuesIterator.toSeq
-        val batch = BatchSql(query, parameters.head, parameters.tail: _*)
-        Some(contractIds -> batch)
-      } else {
-        None
-      }
-    }
-
-    def prepare: RawBatches =
-      new RawBatches(
-        insertions = prepareRawNonEmpty(insertions),
-        deletions = prepareNonEmpty(deleteContractQuery, deletions),
-        transientContracts = transientContracts,
-      )
-
-  }
-
-  final class RawBatches private[ContractsTable] (
-      val insertions: Option[(Set[ContractId], RawBatch)],
-      val deletions: Option[(Set[ContractId], BatchSql)],
-      val transientContracts: Set[ContractId],
-  ) {
-    def applySerialization(lfValueTranslation: LfValueTranslation): SerializedBatches =
-      new SerializedBatches(
-        insertions = insertions.map {
-          case (ids, rawBatch) => (ids, rawBatch.applySerialization(lfValueTranslation))
-        },
-        deletions = deletions,
-        transientContracts = transientContracts,
-      )
-  }
-
-  final class SerializedBatches private[ContractsTable] (
-      val insertions: Option[(Set[ContractId], Vector[Vector[NamedParameter]])],
-      val deletions: Option[(Set[ContractId], BatchSql)],
-      val transientContracts: Set[ContractId],
-  ) {
-    def applyBatching(): PreparedBatches =
-      new PreparedBatches(
-        insertions = insertions.map {
-          case (ids, params) => (ids, BatchSql(insertContractQuery, params.head, params.tail: _*))
-        },
-        deletions = deletions,
-        transientContracts = transientContracts,
-      )
-  }
-
-  final class PreparedBatches(
-      val insertions: Option[(Set[ContractId], BatchSql)],
-      val deletions: Option[(Set[ContractId], BatchSql)],
-      val transientContracts: Set[ContractId],
-  )
-
-  def prepareBatchInsert(
-      ledgerEffectiveTime: Instant,
-      transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
-  ): RawBatches = {
-
-    // Add the locally created contracts, ensuring that _transient_
-    // contracts are not inserted in the first place
-    val localContractStageChanges =
-      transaction
-        .fold(AccumulatingBatches(Map.empty, Map.empty, Set.empty)) {
-          case (batches, (_, node: Create)) =>
-            batches.insert(
-              contractId = node.coid,
-              insertion = new RawBatch.Contract(
-                contractId = node.coid,
-                templateId = node.coinst.template,
-                createArgument = node.coinst.arg,
-                createLedgerEffectiveTime = Some(ledgerEffectiveTime),
-                stakeholders = node.stakeholders,
-                key = node.key.map(k => Key.assertBuild(node.coinst.template, k.key.value)),
-              )
-            )
-          case (batches, (_, node: Exercise)) if node.consuming =>
-            batches.delete(
-              contractId = node.targetCoid,
-              deletion = deleteContract(node.targetCoid),
-            )
-          case (batches, _) =>
-            batches // ignore any event which is neither a create nor a consuming exercise
-        }
-
-    // Divulged contracts are inserted _after_ locally created contracts to make sure they are
-    // not skipped if consumed in this transaction due to the logic that prevents the insertion
-    // of transient contracts.
-    // We skip contracts that are either added or deleted as part of this transaction.
-    val divulgedContractsInsertions =
-      divulgedContracts.iterator.collect {
-        case contract if !localContractStageChanges.contains(contract.contractId) =>
-          contract.contractId -> new RawBatch.Contract(
-            contractId = contract.contractId,
-            templateId = contract.contractInst.template,
-            createArgument = contract.contractInst.arg,
-            createLedgerEffectiveTime = None,
-            stakeholders = Set.empty,
-            key = None,
-          )
-      }.toMap
-
-    localContractStageChanges
-      .copy(insertions = localContractStageChanges.insertions ++ divulgedContractsInsertions)
-      .prepare
-
+    val inserts = localInserts ++ divulgedInserts
+    (
+      batch(deleteContractQuery, deletes.toSeq),
+      batch(insertContractQuery, inserts.toSeq)
+    )
   }
 
   override final def lookupContractKeyGlobally(key: Key)(

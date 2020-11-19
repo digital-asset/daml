@@ -31,7 +31,7 @@ import com.google.protobuf.timestamp.Timestamp
 /**
   * Data access object for a table representing raw transactions nodes that
   * are going to be streamed off through the Ledger API. By joining these items
-  * with a [[WitnessesTable]] events can be filtered based on their visibility to
+  * with a [[ContractWitnessesTable]] events can be filtered based on their visibility to
   * a party.
   */
 private[events] object EventsTable

@@ -385,7 +385,6 @@ private final class SqlLedger(
             ledgerDao.storeTransaction(
               preparedInsert,
               Some(submitterInfo),
-              transactionMeta.workflowId,
               transactionId,
               recordTime,
               transactionMeta.ledgerEffectiveTime.toInstant,
