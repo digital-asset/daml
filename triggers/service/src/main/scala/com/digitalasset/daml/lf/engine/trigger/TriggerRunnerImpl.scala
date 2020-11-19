@@ -25,6 +25,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import TriggerRunner.{QueryingACS, Running, TriggerStatus}
+import com.daml.lf.engine.trigger.Tagged.AccessToken
 
 object TriggerRunnerImpl {
 
@@ -33,7 +34,7 @@ object TriggerRunnerImpl {
       triggerInstance: UUID,
       party: Party,
       applicationId: ApplicationId,
-      token: Option[String],
+      token: Option[AccessToken],
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
@@ -69,7 +70,7 @@ object TriggerRunnerImpl {
         commandClient = CommandClientConfiguration.default.copy(
           defaultDeduplicationTime = config.ledgerConfig.commandTtl),
         sslContext = None,
-        token = config.token,
+        token = AccessToken.unsubst(config.token),
         maxInboundMessageSize = config.ledgerConfig.maxInboundMessageSize,
       )
 

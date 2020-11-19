@@ -550,7 +550,7 @@ object Server {
               runningTrigger.triggerInstance,
               runningTrigger.triggerParty,
               runningTrigger.triggerApplicationId,
-              AccessToken.unsubst(runningTrigger.triggerToken),
+              runningTrigger.triggerToken,
               req.compiledPackages,
               req.trigger,
               ledgerConfig,

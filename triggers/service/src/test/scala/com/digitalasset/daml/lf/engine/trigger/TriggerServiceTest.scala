@@ -567,80 +567,82 @@ trait AbstractTriggerServiceTestAuthMiddleware
         resp <- listTriggers(uri, alice)
         _ <- resp.status shouldBe StatusCodes.OK
         // Expire old token and test the trigger service transparently requests a new token.
-        _ = authClock.fastForward(JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
+        _ = authClock.fastForward(
+          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
         resp <- listTriggers(uri, alice)
         _ <- resp.status shouldBe StatusCodes.OK
       } yield succeed
   }
 
-  it should "refresh a token after expiry on the server side" in withTriggerService(List(dar)) { uri: Uri =>
-    for {
-      client <- sandboxClient(
-        ApiTypes.ApplicationId("exp-app-id"),
-        actAs = List(ApiTypes.Party(aliceExp.unwrap)))
-      filter = TransactionFilter(
-        List(
-          (
+  it should "refresh a token after expiry on the server side" in withTriggerService(List(dar)) {
+    uri: Uri =>
+      for {
+        client <- sandboxClient(
+          ApiTypes.ApplicationId("exp-app-id"),
+          actAs = List(ApiTypes.Party(aliceExp.unwrap)))
+        filter = TransactionFilter(
+          List((
             aliceExp.unwrap,
             Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
-      // Make sure that no contracts exist initially to guard against accidental
-      // party reuse.
-      acs <- client.activeContractSetClient
-        .getActiveContracts(filter)
-        .runWith(Sink.seq)
-        .map(acsPages => acsPages.flatMap(_.activeContracts))
-      _ = acs shouldBe Vector()
-      // Start the trigger
-      resp <- startTrigger(
-        uri,
-        s"$testPkgId:TestTrigger:trigger",
-        aliceExp,
-        Some(ApplicationId("exp-app-id")))
-      triggerId <- parseTriggerId(resp)
+        // Make sure that no contracts exist initially to guard against accidental
+        // party reuse.
+        acs <- client.activeContractSetClient
+          .getActiveContracts(filter)
+          .runWith(Sink.seq)
+          .map(acsPages => acsPages.flatMap(_.activeContracts))
+        _ = acs shouldBe Vector()
+        // Start the trigger
+        resp <- startTrigger(
+          uri,
+          s"$testPkgId:TestTrigger:trigger",
+          aliceExp,
+          Some(ApplicationId("exp-app-id")))
+        triggerId <- parseTriggerId(resp)
 
-      // Expire old token and test that the trigger service requests a new token.
-      _ = authClock.fastForward(JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
+        // Expire old token and test that the trigger service requests a new token.
+        _ = authClock.fastForward(
+          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
 
-      // Trigger is running, create an A contract
-      _ <- {
-        val cmd = Command().withCreate(
-          CreateCommand(
-            templateId = Some(Identifier(testPkgId, "TestTrigger", "A")),
-            createArguments = Some(
-              Record(
-                None,
-                Seq(
-                  RecordField(value = Some(Value().withParty(aliceExp.unwrap))),
-                  RecordField(value = Some(Value().withInt64(42)))))),
-          ))
-        submitCmd(client, aliceExp.unwrap, cmd)
-      }
-      // Query ACS until we see a B contract
-      _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
-        for {
-          acs <- client.activeContractSetClient
-            .getActiveContracts(filter)
-            .runWith(Sink.seq)
-            .map(acsPages => acsPages.flatMap(_.activeContracts))
-        } yield assert(acs.length == 1)
-      }
-      // Read completions to make sure we set the right app id.
-      r <- client.commandClient
-        .completionSource(List(aliceExp.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
-        .collect({
-          case CompletionStreamElement.CompletionElement(completion)
-            if !completion.transactionId.isEmpty =>
-            completion
-        })
-        .take(1)
-        .runWith(Sink.seq)
-      _ = r.length shouldBe 1
-      status <- triggerStatus(uri, triggerId)
-      _ = status.status shouldBe StatusCodes.OK
-      body <- responseBodyToString(status)
-      _ = body shouldBe s"""{"result":{"party":"Alice_exp","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
-      resp <- stopTrigger(uri, triggerId, aliceExp)
-      _ <- assert(resp.status.isSuccess)
-    } yield succeed
+        // Trigger is running, create an A contract
+        _ <- {
+          val cmd = Command().withCreate(
+            CreateCommand(
+              templateId = Some(Identifier(testPkgId, "TestTrigger", "A")),
+              createArguments = Some(
+                Record(
+                  None,
+                  Seq(
+                    RecordField(value = Some(Value().withParty(aliceExp.unwrap))),
+                    RecordField(value = Some(Value().withInt64(42)))))),
+            ))
+          submitCmd(client, aliceExp.unwrap, cmd)
+        }
+        // Query ACS until we see a B contract
+        _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
+          for {
+            acs <- client.activeContractSetClient
+              .getActiveContracts(filter)
+              .runWith(Sink.seq)
+              .map(acsPages => acsPages.flatMap(_.activeContracts))
+          } yield assert(acs.length == 1)
+        }
+        // Read completions to make sure we set the right app id.
+        r <- client.commandClient
+          .completionSource(List(aliceExp.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
+          .collect({
+            case CompletionStreamElement.CompletionElement(completion)
+                if !completion.transactionId.isEmpty =>
+              completion
+          })
+          .take(1)
+          .runWith(Sink.seq)
+        _ = r.length shouldBe 1
+        status <- triggerStatus(uri, triggerId)
+        _ = status.status shouldBe StatusCodes.OK
+        body <- responseBodyToString(status)
+        _ = body shouldBe s"""{"result":{"party":"Alice_exp","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
+        resp <- stopTrigger(uri, triggerId, aliceExp)
+        _ <- assert(resp.status.isSuccess)
+      } yield succeed
   }
 }
