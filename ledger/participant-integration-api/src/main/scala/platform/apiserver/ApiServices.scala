@@ -54,10 +54,18 @@ import scala.concurrent.{ExecutionContext, Future}
 private[daml] trait ApiServices {
   val services: Iterable[BindableService]
 
+  def whenReady: Future[Unit]
+
   def withServices(otherServices: immutable.Seq[BindableService]): ApiServices
 }
 
-private case class ApiServicesBundle(services: immutable.Seq[BindableService]) extends ApiServices {
+private case class ApiServicesBundle(
+    ledgerConfigProvider: LedgerConfigProvider,
+    services: immutable.Seq[BindableService],
+) extends ApiServices {
+
+  override val whenReady: Future[Unit] =
+    ledgerConfigProvider.ready
 
   override def withServices(otherServices: immutable.Seq[BindableService]): ApiServices =
     copy(services = services ++ otherServices)
@@ -121,7 +129,10 @@ private[daml] object ApiServices {
             }
             ledgerConfigProvider.close()
           }
-      }.map(x => ApiServicesBundle(x._2))
+      }.map {
+        case (ledgerConfigProvider, services) =>
+          ApiServicesBundle(ledgerConfigProvider, services)
+      }
 
     private def createServices(ledgerId: LedgerId, ledgerConfigProvider: LedgerConfigProvider)(
         implicit executionContext: ExecutionContext): List[BindableService] = {

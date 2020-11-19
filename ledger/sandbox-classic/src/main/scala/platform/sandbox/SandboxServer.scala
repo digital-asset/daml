@@ -172,11 +172,18 @@ final class SandboxServer(
   def portF(implicit executionContext: ExecutionContext): Future[Port] =
     apiServer.map(_.port)
 
+  // Used for testing.
+  def whenReady(implicit executionContext: ExecutionContext): Future[Unit] =
+    for {
+      _ <- portF
+      _ <- apiServer.map(_.whenReady)
+    } yield ()
+
   def resetAndRestartServer()(
       implicit executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Unit] = {
-    val apiServicesClosed = apiServer.flatMap(_.servicesClosed())
+    val apiServicesClosed = apiServer.flatMap(_.servicesClosed)
 
     // TODO: eliminate the state mutation somehow
     sandboxState = sandboxState.flatMap(

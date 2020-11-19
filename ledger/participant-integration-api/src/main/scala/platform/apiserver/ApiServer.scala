@@ -9,10 +9,13 @@ import scala.concurrent.Future
 
 trait ApiServer {
 
-  /** the API port the server is listening on */
+  /** The API port that the server is listening on. */
   def port: Port
 
-  /** completes when all services have been closed during the shutdown */
-  def servicesClosed(): Future[Unit]
+  /** A future that completes when the server is up and has a valid configuration. */
+  def whenReady: Future[Unit]
+
+  /** A future that completes when all services have been closed during the shutdown. */
+  def servicesClosed: Future[Unit]
 
 }

@@ -231,7 +231,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   otherInterceptors = List(resetService),
                   lfValueTranslationCache = lfValueTranslationCache,
                 )
-                _ = promise.completeWith(apiServer.servicesClosed())
+                _ = promise.completeWith(apiServer.servicesClosed)
               } yield {
                 Banner.show(Console.out)
                 logger.withoutContext.info(
