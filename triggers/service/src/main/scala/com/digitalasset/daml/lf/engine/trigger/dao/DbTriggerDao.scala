@@ -23,7 +23,7 @@ import doobie.{Fragment, Put, Transactor}
 import scalaz.Tag
 import java.io.{Closeable, IOException}
 
-import com.daml.lf.engine.trigger.Tagged.AccessToken
+import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
 import javax.sql.DataSource
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -83,6 +83,10 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   implicit val accessTokenGet: Get[AccessToken] = Tag.subst(implicitly[Get[String]])
 
+  implicit val refreshTokenPut: Put[RefreshToken] = Tag.subst(implicitly[Put[String]])
+
+  implicit val refreshTokenGet: Get[RefreshToken] = Tag.subst(implicitly[Get[String]])
+
   implicit val identifierPut: Put[Identifier] = implicitly[Put[String]].contramap(_.toString)
 
   implicit val identifierGet: Get[Identifier] =
@@ -105,20 +109,20 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
   private def insertRunningTrigger(t: RunningTrigger): ConnectionIO[Unit] = {
     val insert: Fragment = sql"""
         insert into running_triggers
-          (trigger_instance, trigger_party, full_trigger_name, access_token, application_id)
+          (trigger_instance, trigger_party, full_trigger_name, access_token, refresh_token, application_id)
         values
-          (${t.triggerInstance}, ${t.triggerParty}, ${t.triggerName}, ${t.triggerToken}, ${t.triggerApplicationId})
+          (${t.triggerInstance}, ${t.triggerParty}, ${t.triggerName}, ${t.triggerAccessToken}, ${t.triggerRefreshToken}, ${t.triggerApplicationId})
       """
     insert.update.run.void
   }
 
   private def queryRunningTrigger(triggerInstance: UUID): ConnectionIO[Option[RunningTrigger]] = {
     val select: Fragment = sql"""
-        select trigger_instance, full_trigger_name, trigger_party, application_id, access_token from running_triggers
+        select trigger_instance, full_trigger_name, trigger_party, application_id, access_token, refresh_token from running_triggers
         where trigger_instance = $triggerInstance
       """
     select
-      .query[(UUID, Identifier, Party, ApplicationId, Option[AccessToken])]
+      .query[(UUID, Identifier, Party, ApplicationId, Option[AccessToken], Option[RefreshToken])]
       .map(RunningTrigger.tupled)
       .option
   }
@@ -170,10 +174,10 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   private def selectAllTriggers: ConnectionIO[Vector[RunningTrigger]] = {
     val select: Fragment = sql"""
-      select trigger_instance, full_trigger_name, trigger_party, application_id, access_token from running_triggers order by trigger_instance
+      select trigger_instance, full_trigger_name, trigger_party, application_id, access_token, refresh_token from running_triggers order by trigger_instance
     """
     select
-      .query[(UUID, Identifier, Party, ApplicationId, Option[AccessToken])]
+      .query[(UUID, Identifier, Party, ApplicationId, Option[AccessToken], Option[RefreshToken])]
       .map(RunningTrigger.tupled)
       .to[Vector]
   }

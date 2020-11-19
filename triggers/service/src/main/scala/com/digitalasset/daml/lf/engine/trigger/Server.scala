@@ -36,7 +36,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine._
 import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
-import com.daml.lf.engine.trigger.Tagged.AccessToken
+import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
 import com.daml.lf.engine.trigger.TriggerRunner._
 import com.daml.lf.engine.trigger.dao._
 import com.daml.oauth.middleware.Request.Claims
@@ -146,10 +146,16 @@ class Server(
   // Note that this does not yet start the trigger.
   private def addNewTrigger(
       config: TriggerConfig,
-      token: Option[AccessToken]
+      auth: Option[Authorization],
   )(implicit ec: ExecutionContext): Future[Either[String, (Trigger, RunningTrigger)]] = {
     val runningTrigger =
-      RunningTrigger(config.instance, config.name, config.party, config.applicationId, token)
+      RunningTrigger(
+        config.instance,
+        config.name,
+        config.party,
+        config.applicationId,
+        auth.map(_.accessToken),
+        auth.flatMap(_.refreshToken))
     // Validate trigger id before persisting to DB
     Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName) match {
       case Left(value) => Future.successful(Left(value))
@@ -216,6 +222,8 @@ class Server(
   // TODO[AH] Make sure this is bounded in size.
   private val authCallbacks: TrieMap[UUID, Route] = TrieMap()
 
+  case class Authorization(accessToken: AccessToken, refreshToken: Option[RefreshToken])
+
   // This directive requires authorization for the given claims via the auth middleware, if configured.
   // If no auth middleware is configured, then the request will proceed without attempting authorization.
   //
@@ -225,14 +233,14 @@ class Server(
   // to proceed once the login flow completed and authentication succeeded.
   private def authorize(claims: AuthRequest.Claims)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[AccessToken]] =
+      system: ActorSystem): Directive1[Option[Authorization]] =
     authConfig match {
       case NoAuth => provide(None)
       case AuthMiddleware(authUri) =>
         // Attempt to obtain the access token from the middleware's /auth endpoint.
         // Forwards the current request's cookies.
         // Fails if the response is not OK or Unauthorized.
-        def auth: Directive1[Option[AccessToken]] = {
+        def auth: Directive1[Option[Authorization]] = {
           val uri = authUri
             .withPath(Path./("auth"))
             .withQuery(AuthRequest.Auth(claims).toQuery)
@@ -241,7 +249,10 @@ class Server(
             onSuccess(Http().singleRequest(HttpRequest(uri = uri, headers = cookies))).flatMap {
               case HttpResponse(StatusCodes.OK, _, entity, _) =>
                 onSuccess(Unmarshal(entity).to[AuthResponse.Authorize]).map { auth =>
-                  Some(AccessToken(auth.accessToken)): Option[AccessToken]
+                  Some(
+                    Authorization(
+                      AccessToken(auth.accessToken),
+                      RefreshToken.subst(auth.refreshToken))): Option[Authorization]
                 }
               case HttpResponse(StatusCodes.Unauthorized, _, _, _) =>
                 provide(None)
@@ -259,7 +270,7 @@ class Server(
         Directive { inner =>
           auth {
             // Authorization successful - pass token to continuation
-            case Some(token) => inner(Tuple1(Some(token)))
+            case Some(authorization) => inner(Tuple1(Some(authorization)))
             // Authorization failed - login and retry on callback request.
             case None => { ctx =>
               val requestId = UUID.randomUUID()
@@ -271,10 +282,10 @@ class Server(
                       // TODO[AH] Add WWW-Authenticate header
                       complete(errorResponse(StatusCodes.Unauthorized))
                     }
-                    case Some(token) =>
+                    case Some(authorization) =>
                       // Authorization successful after login - use old request context and pass token to continuation.
                       mapRequestContext(_ => ctx) {
-                        inner(Tuple1(Some(token)))
+                        inner(Tuple1(Some(authorization)))
                       }
                   }
                 }
@@ -298,7 +309,7 @@ class Server(
   // If the trigger does not exist, then the request will also proceed without attempting authorization.
   private def authorizeForTrigger(uuid: UUID, readOnly: Boolean = false)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[AccessToken]] =
+      system: ActorSystem): Directive1[Option[Authorization]] =
     authConfig match {
       case NoAuth => provide(None)
       case AuthMiddleware(_) =>
@@ -349,9 +360,9 @@ class Server(
                       applicationId = Some(config.applicationId))
                   // TODO[AH] Why do we need to pass ec, system explicitly?
                   authorize(claims)(ec, system) {
-                    token =>
+                    auth =>
                       val instOrErr: Future[Either[String, JsValue]] =
-                        addNewTrigger(config, token)
+                        addNewTrigger(config, auth)
                           .flatMap {
                             case Left(value) => Future.successful(Left(value))
                             case Right((trigger, runningTrigger)) =>
@@ -550,7 +561,7 @@ object Server {
               runningTrigger.triggerInstance,
               runningTrigger.triggerParty,
               runningTrigger.triggerApplicationId,
-              runningTrigger.triggerToken,
+              runningTrigger.triggerAccessToken,
               req.compiledPackages,
               req.trigger,
               ledgerConfig,
