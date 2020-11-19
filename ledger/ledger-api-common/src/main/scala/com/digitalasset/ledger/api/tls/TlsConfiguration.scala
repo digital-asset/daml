@@ -55,16 +55,7 @@ final case class TlsConfiguration(
 
   /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS configuration. */
   def setJvmTlsProperties(): Unit =
-    if (enabled && revocationChecks) enableOCSP()
-
-  /**
-    * Enables certificate revocation checks with OCSP.
-    * See: https://tersesystems.com/blog/2014/03/22/fixing-certificate-revocation/
-    */
-  private def enableOCSP(): Unit = {
-    System.setProperty("com.sun.net.ssl.checkRevocation", "true")
-    java.security.Security.setProperty("ocsp.enable", "true")
-  }
+    if (enabled && revocationChecks) OCSPProperties.enableOCSP()
 
 }
 
