@@ -562,6 +562,7 @@ object Server {
               runningTrigger.triggerParty,
               runningTrigger.triggerApplicationId,
               runningTrigger.triggerAccessToken,
+              runningTrigger.triggerRefreshToken,
               req.compiledPackages,
               req.trigger,
               ledgerConfig,
