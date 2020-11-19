@@ -25,6 +25,8 @@ import qualified "ghc-lib-parser" GHC.LanguageExtensions.Type as GHC
 import Outputable
 
 import           Control.Monad.Extra
+import           Data.List.NonEmpty (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty as NE
 import           Data.List.Extra
 import           Data.Maybe
 import qualified Data.Set as Set
@@ -415,20 +417,22 @@ rewriteLets = fmap onModule
     sequenceLocalBinds = \case
         GHC.L loc (GHC.HsValBinds GHC.NoExt valBinds)
             | GHC.ValBinds GHC.NoExt bindBag sigs <- valBinds
-            , binds <- GHC.bagToList bindBag
-            , length binds > 1
-            -> makeLocalValBinds loc binds sigs
+            , bind : binds <- GHC.bagToList bindBag
+            , notNull binds
+            -> makeLocalValBinds loc (bind :| binds) sigs
         binds -> [binds]
 
     makeLocalValBinds :: GHC.SrcSpan
-        -> [GHC.LHsBindLR GHC.GhcPs GHC.GhcPs]
+        -> NonEmpty (GHC.LHsBindLR GHC.GhcPs GHC.GhcPs)
         -> [GHC.LSig GHC.GhcPs]
         -> [GHC.LHsLocalBinds GHC.GhcPs]
-    makeLocalValBinds _ [] _ = []
-    makeLocalValBinds loc [bind] sigs = [ makeLocalValBind loc bind sigs ]
-    makeLocalValBinds loc (bind1 : bindRest) sigs =
-        let (sig1, sigRest) = peelRelevantSigs bind1 sigs
-        in makeLocalValBind loc bind1 sig1 : makeLocalValBinds loc bindRest sigRest
+    makeLocalValBinds loc binds sigs =
+        let (bind1, bindRestM) = NE.uncons binds
+        in case bindRestM of
+            Nothing -> [ makeLocalValBind loc bind1 sigs ]
+            Just bindRest ->
+                let (sig1, sigRest) = peelRelevantSigs bind1 sigs
+                in makeLocalValBind loc bind1 sig1 : makeLocalValBinds loc bindRest sigRest
 
     makeLocalValBind :: GHC.SrcSpan
         -> GHC.LHsBindLR GHC.GhcPs GHC.GhcPs
