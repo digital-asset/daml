@@ -245,7 +245,7 @@ private[state] object Conversions {
       .map(encodeDisclosureEntry)
 
   private def encodeDivulgenceEntry(divulgenceEntry: (ContractId, Set[Party])): DivulgenceEntry =
-    DamlTransactionBlindingInfo.DivulgenceEntry.newBuilder
+    DivulgenceEntry.newBuilder
       .setContractId(divulgenceEntry._1.coid)
       .addAllDivulgedToLocalParties(encodeParties(divulgenceEntry._2).asJava)
       .build
