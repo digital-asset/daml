@@ -96,6 +96,7 @@ message GetTransactionsRequest {
   LedgerOffset end = 3;
 
   // Requesting parties with template filters.
+  // Template filters must be empty for GetTransactionTrees requests.
   // Required
   TransactionFilter filter = 4;
 
