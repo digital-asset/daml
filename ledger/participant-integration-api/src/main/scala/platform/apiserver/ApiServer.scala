@@ -13,7 +13,7 @@ trait ApiServer {
   def port: Port
 
   /** A future that completes when the server is up and has a valid configuration. */
-  def whenReady: Future[Unit]
+  def ready: Future[Unit]
 
   /** A future that completes when all services have been closed during the shutdown. */
   def servicesClosed: Future[Unit]

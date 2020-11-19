@@ -47,7 +47,7 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxS
             Some(info.jdbcUrl)))
           .acquire()
         server <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl)).acquire()
-        _ <- Resource.fromFuture(server.whenReady)
+        _ <- Resource.fromFuture(server.ready)
         channel <- GrpcClientResource.owner(server.port).acquire()
       } yield (server, channel)
   }

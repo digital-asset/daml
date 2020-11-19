@@ -60,8 +60,8 @@ private[daml] final class LedgerApiServer(
         override val port: Port =
           Port(server.getPort)
 
-        override val whenReady: Future[Unit] =
-          apiServices.whenReady
+        override val ready: Future[Unit] =
+          apiServices.ready
 
         override val servicesClosed: Future[Unit] =
           servicesClosedPromise.future

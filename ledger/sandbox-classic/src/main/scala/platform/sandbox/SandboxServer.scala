@@ -173,10 +173,10 @@ final class SandboxServer(
     apiServer.map(_.port)
 
   // Used for testing.
-  def whenReady(implicit executionContext: ExecutionContext): Future[Unit] =
+  def ready(implicit executionContext: ExecutionContext): Future[Unit] =
     for {
       _ <- portF
-      _ <- apiServer.map(_.whenReady)
+      _ <- apiServer.map(_.ready)
     } yield ()
 
   def resetAndRestartServer()(
