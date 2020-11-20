@@ -600,6 +600,8 @@ trait AbstractTriggerServiceTestAuthMiddleware
         triggerId <- parseTriggerId(resp)
 
         // Expire old token and test that the trigger service requests a new token during trigger start-up.
+        // TODO[AH] Here we want to test token expiry during QueryingACS.
+        //   For now the test relies on timing. Find a way to enforce expiry during QueryingACS.
         _ = authClock.fastForward(
           JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
 
