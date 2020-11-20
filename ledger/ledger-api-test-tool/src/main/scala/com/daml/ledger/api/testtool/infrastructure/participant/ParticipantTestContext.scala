@@ -29,7 +29,7 @@ import com.daml.ledger.api.v1.admin.package_management_service.{
   PackageDetails,
   UploadDarFileRequest
 }
-import com.daml.ledger.api.v1.admin.participant_pruning_service.PruneRequest
+import com.daml.ledger.api.v1.admin.participant_pruning_service.{PruneRequest, PruneResponse}
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   GetParticipantIdRequest,
@@ -72,7 +72,6 @@ import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.client.binding.{Primitive, Template}
 import com.daml.platform.testing.StreamConsumer
 import com.google.protobuf.ByteString
-import com.google.protobuf.empty.Empty
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
 import io.grpc.stub.StreamObserver
 import scalaz.Tag
@@ -665,14 +664,14 @@ private[testtool] final class ParticipantTestContext private[participant] (
       SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel)),
     )
 
-  def prune(pruneUpTo: Option[LedgerOffset], attempts: Int): Future[Empty] =
+  def prune(pruneUpTo: String, attempts: Int): Future[PruneResponse] =
     // Distributed ledger participants need to reach global consensus prior to pruning. Hence the "eventually" here:
     eventually(attempts = attempts, runAssertion = {
       services.participantPruning.prune(PruneRequest(pruneUpTo, nextSubmissionId()))
     })
 
-  def prune(pruneUpTo: LedgerOffset, attempts: Int = 10): Future[Empty] =
-    prune(Some(pruneUpTo), attempts)
+  def prune(pruneUpTo: LedgerOffset, attempts: Int = 10): Future[PruneResponse] =
+    prune(pruneUpTo.getAbsolute, attempts)
 
   private[infrastructure] def preallocateParties(
       n: Int,

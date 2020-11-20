@@ -135,4 +135,4 @@ conformance_test(
         "--include=ParticipantPruningIT",
         "--exclude=ParticipantPruningIT:PRFailPruneByOutOfBoundsOffset",  # on behalf of bug not yet fixed in canton 0.19.0
     ],
-) if not is_windows else None
+) if False else None  # if not is_windows else None

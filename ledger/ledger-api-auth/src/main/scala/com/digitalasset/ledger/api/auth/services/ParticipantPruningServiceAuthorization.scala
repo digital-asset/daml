@@ -7,12 +7,12 @@ import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
-  PruneRequest
+  PruneRequest,
+  PruneResponse
 }
 import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruningServiceGrpc.ParticipantPruningService
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
-import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.Future
@@ -29,7 +29,7 @@ class ParticipantPruningServiceAuthorization(
 
   override def close(): Unit = service.close()
 
-  override def prune(request: PruneRequest): Future[Empty] =
+  override def prune(request: PruneRequest): Future[PruneResponse] =
     authorizer.requireAdminClaims(service.prune)(request)
 
 }

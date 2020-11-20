@@ -7,8 +7,6 @@ package com.daml.ledger.api.v1.admin;
 
 import "com/daml/ledger/api/v1/ledger_offset.proto";
 
-import "google/protobuf/empty.proto";
-
 option java_outer_classname = "ParticipantPruningServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1.admin";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
@@ -38,15 +36,19 @@ service ParticipantPruningService {
   //   the offset will eventually be usable for pruning.
   // - ``FAILED_PRECONDITION`` if some sort of user intervention is required before pruning can proceed at the specified
   //   offset.
-  rpc Prune (PruneRequest) returns (google.protobuf.Empty);
+  rpc Prune (PruneRequest) returns (PruneResponse);
 
 }
 
 message PruneRequest {
   // Inclusive offset up to and at which the ledger is to be pruned.
-  LedgerOffset prune_up_to = 1;
+  string prune_up_to = 1;
 
   // Unique submission identifier.
   // Optional, defaults to a random identifier, used for logging.
   string submission_id = 2;
+}
+
+message PruneResponse {
+  // Empty for now, but may contain fields in the future
 }

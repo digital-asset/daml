@@ -28,37 +28,9 @@ class ParticipantPruningIT extends LedgerTestSuite {
     allocate(NoParties))(implicit ec => {
     case Participants(Participant(participant)) =>
       for {
-        failure <- participant.prune(None, attempts = 1).failed
+        failure <- participant.prune("", attempts = 1).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "prune_up_to not specified")
-      }
-  })
-
-  test(
-    "PRFailPruneByBoundaryOffset",
-    "Pruning a participant specifying a boundary offset should fail",
-    allocate(NoParties))(implicit ec => {
-    case Participants(Participant(participant)) =>
-      for {
-        cannotPruneBegin <- participant
-          .prune(
-            LedgerOffset.of(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
-            attempts = 1)
-          .failed
-        cannotPruneEnd <- participant
-          .prune(
-            LedgerOffset.of(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
-            attempts = 1)
-          .failed
-      } yield {
-        assertGrpcError(
-          cannotPruneBegin,
-          Status.Code.INVALID_ARGUMENT,
-          "prune_up_to needs to be absolute and not a boundary LEDGER_BEGIN")
-        assertGrpcError(
-          cannotPruneEnd,
-          Status.Code.INVALID_ARGUMENT,
-          "prune_up_to needs to be absolute and not a boundary LEDGER_END")
       }
   })
 
@@ -68,9 +40,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     allocate(NoParties))(implicit ec => {
     case Participants(Participant(participant)) =>
       for {
-        cannotPruneNonHexOffset <- participant
-          .prune(LedgerOffset.of(LedgerOffset.Value.Absolute("cofefe")), 1)
-          .failed
+        cannotPruneNonHexOffset <- participant.prune("cofefe", attempts = 1).failed
       } yield {
         assertGrpcError(
           cannotPruneNonHexOffset,

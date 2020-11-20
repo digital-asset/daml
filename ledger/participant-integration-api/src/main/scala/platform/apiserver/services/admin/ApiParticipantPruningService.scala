@@ -8,9 +8,9 @@ import java.util.UUID
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
-  PruneRequest
+  PruneRequest,
+  PruneResponse
 }
-import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.participant.state.index.v2.{IndexParticipantPruningService, LedgerEndService}
 import com.daml.ledger.participant.state.v1.{
   Offset,
@@ -22,7 +22,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.google.protobuf.empty.Empty
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters
@@ -41,7 +40,7 @@ final class ApiParticipantPruningService private (
   override def bindService(): ServerServiceDefinition =
     ParticipantPruningServiceGrpc.bindService(this, DirectExecutionContext)
 
-  override def prune(request: PruneRequest): Future[Empty] = {
+  override def prune(request: PruneRequest): Future[PruneResponse] = {
     val submissionIdOrErr = SubmissionId
       .fromString(
         if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString)
@@ -63,7 +62,7 @@ final class ApiParticipantPruningService private (
 
               pruneResponse <- pruneLedgerApiServerIndex(pruneUpTo)
 
-            } yield pruneResponse).andThen(logger.logErrorsOnCall[Empty])
+            } yield pruneResponse).andThen(logger.logErrorsOnCall[PruneResponse])
       }
     )
   }
@@ -71,8 +70,7 @@ final class ApiParticipantPruningService private (
   private def validateRequest(request: PruneRequest)(
       implicit logCtx: LoggingContext): Future[Offset] = {
     (for {
-      pruneUpToProto <- checkOffsetIsSpecified(request.pruneUpTo)
-      pruneUpToString <- checkOffsetIsAbsolute(pruneUpToProto)
+      pruneUpToString <- checkOffsetIsSpecified(request.pruneUpTo)
       pruneUpTo <- checkOffsetIsHexadecimal(pruneUpToString)
     } yield (pruneUpTo, pruneUpToString))
       .fold(Future.failed, o => checkOffsetIsBeforeLedgerEnd(o._1, o._2))
@@ -92,32 +90,22 @@ final class ApiParticipantPruningService private (
       }
   }
 
-  private def pruneLedgerApiServerIndex(pruneUpTo: Offset)(implicit logCtx: LoggingContext) = {
+  private def pruneLedgerApiServerIndex(pruneUpTo: Offset)(
+      implicit logCtx: LoggingContext): Future[PruneResponse] = {
     logger.info(s"About to prune ledger api server index to to ${pruneUpTo} inclusively")
     readBackend
       .prune(pruneUpTo)
       .map { _ =>
         logger.info(s"Pruned ledger api server index up to ${pruneUpTo} inclusively.")
-        Empty()
+        PruneResponse()
       }
   }
 
-  private def checkOffsetIsSpecified(optOffset: Option[LedgerOffset]) =
-    optOffset.toRight(ErrorFactories.invalidArgument("prune_up_to not specified"))
-
-  private def checkOffsetIsAbsolute(
-      pruneUpToProto: LedgerOffset): Either[StatusRuntimeException, String] =
-    pruneUpToProto.value match {
-      case LedgerOffset.Value.Absolute(offset) => Right(offset)
-      case LedgerOffset.Value.Boundary(boundary) =>
-        Left(
-          ErrorFactories.invalidArgument(
-            s"prune_up_to needs to be absolute and not a boundary ${boundary.toString}"))
-      case LedgerOffset.Value.Empty =>
-        Left(
-          ErrorFactories.invalidArgument(
-            s"prune_up_to needs to be absolute and not empty ${pruneUpToProto.value}"))
-    }
+  private def checkOffsetIsSpecified(offset: String): Either[StatusRuntimeException, String] =
+    Either.cond(
+      !offset.isEmpty,
+      offset,
+      ErrorFactories.invalidArgument("prune_up_to not specified"))
 
   private def checkOffsetIsHexadecimal(
       pruneUpToString: String): Either[StatusRuntimeException, Offset] =
