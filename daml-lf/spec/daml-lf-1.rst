@@ -34,8 +34,19 @@ sphinx style sheets specify DejaVu Sans Mono as the font to use for
 code, and if you want to view/edit this section you should use it
 for your editor, too.
 
-Moreover, if you want to edit this section comfortably, we highly
-recommend using Emacs' TeX input mode. You can turn it on using ``M-x
+If you want to edit this section comfortably, we highly recommend using
+either VS Code' ``latex-input`` extension or Emacs' TeX input mode.
+In VS Code, you can start typing, say, ``\Gamma`` and the autocompleter
+will suggest ``Γ``. Similarly ``\to``, ``\->`` and ``\rightarrow`` will
+all lead to ``→``. You might need to explicitly trigger the
+autocompleter using ``Ctrl+Space``. All autocompletions are triggered
+by (one of) their LaTeX names. You can also trigger autocompletions for
+subscripts by typing ``\_1`` for ``₁``, ``\_i`` for ``ᵢ``, etc. We have
+have added a couple of extra symbols in
+``.vscode/restructuredtext.code-snippets`` file. If you want to add
+further symbols that's where they could go.
+
+If you want to use Emacs' TeX input mode, , you can turn it on using ``M-x
 set-input-method TeX``, and then you can input symbols as you would in
 TeX, mostly using ``\symbol-name`` and ``_letter``. If you don't know
 how to input a character, go over it with your cursor and ``M-x
