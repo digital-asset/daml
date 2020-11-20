@@ -18,7 +18,7 @@ private[events] sealed abstract class ContractWitnessesTable {
   private def toNamedParameter(idAndParty: (ContractId, Party)) =
     idAndParty match {
       case (id, party) =>
-        Vector[NamedParameter](
+        List[NamedParameter](
           IdColumn -> id,
           WitnessColumn -> party,
         )
@@ -30,7 +30,7 @@ private[events] sealed abstract class ContractWitnessesTable {
   protected val delete = s"delete from $TableName where $IdColumn = {$IdColumn}"
 
   private def prepareBatchDelete(ids: Seq[ContractId]): Option[BatchSql] =
-    batch(delete, ids.map(id => Vector[NamedParameter](IdColumn -> id)))
+    batch(delete, ids.map(id => List[NamedParameter](IdColumn -> id)))
 
   def toExecutables(
       serialized: TransactionIndexingInfo.Serialized,
