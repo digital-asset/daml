@@ -26,58 +26,15 @@ import scala.collection.immutable.{ListMap, ListSet}
 class ConversionsSpec extends WordSpec with Matchers {
   "Conversions" should {
     "correctly and deterministically encode Blindinginfo" in {
-      encodeBlindingInfo(unsortedBlindingInfo) shouldBe sortedEncodedBlindingInfo
+      encodeBlindingInfo(wronglySortedBlindingInfo) shouldBe correctlySortedEncodedBlindingInfo
     }
 
     "correctly decode BlindingInfo" in {
-      decodeBlindingInfo(sortedEncodedBlindingInfo) shouldBe sortedBlindingInfo
+      val decodedBlindingInfo = decodeBlindingInfo(correctlySortedEncodedBlindingInfo)
+      decodedBlindingInfo.disclosure.toSet should contain theSameElementsAs wronglySortedBlindingInfo.disclosure.toSet
+      decodedBlindingInfo.divulgence.toSet should contain theSameElementsAs wronglySortedBlindingInfo.divulgence.toSet
     }
   }
-
-  private lazy val party0: Party = Party.assertFromString("party0")
-  private lazy val party1: Party = Party.assertFromString("party1")
-  private lazy val unsortedPartySet = ListSet(party1, party0)
-  private lazy val unsortedHashes: List[Hash] =
-    List(crypto.Hash.hashPrivateKey("hash0"), crypto.Hash.hashPrivateKey("hash1")).sorted.reverse
-  private lazy val contractId0: ContractId = ContractId.V1(unsortedHashes.tail.head)
-  private lazy val contractId1: ContractId = ContractId.V1(unsortedHashes.head)
-  private lazy val node0: NodeId = NodeId(0)
-  private lazy val node1: NodeId = NodeId(1)
-  private lazy val unsortedDisclosure: Relation[NodeId, Party] =
-    Map(node1 -> unsortedPartySet, node0 -> unsortedPartySet)
-  private lazy val unsortedDivulgence: Relation[ContractId, Party] =
-    Map(contractId1 -> unsortedPartySet, contractId0 -> unsortedPartySet)
-  private lazy val unsortedBlindingInfo = BlindingInfo(
-    disclosure = unsortedDisclosure,
-    divulgence = unsortedDivulgence,
-  )
-  private lazy val sortedPartySet: Set[Party] = ListSet(party0, party1)
-  private lazy val sortedDisclosure: Relation[NodeId, Party] =
-    ListMap(node0 -> sortedPartySet, node1 -> sortedPartySet)
-  private lazy val sortedDivulgence: Map[ContractId, Set[Party]] =
-    ListMap(contractId0 -> sortedPartySet, contractId1 -> sortedPartySet)
-  private lazy val sortedBlindingInfo = BlindingInfo(
-    disclosure = sortedDisclosure,
-    divulgence = sortedDivulgence,
-  )
-  private lazy val sortedParties = List(party0, party1)
-  private lazy val sortedPartiesAsStrings =
-    sortedParties.asInstanceOf[List[String]]
-  private lazy val sortedEncodedBlindingInfo =
-    DamlTransactionBlindingInfo.newBuilder
-      .addAllDisclosures(
-        List(
-          newDisclosureEntry(node0, sortedPartiesAsStrings),
-          newDisclosureEntry(node1, sortedPartiesAsStrings),
-        ).asJava
-      )
-      .addAllDivulgences(
-        List(
-          newDivulgenceEntry(contractId0.coid, sortedPartiesAsStrings),
-          newDivulgenceEntry(contractId1.coid, sortedPartiesAsStrings),
-        ).asJava
-      )
-      .build
 
   private def newDisclosureEntry(node: NodeId, parties: List[String]) =
     DisclosureEntry.newBuilder
@@ -89,5 +46,41 @@ class ConversionsSpec extends WordSpec with Matchers {
     DivulgenceEntry.newBuilder
       .setContractId(contractId)
       .addAllDivulgedToLocalParties(parties.asJava)
+      .build
+
+  private lazy val party0: Party = Party.assertFromString("party0")
+  private lazy val party1: Party = Party.assertFromString("party1")
+  private lazy val contractId0: ContractId = ContractId.V1(wronglySortedHashes.tail.head)
+  private lazy val contractId1: ContractId = ContractId.V1(wronglySortedHashes.head)
+  private lazy val node0: NodeId = NodeId(0)
+  private lazy val node1: NodeId = NodeId(1)
+  private lazy val wronglySortedPartySet = ListSet(party1, party0)
+  private lazy val wronglySortedHashes: List[Hash] =
+    List(crypto.Hash.hashPrivateKey("hash0"), crypto.Hash.hashPrivateKey("hash1")).sorted.reverse
+  private lazy val wronglySortedDisclosure: Relation[NodeId, Party] =
+    ListMap(node1 -> wronglySortedPartySet, node0 -> wronglySortedPartySet)
+  private lazy val wronglySortedDivulgence: Relation[ContractId, Party] =
+    ListMap(contractId1 -> wronglySortedPartySet, contractId0 -> wronglySortedPartySet)
+  private lazy val wronglySortedBlindingInfo = BlindingInfo(
+    disclosure = wronglySortedDisclosure,
+    divulgence = wronglySortedDivulgence,
+  )
+  private lazy val correctlySortedParties = List(party0, party1)
+  private lazy val correctlySortedPartiesAsStrings =
+    correctlySortedParties.asInstanceOf[List[String]]
+  private lazy val correctlySortedEncodedBlindingInfo =
+    DamlTransactionBlindingInfo.newBuilder
+      .addAllDisclosures(
+        List(
+          newDisclosureEntry(node0, correctlySortedPartiesAsStrings),
+          newDisclosureEntry(node1, correctlySortedPartiesAsStrings),
+        ).asJava
+      )
+      .addAllDivulgences(
+        List(
+          newDivulgenceEntry(contractId0.coid, correctlySortedPartiesAsStrings),
+          newDivulgenceEntry(contractId1.coid, correctlySortedPartiesAsStrings),
+        ).asJava
+      )
       .build
 }
