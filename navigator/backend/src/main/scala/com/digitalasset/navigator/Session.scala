@@ -21,6 +21,7 @@ final case class User(
 sealed trait SignInError
 case object InvalidCredentials extends SignInError
 case object NotConnected extends SignInError
+case object Unresponsive extends SignInError
 case object Unknown extends SignInError
 
 sealed abstract class Status
@@ -38,8 +39,12 @@ object Session {
 
   def current(sessionId: String): Option[Session] = sessions.get(sessionId)
 
-  def open(sessionId: String, userId: String, userConfig: UserConfig): Session = {
-    val user = Session(User(userId, userConfig.party, userConfig.role))
+  def open(
+      sessionId: String,
+      userId: String,
+      userConfig: UserConfig,
+      state: PartyState): Session = {
+    val user = Session(User(userId, state, userConfig.role))
     sessions += sessionId -> user
     user
   }
@@ -185,7 +190,8 @@ object SessionJsonProtocol extends DefaultJsonProtocol {
             errorFieldName -> JsString(error match {
               case InvalidCredentials => "invalid-credentials"
               case NotConnected => "not-connected"
-              case _ => "unknown-error"
+              case Unresponsive => "unresponsive"
+              case Unknown => "unknown-error"
             })
         ))
 
@@ -197,12 +203,15 @@ object SessionJsonProtocol extends DefaultJsonProtocol {
               s"${SignIn.getClass.getCanonicalName} because the field $methodFieldName is missing")
         case (Some(rawMethod), maybeError) =>
           val method = signInMethodFormat.read(rawMethod)
-          maybeError.fold(SignIn(method))(error =>
-            SignIn(method, Some(error match {
+          SignIn(
+            method,
+            maybeError.map {
               case JsString("invalid-credentials") => InvalidCredentials
               case JsString("not-connected") => NotConnected
+              case JsString("unresponsive") => Unresponsive
               case _ => Unknown
-            })))
+            }
+          )
       }
     }
 

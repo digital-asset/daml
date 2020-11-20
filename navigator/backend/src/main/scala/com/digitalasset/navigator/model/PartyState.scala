@@ -7,13 +7,15 @@ import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.lf.{iface => DamlLfIface}
 import com.daml.ledger.api.refinements.ApiTypes
-
+import com.daml.navigator.config.UserConfig
 import scalaz.Tag
 
 case class State(ledger: Ledger, packageRegistry: PackageRegistry)
 
 /** A DA party and its ledger view(s). */
-class PartyState(val name: ApiTypes.Party, val useDatabase: Boolean) {
+class PartyState(val config: UserConfig) {
+  val name = config.party
+  val useDatabase = config.useDatabase
   private val stateRef: AtomicReference[State] = new AtomicReference(
     State(Ledger(name, None, useDatabase), new PackageRegistry))
 

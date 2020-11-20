@@ -5,12 +5,14 @@ package com.daml.navigator.console.commands
 
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.console._
 import com.daml.navigator.store.Store._
 import com.daml.navigator.time.TimeProviderType
 import akka.pattern.ask
 import akka.util.Timeout
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.model.PartyState
+import com.daml.navigator.store.Store
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -27,7 +29,11 @@ case object Info extends SimpleCommand {
     case _: PartyActorStarting => PrettyPrimitive("Actor starting")
     case _: PartyActorStarted => PrettyPrimitive("Actor running")
     case info: PartyActorFailed => PrettyPrimitive(s"Actor failed: ${info.error.getMessage}")
-    case _: PartyActorUnresponsive => PrettyPrimitive(s"Actor unresponsive")
+  }
+
+  def prettyActorResponse(resp: PartyActorResponse): PrettyNode = resp match {
+    case PartyActorRunning(info) => prettyPartyInfo(info)
+    case Store.PartyActorUnresponsive => PrettyPrimitive(s"Actor unresponsive")
   }
 
   def prettyGeneralInfo(info: ApplicationStateInfo): PrettyNode = PrettyObject(
@@ -37,26 +43,27 @@ case object Info extends SimpleCommand {
     PrettyField("Application ID", info.applicationId)
   )
 
-  def prettyLocalDataInfo(state: State): PrettyNode = PrettyObject(
-    state.config.parties.toList.map(
-      ps =>
-        PrettyField(
-          ApiTypes.Party.unwrap(ps.name),
-          PrettyObject(
-            PrettyField("Packages", ps.packageRegistry.packageCount.toString),
-            PrettyField("Contracts", ps.ledger.allContractsCount.toString),
-            PrettyField("Active contracts", ps.ledger.activeContractsCount.toString),
-            PrettyField(
-              "Last transaction",
-              ps.ledger
-                .latestTransaction(ps.packageRegistry)
-                .map(t => ApiTypes.TransactionId.unwrap(t.id))
-                .getOrElse("???"))
-          )
-      ))
-  )
+  def prettyLocalDataInfo(pss: Seq[PartyState]): PrettyNode =
+    PrettyObject(
+      pss.toList.map(
+        ps =>
+          PrettyField(
+            ApiTypes.Party.unwrap(ps.name),
+            PrettyObject(
+              PrettyField("Packages", ps.packageRegistry.packageCount.toString),
+              PrettyField("Contracts", ps.ledger.allContractsCount.toString),
+              PrettyField("Active contracts", ps.ledger.activeContractsCount.toString),
+              PrettyField(
+                "Last transaction",
+                ps.ledger
+                  .latestTransaction(ps.packageRegistry)
+                  .map(t => ApiTypes.TransactionId.unwrap(t.id))
+                  .getOrElse("???"))
+            )
+        ))
+    )
 
-  def prettyInfo(applicationInfo: ApplicationStateInfo, state: State): PrettyObject =
+  def prettyInfo(applicationInfo: ApplicationStateInfo): PrettyObject =
     applicationInfo match {
       case info: ApplicationStateConnected =>
         PrettyObject(
@@ -73,10 +80,11 @@ case object Info extends SimpleCommand {
           PrettyField(
             "Akka system",
             PrettyObject(
-              info.partyActors
-                .map(p => PrettyField(ApiTypes.Party.unwrap(p.party), prettyPartyInfo(p)))
+              info.partyActors.toList.map { case (k, v) => PrettyField(k, prettyActorResponse(v)) }.toList
             )),
-          PrettyField("Local data", prettyLocalDataInfo(state))
+          PrettyField("Local data", prettyLocalDataInfo(info.partyActors.values.collect {
+            case PartyActorRunning(info) => info.state
+          }.toList))
         )
       case info: ApplicationStateConnecting =>
         PrettyObject(
@@ -86,7 +94,6 @@ case object Info extends SimpleCommand {
             PrettyObject(
               PrettyField("Connection status", "Connecting")
             )),
-          PrettyField("Local data", prettyLocalDataInfo(state))
         )
       case info: ApplicationStateFailed =>
         PrettyObject(
@@ -97,7 +104,6 @@ case object Info extends SimpleCommand {
               PrettyField("Connection status", "Failed"),
               PrettyField("Error", info.error.getMessage)
             )),
-          PrettyField("Local data", prettyLocalDataInfo(state))
         )
     }
 
@@ -109,7 +115,7 @@ case object Info extends SimpleCommand {
     for {
       future <- Try((state.store ? GetApplicationStateInfo).mapTo[ApplicationStateInfo]) ~> "Failed to get info"
       info <- Try(Await.result(future, 10.seconds)) ~> "Failed to get info"
-    } yield (state, getBanner(state) + "\n" + Pretty.yaml(prettyInfo(info, state)))
+    } yield (state, getBanner(state) + "\n" + Pretty.yaml(prettyInfo(info)))
   }
 
   def getBanner(state: State): String = {
