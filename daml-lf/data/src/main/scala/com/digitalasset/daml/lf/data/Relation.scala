@@ -22,7 +22,7 @@ object Relation {
     def merge[A, B](r: Relation[A, B], pair: (A, Set[B])): Relation[A, B] =
       r.updated(pair._1, r.getOrElse(pair._1, Set.empty[B]).union(pair._2))
 
-    def apply[A, B](pairs: Seq[(A, Set[B])]): Relation[A, B] =
+    def apply[A, B](pairs: Iterable[(A, Set[B])]): Relation[A, B] =
       pairs.foldLeft(immutable.Map.empty[A, Set[B]])(merge)
 
     def union[A, B](r1: Relation[A, B], r2: Relation[A, B]): Relation[A, B] =

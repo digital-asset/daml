@@ -86,10 +86,10 @@ object TransactionIndexingInfo {
       disclosure += ((event._1, blinding.disclosure(event._1)))
     }
 
-    private def addCreation(create: Create): Unit =
+    private def addCreate(create: Create): Unit =
       creates += create
 
-    private def addArchival(contractId: ContractId): Unit =
+    private def addArchive(contractId: ContractId): Unit =
       archives += contractId
 
     private def addDivulgence(contractId: ContractId): Unit =
@@ -109,7 +109,7 @@ object TransactionIndexingInfo {
           create.templateId.toString
           addEventAndDisclosure(event)
           addStakeholders(nodeId, create.stakeholders)
-          addCreation(create)
+          addCreate(create)
           addVisibility(create.coid, blinding.disclosure(nodeId))
         case (nodeId, exercise: Exercise) =>
           addEventAndDisclosure(event)
@@ -117,7 +117,7 @@ object TransactionIndexingInfo {
           addVisibility(exercise.targetCoid, blinding.disclosure(nodeId))
           if (exercise.consuming) {
             addStakeholders(nodeId, exercise.stakeholders)
-            addArchival(exercise.targetCoid)
+            addArchive(exercise.targetCoid)
           } else {
             addStakeholders(nodeId, Set.empty)
           }
@@ -128,6 +128,9 @@ object TransactionIndexingInfo {
       }
       this
     }
+
+    private def visibility(contracts: Iterable[DivulgedContract]): WitnessRelation[ContractId] =
+      Relation(contracts.map(c => c.contractId -> blinding.divulgence(c.contractId)))
 
     def build(
         submitterInfo: Option[SubmitterInfo],
@@ -142,8 +145,9 @@ object TransactionIndexingInfo {
       val netCreates = allCreates.filter(c => !allArchives(c.coid))
       val netCreatedContractIds = netCreates.iterator.map(_.coid).toSet
       val netArchives = allArchives.diff(netCreatedContractIds)
-      val netVisibility = Relation(visibility.result()).filterKeys(netCreatedContractIds)
       val netDivulgedContracts = divulgedContracts.filter(c => !netCreatedContractIds(c.contractId))
+      val netTransactionVisibility = Relation(visibility.result()).filterKeys(netCreatedContractIds)
+      val netVisibility = Relation.union(netTransactionVisibility, visibility(netDivulgedContracts))
       TransactionIndexingInfo(
         submitterInfo = submitterInfo,
         workflowId = workflowId,
