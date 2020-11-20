@@ -15,6 +15,7 @@ module DA.Exception
     ( AnyException (..)
     , Exception (..)
     , displayException
+    , ActionThrow (..)
     , throw
     , throwPure
     , ActionCatch (..)
@@ -46,30 +47,33 @@ instance Exception AnyException where
 displayException : Exception e => e -> Text
 displayException e = getField @"message" (toAnyException e)
 
+-- | Typeclass for action that supports throwing exceptions.
+class Action m => ActionThrow m where
+    -- | Throw an AnyException.
+    throwAny : AnyException -> m t
+
+instance ActionThrow Update where
+    throwAny e = pure () >>= \_ -> throwAnyPure e
+
 -- | Throw an exception.
-throw : (Action m, Exception e) => e -> m t
-throw e = do
-    pure ()
-    throwPure e
+throw : (ActionThrow m, Exception e) => e -> m t
+throw e = throwAny (toAnyException e)
 
 -- | Throw an exception in pure code.
 throwPure : Exception e => e -> t
-throwPure e = throwAny (toAnyException e)
+throwPure e = throwAnyPure (toAnyException e)
 
--- | HIDE Throw AnyException in pure code.
-throwAny : AnyException -> t
-throwAny AnyException{..} = throwPrim message payload
+-- | HIDE Throw an AnyException in pure code.
+throwAnyPure : AnyException -> t
+throwAnyPure AnyException{..} = throwPrim message payload
 
 -- | HIDE Throw primitive.
 throwPrim : Text -> Any -> t
 throwPrim = undefined -- primitive @"throw"
 
--- | Typeclass for catching exceptions. Exceptions can be raised
--- anywhere with `throw` and `throwPure`, but they can only be
--- caught in an action that has an `ActionCatch` instance, such as
--- `Update` and `Script`.
-class Action m => ActionCatch m where
-    catchRaw : (() -> m t) -> (AnyException -> Maybe (m t)) -> m t
+-- | Typeclass for action that supports catching exceptions.
+class ActionThrow m => ActionCatch m where
+    catchRaw : (() -> m t) -> (AnyException -> Optional (m t)) -> m t
 
 instance ActionCatch Update where
     catchRaw = undefined -- magic @"catch"
