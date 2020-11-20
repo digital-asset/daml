@@ -3,6 +3,8 @@
 
 package com.daml.platform.store.dao
 
+import com.daml.lf.data.Ref
+import com.daml.lf.transaction.{BlindingInfo, NodeId}
 import org.scalatest.{AsyncFlatSpec, LoneElement, Matchers}
 
 private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
@@ -45,6 +47,21 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
         create.commandId.get -> ok,
         fetch.commandId.get -> ok,
       )
+    }
+  }
+
+  it should "prefer pre-computed blinding info" in {
+    val mismatchingBlindingInfo =
+      BlindingInfo(Map(NodeId(0) -> Set(Ref.Party.assertFromString("zoe"))), Map())
+    for {
+      (_, tx) <- store(
+        offsetAndTx = singleCreate,
+        blindingInfo = Some(mismatchingBlindingInfo),
+        divulgedContracts = Map.empty,
+      )
+      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, alice)
+    } yield {
+      result shouldBe None
     }
   }
 
