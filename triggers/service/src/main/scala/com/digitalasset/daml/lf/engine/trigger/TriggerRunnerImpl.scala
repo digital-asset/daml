@@ -144,6 +144,10 @@ object TriggerRunnerImpl {
             case Status(replyTo) =>
               replyTo ! Running
               Behaviors.same
+            case Failed(cause: io.grpc.StatusRuntimeException)
+                if cause.getStatus == io.grpc.Status.UNAUTHENTICATED =>
+              config.server ! Server.TriggerTokenExpired(triggerInstance)
+              Behaviors.stopped
             case Failed(cause) =>
               // Report the failure to the server.
               config.server ! Server.TriggerRuntimeFailure(triggerInstance, cause.toString)
