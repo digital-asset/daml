@@ -230,10 +230,14 @@ private[state] object Conversions {
   def decodeTransactionNodeId(transactionNodeId: String): NodeId =
     NodeId(transactionNodeId.toInt)
 
+  /**
+    * Encodes a [[BlindingInfo]] into a protobuf [[DamlTransactionBlindingInfo]].
+    * It is consensus-safe because it does so deterministically
+    */
   def encodeBlindingInfo(blindingInfo: BlindingInfo): DamlTransactionBlindingInfo =
     DamlTransactionBlindingInfo.newBuilder
-      .addAllDisclosures(encodeDisclosure(blindingInfo.disclosure).asJava)
-      .addAllDivulgences(encodeDivulgence(blindingInfo.divulgence).asJava)
+      .addAllDisclosures(encodeDisclosureDeterministically(blindingInfo.disclosure).asJava)
+      .addAllDivulgences(encodeDivulgenceDeterministically(blindingInfo.divulgence).asJava)
       .build
 
   def decodeBlindingInfo(blindingInfo: DamlTransactionBlindingInfo): BlindingInfo =
@@ -248,32 +252,32 @@ private[state] object Conversions {
       }.toMap
     )
 
-  private def encodeParties(parties: Iterable[Party]): List[String] =
-    parties.asInstanceOf[Set[String]].toList.sorted // Deterministic
+  private def encodePartiesDeterministically(parties: Iterable[Party]): List[String] =
+    parties.asInstanceOf[Set[String]].toList.sorted
 
   private def encodeDisclosureEntry(disclosureEntry: (NodeId, Set[Party])): DisclosureEntry =
     DisclosureEntry.newBuilder
       .setNodeId(encodeTransactionNodeId(disclosureEntry._1))
-      .addAllDisclosedToLocalParties(encodeParties(disclosureEntry._2).asJava)
+      .addAllDisclosedToLocalParties(encodePartiesDeterministically(disclosureEntry._2).asJava)
       .build
 
-  private def encodeDisclosure(
+  private def encodeDisclosureDeterministically(
       disclosure: Relation[NodeId, Party],
   ): List[DisclosureEntry] =
     disclosure.toList
-      .sortBy(_._1.index) // Deterministic
+      .sortBy(_._1.index)
       .map(encodeDisclosureEntry)
 
   private def encodeDivulgenceEntry(divulgenceEntry: (ContractId, Set[Party])): DivulgenceEntry =
     DivulgenceEntry.newBuilder
       .setContractId(contractIdToString(divulgenceEntry._1))
-      .addAllDivulgedToLocalParties(encodeParties(divulgenceEntry._2).asJava)
+      .addAllDivulgedToLocalParties(encodePartiesDeterministically(divulgenceEntry._2).asJava)
       .build
 
-  private def encodeDivulgence(
+  private def encodeDivulgenceDeterministically(
       divulgence: Relation[ContractId, Party],
   ): List[DivulgenceEntry] =
     divulgence.toList
-      .sortBy(_._1.coid) // Deterministic
+      .sortBy(_._1.coid)
       .map(encodeDivulgenceEntry)
 }
