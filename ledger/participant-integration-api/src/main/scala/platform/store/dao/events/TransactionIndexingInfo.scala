@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v1.{
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.BlindingInfo
 
-final case class TransactionIndexingInfo private (
+final case class TransactionIndexingInfo(
     submitterInfo: Option[SubmitterInfo],
     workflowId: Option[WorkflowId],
     transactionId: TransactionId,
@@ -183,8 +183,7 @@ object TransactionIndexingInfo {
       offset: Offset,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
-  ): TransactionIndexingInfo = {
-
+  ): TransactionIndexingInfo =
     transaction
       .fold(new Builder(blindingInfo))(_ add _)
       .build(
@@ -195,7 +194,5 @@ object TransactionIndexingInfo {
         offset = offset,
         divulgedContracts = divulgedContracts,
       )
-
-  }
 
 }
