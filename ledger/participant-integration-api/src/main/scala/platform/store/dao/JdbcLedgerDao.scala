@@ -433,6 +433,17 @@ private class JdbcLedgerDao(
       blindingInfo,
     )
 
+  private def handleError(
+      offset: Offset,
+      info: SubmitterInfo,
+      recordTime: Instant,
+      rejectionReason: RejectionReason,
+  )(implicit connection: Connection): Unit = {
+    stopDeduplicatingCommandSync(domain.CommandId(info.commandId), info.singleSubmitterOrThrow())
+    prepareRejectionInsert(info, offset, recordTime, rejectionReason).execute()
+    ()
+  }
+
   override def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
@@ -466,13 +477,9 @@ private class JdbcLedgerDao(
               .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
               .foreach(_.execute())
           )
-        } else {
-          for (info <- submitterInfo) {
-            stopDeduplicatingCommandSync(
-              domain.CommandId(info.commandId),
-              info.singleSubmitterOrThrow())
-            prepareRejectionInsert(info, offset, recordTime, error.get).execute()
-          }
+        }
+        for (reason <- error; info <- submitterInfo) {
+          handleError(offset, info, recordTime, reason)
         }
         Timed.value(
           metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
@@ -492,10 +499,7 @@ private class JdbcLedgerDao(
         queries.enableAsyncCommit
       }
       for (info <- submitterInfo) {
-        stopDeduplicatingCommandSync(
-          domain.CommandId(info.commandId),
-          info.singleSubmitterOrThrow())
-        prepareRejectionInsert(info, offset, recordTime, reason).execute()
+        handleError(offset, info, recordTime, reason)
       }
       ParametersTable.updateLedgerEnd(offset)
       Ok
