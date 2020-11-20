@@ -600,8 +600,8 @@ trait AbstractTriggerServiceTestAuthMiddleware
           JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
 
         // Trigger is running, create an A contract
-        _ <- {
-          val cmd = Command().withCreate(
+        createACommand = { v: Long =>
+          Command().withCreate(
             CreateCommand(
               templateId = Some(Identifier(testPkgId, "TestTrigger", "A")),
               createArguments = Some(
@@ -609,10 +609,10 @@ trait AbstractTriggerServiceTestAuthMiddleware
                   None,
                   Seq(
                     RecordField(value = Some(Value().withParty(aliceExp.unwrap))),
-                    RecordField(value = Some(Value().withInt64(7)))))),
+                    RecordField(value = Some(Value().withInt64(v))))))
             ))
-          submitCmd(client, aliceExp.unwrap, cmd)
         }
+        _ <- submitCmd(client, aliceExp.unwrap, createACommand(7))
         // Query ACS until we see a B contract
         _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
           getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
@@ -624,19 +624,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
           JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
 
         // Create another A contract
-        _ <- {
-          val cmd = Command().withCreate(
-            CreateCommand(
-              templateId = Some(Identifier(testPkgId, "TestTrigger", "A")),
-              createArguments = Some(
-                Record(
-                  None,
-                  Seq(
-                    RecordField(value = Some(Value().withParty(aliceExp.unwrap))),
-                    RecordField(value = Some(Value().withInt64(42)))))),
-            ))
-          submitCmd(client, aliceExp.unwrap, cmd)
-        }
+        _ <- submitCmd(client, aliceExp.unwrap, createACommand(42))
         // Query ACS until we see a second B contract
         _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
           getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
