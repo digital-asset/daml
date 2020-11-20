@@ -669,9 +669,10 @@ object Server {
               refreshToken = RefreshToken.subst(authorize.refreshToken)
               // Update and restart the trigger
               _ <- dao.updateRunningTriggerToken(triggerInstance, accessToken, refreshToken)
-              triggerRunner <- ctx
-                .child(triggerInstance.toString ++ "-monitor")
-                .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]] match {
+              optTriggerRunner = ctx
+                .child(triggerRunnerName(triggerInstance))
+                .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
+              triggerRunner <- optTriggerRunner match {
                 case Some(runner) => Future.successful(runner)
                 case None =>
                   Future.failed(new RuntimeException(s"No trigger runner for $triggerInstance"))
