@@ -130,7 +130,9 @@ object TransactionIndexingInfo {
     }
 
     private def visibility(contracts: Iterable[DivulgedContract]): WitnessRelation[ContractId] =
-      Relation(contracts.map(c => c.contractId -> blinding.divulgence(c.contractId)))
+      Relation(
+        contracts.map(c => c.contractId -> blinding.divulgence.getOrElse(c.contractId, Set.empty)),
+      )
 
     def build(
         submitterInfo: Option[SubmitterInfo],
