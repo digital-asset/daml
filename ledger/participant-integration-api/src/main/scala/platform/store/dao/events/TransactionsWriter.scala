@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.{BatchSql, Row, SimpleSql}
+import anorm.{Row, SimpleSql}
 import com.daml.ledger.participant.state.v1.{
   CommittedTransaction,
   DivulgedContract,
@@ -22,38 +22,36 @@ import com.daml.platform.store.DbType
 object TransactionsWriter {
 
   final class PreparedInsert private[TransactionsWriter] (
-      insertEventsBatch: Option[BatchSql],
-      updateArchivesBatch: Option[BatchSql],
-      deleteContractsBatch: Option[BatchSql],
-      insertContractsBatch: Option[BatchSql],
-      deleteWitnessesBatch: Option[BatchSql],
-      insertWitnessesBatch: Option[BatchSql],
+      eventsTableExecutables: EventsTable.Executables,
+      contractsTableExecutables: ContractsTable.Executables,
+      contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
   ) {
     def write(metrics: Metrics)(implicit connection: Connection): Unit = {
       import metrics.daml.index.db.storeTransactionDbMetrics
 
-      val eventsBatch = insertEventsBatch.toList ++ updateArchivesBatch.toList
+      val eventsBatch = eventsTableExecutables.insertEvents.toList ++ eventsTableExecutables.updateArchives.toList
 
       Timed.value(storeTransactionDbMetrics.eventsBatch, eventsBatch.foreach(_.execute()))
 
       // Delete the witnesses of contracts that being removed first, to
       // respect the foreign key constraint of the underlying storage
-      for (batch <- deleteWitnessesBatch)
-        Timed.value(storeTransactionDbMetrics.deleteContractWitnessesBatch, batch.execute())
+      for (inserts <- contractWitnessesTableExecutables.deleteWitnesses)
+        Timed.value(storeTransactionDbMetrics.deleteContractWitnessesBatch, inserts.execute())
 
-      for (batch <- deleteContractsBatch) {
-        Timed.value(storeTransactionDbMetrics.deleteContractsBatch, batch.execute())
+      for (deletes <- contractsTableExecutables.deleteContracts) {
+        Timed.value(storeTransactionDbMetrics.deleteContractsBatch, deletes.execute())
       }
-      for (batch <- insertContractsBatch) {
-        Timed.value(storeTransactionDbMetrics.insertContractsBatch, batch.execute())
+
+      for (inserts <- contractsTableExecutables.insertContracts) {
+        Timed.value(storeTransactionDbMetrics.insertContractsBatch, inserts.execute())
       }
 
       // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
       // Compute and insert new witnesses regardless of whether the current transaction adds new
       // contracts because it may be the case that we are only adding new witnesses to existing
       // contracts (e.g. via divulging a contract with fetch).
-      for (batch <- insertWitnessesBatch) {
-        Timed.value(storeTransactionDbMetrics.insertContractWitnessesBatch, batch.execute())
+      for (inserts <- contractWitnessesTableExecutables.insertWitnesses) {
+        Timed.value(storeTransactionDbMetrics.insertContractWitnessesBatch, inserts.execute())
       }
     }
   }
@@ -82,7 +80,7 @@ private[dao] final class TransactionsWriter(
 
     val blinding = blindingInfo.getOrElse(Blinding.blind(transaction))
 
-    val insertion =
+    val transactionIndexingInfo =
       TransactionIndexingInfo.from(
         blinding,
         submitterInfo,
@@ -94,28 +92,16 @@ private[dao] final class TransactionsWriter(
         divulgedContracts,
       )
 
-    val serializedInsertion =
+    val serializedTransactionIndexingInfo =
       Timed.value(
         metrics.daml.index.db.storeTransactionDbMetrics.translationTimer,
-        insertion.serialize(lfValueTranslation)
+        transactionIndexingInfo.serialize(lfValueTranslation),
       )
 
-    val (insertEvents, updateArchives) =
-      EventsTable.toExecutables(serializedInsertion)
-
-    val (insertContracts, deleteContracts) =
-      contractsTable.toExecutables(serializedInsertion)
-
-    val (deleteWitnesses, insertWitnesses) =
-      contractWitnessesTable.toExecutables(serializedInsertion)
-
     new TransactionsWriter.PreparedInsert(
-      insertEventsBatch = insertEvents,
-      updateArchivesBatch = updateArchives,
-      deleteContractsBatch = deleteContracts,
-      insertContractsBatch = insertContracts,
-      deleteWitnessesBatch = deleteWitnesses,
-      insertWitnessesBatch = insertWitnesses,
+      EventsTable.toExecutables(serializedTransactionIndexingInfo),
+      contractsTable.toExecutables(serializedTransactionIndexingInfo),
+      contractWitnessesTable.toExecutables(serializedTransactionIndexingInfo),
     )
 
   }

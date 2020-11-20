@@ -34,16 +34,18 @@ private[events] sealed abstract class ContractWitnessesTable {
 
   def toExecutables(
       serialized: TransactionIndexingInfo.Serialized,
-  ): (Option[BatchSql], Option[BatchSql]) = {
-    (
-      prepareBatchDelete(serialized.info.netArchives.toList),
-      prepareBatchInsert(serialized.info.netVisibility),
+  ): ContractWitnessesTable.Executables = {
+    ContractWitnessesTable.Executables(
+      deleteWitnesses = prepareBatchDelete(serialized.info.netArchives.toList),
+      insertWitnesses = prepareBatchInsert(serialized.info.netVisibility),
     )
   }
 
 }
 
 private[events] object ContractWitnessesTable {
+
+  final case class Executables(deleteWitnesses: Option[BatchSql], insertWitnesses: Option[BatchSql])
 
   def apply(dbType: DbType): ContractWitnessesTable =
     dbType match {

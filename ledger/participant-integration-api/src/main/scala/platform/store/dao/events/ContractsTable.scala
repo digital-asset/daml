@@ -45,7 +45,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
 
   def toExecutables(
       serialized: TransactionIndexingInfo.Serialized,
-  ): (Option[BatchSql], Option[BatchSql]) = {
+  ): ContractsTable.Executables = {
     val deletes =
       serialized.info.netArchives.iterator
         .map(deleteContract)
@@ -75,9 +75,9 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
         )
       }
     val inserts = localInserts ++ divulgedInserts
-    (
-      batch(deleteContractQuery, deletes.toSeq),
-      batch(insertContractQuery, inserts.toSeq)
+    ContractsTable.Executables(
+      deleteContracts = batch(deleteContractQuery, deletes.toSeq),
+      insertContracts = batch(insertContractQuery, inserts.toSeq)
     )
   }
 
@@ -106,6 +106,8 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
 }
 
 private[events] object ContractsTable {
+
+  final case class Executables(deleteContracts: Option[BatchSql], insertContracts: Option[BatchSql])
 
   def apply(dbType: DbType): ContractsTable =
     dbType match {

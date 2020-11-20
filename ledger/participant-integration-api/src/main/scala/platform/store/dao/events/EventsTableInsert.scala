@@ -5,7 +5,7 @@ package com.daml.platform.store.dao.events
 
 import java.time.Instant
 
-import anorm.{BatchSql, NamedParameter}
+import anorm.NamedParameter
 import com.daml.ledger.{EventId, TransactionId}
 import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo, WorkflowId}
 import com.daml.platform.store.Conversions._
@@ -171,7 +171,8 @@ private[events] trait EventsTableInsert { this: EventsTable =>
 
   def toExecutables(
       serialized: TransactionIndexingInfo.Serialized,
-  ): (Option[BatchSql], Option[BatchSql]) = {
+  ): EventsTable.Executables = {
+
     val events = transaction(
       offset = serialized.info.offset,
       transactionId = serialized.info.transactionId,
@@ -186,12 +187,15 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       exerciseArguments = serialized.exerciseArguments,
       exerciseResults = serialized.exerciseResults,
     )
+
     val archivals =
       serialized.info.archives.iterator.map(archive(serialized.info.offset)).toList
-    (
-      batch(insertEvent, events),
-      batch(updateArchived, archivals),
+
+    EventsTable.Executables(
+      insertEvents = batch(insertEvent, events),
+      updateArchives = batch(updateArchived, archivals),
     )
+
   }
 
 }
