@@ -665,12 +665,18 @@ object Server {
                     Future.failed(new RuntimeException(s"Failed to refresh token ($status): $msg"))
                   }
               }
+              accessToken = AccessToken(authorize.accessToken)
+              refreshToken = RefreshToken.subst(authorize.refreshToken)
               // Update and restart the trigger
-              _ <- dao.updateRunningTriggerToken(
-                triggerInstance,
-                AccessToken(authorize.accessToken),
-                RefreshToken.subst(authorize.refreshToken))
-              // TODO[AH] Send a restart message to the trigger runner
+              _ <- dao.updateRunningTriggerToken(triggerInstance, accessToken, refreshToken)
+              triggerRunner <- ctx
+                .child(triggerInstance.toString ++ "-monitor")
+                .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]] match {
+                case Some(runner) => Future.successful(runner)
+                case None =>
+                  Future.failed(new RuntimeException(s"No trigger runner for $triggerInstance"))
+              }
+              _ = triggerRunner ! UpdateToken(accessToken, refreshToken)
             } yield ()
             val mapResult: Try[Unit] => Message = TriggerTokenRefresh(triggerInstance, _)
             ctx.pipeToSelf(future)(mapResult)

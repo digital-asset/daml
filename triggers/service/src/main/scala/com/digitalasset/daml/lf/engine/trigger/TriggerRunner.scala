@@ -8,8 +8,9 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior, PostStop}
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
 import com.daml.logging.LoggingContextOf.{label, newLoggingContext}
-import com.daml.logging.{ContextualizedLogger}
+import com.daml.logging.ContextualizedLogger
 import spray.json._
 
 class InitializationHalted(s: String) extends Exception(s) {}
@@ -23,6 +24,8 @@ object TriggerRunner {
   sealed trait Message
   final case object Stop extends Message
   final case class Status(replyTo: ActorRef[TriggerStatus]) extends Message
+  final case class UpdateToken(accessToken: AccessToken, refreshToken: Option[RefreshToken])
+      extends Message
 
   sealed trait TriggerStatus
   final case object QueryingACS extends TriggerStatus
@@ -75,6 +78,12 @@ object TriggerRunner {
                 Behaviors.same
               case Stop =>
                 Behaviors.stopped // Automatically stops the child actor if running.
+              case UpdateToken(accessToken, refreshToken) =>
+                logger.info(s"Restarting trigger $name with new token")
+                ctx.children.foreach(ctx.stop)
+                apply(
+                  config.copy(accessToken = Some(accessToken), refreshToken = refreshToken),
+                  name)
             }
             .receiveSignal {
               case (_, PostStop) =>
