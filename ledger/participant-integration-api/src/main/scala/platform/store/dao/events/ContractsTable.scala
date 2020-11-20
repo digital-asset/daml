@@ -44,24 +44,26 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
     )
 
   def toExecutables(
-      serialized: TransactionIndexingInfo.Serialized,
+      tx: TransactionIndexing.TransactionInfo,
+      info: TransactionIndexing.ContractsInfo,
+      serialized: TransactionIndexing.Serialized,
   ): ContractsTable.Executables = {
-    val deletes = serialized.info.netArchives.iterator.map(deleteContract).toSeq
+    val deletes = info.netArchives.iterator.map(deleteContract).toSeq
     val localInserts =
       for {
-        create <- serialized.info.netCreates.iterator
+        create <- info.netCreates.iterator
       } yield
         insertContract(
           contractId = create.coid,
           templateId = create.templateId,
           createArgument = serialized.createArgumentsByContract(create.coid),
-          ledgerEffectiveTime = Some(serialized.info.ledgerEffectiveTime),
+          ledgerEffectiveTime = Some(tx.ledgerEffectiveTime),
           stakeholders = create.stakeholders,
           key = create.key.map(convert(create.templateId, _))
         )
     val divulgedInserts =
       for {
-        DivulgedContract(contractId, contractInst) <- serialized.info.divulgedContracts.iterator
+        DivulgedContract(contractId, contractInst) <- info.divulgedContracts.iterator
       } yield {
         insertContract(
           contractId = contractId,

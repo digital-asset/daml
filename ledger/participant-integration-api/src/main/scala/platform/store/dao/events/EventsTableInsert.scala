@@ -170,18 +170,20 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     )
 
   def toExecutables(
-      serialized: TransactionIndexingInfo.Serialized,
+      tx: TransactionIndexing.TransactionInfo,
+      info: TransactionIndexing.EventsInfo,
+      serialized: TransactionIndexing.Serialized,
   ): EventsTable.Executables = {
 
     val events = transaction(
-      offset = serialized.info.offset,
-      transactionId = serialized.info.transactionId,
-      workflowId = serialized.info.workflowId,
-      ledgerEffectiveTime = serialized.info.ledgerEffectiveTime,
-      submitterInfo = serialized.info.submitterInfo,
-      events = serialized.info.events,
-      stakeholders = serialized.info.stakeholders,
-      disclosure = serialized.info.disclosure,
+      offset = tx.offset,
+      transactionId = tx.transactionId,
+      workflowId = tx.workflowId,
+      ledgerEffectiveTime = tx.ledgerEffectiveTime,
+      submitterInfo = tx.submitterInfo,
+      events = info.events,
+      stakeholders = info.stakeholders,
+      disclosure = info.disclosure,
       createArguments = serialized.createArguments,
       createKeyValues = serialized.createKeyValues,
       exerciseArguments = serialized.exerciseArguments,
@@ -189,7 +191,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     )
 
     val archivals =
-      serialized.info.archives.iterator.map(archive(serialized.info.offset)).toList
+      info.archives.iterator.map(archive(tx.offset)).toList
 
     EventsTable.Executables(
       insertEvents = batch(insertEvent, events),

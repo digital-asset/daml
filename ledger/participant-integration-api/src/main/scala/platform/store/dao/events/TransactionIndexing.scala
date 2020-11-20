@@ -15,22 +15,21 @@ import com.daml.ledger.participant.state.v1.{
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.BlindingInfo
 
-final case class TransactionIndexingInfo(
-    submitterInfo: Option[SubmitterInfo],
-    workflowId: Option[WorkflowId],
-    transactionId: TransactionId,
-    ledgerEffectiveTime: Instant,
-    offset: Offset,
-    events: Vector[(NodeId, Node)],
-    netCreates: Set[Create],
-    netArchives: Set[ContractId],
-    archives: Set[ContractId],
-    stakeholders: WitnessRelation[NodeId],
-    disclosure: WitnessRelation[NodeId],
-    netVisibility: WitnessRelation[ContractId],
-    divulgedContracts: Iterable[DivulgedContract],
-) {
-  def serialize(translation: LfValueTranslation): TransactionIndexingInfo.Serialized = {
+final case class TransactionIndexing(
+    transaction: TransactionIndexing.TransactionInfo,
+    events: TransactionIndexing.EventsInfo,
+    contracts: TransactionIndexing.ContractsInfo,
+    contractWitnesses: TransactionIndexing.ContractWitnessesInfo,
+)
+
+object TransactionIndexing {
+
+  def serialize(
+      translation: LfValueTranslation,
+      transactionId: TransactionId,
+      events: Vector[(NodeId, Node)],
+      divulgedContracts: Iterable[DivulgedContract],
+  ): Serialized = {
 
     val createArgumentsByContract = Map.newBuilder[ContractId, Array[Byte]]
     val createArguments = Map.newBuilder[NodeId, Array[Byte]]
@@ -59,19 +58,15 @@ final case class TransactionIndexingInfo(
       createArgumentsByContract += ((contractId, serializedCreateArgument))
     }
 
-    TransactionIndexingInfo.Serialized(
-      info = this,
+    Serialized(
       createArgumentsByContract = createArgumentsByContract.result(),
       createArguments = createArguments.result(),
       createKeyValues = createKeyValues.result(),
       exerciseArguments = exerciseArguments.result(),
       exerciseResults = exerciseResults.result(),
     )
+
   }
-
-}
-
-object TransactionIndexingInfo {
 
   private class Builder(blinding: BlindingInfo) {
 
@@ -141,7 +136,7 @@ object TransactionIndexingInfo {
         ledgerEffectiveTime: Instant,
         offset: Offset,
         divulgedContracts: Iterable[DivulgedContract],
-    ): TransactionIndexingInfo = {
+    ): TransactionIndexing = {
       val created = creates.result()
       val archived = archives.result()
       val allCreatedContractIds = created.map(_.coid)
@@ -151,26 +146,60 @@ object TransactionIndexingInfo {
       val netDivulgedContracts = divulgedContracts.filterNot(c => allContractIds(c.contractId))
       val netTransactionVisibility = Relation(visibility.result()).filterKeys(!archived(_))
       val netVisibility = Relation.union(netTransactionVisibility, visibility(netDivulgedContracts))
-      TransactionIndexingInfo(
-        submitterInfo = submitterInfo,
-        workflowId = workflowId,
-        transactionId = transactionId,
-        ledgerEffectiveTime = ledgerEffectiveTime,
-        offset = offset,
-        events = events.result(),
-        netCreates = netCreates,
-        netArchives = netArchives,
-        archives = archived,
-        stakeholders = stakeholders.result(),
-        disclosure = disclosure.result(),
-        netVisibility = netVisibility,
-        divulgedContracts = netDivulgedContracts,
+      TransactionIndexing(
+        transaction = TransactionInfo(
+          submitterInfo = submitterInfo,
+          workflowId = workflowId,
+          transactionId = transactionId,
+          ledgerEffectiveTime = ledgerEffectiveTime,
+          offset = offset,
+        ),
+        events = EventsInfo(
+          events = events.result(),
+          archives = archived,
+          stakeholders = stakeholders.result(),
+          disclosure = disclosure.result(),
+        ),
+        contracts = ContractsInfo(
+          netCreates = netCreates,
+          netArchives = netArchives,
+          divulgedContracts = netDivulgedContracts,
+        ),
+        contractWitnesses = ContractWitnessesInfo(
+          netArchives = netArchives,
+          netVisibility = netVisibility,
+        )
       )
     }
   }
 
-  final case class Serialized private (
-      info: TransactionIndexingInfo,
+  final case class TransactionInfo(
+      submitterInfo: Option[SubmitterInfo],
+      workflowId: Option[WorkflowId],
+      transactionId: TransactionId,
+      ledgerEffectiveTime: Instant,
+      offset: Offset,
+  )
+
+  final case class EventsInfo(
+      events: Vector[(NodeId, Node)],
+      archives: Set[ContractId],
+      stakeholders: WitnessRelation[NodeId],
+      disclosure: WitnessRelation[NodeId],
+  )
+
+  final case class ContractsInfo(
+      netCreates: Set[Create],
+      netArchives: Set[ContractId],
+      divulgedContracts: Iterable[DivulgedContract],
+  )
+
+  final case class ContractWitnessesInfo(
+      netArchives: Set[ContractId],
+      netVisibility: WitnessRelation[ContractId],
+  )
+
+  final case class Serialized(
       createArgumentsByContract: Map[ContractId, Array[Byte]],
       createArguments: Map[NodeId, Array[Byte]],
       createKeyValues: Map[NodeId, Array[Byte]],
@@ -187,7 +216,7 @@ object TransactionIndexingInfo {
       offset: Offset,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
-  ): TransactionIndexingInfo =
+  ): TransactionIndexing =
     transaction
       .fold(new Builder(blindingInfo))(_ add _)
       .build(

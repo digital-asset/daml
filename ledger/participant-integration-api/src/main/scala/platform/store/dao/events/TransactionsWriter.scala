@@ -81,8 +81,8 @@ private[dao] final class TransactionsWriter(
 
     val blinding = blindingInfo.getOrElse(Blinding.blind(transaction))
 
-    val transactionIndexingInfo =
-      TransactionIndexingInfo.from(
+    val indexing =
+      TransactionIndexing.from(
         blinding,
         submitterInfo,
         workflowId,
@@ -93,16 +93,21 @@ private[dao] final class TransactionsWriter(
         divulgedContracts,
       )
 
-    val serializedTransactionIndexingInfo =
+    val serialized =
       Timed.value(
         metrics.daml.index.db.storeTransactionDbMetrics.translationTimer,
-        transactionIndexingInfo.serialize(lfValueTranslation),
+        TransactionIndexing.serialize(
+          lfValueTranslation,
+          transactionId,
+          indexing.events.events,
+          indexing.contracts.divulgedContracts,
+        ),
       )
 
     new TransactionsWriter.PreparedInsert(
-      EventsTable.toExecutables(serializedTransactionIndexingInfo),
-      contractsTable.toExecutables(serializedTransactionIndexingInfo),
-      contractWitnessesTable.toExecutables(serializedTransactionIndexingInfo),
+      EventsTable.toExecutables(indexing.transaction, indexing.events, serialized),
+      contractsTable.toExecutables(indexing.transaction, indexing.contracts, serialized),
+      contractWitnessesTable.toExecutables(indexing.contractWitnesses),
     )
 
   }

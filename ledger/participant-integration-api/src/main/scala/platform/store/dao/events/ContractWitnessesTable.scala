@@ -33,11 +33,11 @@ private[events] sealed abstract class ContractWitnessesTable {
     batch(delete, ids.map(id => List[NamedParameter](IdColumn -> id)))
 
   def toExecutables(
-      serialized: TransactionIndexingInfo.Serialized,
+      info: TransactionIndexing.ContractWitnessesInfo,
   ): ContractWitnessesTable.Executables = {
     ContractWitnessesTable.Executables(
-      deleteWitnesses = prepareBatchDelete(serialized.info.netArchives.toList),
-      insertWitnesses = prepareBatchInsert(serialized.info.netVisibility),
+      deleteWitnesses = prepareBatchDelete(info.netArchives.toList),
+      insertWitnesses = prepareBatchInsert(info.netVisibility),
     )
   }
 
