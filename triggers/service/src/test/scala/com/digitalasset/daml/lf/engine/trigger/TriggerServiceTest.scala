@@ -599,7 +599,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
           Some(ApplicationId("exp-app-id")))
         triggerId <- parseTriggerId(resp)
 
-        // Expire old token and test that the trigger service requests a new token.
+        // Expire old token and test that the trigger service requests a new token during trigger start-up.
         _ = authClock.fastForward(
           JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
 
@@ -613,7 +613,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
                   None,
                   Seq(
                     RecordField(value = Some(Value().withParty(aliceExp.unwrap))),
-                    RecordField(value = Some(Value().withInt64(42)))))),
+                    RecordField(value = Some(Value().withInt64(7)))))),
             ))
           submitCmd(client, aliceExp.unwrap, cmd)
         }
@@ -626,6 +626,35 @@ trait AbstractTriggerServiceTestAuthMiddleware
               .map(acsPages => acsPages.flatMap(_.activeContracts))
           } yield assert(acs.length == 1)
         }
+
+        // Expire old token and test that the trigger service requests a new token during running trigger.
+        _ = authClock.fastForward(
+          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
+
+        // Create another A contract
+        _ <- {
+          val cmd = Command().withCreate(
+            CreateCommand(
+              templateId = Some(Identifier(testPkgId, "TestTrigger", "A")),
+              createArguments = Some(
+                Record(
+                  None,
+                  Seq(
+                    RecordField(value = Some(Value().withParty(aliceExp.unwrap))),
+                    RecordField(value = Some(Value().withInt64(42)))))),
+            ))
+          submitCmd(client, aliceExp.unwrap, cmd)
+        }
+        // Query ACS until we see a second B contract
+        _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
+          for {
+            acs <- client.activeContractSetClient
+              .getActiveContracts(filter)
+              .runWith(Sink.seq)
+              .map(acsPages => acsPages.flatMap(_.activeContracts))
+          } yield assert(acs.length == 2)
+        }
+
         // Read completions to make sure we set the right app id.
         r <- client.commandClient
           .completionSource(List(aliceExp.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
