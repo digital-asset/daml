@@ -108,13 +108,13 @@ object TransactionIndexingInfo {
       event match {
         case (nodeId, create: Create) =>
           addEventAndDisclosure(event)
+          addVisibility(create.coid, blinding.disclosure(nodeId))
           addStakeholders(nodeId, create.stakeholders)
           addCreate(create)
-          addVisibility(create.coid, blinding.disclosure(nodeId))
         case (nodeId, exercise: Exercise) =>
           addEventAndDisclosure(event)
-          addDivulgence(exercise.targetCoid)
           addVisibility(exercise.targetCoid, blinding.disclosure(nodeId))
+          addDivulgence(exercise.targetCoid)
           if (exercise.consuming) {
             addStakeholders(nodeId, exercise.stakeholders)
             addArchive(exercise.targetCoid)
@@ -147,10 +147,9 @@ object TransactionIndexingInfo {
       val allCreatedContractIds = created.map(_.coid)
       val allContractIds = allCreatedContractIds.union(archived)
       val netCreates = created.filterNot(c => archived(c.coid))
-      val netCreatedContractIds = netCreates.map(_.coid)
-      val netArchives = archived.diff(netCreatedContractIds)
+      val netArchives = archived.filterNot(allCreatedContractIds)
       val netDivulgedContracts = divulgedContracts.filterNot(c => allContractIds(c.contractId))
-      val netTransactionVisibility = Relation(visibility.result()).filterKeys(netCreatedContractIds)
+      val netTransactionVisibility = Relation(visibility.result()).filterKeys(!archived(_))
       val netVisibility = Relation.union(netTransactionVisibility, visibility(netDivulgedContracts))
       TransactionIndexingInfo(
         submitterInfo = submitterInfo,
