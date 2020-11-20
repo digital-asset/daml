@@ -25,6 +25,7 @@ import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.command_service._
+import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
@@ -174,6 +175,18 @@ trait AbstractTriggerServiceTest
     } yield triggerIds
   }
 
+  def getActiveContracts(
+      client: LedgerClient,
+      party: Party,
+      template: Identifier): Future[Seq[CreatedEvent]] = {
+    val filter = TransactionFilter(
+      Map(party.unwrap -> Filters(Some(InclusiveFilters(Seq(template))))))
+    client.activeContractSetClient
+      .getActiveContracts(filter)
+      .runWith(Sink.seq)
+      .map(acsPages => acsPages.flatMap(_.activeContracts))
+  }
+
   def assertTriggerIds(uri: Uri, party: Party, expected: Vector[UUID]): Future[Assertion] =
     for {
       resp <- listTriggers(uri, party)
@@ -267,18 +280,10 @@ trait AbstractTriggerServiceTest
       client <- sandboxClient(
         ApiTypes.ApplicationId("my-app-id"),
         actAs = List(ApiTypes.Party(aliceAcs.unwrap)))
-      filter = TransactionFilter(
-        List(
-          (
-            aliceAcs.unwrap,
-            Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
       // Make sure that no contracts exist initially to guard against accidental
       // party reuse.
-      acs <- client.activeContractSetClient
-        .getActiveContracts(filter)
-        .runWith(Sink.seq)
-        .map(acsPages => acsPages.flatMap(_.activeContracts))
-      _ = acs shouldBe Vector()
+      _ <- getActiveContracts(client, aliceAcs, Identifier(testPkgId, "TestTrigger", "B"))
+        .map(_ shouldBe Vector())
       // Start the trigger
       resp <- startTrigger(
         uri,
@@ -303,12 +308,8 @@ trait AbstractTriggerServiceTest
       }
       // Query ACS until we see a B contract
       _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
-        for {
-          acs <- client.activeContractSetClient
-            .getActiveContracts(filter)
-            .runWith(Sink.seq)
-            .map(acsPages => acsPages.flatMap(_.activeContracts))
-        } yield assert(acs.length == 1)
+        getActiveContracts(client, aliceAcs, Identifier(testPkgId, "TestTrigger", "B"))
+          .map(_.length shouldBe 1)
       }
       // Read completions to make sure we set the right app id.
       r <- client.commandClient
@@ -580,17 +581,10 @@ trait AbstractTriggerServiceTestAuthMiddleware
         client <- sandboxClient(
           ApiTypes.ApplicationId("exp-app-id"),
           actAs = List(ApiTypes.Party(aliceExp.unwrap)))
-        filter = TransactionFilter(
-          List((
-            aliceExp.unwrap,
-            Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
         // Make sure that no contracts exist initially to guard against accidental
         // party reuse.
-        acs <- client.activeContractSetClient
-          .getActiveContracts(filter)
-          .runWith(Sink.seq)
-          .map(acsPages => acsPages.flatMap(_.activeContracts))
-        _ = acs shouldBe Vector()
+        _ <- getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
+          .map(_ shouldBe Vector())
         // Start the trigger
         resp <- startTrigger(
           uri,
@@ -621,12 +615,8 @@ trait AbstractTriggerServiceTestAuthMiddleware
         }
         // Query ACS until we see a B contract
         _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
-          for {
-            acs <- client.activeContractSetClient
-              .getActiveContracts(filter)
-              .runWith(Sink.seq)
-              .map(acsPages => acsPages.flatMap(_.activeContracts))
-          } yield assert(acs.length == 1)
+          getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
+            .map(_.length shouldBe 1)
         }
 
         // Expire old token and test that the trigger service requests a new token during running trigger.
@@ -649,12 +639,8 @@ trait AbstractTriggerServiceTestAuthMiddleware
         }
         // Query ACS until we see a second B contract
         _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
-          for {
-            acs <- client.activeContractSetClient
-              .getActiveContracts(filter)
-              .runWith(Sink.seq)
-              .map(acsPages => acsPages.flatMap(_.activeContracts))
-          } yield assert(acs.length == 2)
+          getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
+            .map(_.length shouldBe 2)
         }
 
         // Read completions to make sure we set the right app id.
