@@ -127,6 +127,19 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
       .option
   }
 
+  private def setRunningTriggerToken(
+      triggerInstance: UUID,
+      accessToken: AccessToken,
+      refreshToken: Option[RefreshToken]) = {
+    val update: Fragment =
+      sql"""
+        update running_triggers
+        set access_token = $accessToken, refresh_token = $refreshToken
+        where trigger_instance = $triggerInstance
+      """
+    update.update.run.void
+  }
+
   // trigger_instance is the primary key on running_triggers so this deletes
   // at most one row. Return whether or not it deleted.
   private def deleteRunningTrigger(triggerInstance: UUID): ConnectionIO[Boolean] = {
@@ -209,6 +222,12 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
   override def getRunningTrigger(triggerInstance: UUID)(
       implicit ec: ExecutionContext): Future[Option[RunningTrigger]] =
     run(queryRunningTrigger(triggerInstance))
+
+  override def updateRunningTriggerToken(
+      triggerInstance: UUID,
+      accessToken: AccessToken,
+      refreshToken: Option[RefreshToken])(implicit ec: ExecutionContext): Future[Unit] =
+    run(setRunningTriggerToken(triggerInstance, accessToken, refreshToken))
 
   override def removeRunningTrigger(triggerInstance: UUID)(
       implicit ec: ExecutionContext): Future[Boolean] =

@@ -10,6 +10,7 @@ import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.RunningTrigger
+import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -27,6 +28,18 @@ final class InMemoryTriggerDao extends RunningTriggerDao {
   override def getRunningTrigger(triggerInstance: UUID)(
       implicit ec: ExecutionContext): Future[Option[RunningTrigger]] = Future {
     triggers.get(triggerInstance)
+  }
+
+  override def updateRunningTriggerToken(
+      triggerInstance: UUID,
+      accessToken: AccessToken,
+      refreshToken: Option[RefreshToken])(implicit ec: ExecutionContext): Future[Unit] = Future {
+    triggers.get(triggerInstance) match {
+      case Some(t) =>
+        triggers += (triggerInstance -> t
+          .copy(triggerAccessToken = Some(accessToken), triggerRefreshToken = refreshToken))
+      case None => ()
+    }
   }
 
   override def removeRunningTrigger(triggerInstance: UUID)(

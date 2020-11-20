@@ -16,6 +16,7 @@ import akka.actor.typed.{ActorRef, Behavior, Scheduler}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
@@ -630,7 +631,47 @@ object Server {
 
           case TriggerTokenExpired(triggerInstance) =>
             server.logTriggerStatus(triggerInstance, "stopped: access token expired")
-            val future: Future[Unit] = Future(())
+            import AuthJsonProtocol._
+            val future: Future[Unit] = for {
+              // Lookup running trigger
+              runningTrigger <- dao.getRunningTrigger(triggerInstance).flatMap {
+                case Some(trigger) => Future.successful(trigger)
+                case None =>
+                  Future.failed(new RuntimeException(s"Unknown trigger $triggerInstance"))
+              }
+              // Request a token refresh
+              authUri <- authConfig match {
+                case NoAuth =>
+                  throw new RuntimeException("Cannot refresh token without authorization service")
+                case AuthMiddleware(uri) => Future.successful(uri)
+              }
+              refreshToken <- runningTrigger.triggerRefreshToken match {
+                case Some(token) => Future.successful(token)
+                case None =>
+                  Future.failed(new RuntimeException(s"No refresh token for $triggerInstance"))
+              }
+              requestEntity <- Marshal(AuthRequest.Refresh(RefreshToken.unwrap(refreshToken)))
+                .to[RequestEntity]
+              response <- Http().singleRequest(
+                HttpRequest(
+                  method = HttpMethods.POST,
+                  uri = authUri.withPath(Path./("refresh")),
+                  entity = requestEntity,
+                ))
+              authorize <- response.status match {
+                case StatusCodes.OK => Unmarshal(response.entity).to[AuthResponse.Authorize]
+                case status =>
+                  Unmarshal(response).to[String].flatMap { msg =>
+                    Future.failed(new RuntimeException(s"Failed to refresh token ($status): $msg"))
+                  }
+              }
+              // Update and restart the trigger
+              _ <- dao.updateRunningTriggerToken(
+                triggerInstance,
+                AccessToken(authorize.accessToken),
+                RefreshToken.subst(authorize.refreshToken))
+              // TODO[AH] Send a restart message to the trigger runner
+            } yield ()
             val mapResult: Try[Unit] => Message = TriggerTokenRefresh(triggerInstance, _)
             ctx.pipeToSelf(future)(mapResult)
             Behaviors.same
