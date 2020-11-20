@@ -131,7 +131,7 @@ object JdbcIndexer {
 
   }
 
-  private def loggingContextPartiesValue(parties: List[Party]) =
+  private def loggingContextPartiesValue(parties: Set[Party]) =
     parties.mkString("[", ", ", "]")
 
   private def loggingContextFor(update: Update): Map[String, String] =

@@ -31,7 +31,7 @@ import java.time.Instant
   *   - Commands should not be deduplicated after the command was rejected.
   */
 final case class SubmitterInfo(
-    actAs: List[Party],
+    actAs: Set[Party],
     applicationId: ApplicationId,
     commandId: CommandId,
     deduplicateUntil: Instant,
@@ -39,7 +39,7 @@ final case class SubmitterInfo(
   // Note: this function is only available temporarily until the entire DAML code base
   // supports multi-party submissions. Use at your own risk.
   def singleSubmitterOrThrow(): Party = {
-    if (actAs.length == 1)
+    if (actAs.size == 1)
       actAs.head
     else
       throw new RuntimeException("SubmitterInfo contains more than one acting party")
@@ -55,7 +55,7 @@ object SubmitterInfo {
       commandId: CommandId,
       deduplicateUntil: Instant,
   ): SubmitterInfo = SubmitterInfo.apply(
-    actAs = List(submitter),
+    actAs = Set(submitter),
     applicationId = applicationId,
     commandId = commandId,
     deduplicateUntil = deduplicateUntil,
