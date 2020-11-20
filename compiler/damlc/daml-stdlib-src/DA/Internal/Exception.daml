@@ -1,7 +1,6 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
 {-# LANGUAGE NoImplicitPrelude #-}
 
 -- | MOVE DA.Exception
@@ -16,4 +15,3 @@ import DA.Internal.LF
 data AnyException = AnyException with
     message : Text
     payload : Any
-
