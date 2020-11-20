@@ -10,9 +10,11 @@ import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import scala.collection.{SortedMap, breakOut}
 
 final class StateSerializationStrategy(keyStrategy: StateKeySerializationStrategy) {
+  def serializeOneState(key: DamlStateKey, value: DamlStateValue): (Key, Value) =
+    (keyStrategy.serializeStateKey(key), Envelope.enclose(value))
+
   def serializeState(state: Map[DamlStateKey, DamlStateValue]): SortedMap[Key, Value] =
     state.map {
-      case (key, value) =>
-        (keyStrategy.serializeStateKey(key), Envelope.enclose(value))
+      case (key, value) => serializeOneState(key, value)
     }(breakOut)
 }
