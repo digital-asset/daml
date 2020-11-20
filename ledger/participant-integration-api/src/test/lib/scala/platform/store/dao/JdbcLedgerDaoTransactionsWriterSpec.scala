@@ -15,7 +15,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
   behavior of "JdbcLedgerDao (TransactionsWriter)"
 
   it should "serialize a valid positive lookupByKey" in {
-    val keyValue = s"positive-lookup-by-key"
+    val keyValue = "positive-lookup-by-key"
 
     for {
       from <- ledgerDao.lookupLedgerEnd()
@@ -33,7 +33,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
   }
 
   it should "serialize a valid fetch" in {
-    val keyValue = s"valid-fetch"
+    val keyValue = "valid-fetch"
 
     for {
       from <- ledgerDao.lookupLedgerEnd()
