@@ -64,7 +64,7 @@ private[apiserver] final class LedgerConfigProvider private (
     () => {
       if (readyPromise.trySuccess(())) {
         logger.warn(
-          s"No ledger configuration found after ${config.configurationLoadTimeout}. The ledger API server will now be ready but all services that depend on the ledger configuration will return UNAVAILABLE.")
+          s"No ledger configuration found after ${config.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found.")
       }
       ()
     }
