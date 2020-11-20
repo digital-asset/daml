@@ -511,6 +511,11 @@ object Server {
       triggerInstance: UUID,
   ) extends Message
 
+  final case class TriggerTokenRefresh(
+      triggerInstance: UUID,
+      result: Try[Unit],
+  ) extends Message
+
   def apply(
       host: String,
       port: Int,
@@ -625,6 +630,15 @@ object Server {
 
           case TriggerTokenExpired(triggerInstance) =>
             server.logTriggerStatus(triggerInstance, "stopped: access token expired")
+            val future: Future[Unit] = Future(())
+            val mapResult: Try[Unit] => Message = TriggerTokenRefresh(triggerInstance, _)
+            ctx.pipeToSelf(future)(mapResult)
+            Behaviors.same
+          case TriggerTokenRefresh(triggerInstance, result) =>
+            server.logTriggerStatus(triggerInstance, result match {
+              case Failure(_) => "stopped: access token refresh failed"
+              case Success(_) => "started: access token refresh succeeded"
+            })
             Behaviors.same
 
           case GetServerBinding(replyTo) =>
@@ -688,7 +702,10 @@ object Server {
           getRunner(req)
           Behaviors.same
 
-        case _: TriggerInitializationFailure | _: TriggerRuntimeFailure | _: TriggerTokenExpired =>
+        case _: TriggerInitializationFailure | _: TriggerRuntimeFailure =>
+          Behaviors.unhandled
+
+        case _: TriggerTokenExpired | _: TriggerTokenRefresh =>
           Behaviors.unhandled
       }
 
