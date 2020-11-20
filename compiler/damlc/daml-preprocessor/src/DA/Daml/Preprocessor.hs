@@ -60,6 +60,7 @@ mayImportInternal =
         , "DA.Text"
         , "DA.Numeric"
         , "DA.Stack"
+        , "DA.Exception"
 
         -- These modules are just listed to disable the record preprocessor.
         , "DA.NonEmpty.Types"

@@ -319,6 +319,7 @@ baseImports =
           , "DA.Internal.LF"
           , "DA.Internal.Prelude"
           , "DA.Internal.Down"
+          , "DA.Internal.Exception"
           , "DA.NonEmpty.Types"
           , "DA.Semigroup.Types"
           , "DA.Monoid.Types"

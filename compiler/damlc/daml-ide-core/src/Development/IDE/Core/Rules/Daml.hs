@@ -597,6 +597,7 @@ generateStablePackages lfVersion fp = do
                     , "DA-Validation-Types.dalf"
                     , "DA-Logic-Types.dalf"
                     , "DA-Internal-Down.dalf"
+                    , "DA-Internal-Exception.dalf"
                     ]
                 ]
         forM dalfs $ \dalf -> do

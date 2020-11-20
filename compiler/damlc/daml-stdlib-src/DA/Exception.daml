@@ -1,0 +1,74 @@
+{-# LANGUAGE CPP #-}
+
+#ifndef DAML_EXCEPTIONS
+
+-- | HIDE
+module DA.Exception where
+
+#else
+
+-- | Exception handling.
+module DA.Exception
+    ( AnyException (..)
+    , Exception (..)
+    , displayException
+    , throw
+    , throwPure
+    , ActionCatch (..)
+    ) where
+
+import DA.Record
+import DA.Internal.LF
+import DA.Internal.Exception
+
+instance HasField "message" AnyException Text where
+    getField AnyException{..} = message
+    setField message AnyException{payload} = AnyException{..}
+
+instance HasField "payload" AnyException Any where
+    getField AnyException{..} = payload
+    setField payload AnyException{message} = AnyException{..}
+
+-- | Exception typeclass. This should not be implemented directly,
+-- instead, use the `exception` syntax.
+class Exception t where
+    toAnyException : t -> AnyException
+    fromAnyException : AnyException -> Optional t
+
+instance Exception AnyException where
+    toAnyException = identity
+    fromAnyException = Some
+
+-- | Get the error message associated with an exception.
+displayException : Exception e => e -> Text
+displayException e = getField @"message" (toAnyException e)
+
+-- | Throw an exception.
+throw : (Action m, Exception e) => e -> m t
+throw e = do
+    pure ()
+    throwPure e
+
+-- | Throw an exception in pure code.
+throwPure : Exception e => e -> t
+throwPure e = throwAny (toAnyException e)
+
+-- | HIDE Throw AnyException in pure code.
+throwAny : AnyException -> t
+throwAny AnyException{..} = throwPrim message payload
+
+-- | HIDE Throw primitive.
+throwPrim : Text -> Any -> t
+throwPrim = undefined -- primitive @"throw"
+
+-- | Typeclass for catching exceptions. Exceptions can be raised
+-- anywhere with `throw` and `throwPure`, but they can only be
+-- caught in an action that has an `ActionCatch` instance, such as
+-- `Update` and `Script`.
+class Action m => ActionCatch m where
+    catchRaw : (() -> m t) -> (AnyException -> Maybe (m t)) -> m t
+
+instance ActionCatch Update where
+    catchRaw = undefined -- magic @"catch"
+
+#endif

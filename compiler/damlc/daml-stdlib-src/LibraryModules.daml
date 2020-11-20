@@ -13,6 +13,7 @@ import DA.Assert
 import DA.Bifunctor
 import DA.Date
 import DA.Either
+import DA.Exception
 import DA.Foldable
 import DA.Functor
 import DA.Generics
