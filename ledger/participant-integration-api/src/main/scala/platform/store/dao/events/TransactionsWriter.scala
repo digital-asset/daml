@@ -27,31 +27,32 @@ object TransactionsWriter {
       contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
   ) {
     def write(metrics: Metrics)(implicit connection: Connection): Unit = {
-      import metrics.daml.index.db.storeTransactionDbMetrics
+      import metrics.daml.index.db.storeTransactionDbMetrics._
 
-      val eventsBatch = eventsTableExecutables.insertEvents.toList ++ eventsTableExecutables.updateArchives.toList
+      val events = eventsTableExecutables.insertEvents.toList ++ eventsTableExecutables.updateArchives.toList
 
-      Timed.value(storeTransactionDbMetrics.eventsBatch, eventsBatch.foreach(_.execute()))
+      Timed.value(eventsBatch, events.foreach(_.execute()))
 
       // Delete the witnesses of contracts that being removed first, to
       // respect the foreign key constraint of the underlying storage
-      for (inserts <- contractWitnessesTableExecutables.deleteWitnesses)
-        Timed.value(storeTransactionDbMetrics.deleteContractWitnessesBatch, inserts.execute())
-
-      for (deletes <- contractsTableExecutables.deleteContracts) {
-        Timed.value(storeTransactionDbMetrics.deleteContractsBatch, deletes.execute())
+      for (deleteWitnesses <- contractWitnessesTableExecutables.deleteWitnesses) {
+        Timed.value(deleteContractWitnessesBatch, deleteWitnesses.execute())
       }
 
-      for (inserts <- contractsTableExecutables.insertContracts) {
-        Timed.value(storeTransactionDbMetrics.insertContractsBatch, inserts.execute())
+      for (deleteContracts <- contractsTableExecutables.deleteContracts) {
+        Timed.value(deleteContractsBatch, deleteContracts.execute())
+      }
+
+      for (insertContracts <- contractsTableExecutables.insertContracts) {
+        Timed.value(insertContractsBatch, insertContracts.execute())
       }
 
       // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
       // Compute and insert new witnesses regardless of whether the current transaction adds new
       // contracts because it may be the case that we are only adding new witnesses to existing
       // contracts (e.g. via divulging a contract with fetch).
-      for (inserts <- contractWitnessesTableExecutables.insertWitnesses) {
-        Timed.value(storeTransactionDbMetrics.insertContractWitnessesBatch, inserts.execute())
+      for (insertWitnesses <- contractWitnessesTableExecutables.insertWitnesses) {
+        Timed.value(insertContractWitnessesBatch, insertWitnesses.execute())
       }
     }
   }
