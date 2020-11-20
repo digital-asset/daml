@@ -59,10 +59,16 @@ private[apiserver] final class LedgerConfigProvider private (
   // - Mark the provider as ready if no configuration was found after a timeout
   // - Submit the initial config if none is found after a delay
   startLoading()
-  materializer.scheduleOnce(config.configurationLoadTimeout.toNanos.nanos, () => {
-    readyPromise.trySuccess(())
-    ()
-  })
+  materializer.scheduleOnce(
+    config.configurationLoadTimeout.toNanos.nanos,
+    () => {
+      if (readyPromise.trySuccess(())) {
+        logger.warn(
+          s"No ledger configuration found after ${config.configurationLoadTimeout}. The ledger API server will now be ready but all services that depend on the ledger configuration will return UNAVAILABLE.")
+      }
+      ()
+    }
+  )
   optWriteService.foreach { writeService =>
     materializer.scheduleOnce(config.initialConfigurationSubmitDelay.toNanos.nanos, () => {
       if (latestConfiguration.isEmpty && !closed.get) submitInitialConfig(writeService)
@@ -80,10 +86,11 @@ private[apiserver] final class LedgerConfigProvider private (
       .map {
         case Some(result) =>
           logger.info(
-            s"Initial ledger configuration lookup found configuration ${result._2} at ${result._1}")
+            s"Initial ledger configuration lookup found configuration ${result._2} at ${result._1}. Looking for new ledger configurations from this offset.")
           configFound(result._1, result._2)
         case None =>
-          logger.info(s"Initial ledger configuration lookup did not find any configuration")
+          logger.info(
+            s"Initial ledger configuration lookup did not find any configuration. Looking for new ledger configurations from ledger begin.")
           state.set(None -> None)
       }(DE)
       .map(_ => startStreamingUpdates())(DE)
