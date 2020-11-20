@@ -232,7 +232,7 @@ commandParser = subparser $ fold
     codegenCmd = asum
         [ subparser $ fold
             [  command "java" $ info codegenJavaCmd forwardOptions
-            ,  command "scala" $ info codegenScalaCmd forwardOptions
+            ,  command "scala" $ info codegenScalaCmd (progDesc "(deprecated)" <> forwardOptions)
             ,  command "js" $ info codegenJavaScriptCmd forwardOptions
             ]
         ]
