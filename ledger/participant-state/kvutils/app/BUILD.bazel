@@ -60,6 +60,7 @@ da_scala_test_suite(
     deps = [
         ":app",
         "//daml-lf/data",
+        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
