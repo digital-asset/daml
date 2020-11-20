@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 {-# LANGUAGE CPP #-}
 
 #ifndef DAML_EXCEPTIONS
@@ -72,3 +75,4 @@ instance ActionCatch Update where
     catchRaw = undefined -- magic @"catch"
 
 #endif
+
