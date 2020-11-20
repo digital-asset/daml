@@ -82,6 +82,10 @@ object TriggerRunnerImpl {
           case Status(replyTo) =>
             replyTo ! QueryingACS
             Behaviors.same
+          case QueryACSFailed(cause: io.grpc.StatusRuntimeException)
+              if cause.getStatus == io.grpc.Status.UNAUTHENTICATED =>
+            config.server ! Server.TriggerTokenExpired(triggerInstance)
+            Behaviors.stopped
           case QueryACSFailed(cause) =>
             // Report the failure to the server.
             config.server ! Server.TriggerInitializationFailure(triggerInstance, cause.toString)
