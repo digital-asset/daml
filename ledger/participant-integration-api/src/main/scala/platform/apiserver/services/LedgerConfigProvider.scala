@@ -90,7 +90,7 @@ private[apiserver] final class LedgerConfigProvider private (
           configFound(result._1, result._2)
         case None =>
           logger.info(
-            s"Initial ledger configuration lookup did not find any configuration. Looking for new ledger configurations from ledger begin.")
+            s"Initial ledger configuration lookup did not find any configuration. Looking for new ledger configurations from the ledger beginning.")
           state.set(None -> None)
       }(DE)
       .map(_ => startStreamingUpdates())(DE)
