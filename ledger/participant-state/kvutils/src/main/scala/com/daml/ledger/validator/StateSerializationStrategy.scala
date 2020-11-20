@@ -13,7 +13,7 @@ final class StateSerializationStrategy(keyStrategy: StateKeySerializationStrateg
   def serializeOneState(key: DamlStateKey, value: DamlStateValue): (Key, Value) =
     (keyStrategy.serializeStateKey(key), Envelope.enclose(value))
 
-  def serializeState(state: Map[DamlStateKey, DamlStateValue]): SortedMap[Key, Value] =
+  def serializeStateUpdates(state: Map[DamlStateKey, DamlStateValue]): SortedMap[Key, Value] =
     state.map {
       case (key, value) => serializeOneState(key, value)
     }(breakOut)
