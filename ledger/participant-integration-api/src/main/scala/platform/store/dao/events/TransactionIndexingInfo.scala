@@ -97,6 +97,9 @@ object TransactionIndexingInfo {
         visibility += ((contractId, divulgees))
       }
 
+    private def addVisibility(contractId: ContractId, parties: Set[Party]): Unit =
+      visibility += ((contractId, parties))
+
     private def addStakeholders(nodeId: NodeId, parties: Set[Party]): Unit =
       stakeholders += ((nodeId, parties))
 
@@ -107,14 +110,16 @@ object TransactionIndexingInfo {
           addEventAndDisclosure(event)
           addStakeholders(nodeId, create.stakeholders)
           addCreation(create)
-          visibility += ((create.coid, blinding.disclosure(nodeId)))
+          addVisibility(create.coid, blinding.disclosure(nodeId))
         case (nodeId, exercise: Exercise) =>
           addEventAndDisclosure(event)
           addDivulgence(exercise.targetCoid)
-          visibility += ((exercise.targetCoid, blinding.disclosure(nodeId)))
+          addVisibility(exercise.targetCoid, blinding.disclosure(nodeId))
           if (exercise.consuming) {
             addStakeholders(nodeId, exercise.stakeholders)
             addArchival(exercise.targetCoid)
+          } else {
+            addStakeholders(nodeId, Set.empty)
           }
         case (_, fetch: Fetch) =>
           addDivulgence(fetch.coid)

@@ -3,11 +3,6 @@
 
 package com.daml.platform.store.dao
 
-import com.daml.lf.data.Ref
-import com.daml.lf.engine.Blinding
-import com.daml.lf.transaction
-import com.daml.lf.transaction.{BlindingInfo, NodeId}
-import com.daml.platform.store.dao.events.TransactionsWriter
 import org.scalatest.{AsyncFlatSpec, LoneElement, Matchers}
 
 private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
@@ -53,29 +48,4 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
     }
   }
 
-  it should "prefer pre-computed blinding info" in {
-    for {
-      (_, tx) <- store(singleCreate)
-    } yield {
-      TransactionsWriter.extractBlindingInfo(
-        transaction.CommittedTransaction(tx.transaction),
-        Some(aBlindingInfo),
-      ) should be(aBlindingInfo)
-    }
-  }
-
-  it should "fall back to computing blinding info from transaction" in {
-    for {
-      (_, tx) <- store(singleCreate)
-    } yield {
-      val committedTransaction = transaction.CommittedTransaction(tx.transaction)
-      TransactionsWriter.extractBlindingInfo(
-        committedTransaction,
-        None,
-      ) should be(Blinding.blind(committedTransaction))
-    }
-  }
-
-  private lazy val aBlindingInfo =
-    BlindingInfo(Map(NodeId(0) -> Set(Ref.Party.assertFromString("aParty"))), Map())
 }

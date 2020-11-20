@@ -58,11 +58,6 @@ object TransactionsWriter {
     }
   }
 
-  private[dao] def extractBlindingInfo(
-      transaction: CommittedTransaction,
-      blindingInfo: Option[BlindingInfo],
-  ): BlindingInfo =
-    blindingInfo.getOrElse(Blinding.blind(transaction))
 }
 
 private[dao] final class TransactionsWriter(
@@ -70,8 +65,6 @@ private[dao] final class TransactionsWriter(
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
 ) {
-
-  import TransactionsWriter._
 
   private val contractsTable = ContractsTable(dbType)
   private val contractWitnessesTable = ContractWitnessesTable(dbType)
@@ -87,7 +80,7 @@ private[dao] final class TransactionsWriter(
       blindingInfo: Option[BlindingInfo],
   ): TransactionsWriter.PreparedInsert = {
 
-    val blinding = extractBlindingInfo(transaction, blindingInfo)
+    val blinding = blindingInfo.getOrElse(Blinding.blind(transaction))
 
     val insertion =
       TransactionIndexingInfo.from(
