@@ -227,11 +227,26 @@ private[state] object Conversions {
   def encodeTransactionNodeId(nodeId: NodeId): String =
     nodeId.index.toString
 
+  def decodeTransactionNodeId(transactionNodeId: String): NodeId =
+    NodeId(transactionNodeId.toInt)
+
   def encodeBlindingInfo(blindingInfo: BlindingInfo): DamlTransactionBlindingInfo =
     DamlTransactionBlindingInfo.newBuilder
       .addAllDisclosures(encodeDisclosure(blindingInfo.disclosure).asJava)
       .addAllDivulgences(encodeDivulgence(blindingInfo.divulgence).asJava)
       .build
+
+  def decodeBlindingInfo(blindingInfo: DamlTransactionBlindingInfo): BlindingInfo =
+    BlindingInfo(
+      disclosure = blindingInfo.getDisclosuresList.asScala.map { disclosureEntry =>
+        decodeTransactionNodeId(disclosureEntry.getNodeId) -> disclosureEntry.getDisclosedToLocalPartiesList.asScala.toSet
+          .map(Party.assertFromString)
+      }.toMap,
+      divulgence = blindingInfo.getDivulgencesList.asScala.map { divulgenceEntry =>
+        decodeContractId(divulgenceEntry.getContractId) -> divulgenceEntry.getDivulgedToLocalPartiesList.asScala.toSet
+          .map(Party.assertFromString)
+      }.toMap
+    )
 
   private def encodeParties(parties: Iterable[Party]): List[String] =
     parties.asInstanceOf[Set[String]].toList.sorted // Deterministic
@@ -261,19 +276,4 @@ private[state] object Conversions {
     divulgence.toList
       .sortBy(_._1.coid) // Deterministic
       .map(encodeDivulgenceEntry)
-
-  def decodeBlindingInfo(blindingInfo: DamlTransactionBlindingInfo): BlindingInfo =
-    BlindingInfo(
-      disclosure = blindingInfo.getDisclosuresList.asScala.map { disclosureEntry =>
-        decodeTransactionNodeId(disclosureEntry.getNodeId) -> disclosureEntry.getDisclosedToLocalPartiesList.asScala.toSet
-          .map(Party.assertFromString)
-      }.toMap,
-      divulgence = blindingInfo.getDivulgencesList.asScala.map { divulgenceEntry =>
-        decodeContractId(divulgenceEntry.getContractId) -> divulgenceEntry.getDivulgedToLocalPartiesList.asScala.toSet
-          .map(Party.assertFromString)
-      }.toMap
-    )
-
-  def decodeTransactionNodeId(transactionNodeId: String): NodeId =
-    NodeId(transactionNodeId.toInt)
 }
