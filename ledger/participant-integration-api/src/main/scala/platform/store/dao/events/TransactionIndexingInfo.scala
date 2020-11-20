@@ -106,7 +106,6 @@ object TransactionIndexingInfo {
     def add(event: (NodeId, Node)): Builder = {
       event match {
         case (nodeId, create: Create) =>
-          create.templateId.toString
           addEventAndDisclosure(event)
           addStakeholders(nodeId, create.stakeholders)
           addCreate(create)
