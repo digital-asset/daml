@@ -138,21 +138,12 @@ object TransactionIndexingInfo {
         divulgedContracts: Iterable[DivulgedContract],
     ): TransactionIndexingInfo = {
       val allCreates = creates.result()
-      val allCreatedContractIds = allCreates.iterator.map(_.coid).toSet
       val allArchives = archives.result()
       val netCreates = allCreates.filter(c => !allArchives(c.coid))
       val netCreatedContractIds = netCreates.iterator.map(_.coid).toSet
-      val netArchives = allArchives.diff(allCreatedContractIds)
-      val fullVisibility = visibility.result()
-      val netVisibility = fullVisibility
-        .filter {
-          case (contractId, _) => netCreatedContractIds(contractId)
-        }
-        .groupBy(_._1)
-        .map {
-          case (contractId, parts) =>
-            contractId -> parts.map(_._2).reduce(_ union _)
-        }
+      val netArchives = allArchives.diff(netCreatedContractIds)
+      val netVisibility = Relation(visibility.result()).filterKeys(netCreatedContractIds)
+      val netDivulgedContracts = divulgedContracts.filter(c => !netCreatedContractIds(c.contractId))
       TransactionIndexingInfo(
         submitterInfo = submitterInfo,
         workflowId = workflowId,
@@ -166,7 +157,7 @@ object TransactionIndexingInfo {
         stakeholders = stakeholders.result(),
         disclosure = disclosure.result(),
         netVisibility = netVisibility,
-        divulgedContracts = divulgedContracts.filter(c => !netCreatedContractIds(c.contractId)),
+        divulgedContracts = netDivulgedContracts,
       )
     }
   }
