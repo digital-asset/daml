@@ -9,8 +9,8 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.v1.event.Event.Event
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.client.binding.Primitive.Party
 import com.daml.ledger.test.model.Test.Dummy
 import io.grpc.Status
@@ -28,7 +28,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
     allocate(NoParties))(implicit ec => {
     case Participants(Participant(participant)) =>
       for {
-        failure <- participant.prune(None, 1).failed
+        failure <- participant.prune(None, attempts = 1).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "prune_up_to not specified")
       }
@@ -43,12 +43,12 @@ class ParticipantPruningIT extends LedgerTestSuite {
         cannotPruneBegin <- participant
           .prune(
             LedgerOffset.of(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
-            1)
+            attempts = 1)
           .failed
         cannotPruneEnd <- participant
           .prune(
             LedgerOffset.of(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),
-            1)
+            attempts = 1)
           .failed
       } yield {
         assertGrpcError(
@@ -82,12 +82,14 @@ class ParticipantPruningIT extends LedgerTestSuite {
   test(
     "PRFailPruneByOutOfBoundsOffset",
     "Pruning a participant specifying an offset after the ledger end should fail",
-    allocate(NoParties))(implicit ec => {
+    allocate(NoParties),
+    runConcurrently = false // in spite of being a negative test, cannot be run concurrently as otherwise ledger end grows
+  )(implicit ec => {
     case Participants(Participant(participant)) =>
       for {
         actualEndExclusive <- participant.currentEnd()
         cannotPruneOffsetBeyondEnd <- participant
-          .prune(actualEndExclusive, 1)
+          .prune(actualEndExclusive, attempts = 1)
           .failed
       } yield {
         assertGrpcError(
@@ -97,84 +99,91 @@ class ParticipantPruningIT extends LedgerTestSuite {
       }
   })
 
-  test("PRPruneTxTrees", "Prune succeeds as observed by transaction trees", allocate(SingleParty))(
-    implicit ec => {
-      case Participants(Participant(participant, submitter)) =>
-        for {
-          offsets <- populateLedgerAndGetOffsets(participant, submitter)
-          offsetToPruneUpTo = offsets(lastItemToPruneIndex)
-          offsetOfSecondToLastPrunedTransaction = offsets(lastItemToPruneIndex - 1) // This offset is the largest exclusive offset we can no longer read from after
-          offsetOfFirstSurvivingTransaction = offsets(lastItemToPruneIndex + 1)
+  test(
+    "PRPruneTxTrees",
+    "Prune succeeds as observed by transaction trees",
+    allocate(SingleParty),
+    runConcurrently = false)(implicit ec => {
+    case Participants(Participant(participant, submitter)) =>
+      for {
+        offsets <- populateLedgerAndGetOffsets(participant, submitter)
+        offsetToPruneUpTo = offsets(lastItemToPruneIndex)
+        offsetOfSecondToLastPrunedTransaction = offsets(lastItemToPruneIndex - 1) // This offset is the largest exclusive offset we can no longer read from after
+        offsetOfFirstSurvivingTransaction = offsets(lastItemToPruneIndex + 1)
 
-          _ <- participant.prune(offsetToPruneUpTo)
+        _ <- participant.prune(offsetToPruneUpTo)
 
-          transactionsAfterPrune <- participant.transactionTrees(
+        transactionsAfterPrune <- participant.transactionTrees(
+          participant
+            .getTransactionsRequest(parties = Seq(submitter))
+            .update(_.begin := offsetToPruneUpTo))
+
+        cannotReadAnymore <- participant
+          .transactionTrees(
             participant
               .getTransactionsRequest(parties = Seq(submitter))
-              .update(_.begin := offsetToPruneUpTo))
-
-          cannotReadAnymore <- participant
-            .transactionTrees(
-              participant
-                .getTransactionsRequest(parties = Seq(submitter))
-                .update(_.begin := offsetOfSecondToLastPrunedTransaction)
-            )
-            .failed
-        } yield {
-          assert(
-            transactionsAfterPrune.head.offset == offsetOfFirstSurvivingTransaction.getAbsolute,
-            s"transaction trees not pruned at expected offset"
+              .update(_.begin := offsetOfSecondToLastPrunedTransaction)
           )
-          assertGrpcError(
-            cannotReadAnymore,
-            Status.Code.NOT_FOUND,
-            Some(Pattern.compile(
-              s"(Transactions request from [0-9a-fA-F]* to [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})|(Request from [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})"))
-          )
-        }
-    })
+          .failed
+      } yield {
+        assert(
+          transactionsAfterPrune.head.offset == offsetOfFirstSurvivingTransaction.getAbsolute,
+          s"transaction trees not pruned at expected offset"
+        )
+        assertGrpcError(
+          cannotReadAnymore,
+          Status.Code.NOT_FOUND,
+          Some(Pattern.compile(
+            s"(Transactions request from [0-9a-fA-F]* to [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})|(Request from [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})"))
+        )
+      }
+  })
 
-  test("PRPruneTxFlat", "Prune succeeds as observed by flat transactions", allocate(SingleParty))(
-    implicit ec => {
-      case Participants(Participant(participant, submitter)) =>
-        for {
-          offsets <- populateLedgerAndGetOffsets(participant, submitter)
-          offsetToPruneUpTo = offsets(lastItemToPruneIndex)
-          offsetOfSecondToLastPrunedTransaction = offsets(lastItemToPruneIndex - 1) // This offset is the largest exclusive offset we can no longer read from after
-          offsetOfFirstSurvivingTransaction = offsets(lastItemToPruneIndex + 1)
+  test(
+    "PRPruneTxFlat",
+    "Prune succeeds as observed by flat transactions",
+    allocate(SingleParty),
+    runConcurrently = false)(implicit ec => {
+    case Participants(Participant(participant, submitter)) =>
+      for {
+        offsets <- populateLedgerAndGetOffsets(participant, submitter)
+        offsetToPruneUpTo = offsets(lastItemToPruneIndex)
+        offsetOfSecondToLastPrunedTransaction = offsets(lastItemToPruneIndex - 1) // This offset is the largest exclusive offset we can no longer read from after
+        offsetOfFirstSurvivingTransaction = offsets(lastItemToPruneIndex + 1)
 
-          _ <- participant.prune(offsetToPruneUpTo)
+        _ <- participant.prune(offsetToPruneUpTo)
 
-          txAfterPrune <- participant.flatTransactions(
+        txAfterPrune <- participant.flatTransactions(
+          participant
+            .getTransactionsRequest(parties = Seq(submitter))
+            .update(_.begin := offsetToPruneUpTo))
+
+        cannotReadAnymore <- participant
+          .flatTransactions(
             participant
               .getTransactionsRequest(parties = Seq(submitter))
-              .update(_.begin := offsetToPruneUpTo))
-
-          cannotReadAnymore <- participant
-            .flatTransactions(
-              participant
-                .getTransactionsRequest(parties = Seq(submitter))
-                .update(_.begin := offsetOfSecondToLastPrunedTransaction)
-            )
-            .failed
-        } yield {
-          assert(
-            txAfterPrune.head.offset == offsetOfFirstSurvivingTransaction.getAbsolute,
-            s"flat transactions not pruned at expected offset"
+              .update(_.begin := offsetOfSecondToLastPrunedTransaction)
           )
-          assertGrpcError(
-            cannotReadAnymore,
-            Status.Code.NOT_FOUND,
-            Some(Pattern.compile(
-              s"(Transactions request from [0-9a-fA-F]* to [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})|(Request from [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})"))
-          )
-        }
-    })
+          .failed
+      } yield {
+        assert(
+          txAfterPrune.head.offset == offsetOfFirstSurvivingTransaction.getAbsolute,
+          s"flat transactions not pruned at expected offset"
+        )
+        assertGrpcError(
+          cannotReadAnymore,
+          Status.Code.NOT_FOUND,
+          Some(Pattern.compile(
+            s"(Transactions request from [0-9a-fA-F]* to [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})|(Request from [0-9a-fA-F]* precedes pruned offset ${offsetToPruneUpTo.getAbsolute})"))
+        )
+      }
+  })
 
   test(
     "PRPruneCompletions",
     "Prune succeeds as observed by command completions",
-    allocate(SingleParty))(implicit ec => {
+    allocate(SingleParty),
+    runConcurrently = false)(implicit ec => {
     case Participants(Participant(participant, submitter)) =>
       for {
         endOffsetAtTestStart <- participant.currentEnd()
@@ -216,29 +225,33 @@ class ParticipantPruningIT extends LedgerTestSuite {
       }
   })
 
-  test("PRPruneACS", "Prune succeeds by not affecting active contracts", allocate(SingleParty))(
-    implicit ec => {
-      case Participants(Participant(participant, submitter)) =>
-        for {
-          offsets <- populateLedgerAndGetOffsets(participant, submitter)
-          offsetToPruneUpTo = offsets(lastItemToPruneIndex)
+  test(
+    "PRPruneACS",
+    "Prune succeeds by not affecting active contracts",
+    allocate(SingleParty),
+    runConcurrently = false)(implicit ec => {
+    case Participants(Participant(participant, submitter)) =>
+      for {
+        offsets <- populateLedgerAndGetOffsets(participant, submitter)
+        offsetToPruneUpTo = offsets(lastItemToPruneIndex)
 
-          createdBefore <- participant.activeContracts(submitter)
+        createdBefore <- participant.activeContracts(submitter)
 
-          _ <- participant.prune(offsetToPruneUpTo)
+        _ <- participant.prune(offsetToPruneUpTo)
 
-          createdAfter <- participant.activeContracts(submitter)
-        } yield {
-          assert(
-            createdBefore == createdAfter,
-            "Pruning should not alter the set of active contracts")
-        }
-    })
+        createdAfter <- participant.activeContracts(submitter)
+      } yield {
+        assert(
+          createdBefore == createdAfter,
+          "Pruning should not alter the set of active contracts")
+      }
+  })
 
   test(
     "PRPruneTreeByTxId",
     "Prune succeeds as observed by individual transaction tree lookups",
-    allocate(SingleParty))(implicit ec => {
+    allocate(SingleParty),
+    runConcurrently = false)(implicit ec => {
     case Participants(Participant(participant, submitter)) =>
       for {
         offsetAndTransactionIdEntries <- populateLedgerAndGetOffsetsWithTransactionIds(
@@ -270,7 +283,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
   test(
     "PRPruneFlatByTxId",
     "Prune succeeds as observed by individual flat transaction lookups",
-    allocate(SingleParty))(implicit ec => {
+    allocate(SingleParty),
+    runConcurrently = false)(implicit ec => {
     case Participants(Participant(participant, submitter)) =>
       for {
         offsetAndTransactionIdEntries <- populateLedgerAndGetOffsetsWithTransactionIds(
@@ -302,7 +316,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
   test(
     "PRPruneTreeByEventId",
     "Prune succeeds as observed by individual event lookups via transaction tree",
-    allocate(SingleParty))(
+    allocate(SingleParty),
+    runConcurrently = false)(
     implicit ec => {
       case Participants(Participant(participant, submitter)) =>
         for {
@@ -336,7 +351,8 @@ class ParticipantPruningIT extends LedgerTestSuite {
   test(
     "PRPruneFlatByEventId",
     "Prune succeeds as observed by individual event lookups via flat transaction",
-    allocate(SingleParty))(
+    allocate(SingleParty),
+    runConcurrently = false)(
     implicit ec => {
       case Participants(Participant(participant, submitter)) =>
         for {
@@ -367,72 +383,77 @@ class ParticipantPruningIT extends LedgerTestSuite {
         }
     })
 
-  test("PRPruneRepeated", "Prune succeeds when called repeatedly", allocate(SingleParty))(
-    implicit ec => {
-      case Participants(Participant(participant, submitter)) =>
-        for {
-          offsets <- populateLedgerAndGetOffsets(participant, submitter)
-          offsetToPruneUpTo = offsets(lastItemToPruneIndex)
-          offsetOfFirstSurvivingTransaction = offsets(lastItemToPruneIndex + 1)
+  test(
+    "PRPruneRepeated",
+    "Prune succeeds when called repeatedly",
+    allocate(SingleParty),
+    runConcurrently = false)(implicit ec => {
+    case Participants(Participant(participant, submitter)) =>
+      for {
+        offsets <- populateLedgerAndGetOffsets(participant, submitter)
+        offsetToPruneUpTo = offsets(lastItemToPruneIndex)
+        offsetOfFirstSurvivingTransaction = offsets(lastItemToPruneIndex + 1)
 
-          _ <- participant.prune(offsetToPruneUpTo)
+        _ <- participant.prune(offsetToPruneUpTo)
 
-          transactionsAfterPrune <- participant.transactionTrees(
-            participant
-              .getTransactionsRequest(parties = Seq(submitter))
-              .update(_.begin := offsetToPruneUpTo))
+        transactionsAfterPrune <- participant.transactionTrees(
+          participant
+            .getTransactionsRequest(parties = Seq(submitter))
+            .update(_.begin := offsetToPruneUpTo))
 
-          offsetAlreadyPruned = offsets(lastItemToPruneIndex / 2)
+        offsetAlreadyPruned = offsets(lastItemToPruneIndex / 2)
 
-          _ <- participant.prune(offsetAlreadyPruned)
+        _ <- participant.prune(offsetAlreadyPruned)
 
-          transactionsAfterRedundantPrune <- participant.transactionTrees(
-            participant
-              .getTransactionsRequest(parties = Seq(submitter))
-              .update(_.begin := offsetToPruneUpTo))
+        transactionsAfterRedundantPrune <- participant.transactionTrees(
+          participant
+            .getTransactionsRequest(parties = Seq(submitter))
+            .update(_.begin := offsetToPruneUpTo))
 
-          offsetToPruneUpToInSecondRealPrune = offsets((lastItemToPruneIndex + 1) * 2 - 1)
-          offsetOfFirstSurvivingTransactionInSecondPrune = offsets((lastItemToPruneIndex + 1) * 2)
+        offsetToPruneUpToInSecondRealPrune = offsets((lastItemToPruneIndex + 1) * 2 - 1)
+        offsetOfFirstSurvivingTransactionInSecondPrune = offsets((lastItemToPruneIndex + 1) * 2)
 
-          _ <- participant.prune(offsetToPruneUpToInSecondRealPrune)
+        _ <- participant.prune(offsetToPruneUpToInSecondRealPrune)
 
-          transactionsAfterSecondPrune <- participant.transactionTrees(
-            participant
-              .getTransactionsRequest(parties = Seq(submitter))
-              .update(_.begin := offsetToPruneUpToInSecondRealPrune))
+        transactionsAfterSecondPrune <- participant.transactionTrees(
+          participant
+            .getTransactionsRequest(parties = Seq(submitter))
+            .update(_.begin := offsetToPruneUpToInSecondRealPrune))
 
-        } yield {
-          assert(
-            transactionsAfterPrune.size == offsets.size - (lastItemToPruneIndex + 1),
-            s"transaction tree count after pruning does not match expected count"
-          )
-          assert(
-            transactionsAfterPrune.head.offset == offsetOfFirstSurvivingTransaction.getAbsolute,
-            s"transaction trees not pruned at expected offset"
-          )
-          assert(
-            transactionsAfterRedundantPrune.size == offsets.size - (lastItemToPruneIndex + 1),
-            s"transaction tree count after redundant pruning does not match expected count"
-          )
-          assert(
-            transactionsAfterRedundantPrune.head.offset == offsetOfFirstSurvivingTransaction.getAbsolute,
-            s"transaction trees not pruned at expected offset after redundant prune"
-          )
-          assert(
-            transactionsAfterSecondPrune.size == offsets.size - 2 * (lastItemToPruneIndex + 1),
-            s"transaction tree count after second pruning does not match expected count"
-          )
-          assert(
-            transactionsAfterSecondPrune.head.offset == offsetOfFirstSurvivingTransactionInSecondPrune.getAbsolute,
-            s"transaction trees not pruned at expected offset after second prune"
-          )
-        }
-    })
+      } yield {
+        assert(
+          transactionsAfterPrune.size == offsets.size - (lastItemToPruneIndex + 1),
+          s"transaction tree count after pruning does not match expected count"
+        )
+        assert(
+          transactionsAfterPrune.head.offset == offsetOfFirstSurvivingTransaction.getAbsolute,
+          s"transaction trees not pruned at expected offset"
+        )
+        assert(
+          transactionsAfterRedundantPrune.size == offsets.size - (lastItemToPruneIndex + 1),
+          s"transaction tree count after redundant pruning does not match expected count"
+        )
+        assert(
+          transactionsAfterRedundantPrune.head.offset == offsetOfFirstSurvivingTransaction.getAbsolute,
+          s"transaction trees not pruned at expected offset after redundant prune"
+        )
+        assert(
+          transactionsAfterSecondPrune.size == offsets.size - 2 * (lastItemToPruneIndex + 1),
+          s"transaction tree count after second pruning does not match expected count"
+        )
+        assert(
+          transactionsAfterSecondPrune.head.offset == offsetOfFirstSurvivingTransactionInSecondPrune.getAbsolute,
+          s"transaction trees not pruned at expected offset after second prune"
+        )
+      }
+  })
 
   test(
     "PRPruneThenExercise",
     "Prune succeeds as observed by being able to exercise a contract created in pruned offset range",
-    allocate(SingleParty))(implicit ec => {
+    allocate(SingleParty),
+    runConcurrently = false
+  )(implicit ec => {
     case Participants(Participant(participant, submitter)) =>
       for {
         createdBeforePrune <- participant.create(submitter, Dummy(submitter))
@@ -446,48 +467,63 @@ class ParticipantPruningIT extends LedgerTestSuite {
       } yield ()
   })
 
+  test(
+    "PRPruneQueryEmptyRangeOk",
+    // This test is not terribly useful for conformance, but helps ensure that pruning does not interfere when run before
+    // TransactionServiceIT "TXBeginToBegin" and "TXTreesBeginToBegin" tests.
+    "Prune succeeds and does not prevent querying empty ranges even in pruned space",
+    allocate(SingleParty),
+    runConcurrently = false
+  )(implicit ec => {
+    case Participants(Participant(participant, submitter)) =>
+      for {
+        offsets <- populateLedgerAndGetOffsets(participant, submitter)
+        offsetInPrunedRange = offsets(lastItemToPruneIndex / 2)
+        offsetToPruneUpTo = offsets(lastItemToPruneIndex)
+
+        _ <- participant.prune(offsetToPruneUpTo)
+
+        emptyRangeAtBegin = participant
+          .getTransactionsRequest(parties = Seq(submitter), begin = participant.begin)
+          .update(_.end := participant.begin)
+
+        emptyRangeInPrunedSpace = participant
+          .getTransactionsRequest(parties = Seq(submitter), begin = offsetInPrunedRange)
+          .update(_.end := offsetInPrunedRange)
+
+        emptyBeginTreesWillFail <- participant.transactionTrees(emptyRangeAtBegin)
+        emptyBeginFlatWillFail <- participant.flatTransactions(emptyRangeAtBegin)
+        emptyPrunedTreesWillFail <- participant.transactionTrees(emptyRangeInPrunedSpace)
+        emptyPrunedFlatWillFail <- participant.flatTransactions(emptyRangeInPrunedSpace)
+      } yield {
+        assert(emptyBeginTreesWillFail.isEmpty)
+        assert(emptyBeginFlatWillFail.isEmpty)
+        assert(emptyPrunedTreesWillFail.isEmpty)
+        assert(emptyPrunedFlatWillFail.isEmpty)
+      }
+  })
+
   private def populateLedgerAndGetOffsets(participant: ParticipantTestContext, submitter: Party)(
       implicit ec: ExecutionContext): Future[Vector[LedgerOffset]] =
-    populateLedger(
-      participant,
-      submitter,
-      begin =>
-        participant.transactionTrees(
-          participant.getTransactionsRequest(parties = Seq(submitter), begin = begin)))
+    populateLedger(participant, submitter)
       .map(_.map(tree => LedgerOffset.of(LedgerOffset.Value.Absolute(tree.offset))))
 
   private def populateLedgerAndGetOffsetsWithTransactionIds(
       participant: ParticipantTestContext,
       submitter: Party)(implicit ec: ExecutionContext): Future[Vector[(LedgerOffset, String)]] =
-    populateLedger(
-      participant,
-      submitter,
-      begin =>
-        participant.transactionTrees(
-          participant.getTransactionsRequest(parties = Seq(submitter), begin = begin)))
+    populateLedger(participant, submitter)
       .map(_.map(tree =>
         (LedgerOffset.of(LedgerOffset.Value.Absolute(tree.offset)), tree.transactionId)))
 
   private def populateLedgerAndGetOffsetsWithEventIds(
       participant: ParticipantTestContext,
       submitter: Party)(implicit ec: ExecutionContext): Future[Vector[(LedgerOffset, String)]] =
-    populateLedger(
-      participant,
-      submitter,
-      begin =>
-        participant.flatTransactions(
-          participant.getTransactionsRequest(parties = Seq(submitter), begin = begin)))
-      .map(_.map(flat =>
-        (LedgerOffset.of(LedgerOffset.Value.Absolute(flat.offset)), flat.events.head.event match {
-          case ec: Event.Created => ec.value.eventId
-          case ea: Event.Archived => ea.value.eventId
-          case Event.Empty => fail("should not find empty event")
-        })))
+    populateLedger(participant, submitter)
+      .map(_.map(tree =>
+        (LedgerOffset.of(LedgerOffset.Value.Absolute(tree.offset)), tree.eventsById.keys.head)))
 
-  private def populateLedger[T](
-      participant: ParticipantTestContext,
-      submitter: Party,
-      lookup: LedgerOffset => Future[Vector[T]])(implicit ec: ExecutionContext): Future[Vector[T]] =
+  private def populateLedger(participant: ParticipantTestContext, submitter: Party)(
+      implicit ec: ExecutionContext): Future[Vector[TransactionTree]] =
     for {
       endOffsetAtTestStart <- participant.currentEnd()
       _ <- Future
@@ -498,6 +534,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
             _ <- participant.create(submitter, Dummy(submitter))
           } yield ()
         })
-      transactions <- lookup(endOffsetAtTestStart)
-    } yield transactions
+      trees <- participant.transactionTrees(
+        participant.getTransactionsRequest(parties = Seq(submitter), begin = endOffsetAtTestStart))
+    } yield trees
 }

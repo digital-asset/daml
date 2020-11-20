@@ -32,20 +32,13 @@ object Tests {
       new TransactionServiceIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
+      new ParticipantPruningIT,
     )
 
   val retired: Vector[LedgerTestSuite] =
     Vector(
       new LotsOfPartiesIT,
       new TransactionScaleIT,
-    )
-
-  /**
-    * These are test suites that manipulate the ledger in such a way as they would perturb the results of other tests
-    */
-  val separate: Vector[LedgerTestSuite] =
-    Vector(
-      new ParticipantPruningIT,
     )
 
   /**

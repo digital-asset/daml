@@ -10,7 +10,6 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1.{
   Configuration,
-  NotPruned,
   Offset,
   PruningResult,
   SubmissionId,
@@ -105,5 +104,5 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: SubmissionId): CompletionStage[PruningResult] =
-    CompletableFuture.completedFuture(NotPruned(Status.UNIMPLEMENTED))
+    CompletableFuture.completedFuture(PruningResult.NotPruned(Status.UNIMPLEMENTED))
 }

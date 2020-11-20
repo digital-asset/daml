@@ -13,9 +13,8 @@ import com.daml.ledger.api.v1.admin.participant_pruning_service.{
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.participant.state.index.v2.{IndexParticipantPruningService, LedgerEndService}
 import com.daml.ledger.participant.state.v1.{
-  NotPruned,
   Offset,
-  ParticipantPruned,
+  PruningResult,
   SubmissionId,
   WriteParticipantPruningService
 }
@@ -80,23 +79,28 @@ final class ApiParticipantPruningService private (
   }
 
   private def pruneWriteService(pruneUpTo: Offset, submissionId: SubmissionId)(
-      implicit logCtx: LoggingContext): Future[Unit] =
+      implicit logCtx: LoggingContext): Future[Unit] = {
+    logger.info(
+      s"About to prune participant ledger up to ${pruneUpTo} inclusively starting with the write service")
     FutureConverters
       .toScala(writeBackend.prune(pruneUpTo, submissionId))
       .flatMap {
-        case NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
-        case ParticipantPruned =>
-          logger.info(s"Pruned participant ledger up to ${pruneUpTo.toString} inclusively.")
+        case PruningResult.NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
+        case PruningResult.ParticipantPruned =>
+          logger.info(s"Pruned participant ledger up to ${pruneUpTo} inclusively.")
           Future.successful(())
       }
+  }
 
-  private def pruneLedgerApiServerIndex(pruneUpTo: Offset)(implicit logCtx: LoggingContext) =
+  private def pruneLedgerApiServerIndex(pruneUpTo: Offset)(implicit logCtx: LoggingContext) = {
+    logger.info(s"About to prune ledger api server index to to ${pruneUpTo} inclusively")
     readBackend
       .prune(pruneUpTo)
       .map { _ =>
         logger.info(s"Pruned ledger api server index up to ${pruneUpTo} inclusively.")
         Empty()
       }
+  }
 
   private def checkOffsetIsSpecified(optOffset: Option[LedgerOffset]) =
     optOffset.toRight(ErrorFactories.invalidArgument("prune_up_to not specified"))

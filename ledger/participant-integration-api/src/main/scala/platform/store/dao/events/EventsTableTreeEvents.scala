@@ -104,6 +104,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
                  case when submitter = $requestingParty then command_id else '' end as command_id
           from participant_events
+          join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
           where transaction_id = $transactionId and #$witnessesWhereClause
           order by node_index asc"""
   }
@@ -119,6 +120,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
                  case when submitter in ($requestingParties) then command_id else '' end as command_id
           from participant_events
+          join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
           where transaction_id = $transactionId and #$witnessesWhereClause
           order by node_index asc"""
   }

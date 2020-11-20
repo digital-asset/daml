@@ -43,29 +43,9 @@ object QueryNonPruned {
         ))
   }
 
-  def tryExecuteSql[T](query: => T, minOffsetExclusive: Offset, error: Offset => String)(
+  def executeSqlOrThrow[T](query: => T, minOffsetExclusive: Offset, error: Offset => String)(
       implicit conn: Connection): T =
     executeSql(query, minOffsetExclusive, error).fold(throw _, identity)
-
-  /**
-    * Runs a query with vector-valued return result and filters out vector entries on behalf of pruned offsets.
-    *
-    * @param query     query to execute whose vector-result is filtered to overlap with non-pruned offsets
-    * @param getOffset function that returns a vector entry's offset
-    * @tparam T "row" element type of vector passed through
-    * @return vectored filtered to non-pruned entries
-    *
-    * See note above under executeSql.
-    */
-  def executeSqlFiltered[T](query: => Vector[T], getOffset: T => Offset)(
-      implicit conn: Connection): Vector[T] = {
-    val result = query
-
-    SQL_SELECT_MOST_RECENT_PRUNING
-      .as(offset("participant_pruned_up_to_inclusive").?.single)
-      .fold(result)(pruningOffsetUpToInclusive =>
-        result.filter(getOffset(_) > pruningOffsetUpToInclusive))
-  }
 
   private val SQL_SELECT_MOST_RECENT_PRUNING = SQL(
     "select participant_pruned_up_to_inclusive from parameters")
