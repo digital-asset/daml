@@ -7,9 +7,6 @@ import anorm.{BatchSql, NamedParameter}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 
-/**
-  * A table storing a flattened representation of a [[WitnessRelation]]
-  */
 private[events] sealed abstract class ContractWitnessesTable {
 
   protected val insert: String
