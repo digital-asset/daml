@@ -36,9 +36,11 @@ private[state] object Conversions {
   def packageStateKey(packageId: PackageId): DamlStateKey =
     DamlStateKey.newBuilder.setPackageId(packageId).build
 
+  def contractIdToString(contractId: ContractId): String = contractId.coid
+
   def contractIdToStateKey(acoid: ContractId): DamlStateKey =
     DamlStateKey.newBuilder
-      .setContractId(acoid.coid)
+      .setContractId(contractIdToString(acoid))
       .build
 
   def decodeContractId(coid: String): ContractId =
@@ -222,18 +224,36 @@ private[state] object Conversions {
       )
     )
 
+  def encodeTransactionNodeId(nodeId: NodeId): String =
+    nodeId.index.toString
+
+  def decodeTransactionNodeId(transactionNodeId: String): NodeId =
+    NodeId(transactionNodeId.toInt)
+
   def encodeBlindingInfo(blindingInfo: BlindingInfo): DamlTransactionBlindingInfo =
     DamlTransactionBlindingInfo.newBuilder
       .addAllDisclosures(encodeDisclosure(blindingInfo.disclosure).asJava)
       .addAllDivulgences(encodeDivulgence(blindingInfo.divulgence).asJava)
       .build
 
+  def decodeBlindingInfo(blindingInfo: DamlTransactionBlindingInfo): BlindingInfo =
+    BlindingInfo(
+      disclosure = blindingInfo.getDisclosuresList.asScala.map { disclosureEntry =>
+        decodeTransactionNodeId(disclosureEntry.getNodeId) -> disclosureEntry.getDisclosedToLocalPartiesList.asScala.toSet
+          .map(Party.assertFromString)
+      }.toMap,
+      divulgence = blindingInfo.getDivulgencesList.asScala.map { divulgenceEntry =>
+        decodeContractId(divulgenceEntry.getContractId) -> divulgenceEntry.getDivulgedToLocalPartiesList.asScala.toSet
+          .map(Party.assertFromString)
+      }.toMap
+    )
+
   private def encodeParties(parties: Iterable[Party]): List[String] =
     parties.asInstanceOf[Set[String]].toList.sorted // Deterministic
 
   private def encodeDisclosureEntry(disclosureEntry: (NodeId, Set[Party])): DisclosureEntry =
     DisclosureEntry.newBuilder
-      .setNodeId(disclosureEntry._1.index.toString)
+      .setNodeId(encodeTransactionNodeId(disclosureEntry._1))
       .addAllDisclosedToLocalParties(encodeParties(disclosureEntry._2).asJava)
       .build
 
@@ -246,7 +266,7 @@ private[state] object Conversions {
 
   private def encodeDivulgenceEntry(divulgenceEntry: (ContractId, Set[Party])): DivulgenceEntry =
     DivulgenceEntry.newBuilder
-      .setContractId(divulgenceEntry._1.coid)
+      .setContractId(contractIdToString(divulgenceEntry._1))
       .addAllDivulgedToLocalParties(encodeParties(divulgenceEntry._2).asJava)
       .build
 
