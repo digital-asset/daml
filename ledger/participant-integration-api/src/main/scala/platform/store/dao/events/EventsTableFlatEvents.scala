@@ -109,7 +109,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParty)
     SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
-                 case when submitter = $requestingParty then command_id else '' end as command_id
+                 case when submitters = array[$requestingParty] then command_id else '' end as command_id
           from participant_events
           join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
           where transaction_id = $transactionId and #$witnessesWhereClause
@@ -122,8 +122,10 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
   ): SimpleSql[Row] = {
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParties)
+    val submittersInPartiesClause =
+      sqlFunctions.arrayContainedByWhereClause("submitters", requestingParties)
     SQL"""select #$selectColumns, flat_event_witnesses as event_witnesses,
-                 case when submitter in ($requestingParties) then command_id else '' end as command_id
+                 case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
           join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
           where transaction_id = $transactionId and #$witnessesWhereClause

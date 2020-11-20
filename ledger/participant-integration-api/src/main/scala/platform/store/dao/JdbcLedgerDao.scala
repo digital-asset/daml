@@ -885,7 +885,7 @@ private class JdbcLedgerDao(
     ContractsReader(dbDispatcher, dbType, metrics, lfValueTranslationCache)(executionContext)
 
   override val completions: CommandCompletionsReader =
-    new CommandCompletionsReader(dbDispatcher, metrics, executionContext)
+    new CommandCompletionsReader(dbDispatcher, dbType, metrics, executionContext)
 
   private val postCommitValidation =
     if (performPostCommitValidation)
