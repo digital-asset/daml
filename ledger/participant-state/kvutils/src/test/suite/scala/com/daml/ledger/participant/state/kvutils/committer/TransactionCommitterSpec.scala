@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter.
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
+import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.scalatest.mockito.MockitoSugar
@@ -22,6 +23,7 @@ import org.scalatest.{Matchers, WordSpec}
 class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar {
   private val metrics = new Metrics(new MetricRegistry)
   private val aDamlTransactionEntry = DamlTransactionEntry.newBuilder
+    .setTransaction(Conversions.encodeTransaction(TransactionBuilder.Empty))
     .setSubmitterInfo(
       DamlSubmitterInfo.newBuilder
         .setCommandId("commandId")
@@ -234,6 +236,21 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
       context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty
+    }
+  }
+
+  "blind" should {
+    "always set blindingInfo" in {
+      val context = new FakeCommitContext(recordTime = None)
+
+      val actual = instance.blind(context, aTransactionEntrySummary)
+
+      actual match {
+        case StepContinue(_) => fail
+        case StepStop(logEntry) =>
+          logEntry.hasTransactionEntry shouldBe true
+          logEntry.getTransactionEntry.hasBlindingInfo shouldBe true
+      }
     }
   }
 
