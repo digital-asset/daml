@@ -93,6 +93,13 @@ private class JdbcLedgerDao(
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
+  LoggingContext.newLoggingContext { implicit loggingContext =>
+    if (enableAsyncCommits)
+      logger.info("Starting JdbcLedgerDao with async commit enabled")
+    else
+      logger.info("Starting JdbcLedgerDao with async commit disabled")
+  }
+
   override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()
 
   override def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]] =
