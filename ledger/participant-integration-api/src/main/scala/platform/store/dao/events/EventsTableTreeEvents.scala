@@ -11,7 +11,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
   private val createdTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -25,10 +25,12 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
             contractId = contractId,
             templateId = templateId,
             createArgument = createArgument,
+            createArgumentCompression = createArgumentCompression,
             createSignatories = createSignatories,
             createObservers = createObservers,
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
+            createKeyValueCompression = createKeyValueCompression,
             eventWitnesses = eventWitnesses,
           )
         )
@@ -36,7 +38,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
   private val exercisedTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -52,7 +54,9 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
             exerciseConsuming = exerciseConsuming,
             exerciseChoice = exerciseChoice,
             exerciseArgument = exerciseArgument,
+            exerciseArgumentCompression = exerciseArgumentCompression,
             exerciseResult = exerciseResult,
+            exerciseResultCompression = exerciseResultCompression,
             exerciseActors = exerciseActors,
             exerciseChildEventIds = exerciseChildEventIds,
             eventWitnesses = eventWitnesses,
@@ -74,14 +78,18 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     "template_id",
     "workflow_id",
     "create_argument",
+    "create_argument_compression",
     "create_signatories",
     "create_observers",
     "create_agreement_text",
     "create_key_value",
+    "create_key_value_compression",
     "exercise_consuming",
     "exercise_choice",
     "exercise_argument",
+    "exercise_argument_compression",
     "exercise_result",
+    "exercise_result_compression",
     "exercise_actors",
     "exercise_child_event_ids",
   ).mkString(", ")

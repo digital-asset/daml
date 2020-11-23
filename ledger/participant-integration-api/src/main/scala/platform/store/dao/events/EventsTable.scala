@@ -184,23 +184,29 @@ private[events] trait EventsTable {
       array[String]("event_witnesses")
 
   protected type CreatedEventRow =
-    SharedRow ~ InputStream ~ Array[String] ~ Array[String] ~ Option[String] ~ Option[InputStream]
+    SharedRow ~ InputStream ~ Option[Int] ~ Array[String] ~ Array[String] ~ Option[String] ~ Option[
+      InputStream] ~ Option[Int]
   protected val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
       binaryStream("create_argument") ~
+      int("create_argument_compression").? ~
       array[String]("create_signatories") ~
       array[String]("create_observers") ~
       str("create_agreement_text").? ~
-      binaryStream("create_key_value").?
+      binaryStream("create_key_value").? ~
+      int("create_key_value_compression").?
 
   protected type ExercisedEventRow =
-    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[InputStream] ~ Array[String] ~ Array[String]
+    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[Int] ~ Option[InputStream] ~ Option[Int] ~ Array[
+      String] ~ Array[String]
   protected val exercisedEventRow: RowParser[ExercisedEventRow] =
     sharedRow ~
       bool("exercise_consuming") ~
       str("exercise_choice") ~
       binaryStream("exercise_argument") ~
+      int("exercise_argument_compression").? ~
       binaryStream("exercise_result").? ~
+      int("exercise_result_compression").? ~
       array[String]("exercise_actors") ~
       array[String]("exercise_child_event_ids")
 

@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.io.InputStream
 import java.time.Instant
 
-import anorm.SqlParser.{binaryStream, str}
+import anorm.SqlParser.{binaryStream, int, str}
 import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation}
 import com.codahale.metrics.Timer
 import com.daml.ledger.participant.state.index.v2.ContractStore
@@ -15,7 +15,7 @@ import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.DbDispatcher
-import com.daml.platform.store.serialization.ValueSerializer
+import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -32,8 +32,8 @@ private[dao] sealed abstract class ContractsReader(
 
   import ContractsReader._
 
-  private val contractRowParser: RowParser[(String, InputStream)] =
-    str("template_id") ~ binaryStream("create_argument") map SqlParser.flatten
+  private val contractRowParser: RowParser[(String, InputStream, Option[Int])] =
+    str("template_id") ~ binaryStream("create_argument") ~ int("create_argument_compression").? map SqlParser.flatten
 
   private val contractWithoutValueRowParser: RowParser[String] =
     str("template_id")
@@ -50,15 +50,19 @@ private[dao] sealed abstract class ContractsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
     dispatcher
       .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-        SQL"select participant_contracts.contract_id, template_id, create_argument from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
+        SQL"select participant_contracts.contract_id, template_id, create_argument, create_argument_compression from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
           .as(contractRowParser.singleOpt)
       }
       .map(_.map {
-        case (templateId, createArgument) =>
+        case (templateId, createArgument, createArgumentCompression) =>
           toContract(
             contractId = contractId,
             templateId = templateId,
             createArgument = createArgument,
+            createArgumentCompression =
+              Compression.Algorithm.assertLookup(createArgumentCompression),
+            decompressionTimer =
+              metrics.daml.index.db.lookupActiveContractDbMetrics.compressionTimer,
             deserializationTimer =
               metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
           )
@@ -169,19 +173,29 @@ private[dao] object ContractsReader {
       contractId: ContractId,
       templateId: String,
       createArgument: InputStream,
+      createArgumentCompression: Compression.Algorithm,
+      decompressionTimer: Timer,
       deserializationTimer: Timer,
-  ): Contract =
-    Contract(
-      template = Identifier.assertFromString(templateId),
-      arg = Timed.value(
+  ): Contract = {
+    val decompressed =
+      Timed.value(
+        timer = decompressionTimer,
+        value = createArgumentCompression.decompress(createArgument)
+      )
+    val deserialized =
+      Timed.value(
         timer = deserializationTimer,
         value = ValueSerializer.deserializeValue(
-          stream = createArgument,
+          stream = decompressed,
           errorContext = s"Failed to deserialize create argument for contract ${contractId.coid}",
         ),
-      ),
+      )
+    Contract(
+      template = Identifier.assertFromString(templateId),
+      arg = deserialized,
       agreementText = ""
     )
+  }
 
   private def toContract(
       templateId: String,

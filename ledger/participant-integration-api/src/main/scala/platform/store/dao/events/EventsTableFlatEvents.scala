@@ -12,7 +12,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
 
   private val createdFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyValueCompression =>
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -26,10 +26,12 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
             contractId = contractId,
             templateId = templateId,
             createArgument = createArgument,
+            createArgumentCompression = createArgumentCompression,
             createSignatories = createSignatories,
             createObservers = createObservers,
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
+            createKeyValueCompression = createKeyValueCompression,
             eventWitnesses = eventWitnesses,
           )
         )
@@ -70,10 +72,12 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "contract_id",
       "template_id",
       "create_argument",
+      "create_argument_compression",
       "create_signatories",
       "create_observers",
       "create_agreement_text",
       "create_key_value",
+      "create_key_value_compression",
     ).mkString(", ")
 
   private val groupByColumns =
@@ -87,10 +91,12 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "contract_id",
       "template_id",
       "create_argument",
+      "create_argument_compression",
       "create_signatories",
       "create_observers",
       "create_agreement_text",
       "create_key_value",
+      "create_key_value_compression",
     ).mkString(", ")
 
   def prepareLookupFlatTransactionById(sqlFunctions: SqlFunctions)(

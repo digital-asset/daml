@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.BlindingInfo
+import com.daml.platform.store.serialization.Compression
 
 final case class TransactionIndexing(
     transaction: TransactionIndexing.TransactionInfo,
@@ -28,22 +29,21 @@ object TransactionIndexing {
       translation: LfValueTranslation,
       transactionId: TransactionId,
       events: Vector[(NodeId, Node)],
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgence: Iterable[DivulgedContract],
   ): Serialized = {
 
-    val createArgumentsByContract = Map.newBuilder[ContractId, Array[Byte]]
-    val createArguments = Map.newBuilder[NodeId, Array[Byte]]
-    val createKeyValues = Map.newBuilder[NodeId, Array[Byte]]
-    val exerciseArguments = Map.newBuilder[NodeId, Array[Byte]]
-    val exerciseResults = Map.newBuilder[NodeId, Array[Byte]]
+    val createArguments = Vector.newBuilder[(NodeId, ContractId, Array[Byte])]
+    val divulgedContracts = Vector.newBuilder[(ContractId, Array[Byte])]
+    val createKeyValues = Vector.newBuilder[(NodeId, Array[Byte])]
+    val exerciseArguments = Vector.newBuilder[(NodeId, Array[Byte])]
+    val exerciseResults = Vector.newBuilder[(NodeId, Array[Byte])]
 
     for ((nodeId, event) <- events) {
       val eventId = EventId(transactionId, nodeId)
       event match {
         case create: Create =>
           val (createArgument, createKeyValue) = translation.serialize(eventId, create)
-          createArgumentsByContract += ((create.coid, createArgument))
-          createArguments += ((nodeId, createArgument))
+          createArguments += ((nodeId, create.coid, createArgument))
           createKeyValue.foreach(key => createKeyValues += ((nodeId, key)))
         case exercise: Exercise =>
           val (exerciseArgument, exerciseResult) = translation.serialize(eventId, exercise)
@@ -53,19 +53,81 @@ object TransactionIndexing {
       }
     }
 
-    for (DivulgedContract(contractId, contractInst) <- divulgedContracts) {
+    for (DivulgedContract(contractId, contractInst) <- divulgence) {
       val serializedCreateArgument = translation.serialize(contractId, contractInst.arg)
-      createArgumentsByContract += ((contractId, serializedCreateArgument))
+      divulgedContracts += ((contractId, serializedCreateArgument))
     }
 
     Serialized(
-      createArgumentsByContract = createArgumentsByContract.result(),
       createArguments = createArguments.result(),
+      divulgedContracts = divulgedContracts.result(),
       createKeyValues = createKeyValues.result(),
       exerciseArguments = exerciseArguments.result(),
       exerciseResults = exerciseResults.result(),
     )
 
+  }
+
+  def compress(
+      serialized: Serialized,
+      compressionStrategy: CompressionStrategy,
+      compressionMetrics: CompressionMetrics,
+  ): Compressed = {
+
+    val createArgumentsByContract = Map.newBuilder[ContractId, Array[Byte]]
+    val createArguments = Map.newBuilder[NodeId, Array[Byte]]
+    val createKeyValues = Map.newBuilder[NodeId, Array[Byte]]
+    val exerciseArguments = Map.newBuilder[NodeId, Array[Byte]]
+    val exerciseResults = Map.newBuilder[NodeId, Array[Byte]]
+
+    for ((contractId, argument) <- serialized.divulgedContracts) {
+      val compressedArgument =
+        compressionStrategy.createArgumentCompression
+          .compress(argument, compressionMetrics.createArgumentCompressionRatio)
+      createArgumentsByContract += ((contractId, compressedArgument))
+    }
+
+    for ((nodeId, contractId, argument) <- serialized.createArguments) {
+      val compressedArgument = compressionStrategy.createArgumentCompression
+        .compress(argument, compressionMetrics.createArgumentCompressionRatio)
+      createArguments += ((nodeId, compressedArgument))
+      createArgumentsByContract += ((contractId, compressedArgument))
+    }
+
+    for ((nodeId, key) <- serialized.createKeyValues) {
+      val compressedKey = compressionStrategy.createKeyValueCompression
+        .compress(key, compressionMetrics.createKeyValueCompressionRatio)
+      createKeyValues += ((nodeId, compressedKey))
+    }
+
+    for ((nodeId, argument) <- serialized.exerciseArguments) {
+      val compressedArgument = compressionStrategy.exerciseArgumentCompression
+        .compress(argument, compressionMetrics.exerciseArgumentCompressionRatio)
+      exerciseArguments += ((nodeId, compressedArgument))
+    }
+
+    for ((nodeId, result) <- serialized.exerciseResults) {
+      val compressedResult = compressionStrategy.exerciseResultCompression
+        .compress(result, compressionMetrics.exerciseResultCompressionRatio)
+      exerciseResults += ((nodeId, compressedResult))
+    }
+
+    Compressed(
+      contracts = Compressed.Contracts(
+        createArguments = createArgumentsByContract.result(),
+        createArgumentsCompression = compressionStrategy.createArgumentCompression,
+      ),
+      events = Compressed.Events(
+        createArguments = createArguments.result(),
+        createArgumentsCompression = compressionStrategy.createArgumentCompression,
+        createKeyValues = createKeyValues.result(),
+        createKeyValueCompression = compressionStrategy.createKeyValueCompression,
+        exerciseArguments = exerciseArguments.result(),
+        exerciseArgumentsCompression = compressionStrategy.exerciseArgumentCompression,
+        exerciseResults = exerciseResults.result(),
+        exerciseResultsCompression = compressionStrategy.exerciseResultCompression,
+      ),
+    )
   }
 
   private class Builder(blinding: BlindingInfo) {
@@ -200,11 +262,45 @@ object TransactionIndexing {
   )
 
   final case class Serialized(
-      createArgumentsByContract: Map[ContractId, Array[Byte]],
-      createArguments: Map[NodeId, Array[Byte]],
-      createKeyValues: Map[NodeId, Array[Byte]],
-      exerciseArguments: Map[NodeId, Array[Byte]],
-      exerciseResults: Map[NodeId, Array[Byte]],
+      createArguments: Vector[(NodeId, ContractId, Array[Byte])],
+      divulgedContracts: Vector[(ContractId, Array[Byte])],
+      createKeyValues: Vector[(NodeId, Array[Byte])],
+      exerciseArguments: Vector[(NodeId, Array[Byte])],
+      exerciseResults: Vector[(NodeId, Array[Byte])],
+  )
+
+  object Compressed {
+
+    final case class Contracts(
+        createArguments: Map[ContractId, Array[Byte]],
+        createArgumentsCompression: Compression.Algorithm,
+    )
+
+    final case class Events(
+        createArguments: Map[NodeId, Array[Byte]],
+        createArgumentsCompression: Compression.Algorithm,
+        createKeyValues: Map[NodeId, Array[Byte]],
+        createKeyValueCompression: Compression.Algorithm,
+        exerciseArguments: Map[NodeId, Array[Byte]],
+        exerciseArgumentsCompression: Compression.Algorithm,
+        exerciseResults: Map[NodeId, Array[Byte]],
+        exerciseResultsCompression: Compression.Algorithm,
+    ) {
+      def assertCreate(nodeId: NodeId): (Array[Byte], Option[Array[Byte]]) = {
+        assert(createArguments.contains(nodeId), s"Node $nodeId is not a create event")
+        (createArguments(nodeId), createKeyValues.get(nodeId))
+      }
+      def assertExercise(nodeId: NodeId): (Array[Byte], Option[Array[Byte]]) = {
+        assert(exerciseArguments.contains(nodeId), s"Node $nodeId is not an exercise event")
+        (exerciseArguments(nodeId), exerciseResults.get(nodeId))
+      }
+    }
+
+  }
+
+  final case class Compressed(
+      contracts: Compressed.Contracts,
+      events: Compressed.Events,
   )
 
   def from(

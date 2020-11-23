@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.v1.DivulgedContract
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.JdbcLedgerDao
+import com.daml.platform.store.serialization.Compression
 
 import scala.util.{Failure, Success, Try}
 
@@ -30,6 +31,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
       contractId: ContractId,
       templateId: Identifier,
       createArgument: Array[Byte],
+      createArgumentCompression: Compression.Algorithm,
       ledgerEffectiveTime: Option[Instant],
       stakeholders: Set[Party],
       key: Option[Key],
@@ -38,6 +40,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
       "contract_id" -> contractId,
       "template_id" -> templateId,
       "create_argument" -> createArgument,
+      "create_argument_compression" -> createArgumentCompression.id,
       "create_ledger_effective_time" -> ledgerEffectiveTime,
       "create_stakeholders" -> stakeholders.toArray[String],
       "create_key_hash" -> key.map(_.hash),
@@ -46,7 +49,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
   def toExecutables(
       tx: TransactionIndexing.TransactionInfo,
       info: TransactionIndexing.ContractsInfo,
-      serialized: TransactionIndexing.Serialized,
+      compressed: TransactionIndexing.Compressed.Contracts,
   ): ContractsTable.Executables = {
     val deletes = info.netArchives.iterator.map(deleteContract).toSeq
     val localInserts =
@@ -56,7 +59,8 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
         insertContract(
           contractId = create.coid,
           templateId = create.templateId,
-          createArgument = serialized.createArgumentsByContract(create.coid),
+          createArgument = compressed.createArguments(create.coid),
+          createArgumentCompression = compressed.createArgumentsCompression,
           ledgerEffectiveTime = Some(tx.ledgerEffectiveTime),
           stakeholders = create.stakeholders,
           key = create.key.map(convert(create.templateId, _))
@@ -68,7 +72,8 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
         insertContract(
           contractId = contractId,
           templateId = contractInst.template,
-          createArgument = serialized.createArgumentsByContract(contractId),
+          createArgument = compressed.createArguments(contractId),
+          createArgumentCompression = compressed.createArgumentsCompression,
           ledgerEffectiveTime = None,
           stakeholders = Set.empty,
           key = None,
@@ -117,12 +122,12 @@ private[events] object ContractsTable {
 
   object Postgresql extends ContractsTable {
     override protected val insertContractQuery: String =
-      "insert into participant_contracts(contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders) values ({contract_id}, {template_id}, {create_argument}, {create_ledger_effective_time}, {create_key_hash}, {create_stakeholders}) on conflict do nothing"
+      "insert into participant_contracts(contract_id, template_id, create_argument, create_argument_compression, create_ledger_effective_time, create_key_hash, create_stakeholders) values ({contract_id}, {template_id}, {create_argument}, {create_argument_compression}, {create_ledger_effective_time}, {create_key_hash}, {create_stakeholders}) on conflict do nothing"
   }
 
   object H2Database extends ContractsTable {
     override protected val insertContractQuery: String =
-      s"merge into participant_contracts using dual on contract_id = {contract_id} when not matched then insert (contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders) values ({contract_id}, {template_id}, {create_argument}, {create_ledger_effective_time}, {create_key_hash}, {create_stakeholders})"
+      s"merge into participant_contracts using dual on contract_id = {contract_id} when not matched then insert (contract_id, template_id, create_argument, create_argument_compression, create_ledger_effective_time, create_key_hash, create_stakeholders) values ({contract_id}, {template_id}, {create_argument}, {create_argument_compression}, {create_ledger_effective_time}, {create_key_hash}, {create_stakeholders})"
   }
 
   private def emptyContractIds: Throwable =

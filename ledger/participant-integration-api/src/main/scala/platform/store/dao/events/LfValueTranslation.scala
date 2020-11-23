@@ -3,6 +3,8 @@
 
 package com.daml.platform.store.dao.events
 
+import java.io.InputStream
+
 import com.daml.caching
 import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
@@ -10,7 +12,7 @@ import com.daml.ledger.api.v1.value.{Record => ApiRecord, Value => ApiValue}
 import com.daml.metrics.Metrics
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.dao.events.{Value => LfValue}
-import com.daml.platform.store.serialization.ValueSerializer
+import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
 
@@ -109,14 +111,17 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
 
   private def eventKey(s: String) = LfValueTranslation.EventCache.Key(EventId.assertFromString(s))
 
+  private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
+    ValueSerializer.deserializeValue(algorithm.decompress(value))
+
   def deserialize[E](raw: Raw.Created[E], verbose: Boolean): CreatedEvent = {
     val create =
       cache.events
         .getIfPresent(eventKey(raw.partial.eventId))
         .getOrElse(
           LfValueTranslation.EventCache.Value.Create(
-            argument = ValueSerializer.deserializeValue(raw.createArgument),
-            key = raw.createKeyValue.map(ValueSerializer.deserializeValue)
+            argument = decompressAndDeserialize(raw.createArgumentCompression, raw.createArgument),
+            key = raw.createKeyValue.map(decompressAndDeserialize(raw.createKeyValueCompression, _)),
           )
         )
         .assertCreate()
@@ -145,8 +150,10 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
         .getIfPresent(eventKey(raw.partial.eventId))
         .getOrElse(
           LfValueTranslation.EventCache.Value.Exercise(
-            argument = ValueSerializer.deserializeValue(raw.exerciseArgument),
-            result = raw.exerciseResult.map(ValueSerializer.deserializeValue)
+            argument =
+              decompressAndDeserialize(raw.exerciseArgumentCompression, raw.exerciseArgument),
+            result =
+              raw.exerciseResult.map(decompressAndDeserialize(raw.exerciseResultCompression, _))
           )
         )
         .assertExercise()
