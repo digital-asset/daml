@@ -20,6 +20,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.ApiOffset
+import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
@@ -79,24 +80,24 @@ final class ApiParticipantPruningService private (
   private def pruneWriteService(pruneUpTo: Offset, submissionId: SubmissionId)(
       implicit logCtx: LoggingContext): Future[Unit] = {
     logger.info(
-      s"About to prune participant ledger up to ${pruneUpTo} inclusively starting with the write service")
+      s"About to prune participant ledger up to ${pruneUpTo.toApiString} inclusively starting with the write service")
     FutureConverters
       .toScala(writeBackend.prune(pruneUpTo, submissionId))
       .flatMap {
         case PruningResult.NotPruned(status) => Future.failed(ErrorFactories.grpcError(status))
         case PruningResult.ParticipantPruned =>
-          logger.info(s"Pruned participant ledger up to ${pruneUpTo} inclusively.")
+          logger.info(s"Pruned participant ledger up to ${pruneUpTo.toApiString} inclusively.")
           Future.successful(())
       }
   }
 
   private def pruneLedgerApiServerIndex(pruneUpTo: Offset)(
       implicit logCtx: LoggingContext): Future[PruneResponse] = {
-    logger.info(s"About to prune ledger api server index to to ${pruneUpTo} inclusively")
+    logger.info(s"About to prune ledger api server index to ${pruneUpTo.toApiString} inclusively")
     readBackend
       .prune(pruneUpTo)
       .map { _ =>
-        logger.info(s"Pruned ledger api server index up to ${pruneUpTo} inclusively.")
+        logger.info(s"Pruned ledger api server index up to ${pruneUpTo.toApiString} inclusively.")
         PruneResponse()
       }
   }
