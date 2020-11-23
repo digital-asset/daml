@@ -18,7 +18,7 @@ import com.daml.metrics.Metrics
 
 import scala.concurrent.ExecutionContext
 
-final class LogAppendingCommitStrategySupport()(implicit executionContext: ExecutionContext)
+final class LogAppendingCommitStrategySupport(implicit executionContext: ExecutionContext)
     extends CommitStrategySupport[Index] {
   private val metrics = new Metrics(new MetricRegistry)
 

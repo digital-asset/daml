@@ -367,10 +367,12 @@ object IntegrityChecker {
   def run[LogResult](
       args: Array[String],
       commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[LogResult],
-  ): Unit =
-    run(Config.parse(args).getOrElse {
+  ): Unit = {
+    val config = Config.parse(args).getOrElse {
       sys.exit(1)
-    }, commitStrategySupportFactory)
+    }
+    run(config, commitStrategySupportFactory)
+  }
 
   def run[LogResult](
       config: Config,
