@@ -169,6 +169,32 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final def singleCreate: (Offset, LedgerEntry.Transaction) =
     singleCreateP(create(_))
 
+  protected final def multiPartySingleCreateP(
+      create: ContractId => NodeCreate[ContractId, Value[ContractId]])
+    : (Offset, LedgerEntry.Transaction) = {
+    val txBuilder = TransactionBuilder()
+    val cid = txBuilder.newCid
+    val creation = create(cid)
+    val eid = txBuilder.add(creation)
+    val offset = nextOffset()
+    val id = offset.toLong
+    val let = Instant.now
+    offset -> LedgerEntry.Transaction(
+      commandId = Some(s"commandId$id"),
+      transactionId = s"trId$id",
+      applicationId = Some("appID1"),
+      actAs = List(alice, bob, charlie),
+      workflowId = Some("workflowId"),
+      ledgerEffectiveTime = let,
+      recordedAt = let,
+      transaction = txBuilder.buildCommitted(),
+      explicitDisclosure = Map(eid -> (creation.signatories union creation.stakeholders))
+    )
+  }
+
+  protected final def multiPartySingleCreate: (Offset, LedgerEntry.Transaction) =
+    multiPartySingleCreateP(create(_))
+
   protected def divulgeAlreadyCommittedContract(
       id: ContractId,
       divulgees: Set[Party],
@@ -237,6 +263,27 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       recordedAt = let,
       transaction = CommittedTransaction(txBuilder.buildCommitted()),
       explicitDisclosure = Map(nid -> Set("Alice", "Bob"))
+    )
+  }
+
+  protected def multiPartySingleExercise(
+      targetCid: ContractId,
+  ): (Offset, LedgerEntry.Transaction) = {
+    val txBuilder = TransactionBuilder()
+    val nid = txBuilder.add(exercise(targetCid))
+    val offset = nextOffset()
+    val id = offset.toLong
+    val let = Instant.now
+    offset -> LedgerEntry.Transaction(
+      commandId = Some(s"commandId$id"),
+      transactionId = s"trId$id",
+      applicationId = Some("appID1"),
+      actAs = List(alice, bob, charlie),
+      workflowId = Some("workflowId"),
+      ledgerEffectiveTime = let,
+      recordedAt = let,
+      transaction = CommittedTransaction(txBuilder.buildCommitted()),
+      explicitDisclosure = Map(nid -> Set(alice, bob))
     )
   }
 
