@@ -42,11 +42,49 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     }
   }
 
+  it should "return the expected completion for an accepted multi-party transaction" in {
+    for {
+      from <- ledgerDao.lookupLedgerEnd()
+      (offset, tx) <- store(multiPartySingleCreate)
+      to <- ledgerDao.lookupLedgerEnd()
+      (_, response) <- ledgerDao.completions
+        .getCommandCompletions(from, to, tx.applicationId.get, tx.actAs.reverse.toSet)
+        .runWith(Sink.head)
+    } yield {
+      offsetOf(response) shouldBe offset
+      val completion = response.completions.loneElement
+
+      completion.transactionId shouldBe tx.transactionId
+      completion.commandId shouldBe tx.commandId.get
+      completion.status.value.code shouldBe io.grpc.Status.Code.OK.value()
+    }
+  }
+
   it should "return the expected completion for a rejection" in {
     val expectedCmdId = UUID.randomUUID.toString
     for {
       from <- ledgerDao.lookupLedgerEnd()
       offset <- storeRejection(RejectionReason.Inconsistent(""), expectedCmdId)
+      to <- ledgerDao.lookupLedgerEnd()
+      (_, response) <- ledgerDao.completions
+        .getCommandCompletions(from, to, applicationId, parties)
+        .runWith(Sink.head)
+    } yield {
+      offsetOf(response) shouldBe offset
+
+      val completion = response.completions.loneElement
+
+      completion.transactionId shouldBe empty
+      completion.commandId shouldBe expectedCmdId
+      completion.status.value.code shouldNot be(io.grpc.Status.Code.OK.value())
+    }
+  }
+
+  it should "return the expected completion for a multi-party rejection" in {
+    val expectedCmdId = UUID.randomUUID.toString
+    for {
+      from <- ledgerDao.lookupLedgerEnd()
+      offset <- storeMultiPartyRejection(RejectionReason.Inconsistent(""), expectedCmdId)
       to <- ledgerDao.lookupLedgerEnd()
       (_, response) <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId, parties)
@@ -88,6 +126,27 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     }
   }
 
+  it should "not return completions if the parties do not match (multi-party submission)" in {
+    for {
+      from <- ledgerDao.lookupLedgerEnd()
+      _ <- storeMultiPartyRejection(RejectionReason.Inconsistent(""))
+      to <- ledgerDao.lookupLedgerEnd()
+      response1 <- ledgerDao.completions
+        .getCommandCompletions(from, to, applicationId, Set(party1))
+        .runWith(Sink.seq)
+      response2 <- ledgerDao.completions
+        .getCommandCompletions(from, to, applicationId, Set(party1, party2))
+        .runWith(Sink.seq)
+      response3 <- ledgerDao.completions
+        .getCommandCompletions(from, to, applicationId, Set(party1, party2, "WRONG"))
+        .runWith(Sink.seq)
+    } yield {
+      response1 shouldBe Seq.empty
+      response2 shouldBe Seq.empty
+      response3 shouldBe Seq.empty
+    }
+  }
+
   it should "return the expected status for each rejection reason" in {
     val reasons = Seq[RejectionReason](
       RejectionReason.Disputed(""),
@@ -124,8 +183,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     lazy val offset = nextOffset()
     ledgerDao
       .storeRejection(
-        submitterInfo =
-          Some(SubmitterInfo.withSingleSubmitter(party, applicationId, commandId, Instant.EPOCH)),
+        submitterInfo = Some(SubmitterInfo(List(party1), applicationId, commandId, Instant.EPOCH)),
         recordTime = Instant.now,
         offset = offset,
         reason = reason,
@@ -133,14 +191,31 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       .map(_ => offset)
   }
 
+  private def storeMultiPartyRejection(
+      reason: RejectionReason,
+      commandId: String = UUID.randomUUID().toString,
+  ): Future[Offset] = {
+    lazy val offset = nextOffset()
+    ledgerDao
+      .storeRejection(
+        submitterInfo = Some(
+          SubmitterInfo(List(party1, party2, party3), applicationId, commandId, Instant.EPOCH)),
+        recordTime = Instant.now,
+        offset = offset,
+        reason = reason,
+      )
+      .map(_ => offset)
+  }
 }
 
 private[dao] object JdbcLedgerDaoCompletionsSpec {
 
   private val applicationId: ApplicationId =
     "JdbcLedgerDaoCompletionsSpec".asInstanceOf[ApplicationId]
-  private val party: Party = "JdbcLedgerDaoCompletionsSpec".asInstanceOf[Party]
-  private val parties: Set[Party] = Set(party)
+  private val party1: Party = "JdbcLedgerDaoCompletionsSpec1".asInstanceOf[Party]
+  private val party2: Party = "JdbcLedgerDaoCompletionsSpec2".asInstanceOf[Party]
+  private val party3: Party = "JdbcLedgerDaoCompletionsSpec3".asInstanceOf[Party]
+  private val parties: Set[Party] = Set(party1, party2, party3)
 
   private def offsetOf(response: CompletionStreamResponse): Offset =
     ApiOffset.assertFromString(response.checkpoint.get.offset.get.value.absolute.get)
