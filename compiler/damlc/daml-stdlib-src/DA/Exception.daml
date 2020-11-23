@@ -24,7 +24,7 @@ module DA.Exception
 import DA.Record
 import DA.Internal.LF
 
--- | General exception type.
+-- Move to DA.Internal.LF when implemented as primitive.
 data AnyException =
     MkAnyException () -- Opaque
         -- ^ HIDE
