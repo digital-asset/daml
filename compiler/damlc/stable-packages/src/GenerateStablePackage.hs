@@ -78,8 +78,6 @@ main = do
       writePackage (daValidationTypes (encodePackageHash daNonEmptyTypes)) optOutputPath
     ModuleName ["DA", "Internal", "Down"] ->
       writePackage daInternalDown optOutputPath
-    ModuleName ["DA", "Internal", "Exception"] ->
-      writePackage daInternalException optOutputPath
     ModuleName ["DA", "Internal", "Erased"] ->
       writePackage daInternalErased optOutputPath
     ModuleName ["DA", "Internal", "PromotedText"] ->
@@ -511,34 +509,6 @@ daInternalDown = package version1_6 $ NM.singleton Module
       ]
     values = NM.fromList
       [ mkWorkerDef modName downTyCon tyVars [(unpackField, TVar tyVar)]
-      ]
-
-daInternalException :: Package
-daInternalException = Package
-    { packageLfVersion = versionDev -- TODO (#8020): Update LF version when we stabilize exceptions.
-    , packageMetadata = Just PackageMetadata
-        { packageName = PackageName "stable-daml-stdlib-DA-Internal-Exception"
-        , packageVersion = PackageVersion "1.0.0"
-        }
-    , packageModules = NM.singleton Module
-        { moduleName = modName
-        , moduleSource = Nothing
-        , moduleFeatureFlags = daml12FeatureFlags
-        , moduleSynonyms = NM.empty
-        , moduleDataTypes = types
-        , moduleValues = values
-        , moduleTemplates = NM.empty
-        }
-    }
-  where
-    modName = mkModName ["DA", "Internal", "Exception"]
-    tyCon = mkTypeCon ["AnyException"]
-    fields = [(mkField "message", TText), (mkField "payload", TAny)]
-    types = NM.fromList
-      [ DefDataType Nothing tyCon (IsSerializable False) [] (DataRecord fields)
-      ]
-    values = NM.fromList
-      [ mkWorkerDef modName tyCon [] fields
       ]
 
 daInternalErased :: Package

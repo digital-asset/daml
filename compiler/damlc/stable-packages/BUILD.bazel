@@ -42,7 +42,6 @@ genrule(
         "daml-stdlib/DA-Logic-Types.dalf",
         "daml-stdlib/DA-Validation-Types.dalf",
         "daml-stdlib/DA-Internal-Down.dalf",
-        "daml-stdlib/DA-Internal-Exception.dalf",
     ],
     cmd = """
       $(location :generate-stable-package) --module GHC.Types -o $(location daml-prim/GHC-Types.dalf)
@@ -59,7 +58,6 @@ genrule(
       $(location :generate-stable-package) --module DA.Logic.Types -o $(location daml-stdlib/DA-Logic-Types.dalf)
       $(location :generate-stable-package) --module DA.Validation.Types -o $(location daml-stdlib/DA-Validation-Types.dalf)
       $(location :generate-stable-package) --module DA.Internal.Down -o $(location daml-stdlib/DA-Internal-Down.dalf)
-      $(location :generate-stable-package) --module DA.Internal.Exception -o $(location daml-stdlib/DA-Internal-Exception.dalf)
       # These types are not serializable but they leak into typeclass methods so they need to be stable.
       $(location :generate-stable-package) --module DA.Internal.Any -o $(location daml-stdlib/DA-Internal-Any.dalf)
       $(location :generate-stable-package) --module DA.Internal.Template -o $(location daml-stdlib/DA-Internal-Template.dalf)
@@ -81,7 +79,6 @@ filegroup(
         "daml-stdlib/DA-Date-Types.dalf",
         "daml-stdlib/DA-Internal-Any.dalf",
         "daml-stdlib/DA-Internal-Down.dalf",
-        "daml-stdlib/DA-Internal-Exception.dalf",
         "daml-stdlib/DA-Internal-Template.dalf",
         "daml-stdlib/DA-Logic-Types.dalf",
         "daml-stdlib/DA-Monoid-Types.dalf",

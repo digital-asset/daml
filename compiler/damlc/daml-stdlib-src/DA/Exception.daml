@@ -12,7 +12,7 @@ module DA.Exception where
 
 -- | Exception handling.
 module DA.Exception
-    ( AnyException (..)
+    ( AnyException
     , Exception (..)
     , displayException
     , ActionThrow (..)
@@ -23,15 +23,11 @@ module DA.Exception
 
 import DA.Record
 import DA.Internal.LF
-import DA.Internal.Exception
 
-instance HasField "message" AnyException Text where
-    getField AnyException{..} = message
-    setField message AnyException{payload} = AnyException{..}
-
-instance HasField "payload" AnyException Any where
-    getField AnyException{..} = payload
-    setField payload AnyException{message} = AnyException{..}
+-- | General exception type.
+data AnyException =
+    MkAnyException () -- Opaque
+        -- ^ HIDE
 
 -- | Exception typeclass. This should not be implemented directly,
 -- instead, use the `exception` syntax.
@@ -43,9 +39,13 @@ instance Exception AnyException where
     toAnyException = identity
     fromAnyException = Some
 
+-- | HIDE Get the error message associated with an AnyException
+displayAnyException : AnyException -> Text
+displayAnyException = undefined -- primitive @"anyExceptionMessage"
+
 -- | Get the error message associated with an exception.
 displayException : Exception e => e -> Text
-displayException e = getField @"message" (toAnyException e)
+displayException e = displayAnyException (toAnyException e)
 
 -- | Typeclass for action that supports throwing exceptions.
 class Action m => ActionThrow m where
@@ -65,11 +65,7 @@ throwPure e = throwAnyPure (toAnyException e)
 
 -- | HIDE Throw an AnyException in pure code.
 throwAnyPure : AnyException -> t
-throwAnyPure AnyException{..} = throwPrim message payload
-
--- | HIDE Throw primitive.
-throwPrim : Text -> Any -> t
-throwPrim = undefined -- primitive @"throw"
+throwAnyPure = undefined -- primitive @"throw"
 
 -- | Typeclass for action that supports catching exceptions.
 class ActionThrow m => ActionCatch m where
