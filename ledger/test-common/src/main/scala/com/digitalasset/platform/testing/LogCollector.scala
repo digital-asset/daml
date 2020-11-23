@@ -21,9 +21,13 @@ object LogCollector {
   def read[Test, Logger](
       implicit test: ClassTag[Test],
       logger: ClassTag[Logger]): IndexedSeq[(Level, String)] =
+    read[Test](logger.runtimeClass.getName)
+
+  def read[Test](loggerClassName: String)(
+      implicit test: ClassTag[Test]): IndexedSeq[(Level, String)] =
     log
       .get(test.runtimeClass.getName)
-      .flatMap(_.get(logger.runtimeClass.getName))
+      .flatMap(_.get(loggerClassName))
       .fold(IndexedSeq.empty[(Level, String)])(_.result())
 
   def clear[Test](implicit test: ClassTag[Test]): Unit = {

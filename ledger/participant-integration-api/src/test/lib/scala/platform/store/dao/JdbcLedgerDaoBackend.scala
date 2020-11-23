@@ -46,6 +46,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
       eventsPageSize = eventsPageSize,
       metrics = new Metrics(new MetricRegistry),
       lfValueTranslationCache = LfValueTranslation.Cache.none,
+      jdbcAsyncCommits = true,
     )
 
   protected final var ledgerDao: LedgerDao = _
