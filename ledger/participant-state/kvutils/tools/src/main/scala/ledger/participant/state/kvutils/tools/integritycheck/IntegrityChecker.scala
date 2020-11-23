@@ -214,7 +214,13 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
               + s" submissionEnvelopeSize=${submissionInfo.submissionEnvelope.size()}"
               + s" writeSetSize=${expectedWriteSet.size}"
           )
-          expectedWriteSet.foreach(Function.tupled(WriteSetEntries.assertReadable))
+          expectedWriteSet.foreach {
+            case (key, value) =>
+              val result = WriteSetEntries.checkReadable(key, value)
+              result.left.foreach { message =>
+                throw new UnreadableWriteSetException(message)
+              }
+          }
           expectedReadServiceFactory.appendBlock(expectedWriteSet)
           if (!config.indexOnly) {
             submissionValidator.validateAndCommit(
@@ -349,12 +355,14 @@ object IntegrityChecker {
   def bytesAsHexString(bytes: ByteString): String =
     bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
 
-  class CheckFailedException(message: String) extends RuntimeException(message)
+  abstract class CheckFailedException(message: String) extends RuntimeException(message)
 
-  class ComparisonFailureException(lines: String*)
+  final class UnreadableWriteSetException(message: String) extends CheckFailedException(message)
+
+  final class ComparisonFailureException(lines: String*)
       extends CheckFailedException(("FAIL" +: lines).mkString(System.lineSeparator))
 
-  class IndexingFailureException(message: String) extends CheckFailedException(message)
+  final class IndexingFailureException(message: String) extends CheckFailedException(message)
 
   def run[LogResult](
       args: Array[String],
