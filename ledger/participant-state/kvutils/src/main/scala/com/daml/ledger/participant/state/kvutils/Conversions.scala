@@ -74,7 +74,7 @@ private[state] object Conversions {
       .setCommandDedup(
         DamlCommandDedupKey.newBuilder
           .setCommandId(subInfo.getCommandId)
-          .setSubmitter(subInfo.getSubmitter)
+          .addAllSubmitters(subInfo.getSubmittersList)
           .build
       )
       .build
@@ -118,7 +118,7 @@ private[state] object Conversions {
 
   def buildSubmitterInfo(subInfo: SubmitterInfo): DamlSubmitterInfo =
     DamlSubmitterInfo.newBuilder
-      .setSubmitter(subInfo.singleSubmitterOrThrow())
+      .addAllSubmitters(subInfo.actAs.asInstanceOf[List[String]].asJava)
       .setApplicationId(subInfo.applicationId)
       .setCommandId(subInfo.commandId)
       .setDeduplicateUntil(
@@ -126,8 +126,8 @@ private[state] object Conversions {
       .build
 
   def parseSubmitterInfo(subInfo: DamlSubmitterInfo): SubmitterInfo =
-    SubmitterInfo.withSingleSubmitter(
-      submitter = Party.assertFromString(subInfo.getSubmitter),
+    SubmitterInfo(
+      actAs = subInfo.getSubmittersList.asScala.toList.map(Party.assertFromString),
       applicationId = LedgerString.assertFromString(subInfo.getApplicationId),
       commandId = LedgerString.assertFromString(subInfo.getCommandId),
       deduplicateUntil = parseTimestamp(subInfo.getDeduplicateUntil).toInstant,
