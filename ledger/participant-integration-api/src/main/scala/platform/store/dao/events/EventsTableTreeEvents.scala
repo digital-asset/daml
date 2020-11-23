@@ -7,10 +7,10 @@ import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions._
 
-private[events] trait EventsTableTreeEvents { this: EventsTable =>
+private[events] object EventsTableTreeEvents {
 
   private val createdTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
-    createdEventRow map {
+    EventsTable.createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
         EventsTable.Entry(
           eventOffset = eventOffset,
@@ -35,7 +35,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     }
 
   private val exercisedTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Exercised]] =
-    exercisedEventRow map {
+    EventsTable.exercisedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
         EventsTable.Entry(
           eventOffset = eventOffset,

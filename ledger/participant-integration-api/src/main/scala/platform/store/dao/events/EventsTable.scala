@@ -4,10 +4,11 @@
 package com.daml.platform.store.dao.events
 
 import java.io.InputStream
+import java.sql.Connection
 import java.time.Instant
 
 import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
-import anorm.{BatchSql, RowParser, ~}
+import anorm.{RowParser, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
@@ -26,22 +27,74 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.daml.platform.index.TransactionConversion
 import com.daml.platform.store.Conversions.{identifier, instant, offset}
+import com.daml.platform.store.DbType
 import com.google.protobuf.timestamp.Timestamp
 
-/**
-  * Data access object for a table representing raw transactions nodes that
-  * are going to be streamed off through the Ledger API. By joining these items
-  * with a [[ContractWitnessesTable]] events can be filtered based on their visibility to
-  * a party.
-  */
-private[events] object EventsTable
-    extends EventsTable
-    with EventsTableInsert
-    with EventsTableDelete
-    with EventsTableFlatEvents
-    with EventsTableTreeEvents {
+private[events] abstract class EventsTable {
 
-  final case class Executables(insertEvents: Option[BatchSql], updateArchives: Option[BatchSql])
+  def toExecutables(
+      tx: TransactionIndexing.TransactionInfo,
+      info: TransactionIndexing.EventsInfo,
+      compressed: TransactionIndexing.Serialized,
+  ): EventsTable.Batches
+
+}
+
+private[events] object EventsTable {
+
+  private type SharedRow =
+    Offset ~ String ~ Int ~ Long ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~
+      Option[String] ~ Array[String]
+
+  private val sharedRow: RowParser[SharedRow] =
+    offset("event_offset") ~
+      str("transaction_id") ~
+      int("node_index") ~
+      long("event_sequential_id") ~
+      str("event_id") ~
+      str("contract_id") ~
+      instant("ledger_effective_time") ~
+      identifier("template_id") ~
+      str("command_id").? ~
+      str("workflow_id").? ~
+      array[String]("event_witnesses")
+
+  type CreatedEventRow =
+    SharedRow ~ InputStream ~ Array[String] ~ Array[String] ~ Option[String] ~ Option[InputStream]
+
+  val createdEventRow: RowParser[CreatedEventRow] =
+    sharedRow ~
+      binaryStream("create_argument") ~
+      array[String]("create_signatories") ~
+      array[String]("create_observers") ~
+      str("create_agreement_text").? ~
+      binaryStream("create_key_value").?
+
+  type ExercisedEventRow =
+    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[InputStream] ~ Array[String] ~ Array[String]
+
+  val exercisedEventRow: RowParser[ExercisedEventRow] =
+    sharedRow ~
+      bool("exercise_consuming") ~
+      str("exercise_choice") ~
+      binaryStream("exercise_argument") ~
+      binaryStream("exercise_result").? ~
+      array[String]("exercise_actors") ~
+      array[String]("exercise_child_event_ids")
+
+  type ArchiveEventRow = SharedRow
+
+  val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
+
+  trait Batches {
+    def execute()(implicit connection: Connection): Unit
+  }
+
+  def apply(dbType: DbType): EventsTable =
+    dbType match {
+      case DbType.Postgres => EventsTablePostgresql
+      case DbType.H2Database => EventsTableH2Database
+    }
 
   final case class Entry[+E](
       eventOffset: Offset,
@@ -161,50 +214,5 @@ private[events] object EventsTable
       transactionTree(events).map(tx => GetTransactionResponse(Some(tx)))
 
   }
-
-}
-
-private[events] trait EventsTable {
-
-  private type SharedRow =
-    Offset ~ String ~ Int ~ Long ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~
-      Option[String] ~ Array[String]
-
-  private val sharedRow: RowParser[SharedRow] =
-    offset("event_offset") ~
-      str("transaction_id") ~
-      int("node_index") ~
-      long("event_sequential_id") ~
-      str("event_id") ~
-      str("contract_id") ~
-      instant("ledger_effective_time") ~
-      identifier("template_id") ~
-      str("command_id").? ~
-      str("workflow_id").? ~
-      array[String]("event_witnesses")
-
-  protected type CreatedEventRow =
-    SharedRow ~ InputStream ~ Array[String] ~ Array[String] ~ Option[String] ~ Option[InputStream]
-  protected val createdEventRow: RowParser[CreatedEventRow] =
-    sharedRow ~
-      binaryStream("create_argument") ~
-      array[String]("create_signatories") ~
-      array[String]("create_observers") ~
-      str("create_agreement_text").? ~
-      binaryStream("create_key_value").?
-
-  protected type ExercisedEventRow =
-    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[InputStream] ~ Array[String] ~ Array[String]
-  protected val exercisedEventRow: RowParser[ExercisedEventRow] =
-    sharedRow ~
-      bool("exercise_consuming") ~
-      str("exercise_choice") ~
-      binaryStream("exercise_argument") ~
-      binaryStream("exercise_result").? ~
-      array[String]("exercise_actors") ~
-      array[String]("exercise_child_event_ids")
-
-  protected type ArchiveEventRow = SharedRow
-  protected val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
 
 }

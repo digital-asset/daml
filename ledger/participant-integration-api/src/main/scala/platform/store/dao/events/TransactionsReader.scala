@@ -75,7 +75,7 @@ private[dao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
       logger.debug(s"getFlatTransactions query($range)")
       QueryNonPruned.executeSqlOrThrow(
-        EventsTable
+        EventsTableFlatEvents
           .preparePagedGetFlatTransactions(sqlFunctions)(
             range = EventsRange(range.startExclusive._2, range.endInclusive._2),
             filter = filter,
@@ -112,10 +112,12 @@ private[dao] final class TransactionsReader(
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] = {
     val query =
-      EventsTable.prepareLookupFlatTransactionById(sqlFunctions)(transactionId, requestingParties)
+      EventsTableFlatEvents.prepareLookupFlatTransactionById(sqlFunctions)(
+        transactionId,
+        requestingParties)
     dispatcher
       .executeSql(dbMetrics.lookupFlatTransactionById) { implicit connection =>
-        query.asVectorOf(EventsTable.rawFlatEventParser)
+        query.asVectorOf(EventsTableFlatEvents.rawFlatEventParser)
       }
       .flatMap(
         rawEvents =>
@@ -142,7 +144,7 @@ private[dao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
       logger.debug(s"getTransactionTrees query($range)")
       QueryNonPruned.executeSqlOrThrow(
-        EventsTable
+        EventsTableTreeEvents
           .preparePagedGetTransactionTrees(sqlFunctions)(
             eventsRange = EventsRange(range.startExclusive._2, range.endInclusive._2),
             requestingParties = requestingParties,
@@ -179,10 +181,12 @@ private[dao] final class TransactionsReader(
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] = {
     val query =
-      EventsTable.prepareLookupTransactionTreeById(sqlFunctions)(transactionId, requestingParties)
+      EventsTableTreeEvents.prepareLookupTransactionTreeById(sqlFunctions)(
+        transactionId,
+        requestingParties)
     dispatcher
       .executeSql(dbMetrics.lookupTransactionTreeById) { implicit connection =>
-        query.asVectorOf(EventsTable.rawTreeEventParser)
+        query.asVectorOf(EventsTableTreeEvents.rawTreeEventParser)
       }
       .flatMap(
         rawEvents =>
@@ -206,7 +210,7 @@ private[dao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
       logger.debug(s"getActiveContracts query($range)")
       QueryNonPruned.executeSqlOrThrow(
-        EventsTable
+        EventsTableFlatEvents
           .preparePagedGetActiveContracts(sqlFunctions)(
             range = range,
             filter = filter,
