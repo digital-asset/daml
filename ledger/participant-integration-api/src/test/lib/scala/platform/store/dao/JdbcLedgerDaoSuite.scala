@@ -157,7 +157,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       commandId = Some(s"commandId$id"),
       transactionId = s"trId$id",
       applicationId = Some("appID1"),
-      actAs = List(alice, bob),
+      actAs = List(alice),
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
       recordedAt = let,
