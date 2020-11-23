@@ -32,6 +32,7 @@ object Tests {
       new TransactionServiceIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
+      new ParticipantPruningIT,
     )
 
   val retired: Vector[LedgerTestSuite] =
@@ -51,7 +52,9 @@ object Tests {
         .map(BenchmarkReporter.toFile)
         .getOrElse(BenchmarkReporter.toStream(System.out))
 
-    Envelope.All.iterator.map(e => e.name -> PerformanceEnvelope(e, target.addReport)).toMap
+    Envelope.All.iterator
+      .map(e => e.name -> PerformanceEnvelope(e, target.addReport))
+      .toMap
   }
 
   private[testtool] val PerformanceTestsKeys: SortedSet[String] =

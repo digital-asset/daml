@@ -73,6 +73,11 @@ class KeyValueParticipantState(
       submissionId: SubmissionId): CompletionStage[SubmissionResult] =
     writerAdapter.allocateParty(hint, displayName, submissionId)
 
+  override def prune(
+      pruneUpToInclusive: Offset,
+      submissionId: SubmissionId): CompletionStage[PruningResult] =
+    writerAdapter.prune(pruneUpToInclusive, submissionId)
+
   override def currentHealth(): HealthStatus =
     reader.currentHealth() and writer.currentHealth()
 }

@@ -204,7 +204,10 @@ genrule(
 
 filegroup(
     name = "ledger-api-protos-fg-admin",
-    srcs = glob(["com/daml/ledger/api/v1/admin/*.proto"]),
+    srcs = glob(
+        ["com/daml/ledger/api/v1/admin/*.proto"],
+        exclude = ["com/daml/ledger/api/v1/admin/participant_pruning_service.proto"],  # TODO: haskell grpc client for participant pruning
+    ),
     visibility = ["//visibility:private"],
 )
 

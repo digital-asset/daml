@@ -67,6 +67,7 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry
 }
 import com.daml.platform.{ApiOffset, index}
+import io.grpc.Status
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
@@ -623,6 +624,11 @@ private[sandbox] final class InMemoryLedger(
         ()
       }
     }
+
+  override def prune(pruneUpToInclusive: Offset)(
+      implicit loggingContext: LoggingContext): Future[Unit] =
+    // sandbox-classic in-memory ledger does not support pruning
+    Future.failed(Status.UNIMPLEMENTED.asRuntimeException())
 }
 
 private[sandbox] object InMemoryLedger {
