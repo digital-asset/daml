@@ -266,7 +266,7 @@ server_conformance_test(
     servers = SERVERS,
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT,ParticipantPruningIT",
+        "--exclude=ClosedWorldIT",
     ],
 )
 
@@ -278,7 +278,7 @@ server_conformance_test(
     servers = SERVERS,
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT,ParticipantPruningIT",
+        "--exclude=ClosedWorldIT",
     ],
 )
 
@@ -291,6 +291,6 @@ server_conformance_test(
     servers = SERVERS,
     test_tool_args = [
         "--open-world",
-        "--exclude=ClosedWorldIT,ParticipantPruningIT",
+        "--exclude=ClosedWorldIT",
     ],
 )

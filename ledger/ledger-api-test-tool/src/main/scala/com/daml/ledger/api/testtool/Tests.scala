@@ -12,7 +12,7 @@ import scala.collection.SortedSet
 
 object Tests {
 
-  def all(config: Config): Vector[LedgerTestSuite] =
+  def default(config: Config): Vector[LedgerTestSuite] =
     Vector(
       new ActiveContractsServiceIT,
       new ClosedWorldIT,
@@ -32,6 +32,10 @@ object Tests {
       new TransactionServiceIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
+    )
+
+  val optional: Vector[LedgerTestSuite] =
+    Vector(
       new ParticipantPruningIT,
     )
 
