@@ -102,8 +102,4 @@ conformance_test(
         "--port=6865",
         "--eager-package-loading",
     ],
-    test_tool_args = [
-        "--open-world",
-        "--exclude=ClosedWorldIT",
-    ],
 )

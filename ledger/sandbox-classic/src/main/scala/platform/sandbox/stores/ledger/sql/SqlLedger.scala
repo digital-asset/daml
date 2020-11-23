@@ -76,6 +76,7 @@ private[sandbox] object SqlLedger {
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
+      validatePartyAllocation: Boolean = false,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[Ledger] {
 
@@ -225,6 +226,7 @@ private[sandbox] object SqlLedger {
         eventsPageSize,
         metrics,
         lfValueTranslationCache,
+        validatePartyAllocation,
       )
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
@@ -365,6 +367,11 @@ private final class SqlLedger(
               reason,
           ),
           _ => {
+            val divulgedContracts = Nil
+            // This indexer-ledger does not trim fetch and lookupByKey nodes in the transaction,
+            // so it doesn't need to pre-compute blinding information.
+            val blindingInfo = None
+
             val preparedInsert = ledgerDao.prepareTransactionInsert(
               submitterInfo = Some(submitterInfo),
               workflowId = transactionMeta.workflowId,
@@ -372,7 +379,8 @@ private final class SqlLedger(
               ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
               offset = offset,
               transaction = transactionCommitter.commitTransaction(transactionId, transaction),
-              divulgedContracts = Nil,
+              divulgedContracts = divulgedContracts,
+              blindingInfo = blindingInfo
             )
             ledgerDao.storeTransaction(
               preparedInsert,
@@ -383,7 +391,8 @@ private final class SqlLedger(
               transactionMeta.ledgerEffectiveTime.toInstant,
               offset,
               transactionCommitter.commitTransaction(transactionId, transaction),
-              Nil,
+              divulgedContracts,
+              blindingInfo,
             )
           }
         )

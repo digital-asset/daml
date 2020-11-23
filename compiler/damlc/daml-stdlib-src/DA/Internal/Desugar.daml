@@ -9,7 +9,7 @@ module DA.Internal.Desugar (
     module DA.Internal.Template,
     module DA.Internal.Template.Functions,
     Eq(..), Show(..),
-    Bool(..), Text, Optional,
+    Bool(..), Text, Optional(..),
     concat, magic,
     Party, ContractId, Update, Any,
     NonConsuming(..), PreConsuming(..), PostConsuming(..), Consuming(..)

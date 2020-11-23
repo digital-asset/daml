@@ -26,8 +26,9 @@ trait MultiParticipantFixture
     with AkkaBeforeAndAfterAll {
   self: Suite =>
   private def darFile = Paths.get(rlocation("daml-script/test/script-test.dar"))
-  private val participant1Portfile = Files.createTempFile("participant1", "port")
-  private val participant2Portfile = Files.createTempFile("participant2", "port")
+  private val tmpDir = Files.createTempDirectory("testMultiParticipantFixture")
+  private val participant1Portfile = tmpDir.resolve("participant1-portfile")
+  private val participant2Portfile = tmpDir.resolve("participant2-portfile")
 
   override protected def afterAll(): Unit = {
     Files.delete(participant1Portfile)

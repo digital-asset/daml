@@ -131,6 +131,9 @@ object JdbcIndexer {
 
   }
 
+  private def loggingContextPartiesValue(parties: List[Party]) =
+    parties.mkString("[", ", ", "]")
+
   private def loggingContextFor(update: Update): Map[String, String] =
     update match {
       case ConfigurationChanged(_, submissionId, participantId, newConfiguration) =>
@@ -177,7 +180,7 @@ object JdbcIndexer {
           "updateSubmissionId" -> submissionId,
           "updateRejectionReason" -> rejectionReason,
         )
-      case TransactionAccepted(optSubmitterInfo, transactionMeta, _, transactionId, _, _) =>
+      case TransactionAccepted(optSubmitterInfo, transactionMeta, _, transactionId, _, _, _) =>
         Map(
           "updateTransactionId" -> transactionId,
           "updateLedgerTime" -> transactionMeta.ledgerEffectiveTime.toInstant.toString,
@@ -187,7 +190,7 @@ object JdbcIndexer {
           .map(
             info =>
               Map(
-                "updateSubmitter" -> info.submitter,
+                "updateSubmitter" -> loggingContextPartiesValue(info.actAs),
                 "updateApplicationId" -> info.applicationId,
                 "updateCommandId" -> info.commandId,
                 "updateDeduplicateUntil" -> info.deduplicateUntil.toString,
@@ -195,7 +198,7 @@ object JdbcIndexer {
           .getOrElse(Map.empty)
       case CommandRejected(_, submitterInfo, reason) =>
         Map(
-          "updateSubmitter" -> submitterInfo.submitter,
+          "updateSubmitter" -> loggingContextPartiesValue(submitterInfo.actAs),
           "updateApplicationId" -> submitterInfo.applicationId,
           "updateCommandId" -> submitterInfo.commandId,
           "updateDeduplicateUntil" -> submitterInfo.deduplicateUntil.toString,
@@ -261,7 +264,9 @@ private[daml] class JdbcIndexer private[indexer] (
             transaction,
             transactionId,
             _,
-            divulgedContracts) =>
+            divulgedContracts,
+            blindingInfo,
+          ) =>
         Timed.future(
           metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
           Future {
@@ -276,6 +281,7 @@ private[daml] class JdbcIndexer private[indexer] (
                 offset = offset,
                 transaction = transaction,
                 divulgedContracts = divulgedContracts,
+                blindingInfo = blindingInfo,
               )
             )
           }(mat.executionContext)
@@ -294,7 +300,9 @@ private[daml] class JdbcIndexer private[indexer] (
             transaction,
             transactionId,
             recordTime,
-            divulgedContracts),
+            divulgedContracts,
+            blindingInfo,
+          ),
           preparedInsert) =>
         ledgerDao.storeTransaction(
           preparedInsert,
@@ -306,6 +314,7 @@ private[daml] class JdbcIndexer private[indexer] (
           offset = offset,
           transaction = transaction,
           divulged = divulgedContracts,
+          blindingInfo = blindingInfo,
         )
       case OffsetUpdate.OffsetUpdatePair(offset, update) =>
         update match {
@@ -392,6 +401,7 @@ private[daml] class JdbcIndexer private[indexer] (
                 offset = offset,
                 transaction = transaction,
                 divulgedContracts = divulgedContracts,
+                blindingInfo = blindingInfo,
               ),
               submitterInfo = optSubmitterInfo,
               workflowId = transactionMeta.workflowId,
@@ -401,6 +411,7 @@ private[daml] class JdbcIndexer private[indexer] (
               offset = offset,
               transaction = transaction,
               divulged = divulgedContracts,
+              blindingInfo = blindingInfo,
             )
         }
     }

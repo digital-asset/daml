@@ -34,8 +34,19 @@ sphinx style sheets specify DejaVu Sans Mono as the font to use for
 code, and if you want to view/edit this section you should use it
 for your editor, too.
 
-Moreover, if you want to edit this section comfortably, we highly
-recommend using Emacs' TeX input mode. You can turn it on using ``M-x
+If you want to edit this section comfortably, we highly recommend using
+either VS Code' ``latex-input`` extension or Emacs' TeX input mode.
+In VS Code, you can start typing, say, ``\Gamma`` and the autocompleter
+will suggest ``Γ``. Similarly ``\to``, ``\->`` and ``\rightarrow`` will
+all lead to ``→``. You might need to explicitly trigger the
+autocompleter using ``Ctrl+Space``. All autocompletions are triggered
+by (one of) their LaTeX names. You can also trigger autocompletions for
+subscripts by typing ``\_1`` for ``₁``, ``\_i`` for ``ᵢ``, etc. We have
+have added a couple of extra symbols in
+``.vscode/restructuredtext.code-snippets`` file. If you want to add
+further symbols that's where they could go.
+
+If you want to use Emacs' TeX input mode, , you can turn it on using ``M-x
 set-input-method TeX``, and then you can input symbols as you would in
 TeX, mostly using ``\symbol-name`` and ``_letter``. If you don't know
 how to input a character, go over it with your cursor and ``M-x
@@ -302,6 +313,8 @@ Version: 1.dev
 
   + **Add** `exercise_by_key` Update.
 
+  + **Add** choice observers.
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -391,13 +404,13 @@ We first define two types of *strings*::
     EscapedStrChar  ∈  \\\n|\\\r|\\\"|\\\\          -- EscapedStrChar
 
 *Strings* are possibly empty sequences of legal `Unicode
-<https://en.wikipedia.org/wiki/Unicode>` code points where the line
+<https://en.wikipedia.org/wiki/Unicode>`_ code points where the line
 feed character ``\n``, the carriage return character ``\r``, the
 double quote character ``\"``, and the backslash character ``\\`` must
 be escaped with backslash ``\\``. DAML-LF considers legal `Unicode
-code point <https://unicode.org/glossary/#code_point>` that is not a
+code point <https://unicode.org/glossary/#code_point>`_ that is not a
 `Surrogate Code Point
-<https://unicode.org/glossary/#surrogate_code_point>`, in other words
+<https://unicode.org/glossary/#surrogate_code_point>`_, in other words
 any code point with an integer value in the range from ``0x000000`` to
 ``0x00D7FF`` or in the range from ``0x00DFFF`` to ``0x10FFFF`` (bounds
 included).
@@ -910,9 +923,9 @@ We now formally defined *well-formed types*. ::
       |  α : k · Γ                         -- CtxVarTyKind
       |  x : τ · Γ                         -- CtxVarExpType
 
-                       ┌───────────────┐
+                      ┌───────────────┐
  Well-formed types    │ Γ  ⊢  τ  :  k │
-                       └───────────────┘
+                      └───────────────┘
 
      α : k ∈ Γ
    ————————————————————————————————————————————— TyVar
@@ -1168,57 +1181,13 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpStructUpdate
       Γ  ⊢   ⟨ e 'with' fᵢ = eᵢ ⟩  :  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩
 
-      'variant' T (α₁:k₁) … (αₙ:kn) ↦ … | Vᵢ : τᵢ | …  ∈  〚Ξ〛Mod
-      τᵢ  ↠  τᵢ'      Γ  ⊢  e₁  :  Mod:T σ₁ … σₙ
-      x : τᵢ'[α₁ ↦ σ₁, …, αₙ ↦ σₙ] · Γ  ⊢  e₂  :  τ
-    ——————————————————————————————————————————————————————————————— ExpCaseVariant
-      Γ  ⊢  'case' e₁ 'of' Mod:T:V x → e₂ : τ
-
-      'enum' T ↦ … | E | …  ∈  〚Ξ〛Mod
-      Γ  ⊢  e₁  :  Mod:T
-      Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseEnum
-      Γ  ⊢  'case' e₁ 'of' Mod:T:E → e₂ : σ
-
-      Γ  ⊢  e₁  : 'List' τ      Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseNil
-      Γ  ⊢  'case' e₁ 'of' 'Nil' → e₂ : σ
-
-      xₕ ≠ xₜ
-      Γ  ⊢  e₁  : 'List' τ
-      Γ  ⊢  xₕ : τ · xₜ : 'List' τ · Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseCons
-      Γ  ⊢  'case' e₁ 'of' Cons xₕ xₜ → e₂  :  σ
-
-      Γ  ⊢  e₁  : 'Optional' τ      Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseNone
-      Γ  ⊢  'case' e₁ 'of' 'None' → e₂ : σ
-
-      Γ  ⊢  e₁  : 'Optional' τ      Γ  ⊢  x : τ · Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseSome
-      Γ  ⊢  'case' e₁ 'of' 'Some' x → e₂  :  σ
-
-      Γ  ⊢  e₁  :  'Bool'       Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseTrue
-      Γ  ⊢  'case' e₁ 'of 'True' → e₂  :  σ
-
-      Γ  ⊢  e₁  :  'Bool'       Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseFalse
-      Γ  ⊢  'case' e₁ 'of 'False' → e₂  :  σ
-
-      Γ  ⊢  e₁  :  'Unit'       Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseUnit
-      Γ  ⊢  'case' e₁ 'of' () → e₂  :  σ
-
-      Γ  ⊢  e₁  :  τ       Γ  ⊢  e₂  :  σ
-    ——————————————————————————————————————————————————————————————— ExpCaseDefault
-      Γ  ⊢  'case' e₁ 'of' _ → e₂  :  σ
-
-      n > 1
-      Γ  ⊢  'case' e 'of' alt₁ : σ
+      n ≥ 1
+      Γ  ⊢  e : τ
+      Γ  ⊢  τ // alt₁ : σ
         ⋮
-      Γ  ⊢  'case' e 'of' altₙ : σ
-    ——————————————————————————————————————————————————————————————— ExpCaseOr
+      Γ  ⊢  τ // altₙ : σ
+      τ  ⊲  alt₁, …, altₙ
+    ——————————————————————————————————————————————————————————————— ExpCase
       Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ
 
       Γ  ⊢  τ  : ⋆      Γ  ⊢  e  :  τ
@@ -1226,7 +1195,7 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  'pure' e  :  'Update' τ
 
       τ₁  ↠  τ₁'   Γ  ⊢  τ₁'  : ⋆       Γ  ⊢  e₁  :  'Update' τ₁'
-      Γ  ⊢  x₁ : τ₁' · Γ  ⊢  e₂  :  'Update' τ₂
+      x₁ : τ₁' · Γ  ⊢  e₂  :  'Update' τ₂
     ——————————————————————————————————————————————————————————————— UpdBlock
       Γ  ⊢  'bind' x₁ : τ₁ ← e₁ 'in' e₂  :  'Update' τ₂
 
@@ -1293,7 +1262,7 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  'spure' e  :  'Scenario' τ
 
       τ₁  ↠  τ₁'   Γ  ⊢  τ₁'  : ⋆       Γ  ⊢  e₁  :  'Scenario' τ₁'
-      Γ  ⊢  x₁ : τ₁' · Γ  ⊢  e₂  :  'Scenario' τ₂
+      x₁ : τ₁' · Γ  ⊢  e₂  :  'Scenario' τ₂
     ——————————————————————————————————————————————————————————————— ScnBlock
       Γ  ⊢  'sbind' x₁ : τ₁ ← e₁ 'in' e₂  :  'Scenario' τ₂
 
@@ -1325,6 +1294,120 @@ Then we define *well-formed expressions*. ::
   by the `builtin functions <Generic Map functions>`_ that are the
   only way to handle generic maps in a serialized program, the
   explicit syntax for maps being forbidden in serialized programs.
+
+
+Well-formed case alternatives
+.............................
+
+Case expressions ``Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ`` require the
+notion of well-formed case alternatives ``Γ ⊢ τ // alt : σ``  defined here.
+To simplify the presentation, we omit the assumption that the scrutinee
+type ``τ`` is well-formed, in the rules below. ::
+
+                                ┌──────────────────┐
+  Well-formed case alternatives │ Γ ⊢ τ // alt : σ │
+                                └──────────────────┘
+
+      'variant' T (α₁:k₁) … (αₙ:kₙ) ↦ … | V : τ | …  ∈  〚Ξ〛Mod
+      τ  ↠  τ'
+      x : τ'[α₁ ↦ τ₁, …, αₙ ↦ τₙ] · Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltVariant
+      Γ  ⊢  Mod:T τ₁ … τₙ  //  Mod:T:V x  →  e : σ
+
+      'enum' T ↦ … | E | …  ∈  〚Ξ〛Mod
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltEnum
+      Γ  ⊢   Mod:T  //  Mod:T:E  →  e : σ
+
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltNil
+      Γ  ⊢  'List' τ  //  'Nil'  →  e : σ
+
+      xₕ ≠ xₜ
+      xₕ : τ · xₜ : 'List' τ · Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltCons
+      Γ  ⊢  'List' τ  //  'Cons' xₕ xₜ  →  e : σ
+
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltNone
+      Γ  ⊢  'Optional' τ  //  'None'  →  e : σ
+
+      x : τ · Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltSome
+      Γ  ⊢  'Optional' τ  //  'Some' x  →  e : σ
+
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltTrue
+      Γ  ⊢  'Bool'  //  'True'  →  e : σ
+
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltFalse
+      Γ  ⊢  'Bool'  //  'False'  →  e : σ
+
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltUnit
+      Γ  ⊢  'Unit'  //  ()  →  e : σ
+
+      Γ  ⊢  e : σ
+    ——————————————————————————————————————————————————————————————— AltDefault
+      Γ  ⊢  τ  //  _  →  e : σ
+
+
+Pattern match exhaustiveness
+............................
+
+Case expressions ``Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ`` also require
+their patterns to be exhaustive, which is defined here. ::
+
+                               ┌─────────────────────┐
+  Pattern match exhaustiveness │ τ  ⊲  alt₁, …, altₙ │
+                               └─────────────────────┘
+
+    'variant' T (α₁:k₁) … (αᵣ:kᵣ) ↦ V₁ : σ₁ | … | Vₘ : σₘ  ∈  〚Ξ〛Mod
+    i₁, i₂, …, iₘ  ∈  {1, …, n}
+    altᵢ₁  =  Mod:T:V₁ x₁  →  e₁
+    altᵢ₂  =  Mod:T:V₂ x₂  →  e₂
+           ⋮
+    altᵢₘ  =  Mod:T:Vₘ xₘ  →  eₘ
+    ——————————————————————————————————————————————————————————————— ExhaustVariant
+    Mod:T τ₁ … τᵣ  ⊲  alt₁, …, altₙ
+
+    'enum' T ↦ E₁ | … | Eₘ  ∈  〚Ξ〛Mod
+    i₁, i₂, …, iₘ  ∈  {1, …, n}
+    altᵢ₁  =  Mod:T:E₁  →  e₁
+    altᵢ₂  =  Mod:T:E₂  →  e₂
+           ⋮
+    altᵢₘ  =  Mod:T:Eₘ  →  eₘ
+    ——————————————————————————————————————————————————————————————— ExhaustEnum
+    Mod:T  ⊲  alt₁, …, altₙ
+
+    i, j  ∈  {1, …, n}
+    altᵢ  =  'Nil'  →  e₁
+    altⱼ  =  'Cons' xₕ xₜ  →  e₂
+    ——————————————————————————————————————————————————————————————— ExhaustList
+    'List' τ  ⊲  alt₁, …, altₙ
+
+    i, j  ∈  {1, …, n}
+    altᵢ  =  'None'  →  e₁
+    altⱼ  =  'Some' x  →  e₂
+    ——————————————————————————————————————————————————————————————— ExhaustOptional
+    'Optional' τ  ⊲  alt₁, …, altₙ
+
+    i, j  ∈  {1, …, n}
+    altᵢ  =  'True'  →  e₁
+    altⱼ  =  'False'  →  e₂
+    ——————————————————————————————————————————————————————————————— ExhaustBool
+    'Bool'  ⊲  alt₁, …, altₙ
+
+    i  ∈  {1, …, n}
+    altᵢ  =  ()  →  e
+    ——————————————————————————————————————————————————————————————— ExhaustUnit
+    'Unit'  ⊲  alt₁, …, altₙ
+
+    i  ∈  {1, …, n}
+    altᵢ  =  _  →  e
+    ——————————————————————————————————————————————————————————————— ExhaustDefault
+    τ  ⊲  alt₁, …, altₙ
 
 
 Serializable types
@@ -4166,7 +4249,14 @@ the choice argument in a controller expression.
 Choice observers
 ................
 
-  FIXME: https://github.com/digital-asset/daml/issues/7709
+[*Available in versions >= 1.dev*]
+
+An optional `observer` expression may be attached to a flexible
+choice. This allows the specification of additional parties to whom
+the sub-transaction is disclosed.
+
+The type checker will reject any DAML-LF < 1.dev program which
+includes choice observers.
 
 
 Validation
@@ -4307,7 +4397,7 @@ interning* mechanism allows the *names* within messages to be stored
 in a global table and be referenced by their index.
 
 ``InternedDottedName`` is a non-empty list of valid `interned
-identifiers`. Such message is interpreted as the name built from the
+identifiers`_. Such message is interpreted as the name built from the
 sequence the interned identifiers it contains.  The field
 ``Package.interned_dotted_names`` is a list of such messages. A
 so-called `interned name` is a valid zero-based index of this list. An

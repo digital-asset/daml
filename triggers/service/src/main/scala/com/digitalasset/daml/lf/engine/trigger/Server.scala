@@ -4,74 +4,67 @@
 package com.daml.lf
 package engine.trigger
 
+import java.io.ByteArrayInputStream
+import java.util.UUID
+import java.util.zip.ZipInputStream
+
 import akka.actor.ActorSystem
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.scaladsl.adapter._
+import akka.actor.typed.scaladsl.AskPattern._
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.actor.typed.{ActorRef, Behavior, Scheduler}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.server.{Directive, Directive1}
+import akka.http.scaladsl.model.Uri.Path
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.unmarshalling.Unmarshal
+import akka.http.scaladsl.server.{Directive, Directive1, Route}
+import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import akka.stream.Materializer
-import akka.util.ByteString
-import spray.json.DefaultJsonProtocol._
-import spray.json._
+import akka.util.{ByteString, Timeout}
+
+import scala.concurrent.duration._
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
+import com.daml.lf.archive.Reader.ParseError
+import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.data.Ref.{Identifier, PackageId}
+import com.daml.lf.engine._
+import com.daml.lf.engine.trigger.Request.StartParams
+import com.daml.lf.engine.trigger.Response._
+import com.daml.lf.engine.trigger.Tagged.AccessToken
+import com.daml.lf.engine.trigger.TriggerRunner._
+import com.daml.lf.engine.trigger.dao._
+import com.daml.oauth.middleware.Request.Claims
 import com.daml.oauth.middleware.{
   JsonProtocol => AuthJsonProtocol,
   Request => AuthRequest,
   Response => AuthResponse
 }
-import com.daml.ledger.api.refinements.ApiTypes.Party
-import com.daml.lf.archive.{Dar, DarReader, Decode}
-import com.daml.lf.archive.Reader.ParseError
-import com.daml.lf.data.Ref.{Identifier, PackageId}
-import com.daml.lf.engine.{
-  ConcurrentCompiledPackages,
-  MutableCompiledPackages,
-  Result,
-  ResultDone,
-  ResultNeedPackage
-}
-import com.daml.lf.engine.trigger.dao._
-import com.daml.lf.engine.trigger.Request.{ListParams, StartParams}
-import com.daml.lf.engine.trigger.Response._
-import com.daml.daml_lf_dev.DamlLf
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.scalautil.Statement.discard
+import com.daml.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.Tag
+import spray.json.DefaultJsonProtocol._
+import spray.json._
 
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
-import java.io.ByteArrayInputStream
-import java.util.UUID
-import java.util.zip.ZipInputStream
-import java.time.LocalDateTime
-
-import com.daml.lf.engine.trigger.Tagged.AccessToken
-import com.daml.oauth.middleware.Request.Claims
-
-import scala.collection.concurrent.TrieMap
 
 class Server(
     authConfig: AuthConfig,
     ledgerConfig: LedgerConfig,
     restartConfig: TriggerRestartConfig,
-    triggerDao: RunningTriggerDao)(
-    implicit ctx: ActorContext[Message],
+    triggerDao: RunningTriggerDao,
+    val logTriggerStatus: (UUID, String) => Unit)(
+    implicit ctx: ActorContext[Server.Message],
     materializer: Materializer,
     esf: ExecutionSequencerFactory)
     extends StrictLogging {
-
-  import java.util.{concurrent => jconc}
-
-  private val triggerLog: jconc.ConcurrentMap[UUID, Vector[(LocalDateTime, String)]] =
-    new jconc.ConcurrentHashMap
 
   // We keep the compiled packages in memory as it is required to construct a trigger Runner.
   // When running with a persistent store we also write the encoded packages so we can recover
@@ -105,15 +98,19 @@ class Server(
 
   // Add a dar to compiledPackages (in memory) and to persistent storage if using it.
   // Uploads of packages that already exist are considered harmless and are ignored.
-  private def addDar(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit] = {
-    addPackagesInMemory(encodedDar.all)
-    triggerDao.persistPackages(encodedDar)
+  private def addDar(encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)])(
+      implicit ec: ExecutionContext): Future[Unit] = {
+    Future { addPackagesInMemory(encodedDar.all) }.flatMap { _ =>
+      triggerDao.persistPackages(encodedDar)
+    }
   }
 
   private def restartTriggers(triggers: Vector[RunningTrigger]): Either[String, Unit] = {
     import cats.implicits._ // needed for traverse
-    triggers.traverse_(t =>
-      startTrigger(t.triggerParty, t.triggerName, t.triggerToken, Some(t.triggerInstance)))
+    triggers.traverse_(runningTrigger =>
+      for {
+        trigger <- Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName)
+      } yield startTrigger(trigger, runningTrigger))
   }
 
   private def triggerRunnerName(triggerInstance: UUID): String =
@@ -124,45 +121,63 @@ class Server(
       .child(triggerRunnerName(triggerInstance))
       .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
 
-  private def startTrigger(
+  // The static config of a trigger, i.e., RunningTrigger but without a token.
+  case class TriggerConfig(
+      instance: UUID,
+      name: Identifier,
+      party: Party,
+      applicationId: ApplicationId
+  )
+
+  private def newTrigger(
       party: Party,
       triggerName: Identifier,
-      token: Option[AccessToken],
-      existingInstance: Option[UUID] = None): Either[String, JsValue] = {
-    for {
-      trigger <- Trigger.fromIdentifier(compiledPackages, triggerName)
-      triggerInstance <- existingInstance match {
-        case None =>
-          val newInstance = UUID.randomUUID
-          triggerDao
-            .addRunningTrigger(RunningTrigger(newInstance, triggerName, party, token))
-            .map(_ => newInstance)
-        case Some(instance) => Right(instance)
-      }
-      _ = ctx.spawn(
+      optApplicationId: Option[ApplicationId],
+  ): TriggerConfig = {
+    val newInstance = UUID.randomUUID()
+    val applicationId = optApplicationId.getOrElse(Tag(newInstance.toString): ApplicationId)
+    TriggerConfig(newInstance, triggerName, party, applicationId)
+  }
+
+  // Add a new trigger to the database and return the resulting Trigger.
+  // Note that this does not yet start the trigger.
+  private def addNewTrigger(
+      config: TriggerConfig,
+      token: Option[AccessToken]
+  )(implicit ec: ExecutionContext): Future[Either[String, (Trigger, RunningTrigger)]] = {
+    val runningTrigger =
+      RunningTrigger(config.instance, config.name, config.party, config.applicationId, token)
+    // Validate trigger id before persisting to DB
+    Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName) match {
+      case Left(value) => Future.successful(Left(value))
+      case Right(trigger) =>
+        triggerDao.addRunningTrigger(runningTrigger).map(_ => Right((trigger, runningTrigger)))
+    }
+  }
+
+  private def startTrigger(trigger: Trigger, runningTrigger: RunningTrigger): JsValue = {
+    discard[ActorRef[Message]](
+      ctx.spawn(
         TriggerRunner(
           new TriggerRunner.Config(
             ctx.self,
-            triggerInstance,
-            party,
-            AccessToken.unsubst(token),
+            runningTrigger.triggerInstance,
+            runningTrigger.triggerParty,
+            runningTrigger.triggerApplicationId,
+            AccessToken.unsubst(runningTrigger.triggerToken),
             compiledPackages,
             trigger,
             ledgerConfig,
             restartConfig
           ),
-          triggerInstance.toString
+          runningTrigger.triggerInstance.toString
         ),
-        triggerRunnerName(triggerInstance)
-      )
-    } yield JsObject(("triggerId", triggerInstance.toString.toJson))
+        triggerRunnerName(runningTrigger.triggerInstance)
+      ))
+    JsObject(("triggerId", runningTrigger.triggerInstance.toString.toJson))
   }
 
-  private def stopTrigger(uuid: UUID): Either[String, Option[JsValue]] = {
-    //TODO(SF, 2020-05-20): At least check that the provided token
-    //is the same as the one used to start the trigger and fail with
-    //'Unauthorized' if not (expect we'll be able to do better than
-    //this).
+  private def stopTrigger(uuid: UUID)(implicit ec: ExecutionContext): Future[Option[JsValue]] = {
     triggerDao.removeRunningTrigger(uuid) map {
       case false => None
       case true =>
@@ -176,19 +191,34 @@ class Server(
     }
   }
 
-  private def listTriggers(party: Party): Either[String, JsValue] = {
+  // Left for errors, None for not found, Right(Some(_)) for everything else
+  private def triggerStatus(
+      uuid: UUID)(implicit ec: ExecutionContext, sys: ActorSystem): Future[Option[JsValue]] = {
+    import Request.IdentifierFormat
+    final case class Result(status: TriggerStatus, triggerId: Identifier, party: Party)
+    implicit val partyFormat: JsonFormat[Party] = Tag.subst(implicitly[JsonFormat[String]])
+    implicit val resultFormat: RootJsonFormat[Result] = jsonFormat3(Result)
+    triggerDao.getRunningTrigger(uuid).flatMap {
+      case None => Future.successful(None)
+      case Some(t) =>
+        getRunner(uuid) match {
+          case None =>
+            Future.successful(Some(Result(Stopped, t.triggerName, t.triggerParty).toJson))
+          case Some(act) =>
+            implicit val timeout: Timeout = Timeout(5 seconds)
+            implicit val scheduler: Scheduler = schedulerFromActorSystem(sys.toTyped)
+            act.ask(TriggerRunner.Status).map { status =>
+              Some(Result(status, t.triggerName, t.triggerParty).toJson)
+            }
+        }
+    }
+  }
+
+  private def listTriggers(party: Party)(implicit ec: ExecutionContext): Future[JsValue] = {
     triggerDao.listRunningTriggers(party) map { triggerInstances =>
       JsObject(("triggerIds", triggerInstances.map(_.toString).toJson))
     }
   }
-
-  private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
-    val entry = (LocalDateTime.now, msg)
-    discard(triggerLog.merge(triggerInstance, Vector(entry), _ ++ _))
-  }
-
-  private def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] =
-    triggerLog.getOrDefault(uuid, Vector.empty)
 
   // TODO[AH] Make sure this is bounded in size.
   private val authCallbacks: TrieMap[UUID, Route] = TrieMap()
@@ -279,10 +309,10 @@ class Server(
     authConfig match {
       case NoAuth => provide(None)
       case AuthMiddleware(_) =>
-        triggerDao.getRunningTrigger(uuid) match {
-          case Left(err) => complete(errorResponse(StatusCodes.InternalServerError, err))
-          case Right(None) => provide(None)
-          case Right(Some(trigger)) =>
+        onComplete(triggerDao.getRunningTrigger(uuid)).flatMap {
+          case Failure(e) => complete(errorResponse(StatusCodes.InternalServerError, e.description))
+          case Success(None) => provide(None)
+          case Success(Some(trigger)) =>
             val parties = List(trigger.triggerParty)
             val claims = if (readOnly) Claims(readAs = parties) else Claims(actAs = parties)
             authorize(claims)
@@ -306,105 +336,124 @@ class Server(
       }
     }
 
+  private implicit val unmarshalParty: Unmarshaller[String, Party] = Unmarshaller.strict(Party(_))
+
   private def route(implicit ec: ExecutionContext, system: ActorSystem) = concat(
-    post {
+    pathPrefix("v1" / "triggers") {
       concat(
-        // Start a new trigger given its identifier and the party it
-        // should be running as.  Returns a UUID for the newly
-        // started trigger.
-        path("v1" / "start") {
-          entity(as[StartParams]) {
-            params =>
-              val claims =
-                AuthRequest.Claims(actAs = List(params.party))
-              // TODO[AH] Why do we need to pass ec, system explicitly?
-              authorize(claims)(ec, system) { token =>
-                startTrigger(params.party, params.triggerName, token) match {
-                  case Left(err) =>
-                    complete(errorResponse(StatusCodes.UnprocessableEntity, err))
-                  case Right(triggerInstance) =>
-                    complete(successResponse(triggerInstance))
-                }
-              }
-          }
-        },
-        // upload a DAR as a multi-part form request with a single field called
-        // "dar".
-        path("v1" / "upload_dar") {
-          fileUpload("dar") {
-            case (_, byteSource) =>
-              val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
-              onSuccess(byteStringF) {
-                byteString =>
-                  val inputStream = new ByteArrayInputStream(byteString.toArray)
-                  DarReader()
-                    .readArchive("package-upload", new ZipInputStream(inputStream)) match {
-                    case Failure(err) =>
-                      complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
-                    case Success(dar) =>
-                      try {
-                        addDar(dar) match {
-                          case Left(err) =>
-                            complete(errorResponse(StatusCodes.InternalServerError, err))
-                          case Right(()) =>
-                            val mainPackageId =
-                              JsObject(("mainPackageId", dar.main._1.name.toJson))
-                            complete(successResponse(mainPackageId))
-                        }
-                      } catch {
-                        case err: ParseError =>
-                          complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
+        pathEnd {
+          concat(
+            // Start a new trigger given its identifier and the party it
+            // should be running as.  Returns a UUID for the newly
+            // started trigger.
+            post {
+              entity(as[StartParams]) {
+                params =>
+                  val config = newTrigger(params.party, params.triggerName, params.applicationId)
+                  val claims =
+                    AuthRequest.Claims(
+                      actAs = List(params.party),
+                      applicationId = Some(config.applicationId))
+                  // TODO[AH] Why do we need to pass ec, system explicitly?
+                  authorize(claims)(ec, system) {
+                    token =>
+                      val instOrErr: Future[Either[String, JsValue]] =
+                        addNewTrigger(config, token)
+                          .map(_.map {
+                            case (trigger, runningTrigger) => startTrigger(trigger, runningTrigger)
+                          })
+                      onComplete(instOrErr) {
+                        case Failure(exception) =>
+                          complete(
+                            errorResponse(StatusCodes.InternalServerError, exception.description))
+                        case Success(Left(err)) =>
+                          complete(errorResponse(StatusCodes.UnprocessableEntity, err))
+                        case Success(triggerInstance) => complete(successResponse(triggerInstance))
                       }
                   }
               }
-          }
-        }
-      )
-    },
-    get {
-      // Convenience endpoint for tests (roughly follow
-      // https://tools.ietf.org/id/draft-inadarei-api-health-check-01.html).
-      concat(
-        path("v1" / "health") {
-          complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
-        },
-        // List triggers currently running for the given party.
-        path("v1" / "list") {
-          entity(as[ListParams]) { params =>
-            val claims = Claims(readAs = List(params.party))
-            authorize(claims)(ec, system) { _ =>
-              listTriggers(params.party) match {
-                case Left(err) =>
-                  complete(errorResponse(StatusCodes.InternalServerError, err))
-                case Right(triggerInstances) => complete(successResponse(triggerInstances))
+            },
+            // List triggers currently running for the given party.
+            get {
+              parameters('party.as[Party]) { party =>
+                val claims = Claims(readAs = List(party))
+                authorize(claims)(ec, system) { _ =>
+                  onComplete(listTriggers(party)) {
+                    case Failure(err) =>
+                      complete(errorResponse(StatusCodes.InternalServerError, err.description))
+                    case Success(triggerInstances) => complete(successResponse(triggerInstances))
+                  }
+                }
               }
             }
-          }
+          )
         },
-        // Produce logs for the given trigger.
-        pathPrefix("v1" / "status" / JavaUUID) { uuid =>
-          authorizeForTrigger(uuid, readOnly = true)(ec, system) { _ =>
-            complete(successResponse(JsObject(("logs", getTriggerStatus(uuid).toJson))))
-          }
+        path(JavaUUID) {
+          uuid =>
+            concat(
+              get {
+                authorizeForTrigger(uuid, readOnly = true)(ec, system) { _ =>
+                  onComplete(triggerStatus(uuid)) {
+                    case Failure(err) =>
+                      complete(errorResponse(StatusCodes.InternalServerError, err.description))
+                    case Success(None) =>
+                      complete(
+                        errorResponse(StatusCodes.NotFound, s"No trigger found with id $uuid"))
+                    case Success(Some(status)) => complete(successResponse(status))
+                  }
+                }
+              },
+              delete {
+                authorizeForTrigger(uuid)(ec, system) {
+                  _ =>
+                    onComplete(stopTrigger(uuid)) {
+                      case Failure(err) =>
+                        complete(errorResponse(StatusCodes.InternalServerError, err.description))
+                      case Success(None) =>
+                        val err = s"No trigger running with id $uuid"
+                        complete(errorResponse(StatusCodes.NotFound, err))
+                      case Success(Some(stoppedTriggerId)) =>
+                        complete(successResponse(stoppedTriggerId))
+                    }
+                }
+              }
+            )
         }
       )
     },
-    // Stop a trigger given its UUID
-    delete {
-      pathPrefix("v1" / "stop" / JavaUUID) {
-        uuid =>
-          authorizeForTrigger(uuid)(ec, system) { _ =>
-            stopTrigger(uuid) match {
-              case Left(err) =>
-                complete(errorResponse(StatusCodes.InternalServerError, err))
-              case Right(None) =>
-                val err = s"No trigger running with id $uuid"
-                complete(errorResponse(StatusCodes.NotFound, err))
-              case Right(Some(stoppedTriggerId)) =>
-                complete(successResponse(stoppedTriggerId))
+    path("v1" / "packages") {
+      // upload a DAR as a multi-part form request with a single field called
+      // "dar".
+      post {
+        fileUpload("dar") {
+          case (_, byteSource) =>
+            val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
+            onSuccess(byteStringF) {
+              byteString =>
+                val inputStream = new ByteArrayInputStream(byteString.toArray)
+                DarReader()
+                  .readArchive("package-upload", new ZipInputStream(inputStream)) match {
+                  case Failure(err) =>
+                    complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
+                  case Success(dar) =>
+                    onComplete(addDar(dar)) {
+                      case Failure(err: ParseError) =>
+                        complete(errorResponse(StatusCodes.UnprocessableEntity, err.description))
+                      case Failure(exception) =>
+                        complete(
+                          errorResponse(StatusCodes.InternalServerError, exception.description))
+                      case Success(()) =>
+                        val mainPackageId =
+                          JsObject(("mainPackageId", dar.main._1.name.toJson))
+                        complete(successResponse(mainPackageId))
+                    }
+                }
             }
-          }
+        }
       }
+    },
+    path("livez") {
+      complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
     },
     // Authorization callback endpoint
     path("cb") { get { authCallback } },
@@ -412,6 +461,32 @@ class Server(
 }
 
 object Server {
+
+  sealed trait Message
+
+  final case class GetServerBinding(replyTo: ActorRef[ServerBinding]) extends Message
+
+  final case class StartFailed(cause: Throwable) extends Message
+
+  final case class Started(binding: ServerBinding) extends Message
+
+  case object Stop extends Message
+
+  // Messages passed to the server from a TriggerRunnerImpl
+
+  final case class TriggerStarting(triggerInstance: UUID) extends Message
+
+  final case class TriggerStarted(triggerInstance: UUID) extends Message
+
+  final case class TriggerInitializationFailure(
+      triggerInstance: UUID,
+      cause: String
+  ) extends Message
+
+  final case class TriggerRuntimeFailure(
+      triggerInstance: UUID,
+      cause: String
+  ) extends Message
 
   def apply(
       host: String,
@@ -421,7 +496,7 @@ object Server {
       restartConfig: TriggerRestartConfig,
       initialDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
-      initDb: Boolean,
+      logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Behavior[Message] = Behaviors.setup { implicit ctx =>
     // Implicit boilerplate.
     // These are required to execute methods in the Server class and are passed
@@ -433,57 +508,27 @@ object Server {
     implicit val esf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
 
-    if (initDb) sys.exit(jdbcConfig match {
-      case None =>
-        ctx.log.error("No JDBC configuration for database initialization.")
-        1
-      case Some(c) =>
-        DbTriggerDao(c).initialize match {
-          case Left(err) =>
-            ctx.log.error(err)
-            1
-          case Right(()) =>
-            ctx.log.info("Successfully initialized database.")
-            0
-        }
-    })
-
-    val (dao, server): (RunningTriggerDao, Server) = jdbcConfig match {
+    val (dao, server, initializeF): (RunningTriggerDao, Server, Future[Unit]) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
-        val server = new Server(authConfig, ledgerConfig, restartConfig, dao)
-        (dao, server)
+        val server = new Server(authConfig, ledgerConfig, restartConfig, dao, logTriggerStatus)
+        (dao, server, Future.successful(()))
       case Some(c) =>
         val dao = DbTriggerDao(c)
-        val server = new Server(authConfig, ledgerConfig, restartConfig, dao)
-        val recovery: Either[String, Unit] = for {
+        val server = new Server(authConfig, ledgerConfig, restartConfig, dao, logTriggerStatus)
+        val initialize = for {
           _ <- dao.initialize
           packages <- dao.readPackages
           _ = server.addPackagesInMemory(packages)
           triggers <- dao.readRunningTriggers
-          _ <- server.restartTriggers(triggers)
+          _ = server.restartTriggers(triggers)
         } yield ()
-        recovery match {
-          case Left(err) =>
-            ctx.log.error("Failed to recover state from database.\n" + err)
-            sys.exit(1)
-          case Right(()) =>
-            ctx.log.info("Successfully recovered state from database.")
-            (dao, server)
-        }
-    }
-
-    initialDars foreach { dar =>
-      server.addDar(dar) match {
-        case Left(err) =>
-          ctx.log.error("Failed to upload provided DAR.\n" ++ err)
-          sys.exit(1)
-        case Right(()) =>
-      }
+        (dao, server, initialize)
     }
 
     def logTriggerStarting(m: TriggerStarting): Unit =
       server.logTriggerStatus(m.triggerInstance, "starting")
+
     def logTriggerStarted(m: TriggerStarted): Unit =
       server.logTriggerStatus(m.triggerInstance, "running")
 
@@ -507,8 +552,7 @@ object Server {
           // running triggers. Entries are removed from there only when the user explicitly stops
           // the trigger with a request.
           case TriggerInitializationFailure(triggerInstance, cause @ _) =>
-            server
-              .logTriggerStatus(triggerInstance, "stopped: initialization failure")
+            server.logTriggerStatus(triggerInstance, "stopped: initialization failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
             Behaviors.same
@@ -578,7 +622,11 @@ object Server {
 
     // The server binding is a future that on completion will be piped
     // to a message to this actor.
-    val serverBinding = Http().bindAndHandle(Route.handlerFlow(server.route), host, port)
+    val serverBinding = for {
+      _ <- initializeF
+      _ <- Future.traverse(initialDars)(server.addDar(_))
+      binding <- Http().bindAndHandle(Route.handlerFlow(server.route), host, port)
+    } yield binding
     ctx.pipeToSelf(serverBinding) {
       case Success(binding) => Started(binding)
       case Failure(ex) => StartFailed(ex)

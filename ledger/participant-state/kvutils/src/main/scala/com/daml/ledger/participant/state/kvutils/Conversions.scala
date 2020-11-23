@@ -5,15 +5,22 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.{Duration, Instant}
 
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
+  DisclosureEntry,
+  DivulgenceEntry
+}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{PackageId, SubmitterInfo}
 import com.daml.lf.data.Ref.{Identifier, LedgerString, Party}
+import com.daml.lf.data.Relation.Relation
 import com.daml.lf.data.Time
 import com.daml.lf.transaction.{GlobalKey, _}
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.{crypto, data}
 import com.google.protobuf.Empty
+
+import scala.collection.JavaConverters._
 
 /** Utilities for converting between protobuf messages and our scala
   * data structures.
@@ -29,9 +36,11 @@ private[state] object Conversions {
   def packageStateKey(packageId: PackageId): DamlStateKey =
     DamlStateKey.newBuilder.setPackageId(packageId).build
 
+  def contractIdToString(contractId: ContractId): String = contractId.coid
+
   def contractIdToStateKey(acoid: ContractId): DamlStateKey =
     DamlStateKey.newBuilder
-      .setContractId(acoid.coid)
+      .setContractId(contractIdToString(acoid))
       .build
 
   def decodeContractId(coid: String): ContractId =
@@ -109,7 +118,7 @@ private[state] object Conversions {
 
   def buildSubmitterInfo(subInfo: SubmitterInfo): DamlSubmitterInfo =
     DamlSubmitterInfo.newBuilder
-      .setSubmitter(subInfo.submitter)
+      .setSubmitter(subInfo.singleSubmitterOrThrow())
       .setApplicationId(subInfo.applicationId)
       .setCommandId(subInfo.commandId)
       .setDeduplicateUntil(
@@ -117,7 +126,7 @@ private[state] object Conversions {
       .build
 
   def parseSubmitterInfo(subInfo: DamlSubmitterInfo): SubmitterInfo =
-    SubmitterInfo(
+    SubmitterInfo.withSingleSubmitter(
       submitter = Party.assertFromString(subInfo.getSubmitter),
       applicationId = LedgerString.assertFromString(subInfo.getApplicationId),
       commandId = LedgerString.assertFromString(subInfo.getCommandId),
@@ -215,4 +224,56 @@ private[state] object Conversions {
       )
     )
 
+  def encodeTransactionNodeId(nodeId: NodeId): String =
+    nodeId.index.toString
+
+  def decodeTransactionNodeId(transactionNodeId: String): NodeId =
+    NodeId(transactionNodeId.toInt)
+
+  def encodeBlindingInfo(blindingInfo: BlindingInfo): DamlTransactionBlindingInfo =
+    DamlTransactionBlindingInfo.newBuilder
+      .addAllDisclosures(encodeDisclosure(blindingInfo.disclosure).asJava)
+      .addAllDivulgences(encodeDivulgence(blindingInfo.divulgence).asJava)
+      .build
+
+  def decodeBlindingInfo(blindingInfo: DamlTransactionBlindingInfo): BlindingInfo =
+    BlindingInfo(
+      disclosure = blindingInfo.getDisclosuresList.asScala.map { disclosureEntry =>
+        decodeTransactionNodeId(disclosureEntry.getNodeId) -> disclosureEntry.getDisclosedToLocalPartiesList.asScala.toSet
+          .map(Party.assertFromString)
+      }.toMap,
+      divulgence = blindingInfo.getDivulgencesList.asScala.map { divulgenceEntry =>
+        decodeContractId(divulgenceEntry.getContractId) -> divulgenceEntry.getDivulgedToLocalPartiesList.asScala.toSet
+          .map(Party.assertFromString)
+      }.toMap
+    )
+
+  private def encodeParties(parties: Iterable[Party]): List[String] =
+    parties.asInstanceOf[Set[String]].toList.sorted // Deterministic
+
+  private def encodeDisclosureEntry(disclosureEntry: (NodeId, Set[Party])): DisclosureEntry =
+    DisclosureEntry.newBuilder
+      .setNodeId(encodeTransactionNodeId(disclosureEntry._1))
+      .addAllDisclosedToLocalParties(encodeParties(disclosureEntry._2).asJava)
+      .build
+
+  private def encodeDisclosure(
+      disclosure: Relation[NodeId, Party],
+  ): List[DisclosureEntry] =
+    disclosure.toList
+      .sortBy(_._1.index) // Deterministic
+      .map(encodeDisclosureEntry)
+
+  private def encodeDivulgenceEntry(divulgenceEntry: (ContractId, Set[Party])): DivulgenceEntry =
+    DivulgenceEntry.newBuilder
+      .setContractId(contractIdToString(divulgenceEntry._1))
+      .addAllDivulgedToLocalParties(encodeParties(divulgenceEntry._2).asJava)
+      .build
+
+  private def encodeDivulgence(
+      divulgence: Relation[ContractId, Party],
+  ): List[DivulgenceEntry] =
+    divulgence.toList
+      .sortBy(_._1.coid) // Deterministic
+      .map(encodeDivulgenceEntry)
 }

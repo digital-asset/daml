@@ -26,7 +26,7 @@ import qualified Com.Daml.DamlLfDev.DamlLf1 as LF1
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
-import qualified Data.Vector as V
+import qualified Data.Vector.Extended as V
 import qualified Proto3.Suite as Proto
 
 
@@ -37,6 +37,7 @@ data DecodeEnv = DecodeEnv
     -- erroring out when producing the string interning table.
     { internedStrings :: !(V.Vector (T.Text, Either String UnmangledIdentifier))
     , internedDottedNames :: !(V.Vector ([T.Text], Either String [UnmangledIdentifier]))
+    , internedTypes :: !(V.Vector Type)
     , selfPackageRef :: PackageRef
     }
 
@@ -177,14 +178,18 @@ decodeInternedDottedName (LF1.InternedDottedName ids) = do
     pure (mangled, sequence unmangledOrErr)
 
 decodePackage :: TL.Text -> LF.PackageRef -> LF1.Package -> Either Error Package
-decodePackage minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata) = do
+decodePackage minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV metadata internedTypesV) = do
   version <- decodeVersion (decodeString minorText)
   let internedStrings = V.map decodeMangledString internedStringsV
   let internedDottedNames = V.empty
+  let internedTypes = V.empty
   let env0 = DecodeEnv{..}
   internedDottedNames <- runDecode env0 $ mapM decodeInternedDottedName internedDottedNamesV
-  let env = DecodeEnv{..}
-  runDecode env $ do
+  let env1 = env0{internedDottedNames}
+  internedTypes <- V.constructNE (V.length internedTypesV) $ \prefix i ->
+      runDecode env1{internedTypes = prefix} $ decodeType (internedTypesV V.! i)
+  let env2 = env1{internedTypes}
+  runDecode env2 $ do
     Package version <$> decodeNM DuplicateModule decodeModule mods <*> traverse decodePackageMetadata metadata
 
 decodePackageMetadata :: LF1.PackageMetadata -> Decode PackageMetadata
@@ -776,6 +781,9 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
     foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
   LF1.TypeSumStruct (LF1.Type_Struct flds) ->
     TStruct <$> mapM (decodeFieldWithType FieldName) (V.toList flds)
+  LF1.TypeSumInterned n -> do
+    DecodeEnv{internedTypes} <- ask
+    lookupInterned internedTypes BadTypeId n
   where
     decodeWithArgs :: V.Vector LF1.Type -> Decode Type -> Decode Type
     decodeWithArgs args fun = foldl' TApp <$> fun <*> traverse decodeType args

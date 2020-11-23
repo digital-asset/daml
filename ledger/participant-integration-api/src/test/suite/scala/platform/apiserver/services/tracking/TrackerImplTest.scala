@@ -3,11 +3,11 @@
 
 package com.daml.platform.apiserver.services.tracking
 
-import akka.NotUsed
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Keep, Source, SourceQueueWithComplete}
 import akka.stream.testkit.TestSubscriber
 import akka.stream.testkit.scaladsl.TestSink
+import akka.{Done, NotUsed}
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -24,6 +24,7 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterEach, Matchers, Succeeded, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
 class TrackerImplTest
@@ -52,7 +53,7 @@ class TrackerImplTest
       .toMat(TestSink.probe[NotUsed])(Keep.both)
       .run()
     queue = q
-    sut = new TrackerImpl(q)
+    sut = new TrackerImpl(q, Future.successful(Done))
     consumer = sink
   }
 

@@ -569,19 +569,25 @@ main =
                     , "    choice C : ()"
                     , "      controller p"
                     , "      do debug \"logLedger\""
+                    , "    choice Failing : ()"
+                    , "      controller p"
+                    , "      do debug \"please don't die\""
+                    , "         abort \"die\""
                     , "testTrace = do"
                     , "  debug \"logClient1\""
                     , "  p <- allocateParty \"p\""
                     , "  submit p (createAndExerciseCmd (T p) C)"
                     , "  debug \"logClient2\""
+                    , "  submit p (createAndExerciseCmd (T p) Failing)"
                     , "  pure ()"
                     ]
-                expectScriptSuccess rs (vr "testTrace") $ \r ->
+                expectScriptFailure rs (vr "testTrace") $ \r ->
                   matchRegex r $ T.concat
                     [ "Trace: \n"
                     , "  \"logClient1\"\n"
                     , "  \"logLedger\"\n"
-                    , "  \"logClient2\""
+                    , "  \"logClient2\"\n"
+                    , "  \"please don't die\""
                     ],
               testCase "multi-party query" $ do
                 rs <-

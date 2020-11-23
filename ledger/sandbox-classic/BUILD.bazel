@@ -133,7 +133,6 @@ da_scala_library(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
-        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
         "//libs-scala/ports",
@@ -221,10 +220,7 @@ test_deps = [
 
 da_scala_test_suite(
     name = "sandbox-classic-tests",
-    srcs = glob(
-        ["src/test/suite/**/*.scala"],
-        exclude = ["src/test/suite/**/ResetService*IT.scala"],
-    ),
+    srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
         "//daml-lf/encoder:testing-dar-dev",
         "//daml-lf/encoder:testing-dar-latest",
@@ -232,20 +228,6 @@ da_scala_test_suite(
         "//ledger/test-common/test-certificates",
     ],
     resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
-    deps = test_deps,
-)
-
-da_scala_test_suite(
-    name = "sandbox-classic-resetservice-tests",
-    srcs = glob(
-        ["src/test/suite/**/ResetService*IT.scala"],
-    ),
-    data = [
-        "//ledger/test-common:model-tests.dar",
-        "//ledger/test-common/test-certificates",
-    ],
-    flaky = True,
-    resources = glob(["src/test/resources/**/*"]),
     deps = test_deps,
 )
 

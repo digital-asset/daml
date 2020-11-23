@@ -150,6 +150,16 @@ export function assert(b: boolean, m: string): void {
 export type Query<T> = T extends object ? {[K in keyof T]?: Query<T[K]>} : T;
 // TODO(MH): Support comparison queries.
 
+/** @internal
+ *
+ */
+function encodeQuery<T extends object, K, I extends string>(template: Template<T, K, I>, query?: Query<T>): unknown {
+  // TODO: actually implement this.
+  // I could not get the "unused" warning silenced, but this seems to count as "used"
+  [template];
+  return query;
+}
+
 
 /**
  * Status code and result returned by a call to the ledger.
@@ -316,7 +326,7 @@ class Ledger {
    *
    */
   async query<T extends object, K, I extends string>(template: Template<T, K, I>, query?: Query<T>): Promise<CreateEvent<T, K, I>[]> {
-    const payload = {templateIds: [template.templateId], query};
+    const payload = {templateIds: [template.templateId], query: encodeQuery(template, query)};
     const json = await this.submit('v1/query', payload);
     return jtv.Result.withException(jtv.array(decodeCreateEvent(template)).run(json));
   }
@@ -335,7 +345,7 @@ class Ledger {
   async fetch<T extends object, K, I extends string>(template: Template<T, K, I>, contractId: ContractId<T>): Promise<CreateEvent<T, K, I> | null> {
     const payload = {
       templateId: template.templateId,
-      contractId,
+      contractId: ContractId(template).encode(contractId),
     };
     const json = await this.submit('v1/fetch', payload);
     return jtv.Result.withException(jtv.oneOf(jtv.constant(null), decodeCreateEvent(template)).run(json));
@@ -360,7 +370,7 @@ class Ledger {
     }
     const payload = {
       templateId: template.templateId,
-      key,
+      key: template.keyEncode(key),
     };
     const json = await this.submit('v1/fetch', payload);
     return jtv.Result.withException(jtv.oneOf(jtv.constant(null), decodeCreateEvent(template)).run(json));
@@ -380,7 +390,7 @@ class Ledger {
   async create<T extends object, K, I extends string>(template: Template<T, K, I>, payload: T): Promise<CreateEvent<T, K, I>> {
     const command = {
       templateId: template.templateId,
-      payload,
+      payload: template.encode(payload),
     };
     const json = await this.submit('v1/create', command);
     return jtv.Result.withException(decodeCreateEvent(template).run(json));
@@ -397,18 +407,53 @@ class Ledger {
    * @typeparam C The type of the contract choice.
    * @typeparam R The return type of the choice.
    *
-   * @returns The return value of the choice together with a list of [[event]]'s that where created
-   * as a result of exercising the choice.
+   * @returns The return value of the choice together with a list of
+   * [[event]]'s that were created as a result of exercising the choice.
    */
   async exercise<T extends object, C, R>(choice: Choice<T, C, R>, contractId: ContractId<T>, argument: C): Promise<[R , Event<object>[]]> {
     const payload = {
       templateId: choice.template().templateId,
-      contractId,
+      contractId: ContractId(choice.template()).encode(contractId),
       choice: choice.choiceName,
-      argument,
+      argument: choice.argumentEncode(argument),
     };
     const json = await this.submit('v1/exercise', payload);
     // Decode the server response into a tuple.
+    const responseDecoder: jtv.Decoder<{exerciseResult: R; events: Event<object>[]}> = jtv.object({
+      exerciseResult: choice.resultDecoder,
+      events: jtv.array(decodeEventUnknown),
+    });
+    const {exerciseResult, events} = jtv.Result.withException(responseDecoder.run(json));
+    return [exerciseResult, events];
+  }
+
+  /**
+   * Exercse a choice on a newly-created contract, in a single transaction.
+   *
+   * @param choice The choice to exercise.
+   * @param init The template arguments for the newly-created contract.
+   * @param argument The choice arguments.
+   *
+   * @typeparam T The contract template type.
+   * @typeparam C The type of the contract choice.
+   * @typeparam R The return type of the choice.
+   *
+   * @returns The return value of the choice together with a list of
+   * [[event]]'s that includes the creation event for the created contract as
+   * well as all the events that were created as a result of exercising the
+   * choice, including the archive event for the created contract if the choice
+   * is consuming (or otherwise archives it as part of its execution).
+   *
+   */
+  async createAndExercise<T extends object, C, R>(choice: Choice<T, C, R>, payload: T, argument: C): Promise<[R, Event<object>[]]> {
+    const command = {
+      templateId: choice.template().templateId,
+      payload: choice.template().encode(payload),
+      choice: choice.choiceName,
+      argument: choice.argumentEncode(argument),
+    };
+    const json = await this.submit('v1/create-and-exercise', command);
+
     const responseDecoder: jtv.Decoder<{exerciseResult: R; events: Event<object>[]}> = jtv.object({
       exerciseResult: choice.resultDecoder,
       events: jtv.array(decodeEventUnknown),
@@ -441,9 +486,9 @@ class Ledger {
     }
     const payload = {
       templateId: choice.template().templateId,
-      key,
+      key: choice.template().keyEncode(key),
       choice: choice.choiceName,
-      argument,
+      argument: choice.argumentEncode(argument),
     };
     const json = await this.submit('v1/exercise', payload);
     // Decode the server response into a tuple.
@@ -650,7 +695,7 @@ class Ledger {
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
     const request = queries.length == 0 ?
         [{templateIds: [template.templateId]}]
-        : queries.map(q => ({templateIds: [template.templateId], query: q}));
+        : queries.map(q => ({templateIds: [template.templateId], query: encodeQuery(template, q)}));
     const reconnectRequest = (): object[] => request;
     const change = (contracts: readonly CreateEvent<T, K, I>[], events: readonly Event<T, K, I>[]): CreateEvent<T, K, I>[] => {
       const archiveEvents: Set<ContractId<T>> = new Set();
@@ -715,8 +760,8 @@ class Ledger {
     // given key be in output format, whereas existing implementation supports
     // input format.
     let lastContractId: ContractId<T> | null = null;
-    const request = [{templateId: template.templateId, key}];
-    const reconnectRequest = (): object[] => [{...request[0], 'contractIdAtOffset': lastContractId}]
+    const request = [{templateId: template.templateId, key: template.keyEncode(key)}];
+    const reconnectRequest = (): object[] => [{...request[0], 'contractIdAtOffset': lastContractId && ContractId(template).encode(lastContractId)}]
     const change = (contract: CreateEvent<T, K, I> | null, events: readonly Event<T, K, I>[]): CreateEvent<T, K, I> | null => {
       for (const event of events) {
         if ('created' in event) {
@@ -795,8 +840,11 @@ class Ledger {
     const lastContractIds: (ContractId<T> | null)[] = Array(keys.length).fill(null);
     const keysCopy = _.cloneDeep(keys);
     const initState: (CreateEvent<T, K, I> | null)[] = Array(keys.length).fill(null);
-    const request = keys.map(k => ({templateId: template.templateId, key: k}));
-    const reconnectRequest = (): object[] => request.map((r, idx) => ({...r, 'contractIdAtOffset': lastContractIds[idx]}));
+    const request = keys.map(k => ({templateId: template.templateId, key: template.keyEncode(k)}));
+    const reconnectRequest = (): object[] => request.map((r, idx) => {
+      const lastId = lastContractIds[idx];
+      return {...r, 'contractIdAtOffset': lastId && ContractId(template).encode(lastId)}
+    });
     const change = (state: (CreateEvent<T, K, I> | null)[], events: readonly Event<T, K, I>[]): (CreateEvent<T, K, I> | null)[] => {
       const newState: (CreateEvent<T, K, I> | null)[] = Array.from(state);
       for (const event of events) {

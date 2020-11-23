@@ -12,7 +12,7 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{
   IsStatusException,
-  SuiteResourceManagementAroundEach,
+  SuiteResourceManagementAroundAll,
   MockMessages => M
 }
 import com.daml.ledger.api.v1.active_contracts_service.{
@@ -31,6 +31,11 @@ import com.daml.ledger.api.v1.command_completion_service.{
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.ledger_configuration_service.{
+  GetLedgerConfigurationRequest,
+  GetLedgerConfigurationResponse,
+  LedgerConfigurationServiceGrpc
+}
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   LedgerIdentityServiceGrpc
@@ -57,9 +62,10 @@ import io.grpc.Status
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
+import scalaz.syntax.tag._
 
-import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 
 abstract class ResetServiceITBase
     extends AsyncWordSpec
@@ -68,7 +74,7 @@ abstract class ResetServiceITBase
     with ScalaFutures
     with TestResourceContext
     with AbstractSandboxFixture
-    with SuiteResourceManagementAroundEach
+    with SuiteResourceManagementAroundAll
     with TestCommands {
 
   override def timeLimit: Span = scaled(30.seconds)
@@ -76,7 +82,9 @@ abstract class ResetServiceITBase
   override protected def config: SandboxConfig =
     super.config.copy(ledgerIdMode = LedgerIdMode.Dynamic)
 
-  protected val eventually: RetryStrategy = RetryStrategy.exponentialBackoff(10, scaled(10.millis))
+  protected val eventually: RetryStrategy = RetryStrategy.constant(50, 100.milliseconds)
+
+  protected implicit val ec: ExecutionContext = ExecutionContext.global
 
   override protected def darFile: File =
     new File(rlocation("ledger/test-common/model-tests.dar"))
@@ -84,22 +92,36 @@ abstract class ResetServiceITBase
   protected def timeIsStatic: Boolean =
     config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType) == TimeProviderType.Static
 
-  protected def fetchLedgerId(): Future[String] =
+  protected def waitForLedgerToStart(): Future[LedgerId] =
+    for {
+      ledgerId <- eventually { (_, _) =>
+        fetchLedgerId()
+      }
+      // Completions won't work until a ledger configuration is in place, so we wait for one.
+      configurations <- new StreamConsumer[GetLedgerConfigurationResponse](responseObserver =>
+        LedgerConfigurationServiceGrpc
+          .stub(channel)
+          .getLedgerConfiguration(GetLedgerConfigurationRequest(ledgerId.unwrap), responseObserver))
+        .firstWithin(Span.convertSpanToDuration(scaled(1.second)))
+    } yield {
+      configurations should have size 1
+      ledgerId
+    }
+
+  protected def fetchLedgerId(): Future[LedgerId] =
     LedgerIdentityServiceGrpc
       .stub(channel)
       .getLedgerIdentity(GetLedgerIdentityRequest())
-      .map(_.ledgerId)
+      .map(response => LedgerId(response.ledgerId))
 
   // Resets and waits for a new ledger identity to be available
-  protected def reset(ledgerId: String): Future[String] =
-    for {
-      _ <- ResetServiceGrpc.stub(channel).reset(ResetRequest(ledgerId))
-      newLedgerId <- eventually { (_, _) =>
-        fetchLedgerId()
-      }
-    } yield newLedgerId
+  protected def reset(ledgerId: LedgerId): Future[LedgerId] =
+    ResetServiceGrpc
+      .stub(channel)
+      .reset(ResetRequest(ledgerId.unwrap))
+      .flatMap(_ => waitForLedgerToStart())
 
-  protected def timedReset(ledgerId: String): Future[(String, FiniteDuration)] = {
+  protected def timedReset(ledgerId: LedgerId): Future[(LedgerId, FiniteDuration)] = {
     val start = System.nanoTime()
     reset(ledgerId).map(_ -> (System.nanoTime() - start).nanos)
   }
@@ -113,19 +135,24 @@ abstract class ResetServiceITBase
   protected def submitAndWait(req: SubmitAndWaitRequest): Future[Empty] =
     CommandServiceGrpc.stub(channel).submitAndWait(req)
 
-  protected def activeContracts(ledgerId: String, f: TransactionFilter): Future[Set[CreatedEvent]] =
+  protected def activeContracts(
+      ledgerId: LedgerId,
+      f: TransactionFilter): Future[Set[CreatedEvent]] =
     new StreamConsumer[GetActiveContractsResponse](
       ActiveContractsServiceGrpc
         .stub(channel)
-        .getActiveContracts(GetActiveContractsRequest(ledgerId, Some(f)), _))
+        .getActiveContracts(GetActiveContractsRequest(ledgerId.unwrap, Some(f)), _))
       .all()
       .map(_.flatMap(_.activeContracts)(collection.breakOut))
 
-  protected def listPackages(ledgerId: String): Future[Seq[String]] =
-    PackageServiceGrpc.stub(channel).listPackages(ListPackagesRequest(ledgerId)).map(_.packageIds)
+  protected def listPackages(ledgerId: LedgerId): Future[Seq[String]] =
+    PackageServiceGrpc
+      .stub(channel)
+      .listPackages(ListPackagesRequest(ledgerId.unwrap))
+      .map(_.packageIds)
 
   protected def submitAndExpectCompletions(
-      ledgerId: String,
+      ledgerId: LedgerId,
       commands: Int,
       party: String,
   ): Future[Unit] =
@@ -134,13 +161,13 @@ abstract class ResetServiceITBase
         Vector.fill(commands)(
           CommandSubmissionServiceGrpc
             .stub(channel)
-            .submit(dummyCommands(LedgerId(ledgerId), UUID.randomUUID.toString, party))))
+            .submit(dummyCommands(ledgerId, UUID.randomUUID.toString, party))))
       unit <- WaitForCompletionsObserver(commands)(
         CommandCompletionServiceGrpc
           .stub(channel)
           .completionStream(
             CompletionStreamRequest(
-              ledgerId = ledgerId,
+              ledgerId = ledgerId.unwrap,
               applicationId = M.applicationId,
               parties = Seq(party),
               offset = Some(M.ledgerBegin)
@@ -148,18 +175,18 @@ abstract class ResetServiceITBase
             _))
     } yield unit
 
-  protected def getTime(ledgerId: String): Future[Instant] =
+  protected def getTime(ledgerId: LedgerId): Future[Instant] =
     new StreamConsumer[GetTimeResponse](
-      TimeServiceGrpc.stub(channel).getTime(GetTimeRequest(ledgerId), _))
+      TimeServiceGrpc.stub(channel).getTime(GetTimeRequest(ledgerId.unwrap), _))
       .first()
       .map(_.flatMap(_.currentTime).map(TimestampConversion.toInstant).get)
 
-  protected def setTime(ledgerId: String, currentTime: Instant, newTime: Instant): Future[Unit] =
+  protected def setTime(ledgerId: LedgerId, currentTime: Instant, newTime: Instant): Future[Unit] =
     TimeServiceGrpc
       .stub(channel)
       .setTime(
         SetTimeRequest(
-          ledgerId,
+          ledgerId.unwrap,
           Some(TimestampConversion.fromInstant(currentTime)),
           Some(TimestampConversion.fromInstant(newTime)),
         ))
@@ -184,7 +211,7 @@ abstract class ResetServiceITBase
           .map(ids => ids.distinct should have size 20L)
       }
 
-      // 5 attempts with 5 transactions each seem to strike the right balance to complete before the
+      // 4 attempts with 5 transactions each seem to strike the right balance to complete before the
       // 30 seconds test timeout in normal conditions while still causing the test to fail if
       // something goes wrong.
       //
@@ -193,11 +220,11 @@ abstract class ResetServiceITBase
       val expectedResetCompletionTime = Span.convertSpanToDuration(scaled(5.seconds))
       s"consistently complete within $expectedResetCompletionTime" in {
         val numberOfCommands = 5
-        val numberOfAttempts = 5
+        val numberOfAttempts = 4
         Future
           .sequence(
             Iterator
-              .iterate(fetchLedgerId()) { ledgerIdF =>
+              .iterate(waitForLedgerToStart()) { ledgerIdF =>
                 for {
                   ledgerId <- ledgerIdF
                   party <- allocateParty(M.party)
@@ -213,9 +240,9 @@ abstract class ResetServiceITBase
 
       "remove contracts from ACS after reset" in {
         for {
-          ledgerId <- fetchLedgerId()
+          ledgerId <- waitForLedgerToStart()
           party <- allocateParty(M.party)
-          request = dummyCommands(LedgerId(ledgerId), "commandId1", party)
+          request = dummyCommands(ledgerId, "commandId1", party)
           _ <- submitAndWait(SubmitAndWaitRequest(commands = request.commands))
           events <- activeContracts(ledgerId, M.transactionFilter)
           _ = events should have size 3

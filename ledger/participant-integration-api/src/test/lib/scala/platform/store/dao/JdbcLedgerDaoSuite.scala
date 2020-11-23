@@ -19,7 +19,7 @@ import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{CommittedTransaction, Node, NodeId}
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, Node, NodeId}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueRecord, ValueText, ValueUnit}
 import com.daml.logging.LoggingContext
@@ -432,12 +432,13 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected final def store(
       divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
+      blindingInfo: Option[BlindingInfo],
       offsetAndTx: (Offset, LedgerEntry.Transaction),
   ): Future[(Offset, LedgerEntry.Transaction)] = {
     val (offset, entry) = offsetAndTx
     val submitterInfo =
       for (submitter <- entry.submittingParty; app <- entry.applicationId; cmd <- entry.commandId)
-        yield v1.SubmitterInfo(submitter, app, cmd, Instant.EPOCH)
+        yield v1.SubmitterInfo.withSingleSubmitter(submitter, app, cmd, Instant.EPOCH)
     val committedTransaction = CommittedTransaction(entry.transaction)
     val ledgerEffectiveTime = entry.ledgerEffectiveTime
     val divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
@@ -448,7 +449,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       ledgerEffectiveTime,
       offset,
       committedTransaction,
-      divulged)
+      divulged,
+      blindingInfo,
+    )
     ledgerDao
       .storeTransaction(
         preparedInsert = preparedTransactionInsert,
@@ -459,7 +462,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         recordTime = entry.recordedAt,
         ledgerEffectiveTime = ledgerEffectiveTime,
         offset = offset,
-        divulged = divulged
+        divulged = divulged,
+        blindingInfo = blindingInfo,
       )
       .map(_ => offsetAndTx)
   }
@@ -467,7 +471,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final def store(
       offsetAndTx: (Offset, LedgerEntry.Transaction),
   ): Future[(Offset, LedgerEntry.Transaction)] =
-    store(divulgedContracts = Map.empty, offsetAndTx)
+    store(divulgedContracts = Map.empty, blindingInfo = None, offsetAndTx)
 
   protected final def storeSync(
       commands: Vector[(Offset, LedgerEntry.Transaction)],

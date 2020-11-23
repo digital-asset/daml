@@ -36,9 +36,10 @@ object PortFiles {
     }
 
   private def writeUnsafe(path: Path, port: Port): Unit = {
-    import java.nio.file.StandardOpenOption.CREATE_NEW
     val lines: java.lang.Iterable[String] = List(port.value.toString).asJava
-    val created = Files.write(path, lines, CREATE_NEW)
+    val tmpFile = Files.createTempFile("portfile", "")
+    Files.write(tmpFile, lines)
+    val created = Files.move(tmpFile, path)
     created.toFile.deleteOnExit()
   }
 }

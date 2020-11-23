@@ -95,6 +95,15 @@ Here's the structure of a choice inside a template. There are two ways of specif
 
     Who can exercise the choice.
 
+:ref:`choice observers <daml-ref-choice-observers>`
+    ``observer`` keyword
+
+    Optional. Additional parties that are guaranteed to be informed of an exercise of the choice.
+
+    To specify choice observers, you must start you choice with the ``choice`` keyword.
+
+    The optional ``observer`` keyword must preceed the mandatory ``controller`` keyword.
+
 :ref:`consumption annotation <daml-ref-consumability>`
     Optionally one of ``preconsuming``, ``postconsuming``, ``nonconsuming``, which changes the behavior of the choice with respect to privacy and if and when the contract is archived.
     See :ref:`contract consumption in choices <daml-ref-consumability>` for more details.

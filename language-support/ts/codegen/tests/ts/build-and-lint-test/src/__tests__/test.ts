@@ -316,13 +316,34 @@ test('create + fetch & exercise', async () => {
   expect(nonTopLevelContracts).toEqual([nonTopLevelContract]);
 });
 
+test("createAndExercise", async () => {
+  const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
+
+  const [result, events] = await ledger.createAndExercise(
+    buildAndLint.Main.Person.Birthday,
+    {name: 'Alice', party: ALICE_PARTY, age: '5', friends: []},
+    {});
+  expect(events).toMatchObject(
+    [{created: {templateId: buildAndLint.Main.Person.templateId,
+                signatories: [ALICE_PARTY],
+                payload: {name: 'Alice', age: '5'}}},
+     {archived: {templateId: buildAndLint.Main.Person.templateId}},
+     {created: {templateId: buildAndLint.Main.Person.templateId,
+                signatories: [ALICE_PARTY],
+                payload: {name: 'Alice', age: '6'}}}]);
+  expect((events[0] as {created: {contractId: string}}).created.contractId).toEqual((events[1] as {archived: {contractId: string}}).archived.contractId);
+  expect(result).toEqual((events[2] as {created: {contractId: string}}).created.contractId);
+});
+
 test("multi-{key,query} stream", async () => {
   const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
 
-  function collect<T extends object, K, I extends string, State>(stream: Stream<T, K, I, State>): [State, readonly Event<T, K, I>[]][] {
+  function collect<T extends object, K, I extends string, State>(stream: Stream<T, K, I, State>): Promise<[State, readonly Event<T, K, I>[]][]> {
     const res = [] as [State, readonly Event<T, K, I>[]][];
     stream.on('change', (state, events) => res.push([state, events]));
-    return res;
+    // wait until we’re live so that we get ordered transaction events
+    // rather than unordered acs events.
+    return new Promise(resolve => stream.on('live', () => resolve(res)));
   }
   async function create(t: string): Promise<void> {
     await ledger.create(buildAndLint.Main.Counter, {p: ALICE_PARTY, t, c: "0"});
@@ -345,13 +366,13 @@ test("multi-{key,query} stream", async () => {
     buildAndLint.Main.Counter,
     [{p: ALICE_PARTY, t: "included"},
      {c: {"%gt": 5}}]);
-  const queryResult = collect(q);
+  const queryResult = await collect(q);
   const ks = ledger.streamFetchByKeys(
     buildAndLint.Main.Counter,
     [{_1: ALICE_PARTY, _2: "included"},
      {_1: ALICE_PARTY, _2: "byKey"},
      {_1: ALICE_PARTY, _2: "included"}]);
-  const byKeysResult = collect(ks);
+  const byKeysResult = await collect(ks);
 
   await create("included");
   await create("byKey");

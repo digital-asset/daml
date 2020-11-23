@@ -34,14 +34,6 @@ import GHC.Types (primitive)
 
 import DA.Internal.Down
 
-infixr 0 $
--- | Take a function from `a` to `b` and a value of type `a`, and apply the
--- function to the value of type `a`, returning a value of type `b`.
--- This function has a very low precedence, which is why you might want to use
--- it instead of regular function application.
-($) : (a -> b) -> a -> b
-f $ x =  f x
-
 -- | Turn a function that takes a pair into a function that takes two arguments.
 curry : ((a, b) -> c) -> a -> b -> c
 curry f x y = f (x, y)

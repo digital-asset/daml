@@ -5,6 +5,9 @@ package com.daml.lf.engine.trigger
 
 import java.io.File
 import java.net.InetAddress
+import java.time.LocalDateTime
+import java.util.UUID
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 
 import io.grpc.Channel
 import com.daml.ledger.api.testing.utils.OwnedResource
@@ -12,6 +15,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.resources.FutureResourceOwner
+import com.daml.scalautil.Statement.discard
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -110,6 +114,13 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
       case resp => Future(resp)
     }
   }
+
+  /**
+    * Remove all stored cookies.
+    */
+  def deleteCookies(): Unit = {
+    cookieJar.clear()
+  }
 }
 
 trait AbstractAuthFixture extends SuiteMixin {
@@ -131,6 +142,7 @@ trait NoAuthFixture extends AbstractAuthFixture {
 trait AuthMiddlewareFixture
     extends AbstractAuthFixture
     with BeforeAndAfterAll
+    with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
   self: Suite =>
 
@@ -146,16 +158,17 @@ trait AuthMiddlewareFixture
     jwt.value
   }
   protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri)
+  protected def authServer: OAuthServer = resource.value._1
 
   private def authVerifier: JwtVerifierBase = HMAC256Verifier(authSecret).toOption.get
-  private def authMiddleware: ServerBinding = resource.value
+  private def authMiddleware: ServerBinding = resource.value._2
   private def authMiddlewareUri: Uri =
     Uri()
       .withScheme("http")
       .withAuthority(authMiddleware.localAddress.getHostString, authMiddleware.localAddress.getPort)
 
   private val authSecret: String = "secret"
-  private var resource: OwnedResource[ResourceContext, ServerBinding] = null
+  private var resource: OwnedResource[ResourceContext, (OAuthServer, ServerBinding)] = null
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -168,15 +181,16 @@ trait AuthMiddlewareFixture
     val oauthConfig = OAuthConfig(
       port = Port.Dynamic,
       ledgerId = this.getClass.getSimpleName,
-      // TODO[AH] Choose application ID, see https://github.com/digital-asset/daml/issues/7671
-      applicationId = None,
       jwtSecret = authSecret,
       parties = authParties,
+      clock = None,
     )
-    resource = new OwnedResource(new ResourceOwner[ServerBinding] {
-      override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
+    resource = new OwnedResource(new ResourceOwner[(OAuthServer, ServerBinding)] {
+      override def acquire()(
+          implicit context: ResourceContext): Resource[(OAuthServer, ServerBinding)] = {
+        val oauthServer = OAuthServer(oauthConfig)
         for {
-          oauth <- Resource(OAuthServer.start(oauthConfig))(closeServerBinding)
+          oauth <- Resource(oauthServer.start())(closeServerBinding)
           uri = Uri()
             .withScheme("http")
             .withAuthority(oauth.localAddress.getHostString, oauth.localAddress.getPort)
@@ -189,7 +203,8 @@ trait AuthMiddlewareFixture
             tokenVerifier = authVerifier,
           )
           middleware <- Resource(MiddlewareServer.start(middlewareConfig))(closeServerBinding)
-        } yield middleware
+        } yield (oauthServer, middleware)
+      }
     })
     resource.setup()
   }
@@ -198,6 +213,12 @@ trait AuthMiddlewareFixture
     resource.close()
 
     super.afterAll()
+  }
+
+  override protected def afterEach(): Unit = {
+    authServer.resetAuthorizedParties()
+
+    super.afterEach()
   }
 }
 
@@ -362,11 +383,11 @@ trait TriggerDaoPostgresFixture
   override protected def beforeEach(): Unit = {
     super.beforeEach()
 
-    triggerDao.initialize fold (fail(_), identity)
+    Await.result(triggerDao.initialize, Duration(30, SECONDS))
   }
 
   override protected def afterEach(): Unit = {
-    triggerDao.destroy() fold (fail(_), identity)
+    Await.result(triggerDao.destroy, Duration(30, SECONDS))
 
     super.afterEach()
   }
@@ -384,6 +405,17 @@ trait TriggerServiceFixture
     with AbstractTriggerDaoFixture
     with StrictLogging {
   self: Suite =>
+
+  private val triggerLog: ConcurrentMap[UUID, Vector[(LocalDateTime, String)]] =
+    new ConcurrentHashMap
+
+  def getTriggerStatus(uuid: UUID): Vector[(LocalDateTime, String)] =
+    triggerLog.getOrDefault(uuid, Vector.empty)
+
+  private def logTriggerStatus(triggerInstance: UUID, msg: String): Unit = {
+    val entry = (LocalDateTime.now, msg)
+    discard(triggerLog.merge(triggerInstance, Vector(entry), _ ++ _))
+  }
 
   // Use a small initial interval so we can test restart behaviour more easily.
   private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
@@ -414,12 +446,13 @@ trait TriggerServiceFixture
                 restartConfig,
                 encodedDars,
                 jdbcConfig,
+                logTriggerStatus
               )
               _ = lock.unlock()
             } yield r
           } {
             case (_, system) => {
-              system ! Stop
+              system ! Server.Stop
               system.whenTerminated.map(_ => ())
             }
           }

@@ -3,9 +3,17 @@
 
 package com.daml.oauth.middleware
 
+import java.time.{Instant, ZoneId}
+import java.util.Date
+
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
-import com.daml.jwt.HMAC256Verifier
+import com.auth0.jwt.JWTVerifier.BaseVerification
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
+import com.auth0.jwt.interfaces.{Clock => Auth0Clock}
+import com.daml.clock.AdjustableClock
+import com.daml.jwt.JwtVerifier
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -18,22 +26,26 @@ import com.daml.oauth.server.{Config => OAuthConfig}
 import com.daml.ports.Port
 import org.scalatest.Suite
 
-trait TestFixture extends AkkaBeforeAndAfterAll with SuiteResource[(ServerBinding, ServerBinding)] {
+trait TestFixture
+    extends AkkaBeforeAndAfterAll
+    with SuiteResource[(AdjustableClock, ServerBinding, ServerBinding)] {
   self: Suite =>
   protected val ledgerId: String = "test-ledger"
-  protected val applicationId: String = "test-application"
   protected val jwtSecret: String = "secret"
-  override protected lazy val suiteResource: Resource[(ServerBinding, ServerBinding)] = {
+  override protected lazy val suiteResource
+    : Resource[(AdjustableClock, ServerBinding, ServerBinding)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[ResourceContext, (ServerBinding, ServerBinding)](
+    new OwnedResource[ResourceContext, (AdjustableClock, ServerBinding, ServerBinding)](
       for {
+        clock <- Resources.clock(Instant.now(), ZoneId.systemDefault())
         server <- Resources.authServer(
           OAuthConfig(
             port = Port.Dynamic,
             ledgerId = ledgerId,
-            applicationId = Some(applicationId),
             jwtSecret = jwtSecret,
-            parties = Some(ApiTypes.Party.subst(Set("Alice", "Bob")))))
+            parties = Some(ApiTypes.Party.subst(Set("Alice", "Bob"))),
+            clock = Some(clock),
+          ))
         serverUri = Uri()
           .withScheme("http")
           .withAuthority(server.localAddress.getHostString, server.localAddress.getPort)
@@ -44,9 +56,16 @@ trait TestFixture extends AkkaBeforeAndAfterAll with SuiteResource[(ServerBindin
             oauthToken = serverUri.withPath(Uri.Path./("token")),
             clientId = "middleware",
             clientSecret = "middleware-secret",
-            tokenVerifier = HMAC256Verifier(jwtSecret).toOption.get,
+            tokenVerifier = new JwtVerifier(
+              JWT
+                .require(Algorithm.HMAC256(jwtSecret))
+                .asInstanceOf[BaseVerification]
+                .build(new Auth0Clock {
+                  override def getToday: Date = Date.from(clock.instant())
+                })
+            )
           ))
-      } yield { (server, client) }
+      } yield { (clock, server, client) }
     )
   }
 }

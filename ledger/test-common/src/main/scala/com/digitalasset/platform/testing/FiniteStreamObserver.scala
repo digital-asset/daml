@@ -19,14 +19,16 @@ private[testing] final class FiniteStreamObserver[A] extends StreamObserver[A] {
 
   val result: Future[Vector[A]] = promise.future
 
-  override def onNext(value: A): Unit = {
-    val _ = items.synchronized(items += value)
+  override def onNext(value: A): Unit = items.synchronized {
+    val _ = items += value
   }
 
-  override def onError(t: Throwable): Unit = promise.failure(t)
+  override def onError(t: Throwable): Unit = {
+    val _ = promise.tryFailure(t)
+  }
 
-  override def onCompleted(): Unit = {
-    val _ = items.synchronized(promise.success(items.result()))
+  override def onCompleted(): Unit = items.synchronized {
+    val _ = promise.trySuccess(items.result())
   }
 
 }

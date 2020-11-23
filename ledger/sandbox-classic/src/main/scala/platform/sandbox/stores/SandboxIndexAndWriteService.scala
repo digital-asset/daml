@@ -56,6 +56,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       eventsPageSize: Int,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
+      validatePartyAllocation: Boolean = false,
   )(
       implicit mat: Materializer,
       loggingContext: LoggingContext,
@@ -74,7 +75,8 @@ private[sandbox] object SandboxIndexAndWriteService {
       startMode = startMode,
       eventsPageSize = eventsPageSize,
       metrics = metrics,
-      lfValueTranslationCache
+      lfValueTranslationCache,
+      validatePartyAllocation,
     ).flatMap(ledger => owner(MeteredLedger(ledger, metrics), participantId, timeProvider))
 
   def inMemory(

@@ -14,6 +14,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast.Package
 import com.daml.platform.sandbox.SandboxServer
@@ -104,7 +105,7 @@ object TestMain extends StrictLogging {
 
         val darMap = dar.all.toMap
         val compiledPackages = PureCompiledPackages(darMap).right.get
-        val testScripts = dar.main._2.modules.flatMap {
+        val testScripts: Map[Ref.Identifier, Script.Action] = dar.main._2.modules.flatMap {
           case (moduleName, module) =>
             module.definitions.collect(Function.unlift {
               case (name, _) =>
@@ -131,7 +132,8 @@ object TestMain extends StrictLogging {
                 .uploadDarFile(ByteString.readFrom(new FileInputStream(config.darPath)))
           }
           success = new AtomicBoolean(true)
-          _ <- sequentialTraverse(testScripts.toList) {
+          // Sort in case scripts depend on each other.
+          _ <- sequentialTraverse(testScripts.toList.sortBy({ case (id, _) => id })) {
             case (id, script) =>
               val runner =
                 new Runner(compiledPackages, script, config.timeMode)

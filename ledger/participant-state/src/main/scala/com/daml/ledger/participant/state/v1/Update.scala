@@ -6,6 +6,7 @@ package participant.state.v1
 
 import com.daml.lf.data.Time.Timestamp
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf.transaction.BlindingInfo
 
 /** An update to the (abstract) participant state.
   *
@@ -190,7 +191,8 @@ object Update {
       transaction: CommittedTransaction,
       transactionId: TransactionId,
       recordTime: Timestamp,
-      divulgedContracts: List[DivulgedContract]
+      divulgedContracts: List[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
   ) extends Update {
     override def description: String = s"Accept transaction $transactionId"
   }

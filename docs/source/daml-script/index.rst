@@ -127,6 +127,9 @@ the type ``Script ()``.
    :start-after: -- INITIALIZE_PURE_BEGIN
    :end-before: -- INITIALIZE_PURE_END
 
+Party management
+----------------
+
 We have now defined a way to initialize the ledger so we can write a
 test that checks that the contracts that we expect exist afterwards.
 
@@ -160,6 +163,19 @@ parties that we have just allocated.
    :start-after: -- TEST_INITIALIZE_BEGIN
    :end-before: -- TEST_INITIALIZE_END
 
+Another option for getting access to the relevant party ids is to use
+``listKnownParties`` to pick out the party with a given display
+name. This is mainly useful in demo scenarios because display names
+are not guaranteed to be unique.
+
+.. literalinclude:: ./template-root/src/ScriptExample.daml
+   :language: daml
+   :start-after: -- INITIALIZE_QUERY_BEGIN
+   :end-before: -- INITIALIZE_QUERY_END
+
+Queries
+-------
+
 To verify the contracts on the ledger, we use the ``query``
 function. We pass it the type of the template and a party. It will
 then give us all active contracts of the given type visible to the
@@ -173,6 +189,9 @@ them away using ``map snd``.
    :language: daml
    :start-after: -- TEST_QUERIES_BEGIN
    :end-before: -- TEST_QUERIES_END
+
+Running a Script
+----------------
 
 To run our script, we first build it with ``daml build`` and then run
 it by pointing to the DAR, the name of our script, the host and

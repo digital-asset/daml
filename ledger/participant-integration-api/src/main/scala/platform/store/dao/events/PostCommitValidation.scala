@@ -51,7 +51,8 @@ private[dao] object PostCommitValidation {
       None
   }
 
-  final class BackedBy(data: PostCommitValidationData) extends PostCommitValidation {
+  final class BackedBy(data: PostCommitValidationData, validatePartyAllocation: Boolean)
+      extends PostCommitValidation {
 
     def validate(
         transaction: CommittedTransaction,
@@ -64,7 +65,13 @@ private[dao] object PostCommitValidation {
 
       val invalidKeyUsage = validateKeyUsages(transaction)
 
-      invalidKeyUsage.orElse(causalMonotonicityViolation)
+      val unallocatedParties =
+        if (validatePartyAllocation)
+          validateParties(transaction)
+        else
+          None
+
+      unallocatedParties.orElse(invalidKeyUsage.orElse(causalMonotonicityViolation))
     }
 
     /**
@@ -104,6 +111,27 @@ private[dao] object PostCommitValidation {
             )
           }
         )
+
+    private def validateParties(
+        transaction: CommittedTransaction,
+    )(implicit connection: Connection): Option[RejectionReason] = {
+      def foldInformees[T](tx: CommittedTransaction, init: T)(
+          f: (T, String) => T
+      ): T =
+        tx.fold(init) {
+          case (accum, (_, node)) =>
+            node.informeesOfNode.foldLeft(accum)(f)
+        }
+
+      val informees = foldInformees(transaction, Seq.empty[Party]) { (informeesSoFar, partyId) =>
+        Party.assertFromString(partyId) +: informeesSoFar
+      }
+      val allocatedInformees = data.lookupParties(informees).map(_.party)
+      if (allocatedInformees.toSet == informees.toSet)
+        None
+      else
+        Some(RejectionReason.PartyNotKnownOnLedger("Some parties are unallocated"))
+    }
 
     private def collectReferredContracts(
         transaction: CommittedTransaction,
@@ -235,5 +263,4 @@ private[dao] object PostCommitValidation {
     RejectionReason.InvalidLedgerTime(
       s"Encountered contract with LET [$contractLedgerEffectiveTime] greater than the LET of the transaction [$transactionLedgerEffectiveTime]"
     )
-
 }

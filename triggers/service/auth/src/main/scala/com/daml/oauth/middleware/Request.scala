@@ -6,7 +6,7 @@ package com.daml.oauth.middleware
 import akka.http.scaladsl.marshalling.Marshaller
 import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.unmarshalling.Unmarshaller
-import com.daml.ledger.api.refinements.ApiTypes.Party
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import spray.json.{
   DefaultJsonProtocol,
   JsString,
@@ -22,20 +22,30 @@ import scala.util.Try
 
 object Request {
 
-  case class Claims(admin: Boolean, actAs: List[Party], readAs: List[Party]) {
+  // applicationId = None makes no guarantees about the application ID. You can use this
+  // if you don’t use the token for requests that use the application ID.
+  // applicationId = Some(appId) will return a token that is valid for
+  // appId, i.e., either a wildcard token or a token with applicationId set to appId.
+  case class Claims(
+      admin: Boolean,
+      actAs: List[Party],
+      readAs: List[Party],
+      applicationId: Option[ApplicationId]) {
     def toQueryString() = {
       val adminS = if (admin) Stream("admin") else Stream()
       val actAsS = actAs.toStream.map(party => s"actAs:$party")
       val readAsS = readAs.toStream.map(party => s"readAs:$party")
-      (adminS ++ actAsS ++ readAsS).mkString(" ")
+      val applicationIdS = applicationId.toList.toStream.map(appId => s"applicationId:$appId")
+      (adminS ++ actAsS ++ readAsS ++ applicationIdS).mkString(" ")
     }
   }
   object Claims {
     def apply(
         admin: Boolean = false,
         actAs: List[Party] = List(),
-        readAs: List[Party] = List()): Claims =
-      new Claims(admin, actAs, readAs)
+        readAs: List[Party] = List(),
+        applicationId: Option[ApplicationId] = None): Claims =
+      new Claims(admin, actAs, readAs, applicationId)
     implicit val marshalRequestEntity: Marshaller[Claims, String] =
       Marshaller.opaque(_.toQueryString)
     implicit val unmarshalHttpEntity: Unmarshaller[String, Claims] =
@@ -43,19 +53,29 @@ object Request {
         var admin = false
         val actAs = ArrayBuffer[Party]()
         val readAs = ArrayBuffer[Party]()
+        var applicationId: Option[ApplicationId] = None
         Future.fromTry(Try {
-          s.split(' ').foreach { w =>
-            if (w == "admin") {
-              admin = true
-            } else if (w.startsWith("actAs:")) {
-              actAs.append(Party(w.stripPrefix("actAs:")))
-            } else if (w.startsWith("readAs:")) {
-              readAs.append(Party(w.stripPrefix("readAs:")))
-            } else {
-              throw new IllegalArgumentException(s"Expected claim but got $w")
-            }
+          s.split(' ').foreach {
+            w =>
+              if (w == "admin") {
+                admin = true
+              } else if (w.startsWith("actAs:")) {
+                actAs.append(Party(w.stripPrefix("actAs:")))
+              } else if (w.startsWith("readAs:")) {
+                readAs.append(Party(w.stripPrefix("readAs:")))
+              } else if (w.startsWith("applicationId:")) {
+                applicationId match {
+                  case None =>
+                    applicationId = Some(ApplicationId(w.stripPrefix("applicationId:")))
+                  case Some(_) =>
+                    throw new IllegalArgumentException(
+                      "applicationId claim can only be specified once")
+                }
+              } else {
+                throw new IllegalArgumentException(s"Expected claim but got $w")
+              }
           }
-          Claims(admin, actAs.toList, readAs.toList)
+          Claims(admin, actAs.toList, readAs.toList, applicationId)
         })
       }
   }
@@ -83,6 +103,10 @@ object Request {
     }
   }
 
+  /** Refresh endpoint request entity
+    */
+  case class Refresh(refreshToken: String)
+
 }
 
 object Response {
@@ -99,6 +123,8 @@ object JsonProtocol extends DefaultJsonProtocol {
     }
     def write(uri: Uri) = JsString(uri.toString)
   }
+  implicit val requestRefreshFormat: RootJsonFormat[Request.Refresh] =
+    jsonFormat(Request.Refresh, "refresh_token")
   implicit val responseAuthorizeFormat: RootJsonFormat[Response.Authorize] =
     jsonFormat(Response.Authorize, "access_token", "refresh_token")
 }

@@ -12,10 +12,14 @@ import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.RunningTrigger
 
+import scala.concurrent.{ExecutionContext, Future}
+
 trait RunningTriggerDao extends Closeable {
-  def addRunningTrigger(t: RunningTrigger): Either[String, Unit]
-  def getRunningTrigger(triggerInstance: UUID): Either[String, Option[RunningTrigger]]
-  def removeRunningTrigger(triggerInstance: UUID): Either[String, Boolean]
-  def listRunningTriggers(party: Party): Either[String, Vector[UUID]]
-  def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)]): Either[String, Unit]
+  def addRunningTrigger(t: RunningTrigger)(implicit ec: ExecutionContext): Future[Unit]
+  def getRunningTrigger(triggerInstance: UUID)(
+      implicit ec: ExecutionContext): Future[Option[RunningTrigger]]
+  def removeRunningTrigger(triggerInstance: UUID)(implicit ec: ExecutionContext): Future[Boolean]
+  def listRunningTriggers(party: Party)(implicit ec: ExecutionContext): Future[Vector[UUID]]
+  def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)])(
+      implicit ec: ExecutionContext): Future[Unit]
 }

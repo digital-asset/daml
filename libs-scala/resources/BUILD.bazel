@@ -34,5 +34,6 @@ da_scala_test_suite(
     deps = [
         ":resources",
         ":resources-test-lib",
+        "//libs-scala/timer-utils",
     ],
 )

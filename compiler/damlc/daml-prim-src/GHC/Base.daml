@@ -3,6 +3,7 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE PolyKinds #-}
 
 -- | MOVE Prelude
 module GHC.Base
@@ -14,6 +15,7 @@ module GHC.Base
   , (.)
   , const
   , Functor(..)
+  , ($)
   ) where
 
 import GHC.Integer.Type() -- required so Integer optimisation works
@@ -87,3 +89,11 @@ class Functor f where
     (<$)        =  fmap . const
 
 infixl 4  <$
+
+infixr 0 $
+-- | Take a function from `a` to `b` and a value of type `a`, and apply the
+-- function to the value of type `a`, returning a value of type `b`.
+-- This function has a very low precedence, which is why you might want to use
+-- it instead of regular function application.
+($) : forall r a (b : TYPE r). (a -> b) -> a -> b
+f $ x =  f x

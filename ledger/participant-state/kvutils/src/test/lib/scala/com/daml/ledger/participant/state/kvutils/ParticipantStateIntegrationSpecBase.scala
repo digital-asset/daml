@@ -682,7 +682,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
   }
 
   private def submitterInfo(party: Ref.Party, commandId: String = "X") =
-    SubmitterInfo(
+    SubmitterInfo.withSingleSubmitter(
       submitter = party,
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
@@ -761,7 +761,7 @@ object ParticipantStateIntegrationSpecBase {
 
   private def matchTransaction(update: Update, expectedCommandId: String): Assertion =
     inside(update) {
-      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _)), _, _, _, _, _) =>
+      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _)), _, _, _, _, _, _) =>
         actualCommandId should be(expectedCommandId)
     }
 }
