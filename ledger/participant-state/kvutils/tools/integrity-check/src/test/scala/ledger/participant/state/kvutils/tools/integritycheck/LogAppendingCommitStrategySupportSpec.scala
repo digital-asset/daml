@@ -11,19 +11,22 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.tools.integritycheck.Builders._
-import com.daml.ledger.participant.state.kvutils.tools.integritycheck.WriteSetEntriesSpec._
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.LogAppendingCommitStrategySupportSpec._
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Version}
 import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
 import com.google.protobuf.{ByteString, Empty}
 import org.scalatest.{Inside, Matchers, WordSpec}
 
-final class WriteSetEntriesSpec extends WordSpec with Matchers with Inside {
+import scala.concurrent.ExecutionContext
+
+final class LogAppendingCommitStrategySupportSpec extends WordSpec with Matchers with Inside {
+  private val support = new LogAppendingCommitStrategySupport()(ExecutionContext.global)
+
   "checking the entries are readable" should {
     "parse a log entry" in {
       val key = aValidLogEntryId
       val value = aValidLogEntry
-      inside(WriteSetEntries.checkReadable(key, value)) {
+      inside(support.checkEntryIsReadable(key, value)) {
         case Right(()) => succeed
       }
     }
@@ -31,14 +34,14 @@ final class WriteSetEntriesSpec extends WordSpec with Matchers with Inside {
     "parse a state entry" in {
       val key = aValidStateKey
       val value = aValidStateValue
-      inside(WriteSetEntries.checkReadable(key, value)) {
+      inside(support.checkEntryIsReadable(key, value)) {
         case Right(()) => succeed
       }
     }
 
     "fail on an invalid envelope" in {
-      val value = bytes("invalid envelope")
-      inside(WriteSetEntries.checkReadable(noKey, value)) {
+      val value = ByteString.copyFromUtf8("invalid envelope")
+      inside(support.checkEntryIsReadable(noKey, value)) {
         case Left(message) => message should startWith("Invalid value envelope:")
       }
     }
@@ -48,7 +51,7 @@ final class WriteSetEntriesSpec extends WordSpec with Matchers with Inside {
         .setVersion(Version.version)
         .build()
         .toByteString
-      inside(WriteSetEntries.checkReadable(noKey, value)) {
+      inside(support.checkEntryIsReadable(noKey, value)) {
         case Left(_) => succeed
       }
     }
@@ -59,7 +62,7 @@ final class WriteSetEntriesSpec extends WordSpec with Matchers with Inside {
         .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION)
         .build()
         .toByteString
-      inside(WriteSetEntries.checkReadable(noKey, value)) {
+      inside(support.checkEntryIsReadable(noKey, value)) {
         case Left(message) => message should startWith("Unexpected submission message:")
       }
     }
@@ -70,7 +73,7 @@ final class WriteSetEntriesSpec extends WordSpec with Matchers with Inside {
         .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION_BATCH)
         .build()
         .toByteString
-      inside(WriteSetEntries.checkReadable(noKey, value)) {
+      inside(support.checkEntryIsReadable(noKey, value)) {
         case Left(message) => message should startWith("Unexpected submission batch message:")
       }
     }
@@ -78,7 +81,7 @@ final class WriteSetEntriesSpec extends WordSpec with Matchers with Inside {
     "fail on a log entry with an invalid payload" in {
       val key = aValidLogEntryId
       val value = Envelope.enclose(DamlLogEntry.newBuilder.build())
-      inside(WriteSetEntries.checkReadable(key, value)) {
+      inside(support.checkEntryIsReadable(key, value)) {
         case Left(message) => message should be("Log entry payload not set.")
       }
     }
@@ -86,7 +89,7 @@ final class WriteSetEntriesSpec extends WordSpec with Matchers with Inside {
     "fail on a state entry with an invalid key" in {
       val key = DamlStateKey.newBuilder.build().toByteString
       val value = aValidStateValue
-      inside(WriteSetEntries.checkReadable(key, value)) {
+      inside(support.checkEntryIsReadable(key, value)) {
         case Left(message) => message should be("State key not set.")
       }
     }
@@ -94,7 +97,7 @@ final class WriteSetEntriesSpec extends WordSpec with Matchers with Inside {
     "fail on a state entry with an invalid value" in {
       val key = aValidStateKey
       val value = Envelope.enclose(DamlStateValue.newBuilder.build())
-      inside(WriteSetEntries.checkReadable(key, value)) {
+      inside(support.checkEntryIsReadable(key, value)) {
         case Left(message) => message should be("State value not set.")
       }
     }
@@ -106,7 +109,7 @@ final class WriteSetEntriesSpec extends WordSpec with Matchers with Inside {
     "unfortunately, allow a log entry ID with a state value" in {
       val key = aValidLogEntryId
       val value = aValidStateValue
-      inside(WriteSetEntries.checkReadable(key, value)) {
+      inside(support.checkEntryIsReadable(key, value)) {
         case Right(()) => succeed
       }
     }
@@ -114,18 +117,18 @@ final class WriteSetEntriesSpec extends WordSpec with Matchers with Inside {
     "unfortunately, allow a state key with a log entry" in {
       val key = aValidStateKey
       val value = aValidLogEntry
-      inside(WriteSetEntries.checkReadable(key, value)) {
+      inside(support.checkEntryIsReadable(key, value)) {
         case Right(()) => succeed
       }
     }
   }
 }
 
-object WriteSetEntriesSpec {
+object LogAppendingCommitStrategySupportSpec {
   private val noKey: ByteString = ByteString.EMPTY
 
   private val aValidLogEntryId: ByteString =
-    DamlLogEntryId.newBuilder.setEntryId(bytes("entry-id")).build().toByteString
+    DamlLogEntryId.newBuilder.setEntryId(ByteString.copyFromUtf8("entry-id")).build().toByteString
 
   private val aValidLogEntry: ByteString =
     Envelope.enclose(
