@@ -62,6 +62,7 @@ compile_deps = [
     "@maven//:org_flywaydb_flyway_core",
     "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
     "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:io_opentelemetry_opentelemetry_api",
     "@maven//:org_slf4j_slf4j_api",
 ]
 
