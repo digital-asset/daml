@@ -7,18 +7,18 @@ import DA.Foldable
 import DA.List
 import Daml.Script
 
-import CoinV1
-import UpgradeFromCoinV1
+import CarbonV1
+import UpgradeFromCarbonCertV1
 
 -- INITIATE_UPGRADE_BEGIN
 initiateUpgrade : Party -> Script ()
 initiateUpgrade issuer = do
-  coins <- query @Coin issuer
-  let myCoins = filter (\(_cid, c) -> c.issuer == issuer) coins
-  let owners = dedup $ map (\(_cid, c) -> c.owner) myCoins
+  certs <- query @CarbonCert issuer
+  let myCerts = filter (\(_cid, c) -> c.issuer == issuer) certs
+  let owners = dedup $ map (\(_cid, c) -> c.owner) myCerts
   forA_ owners $ \owner -> do
     debug ("Creating upgrade proposal for: " <> show owner)
-    submit issuer $ createCmd (UpgradeCoinProposal issuer owner)
+    submit issuer $ createCmd (UpgradeCarbonCertProposal issuer owner)
 -- INITIATE_UPGRADE_END
 
 -- SETUP_SCRIPT_BEGIN
@@ -27,9 +27,9 @@ setup = do
   alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
   bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
   charlie <- allocatePartyWithHint "Charlie" (PartyIdHint "Charlie")
-  bobProposal <- submit alice $ createCmd (CoinProposal alice bob)
-  submit bob $ exerciseCmd bobProposal CoinProposal_Accept
-  charlieProposal <- submit alice $ createCmd (CoinProposal alice charlie)
-  submit charlie $ exerciseCmd charlieProposal CoinProposal_Accept
+  bobProposal <- submit alice $ createCmd (CarbonCertProposal alice bob 10)
+  submit bob $ exerciseCmd bobProposal CarbonCertProposal_Accept
+  charlieProposal <- submit alice $ createCmd (CarbonCertProposal alice charlie 5)
+  submit charlie $ exerciseCmd charlieProposal CarbonCertProposal_Accept
   pure ()
 -- SETUP_SCRIPT_END

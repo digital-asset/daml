@@ -1,24 +1,26 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- COIN_BEGIN
-module CoinV1 where
+-- CARBON_BEGIN
+module CarbonV1 where
 
-template Coin
+template CarbonCert
   with
     issuer : Party
     owner : Party
+    carbon_metric_tons : Int
   where
     signatory issuer, owner
--- COIN_END
+-- CARBON_END
 
-template CoinProposal
+template CarbonCertProposal
   with
     issuer : Party
     owner : Party
+    carbon_metric_tons : Int
   where
     signatory issuer
     observer owner
-    choice CoinProposal_Accept : ContractId Coin
+    choice CarbonCertProposal_Accept : ContractId CarbonCert
       controller owner
-      do create Coin with ..
+      do create CarbonCert with ..

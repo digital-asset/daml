@@ -732,44 +732,44 @@ daml_build_test(
 
 daml_build_test(
     name = "daml-upgrade-example-v1",
-    project_dir = "source/upgrade/example/coin-1.0.0",
+    project_dir = "source/upgrade/example/carbon-1.0.0",
 )
 
 daml_build_test(
     name = "daml-upgrade-example-v2",
-    project_dir = "source/upgrade/example/coin-2.0.0",
+    project_dir = "source/upgrade/example/carbon-2.0.0",
 )
 
 daml_build_test(
     name = "daml-upgrade-example-upgrade",
     dar_dict = {
-        ":daml-upgrade-example-v1": "path/to/coin-1.0.0.dar",
-        ":daml-upgrade-example-v2": "path/to/coin-2.0.0.dar",
+        ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
+        ":daml-upgrade-example-v2": "path/to/carbon-2.0.0.dar",
     },
-    project_dir = "source/upgrade/example/coin-upgrade",
+    project_dir = "source/upgrade/example/carbon-upgrade",
 )
 
 daml_build_test(
     name = "daml-upgrade-example-upgrade-script",
     dar_dict = {
-        ":daml-upgrade-example-v1": "path/to/coin-1.0.0.dar",
-        ":daml-upgrade-example-v2": "path/to/coin-2.0.0.dar",
-        ":daml-upgrade-example-upgrade": "path/to/coin-upgrade-1.0.0.dar",
+        ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
+        ":daml-upgrade-example-v2": "path/to/carbon-2.0.0.dar",
+        ":daml-upgrade-example-upgrade": "path/to/carbon-upgrade-1.0.0.dar",
         "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
     },
-    project_dir = "source/upgrade/example/coin-initiate-upgrade",
+    project_dir = "source/upgrade/example/carbon-initiate-upgrade",
 )
 
 daml_build_test(
     name = "daml-upgrade-example-upgrade-trigger",
     dar_dict = {
-        ":daml-upgrade-example-v1": "path/to/coin-1.0.0.dar",
-        ":daml-upgrade-example-v2": "path/to/coin-2.0.0.dar",
-        ":daml-upgrade-example-upgrade": "path/to/coin-upgrade-1.0.0.dar",
+        ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
+        ":daml-upgrade-example-v2": "path/to/carbon-2.0.0.dar",
+        ":daml-upgrade-example-upgrade": "path/to/carbon-upgrade-1.0.0.dar",
         "//triggers/daml:daml-trigger.dar": "path/to/daml-trigger.dar",
         "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
     },
-    project_dir = "source/upgrade/example/coin-upgrade-trigger",
+    project_dir = "source/upgrade/example/carbon-upgrade-trigger",
 )
 
 filegroup(
