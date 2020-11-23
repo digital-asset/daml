@@ -152,14 +152,16 @@ export type Query<T> = T extends object ? {[K in keyof T]?: Query<T[K]>} : T;
 
 /** @internal
  *
+ * Official documentation (docs/source/json-api/search-query-language.rst)
+ * currently explicitly forbids the use of lists, textmaps and genmaps in
+ * queries. As long as that restriction stays, there is no need for any kind of
+ * encoding here.
  */
 function encodeQuery<T extends object, K, I extends string>(template: Template<T, K, I>, query?: Query<T>): unknown {
-  // TODO: actually implement this.
   // I could not get the "unused" warning silenced, but this seems to count as "used"
   [template];
   return query;
 }
-
 
 /**
  * Status code and result returned by a call to the ledger.

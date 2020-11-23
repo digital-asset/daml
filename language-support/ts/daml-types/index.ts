@@ -1,6 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 import * as jtv from '@mojotech/json-type-validation';
+import _ from 'lodash';
 
 /**
  * Interface for companion objects of serializable types. Its main purpose is
@@ -192,7 +193,7 @@ export const Int: Serializable<Int> = {
 export type Numeric = string;
 
 /**
- * The counterpart of DAML's Decimal type.
+ * The counterpart of DAML's `Decimal` type.
  *
  * In DAML, Decimal's are the same as Numeric with precision 10.
  *
@@ -419,4 +420,82 @@ export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
   }
 });
 
-// TODO(MH): `Map` type.
+/**
+ * The counterpart of DAML's `DA.Map.Map K V` type.
+ *
+ * @typeparam K The type of the map keys.
+ * @typeparam V The type of the map values.
+ */
+export interface Map<K, V> {
+  get: (k: K) => V | null;
+  getOr: (k: K, ifNotFound: V) => V;
+  has: (k: K) => boolean;
+  insert: (k: K, v: V) => Map<K, V>;
+  remove: (k: K) => Map<K, V>;
+  keys: () => K[];
+  values: () => V[];
+  kvs: () => [K, V][];
+}
+
+// This code assumes that the decoder is only ever used in decoding values
+// straight from the API responses, and said raw responses are never reused
+// afterwards. This should be enforced by this class not being exported and the
+// daml-ledger module not letting raw JSON responses escape without going
+// through this.
+//
+// Without that assumption, the constructor would need to deep-copy its kvs
+// argument.
+class MapImpl<K, V> implements Map<K, V> {
+  private _kvs: [K, V][];
+  private _keys: K[];
+  private _values: V[];
+  constructor(kvs: [K, V][]) {
+    // sorting done so that generic object deep comparison would find equal
+    // maps equal (as defined by jest's expect().toEqual())
+    this._kvs = _.sortBy(kvs, kv => JSON.stringify(kv[0]));
+    this._keys = this._kvs.map(e => e[0]);
+    this._values = this._kvs.map(e => e[1]);
+  }
+  private _idx(k: K): number {
+    return this._keys.findIndex((l) => _.isEqual(k, l));
+  }
+  has(k: K): boolean {
+    return this._idx(k) !== -1;
+  }
+  private _getOr(k: K, o: V | null): V | null {
+    return this.has(k) ? this._values[this._idx(k)] : o;
+  }
+  get(k: K): V | null { return _.cloneDeep(this._getOr(k, null)); }
+  getOr(k: K, ifNotFound: V): V { return _.cloneDeep(this._getOr(k, ifNotFound)) as V; }
+  insert(k: K, v: V): Map<K, V> {
+    if (this.has(k)) {
+      const cpy = this._kvs.slice();
+      cpy[this._idx(k)] = _.cloneDeep([k, v]);
+      return new MapImpl(cpy);
+    } else {
+      const head: [K, V][] = _.cloneDeep([[k, v]]);
+      return new MapImpl(head.concat(this._kvs));
+    }
+  }
+  remove(k: K): Map<K, V> {
+    if (this.has(k)) {
+      const i = this._idx(k);
+      return new MapImpl(this._kvs.slice(0, i).concat(this._kvs.slice(i + 1)));
+    } else {
+      return this;
+    }
+  }
+  keys(): K[] { return _.cloneDeep(this._keys); }
+  values(): V[] {return _.cloneDeep(this._values); }
+  kvs(): [K, V][] { return _.cloneDeep(this._kvs); }
+}
+
+export const emptyMap = <K, V>(): Map<K, V> => new MapImpl<K, V>([]);
+
+/**
+ * Companion function of the [[GenMap]] type.
+ */
+export const Map = <K, V>(kd: Serializable<K>, vd: Serializable<V>): Serializable<Map<K, V>> => ({
+  decoder: jtv.array(jtv.tuple([kd.decoder, vd.decoder])).map(kvs => new MapImpl(kvs)),
+  encode: (m: Map<K, V>): unknown => m.kvs(),
+});

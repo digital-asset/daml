@@ -6,7 +6,7 @@ import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger, { Event, Stream } from  '@daml/ledger';
-import { Int } from '@daml/types';
+import { Int, emptyMap, Map } from '@daml/types';
 import pEvent from 'p-event';
 
 import * as buildAndLint from '@daml.js/build-and-lint-1.0.0'
@@ -259,6 +259,12 @@ test('create + fetch & exercise', async () => {
   alice6KeyStream.close();
   personStream.close();
 
+  const map: Map<buildAndLint.Main.Expr2<Int>, Int> =
+    emptyMap<buildAndLint.Main.Expr2<Int>, Int>()
+      .insert({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '1'}, rhs:{tag: 'Lit2', value: '2'}}}, '3')
+      .insert({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '5'}, rhs:{tag: 'Lit2', value: '4'}}}, '9')
+      .insert({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '2'}, rhs:{tag: 'Lit2', value: '1'}}}, '3')
+      .insert({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '3'}, rhs:{tag: 'Lit2', value: '1'}}}, '4');
   const allTypes: buildAndLint.Main.AllTypes = {
     unit: {},
     bool: true,
@@ -299,6 +305,7 @@ test('create + fetch & exercise', async () => {
     rec: {'recOptional': null, 'recList': [], 'recTextMap': {}},
     voidRecord: null,
     voidEnum: null,
+    genMap: map,
   };
   const allTypesContract = await aliceLedger.create(buildAndLint.Main.AllTypes, allTypes);
   expect(allTypesContract.payload).toEqual(allTypes);
