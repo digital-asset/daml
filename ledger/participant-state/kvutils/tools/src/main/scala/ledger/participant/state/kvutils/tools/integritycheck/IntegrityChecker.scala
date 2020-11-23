@@ -214,6 +214,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
               + s" submissionEnvelopeSize=${submissionInfo.submissionEnvelope.size()}"
               + s" writeSetSize=${expectedWriteSet.size}"
           )
+          expectedWriteSet.foreach(Function.tupled(WriteSetEntries.assertReadable))
           expectedReadServiceFactory.appendBlock(expectedWriteSet)
           if (!config.indexOnly) {
             submissionValidator.validateAndCommit(

@@ -48,7 +48,9 @@ da_scala_test(
     deps = [
         "//ledger/participant-integration-api",
         "//ledger/participant-state/kvutils",
+        "//ledger/participant-state/kvutils:daml_kvutils_java_proto",
         "//ledger/participant-state/kvutils/tools",
+        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
