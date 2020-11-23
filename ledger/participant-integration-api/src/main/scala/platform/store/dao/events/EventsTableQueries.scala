@@ -7,5 +7,5 @@ private[events] object EventsTableQueries {
   def format(ps: Set[Party]): String =
     ps.view.map(p => s"'$p'").mkString(",")
   def format(ps: List[Party]): String =
-    ps.mkString(",")
+    ps.map(p => s"'$p'").mkString(",")
 }
