@@ -7,7 +7,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
 import akka.{Done, NotUsed}
-import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
+import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import com.daml.api.util.TimeProvider
 import com.daml.dec.{DirectExecutionContext => DE}
@@ -106,9 +106,11 @@ private[apiserver] final class LedgerConfigProvider private (
       Some(
         RestartSource
           .withBackoff(
-            minBackoff = 1.seconds,
-            maxBackoff = 30.seconds,
-            randomFactor = 0.1,
+            RestartSettings(
+              minBackoff = 1.seconds,
+              maxBackoff = 30.seconds,
+              randomFactor = 0.1,
+            )
           ) { () =>
             index
               .configurationEntries(state.get._1)
