@@ -689,8 +689,8 @@ Then we can define our kinds, types, and expressions::
        |  'Some' @τ e                               -- ExpOptionalSome: Non-empty Optional
        |  [t₁ ↦ e₁; …; tₙ ↦ eₙ]                     -- ExpTextMap
        | 〚e₁ ↦ e₁; …; eₙ ↦ eₙ'〛                    -- ExpGenMap
-       | 'to_any' @τ t                              -- ExpToAny: Wrap a value of the given type in Any
-       | 'from_any' @τ t                            -- ExpToAny: Extract a value of the given from Any or return None
+       | 'to_any' @τ e                              -- ExpToAny: Wrap a value of the given type in Any
+       | 'from_any' @τ e                            -- ExpToAny: Extract a value of the given from Any or return None
        | 'type_rep' @τ                              -- ExpToTypeRep: A type representation
        |  u                                         -- ExpUpdate: Update expression
        |  s                                         -- ExpScenario: Scenario expression
@@ -1085,17 +1085,18 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpGenMap (*)
       Γ  ⊢  〚e₁ ↦ e₁'; …; eₙ ↦ eₙ'〛: GenMap σ τ
 
-      τ contains no quantifiers nor type synonyms
-      ε  ⊢  τ : *     Γ  ⊢  e  : τ
+      τ contains no quantifiers and no type synonyms
+      ε  ⊢  τ  :  ⋆     Γ  ⊢  e  : τ
     ——————————————————————————————————————————————————————————————— ExpToAny
       Γ  ⊢  'to_any' @τ e  :  'Any'
 
-      τ contains no quantifiers nor type synonyms
-      ε  ⊢  τ : *     Γ  ⊢  e  : Any
+      τ contains no quantifiers and no type synonyms
+      ε  ⊢  τ  :  ⋆     Γ  ⊢  e  :  'Any'
     ——————————————————————————————————————————————————————————————— ExpFromAny
       Γ  ⊢  'from_any' @τ e  :  'Optional' τ
 
-      ε  ⊢  τ : *     τ contains no quantifiers nor type synonyms
+      τ contains no quantifiers and no type synonyms
+      ε  ⊢  τ  :  ⋆
     ——————————————————————————————————————————————————————————————— ExpTypeRep
       Γ  ⊢  'type_rep' @τ  :  'TypeRep'
 
@@ -1190,7 +1191,7 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpCase
       Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ
 
-      Γ  ⊢  τ  : ⋆      Γ  ⊢  e  :  τ
+      Γ  ⊢  τ  :  ⋆      Γ  ⊢  e  :  τ
     ——————————————————————————————————————————————————————————————— UpdPure
       Γ  ⊢  'pure' e  :  'Update' τ
 
@@ -1530,7 +1531,7 @@ for the ``DefTemplate`` rule). ::
   ——————————————————————————————————————————————————————————————— DefValue
     ⊢  'val' W : τ ↦ e
 
-    'record' T ↦ { f₁ : τ₁, …, fₙ : tₙ }  ∈  〚Ξ〛Mod
+    'record' T ↦ { f₁ : τ₁, …, fₙ : τₙ }  ∈  〚Ξ〛Mod
     ⊢ₛ  Mod:T
     x : Mod:T  ⊢  eₚ  :  'Bool'
     x : Mod:T  ⊢  eₛ  :  'List' 'Party'
@@ -1612,7 +1613,7 @@ Party literal restriction
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. TODO I think this is incorrect, and actually before the
-   ``ForbidPartyLiterals`` feature flag party literals where
+   ``ForbidPartyLiterals`` feature flag party literals were
    allowed everywhere.
 
 The usage of party literals is restricted in DAML-LF. By default,
