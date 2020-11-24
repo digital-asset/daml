@@ -209,7 +209,7 @@ private[kvutils] class ConfigCommitter(
   ): ConfigCommitter.Result =
     ConfigCommitter.Result(
       submission.getConfigurationSubmission,
-      getCurrentConfiguration(defaultConfig, ctx.inputs, logger)
+      getCurrentConfiguration(defaultConfig, ctx, logger)
     )
 
   override protected val steps: Iterable[(StepInfo, Step)] = Iterable(

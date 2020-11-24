@@ -7,6 +7,7 @@ import java.time.Instant
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions
+import com.daml.ledger.participant.state.kvutils.Conversions.configurationStateKey
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
@@ -190,6 +191,15 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
             actualLogEntry.hasTransactionRejectionEntry shouldBe true
         }
       }
+    }
+
+    "mark config key as accessed in context" in {
+      val commitContext =
+        new FakeCommitContext(recordTime = None, inputWithTimeModelAndCommandDeduplication)
+
+      val _ = instance.validateLedgerTime(commitContext, aTransactionEntrySummary)
+
+      commitContext.getAccessedInputKeys should contain(configurationStateKey)
     }
   }
 
