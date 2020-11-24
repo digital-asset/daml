@@ -55,7 +55,9 @@ final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
   it should "get the jdbc string from the command line argument when provided" in {
     val jdbcFromCli = "command-line-jdbc"
     val config = configParser(
-      Seq(participantOption, s"$fixedParticipantSubOptions,$jdbcUrlSubOption=${TestJdbcValues.jdbcFromCli}"))
+      Seq(
+        participantOption,
+        s"$fixedParticipantSubOptions,$jdbcUrlSubOption=${TestJdbcValues.jdbcFromCli}"))
       .getOrElse(fail())
     config.participants.head.serverJdbcUrl should be(jdbcFromCli)
   }
@@ -78,9 +80,9 @@ final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
   }
 
   it should "get the certificate revocation checking parameter when provided" in {
-    val config = configParser(
-      parameters = minimalValidOptions ++ List(s"$certRevocationChecking", "true"))
-      .getOrElse(parsingFailure())
+    val config =
+      configParser(parameters = minimalValidOptions ++ List(s"$certRevocationChecking", "true"))
+        .getOrElse(parsingFailure())
 
     config.tlsConfig.value.revocationChecks should be(true)
   }

@@ -1,3 +1,6 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.apiserver.tls
 
 import java.io.File
@@ -13,7 +16,11 @@ import com.daml.platform.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import io.grpc.{BindableService, ManagedChannel}
 import org.scalatest.{AsyncWordSpec, Matchers}
 import com.daml.ledger.client.GrpcChannel
-import com.daml.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
+import com.daml.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement
+}
 import com.daml.metrics.Metrics
 import com.daml.ports.Port
 import org.mockito.MockitoSugar
@@ -23,8 +30,14 @@ import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import scala.collection.immutable
 import scala.concurrent.Future
 
-final class TLSCertificatesSpec extends AsyncWordSpec with Matchers with MockitoSugar with AkkaBeforeAndAfterAll with TestResourceContext with OCSPResponderFixture {
-  import TLSCertificatesSpec.{ TLSFixture, resource }
+final class TLSCertificatesSpec
+    extends AsyncWordSpec
+    with Matchers
+    with MockitoSugar
+    with AkkaBeforeAndAfterAll
+    with TestResourceContext
+    with OCSPResponderFixture {
+  import TLSCertificatesSpec.{TLSFixture, resource}
 
   val serverCrt = resource("server.crt")
   val serverKey = resource("server.pem")
@@ -52,7 +65,13 @@ final class TLSCertificatesSpec extends AsyncWordSpec with Matchers with Mockito
       }
 
       "block TLS connections with revoked certificates" in {
-        TLSFixture(tlsEnabled = true, serverCrt, serverKey, caCrt, clientRevokedCrt, clientRevokedKey)
+        TLSFixture(
+          tlsEnabled = true,
+          serverCrt,
+          serverKey,
+          caCrt,
+          clientRevokedCrt,
+          clientRevokedKey)
           .makeARequest()
           .failed
           .collect {
@@ -72,7 +91,13 @@ final class TLSCertificatesSpec extends AsyncWordSpec with Matchers with Mockito
       }
 
       "allow TLS connections with revoked certificates" in {
-        TLSFixture(tlsEnabled = false, serverCrt, serverKey, caCrt, clientRevokedCrt, clientRevokedKey)
+        TLSFixture(
+          tlsEnabled = false,
+          serverCrt,
+          serverKey,
+          caCrt,
+          clientRevokedCrt,
+          clientRevokedKey)
           .makeARequest()
           .map(_ => succeed)
       }
@@ -83,24 +108,26 @@ final class TLSCertificatesSpec extends AsyncWordSpec with Matchers with Mockito
 object TLSCertificatesSpec {
 
   protected final case class TLSFixture(
-                          tlsEnabled: Boolean,
-                          serverCrt: File,
-                          serverKey: File,
-                          caCrt: File,
-                          clientCrt: File,
-                          clientKey: File,
-                          )(implicit rc: ResourceContext, actorSystem: ActorSystem) {
+      tlsEnabled: Boolean,
+      serverCrt: File,
+      serverKey: File,
+      caCrt: File,
+      clientCrt: File,
+      clientKey: File,
+  )(implicit rc: ResourceContext, actorSystem: ActorSystem) {
 
     def makeARequest(): Future[HelloResponse] =
       resources().use { channel =>
         val testRequest = HelloRequest(1)
-        HelloServiceGrpc.stub(channel)
+        HelloServiceGrpc
+          .stub(channel)
           .single(testRequest)
       }
 
     private val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024 // taken from the Sandbox config
 
-    private final class MockApiServices(apiServices: ApiServices) extends ResourceOwner[ApiServices] {
+    private final class MockApiServices(apiServices: ApiServices)
+        extends ResourceOwner[ApiServices] {
       override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
         Resource(Future.successful(apiServices))(_ => Future.successful(()))(context)
       }

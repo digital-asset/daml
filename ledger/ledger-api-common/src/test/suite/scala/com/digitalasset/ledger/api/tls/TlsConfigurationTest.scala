@@ -27,14 +27,17 @@ class TlsConfigurationTest extends WordSpec with Matchers with BeforeAndAfterEac
 
   override def afterEach(): Unit = {
     super.afterEach()
-    systemProperties.map { case (name, value) =>
-      value match {
-        case Some(v) => System.setProperty(name, v)
-        case None => System.clearProperty(name)
-      }
+    systemProperties.map {
+      case (name, value) =>
+        value match {
+          case Some(v) => System.setProperty(name, v)
+          case None => System.clearProperty(name)
+        }
     }
 
-    Security.setProperty(OCSPProperties.ENABLE_OCSP_PROPERTY, ocspSecurityProperty.getOrElse("false"))
+    Security.setProperty(
+      OCSPProperties.ENABLE_OCSP_PROPERTY,
+      ocspSecurityProperty.getOrElse("false"))
   }
 
   "TlsConfiguration" should {

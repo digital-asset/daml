@@ -1,3 +1,6 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.platform.apiserver.tls
 
 import com.daml.bazeltools.BazelRunfiles
@@ -9,7 +12,6 @@ import org.scalatest.Suite
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.sys.process.Process
-
 
 trait OCSPResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
 
@@ -106,4 +108,3 @@ trait OCSPResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
     ocspTestCertificate
   )
 }
-
