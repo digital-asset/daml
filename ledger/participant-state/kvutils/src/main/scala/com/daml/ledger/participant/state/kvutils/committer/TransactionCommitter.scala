@@ -21,17 +21,17 @@ import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{
   BlindingInfo,
-  GenTransaction,
   GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
   ReplayNodeMismatch,
   SubmittedTransaction,
+  VersionedTransaction,
   Transaction => Tx
 }
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, VersionedValue}
+import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
@@ -245,12 +245,12 @@ private[kvutils] class TransactionCommitter(
           )
       })
 
-  private def rejectionReasonForValidationError(
+  private[committer] def rejectionReasonForValidationError(
       validationError: com.daml.lf.engine.Error): RejectionReason = {
     def disputed: RejectionReason = RejectionReason.Disputed(validationError.msg)
 
     def resultIsCreatedInTx(
-        tx: GenTransaction[NodeId, ContractId, VersionedValue[ContractId]],
+        tx: VersionedTransaction[NodeId, ContractId],
         result: Option[Value.ContractId]): Boolean =
       result.exists { contractId =>
         tx.nodes.exists {
