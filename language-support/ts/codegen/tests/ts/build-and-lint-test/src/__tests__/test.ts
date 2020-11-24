@@ -261,10 +261,10 @@ test('create + fetch & exercise', async () => {
 
   const map: Map<buildAndLint.Main.Expr2<Int>, Int> =
     emptyMap<buildAndLint.Main.Expr2<Int>, Int>()
-      .insert({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '1'}, rhs:{tag: 'Lit2', value: '2'}}}, '3')
-      .insert({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '5'}, rhs:{tag: 'Lit2', value: '4'}}}, '9')
-      .insert({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '2'}, rhs:{tag: 'Lit2', value: '1'}}}, '3')
-      .insert({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '3'}, rhs:{tag: 'Lit2', value: '1'}}}, '4');
+      .set({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '1'}, rhs:{tag: 'Lit2', value: '2'}}}, '3')
+      .set({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '5'}, rhs:{tag: 'Lit2', value: '4'}}}, '9')
+      .set({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '2'}, rhs:{tag: 'Lit2', value: '1'}}}, '3')
+      .set({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '3'}, rhs:{tag: 'Lit2', value: '1'}}}, '4');
   const allTypes: buildAndLint.Main.AllTypes = {
     unit: {},
     bool: true,

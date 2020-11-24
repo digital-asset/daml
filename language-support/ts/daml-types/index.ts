@@ -423,18 +423,33 @@ export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
 /**
  * The counterpart of DAML's `DA.Map.Map K V` type.
  *
+ * This is an immutable map which compares keys via deep equality.
+ *
  * @typeparam K The type of the map keys.
  * @typeparam V The type of the map values.
  */
 export interface Map<K, V> {
-  get: (k: K) => V | null;
-  getOr: (k: K, ifNotFound: V) => V;
+  get: (k: K) => V | undefined;
   has: (k: K) => boolean;
-  insert: (k: K, v: V) => Map<K, V>;
-  remove: (k: K) => Map<K, V>;
-  keys: () => K[];
-  values: () => V[];
-  kvs: () => [K, V][];
+  set: (k: K, v: V) => Map<K, V>;
+  delete: (k: K) => Map<K, V>;
+  keys: () => Iterator<K, undefined, undefined>;
+  values: () => Iterator<V, undefined, undefined>;
+  entries: () => Iterator<[K, V], undefined, undefined>;
+}
+
+function it<T>(arr: T[]): Iterator<T, undefined, undefined> {
+  return arr[Symbol.iterator]();
+}
+
+export function makeArr<T>(it: Iterator<T, undefined, undefined>): T[] {
+  const r: T[] = [];
+  let i = it.next();
+  while(!i.done) {
+    r.push(i.value);
+    i = it.next();
+  }
+  return r;
 }
 
 // This code assumes that the decoder is only ever used in decoding values
@@ -462,12 +477,8 @@ class MapImpl<K, V> implements Map<K, V> {
   has(k: K): boolean {
     return this._idx(k) !== -1;
   }
-  private _getOr(k: K, o: V | null): V | null {
-    return this.has(k) ? this._values[this._idx(k)] : o;
-  }
-  get(k: K): V | null { return _.cloneDeep(this._getOr(k, null)); }
-  getOr(k: K, ifNotFound: V): V { return _.cloneDeep(this._getOr(k, ifNotFound)) as V; }
-  insert(k: K, v: V): Map<K, V> {
+  get(k: K): V | undefined { return _.cloneDeep(this._values[this._idx(k)]); }
+  set(k: K, v: V): Map<K, V> {
     if (this.has(k)) {
       const cpy = this._kvs.slice();
       cpy[this._idx(k)] = _.cloneDeep([k, v]);
@@ -477,17 +488,17 @@ class MapImpl<K, V> implements Map<K, V> {
       return new MapImpl(head.concat(this._kvs));
     }
   }
-  remove(k: K): Map<K, V> {
-    if (this.has(k)) {
-      const i = this._idx(k);
+  delete(k: K): Map<K, V> {
+    const i = this._idx(k);
+    if (i !== -1) {
       return new MapImpl(this._kvs.slice(0, i).concat(this._kvs.slice(i + 1)));
     } else {
       return this;
     }
   }
-  keys(): K[] { return _.cloneDeep(this._keys); }
-  values(): V[] {return _.cloneDeep(this._values); }
-  kvs(): [K, V][] { return _.cloneDeep(this._kvs); }
+  keys(): Iterator<K, undefined, undefined> { return it(this._keys); }
+  values(): Iterator<V, undefined, undefined> { return it(this._values); }
+  entries(): Iterator<[K, V], undefined, undefined> { return it(this._kvs); }
 }
 
 export const emptyMap = <K, V>(): Map<K, V> => new MapImpl<K, V>([]);
@@ -497,5 +508,5 @@ export const emptyMap = <K, V>(): Map<K, V> => new MapImpl<K, V>([]);
  */
 export const Map = <K, V>(kd: Serializable<K>, vd: Serializable<V>): Serializable<Map<K, V>> => ({
   decoder: jtv.array(jtv.tuple([kd.decoder, vd.decoder])).map(kvs => new MapImpl(kvs)),
-  encode: (m: Map<K, V>): unknown => m.kvs(),
+  encode: (m: Map<K, V>): unknown => makeArr(m.entries()),
 });
