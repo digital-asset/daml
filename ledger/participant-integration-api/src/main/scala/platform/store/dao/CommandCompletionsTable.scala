@@ -51,7 +51,7 @@ private[platform] object CommandCompletionsTable {
       sqlFunctions: SqlFunctions,
   ): SimpleSql[Row] = {
     val submittersInPartiesClause =
-      sqlFunctions.arrayContainedByWhereClause("submitters", parties)
+      sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
     SQL"select completion_offset, record_time, command_id, transaction_id, status_code, status_message from participant_command_completions where completion_offset > $startExclusive and completion_offset <= $endInclusive and application_id = $applicationId and #$submittersInPartiesClause order by completion_offset asc"
   }
 

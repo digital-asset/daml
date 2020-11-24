@@ -118,7 +118,7 @@ private[events] object EventsTableTreeEvents {
     val filteredWitnesses =
       sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
     val submittersInPartiesClause =
-      sqlFunctions.arrayContainedByWhereClause("submitters", requestingParties)
+      sqlFunctions.arrayIntersectionWhereClause("submitters", requestingParties)
     SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
                  case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
@@ -169,7 +169,7 @@ private[events] object EventsTableTreeEvents {
     val filteredWitnesses =
       sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
     val submittersInPartiesClause =
-      sqlFunctions.arrayContainedByWhereClause("submitters", requestingParties)
+      sqlFunctions.arrayIntersectionWhereClause("submitters", requestingParties)
     EventsRange.readPage(
       read = (range, limitExpr) => SQL"""
         select #$selectColumns, #$filteredWitnesses as event_witnesses,

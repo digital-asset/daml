@@ -123,7 +123,7 @@ private[events] object EventsTableFlatEvents {
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParties)
     val submittersInPartiesClause =
-      sqlFunctions.arrayContainedByWhereClause("submitters", requestingParties)
+      sqlFunctions.arrayIntersectionWhereClause("submitters", requestingParties)
     SQL"""select #$selectColumns, flat_event_witnesses as event_witnesses,
                  case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
