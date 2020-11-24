@@ -342,14 +342,13 @@ final class SandboxServer(
         currentPort.getOrElse(config.port),
         config.maxInboundMessageSize,
         config.address,
-        config.tlsConfig.flatMap(_.server),
+        config.tlsConfig,
         List(
           AuthorizationInterceptor(authService, executionContext),
           resetService,
         ),
         metrics
       ).acquire()
-      _ = config.tlsConfig.foreach(_.setJvmTlsProperties())
       _ <- Resource.fromFuture(writePortFile(apiServer.port))
     } yield {
       Banner.show(Console.out)

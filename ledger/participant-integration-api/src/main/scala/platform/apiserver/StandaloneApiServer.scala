@@ -99,13 +99,12 @@ final class StandaloneApiServer(
         managementServiceTimeout = config.managementServiceTimeout,
       )(materializer, executionSequencerFactory, loggingContext)
         .map(_.withServices(otherServices))
-      _ = config.tlsConfig.foreach(_.setJvmTlsProperties())
       apiServer <- new LedgerApiServer(
         apiServicesOwner,
         config.port,
         config.maxInboundMessageSize,
         config.address,
-        config.tlsConfig.flatMap(_.server),
+        config.tlsConfig,
         AuthorizationInterceptor(authService, executionContext) :: otherInterceptors,
         metrics
       )
