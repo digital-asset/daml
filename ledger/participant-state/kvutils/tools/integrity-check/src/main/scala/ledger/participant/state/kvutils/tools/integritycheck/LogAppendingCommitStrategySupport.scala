@@ -19,7 +19,6 @@ import com.daml.ledger.validator.batch.BatchedSubmissionValidatorFactory
 import com.daml.ledger.validator.{
   CommitStrategy,
   DamlLedgerStateReader,
-  DefaultStateKeySerializationStrategy,
   StateKeySerializationStrategy
 }
 import com.daml.metrics.Metrics
@@ -80,7 +79,7 @@ final class LogAppendingCommitStrategySupport(implicit executionContext: Executi
         else
           Right(())
       case Right(Envelope.StateValueMessage(value)) =>
-        val key = DefaultStateKeySerializationStrategy.deserializeStateKey(keyBytes)
+        val key = stateKeySerializationStrategy.deserializeStateKey(keyBytes)
         if (key.getKeyCase == DamlStateKey.KeyCase.KEY_NOT_SET)
           Left("State key not set.")
         else if (value.getValueCase == DamlStateValue.ValueCase.VALUE_NOT_SET)
