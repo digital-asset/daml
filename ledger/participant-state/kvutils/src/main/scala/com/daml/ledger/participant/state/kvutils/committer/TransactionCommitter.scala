@@ -640,7 +640,8 @@ private[kvutils] object TransactionCommitter {
     val submitter: Party =
       if (submitterInfo.getSubmittersCount == 1)
         Party.assertFromString(submitterInfo.getSubmitters(0))
-      else throw Err.InternalError("Multi-party submissions are not supported")
+      else
+        throw Err.InternalError("Multi-party submissions are not supported")
     lazy val transaction: Tx.Transaction = Conversions.decodeTransaction(submission.getTransaction)
     val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
     val submissionSeed: crypto.Hash = Conversions.parseHash(submission.getSubmissionSeed)

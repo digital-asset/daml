@@ -71,8 +71,10 @@ private[state] object Conversions {
 
   def commandDedupKey(subInfo: DamlSubmitterInfo): DamlStateKey = {
     val sortedUniqueSubmitters =
-      if (subInfo.getSubmittersCount == 1) subInfo.getSubmittersList
-      else subInfo.getSubmittersList.asScala.distinct.sorted.asJava
+      if (subInfo.getSubmittersCount == 1)
+        subInfo.getSubmittersList
+      else
+        subInfo.getSubmittersList.asScala.distinct.sorted.asJava
     DamlStateKey.newBuilder
       .setCommandDedup(
         DamlCommandDedupKey.newBuilder
