@@ -135,7 +135,7 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
     */
   def deduplicateCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult]
@@ -148,7 +148,7 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
     */
   def stopDeduplicatingCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Unit]
 
   /**

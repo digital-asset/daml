@@ -187,21 +187,21 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def deduplicateCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[v2.CommandDeduplicationResult] =
     Timed.future(
       metrics.daml.services.index.deduplicateCommand,
-      delegate.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil))
+      delegate.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil))
 
   override def stopDeduplicatingCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     Timed.future(
       metrics.daml.services.index.stopDeduplicateCommand,
-      delegate.stopDeduplicatingCommand(commandId, submitter))
+      delegate.stopDeduplicatingCommand(commandId, submitters))
 
   override def prune(pruneUpToInclusive: Offset)(
       implicit loggingContext: LoggingContext): Future[Unit] =

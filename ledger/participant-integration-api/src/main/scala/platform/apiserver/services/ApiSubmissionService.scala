@@ -125,7 +125,7 @@ private[apiserver] final class ApiSubmissionService private (
     submissionService
       .deduplicateCommand(
         commands.commandId,
-        commands.submitter,
+        List(commands.submitter),
         commands.submittedAt,
         commands.deduplicateUntil,
       )
@@ -136,7 +136,7 @@ private[apiserver] final class ApiSubmissionService private (
             .recoverWith {
               case NonFatal(originalCause) =>
                 submissionService
-                  .stopDeduplicatingCommand(commands.commandId, commands.submitter)
+                  .stopDeduplicatingCommand(commands.commandId, List(commands.submitter))
                   .transform(_ => Failure(originalCause))
             }
         case _: CommandDeduplicationDuplicate =>

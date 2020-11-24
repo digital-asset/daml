@@ -439,7 +439,7 @@ private class JdbcLedgerDao(
       recordTime: Instant,
       rejectionReason: RejectionReason,
   )(implicit connection: Connection): Unit = {
-    stopDeduplicatingCommandSync(domain.CommandId(info.commandId), info.singleSubmitterOrThrow())
+    stopDeduplicatingCommandSync(domain.CommandId(info.commandId), info.actAs)
     prepareRejectionInsert(info, offset, recordTime, rejectionReason).execute()
     ()
   }
@@ -771,17 +771,21 @@ private class JdbcLedgerDao(
 
   private def deduplicationKey(
       commandId: domain.CommandId,
-      submitter: Ref.Party,
-  ): String = commandId.unwrap + "%" + submitter
+      submitters: List[Ref.Party],
+  ): String =
+    if (submitters.length == 1)
+      commandId.unwrap + "%" + submitters.head
+    else
+      commandId.unwrap + "%" + submitters.asInstanceOf[List[String]].sorted.distinct.mkString("%")
 
   override def deduplicateCommand(
       commandId: domain.CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
     dbDispatcher.executeSql(metrics.daml.index.db.deduplicateCommandDbMetrics) { implicit conn =>
-      val key = deduplicationKey(commandId, submitter)
+      val key = deduplicationKey(commandId, submitters)
       // Insert a new deduplication entry, or update an expired entry
       val updated = SQL(queries.SQL_INSERT_COMMAND)
         .on(
@@ -824,9 +828,10 @@ private class JdbcLedgerDao(
       |where deduplication_key = {deduplicationKey}
     """.stripMargin)
 
-  private[this] def stopDeduplicatingCommandSync(commandId: domain.CommandId, submitter: Party)(
-      implicit conn: Connection): Unit = {
-    val key = deduplicationKey(commandId, submitter)
+  private[this] def stopDeduplicatingCommandSync(
+      commandId: domain.CommandId,
+      submitters: List[Party])(implicit conn: Connection): Unit = {
+    val key = deduplicationKey(commandId, submitters)
     SQL_DELETE_COMMAND
       .on("deduplicationKey" -> key)
       .execute()
@@ -835,11 +840,11 @@ private class JdbcLedgerDao(
 
   override def stopDeduplicatingCommand(
       commandId: domain.CommandId,
-      submitter: Party,
+      submitters: List[Party],
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.stopDeduplicatingCommandDbMetrics) {
       implicit conn =>
-        stopDeduplicatingCommandSync(commandId, submitter)
+        stopDeduplicatingCommandSync(commandId, submitters)
     }
 
   private val SQL_UPDATE_MOST_RECENT_PRUNING = SQL(
