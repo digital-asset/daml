@@ -256,7 +256,7 @@ function menu() {
     if ($(window).width() >= 1600) {
         var contentMenuOffsetTop = 172;
         // $contentMenu.removeClass('collapsed');
-        if ($contentMenuToc.innerHeight() + contentMenuOffsetTop + 150 >= $(window).height()) {
+        if ($contentMenuToc.innerHeight() + contentMenuOffsetTop + 160 >= $(window).height()) {
             $contentMenu.css({
                 'height': $(window).height() - contentMenuOffsetTop - 50
             });
@@ -265,14 +265,14 @@ function menu() {
             });
         } else {
             $contentMenu.css({
-                'height': $contentMenuToc.innerHeight() + 100
+                'height': $contentMenuToc.innerHeight() + 110
             });
             $contentMenuWrapper.css({
                 'height': '100%'
             });
         }
     } else {
-        var height = Math.min($(window).height() - 150, $contentMenuToc.innerHeight() + 50);
+        var height = Math.min($(window).height() - 150, $contentMenuToc.innerHeight() + 60);
         $contentMenu.css({
             'height': 'auto'
         });

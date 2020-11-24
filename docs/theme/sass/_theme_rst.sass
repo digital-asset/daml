@@ -63,10 +63,10 @@
   pre.literal-block, div[class^='highlight']
     overflow-x: auto
     // 1px hack otherwise border won't show. lame
-    margin: 35px 0 35px -56px
+    margin: 35px 0 35px -76px
 
     +media($desktop-wider)
-      margin: 35px 0 35px -56px
+      margin: 35px 0 35px -76px
 
     div[class^='highlight']
       padding: 0px
@@ -155,7 +155,7 @@
 
   // Generics handling of headings and toc stuff.
   .topic-title
-    font-weight: bold
+    font-weight: $weight-title
     margin-bottom: $base-line-height / 2
   .toc-backref
     color: $text-color
@@ -208,7 +208,7 @@
     .sidebar-title
       display: block
       font-family: $custom-font-family
-      font-weight: bold
+      font-weight: $weight-title
       background: $table-border-color
       padding: $base-line-height / 4 $base-line-height / 2
       margin: -$base-line-height
@@ -218,7 +218,7 @@
   .highlighted
     background: $highlight-color
     display: inline-block
-    font-weight: bold
+    font-weight: $weight-title
     padding: 0 $base-line-height / 4
 
   // These are the little citation links [1] that show up within paragraphs.
@@ -293,7 +293,7 @@
       line-height: normal
 
     &.xref, a &
-      font-weight: bold
+      font-weight: $weight-title
       color: $text-codexref-color
   pre, kbd, samp
     font-family: $code-font-family
@@ -303,7 +303,7 @@
   dl
     margin-bottom: $base-line-height
     dt
-      font-weight: bold
+      font-weight: $weight-title
       margin-bottom: $base-line-height / 2
     // Most of the content within these dls are one liners, so I halve the normal margins.
     p, table, ul, ol
@@ -349,20 +349,20 @@
       margin-top: 0
     // Since dts get the callout style, we treat this less as callouts.
     tt, code
-      font-weight: bold
+      font-weight: $weight-title
       &.descname, &.descclassname
         background-color: transparent
         border: none
         padding: 0
         font-size: 100% !important
       &.descname
-        font-weight: bold
+        font-weight: $weight-title
     // This is for more advanced parameter control
     .optional
       display: inline-block
       padding: 0 4px
       color: $black
-      font-weight: bold
+      font-weight: $weight-title
     .property
       display: inline-block
       padding-right: 8px
@@ -377,7 +377,7 @@
     float: right
   p.rubric
     margin-bottom: 12px
-    font-weight: bold
+    font-weight: $weight-title
   //Download link
   code.download
     background: inherit
@@ -407,7 +407,7 @@
     border: 1px solid lighten($guilabel-color, 25%)
     background: lighten($guilabel-color, 50%)
     font-size: 80%
-    font-weight: 700
+    font-weight: $weight-title
     border-radius: $base-line-height / 6
     padding: $base-line-height / 10 $base-line-height / 4
     margin: auto $base-line-height / 12

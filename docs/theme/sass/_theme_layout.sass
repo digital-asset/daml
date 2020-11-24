@@ -3,7 +3,7 @@ html
   font-size: $base-font-size
 
   a, a:visited
-    color: $lighter-blue
+    color: $blue
 
 .wy-affix
   position: fixed
@@ -35,13 +35,13 @@ html
     padding: 0 $base-font-size
 
 .rst-content code
-  color: #3A478F
-  background-color: #CCDCEC
-  font-family: Courier New, Courier, monospace
+  color: $text-dark
+  background-color: $blue-lighter
+  font-family: "NBInternational", monospace
   font-size: 14px
   position: relative
   top: -1px
-  font-weight: 400
+  font-weight: $weight-body
 
 .wy-menu-vertical
   width: $nav-desktop-width
@@ -53,7 +53,7 @@ html
     padding: 0 $gutter
     margin: $base-line-height / 2 0 0 0
     display: block
-    font-weight: bold
+    font-weight: $weight-body
     text-transform: uppercase
 
   ul
@@ -67,8 +67,6 @@ html
       border-bottom: solid 1px hsl(0, 0%, 25%)
 
     &.current
-      background: darken($menu-vertical-background-color, 10%)
-
       a
         color: $menu-link-medium
         border-right: solid 1px darken($menu-vertical-background-color, 20%)
@@ -97,7 +95,7 @@ html
   li.on a, li.current > a
     color: $menu-link-color
     padding: $gutter / 4 $gutter
-    font-weight: bold
+    font-weight: $weight-title
     position: relative
     background: $menu-vertical-background-color
     border: none
@@ -135,12 +133,10 @@ html
   li.toctree-l2
     &.current
       > a
-        background: darken($menu-vertical-background-color, 20%)
         padding: $gutter / 4 $gutter * 1.5
 
       li.toctree-l3 > a
         display: block
-        background: darken($menu-vertical-background-color, 20%)
         padding: $gutter / 4 $gutter * 2.5
 
     a:hover span.toctree-expand
@@ -180,8 +176,8 @@ html
 
   li ul li a
     margin-bottom: 0
-    color: $menu-link-light
-    font-weight: normal
+    color: $menu-link-dark
+    font-weight: $weight-body
 
   a
     display: inline-block
@@ -189,14 +185,14 @@ html
     padding: $gutter / 4 $gutter
     display: block
     position: relative
-    color: $menu-link-light
+    color: $menu-link-dark
 
     &:hover
       background-color: lighten($menu-background-color, 10%)
       cursor: pointer
 
       span.toctree-expand
-        color: $menu-link-light
+        color: $menu-link-dark
 
     &:active
       background-color: $menu-logo-color
@@ -237,7 +233,7 @@ html
   > a, .wy-dropdown > a
     color: $nav-search-color
     font-size: 100%
-    font-weight: bold
+    font-weight: $weight-body
     display: inline-block
     padding: $base-line-height / 6 $base-line-height / 4
     margin-bottom: $gutter / 2
@@ -265,7 +261,7 @@ html
   > div.version
     margin-top: -1 * ($gutter / 4)
     margin-bottom: $gutter / 2
-    font-weight: normal
+    font-weight: $weight-body
     color: rgba(255, 255, 255, .3)
 
 
@@ -323,13 +319,15 @@ html
   min-height: 100%
   color: $menu-medium
   background: $nav-background-color
-  z-index: $z-index-popover
+  z-index: 10000
+  box-shadow: 3px 0 2px -1px $nav-shadow
+  -moz-box-shadow: 3px 0 2px -1px $nav-shadow
+  -webkit-box-shadow: 3px 0 2px -1px $nav-shadow
 
 .wy-side-scroll
-  width: $nav-desktop-width + 20px
+  width: $nav-desktop-width
   position: relative
   overflow-x: hidden
-  overflow-y: scroll
   height: 100%
 
 .wy-nav-top
@@ -344,7 +342,7 @@ html
 
   a
     color: $white
-    font-weight: bold
+    font-weight: $weight-title
     +font-smooth
 
   img
@@ -365,7 +363,6 @@ html
   margin-left: $nav-desktop-width
   background: $section-background-color
   min-height: 100%
-  background: radial-gradient(45% 110% at bottom right, #e8e9f2, #ffffff)
   background-attachment: fixed
   line-height: 1.6em
 
@@ -426,7 +423,7 @@ footer
     color: #3A478F
 
   .context
-    color: $blue
+    color: $gray
 
 .genindextable li > ul
   margin-left: $base-line-height
@@ -480,11 +477,10 @@ footer
 // overdrives
 
 body
-  font-family: 'Karla'
   color: $text-basic
 
 .wy-nav-content
-  padding: 53px 47px
+  padding: 163px 47px
   margin: 0
 
   .wy-grid-for-nav
@@ -493,7 +489,7 @@ body
         width: 7px
 
       ::-webkit-scrollbar-track
-        box-shadow: inset 0 0 5px grey
+        box-shadow: inset 0 0 5px gray
         border-radius: 3px
 
       ::-webkit-scrollbar-thumb
@@ -504,13 +500,9 @@ body
 
     line-height: 1.6em
 
-    *:last-child
-      margin-bottom: 0
-
     h1
       font-size: 14pt
-      color: $search-header
-      font-family: 'Montserrat'
+      color: $text-medium
       margin-bottom: 25px
 
       +media($desktop-wide)
@@ -518,7 +510,7 @@ body
 
       position: relative
       padding-left: 70px
-      font-weight: bold
+      font-weight: $weight-title
 
       &:before
         content: ''
@@ -528,42 +520,37 @@ body
         left: 0
         width: 60px
         height: 1px
-        top: 10px
+        top: 12px
 
     h2
       font-size: 20pt
-      color: $text-lighter
-      font-family: 'Montserrat'
-      font-weight: bold
+      color: $text-dark
+      font-weight: $weight-title
       margin-bottom: 32px
 
     h3
       font-size: 16pt
-      color: $text-lighter
-      font-family: 'Montserrat'
+      color: $text-dark
       margin-bottom: 32px
-      font-weight: bold
+      font-weight: $weight-title
 
     h4
       font-size: 14pt
-      color: $text-lighter
-      font-family: 'Montserrat'
+      color: $text-dark
       margin-bottom: 32px
-      font-weight: bold
+      font-weight: $weight-title
 
     h5
       font-size: 12pt
-      color: $text-lighter
-      font-family: 'Montserrat'
+      color: $text-dark
       margin-bottom: 32px
-      font-weight: bold
+      font-weight: $weight-title
 
     h6
       font-size: 10pt
-      color: $text-lighter
-      font-family: 'Montserrat'
+      color: $text-dark
       margin-bottom: 32px
-      font-weight: bold
+      font-weight: $weight-title
 
     p
       margin-bottom: 18px
@@ -633,8 +620,7 @@ body
 
       .admonition-title
         background: unset
-        font-family: 'Karla'
-        font-weight: bold
+        font-weight: $weight-title
         font-size: 16px
         color: $text-basic
         margin-bottom: -8px
@@ -649,7 +635,6 @@ body
 
       .last
         color: $text-basic
-        font-family: 'Karla'
         font-size: 16px
 
       &.attention
@@ -765,12 +750,9 @@ body
 
 .topbar.fixed
   position: fixed
-  z-index: 10000
-  background: linear-gradient(90deg, #FBFBFD, #EFF0F6)
-  width: 100%
-
-  @media(max-width: 768px)
-    background: radial-gradient(29% 122% at bottom right, #F7F8FB, #ffffff)
+  z-index: 9999
+  width: calc(100% - #{$nav-desktop-width})
+  background: $white
 
 .topbar
   .navbar
@@ -794,12 +776,11 @@ body
     top: 0
     position: absolute
     right: 210px
-    font-family: 'Montserrat'
-    font-weight: bold
+    font-weight: $weight-title
     color: #687BA3
     display: flex
     align-items: center
-    color: $text-lighter
+    color: $text-dark
 
     .version_switcher_placeholder
       height: 42px
@@ -810,7 +791,7 @@ body
       padding-top: 14px
       padding-left: 47px
       padding-bottom: 27px
-      color: $text-lighter
+      color: $text-dark
       position: relative
       top: initial
       right: initial
@@ -838,7 +819,7 @@ body
       box-shadow: none
       color: #3A478F
       text-transform: uppercase
-      font-weight: bold
+      font-weight: $weight-title
       font-size: 100%
       padding: 0
 
@@ -870,18 +851,9 @@ body
   background-color: $menu-background-color
 
   .wy-nav-side-shadow
-    z-index: 9999
-    width: 12px
-    height: 100%
-    position: absolute
-    right: 0
-    top: 0
-    box-shadow: inset -6px 0 12px -5px $nav-shadow
-    -moz-box-shadow: inset -6px 0 12px -5px $nav-shadow
-    -webkit-box-shadow: inset -6px 0 12px -5px $nav-shadow
+    display: none
 
 .wy-menu-vertical
-  font-family: 'Montserrat'
   font-size: 16px
 
   .fa
@@ -896,22 +868,19 @@ body
     padding-right: 50px
     padding-bottom: 10px
     padding-top: 10px
+    color: $text-dark
 
     +media($tablet)
       padding-bottom: 8px
       padding-top: 8px
 
-
     &:hover
-      background-color: $menu-background-hover-color
+      color: $text-medium
       cursor: pointer
 
     &:active
       background-color: $menu-logo-color
       cursor: pointer
-
-      span.caption-text
-        color: $menu-link-active
 
     &:before
       content: ""
@@ -958,7 +927,6 @@ body
 
     span.caption-text
       background-color: unset
-      color: $menu-link-light
       font-size: 16px
       padding-top: 0
       padding-bottom: 0
@@ -991,7 +959,7 @@ body
 
 
           display: block
-          font-weight: bold
+          font-weight: $weight-body
           white-space: nowrap
           position: relative
           border: none
@@ -1000,15 +968,15 @@ body
           margin-bottom: 14px
 
           &:hover
-            background-color: $menu-background-hover-color
+            color: $menu-link-medium
 
           &:after
             display: none
 
         &.current
           a.reference
-            background-color: $white
             padding-left: 27px
+            color: $menu-link-medium
 
 
             margin-top: 15px
@@ -1033,7 +1001,7 @@ body
               top: 15px
 
             &:hover
-              background-color: $menu-background-hover-color
+              color: $menu-link-medium
 
     li[class^="toctree-l"]
       font-size: 100%
@@ -1053,14 +1021,13 @@ body
         display: block
         position: relative
         font-size: 90%
-        color: $menu-link-light
+        font-weight: $weight-body
+        color: $menu-link-dark
         border: none
-        font-weight: unset
         background-color: unset
         line-height: 1.6em
 
       &.current
-        background-color: unset
 
         a.reference
           padding-top: 6px
@@ -1073,9 +1040,7 @@ body
           display: block
           position: relative
           font-size: 90%
-          color: $menu-link-light
           border: none
-          font-weight: unset
           line-height: 1.6em
           background-color: unset
           padding-left: 35px
@@ -1096,8 +1061,8 @@ body
     > li[class^="toctree-l"]
       > a.reference
         &.current
-          background-color: $white
           border: none
+          color: $menu-link-medium
 
           > span.toctree-expand
             &:before
@@ -1122,10 +1087,10 @@ body
           &:hover
             span.toctree-expand
               &:after
-                background: $menu-background-hover-color
+                color: $menu-link-medium
 
         &:hover
-          background-color: $menu-background-hover-color
+          color: $menu-link-medium
           cursor: pointer
 
         &:active
@@ -1248,17 +1213,16 @@ body
       cursor: pointer
 
     input[type="text"].search-inline-input
-      font-family: "Karla"
       font-size: 16px
       border: none
       outline: none
-      box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
-      -moz-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
-      -webkit-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+      box-shadow: 0px 3px 2px -1px $gray-lighter
+      -moz-box-shadow: 0px 3px 2px -1px $gray-lighter
+      -webkit-box-shadow: 0px 3px 2px -1px $gray-lighter
 
       width: 100%
       height: 50px
-      color: $blue
+      color: $text-dark
       padding-left: 85px
 
     input[type="text"].search-inline-input:-ms-input-placeholder
@@ -1276,7 +1240,7 @@ body
     .search-alert
       display: none
       position: absolute
-      border: 1px solid grey
+      border: 1px solid gray
       width: 100%
       background: white
       overflow: scroll
@@ -1284,7 +1248,7 @@ body
       top: 50px
       overflow: hidden
       padding: 20px 47px
-      color: $text-lighter
+      color: $text-dark
 
       &.active
         display: block
@@ -1298,9 +1262,9 @@ body
       z-index: 200
       top: 50px
       overflow: hidden
-      box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
-      -moz-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
-      -webkit-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+      box-shadow: 0px 3px 2px -1px $gray-lighter
+      -moz-box-shadow: 0px 3px 2px -1px $gray-lighter
+      -webkit-box-shadow: 0px 3px 2px -1px $gray-lighter
 
       &.active
         display: block
@@ -1309,16 +1273,15 @@ body
         display: none
 
       p
-        color: $blue
+        color: $gray
         bottom: 0
         margin-top: 15px
         margin-bottom: 20px
         padding-left: 52px
-        font-weight: bold
+        font-weight: $weight-body
 
         a
           margin-left: 5px
-          color: $lighter-blue
 
       ul
         max-height: 155px
@@ -1334,21 +1297,21 @@ body
           padding-top: 12px
 
           a
-            font-weight: bold
+            font-weight: $weight-body
 
           &.active
             background-color: $menu-background-color
-            border-left: 5px solid $lighter-blue
+            border-left: 5px solid $blue
             padding-left: 42px
 
           &:hover
             background-color: $menu-background-color
-            border-left: 5px solid $lighter-blue
+            border-left: 5px solid $blue
             padding-left: 42px
 
           &:active
             background-color: $menu-logo-color
-            border-left: 5px solid $lighter-blue
+            border-left: 5px solid $blue
             padding-left: 42px
 
             a
@@ -1372,8 +1335,7 @@ body
 
     h2
       font-size: 14px
-      color: $text-lighter
-      font-family: 'Montserrat'
+      color: $text-dark
       margin-bottom: 25px
 
       +media($desktop-wide)
@@ -1381,7 +1343,7 @@ body
 
       position: relative
       padding-left: 70px
-      font-weight: bold
+      font-weight: $weight-title
 
       &:before
         content: ''
@@ -1398,14 +1360,13 @@ body
 
       li
         a
-          font-family: 'Karla'
           margin-top: 18px
           display: inline-block
           position: relative
-          color: $lighter-blue
+          color: $blue-lighter
 
           span
-            color: $lighter-blue
+            color: $blue-lighter
 
           &:hover
             &:before
@@ -1416,7 +1377,7 @@ body
               right: 0
               height: 2px
               bottom: -3px
-              background: $lighter-blue
+              background: $blue-lighter
 
           &:visited
             color: $link-visited-color
@@ -1429,15 +1390,14 @@ body
                 background: $link-visited-color
 
         .context
-          font-family: 'Karla'
           color: $search-results
           margin-top: 8px
 
           .highlighted
-            color: $lighter-blue
+            color: $blue-lighter
             background: $serach-highlighted
             display: inline-block
-            font-weight: bold
+            font-weight: $weight-body
             padding: 0 6px
 
 
@@ -1448,9 +1408,9 @@ body
   display: inline-block
   width: 380px
   vertical-align: top
-  -webkit-box-shadow: 2px 3px 6px 0 $content-menu-shadow
-  -moz-box-shadow: 2px 3px 6px 0 $content-menu-shadow
-  box-shadow: 2px 3px 6px 0 $content-menu-shadow
+  -webkit-box-shadow: 2px 3px 6px -3px $content-menu-shadow
+  -moz-box-shadow: 2px 3px 6px -3px $content-menu-shadow
+  box-shadow: 2px 3px 6px -3px $content-menu-shadow
 
 
   &.collapsed
@@ -1462,9 +1422,8 @@ body
       display: none
 
   .content-menu-title
-    font-family: 'Montserrat'
-    font-weight: bold
-    color: $menu-link-light
+    font-weight: $weight-title
+    color: $menu-link-dark
     font-size: 16px
     padding-left: 42px
     padding-top: 15px
@@ -1504,18 +1463,18 @@ body
     width: 100%
     background-color: $white
 
-    box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
-    -moz-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
-    -webkit-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+    box-shadow: 0px 3px 2px -1px $content-menu-shadow
+    -moz-box-shadow: 0px 3px 2px -1px $content-menu-shadow
+    -webkit-box-shadow: 0px 3px 2px -1px $content-menu-shadow
 
     +media($desktop-wider)
-      -webkit-box-shadow: 2px 3px 6px 0 $content-menu-shadow
-      -moz-box-shadow: 2px 3px 6px 0 $content-menu-shadow
-      box-shadow: 2px 3px 6px 0 $content-menu-shadow
+      -webkit-box-shadow: 2px 3px 6px -3px $content-menu-shadow
+      -moz-box-shadow: 2px 3px 6px-3px $content-menu-shadow
+      box-shadow: 2px 3px 6px -3px  $content-menu-shadow
 
     .content-menu-toc
       code
-        color: $text-lighter
+        color: $text-dark
         background-color: $serach-highlighted
         font-family: Courier New, Courier, monospace
         font-size: 80%
@@ -1533,8 +1492,10 @@ body
           > a
             margin-top: 10px
             display: block
-            color: $lighter-blue
             font-size: 16px
+
+          &:hover
+            color: $menu-link-medium
 
           &.active
             &:before
@@ -1549,13 +1510,12 @@ body
                 left: -20px
                 top: -4px
 
-
-              color: $menu-link-light
+            color: $menu-link-medium
 
 .content-menu
-  -webkit-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
-  -moz-box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
-  box-shadow: 0px 3px 2px -1px rgba(171, 178, 200, 0.75)
+  -webkit-box-shadow: 0px 3px 2px -1px $content-menu-shadow
+  -moz-box-shadow: 0px 3px 2px -1px $content-menu-shadow
+  box-shadow: 0px 3px 2px -1px $content-menu-shadow
 
 +media($desktop)
 
@@ -1606,7 +1566,6 @@ body
     top: 172px
     width: 380px
     display: block
-    font-family: 'Karla'
 
     &.collapsed
       bottom: unset
@@ -1620,8 +1579,8 @@ body
         display: none
 
     .content-menu-title
-      font-weight: bold
-      color: $menu-link-light
+      font-weight: $weight-title
+      color: $menu-link-dark
       font-size: 16px
       position: absolute
       z-index: 2
@@ -1651,7 +1610,7 @@ body
     .content-menu-wrapper
       padding-left: 42px
       padding-right: 30px
-      padding-top: 50px
+      padding-top: 60px
       margin-top: 6px
       width: 380px
       background-color: $white
@@ -1668,8 +1627,12 @@ body
             > a
               margin-top: 6px
               display: block
-              color: $lighter-blue
               font-size: 16px
+              font-weight: $weight-body
+              color: $menu-link-dark
+            
+              &:hover
+                color: $menu-link-medium
 
             &.active
               &:before
@@ -1679,7 +1642,9 @@ body
                 font-size: 1.2em
                 left: -20px
                 top: -2px
-                color: $menu-link-light
+              
+              > a
+                color: $menu-link-medium
 
 
 +media($tablet)
@@ -1742,7 +1707,7 @@ body
     i.fa
       font-size: 30px
       cursor: pointer
-      color: $text-lighter
+      color: $text-dark
       background: unset
       display: inline-block
       margin-left: 63px
@@ -1766,7 +1731,7 @@ body
 
       .wy-menu-vertical-title
         position: relative
-        font-weight: bold
+        font-weight: $weight-body
         top: 15px
         left: 12px
 
@@ -1816,7 +1781,7 @@ body
                     font-size: 14px
   .wy-nav-content-wrap
     .wy-nav-top
-      color: $text-lighter
+      color: $text-dark
       background: unset
       margin-left: 13px
       margin-top: 13px
@@ -2146,8 +2111,8 @@ body
               padding-left: 30px
 
               a
-                font-weight: 400
-                color: $text-lighter
+                font-weight: $weight-body
+                color: $text-dark
 
               &.active
                 padding-top: 25px
@@ -2156,7 +2121,7 @@ body
                 a
                   position: relative
 
-                  font-weight: bold
+                  font-weight: $weight-body
 
                   &:after
                     content: ""
@@ -2255,10 +2220,10 @@ body
 
           &:before
             content: "\2022"
-            color: $lighter-blue
+            color: $blue
             position: absolute
-            left: -0.8em
-            font-size: 1.4em
+            left: -1.4em
+            font-size: 1em
 
       ul, ol
         color: #2980B9
@@ -2292,10 +2257,10 @@ body
 
               &:before
                 content: "\25e6"
-                color: $lighter-blue
+                color: $blue
                 position: absolute
                 left: -1.2em
-                font-size: 1em
+                font-size: 1.4em
 
         a
           &:hover
@@ -2307,7 +2272,7 @@ body
 ul.search
   em, .name, .ss360-highlight
     font-style: inherit
-    color: $blue
+    color: $text-dark
     background-color: $serach-highlighted
     padding-right: 3px
     margin-right: -3px
