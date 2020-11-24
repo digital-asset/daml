@@ -14,7 +14,9 @@ final case class Event(name: String, attributeMap: Map[String, String])
 
   override lazy val getAttributes: Attributes = {
     val attributes = Attributes.newBuilder()
-    attributeMap.foreach { case (k, v) => attributes.setAttribute(k, v) }
+    attributeMap
+      .filter { case (_, v) => !v.isEmpty }
+      .foreach { case (k, v) => attributes.setAttribute(k, v) }
     attributes.build
   }
 }
