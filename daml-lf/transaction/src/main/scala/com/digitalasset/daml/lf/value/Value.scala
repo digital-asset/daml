@@ -529,7 +529,7 @@ private final class `Value Equal instance`[Cid: Equal] extends Equal[Value[Cid]]
   import Value._
   import ScalazEqual._
 
-  override final def equalIsNatural: Boolean = Equal[Cid].equalIsNatural
+  override final def equalIsNatural: Boolean = false
 
   implicit final def Self: this.type = this
 
@@ -538,19 +538,21 @@ private final class `Value Equal instance`[Cid: Equal] extends Equal[Value[Cid]]
       case a @ (_: ValueInt64 | _: ValueNumeric | _: ValueText | _: ValueTimestamp | _: ValueParty |
           _: ValueBool | _: ValueDate | ValueUnit) => { case b => a == b }
       case r: ValueRecord[Cid] => {
-        case ValueRecord(tycon2, fields2) =>
+        case ValueRecord(_, fields2) =>
           import r._
-          tycon == tycon2 && fields === fields2
+          (fields.iterator zip fields2.iterator).forall {
+            case ((_, x), (_, y)) => x === y
+          }
       }
       case v: ValueVariant[Cid] => {
-        case ValueVariant(tycon2, variant2, value2) =>
+        case ValueVariant(_, variant2, value2) =>
           import v._
-          tycon == tycon2 && variant == variant2 && value === value2
+          variant == variant2 && value === value2
       }
       case v: ValueEnum => {
-        case ValueEnum(tycon2, value2) =>
+        case ValueEnum(_, value2) =>
           import v._
-          tycon == tycon2 && value == value2
+          value == value2
       }
       case ValueContractId(value) => {
         case ValueContractId(value2) =>

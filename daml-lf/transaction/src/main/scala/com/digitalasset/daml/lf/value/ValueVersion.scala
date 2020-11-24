@@ -20,14 +20,16 @@ private[lf] object ValueVersions
       _.protoValue,
     ) {
 
-  private[value] val minVersion = ValueVersion("1")
-  private[value] val minOptional = ValueVersion("2")
-  private[value] val minContractIdStruct = ValueVersion("3")
-  private[value] val minMap = ValueVersion("4")
-  private[value] val minEnum = ValueVersion("5")
-  private[value] val minNumeric = ValueVersion("6")
-  private[value] val minGenMap = ValueVersion("dev")
-  private[value] val minContractIdV1 = ValueVersion("dev")
+  private[lf] val minVersion = ValueVersion("1")
+  private[lf] val minOptional = ValueVersion("2")
+  private[lf] val minContractIdStruct = ValueVersion("3")
+  private[lf] val minMap = ValueVersion("4")
+  private[lf] val minEnum = ValueVersion("5")
+  private[lf] val minNumeric = ValueVersion("6")
+  private[lf] val minGenMap = ValueVersion("dev")
+  private[lf] val minNoTypeConstructor = ValueVersion("dev")
+  private[lf] val minNoRecordLabel = ValueVersion("dev")
+  private[lf] val minContractIdV1 = ValueVersion("dev")
 
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
   val StableOutputVersions: VersionRange[ValueVersion] =
