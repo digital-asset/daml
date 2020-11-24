@@ -10,22 +10,23 @@ DAML-LF Transaction Specification
 **version 10, 25 March 2020**
 
 This specification, in concert with the ``transaction.proto``
-machine-readable definition, defines a format for *DAML LF transactions*, to be
-used when inspecting ledger activity as a stream, or submitting changes
-to the ledger.
+machine-readable definition, defines a format for *DAML LF
+transactions*, to be used when inspecting ledger activity as a st
+ream, or submitting changes to the ledger.
 
 A *ledger* can be viewed as a sequence of these transactions.
 
 Do not read this without ``transaction.proto``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``transaction.proto`` defines the baseline rules for *DAML-LF transactions*; that
-file must be consulted in concert with this document for a full
-specification of DAML-LF transactions.  Except where required for
-clarity, we do not repeat rules defined and enforced in that file within
-this document.  When consulting the section on each message type, you
-must also refer to the same definition in ``transaction.proto`` for a
-full definition of the requirements for that message.
+``transaction.proto`` defines the baseline rules for *DAML-LF
+transactions*; that file must be consulted in concert with this
+document for a full specification of DAML-LF transactions.  Except
+where required for clarity, we do not repeat rules defined and
+enforced in that file within this document.  When consulting the
+section on each message type, you must also refer to the same
+definition in ``transaction.proto`` for a full definition of the
+requirements for that message.
 
 This document is insufficiently detailed to construct a correct
 transaction; you must refer to ``transaction.proto`` as well to have a
@@ -49,100 +50,108 @@ of this document, is not a valid DAML-LF transaction.
 Backward compatibility
 ^^^^^^^^^^^^^^^^^^^^^^
 
-DAML-LF transaction nodes, and transactions are encoded according a common versioning scheme, called the *transaction version scheme*.
-Each version of this scheme, called a transaction version, is associated to a unique language version.
+DAML-LF transaction nodes, and transactions are encoded according a
+common versioning scheme, called the *transaction version scheme*.
+Each version of this scheme, called a transaction version, is
+associated to a language version.
 
-In the following *dev* transaction version will refer to a transaction version associated to a *dev* language version and
-*stable* transaction version will refer to a transaction version associated to a non-*dev* language version.
+In the following *dev* transaction version will refer to a transaction
+version associated to a *dev* language version and *stable*
+transaction version will refer to a transaction version associated to
+a non-*dev* language version.
 
-Unlike the serialization format of a *dev* transaction version which can be changed freely without
-compatibility considerations, the serialization format of a *stable* transaction version cannot be changed
-or associated to a different language version once introduced.
+Unlike the serialization format of a *dev* transaction version which
+can be changed freely without compatibility considerations, the
+serialization format of a *stable* transaction version cannot be
+changed or associated to a different language version once introduced.
 
-An consumer compliant with this specification does not have
-to provide any support for *dev* transaction version. It must however accept
-all stable versions.
+An consumer compliant with this specification does not have to provide
+any support for *dev* transaction version. It must however accept all
+stable versions.
 
-Every change to ``transaction.proto`` entails a change to this specification.
-`Version history`_ defines a total ordering of all past stable versions; any
-stable version *y* unlisted there should be considered *y>k* for any known
-version *k*.  At the top of the specification file, just under the title
-are written a version number together with a date. While, the version number described the latest
-stable transaction version the file specified, the date indicate when the file was modified for the last time.
-Those changes may included rewording and typo correction in the specification of stable versions and
-arbitrary change in specification of a dev transaction versions.
+Every change to ``transaction.proto`` entails a change to this
+specification.  `Version history`_ defines a total ordering of all
+past stable versions; any stable version *y* unlisted there should be
+considered *y>k* for any known version *k*.  At the top of the
+specification file, just under the title are written a version number
+together with a date. While, the version number described the latest
+stable transaction version the file specified, the date indicate when
+the file was modified for the last time.  Those changes may included
+rewording and typo correction in the specification of stable versions
+and arbitrary change in specification of a dev transaction versions.
 
-A a node, or a transaction of version *n* may be interpreted by consulting any
-version of this document *m≥n*.  Likewise, any version *q* of the
-transaction specification is sufficient to interpret transactions of any
-version *r≤q*.  In other words, later versions of this specification
-preserve the semantics and parseability of earlier versions; there is no
-need to consult or implement older versions in order to interpret any
-transaction, and you may always simply consult the latest appropriate
-version.
+A a node, or a transaction of version *n* may be interpreted by
+consulting any version of this document *m≥n*.  Likewise, any version
+*q* of the transaction specification is sufficient to interpret
+transactions of any version *r≤q*.  In other words, later versions of
+this specification preserve the semantics and parseability of earlier
+versions; there is no need to consult or implement older versions in
+order to interpret any transaction, and you may always simply consult
+the latest appropriate version.
 
-By contrast, a node, or a transaction of version *s* must be rejected by a consumer
-that implements this specification of version *t<s*.  So if you produce
-a transaction of version *s*, you may assume that its consumer either
-implements some version *u≥s*, or will reject the message containing the
-transaction.  The ``.proto`` format may make parsing such transactions
-possible, but that is irrelevant; semantics defined in later versions of
-this specification may be vital for correctly interpreting transactions
-defined under those later versions, and you must not suppose otherwise.
+By contrast, a node, or a transaction of version *s* must be rejected
+by a consumer that implements this specification of version *t<s*.  So
+if you produce a transaction of version *s*, you may assume that its
+consumer either implements some version *u≥s*, or will reject the
+message containing the transaction.  The ``.proto`` format may make
+parsing such transactions possible, but that is irrelevant; semantics
+defined in later versions of this specification may be vital for
+correctly interpreting transactions defined under those later
+versions, and you must not suppose otherwise.
 
 For example, suppose you have a transaction of version 10.  You can
 expect it to be interpreted the same by consumers implementing
-specification version 11, 12, 5000, and so on.  On the other hand, you can
-expect a consumer of version 10 or 11 to reject the message containing
-that transaction, because specification version 12 might define some
-semantics vital to understanding your transaction.
+specification version 11, 12, 5000, and so on.  On the other hand, you
+can expect a consumer of version 10 or 11 to reject the message
+containing that transaction, because specification version 12 might
+define some semantics vital to understanding your transaction.
 
 "since version"
 ~~~~~~~~~~~~~~~
 
 Every message type and field is accompanied by one or more *since
 version x* annotations in this document, preceding some description of
-semantics.  This defines when that message, field, or semantic rule was
-introduced in the transaction specification.  Where there are multiple
-overlapping definitions of semantics for the same field of the form
-*since version x*, the correct interpretation for any transaction of
-version *y* is that under the greatest *x* such that *x≤y*, failing that
-the second-greatest such *x*, and so on.
+semantics.  This defines when that message, field, or semantic rule
+was introduced in the transaction specification.  Where there are
+multiple overlapping definitions of semantics for the same field of
+the form *since version x*, the correct interpretation for any
+transaction of version *y* is that under the greatest *x* such that
+*x≤y*, failing that the second-greatest such *x*, and so on.
 
-For example, suppose you have received transactions of versions 11 and 12,
-and this document defines overlapping semantics for *since version 10*,
-*11*, and *13*.  You should interpret both transactions according to the
-*since version 11* section, also relying on *since version 10* where not
-in conflict with *since version 11*; however, the *since version 13*
-section must be ignored entirely.
+For example, suppose you have received transactions of versions 11 and
+12, and this document defines overlapping semantics for *since version
+10*, *11*, and *13*.  You should interpret both transactions according
+to the *since version 11* section, also relying on *since version 10*
+where not in conflict with *since version 11*; however, the *since
+version 13* section must be ignored entirely.
 
 Changing this specification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Future versions of this specification must conform to the `DAML-LF
-Governance process`_ and preserve all invariants described above.  Where
-these are in conflict, the governance process takes priority.
+Governance process`_ and preserve all invariants described above.
+Where these are in conflict, the governance process takes priority.
 
 If you introduce version *z*, your changes to this document should
 almost certainly all occur under *since version z* annotations; a new
 version without any such annotations in either this or the `value`_
-specification is probably not a new version at all.  Simply updating the
-semantic descriptions is tantamount to retroactively editing the
-specification of older versions, and is a violation of governance except
-where correction of the description of those older versions is actually
-desirable.
+specification is probably not a new version at all.  Simply updating
+the semantic descriptions is tantamount to retroactively editing the
+specification of older versions, and is a violation of governance
+except where correction of the description of those older versions is
+actually desirable.
 
-Moreover, if those semantics conflict with prior version *y*, such as by
-deleting a field, you should note that with an annotation *since version
-z, conflicts with version y*.
+Moreover, if those semantics conflict with prior version *y*, such as
+by deleting a field, you should note that with an annotation *since
+version z, conflicts with version y*.
 
-For example, suppose in version 12, you are defining new semantics for a
-field introduced in version 11.  Simply describing those semantics under
-the existing *since version 11* section is a governance violation; you
-must add a *since version 12* section and describe the semantics there;
-this section should be titled *since version 12, conflicts with version
-2* if it does not merely extend, but instead replaces some part of the
-*since version 11* description.
+For example, suppose in version 12, you are defining new semantics for
+a field introduced in version 11.  Simply describing those semantics
+under the existing *since version 11* section is a governance
+violation; you must add a *since version 12* section and describe the
+semantics there; this section should be titled *since version 12,
+conflicts with version 2* if it does not merely extend, but instead
+replaces some part of the *since version 11* description.
 
 However, you may modify the *since version 11* section to explain how
 *that version* differs from the newly-added version 4; that is because
