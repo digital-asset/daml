@@ -239,7 +239,7 @@ To create an ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings
 .. _create-request:
 
 HTTP Request
-^^^^^^^^^^^^
+------------
 
 - URL: ``/v1/create``
 - Method: ``POST``
@@ -271,7 +271,7 @@ Where:
 .. _create-response:
 
 HTTP Response
-^^^^^^^^^^^^^
+-------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -306,7 +306,7 @@ Where:
 .. _create-request-with-meta:
 
 Creating a Contract with a Command ID
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------
 
 When creating a new contract you may specify an optional ``meta`` field. This allows you to control the `commandId` used when submitting a command to the ledger.
 
@@ -342,7 +342,7 @@ The JSON command below, demonstrates how to exercise an ``Iou_Transfer`` choice 
   :lines: 23, 52-55
 
 HTTP Request
-^^^^^^^^^^^^
+------------
 
 - URL: ``/v1/exercise``
 - Method: ``POST``
@@ -370,7 +370,7 @@ Where:
 .. _exercise-response:
 
 HTTP Response
-^^^^^^^^^^^^^
+-------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -441,7 +441,7 @@ The JSON command below, demonstrates how to exercise the ``Archive`` choice on t
 
 
 HTTP Request
-^^^^^^^^^^^^
+------------
 
 - URL: ``/v1/exercise``
 - Method: ``POST``
@@ -468,7 +468,7 @@ Where:
 - ``argument`` -- contract choice argument(s), empty, because ``Archive`` does not take any.
 
 HTTP Response
-^^^^^^^^^^^^^
+-------------
 
 Formatted similar to :ref:`Exercise by Contract ID response <exercise-response>`.
 
@@ -478,7 +478,7 @@ Create and Exercise in the Same Transaction
 This command allows creating a contract and exercising a choice on the newly created contract in the same transaction.
 
 HTTP Request
-^^^^^^^^^^^^
+------------
 
 - URL: ``/v1/create-and-exercise``
 - Method: ``POST``
@@ -510,7 +510,7 @@ Where:
 - ``argument`` -- contract choice argument(s).
 
 HTTP Response
-^^^^^^^^^^^^^
+-------------
 
 Please note that the response below is for a consuming choice, so it contains:
 
@@ -582,7 +582,7 @@ Fetch Contract by Contract ID
 =============================
 
 HTTP Request
-^^^^^^^^^^^^
+------------
 
 - URL: ``/v1/fetch``
 - Method: ``POST``
@@ -598,7 +598,7 @@ application/json body:
     }
 
 Contract Not Found HTTP Response
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -611,7 +611,7 @@ Contract Not Found HTTP Response
     }
 
 Contract Found HTTP Response
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -645,7 +645,7 @@ Fetch Contract by Key
 =====================
 
 HTTP Request
-^^^^^^^^^^^^
+------------
 
 - URL: ``/v1/fetch``
 - Method: ``POST``
@@ -663,7 +663,7 @@ HTTP Request
     }
 
 Contract Not Found HTTP Response
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -676,7 +676,7 @@ Contract Not Found HTTP Response
     }
 
 Contract Found HTTP Response
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -719,14 +719,14 @@ List all currently active contracts for all known templates.
 .. note:: You can only query active contracts with the ``/v1/query`` endpoint. Archived contracts (those that were archived or consumed during an exercise operation) will not be shown in the results.
 
 HTTP Request
-^^^^^^^^^^^^
+------------
 
 - URL: ``/v1/query``
 - Method: ``GET``
 - Content: <EMPTY>
 
 HTTP Response
-^^^^^^^^^^^^^
+-------------
 
 The response is the same as for the POST method below.
 
@@ -736,7 +736,7 @@ Get all Active Contracts Matching a Given Query
 List currently active contracts that match a given query.
 
 HTTP Request
-^^^^^^^^^^^^
+------------
 
 - URL: ``/v1/query``
 - Method: ``POST``
@@ -756,7 +756,7 @@ Where:
 - ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`.
 
 Empty HTTP Response
-^^^^^^^^^^^^^^^^^^^
+-------------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -769,7 +769,7 @@ Empty HTTP Response
     }
 
 Nonempty HTTP Response
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -804,7 +804,7 @@ Where
 - ``status`` matches the HTTP status code returned in the HTTP header.
 
 Nonempty HTTP Response with Unknown Template IDs Warning
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------------------------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -860,7 +860,7 @@ If an empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) 
     }
 
 HTTP Response
-^^^^^^^^^^^^^
+-------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -896,7 +896,7 @@ Where
 - ``isLocal`` -- true if party is hosted by the backing participant.
 
 Response with Unknown Parties Warning
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -927,7 +927,7 @@ Fetch All Known Parties
 - Content: <EMPTY>
 
 HTTP Response
-^^^^^^^^^^^^^
+-------------
 
 The response is the same as for the POST method above.
 
@@ -937,7 +937,7 @@ Allocate a New Party
 This endpoint is a JSON API proxy for the Ledger API's :ref:`AllocatePartyRequest <com.daml.ledger.api.v1.admin.AllocatePartyRequest>`. For more information about party management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
 
 HTTP Request
-^^^^^^^^^^^^
+------------
 
 - URL: ``/v1/parties/allocate``
 - Method: ``POST``
@@ -960,7 +960,7 @@ All fields in the request are optional, this means that an empty JSON object is 
     {}
 
 HTTP Response
-^^^^^^^^^^^^^
+-------------
 
 .. code-block:: json
 
@@ -977,14 +977,14 @@ List All DALF Packages
 ======================
 
 HTTP Request
-^^^^^^^^^^^^
+------------
 
 - URL: ``/v1/packages``
 - Method: ``GET``
 - Content: <EMPTY>
 
 HTTP Response
-^^^^^^^^^^^^^
+-------------
 
 .. code-block:: json
 
@@ -1005,7 +1005,7 @@ Download a DALF Package
 =======================
 
 HTTP Request
-^^^^^^^^^^^^
+------------
 
 - URL: ``/v1/packages/<package ID>``
 - Method: ``GET``
@@ -1014,7 +1014,7 @@ HTTP Request
 Note that the desired package ID is specified in the URL.
 
 HTTP Response, status: 200 OK
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 - Transfer-Encoding: ``chunked``
 - Content-Type: ``application/octet-stream``
@@ -1023,7 +1023,7 @@ HTTP Response, status: 200 OK
 The content (body) of the HTTP response contains raw DALF package bytes, without any encoding. Note that the package ID specified in the URL is actually the SHA-256 hash of the downloaded DALF package and can be used to validate the integrity of the downloaded content.
 
 HTTP Response with Error, any status different from 200 OK
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------------------------------
 
 Any status different from ``200 OK`` will be in the format specified below.
 
@@ -1043,7 +1043,7 @@ Upload a DAR File
 =================
 
 HTTP Request
-^^^^^^^^^^^^
+------------
 
 - URL: ``/v1/packages``
 - Method: ``POST``
@@ -1053,7 +1053,7 @@ HTTP Request
 The content (body) of the HTTP request contains raw DAR file bytes, without any encoding.
 
 HTTP Response, status: 200 OK
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -1066,7 +1066,7 @@ HTTP Response, status: 200 OK
     }
 
 HTTP Response with Error
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 - Content-Type: ``application/json``
 - Content:
@@ -1122,7 +1122,7 @@ Streaming API reports only one type of warnings -- unknown template IDs, which i
     {"warnings":{"unknownTemplateIds":<JSON Array of template ID strings>>}}
 
 Error and Warning Examples
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
 .. code-block:: none
 
@@ -1381,7 +1381,7 @@ with schedulers like
 `Kubernetes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`_.
 
 Liveness check
-^^^^^^^^^^^^^^
+--------------
 
 - URL: ``/livez``
 - Method: ``GET``
@@ -1392,7 +1392,7 @@ This is an unauthenticated endpoint intended to be used as a liveness
 probe.
 
 Readyness check
-^^^^^^^^^^^^^^^
+---------------
 
 - URL: ``/readyz``
 - Method: ``GET``
