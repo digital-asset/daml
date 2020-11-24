@@ -45,4 +45,13 @@ trait CommitStrategySupport[LogResult] {
     * A None return value signals that no difference should be signaled to the user.
     */
   def explainMismatchingValue(key: Key, expectedValue: Value, actualValue: Value): Option[String]
+
+  /**
+    * Validates that a single write set entry is readable.
+    *
+    * @param keyBytes   The serialized key.
+    * @param valueBytes The serialized value.
+    * @return `Right(())` if the entry is valid, or `Left(message)` with an explanation otherwise.
+    */
+  def checkEntryIsReadable(keyBytes: Key, valueBytes: Value): Either[String, Unit]
 }
