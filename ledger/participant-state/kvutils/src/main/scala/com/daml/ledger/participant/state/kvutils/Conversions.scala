@@ -230,6 +230,10 @@ private[state] object Conversions {
   def decodeTransactionNodeId(transactionNodeId: String): NodeId =
     NodeId(transactionNodeId.toInt)
 
+  /**
+    * Encodes a [[BlindingInfo]] into protobuf (i.e., [[DamlTransactionBlindingInfo]]).
+    * It is consensus-safe because it does so deterministically.
+    */
   def encodeBlindingInfo(blindingInfo: BlindingInfo): DamlTransactionBlindingInfo =
     DamlTransactionBlindingInfo.newBuilder
       .addAllDisclosures(encodeDisclosure(blindingInfo.disclosure).asJava)
@@ -249,7 +253,7 @@ private[state] object Conversions {
     )
 
   private def encodeParties(parties: Iterable[Party]): List[String] =
-    parties.asInstanceOf[Set[String]].toList.sorted // Deterministic
+    parties.asInstanceOf[Set[String]].toList.sorted
 
   private def encodeDisclosureEntry(disclosureEntry: (NodeId, Set[Party])): DisclosureEntry =
     DisclosureEntry.newBuilder
@@ -261,7 +265,7 @@ private[state] object Conversions {
       disclosure: Relation[NodeId, Party],
   ): List[DisclosureEntry] =
     disclosure.toList
-      .sortBy(_._1.index) // Deterministic
+      .sortBy(_._1.index)
       .map(encodeDisclosureEntry)
 
   private def encodeDivulgenceEntry(divulgenceEntry: (ContractId, Set[Party])): DivulgenceEntry =
@@ -274,6 +278,6 @@ private[state] object Conversions {
       divulgence: Relation[ContractId, Party],
   ): List[DivulgenceEntry] =
     divulgence.toList
-      .sortBy(_._1.coid) // Deterministic
+      .sortBy(_._1.coid)
       .map(encodeDivulgenceEntry)
 }

@@ -52,6 +52,9 @@ trait ErrorFactories {
   def resourceExhausted(description: String): StatusRuntimeException =
     grpcError(Status.RESOURCE_EXHAUSTED.withDescription(description))
 
+  def participantPrunedDataAccessed(message: String): StatusRuntimeException =
+    grpcError(Status.NOT_FOUND.withDescription(message))
+
   def grpcError(status: Status) = new ApiException(status)
 
 }

@@ -84,9 +84,10 @@ object LedgerApiTestTool {
 
     val config = Cli.parse(args).getOrElse(sys.exit(1))
 
-    val allTests: Vector[LedgerTestSuite] = Tests.all(config)
-    val allTestCaseNames: Set[String] =
-      (allTests ++ Tests.retired).flatMap(_.tests).map(_.name).toSet
+    val defaultTests: Vector[LedgerTestSuite] = Tests.default(config)
+    val visibleTests: Vector[LedgerTestSuite] = defaultTests ++ Tests.optional
+    val allTests: Vector[LedgerTestSuite] = visibleTests ++ Tests.retired
+    val allTestCaseNames: Set[String] = allTests.flatMap(_.tests).map(_.name).toSet
     val missingTests = (config.included ++ config.excluded).filterNot(prefix =>
       allTestCaseNames.exists(_.startsWith(prefix)))
     if (missingTests.nonEmpty) {
@@ -98,12 +99,12 @@ object LedgerApiTestTool {
     }
 
     if (config.listTestSuites) {
-      printAvailableTestSuites(allTests)
+      printAvailableTestSuites(visibleTests)
       sys.exit(0)
     }
 
     if (config.listTests) {
-      printAvailableTests(allTests)
+      printAvailableTests(visibleTests)
       sys.exit(0)
     }
 
@@ -132,12 +133,12 @@ object LedgerApiTestTool {
         sys.exit(1)
       })
 
-    val allCases = allTests.flatMap(_.tests)
-    val retiredCases = Tests.retired.flatMap(_.tests)
+    val defaultCases = defaultTests.flatMap(_.tests)
+    val allCases = defaultCases ++ Tests.optional.flatMap(_.tests) ++ Tests.retired.flatMap(_.tests)
 
     val includedTests =
-      if (config.included.isEmpty) allCases
-      else (allCases ++ retiredCases).filter(matches(config.included))
+      if (config.included.isEmpty) defaultCases
+      else (allCases).filter(matches(config.included))
 
     val testsToRun: Iterable[LedgerTestCase] =
       includedTests.filterNot(matches(config.excluded))

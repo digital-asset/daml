@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.api
 
 import java.util.UUID
-import java.util.concurrent.CompletionStage
+import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
@@ -91,4 +91,10 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
         correlationId,
         Envelope.enclose(submission),
         metadata.getOrElse(CommitMetadata(submission, None))))
+
+  override def prune(
+      pruneUpToInclusive: Offset,
+      submissionId: SubmissionId): CompletionStage[PruningResult] =
+    // kvutils has no participant local state to prune, so return success to let participant pruning proceed elsewhere.
+    CompletableFuture.completedFuture(PruningResult.ParticipantPruned)
 }

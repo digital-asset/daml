@@ -321,6 +321,7 @@ final class Metrics(val registry: MetricRegistry) {
         registry.timer(Prefix :+ "remove_expired_deduplication_data")
       val stopDeduplicatingCommand: Timer =
         registry.timer(Prefix :+ "stop_deduplicating_command")
+      val prune: Timer = registry.timer(Prefix :+ "prune")
 
       val publishTransaction: Timer = registry.timer(Prefix :+ "publish_transaction")
       val publishPartyAllocation: Timer = registry.timer(Prefix :+ "publish_party_allocation")
@@ -356,6 +357,7 @@ final class Metrics(val registry: MetricRegistry) {
           registry.timer(Prefix :+ "remove_expired_deduplication_data")
         val stopDeduplicatingCommand: Timer =
           registry.timer(Prefix :+ "stop_deduplicating_command")
+        val prune: Timer = registry.timer(Prefix :+ "prune")
 
         private val createDbMetrics: String => DatabaseMetrics =
           new DatabaseMetrics(registry, Prefix, _)
@@ -416,6 +418,8 @@ final class Metrics(val registry: MetricRegistry) {
           "remove_expired_deduplication_data") // FIXME Base name conflicts with removeExpiredDeduplicationData
         val stopDeduplicatingCommandDbMetrics: DatabaseMetrics = createDbMetrics(
           "stop_deduplicating_command") // FIXME Base name conflicts with stopDeduplicatingCommand
+        val pruneDbMetrics
+          : DatabaseMetrics = createDbMetrics("prune") // FIXME Base name conflicts with prune
         val truncateAllTables: DatabaseMetrics = createDbMetrics("truncate_all_tables")
         val lookupActiveContractDbMetrics: DatabaseMetrics = createDbMetrics(
           "lookup_active_contract") // FIXME Base name conflicts with lookupActiveContract
@@ -490,6 +494,7 @@ final class Metrics(val registry: MetricRegistry) {
         val configurationEntries: Timer = registry.timer(Prefix :+ "configuration_entries")
         val deduplicateCommand: Timer = registry.timer(Prefix :+ "deduplicate_command")
         val stopDeduplicateCommand: Timer = registry.timer(Prefix :+ "stop_deduplicating_command")
+        val prune: Timer = registry.timer(Prefix :+ "prune")
       }
 
       object read {
@@ -508,6 +513,7 @@ final class Metrics(val registry: MetricRegistry) {
         val uploadPackages: Timer = registry.timer(Prefix :+ "upload_packages")
         val allocateParty: Timer = registry.timer(Prefix :+ "allocate_party")
         val submitConfiguration: Timer = registry.timer(Prefix :+ "submit_configuration")
+        val prune: Timer = registry.timer(Prefix :+ "prune")
       }
     }
   }

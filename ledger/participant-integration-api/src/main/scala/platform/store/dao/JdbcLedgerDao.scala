@@ -39,6 +39,7 @@ import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
 import com.daml.platform.store.dao.CommandCompletionsTable.{
   prepareCompletionInsert,
+  prepareCompletionsDelete,
   prepareRejectionInsert
 }
 import com.daml.platform.store.dao.PersistenceResponse.Ok
@@ -838,6 +839,29 @@ private class JdbcLedgerDao(
         stopDeduplicatingCommandSync(commandId, submitter)
     }
 
+  private val SQL_UPDATE_MOST_RECENT_PRUNING = SQL(
+    """
+      |update parameters set participant_pruned_up_to_inclusive={pruned_up_to_inclusive}
+      |where participant_pruned_up_to_inclusive < {pruned_up_to_inclusive} or participant_pruned_up_to_inclusive is null
+      |""".stripMargin)
+
+  private def updateMostRecentPruning(prunedUpToInclusive: Offset)(
+      implicit conn: Connection): Unit = {
+    SQL_UPDATE_MOST_RECENT_PRUNING
+      .on("pruned_up_to_inclusive" -> prunedUpToInclusive)
+      .execute()
+    ()
+  }
+
+  override def prune(pruneUpToInclusive: Offset)(
+      implicit loggingContext: LoggingContext): Future[Unit] =
+    dbDispatcher.executeSql(metrics.daml.index.db.pruneDbMetrics) { implicit conn =>
+      transactionsWriter.prepareEventsDelete(pruneUpToInclusive).execute()
+      prepareCompletionsDelete(pruneUpToInclusive).execute()
+      updateMostRecentPruning(pruneUpToInclusive)
+      logger.info(s"Pruned ledger api server index db up to ${pruneUpToInclusive.toHexString}")
+    }
+
   override def reset()(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.truncateAllTables) { implicit conn =>
       val _ = SQL(queries.SQL_TRUNCATE_TABLES).execute()
@@ -858,7 +882,7 @@ private class JdbcLedgerDao(
     ContractsReader(dbDispatcher, dbType, metrics, lfValueTranslationCache)(executionContext)
 
   override val completions: CommandCompletionsReader =
-    new CommandCompletionsReader(dbDispatcher, metrics)
+    new CommandCompletionsReader(dbDispatcher, metrics, executionContext)
 
   private val postCommitValidation =
     if (performPostCommitValidation)
