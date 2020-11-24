@@ -176,25 +176,24 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
       jwt: Jwt,
       serviceUri: Uri,
       query: String,
-      offset: Option[domain.Offset] = None,
-      keepOpen: Boolean = false)(implicit asys: ActorSystem): Source[Message, NotUsed] =
-    singleClientWSStream(jwt, "query", serviceUri, query, offset, keepOpen)
+      offset: Option[domain.Offset] = None)(implicit asys: ActorSystem): Source[Message, NotUsed] =
+    singleClientWSStream(jwt, "query", serviceUri, query, offset)
 
   def singleClientFetchStream(
       jwt: Jwt,
       serviceUri: Uri,
       request: String,
-      offset: Option[domain.Offset] = None,
-      keepOpen: Boolean = false)(implicit asys: ActorSystem): Source[Message, NotUsed] =
-    singleClientWSStream(jwt, "fetch", serviceUri, request, offset, keepOpen)
+      offset: Option[domain.Offset] = None
+  )(implicit asys: ActorSystem): Source[Message, NotUsed] =
+    singleClientWSStream(jwt, "fetch", serviceUri, request, offset)
 
   def singleClientWSStream(
       jwt: Jwt,
       path: String,
       serviceUri: Uri,
       query: String,
-      offset: Option[domain.Offset],
-      keepOpen: Boolean = false)(implicit asys: ActorSystem): Source[Message, NotUsed] = {
+      offset: Option[domain.Offset]
+  )(implicit asys: ActorSystem): Source[Message, NotUsed] = {
 
     import spray.json._, json.JsonProtocol._
     val uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path(s"/v1/stream/$path"))
@@ -209,7 +208,9 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
             Seq(Map("offset" -> off.unwrap).toJson.compactPrint, query).iterator),
         Source single query)
       .map(TextMessage(_))
-      .concatMat(if (keepOpen) Source.maybe[Message] else Source.empty)(Keep.left)
+      // akka-http will cancel the whole stream once the input ends so we use
+      // Source.maybe to keep the input open.
+      .concatMat(Source.maybe[Message])(Keep.left)
       .via(webSocketFlow)
   }
 
