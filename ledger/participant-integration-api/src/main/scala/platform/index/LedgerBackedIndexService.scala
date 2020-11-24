@@ -40,6 +40,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
+import com.daml.metrics.{SpanAttribute, Spans}
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -75,7 +76,11 @@ private[platform] final class LedgerBackedIndexService(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] =
     between(startExclusive, endInclusive)(
-      (from, to) =>
+      (from, to) => {
+        from.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString))
+        to.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString))
         ledger
           .transactionTrees(
             startExclusive = from,
@@ -84,6 +89,7 @@ private[platform] final class LedgerBackedIndexService(
             verbose = verbose,
           )
           .map(_._2)
+      }
     )
 
   override def transactions(
@@ -93,7 +99,11 @@ private[platform] final class LedgerBackedIndexService(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
     between(startExclusive, endInclusive)(
-      (from, to) =>
+      (from, to) => {
+        from.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString))
+        to.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString))
         ledger
           .flatTransactions(
             startExclusive = from,
@@ -102,6 +112,7 @@ private[platform] final class LedgerBackedIndexService(
             verbose = verbose,
           )
           .map(_._2)
+      }
     )
 
   // Returns a function that memoizes the current end
