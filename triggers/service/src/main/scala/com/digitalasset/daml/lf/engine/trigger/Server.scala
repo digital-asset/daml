@@ -21,6 +21,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Directive, Directive1, Route}
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
+import akka.pattern.StatusReply
 import akka.stream.Materializer
 import akka.util.{ByteString, Timeout}
 
@@ -57,13 +58,10 @@ import scala.util.{Failure, Success, Try}
 
 class Server(
     authConfig: AuthConfig,
-    ledgerConfig: LedgerConfig,
-    restartConfig: TriggerRestartConfig,
     triggerDao: RunningTriggerDao,
     val logTriggerStatus: (UUID, String) => Unit)(
     implicit ctx: ActorContext[Server.Message],
-    materializer: Materializer,
-    esf: ExecutionSequencerFactory)
+    materializer: Materializer)
     extends StrictLogging {
 
   // We keep the compiled packages in memory as it is required to construct a trigger Runner.
@@ -105,21 +103,25 @@ class Server(
     }
   }
 
-  private def restartTriggers(triggers: Vector[RunningTrigger]): Either[String, Unit] = {
-    import cats.implicits._ // needed for traverse
-    triggers.traverse_(runningTrigger =>
-      for {
-        trigger <- Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName)
-      } yield startTrigger(trigger, runningTrigger))
+  private def restartTriggers(triggers: Vector[RunningTrigger])(
+      implicit ec: ExecutionContext): Future[Either[String, Unit]] = {
+    import cats.implicits._
+    triggers.toList.traverse(
+      runningTrigger =>
+        Trigger
+          .fromIdentifier(compiledPackages, runningTrigger.triggerName)
+          .map(trigger => (trigger, runningTrigger))) match {
+      case Left(err) => Future.successful(Left(err))
+      case Right(triggers) =>
+        Future.traverse(triggers)(x => startTrigger(x._1, x._2)).map(_ => Right(()))
+    }
   }
 
-  private def triggerRunnerName(triggerInstance: UUID): String =
-    triggerInstance.toString ++ "-monitor"
-
-  private def getRunner(triggerInstance: UUID): Option[ActorRef[TriggerRunner.Message]] =
-    ctx
-      .child(triggerRunnerName(triggerInstance))
-      .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
+  private def getRunner(triggerInstance: UUID): Future[Option[ActorRef[TriggerRunner.Message]]] = {
+    implicit val timeout: Timeout = Timeout(5 seconds)
+    implicit val scheduler: Scheduler = schedulerFromActorSystem(ctx.system)
+    ctx.self.ask(Server.GetRunner(_, triggerInstance))
+  }
 
   // The static config of a trigger, i.e., RunningTrigger but without a token.
   case class TriggerConfig(
@@ -155,39 +157,29 @@ class Server(
     }
   }
 
-  private def startTrigger(trigger: Trigger, runningTrigger: RunningTrigger): JsValue = {
-    discard[ActorRef[Message]](
-      ctx.spawn(
-        TriggerRunner(
-          new TriggerRunner.Config(
-            ctx.self,
-            runningTrigger.triggerInstance,
-            runningTrigger.triggerParty,
-            runningTrigger.triggerApplicationId,
-            AccessToken.unsubst(runningTrigger.triggerToken),
-            compiledPackages,
-            trigger,
-            ledgerConfig,
-            restartConfig
-          ),
-          runningTrigger.triggerInstance.toString
-        ),
-        triggerRunnerName(runningTrigger.triggerInstance)
-      ))
-    JsObject(("triggerId", runningTrigger.triggerInstance.toString.toJson))
+  private def startTrigger(trigger: Trigger, runningTrigger: RunningTrigger)(
+      implicit ec: ExecutionContext): Future[JsValue] = {
+    implicit val timeout: Timeout = Timeout(5 seconds)
+    implicit val scheduler: Scheduler = schedulerFromActorSystem(ctx.system)
+    ctx.self
+      .askWithStatus(x => Server.StartTrigger(trigger, runningTrigger, compiledPackages, x))
+      .map {
+        case () =>
+          JsObject(("triggerId", runningTrigger.triggerInstance.toString.toJson))
+      }
   }
 
   private def stopTrigger(uuid: UUID)(implicit ec: ExecutionContext): Future[Option[JsValue]] = {
-    triggerDao.removeRunningTrigger(uuid) map {
-      case false => None
+    triggerDao.removeRunningTrigger(uuid).flatMap {
+      case false => Future.successful(None)
       case true =>
-        getRunner(uuid) foreach { runner =>
-          runner ! TriggerRunner.Stop
+        getRunner(uuid).map { optRunner =>
+          optRunner.foreach { runner =>
+            runner ! TriggerRunner.Stop
+          }
+          logTriggerStatus(uuid, "stopped: by user request")
+          Some(JsObject(("triggerId", uuid.toString.toJson)))
         }
-        // If we couldn't find the runner then there is nothing to stop anyway,
-        // so pretend everything went normally.
-        logTriggerStatus(uuid, "stopped: by user request")
-        Some(JsObject(("triggerId", uuid.toString.toJson)))
     }
   }
 
@@ -201,7 +193,7 @@ class Server(
     triggerDao.getRunningTrigger(uuid).flatMap {
       case None => Future.successful(None)
       case Some(t) =>
-        getRunner(uuid) match {
+        getRunner(uuid).flatMap {
           case None =>
             Future.successful(Some(Result(Stopped, t.triggerName, t.triggerParty).toJson))
           case Some(act) =>
@@ -359,9 +351,11 @@ class Server(
                     token =>
                       val instOrErr: Future[Either[String, JsValue]] =
                         addNewTrigger(config, token)
-                          .map(_.map {
-                            case (trigger, runningTrigger) => startTrigger(trigger, runningTrigger)
-                          })
+                          .flatMap {
+                            case Left(value) => Future.successful(Left(value))
+                            case Right((trigger, runningTrigger)) =>
+                              startTrigger(trigger, runningTrigger).map(Right(_))
+                          }
                       onComplete(instOrErr) {
                         case Failure(exception) =>
                           complete(
@@ -472,6 +466,16 @@ object Server {
 
   case object Stop extends Message
 
+  final case class StartTrigger(
+      trigger: Trigger,
+      runningTrigger: RunningTrigger,
+      compiledPackages: CompiledPackages,
+      replyTo: ActorRef[StatusReply[Unit]])
+      extends Message
+
+  final case class GetRunner(replyTo: ActorRef[Option[ActorRef[TriggerRunner.Message]]], uuid: UUID)
+      extends Message
+
   // Messages passed to the server from a TriggerRunnerImpl
 
   final case class TriggerStarting(triggerInstance: UUID) extends Message
@@ -487,6 +491,9 @@ object Server {
       triggerInstance: UUID,
       cause: String
   ) extends Message
+
+  private def triggerRunnerName(triggerInstance: UUID): String =
+    triggerInstance.toString ++ "-monitor"
 
   def apply(
       host: String,
@@ -511,17 +518,17 @@ object Server {
     val (dao, server, initializeF): (RunningTriggerDao, Server, Future[Unit]) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
-        val server = new Server(authConfig, ledgerConfig, restartConfig, dao, logTriggerStatus)
+        val server = new Server(authConfig, dao, logTriggerStatus)
         (dao, server, Future.successful(()))
       case Some(c) =>
         val dao = DbTriggerDao(c)
-        val server = new Server(authConfig, ledgerConfig, restartConfig, dao, logTriggerStatus)
+        val server = new Server(authConfig, dao, logTriggerStatus)
         val initialize = for {
           _ <- dao.initialize
           packages <- dao.readPackages
           _ = server.addPackagesInMemory(packages)
           triggers <- dao.readRunningTriggers
-          _ = server.restartTriggers(triggers)
+          _ <- server.restartTriggers(triggers)
         } yield ()
         (dao, server, initialize)
     }
@@ -536,6 +543,34 @@ object Server {
     def running(binding: ServerBinding): Behavior[Message] =
       Behaviors
         .receiveMessage[Message] {
+          case StartTrigger(trigger, runningTrigger, compiledPackages, replyTo) =>
+            Try(
+              ctx.spawn(
+                TriggerRunner(
+                  new TriggerRunner.Config(
+                    ctx.self,
+                    runningTrigger.triggerInstance,
+                    runningTrigger.triggerParty,
+                    runningTrigger.triggerApplicationId,
+                    AccessToken.unsubst(runningTrigger.triggerToken),
+                    compiledPackages,
+                    trigger,
+                    ledgerConfig,
+                    restartConfig
+                  ),
+                  runningTrigger.triggerInstance.toString
+                ),
+                triggerRunnerName(runningTrigger.triggerInstance)
+              )) match {
+              case Failure(exception) => replyTo ! StatusReply.error(exception)
+              case Success(_) => replyTo ! StatusReply.success(())
+            }
+            Behaviors.same
+          case GetRunner(replyTo, uuid) =>
+            replyTo ! ctx
+              .child(triggerRunnerName(uuid))
+              .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
+            Behaviors.same
           case m: TriggerStarting =>
             logTriggerStarting(m)
             Behaviors.same
@@ -614,6 +649,35 @@ object Server {
 
         case m: TriggerStarted =>
           logTriggerStarted(m)
+          Behaviors.same
+
+        case StartTrigger(trigger, runningTrigger, compiledPackages, replyTo) =>
+          Try(
+            ctx.spawn(
+              TriggerRunner(
+                new TriggerRunner.Config(
+                  ctx.self,
+                  runningTrigger.triggerInstance,
+                  runningTrigger.triggerParty,
+                  runningTrigger.triggerApplicationId,
+                  AccessToken.unsubst(runningTrigger.triggerToken),
+                  compiledPackages,
+                  trigger,
+                  ledgerConfig,
+                  restartConfig
+                ),
+                runningTrigger.triggerInstance.toString
+              ),
+              triggerRunnerName(runningTrigger.triggerInstance)
+            )) match {
+            case Failure(exception) => replyTo ! StatusReply.error(exception)
+            case Success(_) => replyTo ! StatusReply.success(())
+          }
+          Behaviors.same
+        case GetRunner(replyTo, uuid) =>
+          replyTo ! ctx
+            .child(triggerRunnerName(uuid))
+            .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
           Behaviors.same
 
         case _: TriggerInitializationFailure | _: TriggerRuntimeFailure =>
