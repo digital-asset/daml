@@ -160,7 +160,7 @@ private[kvutils] class TransactionCommitter(
   /** Validate ledger effective time and the command's time-to-live. */
   private[committer] def validateLedgerTime: Step =
     (commitContext, transactionEntry) => {
-      val (_, config) = getCurrentConfiguration(defaultConfig, commitContext.inputs, logger)
+      val (_, config) = getCurrentConfiguration(defaultConfig, commitContext, logger)
       val timeModel = config.timeModel
 
       commitContext.getRecordTime match {
