@@ -602,6 +602,15 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
           builder.setUpdate(u)
         case EScenario(s) =>
           builder.setScenario(s)
+        case EToAny(ty, body) =>
+          assertSince(LV.Features.anyType, "Expr.FromAny")
+          builder.setToAny(PLF.Expr.ToAny.newBuilder().setType(ty).setExpr(body))
+        case EFromAny(ty, body) =>
+          assertSince(LV.Features.anyType, "Expr.FromAny")
+          builder.setFromAny(PLF.Expr.FromAny.newBuilder().setType(ty).setExpr(body))
+        case ETypeRep(ty) =>
+          assertSince(LV.Features.typeRep, "Expr.TypeRep")
+          builder.setTypeRep(ty)
       }
       builder
     }
