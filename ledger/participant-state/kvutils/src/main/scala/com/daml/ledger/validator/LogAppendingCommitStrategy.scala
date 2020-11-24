@@ -33,7 +33,7 @@ class LogAppendingCommitStrategy[Index](
   ): Future[Index] =
     for {
       (serializedKeyValuePairs, envelopedLogEntry) <- inParallel(
-        Future(stateSerializationStrategy.serializeState(outputState)),
+        Future(stateSerializationStrategy.serializeStateUpdates(outputState)),
         Future(Envelope.enclose(entry)),
       )
       (_, _, index) <- inParallel(

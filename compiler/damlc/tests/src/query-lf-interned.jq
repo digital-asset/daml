@@ -17,3 +17,5 @@ def get_field(pkg): .field_interned_str | resolve_interned_string(pkg);
 def get_name(pkg): .name_interned_str | resolve_interned_string(pkg);
 
 def get_text(pkg): .text_interned_str | resolve_interned_string(pkg);
+
+def norm_ty(pkg): if has("interned") then pkg.interned_types[.interned] else . end;

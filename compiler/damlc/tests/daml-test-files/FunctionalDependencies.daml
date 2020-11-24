@@ -4,8 +4,8 @@
 -- Check that functional dependency metadata is added when available.
 
 -- @SINCE-LF 1.8
--- @QUERY-LF .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$fdFoo"]) | .type | .forall | select(.vars | length == 2) | .body | .struct | .fields | length == 1
--- @QUERY-LF .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$fdBar"]) | .type | .forall | select(.vars | length == 5) | .body | .struct | .fields | length == 3
+-- @QUERY-LF .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$fdFoo"]) | .type | lf::norm_ty($pkg) | .forall | select(.vars | length == 2) | .body | lf::norm_ty($pkg) | .struct | .fields | length == 1
+-- @QUERY-LF .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$fdBar"]) | .type | lf::norm_ty($pkg) | .forall | select(.vars | length == 5) | .body | lf::norm_ty($pkg) | .struct | .fields | length == 3
 module FunctionalDependencies where
 
 class Foo a b | a -> b where

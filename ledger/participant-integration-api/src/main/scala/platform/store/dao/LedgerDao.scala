@@ -23,7 +23,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
@@ -165,6 +165,15 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       commandId: CommandId,
       submitter: Ref.Party,
   )(implicit loggingContext: LoggingContext): Future[Unit]
+
+  /**
+    * Prunes participant events and completions in archived history and remembers largest
+    * pruning offset processed thus far.
+    *
+    * @param pruneUpToInclusive offset up to which to prune archived history inclusively
+    * @return
+    */
+  def prune(pruneUpToInclusive: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
 }
 
 private[platform] trait LedgerWriteDao extends ReportsHealth {
@@ -189,6 +198,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       offset: Offset,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
   )(implicit loggingContext: LoggingContext): TransactionsWriter.PreparedInsert
 
   def storeTransaction(
@@ -201,6 +211,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       offset: Offset,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   def storeRejection(

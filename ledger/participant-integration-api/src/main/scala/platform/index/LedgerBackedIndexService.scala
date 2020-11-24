@@ -308,6 +308,11 @@ private[platform] final class LedgerBackedIndexService(
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     ledger.stopDeduplicatingCommand(commandId, submitter)
 
+  /** Participant pruning command */
+  override def prune(pruneUpToInclusive: Offset)(
+      implicit loggingContext: LoggingContext): Future[Unit] =
+    ledger.prune(pruneUpToInclusive)
+
   private def concreteOffset(startExclusive: Option[LedgerOffset.Absolute]): Future[Offset] =
     startExclusive
       .map(off => Future.fromTry(ApiOffset.fromString(off.value)))

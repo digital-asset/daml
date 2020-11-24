@@ -21,8 +21,8 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{DatabaseMetrics, Metrics, Timed}
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
-import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
+import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -72,15 +72,20 @@ private[dao] final class TransactionsReader(
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
-    val query = (range: EventsRange[Long]) => { implicit connection: Connection =>
+    val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
       logger.debug(s"getFlatTransactions query($range)")
-      EventsTable
-        .preparePagedGetFlatTransactions(sqlFunctions)(
-          range = range,
-          filter = filter,
-          pageSize = pageSize,
-        )
-        .executeSql
+      QueryNonPruned.executeSqlOrThrow(
+        EventsTable
+          .preparePagedGetFlatTransactions(sqlFunctions)(
+            range = EventsRange(range.startExclusive._2, range.endInclusive._2),
+            filter = filter,
+            pageSize = pageSize,
+          )
+          .executeSql,
+        range.startExclusive._1,
+        pruned =>
+          s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}"
+      )
     }
 
     val events: Source[EventsTable.Entry[Event], NotUsed] =
@@ -134,15 +139,20 @@ private[dao] final class TransactionsReader(
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
-    val query = (range: EventsRange[Long]) => { implicit connection: Connection =>
+    val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
       logger.debug(s"getTransactionTrees query($range)")
-      EventsTable
-        .preparePagedGetTransactionTrees(sqlFunctions)(
-          eventsRange = range,
-          requestingParties = requestingParties,
-          pageSize = pageSize,
-        )
-        .executeSql
+      QueryNonPruned.executeSqlOrThrow(
+        EventsTable
+          .preparePagedGetTransactionTrees(sqlFunctions)(
+            eventsRange = EventsRange(range.startExclusive._2, range.endInclusive._2),
+            requestingParties = requestingParties,
+            pageSize = pageSize,
+          )
+          .executeSql,
+        range.startExclusive._1,
+        pruned =>
+          s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}"
+      )
     }
 
     val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
@@ -195,13 +205,18 @@ private[dao] final class TransactionsReader(
 
     val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
       logger.debug(s"getActiveContracts query($range)")
-      EventsTable
-        .preparePagedGetActiveContracts(sqlFunctions)(
-          range = range,
-          filter = filter,
-          pageSize = pageSize,
-        )
-        .executeSql
+      QueryNonPruned.executeSqlOrThrow(
+        EventsTable
+          .preparePagedGetActiveContracts(sqlFunctions)(
+            range = range,
+            filter = filter,
+            pageSize = pageSize,
+          )
+          .executeSql,
+        activeAt,
+        pruned =>
+          s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}"
+      )
     }
 
     val events: Source[EventsTable.Entry[Event], NotUsed] =
@@ -220,9 +235,6 @@ private[dao] final class TransactionsReader(
       .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
   }
 
-  private def nextPageRange[E](endEventSeqId: Long)(a: EventsTable.Entry[E]): EventsRange[Long] =
-    EventsRange(startExclusive = a.eventSequentialId, endInclusive = endEventSeqId)
-
   private def nextPageRange[E](endEventSeqId: (Offset, Long))(
       a: EventsTable.Entry[E],
   ): EventsRange[(Offset, Long)] =
@@ -232,7 +244,14 @@ private[dao] final class TransactionsReader(
       implicit loggingContext: LoggingContext,
   ): Future[EventsRange[(Offset, Long)]] =
     dispatcher
-      .executeSql(dbMetrics.getAcsEventSeqIdRange)(EventsRange.readEventSeqIdRange(activeAt))
+      .executeSql(dbMetrics.getAcsEventSeqIdRange)(implicit connection =>
+        QueryNonPruned.executeSql(
+          EventsRange.readEventSeqIdRange(activeAt)(connection),
+          activeAt,
+          pruned =>
+            s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}"
+      ))
+      .flatMap(_.fold(Future.failed, Future.successful))
       .map { x =>
         EventsRange(
           startExclusive = (Offset.beforeBegin, 0),
@@ -242,9 +261,24 @@ private[dao] final class TransactionsReader(
   private def getEventSeqIdRange(
       startExclusive: Offset,
       endInclusive: Offset
-  )(implicit loggingContext: LoggingContext): Future[EventsRange[Long]] =
-    dispatcher.executeSql(dbMetrics.getEventSeqIdRange)(
-      EventsRange.readEventSeqIdRange(EventsRange(startExclusive, endInclusive)))
+  )(implicit loggingContext: LoggingContext): Future[EventsRange[(Offset, Long)]] =
+    dispatcher
+      .executeSql(dbMetrics.getEventSeqIdRange)(
+        implicit connection =>
+          QueryNonPruned.executeSql(
+            EventsRange.readEventSeqIdRange(EventsRange(startExclusive, endInclusive))(connection),
+            startExclusive,
+            pruned =>
+              s"Transactions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}"
+        ))
+      .flatMap(
+        _.fold(
+          Future.failed,
+          x =>
+            Future.successful(
+              EventsRange(
+                startExclusive = (startExclusive, x.startExclusive),
+                endInclusive = (endInclusive, x.endInclusive)))))
 
   private def streamEvents[A: Ordering, E](
       verbose: Boolean,

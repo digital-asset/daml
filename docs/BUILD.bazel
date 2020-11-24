@@ -676,6 +676,13 @@ daml_test(
 )
 
 daml_test(
+    name = "daml-ref-daml-test-dev",
+    timeout = "long",
+    srcs = glob(["source/daml/code-snippets-dev/**/*.daml"]),
+    target = "1.dev",
+)
+
+daml_test(
     name = "introduction-daml-test",
     srcs = glob(["source/getting-started/introduction/code/**/*.daml"]),
 )

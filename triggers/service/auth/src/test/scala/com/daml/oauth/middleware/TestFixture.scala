@@ -31,7 +31,6 @@ trait TestFixture
     with SuiteResource[(AdjustableClock, ServerBinding, ServerBinding)] {
   self: Suite =>
   protected val ledgerId: String = "test-ledger"
-  protected val applicationId: String = "test-application"
   protected val jwtSecret: String = "secret"
   override protected lazy val suiteResource
     : Resource[(AdjustableClock, ServerBinding, ServerBinding)] = {
@@ -43,7 +42,6 @@ trait TestFixture
           OAuthConfig(
             port = Port.Dynamic,
             ledgerId = ledgerId,
-            applicationId = Some(applicationId),
             jwtSecret = jwtSecret,
             parties = Some(ApiTypes.Party.subst(Set("Alice", "Bob"))),
             clock = Some(clock),

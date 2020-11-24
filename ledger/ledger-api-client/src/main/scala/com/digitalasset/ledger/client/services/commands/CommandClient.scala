@@ -86,6 +86,8 @@ final class CommandClient(
     * Tracks the results (including timeouts) of incoming commands.
     * Applies a maximum bound for in-flight commands which have been submitted, but not confirmed through command completions.
     *
+    * The resulting flow will backpressure if downstream backpressures, independently of the number of in-flight commands.
+    *
     * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
     */
   def trackCommands[Context](parties: Seq[String], token: Option[String] = None)(
@@ -102,6 +104,8 @@ final class CommandClient(
 
   /**
     * Tracks the results (including timeouts) of incoming commands.
+    *
+    * The resulting flow will backpressure if downstream backpressures, independently of the number of in-flight commands.
     *
     * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
     */

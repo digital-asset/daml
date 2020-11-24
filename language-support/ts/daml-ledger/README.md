@@ -47,6 +47,13 @@ Exercise a choice on a contract identified by its contract id.
 ---------------
 Exercise a choice on a contract identified by its contract key.
 
+`createAndExercise`
+-------------------
+
+Create a new contract and, within the same transaction, immediately exercise a
+choice on it. Primarily meant for consuming choices, but that's not a
+requirement.
+
 `query`
 -------
 Retrieve contracts for a given template matching a given query. If no query is given, all contracts

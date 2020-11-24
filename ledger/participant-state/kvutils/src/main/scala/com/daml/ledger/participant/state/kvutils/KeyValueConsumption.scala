@@ -264,7 +264,12 @@ object KeyValueConsumption {
       transaction = CommittedTransaction(transaction),
       transactionId = hexTxId,
       recordTime = recordTime,
-      divulgedContracts = List.empty
+      divulgedContracts = List.empty,
+      blindingInfo =
+        if (txEntry.hasBlindingInfo)
+          Some(Conversions.decodeBlindingInfo(txEntry.getBlindingInfo))
+        else
+          None,
     )
   }
 

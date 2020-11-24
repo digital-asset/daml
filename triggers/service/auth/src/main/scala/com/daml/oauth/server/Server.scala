@@ -69,14 +69,19 @@ class Server(config: Config) {
   private def toPayload(req: Request.Authorize): AuthServiceJWTPayload = {
     var actAs: Seq[String] = Seq()
     var readAs: Seq[String] = Seq()
+    var applicationId: Option[String] = None
     req.scope.foreach(_.split(" ").foreach {
       case s if s.startsWith("actAs:") => actAs ++= Seq(s.stripPrefix("actAs:"))
       case s if s.startsWith("readAs:") => readAs ++= Seq(s.stripPrefix("readAs:"))
+      // Given that this is only for testing,
+      // we don’t guard against multiple application id claims.
+      case s if s.startsWith("applicationId:") =>
+        applicationId = Some(s.stripPrefix("applicationId:"))
       case _ => ()
     })
     AuthServiceJWTPayload(
       ledgerId = Some(config.ledgerId),
-      applicationId = config.applicationId,
+      applicationId = applicationId,
       // Not required by the default auth service
       participantId = None,
       // Expiry is set when the token is retrieved

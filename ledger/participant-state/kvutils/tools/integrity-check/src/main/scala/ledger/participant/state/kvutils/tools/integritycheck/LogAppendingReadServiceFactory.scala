@@ -17,6 +17,7 @@ import com.daml.ledger.participant.state.kvutils.export.WriteSet
 import com.daml.ledger.participant.state.v1.{LedgerId, LedgerInitialConditions, Offset, Update}
 import com.daml.metrics.Metrics
 
+import scala.collection.immutable
 import scala.collection.mutable.ListBuffer
 
 final class LogAppendingReadServiceFactory(
@@ -36,7 +37,7 @@ final class LogAppendingReadServiceFactory(
   /** Returns a new ReadService that can stream all previously recorded updates */
   override def createReadService(implicit materializer: Materializer): ReplayingReadService =
     this.synchronized {
-      val recordedBlocksSnapshot = recordedBlocks.toList
+      def recordedBlocksSnapshot: immutable.Seq[LedgerRecord] = recordedBlocks.toList
 
       val keyValueSource = new LedgerReader {
         override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =

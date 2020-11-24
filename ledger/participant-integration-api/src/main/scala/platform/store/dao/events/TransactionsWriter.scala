@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
-import anorm.BatchSql
+import anorm.{BatchSql, Row, SimpleSql}
 import com.daml.ledger.participant.state.v1.{
   CommittedTransaction,
   DivulgedContract,
@@ -54,6 +54,11 @@ object TransactionsWriter {
     }
   }
 
+  private[dao] def extractBlindingInfo(
+      transaction: CommittedTransaction,
+      blindingInfo: Option[BlindingInfo],
+  ): BlindingInfo =
+    blindingInfo.getOrElse(Blinding.blind(transaction))
 }
 
 private[dao] final class TransactionsWriter(
@@ -61,6 +66,8 @@ private[dao] final class TransactionsWriter(
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
 ) {
+
+  import TransactionsWriter._
 
   private val contractsTable = ContractsTable(dbType)
   private val contractWitnessesTable = WitnessesTable.ForContracts(dbType)
@@ -80,7 +87,7 @@ private[dao] final class TransactionsWriter(
       blinding: BlindingInfo,
   ): WitnessRelation[NodeId] = {
     val disclosed =
-      transaction.nodes.iterator.collect { case (k, (_: Create | _: Exercise)) => k }.toSet
+      transaction.nodes.iterator.collect { case (k, _: Create | _: Exercise) => k }.toSet
     blinding.disclosure.filter { case (nodeId, _) => disclosed(nodeId) }
   }
 
@@ -136,9 +143,10 @@ private[dao] final class TransactionsWriter(
       offset: Offset,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
   ): TransactionsWriter.PreparedInsert = {
 
-    val blinding = Blinding.blind(transaction)
+    val blinding = extractBlindingInfo(transaction, blindingInfo)
 
     val disclosureForFlatTransaction =
       computeDisclosureForFlatTransaction(transaction)
@@ -199,5 +207,8 @@ private[dao] final class TransactionsWriter(
     )
 
   }
+
+  def prepareEventsDelete(endInclusive: Offset): SimpleSql[Row] =
+    EventsTable.prepareEventsDelete(endInclusive)
 
 }

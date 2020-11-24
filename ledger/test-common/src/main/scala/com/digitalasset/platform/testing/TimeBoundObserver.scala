@@ -15,20 +15,32 @@ final class TimeBoundObserver[A](
 )(delegate: StreamObserver[A])(implicit executionContext: ExecutionContext)
     extends StreamObserver[A] {
 
+  private var done = false
+
   Delayed.by(duration)(synchronized {
-    onCompleted()
-    Context.current().withCancellation().cancel(null)
+    if (!done) {
+      onCompleted()
+      val _ = Context.current().withCancellation().cancel(null)
+    }
   })
 
   override def onNext(value: A): Unit = synchronized {
-    delegate.onNext(value)
+    if (!done) {
+      delegate.onNext(value)
+    }
   }
 
   override def onError(t: Throwable): Unit = synchronized {
-    delegate.onError(t)
+    if (!done) {
+      delegate.onError(t)
+      done = true
+    }
   }
 
   override def onCompleted(): Unit = synchronized {
-    delegate.onCompleted()
+    if (!done) {
+      delegate.onCompleted()
+      done = true
+    }
   }
 }

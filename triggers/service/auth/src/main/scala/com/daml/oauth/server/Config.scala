@@ -13,8 +13,6 @@ case class Config(
     port: Port,
     // Ledger ID of issued tokens
     ledgerId: String,
-    // Application ID of issued tokens
-    applicationId: Option[String],
     // Secret used to sign JWTs
     jwtSecret: String,
     // Only authorize requests for these parties, if set.
@@ -25,13 +23,7 @@ case class Config(
 
 object Config {
   private val Empty =
-    Config(
-      port = Port.Dynamic,
-      ledgerId = null,
-      applicationId = None,
-      jwtSecret = null,
-      parties = None,
-      clock = None)
+    Config(port = Port.Dynamic, ledgerId = null, jwtSecret = null, parties = None, clock = None)
 
   def parseConfig(args: Seq[String]): Option[Config] =
     configParser.parse(args, Empty)
@@ -48,9 +40,6 @@ object Config {
 
       opt[String]("ledger-id")
         .action((x, c) => c.copy(ledgerId = x))
-
-      opt[String]("application-id")
-        .action((x, c) => c.copy(applicationId = Some(x)))
 
       opt[String]("secret")
         .action((x, c) => c.copy(jwtSecret = x))

@@ -51,14 +51,18 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         None
       }
 
-    val env = DecoderEnv(
+    val env0 = DecoderEnv(
       packageId,
       internedStrings,
       internedDottedNames,
+      IndexedSeq.empty,
       Some(dependencyTracker),
       None,
       onlySerializableDataDefs,
     )
+    val internedTypes = decodeInternedTypes(env0, lfPackage)
+    val env = env0.copy(internedTypes = internedTypes)
+
     Package(
       modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_)),
       directDeps = dependencyTracker.getDependencies,
@@ -102,14 +106,19 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       throw ParseError(
         s"expected exactly one module in proto package, found ${lfScenarioModule.getModulesCount} modules")
 
-    DecoderEnv(
+    val env0 = DecoderEnv(
       packageId,
       internedStrings,
       internedDottedNames,
+      IndexedSeq.empty,
       None,
       None,
       onlySerializableDataDefs = false
-    ).decodeModule(lfScenarioModule.getModules(0))
+    )
+    val internedTypes =
+      decodeInternedTypes(env0, lfScenarioModule)
+    val env = env0.copy(internedTypes = internedTypes)
+    env.decodeModule(lfScenarioModule.getModules(0))
 
   }
 
@@ -138,6 +147,19 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       case Right(x) => x
     }
 
+  private[archive] def decodeInternedTypes(
+      env: DecoderEnv,
+      lfPackage: PLF.Package,
+  ): IndexedSeq[Type] = {
+    val lfTypes = lfPackage.getInternedTypesList
+    if (!lfTypes.isEmpty)
+      assertSince(LV.Features.internedTypes, "interned types table")
+    lfTypes.iterator.asScala
+      .foldLeft(new mutable.ArrayBuffer[Type](lfTypes.size)) { (buf, typ) =>
+        buf += env.copy(internedTypes = buf).decodeType(typ)
+      }
+      .toIndexedSeq
+  }
   case class PackageDependencyTracker(self: PackageId) {
     private val deps = mutable.Set.empty[PackageId]
     def markDependency(pkgId: PackageId): Unit =
@@ -150,6 +172,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       packageId: PackageId,
       internedStrings: ImmArraySeq[String],
       internedDottedNames: ImmArraySeq[DottedName],
+      internedTypes: IndexedSeq[Type],
       optDependencyTracker: Option[PackageDependencyTracker],
       optModuleName: Option[ModuleName],
       onlySerializableDataDefs: Boolean
@@ -653,6 +676,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
                 name => throw ParseError(s"TStruct: duplicate field $name"),
                 identity
               ))
+        case PLF.Type.SumCase.INTERNED =>
+          internedTypes.applyOrElse(
+            lfType.getInterned,
+            (index: Int) => throw ParseError(s"invalid internedTypes table index $index"),
+          )
         case PLF.Type.SumCase.SUM_NOT_SET =>
           throw ParseError("Type.SUM_NOT_SET")
       }

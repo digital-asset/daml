@@ -132,7 +132,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
     for {
       from <- ledgerDao.lookupLedgerEnd()
       (_, fetch1) <- store(txFetch(alice, divulgedContractId))
-      (_, divulgence) <- store(divulgedContracts, emptyTransaction(alice))
+      (_, divulgence) <- store(divulgedContracts, blindingInfo = None, emptyTransaction(alice))
       (_, fetch2) <- store(txFetch(alice, divulgedContractId))
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(from, to, defaultAppId, Set(alice))

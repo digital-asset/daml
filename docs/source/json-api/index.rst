@@ -1201,7 +1201,7 @@ Streaming API
 *************
 
 Two subprotocols must be passed with every request, as described in
-`Passing token with WebSockets <#passing-token-with-websockets>`__.
+`Auth via WebSockets <#auth-via-websockets>`__.
 
 JavaScript/Node.js example demonstrating how to establish Streaming API connection:
 

@@ -69,7 +69,7 @@ Scaling
 
 The main functionalities of a system providing the Ledger API are:
 
-1. serving the API itself (handling the gRPC connections, authenticating users, etc),
+1. serving the API itself: handling the gRPC connections and authorizing users,
 
 #. allowing the API users to access their :ref:`ledger projection <da-model-projections>` (reading the ledger), and
 

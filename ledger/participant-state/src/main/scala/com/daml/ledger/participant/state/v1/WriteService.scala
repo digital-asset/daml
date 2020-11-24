@@ -21,16 +21,18 @@ import com.daml.ledger.api.health.ReportsHealth
   * plans to make this functionality uniformly available: see the roadmap for
   * progress information https://github.com/digital-asset/daml/issues/121.
   *
-  * As of now there are three methods for changing the state of a DAML ledger:
+  * As of now there are four methods for changing the state of a DAML ledger:
   * - submitting a transaction using [[WriteService!.submitTransaction]]
   * - allocating a new party using [[WritePartyService!.allocateParty]]
   * - uploading a new package using [[WritePackagesService!.uploadPackages]]
+  * - pruning a participant ledger using [[WriteParticipantPruningService!.prune]]
   *
   */
 trait WriteService
     extends WritePackagesService
     with WritePartyService
     with WriteConfigService
+    with WriteParticipantPruningService
     with ReportsHealth {
 
   /** Submit a transaction for acceptance to the ledger.

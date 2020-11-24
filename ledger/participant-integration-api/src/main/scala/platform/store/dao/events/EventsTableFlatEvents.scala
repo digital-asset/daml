@@ -108,7 +108,12 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
   ): SimpleSql[Row] = {
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParty)
-    SQL"select #$selectColumns, array[$requestingParty] as event_witnesses, case when submitter = $requestingParty then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause order by event_sequential_id"
+    SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
+                 case when submitter = $requestingParty then command_id else '' end as command_id
+          from participant_events
+          join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
+          where transaction_id = $transactionId and #$witnessesWhereClause
+          order by event_sequential_id"""
   }
 
   private def multiPartyLookup(sqlFunctions: SqlFunctions)(
@@ -117,7 +122,13 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
   ): SimpleSql[Row] = {
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParties)
-    SQL"select #$selectColumns, flat_event_witnesses as event_witnesses, case when submitter in ($requestingParties) then command_id else '' end as command_id from participant_events where transaction_id = $transactionId and #$witnessesWhereClause group by (#$groupByColumns) order by event_sequential_id"
+    SQL"""select #$selectColumns, flat_event_witnesses as event_witnesses,
+                 case when submitter in ($requestingParties) then command_id else '' end as command_id
+          from participant_events
+          join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
+          where transaction_id = $transactionId and #$witnessesWhereClause
+          group by (#$groupByColumns)
+          order by event_sequential_id"""
   }
 
   private def getFlatTransactionsQueries(sqlFunctions: SqlFunctions) =

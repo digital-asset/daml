@@ -30,6 +30,7 @@ import com.daml.platform.apiserver.services._
 import com.daml.platform.apiserver.services.admin.{
   ApiConfigManagementService,
   ApiPackageManagementService,
+  ApiParticipantPruningService,
   ApiPartyManagementService
 }
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
@@ -266,12 +267,16 @@ private[daml] object ApiServices {
           ledgerConfiguration,
         )
 
+        val apiParticipantPruningService =
+          ApiParticipantPruningService.createApiService(indexService, writeService)
+
         List(
           new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
           new CommandServiceAuthorization(apiCommandService, authorizer),
           new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
           new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
           new ConfigManagementServiceAuthorization(apiConfigManagementService, authorizer),
+          new ParticipantPruningServiceAuthorization(apiParticipantPruningService, authorizer),
         )
       }
     }
