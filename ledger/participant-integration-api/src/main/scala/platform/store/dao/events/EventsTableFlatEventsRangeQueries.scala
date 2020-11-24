@@ -190,7 +190,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       val submittersInPartiesClause =
-        sqlFunctions.arrayContainedByWhereClause("submitters", parties)
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       QueryParts.ByArith(
         read = (range, limitExpr) => SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
@@ -214,7 +214,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       val submittersInPartiesClause =
-        sqlFunctions.arrayContainedByWhereClause("submitters", parties)
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       QueryParts.ByArith(
         read = (range, limitExpr) => SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
@@ -242,7 +242,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       val submittersInPartiesClause =
-        sqlFunctions.arrayContainedByWhereClause("submitters", parties)
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       QueryParts.ByArith(
         read = (range, limitExpr) => SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
@@ -272,7 +272,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       val submittersInPartiesClause =
-        sqlFunctions.arrayContainedByWhereClause("submitters", parties)
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       QueryParts.ByArith(
         read = (range, limitExpr) => SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
@@ -341,7 +341,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       val submittersInPartiesClause =
-        sqlFunctions.arrayContainedByWhereClause("submitters", parties)
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
@@ -364,7 +364,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       val submittersInPartiesClause =
-        sqlFunctions.arrayContainedByWhereClause("submitters", parties)
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
@@ -391,7 +391,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       val submittersInPartiesClause =
-        sqlFunctions.arrayContainedByWhereClause("submitters", parties)
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
@@ -420,7 +420,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       val submittersInPartiesClause =
-        sqlFunctions.arrayContainedByWhereClause("submitters", parties)
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events

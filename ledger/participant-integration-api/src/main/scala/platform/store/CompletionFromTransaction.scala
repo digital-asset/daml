@@ -78,13 +78,13 @@ private[platform] object CompletionFromTransaction {
           _,
           recordTime,
           _,
-          _)) if actAs.forall(parties) =>
+          _)) if actAs.exists(parties) =>
       offset -> CompletionStreamResponse(
         checkpoint = toApiCheckpoint(recordTime, offset),
         Seq(Completion(commandId, Some(Status()), transactionId))
       )
     case (offset, LedgerEntry.Rejection(recordTime, commandId, `appId`, actAs, reason))
-        if actAs.forall(parties) =>
+        if actAs.exists(parties) =>
       offset -> CompletionStreamResponse(
         checkpoint = toApiCheckpoint(recordTime, offset),
         Seq(
