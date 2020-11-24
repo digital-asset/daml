@@ -8,11 +8,13 @@ import com.daml.lf.crypto
 import com.daml.lf.data.{FrontStack, Ref}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SExpr.{SEApp, SEMakeClo, SEImportValue, SELocA}
-import com.daml.lf.value.{Value}
+import com.daml.lf.speedy.SExpr.{SEApp, SEImportValue, SELocA, SEMakeClo}
+import com.daml.lf.value.Value
 import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.{cidV0Gen, comparableCoidsGen}
 import com.daml.lf.PureCompiledPackages
+import com.daml.lf.iface
+import com.daml.lf.language.{Ast, Util => AstUtil}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{
   Checkers,
@@ -33,6 +35,33 @@ class OrderingSpec
     with Checkers
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks {
+
+  private[lf] def toAstType(typ: iface.Type): Ast.Type = typ match {
+    case iface.TypeCon(name, typArgs) =>
+      typArgs.foldLeft[Ast.Type](Ast.TTyCon(name.identifier))(
+        (acc, typ) => Ast.TApp(acc, toAstType(typ))
+      )
+    case iface.TypeNumeric(scale) =>
+      AstUtil.TNumeric(Ast.TNat(scale))
+    case iface.TypePrim(prim, typArgs) =>
+      val init = prim match {
+        case iface.PrimTypeBool => AstUtil.TBool
+        case iface.PrimTypeInt64 => AstUtil.TInt64
+        case iface.PrimTypeText => AstUtil.TText
+        case iface.PrimTypeDate => AstUtil.TDate
+        case iface.PrimTypeTimestamp => AstUtil.TTimestamp
+        case iface.PrimTypeParty => AstUtil.TParty
+        case iface.PrimTypeContractId => AstUtil.TContractId.cons
+        case iface.PrimTypeList => AstUtil.TList.cons
+        case iface.PrimTypeUnit => AstUtil.TUnit
+        case iface.PrimTypeOptional => AstUtil.TOptional.cons
+        case iface.PrimTypeTextMap => AstUtil.TTextMap.cons
+        case iface.PrimTypeGenMap => AstUtil.TGenMap.cons
+      }
+      typArgs.foldLeft[Ast.Type](init)((acc, typ) => Ast.TApp(acc, toAstType(typ)))
+    case iface.TypeVar(name) =>
+      Ast.TVar(name)
+  }
 
   private val pkgId = Ref.PackageId.assertFromString("pkgId")
 
@@ -91,7 +120,7 @@ class OrderingSpec
         import va.injord
         val ta = va.inj(a)
         val tb = va.inj(b)
-        val bySvalue = translatePrimValue(ta) ?|? translatePrimValue(tb)
+        val bySvalue = translatePrimValue(va.t, ta) ?|? translatePrimValue(va.t, tb)
         (a ?|? b, ta ?|? tb) should ===((bySvalue, bySvalue))
       }
     }
@@ -106,12 +135,12 @@ class OrderingSpec
 
   private[this] val noPackages = PureCompiledPackages(Map.empty, Map.empty, Compiler.Config.Default)
 
-  private def translatePrimValue(v: Value[Value.ContractId]) = {
+  private def translatePrimValue(typ: iface.Type, v: Value[Value.ContractId]) = {
     val seed = crypto.Hash.hashPrivateKey("OrderingSpec")
     val machine = Speedy.Machine.fromScenarioSExpr(
       noPackages,
       transactionSeed = seed,
-      scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(SEImportValue(v))),
+      scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(SEImportValue(toAstType(typ), v))),
     )
 
     machine.run() match {

@@ -10,8 +10,7 @@ import java.util.regex.Pattern
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
-import com.daml.lf.language.Ast
-import com.daml.lf.language.Ast.{keyFieldName, maintainersFieldName}
+import com.daml.lf.language.{Ast, Util => AstUtil}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy._
@@ -991,6 +990,7 @@ private[lf] object SBuiltin {
     *    -> a
     */
   final case class SBUFetch(templateId: TypeConName) extends OnLedgerBuiltin(1) {
+    private[this] val typ = Ast.TTyCon(templateId)
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -1023,7 +1023,7 @@ private[lf] object SBuiltin {
                     if (actualTmplId != templateId)
                       SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
                     else
-                      SEImportValue(arg)
+                      SEImportValue(typ, arg)
               },
             ),
           )
@@ -1076,6 +1076,7 @@ private[lf] object SBuiltin {
     *   -> Maybe (ContractId T)
     */
   final case class SBULookupKey(templateId: TypeConName) extends OnLedgerBuiltin(1) {
+    private[this] val typ = AstUtil.TContractId(Ast.TTyCon(templateId))
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -1101,7 +1102,7 @@ private[lf] object SBuiltin {
                   // We have to check that the discriminator of cid does not conflict with a local ones
                   // however we cannot raise an exception in case of failure here.
                   // We delegate to CtrlImportValue the task to check cid.
-                  machine.ctrl = SEImportValue(V.ValueOptional(Some(V.ValueContractId(cid))))
+                  machine.ctrl = SBSome(SEImportValue(typ, V.ValueContractId(cid)))
                   true
                 case SKeyLookupResult.NotFound =>
                   onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> None))
@@ -1157,6 +1158,7 @@ private[lf] object SBuiltin {
     *   -> ContractId T
     */
   final case class SBUFetchKey(templateId: TypeConName) extends OnLedgerBuiltin(1) {
+    private[this] val typ = AstUtil.TContractId(Ast.TTyCon(templateId))
     override protected final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -1184,7 +1186,7 @@ private[lf] object SBuiltin {
                   // We have to check that the discriminator of cid does not conflict with a local ones
                   // however we cannot raise an exception in case of failure here.
                   // We delegate to CtrlImportValue the task to check cid.
-                  machine.ctrl = SEImportValue(V.ValueContractId(cid))
+                  machine.ctrl = SEImportValue(typ, V.ValueContractId(cid))
                   true
                 case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible =>
                   onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> None))
@@ -1610,10 +1612,10 @@ private[lf] object SBuiltin {
     }
 
   private[this] val keyWithMaintainersStructFields: Struct[Unit] =
-    Struct.assertFromNameSeq(List(keyFieldName, maintainersFieldName))
+    Struct.assertFromNameSeq(List(Ast.keyFieldName, Ast.maintainersFieldName))
 
-  private[this] val keyIdx = keyWithMaintainersStructFields.indexOf(keyFieldName)
-  private[this] val maintainerIdx = keyWithMaintainersStructFields.indexOf(maintainersFieldName)
+  private[this] val keyIdx = keyWithMaintainersStructFields.indexOf(Ast.keyFieldName)
+  private[this] val maintainerIdx = keyWithMaintainersStructFields.indexOf(Ast.maintainersFieldName)
 
   private[this] def extractKeyWithMaintainers(
       v: SValue,

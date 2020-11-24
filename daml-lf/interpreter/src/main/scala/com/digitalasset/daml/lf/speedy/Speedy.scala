@@ -634,92 +634,127 @@ private[lf] object Speedy {
       )
     }
 
+    case class Env(env: Map[TypeVarName, (Env, Type)])
+
     // This translates a well-typed LF value (typically coming from the ledger)
     // to speedy value and set the control of with the result.
     // All the contract IDs contained in the value are considered global.
     // Raises an exception if missing a package.
-    private[speedy] def importValue(value: V[V.ContractId]): Unit = {
-      def go(value0: V[V.ContractId]): SValue =
-        value0 match {
-          case V.ValueList(vs) => SList(vs.map[SValue](go))
-          case V.ValueContractId(coid) =>
-            addGlobalCid(coid)
-            SContractId(coid)
-          case V.ValueInt64(x) => SInt64(x)
-          case V.ValueNumeric(x) => SNumeric(x)
-          case V.ValueText(t) => SText(t)
-          case V.ValueTimestamp(t) => STimestamp(t)
-          case V.ValueParty(p) => SParty(p)
-          case V.ValueBool(b) => SBool(b)
-          case V.ValueDate(x) => SDate(x)
-          case V.ValueUnit => SUnit
-          case V.ValueRecord(Some(id), fs) =>
-            val values = new util.ArrayList[SValue](fs.length)
-            val names = fs.map {
-              case (Some(f), v) =>
-                values.add(go(v))
-                f
-              case (None, _) => crash("SValue.fromValue: record missing field name")
+    private[speedy] def importValue(typ0: Type, value: V[V.ContractId]): Unit = {
+      import language.Util._
+      def go(ty: Type, env: Env, value: V[V.ContractId]): SValue =
+        (ty, value) match {
+          // simple values
+          case (_, V.ValueUnit) =>
+            SValue.SUnit
+          case (_, V.ValueBool(b)) =>
+            if (b) SValue.SValue.True else SValue.SValue.False
+          case (_, V.ValueInt64(i)) =>
+            SValue.SInt64(i)
+          case (_, V.ValueTimestamp(t)) =>
+            SValue.STimestamp(t)
+          case (_, V.ValueDate(t)) =>
+            SValue.SDate(t)
+          case (_, V.ValueText(t)) =>
+            SValue.SText(t)
+          case (_, V.ValueNumeric(d)) =>
+            SValue.SNumeric(d)
+          case (_, V.ValueParty(p)) =>
+            SValue.SParty(p)
+          case (_, V.ValueContractId(c)) =>
+            addGlobalCid(c)
+            SValue.SContractId(c)
+
+          // optional
+          case (TOptional(elemType), V.ValueOptional(mb)) =>
+            mb match {
+              case Some(value) => SValue.SOptional(Some(go(elemType, env, value)))
+              case None => SValue.SValue.None
             }
-            SRecord(id, names, values)
-          case V.ValueRecord(None, _) =>
-            crash("SValue.fromValue: record missing identifier")
-          case V.ValueVariant(None, _variant @ _, _value @ _) =>
-            crash("SValue.fromValue: variant without identifier")
-          case V.ValueEnum(None, constructor @ _) =>
-            crash("SValue.fromValue: enum without identifier")
-          case V.ValueOptional(mbV) =>
-            SOptional(mbV.map(go))
-          case V.ValueTextMap(entries) =>
-            SGenMap(
+          // list
+          case (TList(elemType), V.ValueList(ls)) =>
+            SValue.SList(ls.map(go(elemType, env, _)))
+
+          // textMap
+          case (TTextMap(elemType), V.ValueTextMap(entries)) =>
+            SValue.SGenMap(
               isTextMap = true,
-              entries = entries.iterator.map { case (k, v) => SText(k) -> go(v) }
+              entries = entries.iterator.map {
+                case (k, v) => SValue.SText(k) -> go(elemType, env, v)
+              }
             )
-          case V.ValueGenMap(entries) =>
-            SGenMap(
+
+          // genMap
+          case (TGenMap(keyType, valueType), V.ValueGenMap(entries)) =>
+            SValue.SGenMap(
               isTextMap = false,
-              entries = entries.iterator.map { case (k, v) => go(k) -> go(v) }
+              entries = entries.iterator.map {
+                case (k, v) => go(keyType, env, k) -> go(valueType, env, v)
+              }
             )
-          case V.ValueVariant(Some(id), variant, arg) =>
-            compiledPackages.getSignature(id.packageId) match {
-              case Some(pkg) =>
-                pkg.lookupDefinition(id.qualifiedName).fold(crash, identity) match {
-                  case DDataType(_, _, data: DataVariant) =>
-                    SVariant(id, variant, data.constructorRank(variant), go(arg))
-                  case _ =>
-                    crash(s"definition for variant $id not found")
-                }
-              case None =>
-                throw SpeedyHungry(
-                  SResultNeedPackage(
-                    id.packageId,
-                    pkg => {
-                      compiledPackages = pkg
-                      returnValue = go(value)
-                    }
-                  ))
+
+          // variants
+          case (TTyConApp(typeVariantId, tyConArgs), V.ValueVariant(_, constructorName, val0)) =>
+            val pkg = compiledPackages.signatures(typeVariantId.packageId)
+            pkg.lookupDefinition(typeVariantId.qualifiedName) match {
+              case Right(DDataType(_, params, variantDef: DataVariant)) =>
+                val rank = variantDef.constructorRank(constructorName)
+                val (_, argTyp) = variantDef.variants(rank)
+                val env2 = Env(env.env ++ (params.iterator zip tyConArgs.iterator).map {
+                  case ((n, _), t) => (n, (env, t))
+                })
+
+                SValue.SVariant(
+                  typeVariantId,
+                  constructorName,
+                  rank,
+                  go(argTyp, env2, val0)
+                )
+              case _ =>
+                crash(s"definition for variant $typeVariantId not found")
             }
-          case V.ValueEnum(Some(id), constructor) =>
-            compiledPackages.getSignature(id.packageId) match {
-              case Some(pkg) =>
-                pkg.lookupDefinition(id.qualifiedName).fold(crash, identity) match {
-                  case DDataType(_, _, data: DataEnum) =>
-                    SEnum(id, constructor, data.constructorRank(constructor))
-                  case _ =>
-                    crash(s"definition for variant $id not found")
+          // records
+          case (TTyConApp(typeRecordId, tyConArgs), V.ValueRecord(_, flds)) =>
+            val pkg = compiledPackages.signatures(typeRecordId.packageId)
+            pkg.lookupDefinition(typeRecordId.qualifiedName) match {
+              case Right(DDataType(_, params, recordDef: DataRecord)) =>
+                val env2 = Env(env.env ++ (params.iterator zip tyConArgs.iterator).map {
+                  case ((n, _), t) => (n, (env, t))
+                })
+                val fields = (recordDef.fields.iterator zip flds.iterator).map {
+                  case ((_, typ), (_, field)) =>
+                    go(typ, env2, field)
                 }
-              case None =>
-                throw SpeedyHungry(
-                  SResultNeedPackage(
-                    id.packageId,
-                    pkg => {
-                      compiledPackages = pkg
-                      returnValue = go(value)
-                    }
-                  ))
+                val arrayList = new util.ArrayList[SValue](flds.length)
+                fields.foreach(arrayList.add)
+                SValue.SRecord(
+                  typeRecordId,
+                  recordDef.fields.map(_._1),
+                  arrayList,
+                )
+              case _ =>
+                crash(s"definition for variant $typeRecordId not found")
             }
+
+          case (TTyCon(typeEnumId), V.ValueEnum(_, constructor)) =>
+            val pkg = compiledPackages.signatures(typeEnumId.packageId)
+            pkg.lookupDefinition(typeEnumId.qualifiedName) match {
+              case Right(DDataType(_, _, enumDef: DataEnum)) =>
+                SValue.SEnum(typeEnumId, constructor, enumDef.constructorRank(constructor))
+              case _ =>
+                crash(s"definition for variant $typeEnumId not found")
+            }
+
+          case (TVar(name), value) =>
+            val (env2, typ) = env.env(name)
+            go(typ, env2, value)
+
+          // every other pairs of types and values are invalid
+          case (otherType, otherValue) =>
+            crash(s"mismatching type: $otherType and value: $otherValue")
         }
-      returnValue = go(value)
+
+      returnValue = go(typ0, Env(Map.empty), value)
     }
 
   }
