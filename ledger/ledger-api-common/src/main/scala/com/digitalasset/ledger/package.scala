@@ -10,10 +10,12 @@ package object ledger {
   /** Identifiers used to correlate submission with results. */
   type CommandId = LedgerString
   val CommandId: LedgerString.type = LedgerString
+  val CommandIdKey: String = "daml.command_id"
 
   /** Identifiers used for correlating submission with a workflow.  */
   type WorkflowId = LedgerString
   val WorkflowId: LedgerString.type = LedgerString
+  val WorkflowIdKey: String = "daml.workflow_id"
 
   /** Identifiers for submitting client applications. */
   type ApplicationId = LedgerString
@@ -24,5 +26,9 @@ package object ledger {
 
   val TransactionId: LedgerString.type = LedgerString
   type TransactionId = LedgerString
+  val TransactionIdKey: String = "daml.transaction_id"
 
+  val OffsetKey: String = "daml.offset"
+  val OffsetRangeFromKey: String = "daml.offset_from"
+  val OffsetRangeToKey: String = "daml.offset_to"
 }
