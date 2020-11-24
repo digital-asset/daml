@@ -22,6 +22,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_dropwizard_metrics_metrics_jvm",
+        "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
