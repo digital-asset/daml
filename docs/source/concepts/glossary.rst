@@ -375,11 +375,6 @@ Scala bindings
 
 An idiomatic Scala library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`/app-dev/bindings-scala/index`.
 
-gRPC Ledger API
----------------
-
-Alternative name for the `Ledger API <#ledger-api>`__.
-
 Reading from the ledger
 =======================
 
