@@ -182,6 +182,13 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
     Timed.future(
       metrics.daml.index.stopDeduplicatingCommand,
       ledger.stopDeduplicatingCommand(commandId, submitter))
+
+  override def prune(pruneUpToInclusive: Offset)(
+      implicit loggingContext: LoggingContext): Future[Unit] =
+    Timed.future(
+      metrics.daml.index.prune,
+      ledger.prune(pruneUpToInclusive)
+    )
 }
 
 private[platform] object MeteredReadOnlyLedger {

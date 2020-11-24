@@ -21,6 +21,8 @@ load("//:versions.bzl", "latest_stable_version")
 #   - https://github.com/digital-asset/daml/pull/7829
 # - ContractKeysSubmitterIsMaintainerIT:
 #   - https://github.com/digital-asset/daml/pull/5611
+# - ParticipantPruningIT:
+#   - https://github.com/digital-asset/daml/pull/7988
 
 last_nongranular_test_tool = "1.3.0-snapshot.20200617.4484.0.7e0a6848"
 first_granular_test_tool = "1.3.0-snapshot.20200623.4546.0.4f68cfc4"
@@ -147,6 +149,17 @@ excluded_test_tool_tests = [
                     "ContractKeysIT:CKFetchOrLookup",
                     "ContractKeysIT:CKNoFetchUndisclosed",
                 ],
+            },
+        ],
+    },
+    {
+        "start": "0.0.0",  #fix to first snapshot after now
+        "platform_ranges": [
+            {
+                "start": "1.0.0",
+                "end": "1.8.0-snapshot.20201117.5661.0.76fae40c",
+                # See https://github.com/digital-asset/daml/pull/7988
+                "exclusions": ["ParticipantPruningIT"],
             },
         ],
     },

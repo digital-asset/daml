@@ -9,6 +9,8 @@ import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementSe
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
+import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruningServiceGrpc
+import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruningServiceGrpc.ParticipantPruningService
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
@@ -42,6 +44,7 @@ private[infrastructure] final class LedgerServices(channel: Channel) {
   val partyManagement: PartyManagementService = PartyManagementServiceGrpc.stub(channel)
   val packageManagement: PackageManagementService = PackageManagementServiceGrpc.stub(channel)
   val configManagement: ConfigManagementService = ConfigManagementServiceGrpc.stub(channel)
+  val participantPruning: ParticipantPruningService = ParticipantPruningServiceGrpc.stub(channel)
   val packages: PackageService = PackageServiceGrpc.stub(channel)
   val transaction: TransactionService = TransactionServiceGrpc.stub(channel)
   val time: TimeService = TimeServiceGrpc.stub(channel)

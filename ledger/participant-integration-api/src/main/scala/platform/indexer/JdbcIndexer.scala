@@ -63,6 +63,7 @@ object JdbcIndexer {
           config.eventsPageSize,
           metrics,
           lfValueTranslationCache,
+          jdbcAsyncCommits = true,
         )
         _ <- ResourceOwner.forFuture(() => ledgerDao.reset())
         initialLedgerEnd <- initializeLedger(ledgerDao)
@@ -76,6 +77,7 @@ object JdbcIndexer {
           config.eventsPageSize,
           metrics,
           lfValueTranslationCache,
+          jdbcAsyncCommits = true,
         )
         initialLedgerEnd <- initializeLedger(ledgerDao)
       } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics)

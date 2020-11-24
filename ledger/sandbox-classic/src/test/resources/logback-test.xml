@@ -4,4 +4,16 @@
 
 <configuration>
     <include resource="com/daml/platform/sandbox/logback-test.base.xml"/>
+
+    <appender name="SqlLedgerSpecAppender" class="com.daml.platform.testing.LogCollector">
+        <test>com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec</test>
+    </appender>
+
+    <logger name="com.daml.platform.sandbox.stores.ledger.sql.SqlLedger" level="INFO">
+        <appender-ref ref="SqlLedgerSpecAppender" />
+    </logger>
+
+    <logger name="com.daml.platform.store.dao.JdbcLedgerDao" level="INFO">
+        <appender-ref ref="SqlLedgerSpecAppender" />
+    </logger>
 </configuration>

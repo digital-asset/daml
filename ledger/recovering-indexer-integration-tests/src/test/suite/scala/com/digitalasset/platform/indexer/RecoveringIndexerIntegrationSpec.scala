@@ -216,6 +216,7 @@ class RecoveringIndexerIntegrationSpec
       eventsPageSize = 100,
       metrics = new Metrics(new MetricRegistry),
       lfValueTranslationCache = LfValueTranslation.Cache.none,
+      jdbcAsyncCommits = true,
     )
   }
 }

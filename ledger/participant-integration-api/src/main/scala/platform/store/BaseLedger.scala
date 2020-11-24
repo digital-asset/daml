@@ -195,5 +195,9 @@ private[platform] abstract class BaseLedger(
   ): Future[Unit] =
     ledgerDao.stopDeduplicatingCommand(commandId, submitter)
 
+  override def prune(pruneUpToInclusive: Offset)(
+      implicit loggingContext: LoggingContext): Future[Unit] =
+    ledgerDao.prune(pruneUpToInclusive)
+
   override def close(): Unit = ()
 }

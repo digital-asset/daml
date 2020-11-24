@@ -6,6 +6,7 @@ package com.daml.platform.sandbox.stores.ledger.sql
 import java.nio.file.Paths
 import java.time.Instant
 
+import ch.qos.logback.classic.Level
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
@@ -27,6 +28,7 @@ import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
 import com.daml.platform.store.IndexMetadata
 import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
 import org.scalatest.time.{Minute, Seconds, Span}
@@ -62,6 +64,7 @@ final class SqlLedgerSpec
   }
 
   override protected def afterEach(): Unit = {
+    LogCollector.clear[SqlLedgerSpec]
     for (ledger <- createdLedgers)
       Await.result(ledger.release(), 2.seconds)
     super.afterEach()
@@ -200,6 +203,23 @@ final class SqlLedgerSpec
         ledger <- createSqlLedger(validatePartyAllocation = false)
       } yield {
         ledger.currentHealth() should be(Healthy)
+      }
+    }
+
+    /**
+      * Workaround test for asserting that PostgreSQL asynchronous commits are disabled in
+      * [[com.daml.platform.store.dao.JdbcLedgerDao]] transactions when used from [[SqlLedger]].
+      *
+      * NOTE: This is needed for ensuring durability guarantees of DAML-on-SQL.
+      */
+    "does not use async commit when building JdbcLedgerDao" in {
+      for {
+        _ <- createSqlLedger(validatePartyAllocation = false)
+      } yield {
+        val jdbcLedgerDaoLogs =
+          LogCollector.read[this.type]("com.daml.platform.store.dao.JdbcLedgerDao")
+        jdbcLedgerDaoLogs should contain(
+          Level.INFO -> "Starting JdbcLedgerDao with async commit disabled")
       }
     }
   }
