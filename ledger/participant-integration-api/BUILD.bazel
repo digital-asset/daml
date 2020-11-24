@@ -218,6 +218,8 @@ test_deps = [
     "@maven//:org_slf4j_slf4j_api",
 ]
 
+openssl_executable = "@openssl_dev_env//:bin/openssl" if not is_windows else "@openssl_dev_env//:usr/bin/openssl.exe"
+
 da_scala_test_suite(
     name = "participant-integration-api-tests",
     srcs = glob(
@@ -227,6 +229,10 @@ da_scala_test_suite(
     data = [
         "//ledger/test-common:model-tests.dar",
         "//ledger/test-common/test-certificates",
+        openssl_executable,
+    ],
+    jvm_flags = [
+        "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
     ],
     # this is not flaky for the usual "flaky tests" reasons. There is actually
     # an ordering issue in transaction streams; some test failures are listed in

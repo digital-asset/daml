@@ -38,6 +38,7 @@ private[daml] final class LedgerApiServer(
       apiServicesResource = apiServicesOwner.acquire()
       apiServices <- apiServicesResource
       sslContext = tlsConfiguration.flatMap(_.server)
+      _ = tlsConfiguration.map(_.setJvmTlsProperties())
       server <- new GrpcServer.Owner(
         address,
         desiredPort,
