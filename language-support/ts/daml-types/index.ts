@@ -423,7 +423,10 @@ export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
 /**
  * The counterpart of DAML's `DA.Map.Map K V` type.
  *
- * This is an immutable map which compares keys via deep equality.
+ * This is an immutable map which compares keys via deep equality. The order of
+ * iteration is unspecified; the only guarantee is that the order in `keys` and
+ * `values` match, i.e. `m.get(k)` is (deep-, value-based) equal to
+ * `[...m.values()][[...m.keys()].findIndex((l) => _.isEqual(k, l))]`
  *
  * @typeparam K The type of the map keys.
  * @typeparam V The type of the map values.
@@ -436,20 +439,15 @@ export interface Map<K, V> {
   keys: () => Iterator<K, undefined, undefined>;
   values: () => Iterator<V, undefined, undefined>;
   entries: () => Iterator<[K, V], undefined, undefined>;
+  entriesArray: () => [K, V][];
+  forEach: <T, U>(f: (value: V, key: K, map: Map<K, V>) => T, u?: U) => void;
 }
 
-function it<T>(arr: T[]): Iterator<T, undefined, undefined> {
-  return arr[Symbol.iterator]();
-}
-
-export function makeArr<T>(it: Iterator<T, undefined, undefined>): T[] {
-  const r: T[] = [];
-  let i = it.next();
-  while(!i.done) {
-    r.push(i.value);
-    i = it.next();
+function* it<T>(arr: T[]): Iterator<T, undefined, undefined> {
+  for(let i = 0; i < arr.length; i++) {
+    yield _.cloneDeep(arr[i]);
   }
-  return r;
+  return undefined;
 }
 
 // This code assumes that the decoder is only ever used in decoding values
@@ -499,6 +497,13 @@ class MapImpl<K, V> implements Map<K, V> {
   keys(): Iterator<K, undefined, undefined> { return it(this._keys); }
   values(): Iterator<V, undefined, undefined> { return it(this._values); }
   entries(): Iterator<[K, V], undefined, undefined> { return it(this._kvs); }
+  entriesArray(): [K, V][] { return _.cloneDeep(this._kvs); }
+  forEach<T, U>(f: (v: V, k: K, m: Map<K, V>) => T, u?: U): void {
+    const g = u ? f.bind(u) : f;
+    for(const [k, v] of this._kvs) {
+      g(v, k, this);
+    }
+  }
 }
 
 export const emptyMap = <K, V>(): Map<K, V> => new MapImpl<K, V>([]);
@@ -508,5 +513,5 @@ export const emptyMap = <K, V>(): Map<K, V> => new MapImpl<K, V>([]);
  */
 export const Map = <K, V>(kd: Serializable<K>, vd: Serializable<V>): Serializable<Map<K, V>> => ({
   decoder: jtv.array(jtv.tuple([kd.decoder, vd.decoder])).map(kvs => new MapImpl(kvs)),
-  encode: (m: Map<K, V>): unknown => makeArr(m.entries()),
+  encode: (m: Map<K, V>): unknown => m.entriesArray(),
 });
