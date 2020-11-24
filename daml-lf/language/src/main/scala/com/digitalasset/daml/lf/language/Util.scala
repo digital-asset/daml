@@ -89,6 +89,35 @@ object Util {
   val CPTrue = CPPrimCon(PCTrue)
   val CPFalse = CPPrimCon(PCFalse)
 
+  @tailrec
+  def destructApp(typ: Type, tyArgs: List[Type] = List.empty): (Type, List[Type]) =
+    typ match {
+      case TApp(tyFun, tyArg) => destructApp(tyFun, tyArg :: tyArgs)
+      case otherwise => (otherwise, tyArgs)
+    }
+
+  // this is not tail recursive, but it doesn't really matter, since types are bounded
+  // by what's in the source, which should be short enough...
+  @throws[IllegalArgumentException]
+  def substitute(typ: Type, subst: Iterable[(TypeVarName, Type)]): Type = {
+
+    def go(typ: Type, subst: Map[TypeVarName, Type]): Type =
+      typ match {
+        case TVar(v) => subst.getOrElse(v, typ)
+        case TApp(tyfun, arg) => TApp(go(tyfun, subst), go(arg, subst))
+        case TForall(binder @ (v, _), body) => TForall(binder, go(body, subst - v))
+        case TSynApp(tysyn, args) => TSynApp(tysyn, args.map(go(_, subst)))
+        case _ => typ
+      }
+
+    if (subst.isEmpty) {
+      // optimization
+      typ
+    } else {
+      go(typ, subst.toMap)
+    }
+  }
+
   // Returns the `pkgIds` and all its dependencies in topological order.
   // A package undefined w.r.t. the function `packages` is treated as a sink.
   def dependenciesInTopologicalOrder(
