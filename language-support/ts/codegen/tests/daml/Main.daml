@@ -4,6 +4,7 @@
 module Main where
 
 import DA.TextMap
+import qualified DA.Map
 import Lib.Mod
 
 import T
@@ -48,6 +49,7 @@ template AllTypes with
     rec : Recursive
     voidRecord: Optional VoidRecord
     voidEnum: Optional VoidEnum
+    genMap : DA.Map.Map (Expr2 Int) Int
   where
     signatory party
 
@@ -119,7 +121,7 @@ data Expr2 a =
     Lit2 a
   | Var2 Text
   | Add2 {lhs : Expr2 a, rhs: Expr2 a}
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 data Color = Red | Blue | Yellow deriving (Eq, Show)
 

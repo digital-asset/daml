@@ -25,6 +25,7 @@ da_ts_library(
     deps = [
         "@language_support_ts_deps//@mojotech/json-type-validation",
         "@language_support_ts_deps//@types/jest",
+        "@language_support_ts_deps//@types/lodash",
     ],
 ) if not is_windows else None
 
@@ -66,5 +67,6 @@ jest_test(
     srcs = sources,
     deps = [
         "@language_support_ts_deps//@mojotech/json-type-validation",
+        "@language_support_ts_deps//@types/lodash",
     ],
 )

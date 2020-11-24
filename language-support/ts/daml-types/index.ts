@@ -1,6 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 import * as jtv from '@mojotech/json-type-validation';
+import _ from 'lodash';
 
 /**
  * Interface for companion objects of serializable types. Its main purpose is
@@ -192,7 +193,7 @@ export const Int: Serializable<Int> = {
 export type Numeric = string;
 
 /**
- * The counterpart of DAML's Decimal type.
+ * The counterpart of DAML's `Decimal` type.
  *
  * In DAML, Decimal's are the same as Numeric with precision 10.
  *
@@ -419,4 +420,98 @@ export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
   }
 });
 
-// TODO(MH): `Map` type.
+/**
+ * The counterpart of DAML's `DA.Map.Map K V` type.
+ *
+ * This is an immutable map which compares keys via deep equality. The order of
+ * iteration is unspecified; the only guarantee is that the order in `keys` and
+ * `values` match, i.e. `m.get(k)` is (deep-, value-based) equal to
+ * `[...m.values()][[...m.keys()].findIndex((l) => _.isEqual(k, l))]`
+ *
+ * @typeparam K The type of the map keys.
+ * @typeparam V The type of the map values.
+ */
+export interface Map<K, V> {
+  get: (k: K) => V | undefined;
+  has: (k: K) => boolean;
+  set: (k: K, v: V) => Map<K, V>;
+  delete: (k: K) => Map<K, V>;
+  keys: () => Iterator<K, undefined, undefined>;
+  values: () => Iterator<V, undefined, undefined>;
+  entries: () => Iterator<[K, V], undefined, undefined>;
+  entriesArray: () => [K, V][];
+  forEach: <T, U>(f: (value: V, key: K, map: Map<K, V>) => T, u?: U) => void;
+}
+
+function* it<T>(arr: T[]): Iterator<T, undefined, undefined> {
+  for(let i = 0; i < arr.length; i++) {
+    yield _.cloneDeep(arr[i]);
+  }
+  return undefined;
+}
+
+// This code assumes that the decoder is only ever used in decoding values
+// straight from the API responses, and said raw responses are never reused
+// afterwards. This should be enforced by this class not being exported and the
+// daml-ledger module not letting raw JSON responses escape without going
+// through this.
+//
+// Without that assumption, the constructor would need to deep-copy its kvs
+// argument.
+class MapImpl<K, V> implements Map<K, V> {
+  private _kvs: [K, V][];
+  private _keys: K[];
+  private _values: V[];
+  constructor(kvs: [K, V][]) {
+    // sorting done so that generic object deep comparison would find equal
+    // maps equal (as defined by jest's expect().toEqual())
+    this._kvs = _.sortBy(kvs, kv => JSON.stringify(kv[0]));
+    this._keys = this._kvs.map(e => e[0]);
+    this._values = this._kvs.map(e => e[1]);
+  }
+  private _idx(k: K): number {
+    return this._keys.findIndex((l) => _.isEqual(k, l));
+  }
+  has(k: K): boolean {
+    return this._idx(k) !== -1;
+  }
+  get(k: K): V | undefined { return _.cloneDeep(this._values[this._idx(k)]); }
+  set(k: K, v: V): Map<K, V> {
+    if (this.has(k)) {
+      const cpy = this._kvs.slice();
+      cpy[this._idx(k)] = _.cloneDeep([k, v]);
+      return new MapImpl(cpy);
+    } else {
+      const head: [K, V][] = _.cloneDeep([[k, v]]);
+      return new MapImpl(head.concat(this._kvs));
+    }
+  }
+  delete(k: K): Map<K, V> {
+    const i = this._idx(k);
+    if (i !== -1) {
+      return new MapImpl(this._kvs.slice(0, i).concat(this._kvs.slice(i + 1)));
+    } else {
+      return this;
+    }
+  }
+  keys(): Iterator<K, undefined, undefined> { return it(this._keys); }
+  values(): Iterator<V, undefined, undefined> { return it(this._values); }
+  entries(): Iterator<[K, V], undefined, undefined> { return it(this._kvs); }
+  entriesArray(): [K, V][] { return _.cloneDeep(this._kvs); }
+  forEach<T, U>(f: (v: V, k: K, m: Map<K, V>) => T, u?: U): void {
+    const g = u ? f.bind(u) : f;
+    for(const [k, v] of this._kvs) {
+      g(v, k, this);
+    }
+  }
+}
+
+export const emptyMap = <K, V>(): Map<K, V> => new MapImpl<K, V>([]);
+
+/**
+ * Companion function of the [[GenMap]] type.
+ */
+export const Map = <K, V>(kd: Serializable<K>, vd: Serializable<V>): Serializable<Map<K, V>> => ({
+  decoder: jtv.array(jtv.tuple([kd.decoder, vd.decoder])).map(kvs => new MapImpl(kvs)),
+  encode: (m: Map<K, V>): unknown => m.entriesArray(),
+});
