@@ -6,20 +6,21 @@
 HTTP JSON API Service
 #####################
 
-The **JSON API** provides a significantly simpler way to interact with a ledger than
-:doc:`the Ledger API </app-dev/ledger-api>` by providing *basic active contract set functionality*:
+The **JSON API** provides functionality over both polling and streaming endpoints such as:
 
-- creating contracts,
-- exercising choices on contracts,
-- querying the current active contract set, and
-- retrieving all known parties.
+- creating contracts (polling only)
+- exercising choices on contracts (polling only)
+- querying the current active contract set (polling and streaming)
+- fetching contracts by key (polling and streaming)
+- retrieving all known parties (polling only)
+- healthchecks (streaming only)
 
 The goal of this API is to get your distributed ledger application up and running quickly, so we have deliberately excluded
-complicating concerns including, but not limited to:
+other functionality, namely:
 
-- inspecting transactions,
-- asynchronous submit/completion workflows,
-- temporal queries (e.g. active contracts *as of a certain time*), and
+- inspecting transactions
+- asynchronous submit/completion workflows
+- temporal queries (e.g. active contracts *as of a certain time*)
 
 For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>`
 instead.
@@ -36,8 +37,8 @@ We welcome feedback about the JSON API on
    search-query-language
    http-status-codes
 
-Running the JSON API
-********************
+Running the JSON API Service
+****************************
 
 Start a DAML Ledger
 ===================
