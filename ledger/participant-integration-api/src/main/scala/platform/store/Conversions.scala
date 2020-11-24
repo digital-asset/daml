@@ -183,4 +183,11 @@ private[platform] object Conversions {
     override val jdbcType: Int = ParameterMetaData.ByteArrayParameterMetaData.jdbcType
   }
 
+  // Array[String]
+
+  implicit object StringArrayParameterMetadata extends ParameterMetaData[Array[String]] {
+    override def sqlType: String = "ARRAY"
+    override def jdbcType: Int = java.sql.Types.ARRAY
+  }
+
 }

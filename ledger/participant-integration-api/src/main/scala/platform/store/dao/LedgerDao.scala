@@ -204,7 +204,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,

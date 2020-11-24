@@ -6,8 +6,8 @@ package com.daml.platform.store.dao.events
 import java.io.InputStream
 import java.time.Instant
 
-import anorm.SqlParser.{array, binaryStream, bool, str, int, long}
-import anorm.{RowParser, ~}
+import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
+import anorm.{BatchSql, RowParser, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
@@ -31,7 +31,7 @@ import com.google.protobuf.timestamp.Timestamp
 /**
   * Data access object for a table representing raw transactions nodes that
   * are going to be streamed off through the Ledger API. By joining these items
-  * with a [[WitnessesTable]] events can be filtered based on their visibility to
+  * with a [[ContractWitnessesTable]] events can be filtered based on their visibility to
   * a party.
   */
 private[events] object EventsTable
@@ -40,6 +40,8 @@ private[events] object EventsTable
     with EventsTableDelete
     with EventsTableFlatEvents
     with EventsTableTreeEvents {
+
+  final case class Executables(insertEvents: Option[BatchSql], updateArchives: Option[BatchSql])
 
   final case class Entry[+E](
       eventOffset: Offset,
