@@ -4,9 +4,7 @@
 Reference: expressions
 ######################
 
-This page gives reference information for DAML expressions that are not :doc:`updates <updates>`:
-
-.. contents:: :local:
+This page gives reference information for DAML expressions that are not :doc:`updates <updates>`.
 
 .. _daml-ref-def:
 
