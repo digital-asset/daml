@@ -3,16 +3,17 @@
 
 sdk-version: 0.0.0
 # BEGIN
-name: coin-initiate-upgrade
+name: carbon-upgrade-trigger
 version: 1.0.0
 dependencies:
   - daml-prim
   - daml-stdlib
+  - path/to/daml-trigger.dar
   - path/to/daml-script.dar
 data-dependencies:
-  - path/to/coin-upgrade-1.0.0.dar
-  - path/to/coin-1.0.0.dar
-  - path/to/coin-2.0.0.dar
+  - path/to/carbon-upgrade-1.0.0.dar
+  - path/to/carbon-1.0.0.dar
+  - path/to/carbon-2.0.0.dar
 # END
-parties: [Alice, Bob, Charlie]
+parties: [Alice, Bob]
 source: .
