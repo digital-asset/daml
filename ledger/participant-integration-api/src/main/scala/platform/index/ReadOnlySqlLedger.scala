@@ -120,7 +120,8 @@ private final class ReadOnlySqlLedger(
 
   private val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =
     RestartSource
-      .withBackoff(minBackoff = 1.second, maxBackoff = 10.seconds, randomFactor = 0.2)(
+      .withBackoff(
+        RestartSettings(minBackoff = 1.second, maxBackoff = 10.seconds, randomFactor = 0.2))(
         () =>
           Source
             .tick(0.millis, 100.millis, ())

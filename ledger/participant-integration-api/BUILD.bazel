@@ -142,11 +142,13 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
+        "//libs-scala/timer-utils",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_common",
+        "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_transport",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
@@ -217,6 +219,8 @@ test_deps = [
     "@maven//:org_slf4j_slf4j_api",
 ]
 
+openssl_executable = "@openssl_dev_env//:bin/openssl" if not is_windows else "@openssl_dev_env//:usr/bin/openssl.exe"
+
 da_scala_test_suite(
     name = "participant-integration-api-tests",
     srcs = glob(
@@ -226,6 +230,7 @@ da_scala_test_suite(
     data = [
         "//ledger/test-common:model-tests.dar",
         "//ledger/test-common/test-certificates",
+        openssl_executable,
     ],
     # this is not flaky for the usual "flaky tests" reasons. There is actually
     # an ordering issue in transaction streams; some test failures are listed in
@@ -233,6 +238,9 @@ da_scala_test_suite(
     # We've marked it flaky because we don't want to collect failing cases
     # anymore, and do not have a solution yet.
     flaky = True,
+    jvm_flags = [
+        "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
+    ],
     resources = glob(["src/test/resources/**/*"]),
     deps = test_deps,
 )

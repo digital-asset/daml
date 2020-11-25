@@ -176,16 +176,10 @@ object Committer {
 
   def getCurrentConfiguration(
       defaultConfig: Configuration,
-      inputState: DamlStateMap,
+      commitContext: CommitContext,
       logger: Logger): (Option[DamlConfigurationEntry], Configuration) =
-    inputState
-      .getOrElse(
-        Conversions.configurationStateKey,
-        /* If we're retrieving configuration, we require it to at least
-         * have been declared as an input by the submitter as it is used
-         * to authorize configuration changes. */
-        throw Err.MissingInputState(Conversions.configurationStateKey)
-      )
+    commitContext
+      .get(Conversions.configurationStateKey)
       .flatMap { v =>
         val entry = v.getConfigurationEntry
         Configuration
