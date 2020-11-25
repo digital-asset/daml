@@ -539,37 +539,46 @@ object Server {
     def logTriggerStarted(m: TriggerStarted): Unit =
       server.logTriggerStatus(m.triggerInstance, "running")
 
+    def startTrigger(req: StartTrigger): Unit = {
+      val runningTrigger = req.runningTrigger
+      Try(
+        ctx.spawn(
+          TriggerRunner(
+            new TriggerRunner.Config(
+              ctx.self,
+              runningTrigger.triggerInstance,
+              runningTrigger.triggerParty,
+              runningTrigger.triggerApplicationId,
+              AccessToken.unsubst(runningTrigger.triggerToken),
+              req.compiledPackages,
+              req.trigger,
+              ledgerConfig,
+              restartConfig
+            ),
+            runningTrigger.triggerInstance.toString
+          ),
+          triggerRunnerName(runningTrigger.triggerInstance)
+        )) match {
+        case Failure(exception) => req.replyTo ! StatusReply.error(exception)
+        case Success(_) => req.replyTo ! StatusReply.success(())
+      }
+    }
+
+    def getRunner(req: GetRunner) = {
+      req.replyTo ! ctx
+        .child(triggerRunnerName(req.uuid))
+        .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
+    }
+
     // The server running state.
     def running(binding: ServerBinding): Behavior[Message] =
       Behaviors
         .receiveMessage[Message] {
-          case StartTrigger(trigger, runningTrigger, compiledPackages, replyTo) =>
-            Try(
-              ctx.spawn(
-                TriggerRunner(
-                  new TriggerRunner.Config(
-                    ctx.self,
-                    runningTrigger.triggerInstance,
-                    runningTrigger.triggerParty,
-                    runningTrigger.triggerApplicationId,
-                    AccessToken.unsubst(runningTrigger.triggerToken),
-                    compiledPackages,
-                    trigger,
-                    ledgerConfig,
-                    restartConfig
-                  ),
-                  runningTrigger.triggerInstance.toString
-                ),
-                triggerRunnerName(runningTrigger.triggerInstance)
-              )) match {
-              case Failure(exception) => replyTo ! StatusReply.error(exception)
-              case Success(_) => replyTo ! StatusReply.success(())
-            }
+          case req: StartTrigger =>
+            startTrigger(req)
             Behaviors.same
-          case GetRunner(replyTo, uuid) =>
-            replyTo ! ctx
-              .child(triggerRunnerName(uuid))
-              .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
+          case req: GetRunner =>
+            getRunner(req)
             Behaviors.same
           case m: TriggerStarting =>
             logTriggerStarting(m)
@@ -651,33 +660,11 @@ object Server {
           logTriggerStarted(m)
           Behaviors.same
 
-        case StartTrigger(trigger, runningTrigger, compiledPackages, replyTo) =>
-          Try(
-            ctx.spawn(
-              TriggerRunner(
-                new TriggerRunner.Config(
-                  ctx.self,
-                  runningTrigger.triggerInstance,
-                  runningTrigger.triggerParty,
-                  runningTrigger.triggerApplicationId,
-                  AccessToken.unsubst(runningTrigger.triggerToken),
-                  compiledPackages,
-                  trigger,
-                  ledgerConfig,
-                  restartConfig
-                ),
-                runningTrigger.triggerInstance.toString
-              ),
-              triggerRunnerName(runningTrigger.triggerInstance)
-            )) match {
-            case Failure(exception) => replyTo ! StatusReply.error(exception)
-            case Success(_) => replyTo ! StatusReply.success(())
-          }
+        case req: StartTrigger =>
+          startTrigger(req)
           Behaviors.same
-        case GetRunner(replyTo, uuid) =>
-          replyTo ! ctx
-            .child(triggerRunnerName(uuid))
-            .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
+        case req: GetRunner =>
+          getRunner(req)
           Behaviors.same
 
         case _: TriggerInitializationFailure | _: TriggerRuntimeFailure =>
