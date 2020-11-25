@@ -573,25 +573,13 @@ body
         color: $link-color
 
       &:hover
-        &:before
-          display: block
-          content: ""
-          position: absolute
-          left: 0
-          right: 0
-          height: 2px
-          bottom: -3px
-          background: $link-color
+        text-decoration: underline
 
       &:visited
         color: $link-visited-color
 
         span
           color: $link-visited-color
-
-        &:hover
-          &:before
-            background: $link-visited-color
 
     img
       margin-bottom: 38px
@@ -2234,11 +2222,46 @@ body
                 font-size: 1.4em
 
         a
-          &:hover
-            text-decoration: none
-
           &:visited
             color: $link-visited-color
+
+    .btn
+      &.btn-next, &.btn-prev
+        min-width: 120px
+
+      &.btn-next
+        margin-left: 20px
+
+      &.btn-neutral, &.btn-neutral:visited
+          position: relative
+          background-color: $blue-lighter !important
+          border-radius: 20px
+          color: $text-dark
+          padding: 13px 19px 9px 19px
+          border: none
+          box-shadow: 2px 3px 6px -3px $gray-lighter
+          transition: box-shadow .5s
+          font-weight: $weight-body
+
+          img
+            height: 13px
+            margin-bottom: 0
+            position: relative
+            top: -1px
+            right: -3px
+
+          &.btn-prev
+            img
+              transform: scaleX(-1)
+              right: 3px
+
+          &:hover
+            text-decoration: none
+            box-shadow: 2px 3px 6px -3px $gray-lighter, 2px 3px 6px -1px $blue-lighter
+
+          &:active
+            box-shadow: 2px 3px 6px -3px $gray-lighter, 2px 3px 6px -1px $blue-lighter
+
 
 ul.search
   em, .name, .ss360-highlight
@@ -2304,41 +2327,3 @@ a.copybtn.o-tooltip--left
   img
     position: absolute
 
-.btn
-  &.btn-next, &.btn-prev
-    min-width: 120px
-
-  &.btn-next
-    margin-left: 20px
-
-  &.btn-neutral, &.btn-neutral:visited
-      position: relative
-      background-color: $blue-lighter !important
-      border-radius: 20px
-      color: $text-dark
-      padding: 13px 19px 9px 19px
-      border: none
-      box-shadow: 2px 3px 6px -3px $gray-lighter
-      transition: box-shadow .5s
-      font-weight: $weight-body
-
-      img
-        height: 13px
-        margin-bottom: 0
-        position: relative
-        top: -1px
-        right: -3px
-
-      &.btn-prev
-        img
-          transform: scaleX(-1)
-          right: 3px
-
-      &:hover
-        box-shadow: 2px 3px 6px -3px $gray-lighter, 2px 3px 6px -1px $blue-lighter
-
-        &:before
-          background: initial !important
-
-      &:active
-        box-shadow: 2px 3px 6px -3px $gray-lighter, 2px 3px 6px -1px $blue-lighter
