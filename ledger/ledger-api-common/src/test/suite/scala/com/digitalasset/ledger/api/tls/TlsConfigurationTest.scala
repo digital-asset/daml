@@ -48,7 +48,7 @@ class TlsConfigurationTest extends WordSpec with Matchers with BeforeAndAfterEac
       TlsConfiguration.Empty
         .copy(
           enabled = true,
-          revocationChecks = true
+          enableCertRevocationChecking = true
         )
         .setJvmTlsProperties()
 

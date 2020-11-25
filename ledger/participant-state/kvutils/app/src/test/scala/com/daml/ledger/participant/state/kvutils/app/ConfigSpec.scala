@@ -84,7 +84,7 @@ final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
       configParser(parameters = minimalValidOptions ++ List(s"$certRevocationChecking", "true"))
         .getOrElse(parsingFailure())
 
-    config.tlsConfig.value.revocationChecks should be(true)
+    config.tlsConfig.value.enableCertRevocationChecking should be(true)
   }
 
   private def parsingFailure(): Nothing = fail("Config parsing failed.")

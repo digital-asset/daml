@@ -146,8 +146,9 @@ class CommonCli(name: LedgerName) {
           (checksEnabled, config) =>
             config.copy(
               tlsConfig = config.tlsConfig
-                .fold(Some(TlsConfiguration.Empty.copy(revocationChecks = checksEnabled)))(config =>
-                  Some(config.copy(revocationChecks = checksEnabled)))
+                .fold(
+                  Some(TlsConfiguration.Empty.copy(enableCertRevocationChecking = checksEnabled)))(
+                  config => Some(config.copy(enableCertRevocationChecking = checksEnabled)))
           ))
 
       opt[Int]("max-inbound-message-size")

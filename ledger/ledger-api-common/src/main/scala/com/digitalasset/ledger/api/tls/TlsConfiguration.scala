@@ -14,7 +14,7 @@ final case class TlsConfiguration(
     keyFile: Option[File],
     trustCertCollectionFile: Option[File], // System default if null
     clientAuth: ClientAuth = ClientAuth.REQUIRE, // Client auth setting used by the server. This is not used in the client configuration.
-    revocationChecks: Boolean = false
+    enableCertRevocationChecking: Boolean = false
 ) {
 
   def keyFileOrFail: File =
@@ -55,7 +55,7 @@ final case class TlsConfiguration(
 
   /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS configuration. */
   def setJvmTlsProperties(): Unit =
-    if (enabled && revocationChecks) OCSPProperties.enableOCSP()
+    if (enabled && enableCertRevocationChecking) OCSPProperties.enableOCSP()
 
 }
 

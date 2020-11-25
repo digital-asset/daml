@@ -143,7 +143,7 @@ object TLSCertificateRevocationCheckingSpec {
       keyCertChainFile = Some(serverCrt),
       keyFile = Some(serverKey),
       trustCertCollectionFile = Some(caCrt),
-      revocationChecks = true
+      enableCertRevocationChecking = true
     )
 
     private def apiServerOwner(): ResourceOwner[ApiServer] = {

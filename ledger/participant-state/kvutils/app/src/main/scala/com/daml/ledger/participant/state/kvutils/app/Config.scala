@@ -161,7 +161,7 @@ object Config {
         .text(
           "TLS: enable/disable certificate revocation checks with the OCSP. Disabled by default.")
         .action((checksEnabled, config) =>
-          config.withTlsConfig(c => c.copy(revocationChecks = checksEnabled)))
+          config.withTlsConfig(c => c.copy(enableCertRevocationChecking = checksEnabled)))
 
       arg[File]("<archive>...")
         .optional()
