@@ -30,14 +30,14 @@ import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import scala.collection.immutable
 import scala.concurrent.Future
 
-final class TLSCertificateRevocationCheckingSpec
+final class TlsCertificateRevocationCheckingSpec
     extends AsyncWordSpec
     with Matchers
     with MockitoSugar
     with AkkaBeforeAndAfterAll
     with TestResourceContext
     with OcspResponderFixture {
-  import TLSCertificateRevocationCheckingSpec.{TLSFixture, resource}
+  import TlsCertificateRevocationCheckingSpec.{TlsFixture, resource}
 
   val serverCrt = resource("server.crt")
   val serverKey = resource("server.pem")
@@ -59,13 +59,13 @@ final class TLSCertificateRevocationCheckingSpec
   classOf[LedgerApiServer].getSimpleName when {
     "certificate revocation checking is enabled" should {
       "allow TLS connections with valid certificates" in {
-        TLSFixture(tlsEnabled = true, serverCrt, serverKey, caCrt, clientCrt, clientKey)
+        TlsFixture(tlsEnabled = true, serverCrt, serverKey, caCrt, clientCrt, clientKey)
           .makeARequest()
           .map(_ => succeed)
       }
 
       "block TLS connections with revoked certificates" in {
-        TLSFixture(
+        TlsFixture(
           tlsEnabled = true,
           serverCrt,
           serverKey,
@@ -85,13 +85,13 @@ final class TLSCertificateRevocationCheckingSpec
 
     "certificate revocation checking is not enabled" should {
       "allow TLS connections with valid certificates" in {
-        TLSFixture(tlsEnabled = false, serverCrt, serverKey, caCrt, clientCrt, clientKey)
+        TlsFixture(tlsEnabled = false, serverCrt, serverKey, caCrt, clientCrt, clientKey)
           .makeARequest()
           .map(_ => succeed)
       }
 
       "allow TLS connections with revoked certificates" in {
-        TLSFixture(
+        TlsFixture(
           tlsEnabled = false,
           serverCrt,
           serverKey,
@@ -105,9 +105,9 @@ final class TLSCertificateRevocationCheckingSpec
   }
 }
 
-object TLSCertificateRevocationCheckingSpec {
+object TlsCertificateRevocationCheckingSpec {
 
-  protected final case class TLSFixture(
+  protected final case class TlsFixture(
       tlsEnabled: Boolean,
       serverCrt: File,
       serverKey: File,
@@ -171,7 +171,7 @@ object TLSCertificateRevocationCheckingSpec {
       )
 
     private val ledgerClientConfiguration = LedgerClientConfiguration(
-      applicationId = s"TLSCertificates-app",
+      applicationId = s"TlsCertificates-app",
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = clientTlsConfiguration.client,
