@@ -20,6 +20,7 @@ import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Directive, Directive1, Route}
+import akka.http.scaladsl.settings.ServerSettings
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import akka.pattern.StatusReply
 import akka.stream.Materializer
@@ -676,7 +677,10 @@ object Server {
     val serverBinding = for {
       _ <- initializeF
       _ <- Future.traverse(initialDars)(server.addDar(_))
-      binding <- Http().newServerAt(host, port).bind(server.route)
+      binding <- Http()
+        .newServerAt(host, port)
+        .withSettings(ServerSettings(untypedSystem).withTransparentHeadRequests(true))
+        .bind(server.route)
     } yield binding
     ctx.pipeToSelf(serverBinding) {
       case Success(binding) => Started(binding)

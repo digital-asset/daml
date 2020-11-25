@@ -99,7 +99,7 @@ object HttpService extends StrictLogging {
   ): Future[Error \/ ServerBinding] = {
     import startSettings._
 
-    implicit val settings: ServerSettings = ServerSettings(asys)
+    implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
 
     val tokenHolder = accessTokenFile.map(new TokenHolder(_))
 

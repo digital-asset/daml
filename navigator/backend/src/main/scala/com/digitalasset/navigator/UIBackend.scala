@@ -17,6 +17,7 @@ import akka.http.scaladsl.model.headers.{Cookie, EntityTag, HttpCookie, `Cache-C
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.settings.RoutingSettings
+import akka.http.scaladsl.settings.ServerSettings
 import akka.pattern.ask
 import akka.util.Timeout
 import com.daml.grpc.GrpcException
@@ -248,6 +249,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     val stopServer = if (arguments.startWebServer) {
       val binding = Http()
         .newServerAt("0.0.0.0", arguments.port)
+        .withSettings(ServerSettings(system).withTransparentHeadRequests(true))
         .bind(getRoute(system, arguments, config, graphQL, info, getAppState))
       logger.info(s"DA UI backend server listening on port ${arguments.port}")
       println(s"Frontend running at http://localhost:${arguments.port}.")
