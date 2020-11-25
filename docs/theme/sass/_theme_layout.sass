@@ -186,7 +186,7 @@ html
 
   a
     display: inline-block
-    line-height: 12px
+    line-height: $base-line-height
     padding: $gutter / 4 $gutter
     display: block
     position: relative
@@ -369,7 +369,7 @@ html
   background: $section-background-color
   min-height: 100%
   background-attachment: fixed
-  line-height: 1.6em
+  line-height: $base-line-height
 
 .wy-nav-content
   padding: 47px 53px
@@ -502,7 +502,7 @@ body
 
   .rst-content
 
-    line-height: 1.6em
+    line-height: $base-line-height
 
     h1
       font-size: 14pt
@@ -1011,7 +1011,7 @@ body
         color: $menu-link-dark
         border: none
         background-color: unset
-        line-height: 1.6em
+        line-height: $base-line-height
 
       &.current
 
@@ -1027,7 +1027,7 @@ body
           position: relative
           font-size: 90%
           border: none
-          line-height: 1.6em
+          line-height: $base-line-height
           background-color: unset
           padding-left: 35px
 
@@ -1500,11 +1500,11 @@ body
         max-width: 745px
         margin-top: 50px
 
-        &:nth-child(2)
+        &:first-of-type
           margin-top: 20px
 
 +media($desktop-wide)
-  html, p
+  html body, p
     font-size: 18px
 
   .wy-nav-content
@@ -1621,7 +1621,7 @@ body
           max-width: 745px
           margin-top: 35px
 
-          &:nth-child(2)
+          &:first-of-type
             margin-top: 15px
 
         p
@@ -2124,7 +2124,7 @@ body
           margin-bottom: 35px !important
 
         li
-          margin-top: $base-line-height / 2
+          margin-top: $base-line-height / 4
           color: #4E5F8B
           position: relative
 
@@ -2139,7 +2139,7 @@ body
 
 
             li
-              margin-top: $base-line-height / 4
+              margin-top: $base-line-height / 8
 
           ul
 
