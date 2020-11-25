@@ -555,6 +555,8 @@ body
     p
       margin-bottom: 18px
       line-height: inherit
+      font-weight: $weight-body
+
       &:last-child
         margin-bottom: 35px
 
@@ -564,7 +566,7 @@ body
 
     a
       position: relative
-      font-weight: bold
+      font-weight: $weight-bold
       color: $link-color
 
       span
@@ -1408,9 +1410,12 @@ body
   display: inline-block
   width: 380px
   vertical-align: top
-  -webkit-box-shadow: 2px 3px 6px -3px $content-menu-shadow
-  -moz-box-shadow: 2px 3px 6px -3px $content-menu-shadow
-  box-shadow: 2px 3px 6px -3px $content-menu-shadow
+  font-size: 100%
+  -webkit-text-size-adjust: 100%
+  -ms-text-size-adjust: 100%
+  -webkit-box-shadow: 1px 1px 6px -4px $content-menu-shadow
+  -moz-box-shadow: 1px 1px 6px -4px $content-menu-shadow
+  box-shadow: 1px 1px 6px -4px $content-menu-shadow
 
 
   &.collapsed
@@ -1463,15 +1468,6 @@ body
     width: 100%
     background-color: $white
 
-    box-shadow: 0px 3px 2px -1px $content-menu-shadow
-    -moz-box-shadow: 0px 3px 2px -1px $content-menu-shadow
-    -webkit-box-shadow: 0px 3px 2px -1px $content-menu-shadow
-
-    +media($desktop-wider)
-      -webkit-box-shadow: 2px 3px 6px -3px $content-menu-shadow
-      -moz-box-shadow: 2px 3px 6px-3px $content-menu-shadow
-      box-shadow: 2px 3px 6px -3px  $content-menu-shadow
-
     .content-menu-toc
       code
         color: $text-dark
@@ -1498,18 +1494,6 @@ body
             color: $menu-link-medium
 
           &.active
-            &:before
-              display: block
-              content: '\2022'
-              position: absolute
-              font-size: 1em
-              left: -15px
-              top: -1px
-
-              +media($desktop-wider)
-                left: -20px
-                top: -4px
-
             color: $menu-link-medium
 
 .content-menu
@@ -1634,15 +1618,7 @@ body
               &:hover
                 color: $menu-link-medium
 
-            &.active
-              &:before
-                display: block
-                content: '\2022'
-                position: absolute
-                font-size: 1.2em
-                left: -20px
-                top: -2px
-              
+            &.active              
               > a
                 color: $menu-link-medium
 
