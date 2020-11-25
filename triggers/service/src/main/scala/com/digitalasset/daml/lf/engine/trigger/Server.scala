@@ -317,7 +317,7 @@ class Server(
         case None => complete(StatusCodes.NotFound)
         case Some(callback) =>
           concat(
-            parameters(('error, 'error_description ?)) { (error, errorDescription) =>
+            parameters('error, 'error_description ?) { (error, errorDescription) =>
               complete(
                 errorResponse(
                   StatusCodes.Forbidden,
@@ -676,7 +676,7 @@ object Server {
     val serverBinding = for {
       _ <- initializeF
       _ <- Future.traverse(initialDars)(server.addDar(_))
-      binding <- Http().bindAndHandle(Route.handlerFlow(server.route), host, port)
+      binding <- Http().newServerAt(host, port).bind(server.route)
     } yield binding
     ctx.pipeToSelf(serverBinding) {
       case Success(binding) => Started(binding)

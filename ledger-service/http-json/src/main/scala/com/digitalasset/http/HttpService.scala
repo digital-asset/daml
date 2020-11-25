@@ -210,7 +210,7 @@ object HttpService extends StrictLogging {
       )
 
       binding <- liftET[Error](
-        Http().bindAndHandleAsync(allEndpoints, address, httpPort, settings = settings),
+        Http().newServerAt(address, httpPort).withSettings(settings).bind(allEndpoints)
       )
 
       _ <- either(portFile.cata(f => createPortFile(f, binding), \/-(()))): ET[Unit]

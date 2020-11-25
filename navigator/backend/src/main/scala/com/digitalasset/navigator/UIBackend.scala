@@ -18,7 +18,6 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.settings.RoutingSettings
 import akka.pattern.ask
-import akka.stream.Materializer
 import akka.util.Timeout
 import com.daml.grpc.GrpcException
 import com.daml.navigator.SessionJsonProtocol._
@@ -213,7 +212,6 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     banner.foreach(println)
 
     implicit val system: ActorSystem = ActorSystem("da-ui-backend")
-    implicit val materializer: Materializer = Materializer(system)
 
     import system.dispatcher
 
@@ -248,10 +246,9 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     }
 
     val stopServer = if (arguments.startWebServer) {
-      val binding = Http().bindAndHandle(
-        getRoute(system, arguments, config, graphQL, info, getAppState),
-        "0.0.0.0",
-        arguments.port)
+      val binding = Http()
+        .newServerAt("0.0.0.0", arguments.port)
+        .bind(getRoute(system, arguments, config, graphQL, info, getAppState))
       logger.info(s"DA UI backend server listening on port ${arguments.port}")
       println(s"Frontend running at http://localhost:${arguments.port}.")
       () =>
