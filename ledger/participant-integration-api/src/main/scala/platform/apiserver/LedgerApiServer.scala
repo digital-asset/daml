@@ -4,12 +4,12 @@
 package com.daml.platform.apiserver
 
 import akka.actor.ActorSystem
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.ports.Port
 import io.grpc.ServerInterceptor
-import io.netty.handler.ssl.SslContext
 
 import scala.concurrent.{Future, Promise}
 
@@ -18,7 +18,7 @@ private[daml] final class LedgerApiServer(
     desiredPort: Port,
     maxInboundMessageSize: Int,
     address: Option[String],
-    sslContext: Option[SslContext] = None,
+    tlsConfiguration: Option[TlsConfiguration] = None,
     interceptors: List[ServerInterceptor] = List.empty,
     metrics: Metrics,
 )(implicit actorSystem: ActorSystem, loggingContext: LoggingContext)
@@ -37,6 +37,8 @@ private[daml] final class LedgerApiServer(
       ).acquire()
       apiServicesResource = apiServicesOwner.acquire()
       apiServices <- apiServicesResource
+      sslContext = tlsConfiguration.flatMap(_.server)
+      _ = tlsConfiguration.map(_.setJvmTlsProperties())
       server <- new GrpcServer.Owner(
         address,
         desiredPort,
