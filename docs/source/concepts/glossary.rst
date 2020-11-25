@@ -316,7 +316,7 @@ Ledger API
 ==========
 
 The **Ledger API** is an API that's exposed by any `DAML ledger <#ledger-daml-ledger>`__.
-Alternative names: **DAML Ledger API** (formal name), **gRPC Ledger API** (informal name as it uses :doc:`/app-dev/grpc/index`).
+Alternative names: **DAML Ledger API** and **gRPC Ledger API** if disambiguation from other technologies is needed.
 See :doc:`/app-dev/ledger-api` page.
 It includes the following :doc:`services </app-dev/services>`.
 
