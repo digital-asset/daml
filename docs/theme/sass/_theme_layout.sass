@@ -1,10 +1,14 @@
 // Set uniform (but not relative) base font size
 html
-  font-size: $base-font-size
-  font-weight: $weight-body
+  body
+    font-size: $base-font-size
+    font-weight: $weight-body
 
-  a, a:visited
-    color: $blue
+    a, a:visited
+      color: $blue
+
+    b, strong
+      font-weight: $weight-bold
 
 .wy-affix
   position: fixed
@@ -1271,7 +1275,7 @@ body
           padding-top: 12px
 
           a
-            font-weight: $weight-body
+            font-weight: $weight-title
 
           &.active
             background-color: $menu-background-color
@@ -1337,31 +1341,16 @@ body
           margin-top: 18px
           display: inline-block
           position: relative
-          color: $blue-lighter
-
-          span
-            color: $blue-lighter
+          color: $blue
 
           &:hover
-            &:before
-              display: block
-              content: ""
-              position: absolute
-              left: 0
-              right: 0
-              height: 2px
-              bottom: -3px
-              background: $blue-lighter
+            text-decoration: underline
 
           &:visited
             color: $link-visited-color
 
             span
               color: $link-visited-color
-
-            &:hover
-              &:before
-                background: $link-visited-color
 
         .context
           color: $search-results
@@ -2253,7 +2242,7 @@ body
 
 
 ul.search
-  em, .name, .ss360-highlight
+  em, .ss360-highlight
     font-style: inherit
     color: $text-dark
     background-color: $serach-highlighted

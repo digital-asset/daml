@@ -391,7 +391,7 @@ function createSearchResults(items, error, query, resultsNode) {
         }
         resultsNode.append(list);
         var numRes = Math.min(3, items.length);
-        status.appendChild(document.createTextNode('Showing top ' + numRes +' of ' + items.length + ' results.'));
+        status.appendChild(document.createTextNode('Showing top ' + numRes +' of ' + items.length + ' results. '));
         var allLink = document.createElement('a');
         allLink.setAttribute("href", '/search.html?query=' + query);
         allLink.appendChild(document.createTextNode('See all results...'));
