@@ -6,12 +6,15 @@ package com.daml.platform.store.serialization
 import java.io.{ByteArrayOutputStream, InputStream, OutputStream}
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
-import com.codahale.metrics.Histogram
+import com.daml.platform.store.dao.events.CompressionMetrics
 
 private[platform] object Compression {
 
   sealed abstract class Algorithm(val id: Option[Int]) {
-    final def compress(uncompressed: Array[Byte], ratio: Histogram): Array[Byte] = {
+    final def compress(
+        uncompressed: Array[Byte],
+        metrics: CompressionMetrics.Field,
+    ): Array[Byte] = {
       val output = new ByteArrayOutputStream(uncompressed.length)
       val gzip = compress(output)
       try {
@@ -21,7 +24,8 @@ private[platform] object Compression {
       }
       val compressed = output.toByteArray
       output.close()
-      ratio.update(compressed.length * 100 / uncompressed.length)
+      metrics.compressed.update(compressed.length)
+      metrics.uncompressed.update(uncompressed.length)
       compressed
     }
     def compress(stream: OutputStream): OutputStream

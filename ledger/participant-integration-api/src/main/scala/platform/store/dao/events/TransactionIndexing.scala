@@ -83,32 +83,32 @@ object TransactionIndexing {
     for ((contractId, argument) <- serialized.divulgedContracts) {
       val compressedArgument =
         compressionStrategy.createArgumentCompression
-          .compress(argument, compressionMetrics.createArgumentCompressionRatio)
+          .compress(argument, compressionMetrics.createArgument)
       createArgumentsByContract += ((contractId, compressedArgument))
     }
 
     for ((nodeId, contractId, argument) <- serialized.createArguments) {
       val compressedArgument = compressionStrategy.createArgumentCompression
-        .compress(argument, compressionMetrics.createArgumentCompressionRatio)
+        .compress(argument, compressionMetrics.createArgument)
       createArguments += ((nodeId, compressedArgument))
       createArgumentsByContract += ((contractId, compressedArgument))
     }
 
     for ((nodeId, key) <- serialized.createKeyValues) {
       val compressedKey = compressionStrategy.createKeyValueCompression
-        .compress(key, compressionMetrics.createKeyValueCompressionRatio)
+        .compress(key, compressionMetrics.createKeyValue)
       createKeyValues += ((nodeId, compressedKey))
     }
 
     for ((nodeId, argument) <- serialized.exerciseArguments) {
       val compressedArgument = compressionStrategy.exerciseArgumentCompression
-        .compress(argument, compressionMetrics.exerciseArgumentCompressionRatio)
+        .compress(argument, compressionMetrics.exerciseArgument)
       exerciseArguments += ((nodeId, compressedArgument))
     }
 
     for ((nodeId, result) <- serialized.exerciseResults) {
       val compressedResult = compressionStrategy.exerciseResultCompression
-        .compress(result, compressionMetrics.exerciseResultCompressionRatio)
+        .compress(result, compressionMetrics.exerciseResult)
       exerciseResults += ((nodeId, compressedResult))
     }
 

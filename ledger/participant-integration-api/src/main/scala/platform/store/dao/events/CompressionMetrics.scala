@@ -7,20 +7,34 @@ import com.codahale.metrics.Histogram
 import com.daml.metrics.Metrics
 
 final class CompressionMetrics(
-    val createArgumentCompressionRatio: Histogram,
-    val createKeyValueCompressionRatio: Histogram,
-    val exerciseArgumentCompressionRatio: Histogram,
-    val exerciseResultCompressionRatio: Histogram,
+    val createArgument: CompressionMetrics.Field,
+    val createKeyValue: CompressionMetrics.Field,
+    val exerciseArgument: CompressionMetrics.Field,
+    val exerciseResult: CompressionMetrics.Field,
 )
 
 object CompressionMetrics {
 
+  final class Field(val compressed: Histogram, val uncompressed: Histogram)
+
   def apply(metrics: Metrics): CompressionMetrics = {
     new CompressionMetrics(
-      createArgumentCompressionRatio = metrics.daml.index.db.compression.ratio.createArgument,
-      createKeyValueCompressionRatio = metrics.daml.index.db.compression.ratio.createKeyValue,
-      exerciseArgumentCompressionRatio = metrics.daml.index.db.compression.ratio.exerciseArgument,
-      exerciseResultCompressionRatio = metrics.daml.index.db.compression.ratio.exerciseResult,
+      createArgument = new Field(
+        compressed = metrics.daml.index.db.compression.createArgumentCompressed,
+        uncompressed = metrics.daml.index.db.compression.createArgumentUncompressed,
+      ),
+      createKeyValue = new Field(
+        compressed = metrics.daml.index.db.compression.createKeyValueCompressed,
+        uncompressed = metrics.daml.index.db.compression.createKeyValueUncompressed,
+      ),
+      exerciseArgument = new Field(
+        compressed = metrics.daml.index.db.compression.exerciseArgumentCompressed,
+        uncompressed = metrics.daml.index.db.compression.exerciseArgumentUncompressed,
+      ),
+      exerciseResult = new Field(
+        compressed = metrics.daml.index.db.compression.exerciseResultCompressed,
+        uncompressed = metrics.daml.index.db.compression.exerciseResultUncompressed,
+      )
     )
   }
 

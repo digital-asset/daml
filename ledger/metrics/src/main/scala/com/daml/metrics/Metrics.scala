@@ -447,14 +447,22 @@ final class Metrics(val registry: MetricRegistry) {
         object compression {
           private val Prefix: MetricName = db.Prefix :+ "compression"
 
-          object ratio {
-            private val Prefix: MetricName = compression.Prefix :+ "ratio"
-
-            val createArgument: Histogram = registry.histogram(Prefix :+ "create_argument")
-            val createKeyValue: Histogram = registry.histogram(Prefix :+ "create_key_value")
-            val exerciseArgument: Histogram = registry.histogram(Prefix :+ "exercise_argument")
-            val exerciseResult: Histogram = registry.histogram(Prefix :+ "exercise_result")
-          }
+          val createArgumentCompressed: Histogram =
+            registry.histogram(Prefix :+ "create_argument_compressed")
+          val createArgumentUncompressed: Histogram =
+            registry.histogram(Prefix :+ "create_argument_uncompressed")
+          val createKeyValueCompressed: Histogram =
+            registry.histogram(Prefix :+ "create_key_value_compressed")
+          val createKeyValueUncompressed: Histogram =
+            registry.histogram(Prefix :+ "create_key_value_uncompressed")
+          val exerciseArgumentCompressed: Histogram =
+            registry.histogram(Prefix :+ "exercise_argument_compressed")
+          val exerciseArgumentUncompressed: Histogram =
+            registry.histogram(Prefix :+ "exercise_argument_uncompressed")
+          val exerciseResultCompressed: Histogram =
+            registry.histogram(Prefix :+ "exercise_result_compressed")
+          val exerciseResultUncompressed: Histogram =
+            registry.histogram(Prefix :+ "exercise_result_uncompressed")
 
         }
       }
