@@ -1,6 +1,7 @@
 // Set uniform (but not relative) base font size
 html
   font-size: $base-font-size
+  font-weight: $weight-body
 
   a, a:visited
     color: $blue
@@ -503,11 +504,7 @@ body
     h1
       font-size: 14pt
       color: $text-medium
-      margin-bottom: 25px
-
-      +media($desktop-wide)
-        margin-bottom: 35px
-
+      margin-bottom: 0
       position: relative
       padding-left: 70px
       font-weight: $weight-title
@@ -522,35 +519,25 @@ body
         height: 1px
         top: 12px
 
-    h2
-      font-size: 20pt
+    h2, h3, h4, h5, h6
       color: $text-dark
       font-weight: $weight-title
-      margin-bottom: 32px
+
+
+    h2
+      font-size: 20pt
 
     h3
       font-size: 16pt
-      color: $text-dark
-      margin-bottom: 32px
-      font-weight: $weight-title
 
     h4
       font-size: 14pt
-      color: $text-dark
-      margin-bottom: 32px
-      font-weight: $weight-title
 
     h5
       font-size: 12pt
-      color: $text-dark
-      margin-bottom: 32px
-      font-weight: $weight-title
 
     h6
       font-size: 10pt
-      color: $text-dark
-      margin-bottom: 32px
-      font-weight: $weight-title
 
     p
       margin-bottom: 18px
@@ -766,7 +753,7 @@ body
     font-weight: $weight-title
     display: flex
     align-items: center
-    color: $blue
+    color: $text-dark
 
     .version_switcher_placeholder
       height: 42px
@@ -1496,9 +1483,6 @@ body
   .wy-nav-content
     .rst-content
 
-      h1, h2, h3, h4, h5, h6, h7
-        margin-bottom: 35px
-
       .h1-section
         max-width: 745px
 
@@ -1508,7 +1492,10 @@ body
       .h5-section,
       .h6-section
         max-width: 745px
-        margin-top: 35px
+        margin-top: 50px
+
+        &:nth-child(2)
+          margin-top: 20px
 
 +media($desktop-wide)
   html, p
@@ -2247,7 +2234,7 @@ body
             height: 13px
             margin-bottom: 0
             position: relative
-            top: -1px
+            top: -2px
             right: -3px
 
           &.btn-prev
