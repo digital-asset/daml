@@ -108,7 +108,7 @@ object SExpr {
     General case: 'fun' and 'args' are any kind of expression */
   final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
-      machine.pushKont(KArg(args, machine.frame, machine.actuals, machine.env.size))
+      machine.pushKont(KArg(machine.markBase(), args, machine.frame, machine.actuals))
       machine.ctrl = fun
     }
   }
@@ -238,7 +238,7 @@ object SExpr {
   /** Pattern match. */
   final case class SECase(scrut: SExpr, alts: Array[SCaseAlt]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
-      machine.pushKont(KMatch(alts, machine.frame, machine.actuals, machine.env.size))
+      machine.pushKont(KMatch(machine.markBase(), alts, machine.frame, machine.actuals))
       machine.ctrl = scrut
     }
 
@@ -271,7 +271,8 @@ object SExpr {
   /** A let-expression with a single RHS */
   final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
-      machine.pushKont(KPushTo(machine.env, body, machine.frame, machine.actuals, machine.env.size))
+      machine.pushKont(
+        KPushTo(machine.markBase(), machine.env, body, machine.frame, machine.actuals))
       machine.ctrl = rhs
     }
   }
@@ -291,7 +292,7 @@ object SExpr {
         i += 1
       }
       val v = builtin.executePure(actuals)
-      machine.env.add(v)
+      machine.pushEnv(v) //use pushEnv not env.add so instrumentation is updated
       machine.ctrl = body
     }
   }
@@ -335,7 +336,11 @@ object SExpr {
     */
   final case class SECatch(body: SExpr, handler: SExpr, fin: SExpr) extends SExpr {
     def execute(machine: Machine): Unit = {
-      machine.pushKont(KCatch(handler, fin, machine.frame, machine.actuals, machine.env.size))
+      // We call [markBase] (as standard) so the continuation may access its temporaries.
+      // In addition [env.size] is recorded for use in [tryHandleException] to allow the
+      // env-stack to be unwound correctly when an exception is thrown.
+      machine.pushKont(
+        KCatch(machine.markBase(), handler, fin, machine.frame, machine.actuals, machine.env.size))
       machine.ctrl = body
     }
   }
