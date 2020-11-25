@@ -185,6 +185,9 @@ private[apiserver] object LedgerConfigProvider {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ResourceOwner[LedgerConfigProvider] =
-    ResourceOwner.forCloseable(() =>
-      new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer))
+    for {
+      provider <- ResourceOwner.forCloseable(() =>
+        new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer))
+      _ <- ResourceOwner.forFuture(() => provider.ready.map(_ => provider))
+    } yield provider
 }
