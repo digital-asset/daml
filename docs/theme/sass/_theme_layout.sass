@@ -42,11 +42,11 @@ html
 .rst-content code
   color: $text-dark
   background-color: $blue-lighter
-  font-family: "NBInternational", monospace
+  font-family: $code-font-family
   font-size: 14px
   position: relative
   top: -1px
-  font-weight: $weight-body
+  font-weight: $weight-code
 
 .wy-menu-vertical
   width: $nav-desktop-width
@@ -425,7 +425,6 @@ footer
 
   .search li a
     display: inline-block
-    color: #3A478F
 
   .context
     color: $gray
@@ -2300,8 +2299,27 @@ a.copybtn.o-tooltip--left
   position: absolute
   z-index: 9999
   opacity: 1
-  right: 2.5em
+  left: 0
+  top: 0.7em
+
+  &:before
+    content: ""
+    background: url("../images/copy-button.svg") no-repeat
+    position: absolute
+    vertical-align: top
+    margin: 0
+    top: 0
+    left: 0
+    height: 20px
+    width: 20px
+
+  &:after
+    padding: 6px
+    top: -7px
+    left: 4.5em
+    background: $gray-lighter
+    color: $text-dark
 
   img
-    position: absolute
+    display: none
 

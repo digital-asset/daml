@@ -58,6 +58,7 @@
     margin: 0
     padding: $base-line-height / 2 $base-line-height / 2
     font-family: $code-font-family
+    font-weight: $weight-code
     display: block
     overflow: auto
   pre.literal-block, div[class^='highlight']
@@ -79,9 +80,12 @@
     margin: 0
     padding: $base-line-height / 2 $base-line-height / 2
     font-family: $code-font-family
+    font-weight: $weight-code
     user-select: none
     pointer-events: none
   div[class^='highlight'] pre
+    font-family: $code-font-family
+    font-weight: $weight-code
     white-space: pre
     margin: 0
     padding: $base-line-height / 2 $base-line-height / 2
@@ -94,6 +98,7 @@
       padding: 0 $base-line-height / 2
   pre.literal-block, div[class^='highlight'] pre, .linenodiv pre
     font-family: $code-font-family
+    font-weight: $weight-code
     font-size: 13px
     color: #FFFFFF
 
@@ -297,6 +302,7 @@
       color: $text-codexref-color
   pre, kbd, samp
     font-family: $code-font-family
+    font-weight: $weight-code
   // If the literal is inside an a tag, let's color it like a link
   a tt, a code
     color: $link-color
