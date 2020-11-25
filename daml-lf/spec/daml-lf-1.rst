@@ -643,6 +643,10 @@ Then we can define our kinds, types, and expressions::
        |  'TypeRep'                                 -- BTTypeRep
        |  'Update'                                  -- BTyUpdate
        |  'Scenario'                                -- BTyScenario
+       |  'AnyException'                            -- BTyAnyException
+       |  'UserException'                           -- BTyUserException
+       |  'ArithException'                          -- BTyArithException
+       |  'PreconditionException'                   -- BTyPreconditionException
 
   Types (mnemonic: tau for type)
     τ, σ
@@ -692,6 +696,9 @@ Then we can define our kinds, types, and expressions::
        | 'to_any' @τ e                              -- ExpToAny: Wrap a value of the given type in Any
        | 'from_any' @τ e                            -- ExpToAny: Extract a value of the given from Any or return None
        | 'type_rep' @τ                              -- ExpToTypeRep: A type representation
+       | 'throw' @τ @σ e                            -- ExpThrow: Throw an exception
+       | 'to_any_exception' @τ e                    -- ExpToAnyException: Turn a concrete exception into an 'AnyException'
+       | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException'
        |  u                                         -- ExpUpdate: Update expression
        |  s                                         -- ExpScenario: Scenario expression
 
@@ -720,6 +727,7 @@ Then we can define our kinds, types, and expressions::
        |  'fetch_by_key' @τ e                       -- UpdateFecthByKey
        |  'lookup_by_key' @τ e                      -- UpdateLookUpByKey
        |  'embed_expr' @τ e                         -- UpdateEmbedExpr
+       |  'try' @τ e₁ 'catch' x. e₂                 -- UpdateTryCatch
 
   Scenario
     s ::= 'spure' @τ e                              -- ScenarioPure
@@ -790,6 +798,7 @@ available for usage::
             , 'choices' { ChDef₁, …, ChDefₘ }
             , KeyDef
             }
+       |  'exception' (x: T) ↦ { 'message' eₘ }     -- DefException
 
   Module (mnemonic: delta for definitions)
     Δ ::= ε                                         -- DefCtxEmpty
@@ -1013,6 +1022,46 @@ We now formally defined *well-formed types*. ::
    ————————————————————————————————————————————— TyScenario
      Γ  ⊢  'Scenario' : ⋆ → ⋆
 
+   ————————————————————————————————————————————— TyAnyException
+     Γ  ⊢  'AnyException' : ⋆
+
+   ————————————————————————————————————————————— TyUserException
+     Γ  ⊢  'UserException' : ⋆
+
+   ————————————————————————————————————————————— TyUserException
+     Γ  ⊢  'ArithException' : ⋆
+
+   ————————————————————————————————————————————— TyPreconditionException
+     Γ  ⊢  'PreconditionException' : ⋆
+
+
+Exception types
+...............
+
+To state the typing rules related to exception handling, we need the notion of
+*exception types*. As the name suggests, values of these types are the ones that
+can be thrown and caught by the exception handling mechanism. ::
+
+                      ┌────────┐
+  Exception types     │ ⊢ₑ  τ  │
+                      └────────┘
+
+    ———————————————————————————————————————————————————————————————— ETyUserException
+      ⊢ₑ  'UserException'
+
+    ———————————————————————————————————————————————————————————————— ETyArithException
+      ⊢ₑ  'ArithException'
+
+    ———————————————————————————————————————————————————————————————— ETyPreconditionException
+      ⊢ₑ  'PreconditionException'
+
+      'exception' (x : T) ↦ …  ∈  〚Ξ〛Mod
+    ———————————————————————————————————————————————————————————————— ETyDefException
+      ⊢ₑ  Mod:T
+
+Note that ``'AnyException'`` is not an exception type in order to avoid having
+``'AnyException'`` wrapped into ``'AnyException'``.
+
 
 Well-formed expression
 ......................
@@ -1191,6 +1240,22 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpCase
       Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ
 
+      Γ  ⊢  τ  :  ⋆      Γ  ⊢ₑ  τ
+      Γ  ⊢  σ  :  ⋆
+      Γ  ⊢  e  :  τ
+    ——————————————————————————————————————————————————————————————— ExpThrow
+      Γ  ⊢  'throw' @τ @σ e  :  σ
+
+      Γ  ⊢  τ  :  ⋆      Γ  ⊢ₑ  τ
+      Γ  ⊢  e  :  τ
+    ——————————————————————————————————————————————————————————————— ExpToAnyException
+      Γ  ⊢  'to_any_exception' @τ e  :  'AnyException'
+
+      Γ  ⊢  τ  :  ⋆      Γ  ⊢ₑ  τ
+      Γ  ⊢  e  :  'AnyException'
+    ——————————————————————————————————————————————————————————————— ExpToAnyException
+      Γ  ⊢  'from_any_exception' @τ e  :  'Option' τ
+
       Γ  ⊢  τ  :  ⋆      Γ  ⊢  e  :  τ
     ——————————————————————————————————————————————————————————————— UpdPure
       Γ  ⊢  'pure' e  :  'Update' τ
@@ -1257,6 +1322,12 @@ Then we define *well-formed expressions*. ::
       τ  ↠  τ'     Γ  ⊢  e  :  'Update' τ'
     ——————————————————————————————————————————————————————————————— UpdEmbedExpr
       Γ  ⊢  'embed_expr' @τ e  :  'Update' τ'
+
+      τ  ↠  τ'
+      Γ  ⊢  e₁  :  'Update' τ'
+      x : 'AnyException' · Γ  ⊢  e₂  :  'Optional' ('Update' τ')
+    ——————————————————————————————————————————————————————————————— UpdTryCatch
+      Γ  ⊢  'try' @τ e₁ 'catch' x. e₂  :  'Update' τ'
 
       Γ  ⊢  τ  : ⋆      Γ  ⊢  e  :  τ
     ——————————————————————————————————————————————————————————————— ScnPure
@@ -1486,6 +1557,19 @@ types are the types whose values can be persisted on the ledger. ::
     ———————————————————————————————————————————————————————————————— STyEnumCon
       ⊢ₛ  Mod:T
 
+    ———————————————————————————————————————————————————————————————— STyAnyException
+      ⊢ₛ  'AnyException'
+
+    ———————————————————————————————————————————————————————————————— STyUserException
+      ⊢ₛ  'UserException'
+
+    ———————————————————————————————————————————————————————————————— STyArithException
+      ⊢ₛ  'ArithException'
+
+    ———————————————————————————————————————————————————————————————— STyAuthMissingException
+      ⊢ₛ  'AuthMissingException'
+
+
 Note that
 
 1. Structs are *not* serializable.
@@ -1549,6 +1633,12 @@ for the ``DefTemplate`` rule). ::
          , KeyDef
          }
 
+    'record' T ↦ { f₁ : τ₁, …, fₙ : τₙ }  ∈  〚Ξ〛Mod
+    ⊢ₛ  Mod:T
+    x : Mod:T  ⊢  eₘ  :  'Text'
+  ——————————————————————————————————————————————————————————————— DefException
+    ⊢  'exception' (x : T) ↦ { 'message' eₘ }
+
                           ┌───────────────────┐
   Well-formed choices     │ x : Mod:T ⊢ ChDef │
                           └───────────────────┘
@@ -1607,6 +1697,15 @@ Specifically, a template definition is *coherent* if:
 * Its argument data type is defined in the same module that the
   template is defined in;
 * Its argument data type is not an argument to any other template.
+
+
+Exception coherence
+~~~~~~~~~~~~~~~~~~~
+
+The *exception coherence* condition is literally the same as the template
+coherence condition with "template" replaced by "exception". Note that there is
+no condition precluding a type from having an associated template definition as
+well as an associated exception definition.
 
 
 Party literal restriction
@@ -1857,6 +1956,22 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpTypeRep
      ⊢ᵥ  'type_rep' @τ
 
+     ⊢ᵥ  e
+   ——————————————————————————————————————————————————— ValToAnyException
+     ⊢ᵥ  'to_any_exception' @τ e
+
+     ⊢ᵥ  e
+   ——————————————————————————————————————————————————— ValUserException
+     ⊢ᵥ  'USER_EXCEPTION' e
+
+     ⊢ᵥ  e
+   ——————————————————————————————————————————————————— ValArithException
+     ⊢ᵥ  'ARITH_EXCEPTION' e
+
+     ⊢ᵥ  e
+   ——————————————————————————————————————————————————— ValPreconditionException
+     ⊢ᵥ  'PRECONDITION_EXCEPTION' @τ e
+
      ⊢ᵥᵤ  u
    ——————————————————————————————————————————————————— ValUpdate
      ⊢ᵥ  u
@@ -1864,7 +1979,6 @@ need to be evaluated further. ::
      ⊢ᵥₛ  s
    ——————————————————————————————————————————————————— ValScenario
      ⊢ᵥ  s
-
 
                            ┌────────┐
    Update Values           │ ⊢ᵥᵤ  u │
@@ -1912,6 +2026,9 @@ need to be evaluated further. ::
 
    ——————————————————————————————————————————————————— ValUpdateEmbedExpr
      ⊢ᵥᵤ   'embed_expr' @τ e
+
+   ——————————————————————————————————————————————————— ValUpdateTryCatch
+     ⊢ᵥᵤ   'try' @τ e₁ 'catch' x. e₂
 
 
                            ┌────────┐
@@ -2138,6 +2255,18 @@ types that satisfies the following rules::
   ——————————————————————————————————————————————————— TypeOrderTypeAppRight
     τ σ₁ <ₜ τ σ₂
 
+  ——————————————————————————————————————————————————— TypeOrderTyAppAnyException
+    τ σ <ₜ 'AnyException'
+
+  ——————————————————————————————————————————————————— TypeOrderTyAppAnyException
+    'AnyException' <ₜ 'UserException'
+
+  ——————————————————————————————————————————————————— TypeOrderTyAppAnyException
+    'UserException' <ₜ 'ArithException'
+
+  ——————————————————————————————————————————————————— TypeOrderTyAppAnyException
+    'ArithException' <ₜ 'PreconditionException'
+
 
 Note that ``<ₜ`` is undefined on types containing variables,
 quantifiers or type synonymes.  ``≤ₜ`` is defined as the reflexive
@@ -2172,7 +2301,7 @@ exact output.
 
   Evaluation result
     r ::= Ok v                                      -- ResOk
-       |  Err t                                     -- ResErr
+       |  Err v                                     -- ResErr, v a value of type 'AnyException'
 
                            ┌──────────┐
   Big-step evaluation      │ e  ⇓  r  │
@@ -2394,6 +2523,22 @@ exact output.
         ⇓
       Ok ⟨ f₁= v₁, …, fᵢ= vᵢ', …, fₙ= vₙ ⟩
 
+      e  ⇓  Err v
+    —————————————————————————————————————————————————————————————————————— EvExpErrorErr
+      'ERROR' @τ e  ⇓  Err v
+
+      e  ⇓  Ok v
+    —————————————————————————————————————————————————————————————————————— EvExpError
+      'ERROR' @τ e  ⇓  Err ('to_any_exception' @'UserException' ('USER_EXCEPTION' v))
+
+      e  ⇓  Err v
+    —————————————————————————————————————————————————————————————————————— EvExpThrowErr
+      'throw' @τ @σ e  ⇓  Err v
+
+      e  ⇓  Ok v
+    —————————————————————————————————————————————————————————————————————— EvExpThrow
+      'throw' @τ @σ e  ⇓  Err v
+
       e  ⇓  Err t
     —————————————————————————————————————————————————————————————————————— EvExpUpPureErr
       'pure' @τ e  ⇓  Err t
@@ -2503,6 +2648,10 @@ exact output.
        ⇓
       Ok ('lookup_by_key' @Mod:T v)
 
+    —————————————————————————————————————————————————————————————————————— EvExpUpTryCatch
+      'try' @τ e₁ 'catch' x. e₂
+       ⇓
+      Ok ('try' @τ e₁ 'catch' x. e₂)
 
       e  ⇓  Err t
     —————————————————————————————————————————————————————————————————————— EvExpScenarioPureErr
@@ -2648,6 +2797,7 @@ as described by the ledger model::
     act
       ::= 'create' Contract
        |  'exercise' v Contract ChKind tr  -- v must be of type 'List' 'Party'
+       |  'fail' v tr
 
   Ledger transactions
     tr
@@ -2664,53 +2814,54 @@ as described by the ledger model::
   Contract key index
      keys ∈ finite injective map from GlobalKey to cid
 
-  Update result
-    ur ::= Ok (v, tr) ‖ S
-        |  Err t
+  Contract state
     S ::= (st, keys)
 
+  Update result
+    ur ::= (Ok v, tr) ‖ S
+        |  (Err v, tr)
 
                                     ┌──────────────┐
   Big-step update interpretation    │ u ‖ S₀ ⇓ᵤ ur │  (u is an update value)
                                     └──────────────┘
 
    —————————————————————————————————————————————————————————————————————— EvUpdPure
-     'pure' v ‖ (st, keys)  ⇓ᵤ  Ok (v, ε) ‖ (st, keys)
+     'pure' v ‖ (st, keys)  ⇓ᵤ  (Ok v, ε) ‖ (st, keys)
 
-     u₁ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+     u₁ ‖ S₀  ⇓ᵤ  (Err v, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdBindErr1
-     'bind' x : τ ← u₁ ; e₂ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+     'bind' x : τ ← u₁ ; e₂ ‖ S₀  ⇓ᵤ  (Err v, tr)
 
-     u₁ ‖ (st₀, keys₀)  ⇓ᵤ  Ok (v₁, tr₁) ‖ (st₁, keys₁)
-     e₂[x ↦ v₁]  ⇓  Err t
+     u₁ ‖ S₀  ⇓ᵤ  (Ok v₁, tr₁) ‖ S₁
+     e₂[x ↦ v₁]  ⇓  Err v₂
    —————————————————————————————————————————————————————————————————————— EvUpdBindErr2
-     'bind' x : τ ← u₁ ; e₂ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+     'bind' x : τ ← u₁ ; e₂ ‖ S₀  ⇓ᵤ  (Err v₂, tr₁)
 
-     u₁ ‖ (st₀, keys₀)  ⇓ᵤ  Ok (v₁, tr₁) ‖ (st₁, keys₁)
+     u₁ ‖ S₀  ⇓ᵤ  (Ok v₁, tr₁) ‖ S₁
      e₂[x ↦ v₁]  ⇓  Ok u₂
-     u₂ ‖ (st₁, keys₁)  ⇓ᵤ  Err t
+     u₂ ‖ S₁  ⇓ᵤ  (Err v₂, tr₂)
    —————————————————————————————————————————————————————————————————————— EvUpdBindErr3
-     'bind' x : τ ← u₁ ; e₂ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+     'bind' x : τ ← u₁ ; e₂ ‖ S₀  ⇓ᵤ  (Err v₂, tr₁ ⋅ tr₂)
 
-     u₁ ‖ (st₀, keys₀)  ⇓ᵤ  Ok (v₁, tr₁) ‖ (st₁, keys₁)
+     u₁ ‖ S₀  ⇓ᵤ  Ok (v₁, tr₁) ‖ S₁
      e₂[x ↦ v₁]  ⇓  Ok u₂
-     u₂ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (v₂, tr₂) ‖ (st₂, keys₂)
+     u₂ ‖ S₁  ⇓ᵤ  Ok (v₂, tr₂) ‖ S₂
    —————————————————————————————————————————————————————————————————————— EvUpdBind
-     'bind' x : τ ← u₁ ; e₂ ‖ (st₀, keys₀)
+     'bind' x : τ ← u₁ ; e₂ ‖ S₀
        ⇓ᵤ
-     Ok (v₂, tr₁ · tr₂) ‖ (st₂, keys₂)
+     (Ok v₂, tr₁ · tr₂) ‖ S₂
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, … }  ∈  〚Ξ〛Mod
-     eₚ[x ↦ vₜ]  ⇓  Err t
+     eₚ[x ↦ vₜ]  ⇓  Err v
    —————————————————————————————————————————————————————————————————————— EvUpdCreateErr1
-     'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+     'create' @Mod:T vₜ ‖ S₀  ⇓ᵤ  (Err v, ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'False'
    —————————————————————————————————————————————————————————————————————— EvUpdCreateFail
-     'create' @Mod:T vₜ ‖ (st, keys)
+     'create' @Mod:T vₜ ‖ S₀
        ⇓ᵤ
-     Err "template precondition violated"
+     (Err ('to_any_exception' @'PreconditionException' ('PRECONDITION_EXCEPTION' @Mod:T vₜ)), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
@@ -3030,6 +3181,69 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdEmbedExpr
      'embed_expr' @τ e ‖ (st; keys)  ⇓ᵤ  ur
 
+     e₁  ⇓  Err v₁
+     e₂[x ↦ v₁]  ⇓  Err v₂
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr1e
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err v₂, 'fail' v₁ ε)
+
+     e₁  ⇓  Ok u₁
+     u₁ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
+     e₂[x ↦ v₁]  ⇓  Err v₂
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr1u
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err v₂, 'fail' v₁ tr₁)
+
+     e₁  ⇓  Err v₁
+     e₂[x ↦ v₁]  ⇓  Ok ('None' @_)
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr2e
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err v₁, ε)
+
+     e₁  ⇓  Ok u₁
+     u₁ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
+     e₂[x ↦ v₁]  ⇓  Ok ('None' @_)
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr2u
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
+
+     e₁  ⇓  Err v₁
+     e₂[x ↦ v₁]  ⇓  Ok ('Some' @_ u₂)
+     u2 ‖ S₀  ⇓ᵤ  (Err v₂, tr₂)
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr3e
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀
+       ⇓ᵤ
+     (Err v₂, ('fail' v₁ ε) ⋅ tr₂)
+
+     e₁  ⇓  Ok u₁
+     u₁ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
+     e₂[x ↦ v₁]  ⇓  Ok ('Some' @_ u₂)
+     u2 ‖ S₀  ⇓ᵤ  (Err v₂, tr₂)
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr3u
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀
+       ⇓ᵤ
+     (Err v₂, ('fail' v₁ tr₁) ⋅ tr₂)
+
+     e₁  ⇓  Err v₁
+     e₂[x ↦ v₁]  ⇓  Ok ('Some' @_ u₂)
+     u2 ‖ S₀  ⇓ᵤ  (Ok v₂, tr₂) ‖ S₂
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr4e
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀
+       ⇓ᵤ
+     (Ok v₂, ('fail' v₁ ε) ⋅ tr₂) ‖ S₂
+
+     e₁  ⇓  Ok u₁
+     u₁ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
+     e₂[x ↦ v₁]  ⇓  Ok ('Some' @_ u₂)
+     u2 ‖ S₀  ⇓ᵤ  (Ok v₂, tr₂) ‖ S₂
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr4u
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀
+       ⇓ᵤ
+     (Ok v₂, ('fail' v₁ tr₁) ⋅ tr₂) ‖ S₂
+
+     e₁  ⇓  Ok u₁
+     u₁ ‖ S₀  ⇓ᵤ  (Ok v₁, tr₁) ‖ S₁
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatch
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀
+       ⇓ᵤ
+     (Ok v₁, tr₁) ‖ S₁
+
 
 About scenario interpretation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3319,7 +3533,9 @@ Int64 functions
 
 * ``ADD_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
-  Adds the two integers. Throws an error in case of overflow.
+  Adds the two integers. In case of an overflow, throws an exception
+  ``'ARITH_EXCEPTION' "Overflow: ADD_INT64 {m} {n}"``, where ``m`` and ``n`` are
+  the actual values of the operands.
 
 * ``SUB_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
@@ -4023,7 +4239,37 @@ Error functions
 
 * ``ERROR : ∀ (α : ⋆) . 'Text' → α``
 
-  Throws an error with the string as message.
+  Throws an error with the string as message. See the evaluation rules
+  ``EvExpError`` and ``EvExpErrorErr`` for precise semantics.
+
+* ``USER_EXCEPTION : 'Text' → 'UserException'``
+
+  This is not exposed in the expression language. It is only here so we can use
+  it in the value language.
+
+* ``USER_EXCEPTION_MESSAGE : 'UserException' → 'Text'``
+
+* ``ARITH_EXCEPTION : 'Text' → 'ArithException'``
+
+  This is not exposed in the expression language. It is only here so we can use
+  it in the value language.
+
+* ``ARITH_EXCEPTION_MESSAGE : 'ArithException' → 'Text'``
+
+* ``PRECONDITION_EXCEPTION : ∀ (τ : ⋆) . τ → 'PreconditionException'``
+
+  We have the additional constraint that ``τ`` needs to be a template type,
+  which can't properly express yet.
+
+  This is not exposed in the expression language. It is only here so we can use
+  it in the value language.
+
+* ``PRECONDITION_EXCEPTION_MESSAGE : 'PreconditionException' → 'Text'``
+
+* ``PRECONDITION_EXCEPTION_PAYLOAD : 'PreconditionException' → 'Any'``
+
+  Extract the payload of the template payload the precondition was violated on
+  and wrap it in ``to_any``.
 
 
 Debugging functions
