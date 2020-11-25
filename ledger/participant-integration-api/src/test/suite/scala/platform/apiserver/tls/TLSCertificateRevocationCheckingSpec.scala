@@ -30,14 +30,14 @@ import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import scala.collection.immutable
 import scala.concurrent.Future
 
-final class TLSCertificatesSpec
+final class TLSCertificateRevocationCheckingSpec
     extends AsyncWordSpec
     with Matchers
     with MockitoSugar
     with AkkaBeforeAndAfterAll
     with TestResourceContext
     with OCSPResponderFixture {
-  import TLSCertificatesSpec.{TLSFixture, resource}
+  import TLSCertificateRevocationCheckingSpec.{TLSFixture, resource}
 
   val serverCrt = resource("server.crt")
   val serverKey = resource("server.pem")
@@ -105,7 +105,7 @@ final class TLSCertificatesSpec
   }
 }
 
-object TLSCertificatesSpec {
+object TLSCertificateRevocationCheckingSpec {
 
   protected final case class TLSFixture(
       tlsEnabled: Boolean,
