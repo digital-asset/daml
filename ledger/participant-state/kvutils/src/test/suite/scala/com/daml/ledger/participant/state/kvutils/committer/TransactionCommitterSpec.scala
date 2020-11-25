@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter.
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ReplayMismatch}
+import com.daml.lf.transaction
 import com.daml.lf.transaction.{
   NodeId,
   RecordedNodeMissing,
@@ -263,119 +264,124 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     }
   }
 
-  "rejectionReasonForValidationError" should {
-    "report key lookup errors as Inconsistent unless the contracts are created in the same transaction" in {
+  "rejectionReasonForValidationError" when {
+    val maintainer = "maintainer"
+    val dummyValue = TransactionBuilder.record("field" -> "value")
 
-      val maintainer = "maintainer"
-      val key = "key"
-      val dummyValue = TransactionBuilder.record("field" -> "value")
-
-      def create(contractId: String, key: String = key): TransactionBuilder.Create =
-        TransactionBuilder.create(
-          id = contractId,
-          template = "dummyPackage:DummyModule:DummyTemplate",
-          argument = dummyValue,
-          signatories = Seq(maintainer),
-          observers = Seq.empty,
-          key = Some(key)
-        )
-
-      def mkMismatch(
-          recorded: (Transaction.Transaction, NodeId),
-          replayed: (Transaction.Transaction, NodeId))
-        : ReplayNodeMismatch[NodeId, Value.ContractId] =
-        ReplayNodeMismatch(recorded._1, recorded._2, replayed._1, replayed._2)
-      def mkRecordedMissing(
-          recorded: Transaction.Transaction,
-          replayed: (Transaction.Transaction, NodeId))
-        : RecordedNodeMissing[NodeId, Value.ContractId] =
-        RecordedNodeMissing(recorded, replayed._1, replayed._2)
-      def mkReplayedMissing(
-          recorded: (Transaction.Transaction, NodeId),
-          replayed: Transaction.Transaction): ReplayedNodeMissing[NodeId, Value.ContractId] =
-        ReplayedNodeMissing(recorded._1, recorded._2, replayed)
-
-      val createInput = create("#inputContractId")
-      val create1 = create("#someContractId")
-      val create2 = create("#otherContractId")
-
-      val exercise = TransactionBuilder.exercise(
-        contract = createInput,
-        choice = "DummyChoice",
-        consuming = false,
-        actingParties = Set(maintainer),
+    def create(contractId: String, key: String = "key"): TransactionBuilder.Create =
+      TransactionBuilder.create(
+        id = contractId,
+        template = "dummyPackage:DummyModule:DummyTemplate",
         argument = dummyValue,
-        byKey = false
+        signatories = Seq(maintainer),
+        observers = Seq.empty,
+        key = Some(key)
       )
-      val otherKeyCreate = create("#contractWithOtherKey", "otherKey")
 
-      val lookupNodes @ Seq(lookup1, lookup2, lookupNone, lookupOther @ _) =
-        Seq(create1 -> true, create2 -> true, create1 -> false, otherKeyCreate -> true) map {
-          case (create, found) => TransactionBuilder.lookupByKey(create, found)
+    def mkMismatch(
+        recorded: (Transaction.Transaction, NodeId),
+        replayed: (Transaction.Transaction, NodeId)): ReplayNodeMismatch[NodeId, Value.ContractId] =
+      ReplayNodeMismatch(recorded._1, recorded._2, replayed._1, replayed._2)
+    def mkRecordedMissing(
+        recorded: Transaction.Transaction,
+        replayed: (Transaction.Transaction, NodeId))
+      : RecordedNodeMissing[NodeId, Value.ContractId] =
+      RecordedNodeMissing(recorded, replayed._1, replayed._2)
+    def mkReplayedMissing(
+        recorded: (Transaction.Transaction, NodeId),
+        replayed: Transaction.Transaction): ReplayedNodeMissing[NodeId, Value.ContractId] =
+      ReplayedNodeMissing(recorded._1, recorded._2, replayed)
+
+    def checkRejectionReason(mkReason: String => RejectionReason)(
+        mismatch: transaction.ReplayMismatch[NodeId, Value.ContractId]) = {
+      val replayMismatch = ReplayMismatch(mismatch)
+      instance.rejectionReasonForValidationError(replayMismatch) shouldBe mkReason(
+        replayMismatch.msg)
+    }
+
+    val createInput = create("#inputContractId")
+    val create1 = create("#someContractId")
+    val create2 = create("#otherContractId")
+
+    val exercise = TransactionBuilder.exercise(
+      contract = createInput,
+      choice = "DummyChoice",
+      consuming = false,
+      actingParties = Set(maintainer),
+      argument = dummyValue,
+      byKey = false
+    )
+    val otherKeyCreate = create("#contractWithOtherKey", "otherKey")
+
+    val lookupNodes @ Seq(lookup1, lookup2, lookupNone, lookupOther @ _) =
+      Seq(create1 -> true, create2 -> true, create1 -> false, otherKeyCreate -> true) map {
+        case (create, found) => TransactionBuilder.lookupByKey(create, found)
+      }
+    val Seq(tx1, tx2, txNone, txOther) = lookupNodes map { node =>
+      val builder = TransactionBuilder()
+      val rootId = builder.add(exercise)
+      val lookupId = builder.add(node, rootId)
+      builder.build() -> lookupId
+    }
+
+    "there is a mismatch in lookupByKey nodes" should {
+      "report an inconsistency if the contracts are not created in the same transaction" in {
+        val inconsistentLookups = Seq(
+          mkMismatch(tx1, tx2),
+          mkMismatch(tx1, txNone),
+          mkMismatch(txNone, tx2),
+        )
+        forEvery(inconsistentLookups)(checkRejectionReason(RejectionReason.Inconsistent))
+      }
+
+      "report Disputed if one of contracts is created in the same transaction" in {
+        val Seq(txC1, txC2, txCNone) = Seq(lookup1, lookup2, lookupNone) map { node =>
+          val builder = TransactionBuilder()
+          val rootId = builder.add(exercise)
+          builder.add(create1, rootId)
+          val lookupId = builder.add(node, rootId)
+          builder.build() -> lookupId
         }
-      val Seq(tx1, tx2, txNone, txOther) = lookupNodes map { node =>
-        val builder = TransactionBuilder()
-        val rootId = builder.add(exercise)
-        val lookupId = builder.add(node, rootId)
-        builder.build() -> lookupId
+        val Seq(tx1C, txNoneC) = Seq(lookup1, lookupNone) map { node =>
+          val builder = TransactionBuilder()
+          val rootId = builder.add(exercise)
+          val lookupId = builder.add(node, rootId)
+          builder.add(create1)
+          builder.build() -> lookupId
+        }
+        val recordedKeyInconsistent = Seq(
+          mkMismatch(txC2, txC1),
+          mkMismatch(txCNone, txC1),
+          mkMismatch(txC1, txCNone),
+          mkMismatch(tx1C, txNoneC),
+        )
+        forEvery(recordedKeyInconsistent)(checkRejectionReason(RejectionReason.Disputed))
       }
 
-      val inconsistentLookups = Seq(
-        mkMismatch(tx1, tx2),
-        mkMismatch(tx1, txNone),
-        mkMismatch(txNone, tx2),
-      )
-      forEvery(inconsistentLookups) { mismatch =>
-        val replayMismatch = ReplayMismatch(mismatch)
-        instance.rejectionReasonForValidationError(replayMismatch) shouldBe
-          RejectionReason.Inconsistent(replayMismatch.msg)
+      "report Disputed if the keys are different" in {
+        checkRejectionReason(RejectionReason.Disputed)(mkMismatch(txOther, tx1))
       }
+    }
 
-      val Seq(txC1, txC2, txCNone) = Seq(lookup1, lookup2, lookupNone) map { node =>
-        val builder = TransactionBuilder()
-        val rootId = builder.add(exercise)
-        builder.add(create1, rootId)
-        val lookupId = builder.add(node, rootId)
-        builder.build() -> lookupId
-      }
-      val Seq(tx1C, txNoneC) = Seq(lookup1, lookupNone) map { node =>
-        val builder = TransactionBuilder()
-        val rootId = builder.add(exercise)
-        val lookupId = builder.add(node, rootId)
-        builder.add(create1)
-        builder.build() -> lookupId
-      }
-
-      // These lookups are disputed because the recorded transaction is key-inconsistent.
-      val recordedKeyInconsistent = Seq(
-        mkMismatch(txC2, txC1),
-        mkMismatch(txCNone, txC1),
-        mkMismatch(txC1, txCNone),
-        mkMismatch(tx1C, txNoneC),
-      )
-
-      val txExerciseOnly = {
-        val builder = TransactionBuilder()
-        builder.add(exercise)
-        builder.build()
-      }
-      val txCreate = {
-        val builder = TransactionBuilder()
-        val rootId = builder.add(exercise)
-        val createId = builder.add(create1, rootId)
-        builder.build() -> createId
-      }
-      val miscMismatches = Seq(
-        mkMismatch(txOther, tx1), // wrong key
-        mkMismatch(txCreate, tx1C), // wrong node type
-        mkRecordedMissing(txExerciseOnly, tx2),
-        mkReplayedMissing(tx1, txExerciseOnly),
-      )
-      val disputedLookups = recordedKeyInconsistent ++ miscMismatches
-      forEvery(disputedLookups) { mismatch =>
-        val replayMismatch = ReplayMismatch(mismatch)
-        instance.rejectionReasonForValidationError(replayMismatch) shouldBe RejectionReason
-          .Disputed(replayMismatch.msg)
+    "the mismatch is not between two lookup nodes" should {
+      "report Disputed" in {
+        val txExerciseOnly = {
+          val builder = TransactionBuilder()
+          builder.add(exercise)
+          builder.build()
+        }
+        val txCreate = {
+          val builder = TransactionBuilder()
+          val rootId = builder.add(exercise)
+          val createId = builder.add(create1, rootId)
+          builder.build() -> createId
+        }
+        val miscMismatches = Seq(
+          mkMismatch(txCreate, tx1),
+          mkRecordedMissing(txExerciseOnly, tx2),
+          mkReplayedMissing(tx1, txExerciseOnly),
+        )
+        forEvery(miscMismatches)(checkRejectionReason(RejectionReason.Disputed))
       }
     }
   }
