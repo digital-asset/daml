@@ -1221,6 +1221,10 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
+    // We call [markBase] (as standard) so the continuation may access its temporaries.
+    // In addition [env.size] is recorded for use in [tryHandleException] to allow the
+    // env-stack to be unwound correctly when an exception is thrown.
+
     val envSize = machine.env.size
 
     private val savedBase = machine.markBase()
