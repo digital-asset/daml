@@ -304,7 +304,7 @@ function scrollContentMenu($sections) {
 }
 
 function setHighlighterWidth() {
-    $('div[class*="highlight"]').css('width', ($('.wy-nav-content').outerWidth() + 30) + 'px')
+    $('div[class*="highlight"]').css('width', ($('.wy-nav-content').outerWidth() + 76) + 'px')
 }
 
 function performSearch(fullSearchState, search, results, inline) {

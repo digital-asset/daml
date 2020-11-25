@@ -734,6 +734,10 @@ body
   width: calc(100% - #{$nav-desktop-width})
   background: $white
 
+  box-shadow: 0px 3px 2px -1px $gray-lighter
+  -moz-box-shadow: 0px 3px 2px -1px $gray-lighter
+  -webkit-box-shadow: 0px 3px 2px -1px $gray-lighter
+
 .topbar
   .navbar
     h1
@@ -749,7 +753,7 @@ body
 
   .version
     padding-top: 22px
-    padding-left: 10px
+    padding-left: 20px
     top: 0
     position: absolute
     left: 170px
@@ -758,34 +762,40 @@ body
     align-items: center
     color: $text-dark
 
+    +media($tablet)
+      .hide-tablet
+        display: none
+
     .version_switcher_placeholder
       height: 42px
       padding-left: 12px
 
-    &.landing
-      border-top: none
-      padding-top: 14px
-      padding-left: 45px
-      padding-bottom: 27px
-      color: $text-dark
-      position: relative
-      top: initial
-      left: initial
-      font-size: 20pt
-
-      +media($desktop-wide)
-        font-size: 26pt
-
-      .nice-select
+    +media($desktop)
+      &.landing
+        padding-left: 45px
+        align-items: baseline
+        border-top: none
+        padding-top: 14px
+        padding-bottom: 27px
+        color: $text-dark
+        position: relative
+        top: initial
+        left: initial
         font-size: 20pt
 
         +media($desktop-wide)
           font-size: 26pt
 
-        &:after
-          background-size: 20px
-          right: -8px
-          top: 5px
+        .nice-select
+          font-size: 20pt
+
+          +media($desktop-wide)
+            font-size: 26pt
+
+          &:after
+            background-size: 20px
+            right: -8px
+            top: 12px
 
     select.da-version-switcher
       -webkit-appearance: none
@@ -805,7 +815,7 @@ body
 
     .nice-select
       padding-left: 6px
-      font-size: 18px
+      font-size: 24px
 
       .list
         position: absolute
@@ -1178,7 +1188,9 @@ body
     &.landing
       display: block
       width: 100%
-      margin-top: 16px
+
+      +media($desktop)
+        margin-top: 16px
 
     img.search-inline-img
       position: absolute
@@ -1187,19 +1199,22 @@ body
       width: 26px
       height: 29px
       cursor: pointer
+      
+      +media($tablet)
+        left: 20px
 
     input[type="text"].search-inline-input
       font-size: 16px
       border: none
       outline: none
-      box-shadow: 0px 3px 2px -1px $gray-lighter
-      -moz-box-shadow: 0px 3px 2px -1px $gray-lighter
-      -webkit-box-shadow: 0px 3px 2px -1px $gray-lighter
-
+      box-shadow: none
       width: 100%
       height: 50px
       color: $text-dark
       padding-left: 85px
+
+      +media($tablet)
+        padding-left: 58px
 
     input[type="text"].search-inline-input:-ms-input-placeholder
       color: $blue
@@ -1374,10 +1389,11 @@ body
   background: $white
   -webkit-text-size-adjust: 100%
   -ms-text-size-adjust: 100%
-  -webkit-box-shadow: 1px 1px 6px -4px $content-menu-shadow
-  -moz-box-shadow: 1px 1px 6px -4px $content-menu-shadow
-  box-shadow: 1px 1px 6px -4px $content-menu-shadow
 
+  +media($desktop-wider)
+    -webkit-box-shadow: 1px 1px 6px -4px $content-menu-shadow
+    -moz-box-shadow: 1px 1px 6px -4px $content-menu-shadow
+    box-shadow: 1px 1px 6px -4px $content-menu-shadow
 
   &.collapsed
     .content-menu-expand
@@ -1424,8 +1440,15 @@ body
     height: 100%
     background-color: $white
 
-    +media($desktop-wider)
-      padding-bottom: 15px
+    +media($desktop)
+      -webkit-box-shadow: -3px 3px 2px -1px $gray-lighter
+      -moz-box-shadow: -3px 3px 2px -1px $gray-lighter
+      box-shadow: -3px 3px 2px -1px $gray-lighter
+    
+    +media($tablet)
+      -webkit-box-shadow: -3px 3px 2px -1px $gray-lighter
+      -moz-box-shadow: -3px 3px 2px -1px $gray-lighter
+      box-shadow: -3px 3px 2px -1px $gray-lighter
 
     .content-menu-toc
       code
@@ -1454,11 +1477,6 @@ body
 
           &.active
             color: $menu-link-medium
-
-.content-menu
-  -webkit-box-shadow: 1px 1px 6px -3px $content-menu-shadow
-  -moz-box-shadow: 1px 1px 6px -3px $content-menu-shadow
-  box-shadow: 1px 1px 6px -3px $content-menu-shadow
 
 +media($desktop)
 
@@ -1582,14 +1600,15 @@ body
 
 
 +media($tablet)
+  .topbar.fixed
+    left: 0
+
   .wy-nav-content-wrap
     .wy-nav-content
       padding: 25px
       max-width: unset
 
       .rst-content
-        h1, h2, h3, h4, h5, h6, h7
-          margin-bottom: 25px
 
         .h1-section
           max-width: 745px
@@ -1600,7 +1619,10 @@ body
         .h5-section,
         .h6-section
           max-width: 745px
-          margin-top: 25px
+          margin-top: 35px
+
+          &:nth-child(2)
+            margin-top: 15px
 
         p
           margin-bottom: 13px
@@ -1617,14 +1639,6 @@ body
 
           .last
             font-size: 14px
-  .topbar
-    .version
-      .hide-mobile
-        display: none
-
-      &.landing
-        padding-left: 65px
-        align-items: baseline
 
   .wy-nav-side
     .wy-side-scroll
@@ -1632,9 +1646,13 @@ body
         &.wy-menu-vertical
           .fa
             display: block
+
   .wy-nav-side
     &.shift
       width: 350px
+      top: 115px
+      padding-top: 35px
+  
   .wy-menu-vertical
     margin-top: 10px
 
@@ -1713,6 +1731,7 @@ body
                   > a.reference
                     padding-left: 121px !important
                     font-size: 14px
+
   .wy-nav-content-wrap
     .wy-nav-top
       color: $text-dark
@@ -1722,7 +1741,7 @@ body
       position: fixed
       z-index: 10001
 
-      i.fa
+      i.wy-nav-top-toggle
         margin-left: 35px
         margin-top: -1px
         position: relative
@@ -1737,17 +1756,18 @@ body
           background-position-x: center
           background-position-y: center
           position: absolute
-          right: 18px
-          top: 8px
-
-      a
-        display: none
+          right: 12px
+          top: 3px
 
     &.shift
       left: 350px
 
       .wy-nav-top
-        display: none
+        i.wy-nav-top-toggle:before
+          background: url(../images/Close.svg) no-repeat
+          background-size: 22px
+          background-position-x: center
+          background-position-y: center
 
 +media($mobile)
   .wy-nav-side
@@ -1795,63 +1815,11 @@ body
             font-size: 14px
   .topbar
     .version
-      position: absolute
-      right: 23px
-      top: 30px
-      font-size: 14px
-      border-top: none
-      padding-top: 0
-      padding-left: 0
-
-      .nice-select
-        font-size: 14px
-        margin-top: -20px
-
-        .list
-          width: 150px
-
-        .current
-          margin-top: 10px
-          display: inline-block
-
-        &:after
-          top: 20px
 
       .hide-mobile
         display: none
 
-      .version_switcher_placeholder
-        height: auto
-        padding-left: initial
-
-      &.landing
-        position: absolute
-        font-size: 12px
-        right: 23px
-        top: 17px
-
-        .version_switcher_placeholder
-          padding-left: 12px
-
-        .nice-select
-          font-size: 12px
-          margin-top: -21px
-
-          &:after
-            background-size: 10px
-            right: 2px
-            top: 21px
-
-        .list
-          position: absolute
-          right: 0
-          left: initial
-
     .navbar
-      h1
-        max-width: 109px
-        margin-top: 11px
-        margin-left: -85px
 
       .navbar-menu
         .documentation
@@ -2298,8 +2266,13 @@ div.pdf-download
 a.copybtn.o-tooltip--left
   position: absolute
   opacity: 1
-  left: 1.5em
   top: 0.7em
+
+  +media($desktop)
+    left: 1.5em
+
+  +media($tablet)
+    right: 3.5em
 
   &:before
     content: ""
@@ -2315,9 +2288,14 @@ a.copybtn.o-tooltip--left
   &:after
     padding: 6px
     top: -7px
-    left: 4.5em
     background: $gray-lighter
     color: $text-dark
+
+    +media($desktop)
+      left: 4.5em
+
+    +media($tablet)
+      left: -0.5em
 
   img
     display: none
