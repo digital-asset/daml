@@ -6,15 +6,15 @@ $(document).ready(function () {
     var $content = $('.wy-nav-content');
     var contentPaddingTop = $content.css('padding-top');
 
-    function set_Hader() {            
+    function setHeader() {            
         $topbar.addClass('fixed');
         $topbar.css('width', $('.wy-nav-content-wrap').css('width'));
         $content.css('padding-top', $topbar.height() + parseInt(contentPaddingTop));
     }
 
     $(window).resize(function () {
-        scrollHeader();
+        setHeader();
     });
 
-    scrollHeader();
+    setHeader();
 });
