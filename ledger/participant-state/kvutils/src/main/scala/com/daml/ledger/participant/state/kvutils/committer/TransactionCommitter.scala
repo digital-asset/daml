@@ -17,7 +17,7 @@ import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Blinding, Engine}
+import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{
   BlindingInfo,
@@ -25,7 +25,9 @@ import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
+  ReplayNodeMismatch,
   SubmittedTransaction,
+  VersionedTransaction,
   Transaction => Tx
 }
 import com.daml.lf.value.Value
@@ -238,10 +240,52 @@ private[kvutils] class TransactionCommitter(
             err =>
               reject[DamlTransactionEntrySummary](
                 commitContext.getRecordTime,
-                buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.msg))),
+                buildRejectionLogEntry(transactionEntry, rejectionReasonForValidationError(err))),
             _ => StepContinue[DamlTransactionEntrySummary](transactionEntry)
           )
       })
+
+  private[committer] def rejectionReasonForValidationError(
+      validationError: com.daml.lf.engine.Error): RejectionReason = {
+    def disputed: RejectionReason = RejectionReason.Disputed(validationError.msg)
+
+    def resultIsCreatedInTx(
+        tx: VersionedTransaction[NodeId, ContractId],
+        result: Option[Value.ContractId]): Boolean =
+      result.exists { contractId =>
+        tx.nodes.exists {
+          case (nodeId @ _, create: Node.NodeCreate[_, _]) => create.coid == contractId
+          case _ => false
+        }
+      }
+
+    validationError match {
+      case ReplayMismatch(
+          ReplayNodeMismatch(recordedTx, recordedNodeId, replayedTx, replayedNodeId)) =>
+        // If the problem is that a key lookup has changed and the results do not involve contracts created in this transaction,
+        // then it's a consistency problem.
+
+        (recordedTx.nodes(recordedNodeId), replayedTx.nodes(replayedNodeId)) match {
+          case (
+              Node.NodeLookupByKey(
+                recordedTemplateId,
+                recordedOptLocation @ _,
+                recordedKey,
+                recordedResult),
+              Node.NodeLookupByKey(
+                replayedTemplateId,
+                replayedOptLocation @ _,
+                replayedKey,
+                replayedResult))
+              if recordedTemplateId == replayedTemplateId && recordedKey == replayedKey
+                && !resultIsCreatedInTx(recordedTx, recordedResult)
+                && !resultIsCreatedInTx(replayedTx, replayedResult) =>
+            RejectionReason.Inconsistent(validationError.msg)
+          case _ => disputed
+        }
+      case _ => disputed
+    }
+  }
 
   /** Validate the submission's conformance to the DAML model */
   private[committer] def blind: Step =
@@ -309,7 +353,7 @@ private[kvutils] class TransactionCommitter(
         recordTime,
         buildRejectionLogEntry(
           transactionEntry,
-          RejectionReason.Disputed("DuplicateKey: Contract Key not unique")))
+          RejectionReason.Inconsistent("DuplicateKey: Contract Key not unique")))
 
   }
 
