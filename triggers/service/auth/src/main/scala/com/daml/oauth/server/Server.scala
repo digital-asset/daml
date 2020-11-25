@@ -101,13 +101,12 @@ class Server(config: Config) {
     path("authorize") {
       get {
         parameters(
-          (
-            'response_type,
-            'client_id,
-            'redirect_uri.as[Uri],
-            'scope ?,
-            'state ?,
-            'audience.as[Uri] ?))
+          'response_type,
+          'client_id,
+          'redirect_uri.as[Uri],
+          'scope ?,
+          'state ?,
+          'audience.as[Uri] ?)
           .as[Request.Authorize](Request.Authorize) {
             request =>
               val payload = toPayload(request)
@@ -183,7 +182,7 @@ class Server(config: Config) {
   )
 
   def start()(implicit system: ActorSystem): Future[ServerBinding] = {
-    Http().bindAndHandle(route, "localhost", config.port.value)
+    Http().newServerAt("localhost", config.port.value).bind(route)
   }
 }
 

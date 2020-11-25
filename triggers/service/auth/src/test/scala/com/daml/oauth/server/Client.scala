@@ -95,7 +95,7 @@ object Client {
       },
       path("cb") {
         get {
-          parameters(('code, 'state ?)).as[Response.Authorize](Response.Authorize) {
+          parameters('code, 'state ?).as[Response.Authorize](Response.Authorize) {
             resp =>
               extractRequest {
                 request =>
@@ -124,7 +124,7 @@ object Client {
                   }
               }
           } ~
-            parameters(('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?))
+            parameters('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?)
               .as[Response.Error](Response.Error) { resp =>
                 complete(ErrorResponse(resp.error): Response)
               }
@@ -168,7 +168,7 @@ object Client {
         }
       },
     )
-    Http().bindAndHandle(route, "localhost", config.port.value)
+    Http().newServerAt("localhost", config.port.value).bind(route)
   }
 
 }
