@@ -13,12 +13,12 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.sys.process.Process
 
-trait OCSPResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
+trait OcspResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
 
   private val ec: ExecutionContext = system.dispatcher
 
-  private val RESPONDER_HOST: String = "127.0.0.1"
-  private val RESPONDER_PORT: Int = 2560
+  private val ResponderHost: String = "127.0.0.1"
+  private val ResponderPort: Int = 2560
 
   protected def indexPath: String
   protected def caCertPath: String
@@ -75,14 +75,14 @@ trait OCSPResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
 
   private def verifyResponderReady()(implicit ec: ExecutionContext): Future[String] =
     RetryStrategy.constant(attempts = 3, waitTime = 5.seconds) { (_, _) =>
-      Future(Process(testOCSPRequestCommand).!!)
+      Future(Process(testOcspRequestCommand).!!)
     }
 
   private def ocspServerCommand = List(
     opensslExecutable,
     "ocsp",
     "-port",
-    RESPONDER_PORT.toString,
+    ResponderPort.toString,
     "-text",
     "-index",
     indexPath,
@@ -94,13 +94,13 @@ trait OCSPResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
     ocspCertPath
   )
 
-  private def testOCSPRequestCommand = List(
+  private def testOcspRequestCommand = List(
     opensslExecutable,
     "ocsp",
     "-CAfile",
     caCertPath,
     "-url",
-    s"http://$RESPONDER_HOST:$RESPONDER_PORT",
+    s"http://$ResponderHost:$ResponderPort",
     "-resp_text",
     "-issuer",
     caCertPath,

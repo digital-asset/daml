@@ -36,7 +36,7 @@ final class TLSCertificateRevocationCheckingSpec
     with MockitoSugar
     with AkkaBeforeAndAfterAll
     with TestResourceContext
-    with OCSPResponderFixture {
+    with OcspResponderFixture {
   import TLSCertificateRevocationCheckingSpec.{TLSFixture, resource}
 
   val serverCrt = resource("server.crt")

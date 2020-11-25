@@ -18,11 +18,11 @@ class TlsConfigurationTest extends WordSpec with Matchers with BeforeAndAfterEac
     super.beforeEach()
 
     systemProperties = List(
-      OCSPProperties.CHECK_REVOCATION_PROPERTY_SUN,
-      OCSPProperties.CHECK_REVOCATION_PROPERTY_IBM
+      OcspProperties.CheckRevocationPropertySun,
+      OcspProperties.CheckRevocationPropertyIbm
     ).map(name => name -> Option(System.getProperty(name))).toMap
 
-    ocspSecurityProperty = Option(Security.getProperty(OCSPProperties.ENABLE_OCSP_PROPERTY))
+    ocspSecurityProperty = Option(Security.getProperty(OcspProperties.EnableOcspProperty))
   }
 
   override def afterEach(): Unit = {
@@ -35,15 +35,13 @@ class TlsConfigurationTest extends WordSpec with Matchers with BeforeAndAfterEac
         }
     }
 
-    Security.setProperty(
-      OCSPProperties.ENABLE_OCSP_PROPERTY,
-      ocspSecurityProperty.getOrElse("false"))
+    Security.setProperty(OcspProperties.EnableOcspProperty, ocspSecurityProperty.getOrElse("false"))
   }
 
   "TlsConfiguration" should {
     "set OCSP JVM properties" in {
       disableChecks()
-      verifyOCSP(DISABLED)
+      verifyOcsp(Disabled)
 
       TlsConfiguration.Empty
         .copy(
@@ -52,23 +50,23 @@ class TlsConfigurationTest extends WordSpec with Matchers with BeforeAndAfterEac
         )
         .setJvmTlsProperties()
 
-      verifyOCSP(ENABLED)
+      verifyOcsp(Enabled)
     }
   }
 
   private def disableChecks(): Unit = {
-    System.setProperty(OCSPProperties.CHECK_REVOCATION_PROPERTY_SUN, DISABLED)
-    System.setProperty(OCSPProperties.CHECK_REVOCATION_PROPERTY_IBM, DISABLED)
-    Security.setProperty(OCSPProperties.ENABLE_OCSP_PROPERTY, DISABLED)
+    System.setProperty(OcspProperties.CheckRevocationPropertySun, Disabled)
+    System.setProperty(OcspProperties.CheckRevocationPropertyIbm, Disabled)
+    Security.setProperty(OcspProperties.EnableOcspProperty, Disabled)
   }
 
-  private def verifyOCSP(expectedValue: String) = {
-    System.getProperty(OCSPProperties.CHECK_REVOCATION_PROPERTY_SUN) shouldBe expectedValue
-    System.getProperty(OCSPProperties.CHECK_REVOCATION_PROPERTY_IBM) shouldBe expectedValue
-    Security.getProperty(OCSPProperties.ENABLE_OCSP_PROPERTY) shouldBe expectedValue
+  private def verifyOcsp(expectedValue: String) = {
+    System.getProperty(OcspProperties.CheckRevocationPropertySun) shouldBe expectedValue
+    System.getProperty(OcspProperties.CheckRevocationPropertyIbm) shouldBe expectedValue
+    Security.getProperty(OcspProperties.EnableOcspProperty) shouldBe expectedValue
   }
 
-  private val ENABLED = "true"
-  private val DISABLED = "false"
+  private val Enabled = "true"
+  private val Disabled = "false"
 
 }

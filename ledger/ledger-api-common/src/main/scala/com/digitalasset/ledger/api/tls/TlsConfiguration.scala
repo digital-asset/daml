@@ -55,7 +55,7 @@ final case class TlsConfiguration(
 
   /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS configuration. */
   def setJvmTlsProperties(): Unit =
-    if (enabled && enableCertRevocationChecking) OCSPProperties.enableOCSP()
+    if (enabled && enableCertRevocationChecking) OcspProperties.enableOcsp()
 
 }
 
