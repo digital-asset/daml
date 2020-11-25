@@ -7,9 +7,8 @@ import java.nio.file.Paths
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.export.WriteSet
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.Builders._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
@@ -17,7 +16,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.Future
 
-class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with MockitoSugar {
+final class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with MockitoSugar {
   "compareSameSizeWriteSets" should {
     "return None in case strategy cannot explain difference" in {
       val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
@@ -25,12 +24,12 @@ class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with MockitoSugar
         .thenReturn(None)
       val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
 
-      instance.compareSameSizeWriteSets(toWriteSet("key" -> "a"), toWriteSet("key" -> "b")) shouldBe None
+      instance.compareSameSizeWriteSets(writeSet("key" -> "a"), writeSet("key" -> "b")) shouldBe None
     }
 
     "return None in case of no difference" in {
       val instance = createMockIntegrityChecker()
-      val aWriteSet = toWriteSet("key" -> "value")
+      val aWriteSet = writeSet("key" -> "value")
 
       instance.compareSameSizeWriteSets(aWriteSet, aWriteSet) shouldBe None
     }
@@ -42,7 +41,7 @@ class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with MockitoSugar
       val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
 
       val actual =
-        instance.compareSameSizeWriteSets(toWriteSet("key" -> "a"), toWriteSet("key" -> "b"))
+        instance.compareSameSizeWriteSets(writeSet("key" -> "a"), writeSet("key" -> "b"))
 
       actual match {
         case Some(explanation) => explanation should include("expected explanation")
@@ -58,8 +57,8 @@ class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with MockitoSugar
 
       val actual =
         instance.compareSameSizeWriteSets(
-          toWriteSet("key1" -> "a", "key2" -> "a"),
-          toWriteSet("key1" -> "b", "key2" -> "b"))
+          writeSet("key1" -> "a", "key2" -> "a"),
+          writeSet("key1" -> "b", "key2" -> "b"))
 
       actual match {
         case Some(explanation) =>
@@ -77,7 +76,7 @@ class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with MockitoSugar
       val instance = createMockIntegrityChecker()
 
       val actual =
-        instance.compareSameSizeWriteSets(toWriteSet("key1" -> "a"), toWriteSet("key2" -> "b"))
+        instance.compareSameSizeWriteSets(writeSet("key1" -> "a"), writeSet("key2" -> "b"))
 
       actual match {
         case Some(explanation) =>
@@ -144,11 +143,6 @@ class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with MockitoSugar
 
   private def countOccurrences(input: String, pattern: String): Int =
     input.sliding(pattern.length).count(_ == pattern)
-
-  private def toWriteSet(values: (String, String)*): WriteSet =
-    values.map {
-      case (key, value) => ByteString.copyFromUtf8(key) -> ByteString.copyFromUtf8(value)
-    }
 
   private lazy val actorSystem: ActorSystem = ActorSystem("IntegrityCheckerSpec")
   private lazy implicit val materializer: Materializer = Materializer(actorSystem)

@@ -456,7 +456,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       .storeTransaction(
         preparedInsert = preparedTransactionInsert,
         submitterInfo = submitterInfo,
-        workflowId = entry.workflowId,
         transactionId = entry.transactionId,
         transaction = committedTransaction,
         recordTime = entry.recordedAt,

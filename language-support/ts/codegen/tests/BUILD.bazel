@@ -12,6 +12,7 @@ load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 daml_compile(
     name = "build-and-lint",
     srcs = glob(["daml/**/*.daml"]),
+    target = "1.dev",
     version = "1.0.0",
 )
 

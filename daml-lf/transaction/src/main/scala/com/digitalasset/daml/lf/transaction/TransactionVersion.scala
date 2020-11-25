@@ -26,6 +26,7 @@ private[lf] object TransactionVersions
 
   private[transaction] val minVersion = TransactionVersion("10")
   private[transaction] val minChoiceObservers = TransactionVersion("dev")
+  private[transaction] val minNodeVersion = TransactionVersion("dev")
 
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
   val StableOutputVersions: VersionRange[TransactionVersion] =
