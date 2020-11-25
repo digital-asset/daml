@@ -1,8 +1,9 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
+load("//bazel_tools:pom_file.bzl", "pom_file")
 load("//bazel_tools:proto.bzl", "proto_gen")
 load(
     "//bazel_tools:scala.bzl",
@@ -11,16 +12,16 @@ load(
     "da_scala_test_suite",
     "lf_scalacopts",
 )
+load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "LF_VERSIONS", "lf_version_package")
 load(
     "//rules_daml:daml.bzl",
     "daml_compile",
     "daml_compile_with_dalf",
 )
-load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
 load(":archive.bzl", "mangle_for_java")
-load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "LF_VERSIONS", "lf_version_package")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 [
     [
@@ -69,6 +70,24 @@ load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "LF_VERSIONS", "lf_v
             visibility = ["//visibility:public"],
             deps = ["@maven//:com_google_protobuf_protobuf_java"],
         ) if not is_windows else None,
+        proto_gen(
+            name = "daml_lf_%s_archive_scala_proto_srcs" % version,
+            srcs = [":daml_lf_%s_archive_proto" % version],
+            plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+            plugin_name = "scalapb",
+            visibility = ["//visibility:public"],
+        ),
+        scala_library(
+            name = "daml_lf_%s_archive_scala_proto" % version,
+            srcs = [":daml_lf_%s_archive_scala_proto_srcs" % version],
+            unused_dependency_checker_mode = "error",
+            visibility = ["//visibility:public"],
+            deps = [
+                "@maven//:com_google_protobuf_protobuf_java",
+                "@maven//:com_thesamet_scalapb_lenses_2_12",
+                "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
+            ],
+        ),
         genrule(
             name = "daml_lf_%s_archive_proto_zip" % version,
             srcs = [":daml_lf_%s_archive_proto_srcs" % version],

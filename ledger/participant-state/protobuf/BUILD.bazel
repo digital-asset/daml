@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:java.bzl", "da_java_proto_library")
+load("//bazel_tools:proto.bzl", "proto_gen")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 
 proto_library(
     name = "ledger_configuration_proto",
@@ -18,4 +20,27 @@ da_java_proto_library(
     tags = ["maven_coordinates=com.daml:participant-state-ledger-configuration-java-proto:__VERSION__"],
     visibility = ["//ledger:__subpackages__"],
     deps = [":ledger_configuration_proto"],
+)
+
+proto_gen(
+    name = "ledger_configuration_scala_proto_sources",
+    srcs = [":ledger_configuration_proto"],
+    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_name = "scalapb",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_protobuf//:duration_proto",
+    ],
+)
+
+scala_library(
+    name = "ledger_configuration_scala_proto",
+    srcs = [":ledger_configuration_scala_proto_sources"],
+    unused_dependency_checker_mode = "error",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_lenses_2_12",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
+    ],
 )
