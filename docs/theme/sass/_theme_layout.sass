@@ -504,7 +504,7 @@ body
     h1
       font-size: 14pt
       color: $text-medium
-      margin-bottom: 0
+      margin-bottom: 25px
       position: relative
       padding-left: 70px
       font-weight: $weight-title
@@ -2086,15 +2086,6 @@ body
     display: none
 
 
-.wy-table-responsive
-  overflow: visible
-  table-layout: fixed
-
-  table
-    box-shadow: 2px 2px 4px $table-shadow
-    -moz-box-shadow: 2px 2px 4px $table-shadow
-    -webkit-box-shadow: 2px 2px 4px $table-shadow
-
 .wy-nav-content
   .rst-content
 
@@ -2120,42 +2111,53 @@ body
           &:before
             display:none
 
-    table.docutils:not(.field-list)
+    .wy-table-responsive
+      overflow: visible
+      table-layout: fixed
 
-      border: none
-      width: 100%
+      table.docutils:not(.field-list)
 
-      thead
-        th
-          white-space: pre
-          border: none
-          text-transform: uppercase
-          border-bottom: 1px solid #dddddd
-          color: #3A478F
-          padding: 22px 23px 22px 23px
-          background-color: #ffffff
+        box-shadow: 1px 1px 6px -3px $table-shadow
+        -moz-box-shadow: 1px 1px 6px -3px $table-shadow
+        -webkit-box-shadow: 1px 1px 6px -3px $table-shadow
+        border: none
+        width: 100%
 
-          &:first-child
-            padding-left: 23px
+        thead
+          th
+            white-space: pre
+            border: none
+            text-transform: uppercase
+            border-bottom: 1px solid #dddddd
+            color: #3A478F
+            padding: 22px 23px 22px 23px
+            background-color: #ffffff
 
-      tr
-        td
-          border: none
-          padding: 27px 23px 27px 23px
-          color: #3A478F
-          white-space: normal
-          vertical-align: top
+            &:first-child
+              padding-left: 23px
+            
+            p
+              font-weight: $weight-title
+              margin-bottom: 0
 
-          &:first-child
-            padding-left: 23px
+        tr
+          td
+            border: none
+            padding: 27px 23px 27px 23px
+            color: #3A478F
+            white-space: normal
+            vertical-align: top
 
-      tr:nth-child(2n+1)
-        td
-          background-color: white
+            &:first-child
+              padding-left: 23px
 
-      tr:nth-child(2n)
-        td
-          background-color: $gray-lighter
+        tr:nth-child(2n+1)
+          td
+            background-color: white
+
+        tr:nth-child(2n)
+          td
+            background-color: $gray-lighter
 
     .section
 
