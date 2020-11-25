@@ -21,7 +21,7 @@ single operator, it is possible to upgrade an application in a single
 step that migrates all existing data to a new data model.
 
 As a running example, let's imagine a centralized database containing
-carbon offset certificates. It's operator created the database schema
+carbon offset certificates. Its operator created the database schema
 with
 
 .. code-block:: SQL
