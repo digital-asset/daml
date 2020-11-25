@@ -44,8 +44,7 @@ jobs:
           pool: macOS-pool
     pool:
       name: $(pool)
-      ${{ if eq(variables['pool'], 'linux-pool') }}:
-        demands: assignment -equals default
+      demands: assignment -equals default
     steps:
       - checkout: self
       - ${{ if eq(variables['pool'], 'macos-pool') }}:
