@@ -276,9 +276,9 @@ function menu() {
         $contentMenu.css({
             'height': 'auto'
         });
-        /*$contentMenuWrapper.css({
+        $contentMenuWrapper.css({
             'height': "" + height + "px"
-        });*/
+        });
     }
 }
 

@@ -1390,10 +1390,10 @@ body
   -webkit-text-size-adjust: 100%
   -ms-text-size-adjust: 100%
 
-  +media($desktop-wider)
-    -webkit-box-shadow: 1px 1px 6px -4px $content-menu-shadow
-    -moz-box-shadow: 1px 1px 6px -4px $content-menu-shadow
-    box-shadow: 1px 1px 6px -4px $content-menu-shadow
+  +media($desktop-wide)
+    -webkit-box-shadow: 1px 1px 8px -5px $content-menu-shadow
+    -moz-box-shadow: 1px 1px 8px -5px $content-menu-shadow
+    box-shadow: 1px 1px 8px -5px $content-menu-shadow
 
   &.collapsed
     .content-menu-expand
@@ -1440,15 +1440,20 @@ body
     height: 100%
     background-color: $white
 
-    +media($desktop)
-      -webkit-box-shadow: -3px 3px 2px -1px $gray-lighter
-      -moz-box-shadow: -3px 3px 2px -1px $gray-lighter
-      box-shadow: -3px 3px 2px -1px $gray-lighter
-    
     +media($tablet)
-      -webkit-box-shadow: -3px 3px 2px -1px $gray-lighter
-      -moz-box-shadow: -3px 3px 2px -1px $gray-lighter
-      box-shadow: -3px 3px 2px -1px $gray-lighter
+      -webkit-box-shadow: -2px 2px 3px 0px $gray-lighter
+      -moz-box-shadow: -2px 2px 3px 0px $gray-lighter
+      box-shadow: -2px 2px 3px 0px $gray-lighter
+
+    +media($desktop)
+      -webkit-box-shadow: -2px 2px 3px 0px $gray-lighter
+      -moz-box-shadow: -2px 2px 3px 0px $gray-lighter
+      box-shadow: -2px 2px 3px 0px $gray-lighter
+
+      +media($desktop-wide)
+        -webkit-box-shadow: none
+        -moz-box-shadow: none
+        box-shadow: none
 
     .content-menu-toc
       code
@@ -1468,15 +1473,18 @@ body
           position: relative
 
           > a
-            margin-top: 10px
+            margin-top: 6px
             display: block
             font-size: 16px
+            font-weight: $weight-body
+            color: $menu-link-dark
 
-          &:hover
-            color: $menu-link-medium
+            &:hover
+              color: $menu-link-medium
 
           &.active
-            color: $menu-link-medium
+            > a
+              color: $menu-link-medium
 
 +media($desktop)
 
@@ -1574,29 +1582,6 @@ body
       padding-top: 60px
       width: 380px
       background-color: $white
-
-      .content-menu-toc
-        ul
-          ul
-            padding-left: 10px
-
-        ul
-          > li
-            position: relative
-
-            > a
-              margin-top: 6px
-              display: block
-              font-size: 16px
-              font-weight: $weight-body
-              color: $menu-link-dark
-            
-              &:hover
-                color: $menu-link-medium
-
-            &.active              
-              > a
-                color: $menu-link-medium
 
 
 +media($tablet)
