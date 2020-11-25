@@ -684,11 +684,13 @@ object Server {
             Behaviors.same
 
           case TriggerTokenExpired(triggerInstance) =>
+            ctx.log.debug(s"Trigger token expired $triggerInstance")
             server.logTriggerStatus(triggerInstance, "stopped: access token expired")
             ctx.pipeToSelf(refreshAccessToken(triggerInstance))(
               TriggerTokenRefresh(triggerInstance, _))
             Behaviors.same
           case TriggerTokenRefresh(triggerInstance, result) =>
+            ctx.log.debug(s"Trigger token refresh ${result.toString}")
             server.logTriggerStatus(triggerInstance, result match {
               case Failure(_) => "stopped: access token refresh failed"
               case Success(_) => "started: access token refresh succeeded"

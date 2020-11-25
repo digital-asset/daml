@@ -84,6 +84,7 @@ object TriggerRunnerImpl {
             Behaviors.same
           case QueryACSFailed(cause: io.grpc.StatusRuntimeException)
               if cause.getStatus == io.grpc.Status.UNAUTHENTICATED =>
+            logger.info(s"Querying ACS unauthenticated - refreshing token: ${cause.toString}")
             config.server ! Server.TriggerTokenExpired(triggerInstance)
             Behaviors.stopped
           case QueryACSFailed(cause) =>
@@ -146,6 +147,7 @@ object TriggerRunnerImpl {
               Behaviors.same
             case Failed(cause: io.grpc.StatusRuntimeException)
                 if cause.getStatus == io.grpc.Status.UNAUTHENTICATED =>
+              logger.info(s"Trigger unauthenticated - refreshing token: ${cause.toString}")
               config.server ! Server.TriggerTokenExpired(triggerInstance)
               Behaviors.stopped
             case Failed(cause) =>
