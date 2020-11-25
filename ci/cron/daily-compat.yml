@@ -175,7 +175,7 @@ jobs:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
   - job: check_releases
-    timeoutInMinutes: 120
+    timeoutInMinutes: 240
     pool:
       name: linux-pool
       demands: assignment -equals default
