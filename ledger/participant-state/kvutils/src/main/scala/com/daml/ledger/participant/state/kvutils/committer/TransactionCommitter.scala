@@ -254,7 +254,7 @@ private[kvutils] class TransactionCommitter(
         result: Option[Value.ContractId]): Boolean =
       result.exists { contractId =>
         tx.nodes.exists {
-          case (nodeId @ _, create: Node.NodeCreate[_, _]) if create.coid == contractId => true
+          case (nodeId @ _, create: Node.NodeCreate[_, _]) => create.coid == contractId
           case _ => false
         }
       }
