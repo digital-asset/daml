@@ -172,7 +172,6 @@ Party management service
 Use the **party management service** to allocate parties on the ledger and retrieve information about allocated parties.
 
 Allocating parties is necessary to interact with the ledger. For more information, refer to the pages on :doc:`Identity Management</concepts/identity-and-package-management>` and :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.PartyManagementService>`.
-Party management service offers both retrieving details on an individual party and listing all known parties.
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.PartyManagementService>`.
 
