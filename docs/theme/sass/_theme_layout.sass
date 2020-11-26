@@ -708,6 +708,11 @@ body
   width: calc(100% - #{$nav-desktop-width})
   background: $white
 
+  padding-top: 30px
+
+  +media($mobile)
+    padding-top: 0
+
   box-shadow: 0px 3px 2px -1px $gray-lighter
   -moz-box-shadow: 0px 3px 2px -1px $gray-lighter
   -webkit-box-shadow: 0px 3px 2px -1px $gray-lighter
@@ -721,23 +726,32 @@ body
         display: none
 
     .navbar-menu
+      margin-top: -75px
 
-        &.landing
-          display: block
+      +media($mobile)
+        margin-top: 0
+
+      &.landing
+        display: block
 
   .version
-    padding-top: 22px
-    padding-left: 20px
+    margin-top: 49px
     top: 0
     position: absolute
-    left: 170px
-    font-weight: $weight-title
+    right: 30px
+    font-size: 24pt
+    font-weight: $weight-body
     display: flex
     align-items: center
     color: $text-dark
 
     +media($tablet)
       .hide-tablet
+        display: none
+
+    +media($mobile)
+      margin-top: 19px
+      .hide-mobile
         display: none
 
     .version_switcher_placeholder
@@ -755,6 +769,7 @@ body
         position: relative
         top: initial
         left: initial
+        right: initial
         font-size: 20pt
 
         +media($desktop-wide)
@@ -777,10 +792,9 @@ body
       border: none
       outline: none
       box-shadow: none
-      color: #3A478F
+      color: $text-dark
       text-transform: uppercase
       font-weight: $weight-title
-      font-size: 100%
       padding: 0
 
       &:after
@@ -789,7 +803,6 @@ body
 
     .nice-select
       padding-left: 6px
-      font-size: 24px
 
       .list
         position: absolute
@@ -798,9 +811,9 @@ body
         width: 200px
 
       &:after
-        background-size: 10px
-        right: 2px
-        top: 10px
+        background-size: 15px
+        right: -3px
+        top: 13px
 
   .version-switcher-arrow
     position: relative
@@ -809,6 +822,11 @@ body
 
 .wy-nav-side
   background-color: $menu-background-color
+
+  padding-top: 30px
+
+  +media($mobile)
+    padding-top: 0
 
   .wy-nav-side-shadow
     display: none
@@ -1439,7 +1457,7 @@ body
   .content-menu
     position: fixed
     right: 27px
-    top: 172px
+    top: 202px
     width: 380px
     display: block
 
@@ -1542,7 +1560,7 @@ body
   .wy-nav-side
     &.shift
       width: 350px
-      top: 115px
+      top: 145px
   
   .wy-menu-vertical
     margin-top: 10px
@@ -1722,7 +1740,7 @@ body
           i.fa
             font-size: 30px
             cursor: pointer
-            color: #3A478F
+            color: $text-dark
             background: unset
             display: inline-block
             margin-left: 0px
@@ -1930,7 +1948,7 @@ body
             border: none
             text-transform: uppercase
             border-bottom: 1px solid #dddddd
-            color: #3A478F
+            color: $text-dark
             padding: 22px 23px 22px 23px
             background-color: #ffffff
 
@@ -1945,7 +1963,7 @@ body
           td
             border: none
             padding: 27px 23px 27px 23px
-            color: #3A478F
+            color: $text-dark
             white-space: normal
             vertical-align: top
 

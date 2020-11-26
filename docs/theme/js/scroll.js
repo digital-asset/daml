@@ -9,7 +9,7 @@ $(document).ready(function () {
     function setHeader() {            
         $topbar.addClass('fixed');
         $topbar.css('width', $('.wy-nav-content-wrap').css('width'));
-        $content.css('padding-top', $topbar.height() + parseInt(contentPaddingTop));
+        $content.css('padding-top', $topbar.height() + 30 + parseInt(contentPaddingTop));
     }
 
     $(window).resize(function () {

@@ -260,16 +260,16 @@ function menu() {
             $contentMenu.css({
                 'height': $(window).height() - contentMenuOffsetTop - 50
             });
-            /*$contentMenuWrapper.css({
+            $contentMenuWrapper.css({
                 'height': '100%'
-            });*/
+            });
         } else {
             $contentMenu.css({
                 'height': $contentMenuToc.innerHeight() + 110
             });
-            /*$contentMenuWrapper.css({
+            $contentMenuWrapper.css({
                 'height': '100%'
-            });*/
+            });
         }
     } else {
         var height = Math.min($(window).height() - 150, $contentMenuToc.innerHeight() + 60);
