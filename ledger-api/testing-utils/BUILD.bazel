@@ -18,7 +18,7 @@ da_scala_library(
         "@maven//:org_slf4j_slf4j_api",
     ],
     deps = [
-        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
         "//libs-scala/concurrent",

@@ -143,7 +143,10 @@ protos_zip = rule(
                 for version in LF_VERSIONS
             ],
         ),
-        "ledger_api_tarball": attr.label(allow_single_file = True, default = Label("//ledger-api/grpc-definitions:ledger-api-protos.tar.gz")),
+        "ledger_api_tarball": attr.label(
+            allow_single_file = True,
+            default = Label("//ledger-api/grpc-definitions:ledger_api_proto_src.tar.gz"),
+        ),
         "zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
             cfg = "host",
