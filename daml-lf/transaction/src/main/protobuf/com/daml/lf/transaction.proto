@@ -45,7 +45,7 @@ message Node {
         NodeLookupByKey lookup_by_key = 6;
     }
 
-    string version = 7; // optional *since dev*
+    string version = 127; // optional *since dev*
 }
 
 message KeyWithMaintainers {

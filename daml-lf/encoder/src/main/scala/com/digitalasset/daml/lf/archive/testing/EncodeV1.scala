@@ -232,14 +232,6 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
         case TTyCon(tycon) =>
           builder.setCon(
             PLF.Type.Con.newBuilder().setTycon(tycon).accumulateLeft(args)(_ addArgs _))
-        case TBuiltin(BTArrow) if versionIsOlderThan(LV.Features.arrowType) =>
-          args match {
-            case ImmArraySnoc(firsts, last) =>
-              builder.setFun(
-                PLF.Type.Fun.newBuilder().accumulateLeft(firsts)(_ addParams _).setResult(last))
-            case _ =>
-              sys.error("unexpected errors")
-          }
         case TBuiltin(bType) =>
           val (proto, typs) =
             if (bType == BTNumeric && versionIsOlderThan(LV.Features.numeric))
@@ -373,10 +365,8 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
         case UpdateGetTime =>
           builder.setGetTime(unit)
         case UpdateFetchByKey(rbk) =>
-          assertSince(LV.Features.contractKeys, "fetchByKey")
           builder.setFetchByKey(rbk)
         case UpdateLookupByKey(rbk) =>
-          assertSince(LV.Features.contractKeys, "lookupByKey")
           builder.setLookupByKey(rbk)
         case UpdateEmbedExpr(typ, body) =>
           builder.setEmbedExpr(PLF.Update.EmbedExpr.newBuilder().setType(typ).setBody(body))
@@ -465,10 +455,8 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
           setString(tail, b.setVarTailStr, b.setVarTailInternedStr)
           builder.setCons(b)
         case CPNone =>
-          assertSince(LV.Features.optional, "CaseAlt.OptionalNone")
           builder.setOptionalNone(unit)
         case CPSome(x) =>
-          assertSince(LV.Features.optional, "CaseAlt.OptionalSome")
           val b = PLF.CaseAlt.OptionalSome.newBuilder()
           setString(x, b.setVarBodyStr, b.setVarBodyInternedStr)
           builder.setOptionalSome(b)
@@ -585,10 +573,8 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
               .accumulateLeft(front)(_ addFront _)
               .setTail(tail))
         case ENone(typ) =>
-          assertSince(LV.Features.optional, "Expr.OptionalNone")
           builder.setOptionalNone(PLF.Expr.OptionalNone.newBuilder().setType(typ))
         case ESome(typ, x) =>
-          assertSince(LV.Features.optional, "Expr.OptionalSome")
           builder.setOptionalSome(PLF.Expr.OptionalSome.newBuilder().setType(typ).setBody(x))
         case ELocation(loc, expr) =>
           encodeExprBuilder(expr).setLocation(loc)

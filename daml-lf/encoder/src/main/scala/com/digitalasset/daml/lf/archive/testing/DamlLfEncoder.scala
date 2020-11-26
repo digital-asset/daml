@@ -47,6 +47,7 @@ private[daml] object DamlLfEncoder extends App {
       case e: EncodeError =>
         error(s"Encoding error: ${e.message}")
       case NonFatal(e) =>
+        remy.log(e.getStackTrace.mkString("\n"))
         error(s"error: $e")
     }
 

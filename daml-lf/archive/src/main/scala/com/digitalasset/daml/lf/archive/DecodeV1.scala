@@ -160,7 +160,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       }
       .toIndexedSeq
   }
-  case class PackageDependencyTracker(self: PackageId) {
+  private[archive] class PackageDependencyTracker(self: PackageId) {
     private val deps = mutable.Set.empty[PackageId]
     def markDependency(pkgId: PackageId): Unit =
       if (pkgId != self)
@@ -168,7 +168,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     def getDependencies: Set[PackageId] = deps.toSet
   }
 
-  case class DecoderEnv(
+  private[archive] case class DecoderEnv(
       packageId: PackageId,
       internedStrings: ImmArraySeq[String],
       internedDottedNames: ImmArraySeq[DottedName],
@@ -464,12 +464,10 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         tpl: DottedName,
         key: PLF.DefTemplate.DefKey,
         tplVar: ExprVarName): TemplateKey = {
-      assertSince(LV.Features.contractKeys, "DefTemplate.DefKey")
       val keyExpr = key.getKeyExprCase match {
         case PLF.DefTemplate.DefKey.KeyExprCase.KEY =>
           decodeKeyExpr(key.getKey, tplVar)
         case PLF.DefTemplate.DefKey.KeyExprCase.COMPLEX_KEY => {
-          assertSince(LV.Features.complexContactKeys, "DefTemplate.DefKey.complex_key")
           decodeExpr(key.getComplexKey, s"${tpl}:key")
         }
         case PLF.DefTemplate.DefKey.KeyExprCase.KEYEXPR_NOT_SET =>
@@ -652,13 +650,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             }
           (prim.getArgsList.asScala foldLeft [Type] baseType)((typ, arg) =>
             TApp(typ, decodeType(arg)))
-        case PLF.Type.SumCase.FUN =>
-          assertUntil(LV.Features.arrowType, "Type.Fun")
-          val tFun = lfType.getFun
-          val params = tFun.getParamsList.asScala
-          assertNonEmpty(params, "params")
-          (params foldRight decodeType(tFun.getResult))(
-            (param, res) => TFun(decodeType(param), res))
         case PLF.Type.SumCase.FORALL =>
           val tForall = lfType.getForall
           val vars = tForall.getVarsList.asScala
@@ -953,11 +944,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           EScenario(decodeScenario(lfExpr.getScenario, definition))
 
         case PLF.Expr.SumCase.OPTIONAL_NONE =>
-          assertSince(LV.Features.optional, "Expr.OptionalNone")
           ENone(decodeType(lfExpr.getOptionalNone.getType))
 
         case PLF.Expr.SumCase.OPTIONAL_SOME =>
-          assertSince(LV.Features.optional, "Expr.OptionalSome")
           val some = lfExpr.getOptionalSome
           ESome(decodeType(some.getType), decodeExpr(some.getBody, definition))
 
@@ -1046,11 +1035,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           )
 
         case PLF.CaseAlt.SumCase.OPTIONAL_NONE =>
-          assertSince(LV.Features.optional, "CaseAlt.OptionalNone")
           CPNone
 
         case PLF.CaseAlt.SumCase.OPTIONAL_SOME =>
-          assertSince(LV.Features.optional, "CaseAlt.OptionalSome")
           val some = lfCaseAlt.getOptionalSome
           CPSome(
             handleInternedName(
@@ -1097,9 +1084,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             arg = decodeExpr(create.getExpr, definition))
 
         case PLF.Update.SumCase.EXERCISE =>
-          if (versionIsOlderThan(LV.Features.noExerciseActor)) {
-            throw ParseError(s"DAML-LF {1.$minor} is not supported")
-          }
           val exercise = lfUpdate.getExercise
           UpdateExercise(
             templateId = decodeTypeConName(exercise.getTemplate),
@@ -1112,7 +1096,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
               "Update.Exercise.choice.choice"
             ),
             cidE = decodeExpr(exercise.getCid, definition),
-            argE = decodeExpr(exercise.getArg, definition)
+            argE = decodeExpr(exercise.getArg, definition),
           )
 
         case PLF.Update.SumCase.EXERCISE_BY_KEY =>
@@ -1137,11 +1121,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             contractId = decodeExpr(fetch.getCid, definition))
 
         case PLF.Update.SumCase.FETCH_BY_KEY =>
-          assertSince(LV.Features.contractKeys, "fetchByKey")
           UpdateFetchByKey(decodeRetrieveByKey(lfUpdate.getFetchByKey, definition))
 
         case PLF.Update.SumCase.LOOKUP_BY_KEY =>
-          assertSince(LV.Features.contractKeys, "lookupByKey")
           UpdateLookupByKey(decodeRetrieveByKey(lfUpdate.getLookupByKey, definition))
 
         case PLF.Update.SumCase.EMBED_EXPR =>
@@ -1355,10 +1337,10 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(SCENARIO, BTScenario),
       BuiltinTypeInfo(CONTRACT_ID, BTContractId),
       BuiltinTypeInfo(DATE, BTDate),
-      BuiltinTypeInfo(OPTIONAL, BTOptional, minVersion = optional),
-      BuiltinTypeInfo(TEXTMAP, BTTextMap, minVersion = optional),
+      BuiltinTypeInfo(OPTIONAL, BTOptional),
+      BuiltinTypeInfo(TEXTMAP, BTTextMap),
       BuiltinTypeInfo(GENMAP, BTGenMap, minVersion = genMap),
-      BuiltinTypeInfo(ARROW, BTArrow, minVersion = arrowType),
+      BuiltinTypeInfo(ARROW, BTArrow),
       BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
       BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
       BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep)
@@ -1442,12 +1424,12 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64, minVersion = numeric),
       BuiltinFunctionInfo(FOLDL, BFoldl),
       BuiltinFunctionInfo(FOLDR, BFoldr),
-      BuiltinFunctionInfo(TEXTMAP_EMPTY, BTextMapEmpty, minVersion = textMap),
-      BuiltinFunctionInfo(TEXTMAP_INSERT, BTextMapInsert, minVersion = textMap),
-      BuiltinFunctionInfo(TEXTMAP_LOOKUP, BTextMapLookup, minVersion = textMap),
-      BuiltinFunctionInfo(TEXTMAP_DELETE, BTextMapDelete, minVersion = textMap),
-      BuiltinFunctionInfo(TEXTMAP_TO_LIST, BTextMapToList, minVersion = textMap),
-      BuiltinFunctionInfo(TEXTMAP_SIZE, BTextMapSize, minVersion = textMap),
+      BuiltinFunctionInfo(TEXTMAP_EMPTY, BTextMapEmpty),
+      BuiltinFunctionInfo(TEXTMAP_INSERT, BTextMapInsert),
+      BuiltinFunctionInfo(TEXTMAP_LOOKUP, BTextMapLookup),
+      BuiltinFunctionInfo(TEXTMAP_DELETE, BTextMapDelete),
+      BuiltinFunctionInfo(TEXTMAP_TO_LIST, BTextMapToList),
+      BuiltinFunctionInfo(TEXTMAP_SIZE, BTextMapSize),
       BuiltinFunctionInfo(GENMAP_EMPTY, BGenMapEmpty, minVersion = genMap),
       BuiltinFunctionInfo(GENMAP_INSERT, BGenMapInsert, minVersion = genMap),
       BuiltinFunctionInfo(GENMAP_LOOKUP, BGenMapLookup, minVersion = genMap),
@@ -1488,7 +1470,6 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(
         LEQ_PARTY,
         BLessEq,
-        minVersion = partyOrdering,
         maxVersion = Some(genComparison),
         implicitParameters = List(TParty)),
       BuiltinFunctionInfo(
@@ -1521,7 +1502,6 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(
         GEQ_PARTY,
         BGreaterEq,
-        minVersion = partyOrdering,
         maxVersion = Some(genComparison),
         implicitParameters = List(TParty),
       ),
@@ -1555,7 +1535,6 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(
         LESS_PARTY,
         BLess,
-        minVersion = partyOrdering,
         maxVersion = Some(genComparison),
         implicitParameters = List(TParty)
       ),
@@ -1589,7 +1568,6 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(
         GREATER_PARTY,
         BGreater,
-        minVersion = partyOrdering,
         maxVersion = Some(genComparison),
         implicitParameters = List(TParty),
       ),
@@ -1602,7 +1580,7 @@ private[lf] object DecodeV1 {
       ),
       BuiltinFunctionInfo(TO_TEXT_NUMERIC, BToTextNumeric, minVersion = numeric),
       BuiltinFunctionInfo(TO_TEXT_TIMESTAMP, BToTextTimestamp),
-      BuiltinFunctionInfo(TO_TEXT_PARTY, BToTextParty, minVersion = partyTextConversions),
+      BuiltinFunctionInfo(TO_TEXT_PARTY, BToTextParty),
       BuiltinFunctionInfo(TO_TEXT_TEXT, BToTextText),
       BuiltinFunctionInfo(
         TO_TEXT_CONTRACT_ID,
@@ -1611,17 +1589,16 @@ private[lf] object DecodeV1 {
       ),
       BuiltinFunctionInfo(TO_QUOTED_TEXT_PARTY, BToQuotedTextParty),
       BuiltinFunctionInfo(TEXT_FROM_CODE_POINTS, BToTextCodePoints, minVersion = textPacking),
-      BuiltinFunctionInfo(FROM_TEXT_PARTY, BFromTextParty, minVersion = partyTextConversions),
-      BuiltinFunctionInfo(FROM_TEXT_INT64, BFromTextInt64, minVersion = numberParsing),
+      BuiltinFunctionInfo(FROM_TEXT_PARTY, BFromTextParty),
+      BuiltinFunctionInfo(FROM_TEXT_INT64, BFromTextInt64),
       BuiltinFunctionInfo(
         FROM_TEXT_DECIMAL,
         BFromTextNumeric,
         implicitParameters = List(TNat.Decimal),
-        minVersion = numberParsing,
         maxVersion = Some(numeric)),
       BuiltinFunctionInfo(FROM_TEXT_NUMERIC, BFromTextNumeric, minVersion = numeric),
       BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BFromTextCodePoints, minVersion = textPacking),
-      BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text, minVersion = shaText),
+      BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
       BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),
@@ -1685,7 +1662,7 @@ private[lf] object DecodeV1 {
         implicitParameters = List(TTypeRep)),
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId, maxVersion = Some(genMap)),
       BuiltinFunctionInfo(TRACE, BTrace),
-      BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId, minVersion = coerceContractId),
+      BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),
