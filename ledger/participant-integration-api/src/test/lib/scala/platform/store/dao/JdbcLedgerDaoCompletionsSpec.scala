@@ -133,18 +133,14 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeRejection(RejectionReason.Inconsistent(""))
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, Set())
-        .runWith(Sink.seq)
-      response2 <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId, Set("WRONG"))
         .runWith(Sink.seq)
-      response3 <- ledgerDao.completions
+      response2 <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId, Set("WRONG1", "WRONG2", "WRONG3"))
         .runWith(Sink.seq)
     } yield {
       response1 shouldBe Seq.empty
       response2 shouldBe Seq.empty
-      response3 shouldBe Seq.empty
     }
   }
 
@@ -156,18 +152,14 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       _ <- storeMultiPartyRejection(RejectionReason.Inconsistent(""))
       to <- ledgerDao.lookupLedgerEnd()
       response1 <- ledgerDao.completions
-        .getCommandCompletions(from, to, applicationId, Set())
-        .runWith(Sink.seq)
-      response2 <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId, Set("WRONG"))
         .runWith(Sink.seq)
-      response3 <- ledgerDao.completions
+      response2 <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId, Set("WRONG1", "WRONG2", "WRONG3"))
         .runWith(Sink.seq)
     } yield {
       response1 shouldBe Seq.empty
       response2 shouldBe Seq.empty
-      response3 shouldBe Seq.empty
     }
   }
    */
