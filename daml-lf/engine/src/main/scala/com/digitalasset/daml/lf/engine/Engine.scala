@@ -161,7 +161,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     } yield (tx, meta)
 
   def replay(
-      submitter: Party,
+      submitters: Set[Party],
       tx: SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
@@ -173,7 +173,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       (commands, globalCids) = commandsWithCids
       result <- interpretCommands(
         validating = true,
-        submitters = Set(submitter),
+        submitters = submitters,
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
@@ -199,7 +199,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     *  @param ledgerEffectiveTime time when the transaction is claimed to be submitted
     */
   def validate(
-      submitter: Party,
+      submitters: Set[Party],
       tx: SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
@@ -209,7 +209,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     //reinterpret
     for {
       result <- replay(
-        submitter,
+        submitters,
         tx,
         ledgerEffectiveTime,
         participantId,

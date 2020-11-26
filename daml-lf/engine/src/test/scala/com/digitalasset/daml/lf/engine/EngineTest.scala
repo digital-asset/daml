@@ -476,7 +476,7 @@ class EngineTest
       val Right((tx, meta)) = interpretResult
       val Right(submitter) = tx.guessSubmitter
       val validated = engine
-        .validate(submitter, tx, let, participant, meta.submissionTime, submissionSeed)
+        .validate(Set(submitter), tx, let, participant, meta.submissionTime, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -554,7 +554,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(submitter, tx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -654,7 +654,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(submitter, tx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -848,7 +848,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(submitter, tx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -1682,7 +1682,7 @@ class EngineTest
         for {
           submitter <- tx.guessSubmitter.left.map(ValidationError)
           res <- engine
-            .validate(submitter, tx, let, participant, metaData.submissionTime, submissionSeed)
+            .validate(Set(submitter), tx, let, participant, metaData.submissionTime, submissionSeed)
             .consume(_ => None, lookupPackage, _ => None)
         } yield res
 
