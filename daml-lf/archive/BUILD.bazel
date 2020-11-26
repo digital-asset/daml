@@ -37,6 +37,10 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
         proto_jars(
             name = "daml_lf_%s_archive_proto" % version,
             srcs = [":daml_lf_%s_archive_proto_srcs" % version],
+            file_root = "com/{package}/daml_lf_{version}".format(
+                package = lf_version_package(version),
+                version = mangle_for_java(version),
+            ),
             javadoc_root_packages = [
                 "com.{package}.daml_lf_{version}".format(
                     package = lf_version_package(version),
@@ -46,34 +50,6 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
             maven_artifact_prefix = "daml-lf-%s-archive" % version,
             maven_group = "com.daml",
             strip_import_prefix = "src/main/protobuf/",
-        ),
-        genrule(
-            name = "daml_lf_%s_archive_proto_zip" % version,
-            srcs = [":daml_lf_%s_archive_proto_srcs" % version],
-            outs = ["daml_lf_%s_archive_proto_zip.zip" % version],
-            cmd = """
-                DESTDIR=protobuf/com/{package}/daml_lf_{version};
-                MAPPINGS=()
-                for src in $(SRCS); do
-                    MAPPINGS+=("$$DESTDIR/$$(basename $$src)=$$src")
-                done
-                $(rootpath @bazel_tools//tools/zip:zipper) cC "$@" "$${{MAPPINGS[@]}}"
-            """.format(
-                package = lf_version_package(version),
-                version = mangle_for_java(version),
-            ),
-            tools = ["@bazel_tools//tools/zip:zipper"],
-            visibility = ["//visibility:public"],
-        ),
-        pkg_tar(
-            name = "daml_lf_%s_archive_proto_tarball" % version,
-            srcs = [":daml_lf_%s_archive_proto_srcs" % version],
-            extension = "tar.gz",
-            package_dir = "com/{package}/daml_lf_{version}".format(
-                package = lf_version_package(version),
-                version = mangle_for_java(version),
-            ),
-            visibility = ["//visibility:public"],
         ),
     ]
     for version in LF_VERSIONS
