@@ -910,6 +910,7 @@ body
           border: none
           margin-top: 15px
           margin-bottom: 14px
+          padding-top: 10px
 
           &:hover
             color: $menu-link-medium
@@ -919,19 +920,7 @@ body
 
         &.current
           a.reference
-            padding-left: 27px
             color: $menu-link-medium
-
-
-            margin-top: 15px
-            margin-bottom: 14px
-            padding-top: 10px
-
-            +media($tablet)
-              margin-top: 0px
-              margin-bottom: 0px
-              padding-top: 6px
-
 
             &:after
               content: ""
@@ -1710,7 +1699,7 @@ body
     &.shift
       width: 100%
       position: fixed
-      top: 236px
+      top: 220px
       padding-bottom: 262px
       z-index: 1
 
@@ -1771,7 +1760,7 @@ body
               li.toctree-l1:first-of-type
                 a.reference
                   font-size: 16px
-                  margin-top: 40px
+                  margin-top: 20px
 
                   &:before
                     left: 44px
@@ -1827,8 +1816,8 @@ body
         display: none
         align-items: start
         position: absolute
-        top: 132px
-        left: 0
+        top: 66px
+        left: 3
         width: 100%
 
         ul
@@ -1847,8 +1836,7 @@ body
       .search-inline
         display: block
         width: 100%
-        top: -2px
-        margin-top: 16px
+        margin-top: 110px
 
       .navbar
         background: $nav-background-color
@@ -1859,18 +1847,15 @@ body
           box-shadow: none
           -moz-box-shadow: none
           -webkit-box-shadow: none
-          width: 95%
-          margin-left: 2.5%
-          border-bottom: 0.5px solid #AEC0D2
+          padding-bottom: 10px
 
           // todo - add color variable
-          height: 120px
           background-color: $menu-background-color
           z-index: 2
 
           ul
             li
-              padding-left: 30px
+              margin-left: 0
 
               a
                 font-weight: $weight-body
@@ -2163,4 +2148,3 @@ a.copybtn.o-tooltip--left
 
   img
     display: none
-
