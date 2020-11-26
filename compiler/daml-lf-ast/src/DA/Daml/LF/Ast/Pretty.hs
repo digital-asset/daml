@@ -377,14 +377,10 @@ instance Pretty Update where
           $$ keyword_ "in" <-> pPrintPrec lvl precELam body
     UCreate tpl arg ->
       pPrintAppKeyword lvl prec "create" [tplArg tpl, TmArg arg]
-    UExercise tpl choice cid Nothing arg ->
+    UExercise tpl choice cid arg ->
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "exercise"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
-    UExercise tpl choice cid (Just actor) arg ->
-      -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
-      pPrintAppKeyword lvl prec "exercise_with_actors"
-      [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg actor, TmArg arg]
     UExerciseByKey tpl choice key arg ->
       pPrintAppKeyword lvl prec "exercise_by_key"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg key, TmArg arg]

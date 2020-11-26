@@ -136,7 +136,7 @@ startFromUpdate seen world update = case update of
     LF.UGetTime -> Set.empty
     LF.UEmbedExpr _ upEx -> startFromExpr seen world upEx
     LF.UCreate tpl _ -> Set.singleton (ACreate tpl)
-    LF.UExercise tpl choice _ _ _ -> Set.singleton (AExercise tpl choice)
+    LF.UExercise tpl choice _ _ -> Set.singleton (AExercise tpl choice)
     LF.UExerciseByKey tpl choice _ _ -> Set.singleton (AExercise tpl choice)
     LF.UFetch{} -> Set.empty
     LF.ULookupByKey{} -> Set.empty
