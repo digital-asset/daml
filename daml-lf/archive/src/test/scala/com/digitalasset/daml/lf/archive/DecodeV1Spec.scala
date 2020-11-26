@@ -15,6 +15,7 @@ import LanguageMinorVersion.Implicits._
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.DottedName
 import com.daml.daml_lf_dev.DamlLf1
+import com.daml.lf.transaction.VersionTimeline
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Inside, Matchers, OptionValues, WordSpec}
 
@@ -41,15 +42,29 @@ class DecodeV1Spec
       DamlLf1.BuiltinFunction.values().toSet
   }
 
-  val dummyModuleStr = "dummyModule"
-  val dummyModuleDName = DamlLf1.DottedName.newBuilder().addSegments(dummyModuleStr).build()
-  val dummyModuleName = DottedName.assertFromString(dummyModuleStr)
+  private[this] val dummyModuleStr = "dummyModule"
+  private[this] val dummyModuleName = DottedName.assertFromString(dummyModuleStr)
 
-  import com.daml.lf.transaction.VersionTimeline.Implicits._
+  import VersionTimeline.Implicits._
 
-  val lfVersions =
+  private[this] val lfVersions =
     List(LV.Minor.Stable("6"), LV.Minor.Stable("7"), LV.Minor.Stable("8"), LV.Minor.Dev)
       .map(LV(LV.Major.V1, _))
+
+  private[this] def forEveryVersionSuchThat[U](cond: LV => Boolean)(f: LV => U): Unit =
+    lfVersions.foreach { version =>
+      if (cond(version)) f(version)
+      ()
+    }
+
+  private[this] def forEveryVersion[U]: (LV => U) => Unit =
+    forEveryVersionSuchThat(_ => true)
+
+  private[this] def forEveryVersionBefore[U](maxVersion: LV): (LV => U) => Unit =
+    forEveryVersionSuchThat(v => v precedes maxVersion)
+
+  private[this] def forEveryVersionAtOrAfter[U](maxVersion: LV): (LV => U) => Unit =
+    forEveryVersionSuchThat(v => !(v precedes maxVersion))
 
   private def moduleDecoder(
       version: LV,
@@ -73,17 +88,15 @@ class DecodeV1Spec
 
       val input = DamlLf1.Kind.newBuilder().setNat(DamlLf1.Unit.newBuilder()).build()
 
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.numeric)
-          an[ParseError] shouldBe thrownBy(moduleDecoder(version).decodeKind(input))
+      forEveryVersionBefore(LV.Features.numeric) { version =>
+        an[ParseError] shouldBe thrownBy(moduleDecoder(version).decodeKind(input))
       }
     }
 
     "accept nat kind if lf version >= 1.7" in {
       val input = DamlLf1.Kind.newBuilder().setNat(DamlLf1.Unit.newBuilder()).build()
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.numeric))
-          moduleDecoder(version).decodeKind(input) shouldBe Ast.KNat
+      forEveryVersionAtOrAfter(LV.Features.numeric) { version =>
+        moduleDecoder(version).decodeKind(input) shouldBe Ast.KNat
       }
     }
   }
@@ -102,12 +115,10 @@ class DecodeV1Spec
       val testCases =
         Table("proto nat type", (validNatTypes.map(_.toLong) ++ invalidNatTypes).map(buildNat): _*)
 
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.numeric) {
-          val decoder = moduleDecoder(version)
-          forEvery(testCases) { natType =>
-            an[ParseError] shouldBe thrownBy(decoder.decodeType(natType))
-          }
+      forEveryVersionBefore(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(testCases) { natType =>
+          an[ParseError] shouldBe thrownBy(decoder.decodeType(natType))
         }
       }
     }
@@ -117,15 +128,13 @@ class DecodeV1Spec
         Table("proto nat type" -> "nat", validNatTypes.map(v => buildNat(v.toLong) -> v): _*)
       val negativeTestCases = Table("proto nat type", invalidNatTypes.map(buildNat): _*)
 
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.numeric)) {
-          val decoder = moduleDecoder(version)
-          forEvery(positiveTestCases) { (natType, nat) =>
-            decoder.decodeType(natType) shouldBe Ast.TNat(Numeric.Scale.assertFromInt(nat))
-          }
-          forEvery(negativeTestCases) { natType =>
-            an[ParseError] shouldBe thrownBy(decoder.decodeType(natType))
-          }
+      forEveryVersionAtOrAfter(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(positiveTestCases) { (natType, nat) =>
+          decoder.decodeType(natType) shouldBe Ast.TNat(Numeric.Scale.assertFromInt(nat))
+        }
+        forEvery(negativeTestCases) { natType =>
+          an[ParseError] shouldBe thrownBy(decoder.decodeType(natType))
         }
       }
     }
@@ -159,64 +168,52 @@ class DecodeV1Spec
     )
 
     "translate TDecimal to TApp(TNumeric, TNat(10))" in {
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.numeric) {
-          val decoder = moduleDecoder(version)
-          forEvery(decimalTestCases) { (input, expectedOutput) =>
-            decoder.decodeType(input) shouldBe expectedOutput
-          }
+      forEveryVersionBefore(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(decimalTestCases) { (input, expectedOutput) =>
+          decoder.decodeType(input) shouldBe expectedOutput
         }
       }
     }
 
     "reject Numeric types if version < 1.7" in {
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.numeric) {
-          val decoder = moduleDecoder(version)
-          forEvery(numericTestCases) { (input, _) =>
-            a[ParseError] shouldBe thrownBy(decoder.decodeType(input))
-          }
+      forEveryVersionBefore(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(numericTestCases) { (input, _) =>
+          a[ParseError] shouldBe thrownBy(decoder.decodeType(input))
         }
       }
     }
 
     "translate TNumeric as is if version >= 1.7" in {
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.numeric)) {
-          val decoder = moduleDecoder(version)
-          forEvery(numericTestCases) { (input, expectedOutput) =>
-            decoder.decodeType(input) shouldBe expectedOutput
-          }
+      forEveryVersionAtOrAfter(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(numericTestCases) { (input, expectedOutput) =>
+          decoder.decodeType(input) shouldBe expectedOutput
         }
       }
     }
 
     "reject Decimal types if version >= 1.7" in {
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.numeric)) {
-          val decoder = moduleDecoder(version)
-          forEvery(decimalTestCases) { (input, _) =>
-            a[ParseError] shouldBe thrownBy(decoder.decodeType(input))
-          }
+      forEveryVersionAtOrAfter(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(decimalTestCases) { (input, _) =>
+          a[ParseError] shouldBe thrownBy(decoder.decodeType(input))
         }
       }
     }
 
     "reject Any if version < 1.7" in {
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.anyType) {
-          val decoder = moduleDecoder(version)
-          a[ParseError] shouldBe thrownBy(decoder.decodeType(buildPrimType(ANY)))
-        }
+      forEveryVersionBefore(LV.Features.anyType) { version =>
+        val decoder = moduleDecoder(version)
+        a[ParseError] shouldBe thrownBy(decoder.decodeType(buildPrimType(ANY)))
       }
     }
 
     "accept Any if 1.7 <= version >= 1.dev and " in {
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.anyType)) {
-          val decoder = moduleDecoder(version)
-          decoder.decodeType(buildPrimType(ANY)) shouldBe TAny
-        }
+      forEveryVersionAtOrAfter(LV.Features.anyType) { version =>
+        val decoder = moduleDecoder(version)
+        decoder.decodeType(buildPrimType(ANY)) shouldBe TAny
       }
     }
 
@@ -258,33 +255,27 @@ class DecodeV1Spec
           )
           .build()
 
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.internedStrings) {
-          val decoder = moduleDecoder(version)
-          forEvery(negativeTestCases) { fieldNames =>
-            decoder.decodeType(buildTStructWithoutInterning(fieldNames))
-          }
-          forEvery(positiveTestCases) { fieldNames =>
-            a[ParseError] shouldBe thrownBy(
-              decoder.decodeType(buildTStructWithoutInterning(fieldNames)))
-          }
+      forEveryVersionBefore(LV.Features.internedStrings) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(negativeTestCases) { fieldNames =>
+          decoder.decodeType(buildTStructWithoutInterning(fieldNames))
+        }
+        forEvery(positiveTestCases) { fieldNames =>
+          a[ParseError] shouldBe thrownBy(
+            decoder.decodeType(buildTStructWithoutInterning(fieldNames)))
         }
       }
 
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.internedStrings)) {
-          val decoder = moduleDecoder(version, stringTable)
-          forEvery(negativeTestCases) { fieldNames =>
-            decoder.decodeType(buildTStructWithInterning(fieldNames))
-          }
-          forEvery(positiveTestCases) { fieldNames =>
-            a[ParseError] shouldBe thrownBy(
-              decoder.decodeType(buildTStructWithInterning(fieldNames)))
-          }
+      forEveryVersionAtOrAfter(LV.Features.internedStrings) { version =>
+        val decoder = moduleDecoder(version, stringTable)
+        forEvery(negativeTestCases) { fieldNames =>
+          decoder.decodeType(buildTStructWithInterning(fieldNames))
+        }
+        forEvery(positiveTestCases) { fieldNames =>
+          a[ParseError] shouldBe thrownBy(decoder.decodeType(buildTStructWithInterning(fieldNames)))
         }
       }
     }
-
   }
 
   "decodeExpr" should {
@@ -433,7 +424,7 @@ class DecodeV1Spec
     )
 
     "translate non numeric/decimal builtin as is for any version" in {
-      lfVersions.foreach { version =>
+      forEveryVersion { version =>
         val decoder = moduleDecoder(version)
         forEvery(negativeBuiltinTestCases) { (proto, scala) =>
           decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
@@ -443,40 +434,34 @@ class DecodeV1Spec
 
     "transparently apply TNat(10) to Decimal builtins if version < 1.7" in {
 
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.numeric) {
-          val decoder = moduleDecoder(version)
+      forEveryVersionBefore(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version)
 
-          forEvery(decimalBuiltinTestCases) { (proto, version, scala) =>
-            if (LV.Major.V1.minorVersionOrdering.gteq(version, version))
-              decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
-          }
+        forEvery(decimalBuiltinTestCases) { (proto, version, scala) =>
+          if (LV.Major.V1.minorVersionOrdering.gteq(version, version))
+            decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
 
     "reject Numeric builtins if version < 1.7" in {
 
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.numeric) {
-          val decoder = moduleDecoder(version)
+      forEveryVersionBefore(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version)
 
-          forEvery(numericBuiltinTestCases) { (proto, _) =>
-            an[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
-          }
+        forEvery(numericBuiltinTestCases) { (proto, _) =>
+          an[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
         }
       }
     }
 
     "translate Numeric builtins as is if version >= 1.7" in {
 
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.numeric)) {
-          val decoder = moduleDecoder(version)
+      forEveryVersionAtOrAfter(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version)
 
-          forEvery(numericBuiltinTestCases) { (proto, scala) =>
-            decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
-          }
+        forEvery(numericBuiltinTestCases) { (proto, scala) =>
+          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
@@ -485,27 +470,25 @@ class DecodeV1Spec
 
       val v1_7 = LV.Minor.Stable("7")
 
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.numeric) & (version precedes LV.Features.genComparison)) {
+      forEveryVersionSuchThat(version =>
+        !(version precedes LV.Features.numeric) & (version precedes LV.Features.genComparison)) {
+        version =>
           val decoder = moduleDecoder(version)
 
           forEvery(numericComparisonBuiltinCases) { (proto, scala) =>
             if (proto != DamlLf1.BuiltinFunction.EQUAL_NUMERIC || version.minor == v1_7)
               decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
           }
-        }
       }
     }
 
     "reject Decimal builtins if version >= 1.7" in {
 
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.numeric)) {
-          val decoder = moduleDecoder(version)
+      forEveryVersionAtOrAfter(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version)
 
-          forEvery(decimalBuiltinTestCases) { (proto, _, _) =>
-            an[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
-          }
+        forEvery(decimalBuiltinTestCases) { (proto, _, _) =>
+          an[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
         }
       }
     }
@@ -525,16 +508,14 @@ class DecodeV1Spec
           "-9999999999999999999999999999.9999999999"
         )
 
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.numeric) {
-          val decoder = moduleDecoder(version)
-          forEvery(testCases) { string =>
-            decoder.decodeExpr(toDecimalProto(string), "test") match {
-              case Ast.EPrimLit(Ast.PLNumeric(num)) =>
-                num shouldBe new BigDecimal(string).setScale(10)
-              case _ =>
-                throw new Error("")
-            }
+      forEveryVersionBefore(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(testCases) { string =>
+          decoder.decodeExpr(toDecimalProto(string), "test") match {
+            case Ast.EPrimLit(Ast.PLNumeric(num)) =>
+              num shouldBe new BigDecimal(string).setScale(10)
+            case _ =>
+              throw new Error("")
           }
         }
       }
@@ -553,12 +534,10 @@ class DecodeV1Spec
           "+-0.0",
         )
 
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.numeric) {
-          val decoder = moduleDecoder(version)
-          forEvery(testCases) { string =>
-            a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toDecimalProto(string), "test"))
-          }
+      forEveryVersionBefore(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(testCases) { string =>
+          a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toDecimalProto(string), "test"))
         }
       }
     }
@@ -568,11 +547,9 @@ class DecodeV1Spec
       val decoder = moduleDecoder(LV(LV.Major.V1, LV.Features.numeric.minor), ImmArraySeq("0.0"))
       decoder.decodeExpr(toNumericProto(0), "test")
 
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.numeric) {
-          val decoder = moduleDecoder(version, ImmArraySeq("0.0"))
-          a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toNumericProto(0), "test"))
-        }
+      forEveryVersionBefore(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version, ImmArraySeq("0.0"))
+        a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toNumericProto(0), "test"))
       }
     }
 
@@ -591,16 +568,14 @@ class DecodeV1Spec
           7 -> "-99999999999999999999.999999999999999999"
         )
 
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.numeric)) {
-          val decoder = moduleDecoder(version, ImmArraySeq(testCases.map(_._2): _*))
-          forEvery(testCases) { (id, string) =>
-            decoder.decodeExpr(toNumericProto(id), "test") match {
-              case Ast.EPrimLit(Ast.PLNumeric(num)) =>
-                num shouldBe new BigDecimal(string)
-              case _ =>
-                throw new Error("")
-            }
+      forEveryVersionAtOrAfter(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version, ImmArraySeq(testCases.map(_._2): _*))
+        forEvery(testCases) { (id, string) =>
+          decoder.decodeExpr(toNumericProto(id), "test") match {
+            case Ast.EPrimLit(Ast.PLNumeric(num)) =>
+              num shouldBe new BigDecimal(string)
+            case _ =>
+              throw new Error("")
           }
         }
       }
@@ -620,92 +595,76 @@ class DecodeV1Spec
           7 -> "0"
         )
 
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.numeric)) {
-          val decoder = moduleDecoder(version, ImmArraySeq("0." +: testCases.map(_._2): _*))
-          forEvery(testCases) { (id, _) =>
-            decoder.decodeExpr(toNumericProto(0), "test")
-            a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toNumericProto(id), "test"))
-          }
+      forEveryVersionAtOrAfter(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version, ImmArraySeq("0." +: testCases.map(_._2): _*))
+        forEvery(testCases) { (id, _) =>
+          decoder.decodeExpr(toNumericProto(0), "test")
+          a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toNumericProto(id), "test"))
         }
       }
     }
 
     "reject numeric decimal if version >= 1.dev" in {
 
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.numeric)) {
-          val decoder = moduleDecoder(version)
-          a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toDecimalProto("0.0"), "test"))
-        }
+      forEveryVersionAtOrAfter(LV.Features.numeric) { version =>
+        val decoder = moduleDecoder(version)
+        a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toDecimalProto("0.0"), "test"))
       }
     }
 
     "translate comparison builtins as is if version < 1.9" in {
 
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.genComparison) {
-          val decoder = moduleDecoder(version)
+      forEveryVersionBefore(LV.Features.genComparison) { version =>
+        val decoder = moduleDecoder(version)
 
-          forEvery(comparisonBuiltinCases) { (proto, scala) =>
-            decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
-          }
+        forEvery(comparisonBuiltinCases) { (proto, scala) =>
+          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
 
     "reject comparison builtins as is if version >= 1.9" in {
 
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.genComparison) {
-          val decoder = moduleDecoder(version)
-          forEvery(genericComparisonBuiltinCases) { (proto, _) =>
-            a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
-          }
+      forEveryVersionBefore(LV.Features.genComparison) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(genericComparisonBuiltinCases) { (proto, _) =>
+          a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
         }
       }
     }
 
     "translate generic comparison builtins as is if version >= 1.9" in {
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.genComparison)) {
-          val decoder = moduleDecoder(version)
-          forEvery(genericComparisonBuiltinCases) { (proto, scala) =>
-            decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
-          }
+      forEveryVersionAtOrAfter(LV.Features.genComparison) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(genericComparisonBuiltinCases) { (proto, scala) =>
+          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
 
     "translate generic comparison builtins as is if version < 1.9" in {
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.genComparison) {
-          val decoder = moduleDecoder(version)
-          forEvery(genericComparisonBuiltinCases) { (proto, _) =>
-            a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
-          }
+      forEveryVersionBefore(LV.Features.genComparison) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(genericComparisonBuiltinCases) { (proto, _) =>
+          a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
         }
       }
     }
 
     "translate contract id text conversions as is if version >= 1.9" in {
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.contractIdTextConversions)) {
-          val decoder = moduleDecoder(version)
-          forEvery(contractIdTextConversionCases) { (proto, scala) =>
-            decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
-          }
+      forEveryVersionAtOrAfter(LV.Features.contractIdTextConversions) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(contractIdTextConversionCases) { (proto, scala) =>
+          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
 
     "reject contract id text conversions if version < 1.9" in {
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.contractIdTextConversions) {
-          val decoder = moduleDecoder(version)
-          forEvery(contractIdTextConversionCases) { (proto, _) =>
-            a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
-          }
+      forEveryVersionBefore(LV.Features.contractIdTextConversions) { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(contractIdTextConversionCases) { (proto, _) =>
+          a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
         }
       }
     }
@@ -766,120 +725,110 @@ class DecodeV1Spec
 
   "decodePackageMetadata" should {
     "accept a valid package name and version" in {
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.packageMetadata)) {
+      forEveryVersionAtOrAfter(LV.Features.packageMetadata) { version =>
+        new DecodeV1(version.minor).decodePackageMetadata(
+          DamlLf1.PackageMetadata
+            .newBuilder()
+            .setNameInternedStr(0)
+            .setVersionInternedStr(1)
+            .build(),
+          ImmArraySeq("foobar", "0.0.0")) shouldBe Ast.PackageMetadata(
+          Ref.PackageName.assertFromString("foobar"),
+          Ref.PackageVersion.assertFromString("0.0.0"))
+      }
+    }
+
+    "reject a package namewith space" in {
+      forEveryVersionAtOrAfter(LV.Features.packageMetadata) { version =>
+        a[ParseError] shouldBe thrownBy(
           new DecodeV1(version.minor).decodePackageMetadata(
             DamlLf1.PackageMetadata
               .newBuilder()
               .setNameInternedStr(0)
               .setVersionInternedStr(1)
               .build(),
-            ImmArraySeq("foobar", "0.0.0")) shouldBe Ast.PackageMetadata(
-            Ref.PackageName.assertFromString("foobar"),
-            Ref.PackageVersion.assertFromString("0.0.0"))
-        }
+            ImmArraySeq("foo bar", "0.0.0")))
       }
     }
-    "reject a package namewith space" in {
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.packageMetadata)) {
-          a[ParseError] shouldBe thrownBy(
-            new DecodeV1(version.minor).decodePackageMetadata(
-              DamlLf1.PackageMetadata
-                .newBuilder()
-                .setNameInternedStr(0)
-                .setVersionInternedStr(1)
-                .build(),
-              ImmArraySeq("foo bar", "0.0.0")))
-        }
-      }
-    }
+
     "reject a package version with leading zero" in {
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.packageMetadata)) {
-          a[ParseError] shouldBe thrownBy(
-            new DecodeV1(version.minor).decodePackageMetadata(
-              DamlLf1.PackageMetadata
-                .newBuilder()
-                .setNameInternedStr(0)
-                .setVersionInternedStr(1)
-                .build(),
-              ImmArraySeq("foobar", "01.0.0")))
-        }
+      forEveryVersionAtOrAfter(LV.Features.packageMetadata) { version =>
+        a[ParseError] shouldBe thrownBy(
+          new DecodeV1(version.minor).decodePackageMetadata(
+            DamlLf1.PackageMetadata
+              .newBuilder()
+              .setNameInternedStr(0)
+              .setVersionInternedStr(1)
+              .build(),
+            ImmArraySeq("foobar", "01.0.0")))
       }
     }
+
     "reject a package version with a dash" in {
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.packageMetadata)) {
-          a[ParseError] shouldBe thrownBy(
-            new DecodeV1(version.minor).decodePackageMetadata(
-              DamlLf1.PackageMetadata
-                .newBuilder()
-                .setNameInternedStr(0)
-                .setVersionInternedStr(1)
-                .build(),
-              ImmArraySeq("foobar", "0.0.0-")))
-        }
+      forEveryVersionAtOrAfter(LV.Features.packageMetadata) { version =>
+        a[ParseError] shouldBe thrownBy(
+          new DecodeV1(version.minor).decodePackageMetadata(
+            DamlLf1.PackageMetadata
+              .newBuilder()
+              .setNameInternedStr(0)
+              .setVersionInternedStr(1)
+              .build(),
+            ImmArraySeq("foobar", "0.0.0-")))
       }
     }
   }
 
   "decodePackage" should {
     "reject PackageMetadata if lf version < 1.8" in {
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.packageMetadata) {
-          val decoder = new DecodeV1(version.minor)
-          val pkgId = Ref.PackageId.assertFromString(
-            "0000000000000000000000000000000000000000000000000000000000000000")
-          val metadata =
-            DamlLf1.PackageMetadata.newBuilder
-              .setNameInternedStr(0)
-              .setVersionInternedStr(1)
-              .build()
-          val pkg = DamlLf1.Package
-            .newBuilder()
-            .addInternedStrings("foobar")
-            .addInternedStrings("0.0.0")
-            .setMetadata(metadata)
+      forEveryVersionBefore(LV.Features.packageMetadata) { version =>
+        val decoder = new DecodeV1(version.minor)
+        val pkgId = Ref.PackageId.assertFromString(
+          "0000000000000000000000000000000000000000000000000000000000000000")
+        val metadata =
+          DamlLf1.PackageMetadata.newBuilder
+            .setNameInternedStr(0)
+            .setVersionInternedStr(1)
             .build()
-          a[ParseError] shouldBe thrownBy(decoder.decodePackage(pkgId, pkg, false))
-        }
+        val pkg = DamlLf1.Package
+          .newBuilder()
+          .addInternedStrings("foobar")
+          .addInternedStrings("0.0.0")
+          .setMetadata(metadata)
+          .build()
+        a[ParseError] shouldBe thrownBy(decoder.decodePackage(pkgId, pkg, false))
       }
     }
 
     "require PackageMetadata to be present if lf version >= 1.8" in {
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.packageMetadata)) {
-          val decoder = new DecodeV1(version.minor)
-          val pkgId = Ref.PackageId.assertFromString(
-            "0000000000000000000000000000000000000000000000000000000000000000")
-          a[ParseError] shouldBe thrownBy(
-            decoder.decodePackage(pkgId, DamlLf1.Package.newBuilder().build(), false))
-        }
+      forEveryVersionAtOrAfter(LV.Features.packageMetadata) { version =>
+        val decoder = new DecodeV1(version.minor)
+        val pkgId = Ref.PackageId.assertFromString(
+          "0000000000000000000000000000000000000000000000000000000000000000")
+        a[ParseError] shouldBe thrownBy(
+          decoder.decodePackage(pkgId, DamlLf1.Package.newBuilder().build(), false))
       }
     }
+
     "decode PackageMetadata if lf version >= 1.8" in {
-      lfVersions.foreach { version =>
-        if (!(version precedes LV.Features.packageMetadata)) {
-          val decoder = new DecodeV1(version.minor)
-          val pkgId = Ref.PackageId.assertFromString(
-            "0000000000000000000000000000000000000000000000000000000000000000")
-          val metadata =
-            DamlLf1.PackageMetadata.newBuilder
-              .setNameInternedStr(0)
-              .setVersionInternedStr(1)
-              .build()
-          val pkg = DamlLf1.Package
-            .newBuilder()
-            .addInternedStrings("foobar")
-            .addInternedStrings("0.0.0")
-            .setMetadata(metadata)
+      forEveryVersionAtOrAfter(LV.Features.packageMetadata) { version =>
+        val decoder = new DecodeV1(version.minor)
+        val pkgId = Ref.PackageId.assertFromString(
+          "0000000000000000000000000000000000000000000000000000000000000000")
+        val metadata =
+          DamlLf1.PackageMetadata.newBuilder
+            .setNameInternedStr(0)
+            .setVersionInternedStr(1)
             .build()
-          decoder.decodePackage(pkgId, pkg, false).metadata shouldBe Some(
-            Ast.PackageMetadata(
-              Ref.PackageName.assertFromString("foobar"),
-              Ref.PackageVersion.assertFromString("0.0.0")))
-        }
+        val pkg = DamlLf1.Package
+          .newBuilder()
+          .addInternedStrings("foobar")
+          .addInternedStrings("0.0.0")
+          .setMetadata(metadata)
+          .build()
+        decoder.decodePackage(pkgId, pkg, false).metadata shouldBe Some(
+          Ast.PackageMetadata(
+            Ref.PackageName.assertFromString("foobar"),
+            Ref.PackageVersion.assertFromString("0.0.0")))
       }
     }
   }
@@ -894,24 +843,22 @@ class DecodeV1Spec
     }
 
     "reject interned types if lf version < 1.dev" in {
-      lfVersions.foreach { version =>
-        if (version precedes LV.Features.internedTypes) {
-          val decoder = new DecodeV1(version.minor)
-          val env = decoder.DecoderEnv(
-            Ref.PackageId.assertFromString("noPkgId"),
-            ImmArraySeq.empty,
-            ImmArraySeq.empty,
-            IndexedSeq.empty,
-            None,
-            None,
-            onlySerializableDataDefs = false
-          )
-          val parseError = the[ParseError] thrownBy decoder.decodeInternedTypes(
-            env,
-            pkgWithInternedTypes,
-          )
-          parseError.toString should include("interned types table is not supported")
-        }
+      forEveryVersionBefore(LV.Features.internedTypes) { version =>
+        val decoder = new DecodeV1(version.minor)
+        val env = decoder.DecoderEnv(
+          Ref.PackageId.assertFromString("noPkgId"),
+          ImmArraySeq.empty,
+          ImmArraySeq.empty,
+          IndexedSeq.empty,
+          None,
+          None,
+          onlySerializableDataDefs = false
+        )
+        val parseError = the[ParseError] thrownBy decoder.decodeInternedTypes(
+          env,
+          pkgWithInternedTypes,
+        )
+        parseError.toString should include("interned types table is not supported")
       }
     }
   }
