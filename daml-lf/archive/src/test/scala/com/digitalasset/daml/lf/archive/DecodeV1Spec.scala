@@ -343,55 +343,55 @@ class DecodeV1Spec
       ("decimal builtins", "minVersion", "expected output"),
       (
         DamlLf1.BuiltinFunction.ADD_DECIMAL,
-        "1",
+        "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BAddNumeric), TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.SUB_DECIMAL,
-        "1",
+        "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BSubNumeric), TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.MUL_DECIMAL,
-        "1",
+        "6",
         Ast.ETyApp(
           Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BMulNumeric), TDecimalScale), TDecimalScale),
           TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.DIV_DECIMAL,
-        "1",
+        "6",
         Ast.ETyApp(
           Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BDivNumeric), TDecimalScale), TDecimalScale),
           TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.ROUND_DECIMAL,
-        "1",
+        "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BRoundNumeric), TDecimalScale)),
-      (DamlLf1.BuiltinFunction.LEQ_DECIMAL, "1", Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDecimal)),
-      (DamlLf1.BuiltinFunction.LESS_DECIMAL, "1", Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDecimal)),
+      (DamlLf1.BuiltinFunction.LEQ_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDecimal)),
+      (DamlLf1.BuiltinFunction.LESS_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDecimal)),
       (
         DamlLf1.BuiltinFunction.GEQ_DECIMAL,
-        "1",
+        "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDecimal)),
       (
         DamlLf1.BuiltinFunction.GREATER_DECIMAL,
-        "1",
+        "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TDecimal)),
       (
         DamlLf1.BuiltinFunction.TO_TEXT_DECIMAL,
-        "1",
+        "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BToTextNumeric), TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.FROM_TEXT_DECIMAL,
-        "5",
+        "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BFromTextNumeric), TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.INT64_TO_DECIMAL,
-        "1",
+        "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BInt64ToNumeric), TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.DECIMAL_TO_INT64,
-        "1",
+        "6",
         Ast.ETyApp(Ast.EBuiltin(Ast.BNumericToInt64), TDecimalScale)),
-      (DamlLf1.BuiltinFunction.EQUAL_DECIMAL, "1", Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDecimal)),
+      (DamlLf1.BuiltinFunction.EQUAL_DECIMAL, "6", Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDecimal)),
     )
 
     val numericBuiltinTestCases = Table(
