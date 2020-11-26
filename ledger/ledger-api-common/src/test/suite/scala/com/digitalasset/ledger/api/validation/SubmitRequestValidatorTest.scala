@@ -79,7 +79,7 @@ class SubmitRequestValidatorTest
       submittedAt = submittedAt,
       deduplicateUntil = deduplicateUntil,
       commands = LfCommands(
-        DomainMocks.party,
+        Set(DomainMocks.party),
         ImmArray(
           LfCreateCommand(
             Ref.Identifier(
