@@ -180,6 +180,7 @@ da_scala_test_suite(
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//daml-lf/transaction",
         "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalacheck_scalacheck_2_12",
