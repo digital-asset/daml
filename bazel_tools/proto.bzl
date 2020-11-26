@@ -183,13 +183,12 @@ def proto_jars(
         javadoc_root_packages = [],
         maven_group = None,
         maven_artifact_prefix = None,
-        maven_java_artifact_suffix = "java-proto",
-        visibility = ["//visibility:public"]):
+        maven_java_artifact_suffix = "java-proto"):
     proto_library(
         name = name,
         srcs = srcs,
         strip_import_prefix = strip_import_prefix,
-        visibility = visibility,
+        visibility = ["//visibility:public"],
         deps = deps + proto_deps,
     )
 

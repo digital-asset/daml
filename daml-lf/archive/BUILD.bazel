@@ -46,7 +46,6 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
             maven_artifact_prefix = "daml-lf-%s-archive" % version,
             maven_group = "com.daml",
             strip_import_prefix = "src/main/protobuf/",
-            visibility = ["//:__subpackages__"],
         ),
         genrule(
             name = "daml_lf_%s_archive_proto_zip" % version,
