@@ -50,6 +50,23 @@ class CommitContextSpec extends WordSpec with Matchers {
     }
   }
 
+  "read" should {
+    "return input key and record its access" in {
+      val context =
+        newInstance(inputs = newDamlStateMap(aKey -> aValue, anotherKey -> anotherValue))
+
+      context.read(aKey) shouldBe Some(aValue)
+      context.getAccessedInputKeys shouldBe Set(aKey)
+    }
+
+    "record key as accessed even if it is not available in the input" in {
+      val context = newInstance()
+
+      context.read(aKey) shouldBe None
+      context.getAccessedInputKeys shouldBe Set(aKey)
+    }
+  }
+
   "set" should {
     "maintain order of keys based on when they were seen first" in {
       val context = newInstance()
