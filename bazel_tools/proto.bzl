@@ -185,6 +185,7 @@ def proto_jars(
         maven_group = None,
         maven_artifact_prefix = None,
         maven_java_artifact_suffix = "java-proto"):
+    # Tarball containing the *.proto files.
     pkg_tar(
         name = "%s_src" % name,
         srcs = srcs,
@@ -194,6 +195,7 @@ def proto_jars(
         visibility = ["//visibility:public"],
     )
 
+    # Compiled protobufs. Used in subsequent targets.
     proto_library(
         name = name,
         srcs = srcs,
@@ -202,6 +204,7 @@ def proto_jars(
         deps = deps + proto_deps,
     )
 
+    # JAR containing the generated Java bindings.
     native.java_proto_library(
         name = "%s_java" % name,
         tags = maven_tags(maven_group, maven_artifact_prefix, maven_java_artifact_suffix),
@@ -233,6 +236,7 @@ def proto_jars(
             out = "%s_java_javadoc.jar" % name,
         )
 
+    # JAR containing the generated Scala bindings.
     proto_gen(
         name = "%s_scala_sources" % name,
         srcs = [":%s" % name],
