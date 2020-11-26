@@ -111,6 +111,43 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
+  it should "show command IDs to the original submitters" in {
+    val signatories = Set(alice, bob)
+    val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
+    val actAs = List(alice, bob, david) // David is submitter but not signatory
+    for {
+      (_, tx) <- store(
+        multiPartySingleCreateP(createWithStakeholders(_, signatories, stakeholders), actAs))
+      // Response 1: querying as all submitters
+      result1 <- ledgerDao.transactionsReader
+        .lookupFlatTransactionById(tx.transactionId, Set(alice, bob, david))
+      // Response 2: querying as a proper subset of all submitters
+      result2 <- ledgerDao.transactionsReader
+        .lookupFlatTransactionById(tx.transactionId, Set(alice, david))
+      // Response 3: querying as a proper superset of all submitters
+      result3 <- ledgerDao.transactionsReader
+        .lookupFlatTransactionById(tx.transactionId, Set(alice, bob, charlie, david))
+    } yield {
+      result1.value.transaction.value.commandId shouldBe tx.commandId.get
+      result2.value.transaction.value.commandId shouldBe tx.commandId.get
+      result3.value.transaction.value.commandId shouldBe tx.commandId.get
+    }
+  }
+
+  it should "hide command IDs from non-submitters" in {
+    val signatories = Set(alice, bob)
+    val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
+    val actAs = List(alice, bob, david) // David is submitter but not signatory
+    for {
+      (_, tx) <- store(
+        multiPartySingleCreateP(createWithStakeholders(_, signatories, stakeholders), actAs))
+      result <- ledgerDao.transactionsReader
+        .lookupFlatTransactionById(tx.transactionId, Set(charlie))
+    } yield {
+      result.value.transaction.value.commandId shouldBe ""
+    }
+  }
+
   it should "hide events on transient contracts to the original submitter" in {
     for {
       (offset, tx) <- store(fullyTransient)

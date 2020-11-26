@@ -49,6 +49,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final val alice = Party.assertFromString("Alice")
   protected final val bob = Party.assertFromString("Bob")
   protected final val charlie = Party.assertFromString("Charlie")
+  protected final val david = Party.assertFromString("David")
 
   protected final val defaultAppId = "default-app-id"
   protected final val defaultWorkflowId = "default-workflow-id"
@@ -112,6 +113,20 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       key = None
     )
 
+  protected final def createWithStakeholders(
+      absCid: ContractId,
+      signatories: Set[Party],
+      stakeholders: Set[Party],
+  ): NodeCreate[ContractId, Value[ContractId]] =
+    NodeCreate(
+      coid = absCid,
+      coinst = someContractInstance,
+      optLocation = None,
+      signatories = signatories,
+      stakeholders = stakeholders,
+      key = None
+    )
+
   private def exercise(
       targetCid: ContractId,
   ): NodeExercises[NodeId, ContractId, Value[ContractId]] =
@@ -170,8 +185,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     singleCreateP(create(_))
 
   protected final def multiPartySingleCreateP(
-      create: ContractId => NodeCreate[ContractId, Value[ContractId]])
-    : (Offset, LedgerEntry.Transaction) = {
+      create: ContractId => NodeCreate[ContractId, Value[ContractId]],
+      actAs: List[Party],
+  ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
     val cid = txBuilder.newCid
     val creation = create(cid)
@@ -183,7 +199,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       commandId = Some(s"commandId$id"),
       transactionId = s"trId$id",
       applicationId = Some("appID1"),
-      actAs = List(alice, bob, charlie),
+      actAs = actAs,
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
       recordedAt = let,
@@ -193,7 +209,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   }
 
   protected final def multiPartySingleCreate: (Offset, LedgerEntry.Transaction) =
-    multiPartySingleCreateP(create(_))
+    multiPartySingleCreateP(create(_, Set(alice, bob)), List(alice, bob))
 
   protected def divulgeAlreadyCommittedContract(
       id: ContractId,
