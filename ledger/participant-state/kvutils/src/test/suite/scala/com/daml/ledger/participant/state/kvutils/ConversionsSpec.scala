@@ -4,10 +4,14 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.Conversions.{
+  commandDedupKey,
   decodeBlindingInfo,
   encodeBlindingInfo
 }
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlSubmitterInfo,
+  DamlTransactionBlindingInfo
+}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
   DisclosureEntry,
   DivulgenceEntry
@@ -20,6 +24,7 @@ import com.daml.lf.transaction.{BlindingInfo, NodeId}
 import com.daml.lf.value.Value.ContractId
 import org.scalatest.{Matchers, WordSpec}
 
+import scala.collection.immutable.ListSet
 import scala.collection.JavaConverters._
 import scala.collection.immutable.{ListMap, ListSet}
 
@@ -33,6 +38,24 @@ class ConversionsSpec extends WordSpec with Matchers {
       val decodedBlindingInfo = decodeBlindingInfo(correctlySortedEncodedBlindingInfo)
       decodedBlindingInfo.disclosure.toSet should contain theSameElementsAs wronglySortedBlindingInfo.disclosure.toSet
       decodedBlindingInfo.divulgence.toSet should contain theSameElementsAs wronglySortedBlindingInfo.divulgence.toSet
+    }
+
+    "deterministically encode deduplication keys with multiple submitters (order independence)" in {
+      val key1 = deduplicationKeyBytesFor(List("alice", "bob"))
+      val key2 = deduplicationKeyBytesFor(List("bob", "alice"))
+      key1 shouldBe key2
+    }
+
+    "deterministically encode deduplication keys with multiple submitters (duplicate submitters)" in {
+      val key1 = deduplicationKeyBytesFor(List("alice", "bob"))
+      val key2 = deduplicationKeyBytesFor(List("alice", "bob", "alice"))
+      key1 shouldBe key2
+    }
+
+    "correctly encode deduplication keys with multiple submitters" in {
+      val key1 = deduplicationKeyBytesFor(List("alice"))
+      val key2 = deduplicationKeyBytesFor(List("alice", "bob"))
+      key1 should not be key2
     }
   }
 
@@ -83,4 +106,15 @@ class ConversionsSpec extends WordSpec with Matchers {
         ).asJava
       )
       .build
+
+  private def deduplicationKeyBytesFor(parties: List[String]): Array[Byte] = {
+    val submitterInfo = DamlSubmitterInfo.newBuilder
+      .setApplicationId("test")
+      .setCommandId("a command ID")
+      .setDeduplicateUntil(com.google.protobuf.Timestamp.getDefaultInstance)
+      .addAllSubmitters(parties.asJava)
+      .build
+    val deduplicationKey = commandDedupKey(submitterInfo)
+    deduplicationKey.toByteArray
+  }
 }

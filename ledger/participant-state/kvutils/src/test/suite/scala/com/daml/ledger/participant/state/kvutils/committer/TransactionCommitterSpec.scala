@@ -38,7 +38,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     .setSubmitterInfo(
       DamlSubmitterInfo.newBuilder
         .setCommandId("commandId")
-        .setSubmitter("aSubmitter"))
+        .addSubmitters("aSubmitter"))
     .setSubmissionSeed(ByteString.copyFromUtf8("a" * 32))
     .build
   private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
