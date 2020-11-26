@@ -960,16 +960,12 @@ private[lf] object SBuiltin {
         case SContractId(coid) => coid
         case v => crash(s"expected contract id, got: $v")
       }
-      val optActors = args.get(2) match {
-        case SOptional(optValue) => optValue.map(extractParties)
-        case v => crash(s"expect optional parties, got: $v")
-      }
-      val sigs = extractParties(args.get(3))
-      val templateObservers = extractParties(args.get(4))
-      val ctrls = extractParties(args.get(5))
-      val choiceObservers = extractParties(args.get(6))
+      val sigs = extractParties(args.get(2))
+      val templateObservers = extractParties(args.get(3))
+      val ctrls = extractParties(args.get(4))
+      val choiceObservers = extractParties(args.get(5))
 
-      val mbKey = extractOptionalKeyWithMaintainers(args.get(7))
+      val mbKey = extractOptionalKeyWithMaintainers(args.get(6))
       val auth = machine.auth
 
       onLedger.ptx = onLedger.ptx
@@ -980,10 +976,9 @@ private[lf] object SBuiltin {
           choiceId = choiceId,
           optLocation = machine.lastLocation,
           consuming = consuming,
-          actingParties = optActors.getOrElse(ctrls),
+          actingParties = ctrls,
           signatories = sigs,
           stakeholders = sigs union templateObservers,
-          controllers = ctrls,
           choiceObservers = choiceObservers,
           mbKey = mbKey,
           byKey = byKey,
