@@ -1701,9 +1701,9 @@ Exception coherence
 ~~~~~~~~~~~~~~~~~~~
 
 The *exception coherence* condition is literally the same as the template
-coherence condition with "template" replaced by "exception". Note that there is
-no condition precluding a type from having an associated template definition as
-well as an associated exception definition.
+coherence condition with "template" replaced by "exception". We further require
+that no type has a template definition and an exception definition associated to
+it.
 
 
 Party literal restriction
