@@ -54,6 +54,12 @@ private[kvutils] trait CommitContext {
       value
     }
 
+  /** Reads key from input state.  Records the key as being accessed even if it's not available. */
+  def read(key: DamlStateKey): Option[DamlStateValue] = {
+    accessedInputKeys += key
+    inputs.get(key).flatten
+  }
+
   /** Set a value in the output state. */
   def set(key: DamlStateKey, value: DamlStateValue): Unit = {
     if (!outputs.contains(key)) {
