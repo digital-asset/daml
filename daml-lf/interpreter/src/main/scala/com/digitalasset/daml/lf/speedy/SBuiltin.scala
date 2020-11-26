@@ -948,7 +948,7 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-  ) extends OnLedgerBuiltin(8) {
+  ) extends OnLedgerBuiltin(7) {
 
     override protected final def execute(
         args: util.ArrayList[SValue],
