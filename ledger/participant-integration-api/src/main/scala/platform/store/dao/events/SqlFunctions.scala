@@ -45,7 +45,10 @@ private[dao] object SqlFunctions {
 
   object H2SqlFunctions extends SqlFunctions {
     override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String =
-      parties.view.map(p => s"array_contains($arrayColumn, '$p')").mkString("(", " or ", ")")
+      if (parties.isEmpty)
+        "false"
+      else
+        parties.view.map(p => s"array_contains($arrayColumn, '$p')").mkString("(", " or ", ")")
 
     def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
       s"array_intersection($arrayColumn, array[${format(parties)}])"
