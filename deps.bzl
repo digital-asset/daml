@@ -35,8 +35,8 @@ rules_scala_sha256 = "9b117bf591780b5665a8271d83c2530943330f06e2dd99574ca9cf5380
 
 rules_haskell_version = "130121dac45dc726175fbb15230c02325b6fe73a"
 rules_haskell_sha256 = "423112ebcd17ae609caf6b76c75d5785f58a41a197fb62545d46f89bd66b508c"
-rules_nixpkgs_version = "659cf9db456f5a3c1a5a27747116fc50b709cdab"
-rules_nixpkgs_sha256 = "6a76b8004ad94daa9ce7e95d902c790646f8abd598ae9f1b1978fb74a95e9ebd"
+rules_nixpkgs_version = "0dd4c8a085b108592b0193ad1e237e2e07f715ac"
+rules_nixpkgs_sha256 = "f2073135db911ee94b70da1e2288dd2445976a1b20a1edfe67773b29751f50a9"
 buildifier_version = "3.3.0"
 buildifier_sha256 = "f11fc80da0681a6d64632a850346ed2d4e5cbb0908306d9a2a2915f707048a10"
 zlib_version = "1.2.11"
@@ -90,9 +90,6 @@ def daml_deps():
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
             patches = [
-                # Remove once https://github.com/tweag/rules_nixpkgs/pull/128
-                # has been merged
-                "@com_github_digital_asset_daml//bazel_tools:nixpkgs-hermetic-cc-toolchain.patch",
                 # On CI and locally we observe occasional segmantation faults
                 # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
                 # can cause such segmentation faults. Since Nix 2.3.2 it is
