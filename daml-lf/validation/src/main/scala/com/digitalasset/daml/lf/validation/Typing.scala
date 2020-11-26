@@ -817,12 +817,10 @@ private[validation] object Typing {
         tpl: TypeConName,
         chName: ChoiceName,
         cid: Expr,
-        actors: Option[Expr],
         arg: Expr
     ): Type = {
       val choice = lookupChoice(ctx, tpl, chName)
       checkExpr(cid, TContractId(TTyCon(tpl)))
-      actors.foreach(checkExpr(_, TParties))
       checkExpr(arg, choice.argBinder._2)
       TUpdate(choice.returnType)
     }
@@ -863,8 +861,8 @@ private[validation] object Typing {
         typeOfUpdateBlock(bindings, body)
       case UpdateCreate(tpl, arg) =>
         typeOfCreate(tpl, arg)
-      case UpdateExercise(tpl, choice, cid, actors, arg) =>
-        typeOfExercise(tpl, choice, cid, actors, arg)
+      case UpdateExercise(tpl, choice, cid, arg) =>
+        typeOfExercise(tpl, choice, cid, arg)
       case UpdateExerciseByKey(tpl, choice, key, arg) =>
         typeOfExerciseByKey(tpl, choice, key, arg)
       case UpdateFetch(tpl, cid) =>

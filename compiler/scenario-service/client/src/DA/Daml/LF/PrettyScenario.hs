@@ -376,17 +376,6 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
                 <-> reqParties `partyDifference` authParties
               ]
 
-        Just (FailedAuthorizationSumActorMismatch
-          (FailedAuthorization_ActorMismatch templateId choiceId mbLoc givenActors)) ->
-              [ "exercise of" <-> prettyChoiceId world templateId choiceId
-                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-                <-> "at" <-> prettyMayLocation world mbLoc
-              , "failed due to authorization error:"
-              , "the choice's controlling parties"
-              , "are not a subset of the authorizing parties"
-                <-> brackets (prettyParties givenActors)
-              ]
-
         Just (FailedAuthorizationSumNoControllers
           (FailedAuthorization_NoControllers templateId choiceId mbLoc)) ->
               [ "exercise of" <-> prettyChoiceId world templateId choiceId

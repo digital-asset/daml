@@ -1097,6 +1097,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             arg = decodeExpr(create.getExpr, definition))
 
         case PLF.Update.SumCase.EXERCISE =>
+          if (versionIsOlderThan(LV.Features.noExerciseActor)) {
+            throw ParseError(s"DAML-LF {1.$minor} is not supported")
+          }
           val exercise = lfUpdate.getExercise
           UpdateExercise(
             templateId = decodeTypeConName(exercise.getTemplate),
@@ -1109,15 +1112,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
               "Update.Exercise.choice.choice"
             ),
             cidE = decodeExpr(exercise.getCid, definition),
-            actorsE = if (versionIsOlderThan(LV.Features.noExerciseActor)) {
-              if (!exercise.hasActor)
-                throw ParseError(s"Update.Exercise.actors is required by DAML-LF {1.$minor}")
-              Some(decodeExpr(exercise.getActor, definition))
-            } else {
-              if (exercise.hasActor)
-                throw ParseError(s"Update.Exercise.actors is not supported by DAML-LF {1.$minor}")
-              None
-            },
             argE = decodeExpr(exercise.getArg, definition)
           )
 
