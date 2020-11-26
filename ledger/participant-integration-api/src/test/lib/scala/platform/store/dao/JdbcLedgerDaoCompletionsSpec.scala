@@ -86,6 +86,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     }
   }
 
+  // Disabled, because it depends on multi-party command deduplication
+  /*
   it should "return the expected completion for a multi-party rejection" in {
     val expectedCmdId = UUID.randomUUID.toString
     for {
@@ -110,6 +112,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       response3.completions.loneElement.commandId shouldBe expectedCmdId
     }
   }
+   */
 
   it should "not return completions if the application id is wrong" in {
     for {
@@ -145,6 +148,8 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
     }
   }
 
+  // Disabled, because it depends on multi-party command deduplication
+  /*
   it should "not return completions if the parties do not match (multi-party submission)" in {
     for {
       from <- ledgerDao.lookupLedgerEnd()
@@ -165,6 +170,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       response3 shouldBe Seq.empty
     }
   }
+   */
 
   it should "return the expected status for each rejection reason" in {
     val reasons = Seq[RejectionReason](
@@ -210,9 +216,11 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       .map(_ => offset)
   }
 
+  // Disabled, because it depends on multi-party command deduplication
+  /*
   private def storeMultiPartyRejection(
       reason: RejectionReason,
-      commandId: String = UUID.randomUUID().toString,
+      commandId: String,
   ): Future[Offset] = {
     lazy val offset = nextOffset()
     ledgerDao
@@ -225,6 +233,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       )
       .map(_ => offset)
   }
+ */
 }
 
 private[dao] object JdbcLedgerDaoCompletionsSpec {
