@@ -30,31 +30,19 @@ genrule(
       MVN=($(locations @mvn_dev_env//:mvn))
       MVN="$${{MVN[0]}}"
       install_mvn() {{
-        if [[ $$# -eq 5 ]]; then
-          "$$MVN" -q install:install-file \\
-            -Dmaven.repo.local=$$MVN_DB \\
-            "-DgroupId=$$1" \\
-            "-DartifactId=$$2" \\
-            "-Dsources=$$3" \\
-            "-Dfile=$$4" \\
-            "-DpomFile=$$5" \\
-            -Dpackaging=jar \\
-            -Dversion={mvn}
-        else
-          "$$MVN" -q install:install-file \\
-            -Dmaven.repo.local=$$MVN_DB \\
-            "-DgroupId=$$1" \\
-            "-DartifactId=$$2" \\
-            "-Dfile=$$3" \\
-            "-DpomFile=$$4" \\
-            -Dpackaging=jar \\
-            -Dversion={mvn}
-        fi
+        "$$MVN" -q install:install-file \\
+          -Dmaven.repo.local=$$MVN_DB \\
+          "-DgroupId=$$1" \\
+          "-DartifactId=$$2" \\
+          "-Dfile=$$3" \\
+          "-DpomFile=$$4" \\
+          -Dpackaging=jar \\
+          -Dversion={mvn}
       }}
       tar xf $(location //docs:quickstart-java.tar.gz) -C "$$TMP_DIR"
       install_mvn \\
         "com.daml" "daml-lf-archive" \\
-        $(locations //daml-lf/archive:daml_lf_dev_archive_proto_java) \\
+        $$(echo $(locations //daml-lf/archive:daml_lf_dev_archive_proto_java) | xargs -n1 echo | grep -v -- '-src\\.jar$$') \\
         $(location //daml-lf/archive:daml_lf_dev_archive_proto_java_pom)
       install_mvn \\
         "com.daml" "bindings-java" \\
