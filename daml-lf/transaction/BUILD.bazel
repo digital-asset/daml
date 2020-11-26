@@ -1,23 +1,23 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:java.bzl", "da_java_proto_library")
-load("//bazel_tools:proto.bzl", "proto_gen")
+load("//bazel_tools:proto.bzl", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
 )
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 
 #
 # Transaction and value protocol buffers
 #
 
-proto_library(
+proto_jars(
     name = "value_proto",
     srcs = ["src/main/protobuf/com/daml/lf/value.proto"],
+    maven_artifact_prefix = "daml-lf-value",
+    maven_group = "com.daml",
     strip_import_prefix = "src/main/protobuf/",
     visibility = ["//visibility:public"],
     deps = [
@@ -25,80 +25,16 @@ proto_library(
     ],
 )
 
-da_java_proto_library(
-    name = "value_java_proto",
-    tags = ["maven_coordinates=com.daml:daml-lf-value-java-proto:__VERSION__"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":value_proto",
-    ],
-)
-
-proto_gen(
-    name = "value_scala_proto_sources",
-    srcs = [":value_proto"],
-    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
-    plugin_name = "scalapb",
-    visibility = ["//visibility:public"],
-    deps = [
-        "@com_google_protobuf//:empty_proto",
-    ],
-)
-
-scala_library(
-    name = "value_scala_proto",
-    srcs = [":value_scala_proto_sources"],
-    unused_dependency_checker_mode = "error",
-    visibility = ["//visibility:public"],
-    deps = [
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_thesamet_scalapb_lenses_2_12",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
-    ],
-)
-
-proto_library(
+proto_jars(
     name = "transaction_proto",
     srcs = ["src/main/protobuf/com/daml/lf/transaction.proto"],
+    maven_artifact_prefix = "daml-lf-transaction",
+    maven_group = "com.daml",
+    proto_deps = [
+        ":value_proto",
+    ],
     strip_import_prefix = "src/main/protobuf/",
     visibility = ["//visibility:public"],
-    deps = [
-        ":value_proto",
-    ],
-)
-
-da_java_proto_library(
-    name = "transaction_java_proto",
-    tags = ["maven_coordinates=com.daml:daml-lf-transaction-java-proto:__VERSION__"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":transaction_proto",
-    ],
-)
-
-proto_gen(
-    name = "transaction_scala_proto_sources",
-    srcs = [":transaction_proto"],
-    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
-    plugin_name = "scalapb",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":value_proto",
-        "@com_google_protobuf//:empty_proto",
-    ],
-)
-
-scala_library(
-    name = "transaction_scala_proto",
-    srcs = [":transaction_scala_proto_sources"],
-    unused_dependency_checker_mode = "error",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":value_scala_proto",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_thesamet_scalapb_lenses_2_12",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
-    ],
 )
 
 #
@@ -113,8 +49,8 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        ":transaction_java_proto",
-        ":value_java_proto",
+        ":transaction_proto_java",
+        ":value_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -130,8 +66,8 @@ da_scala_test(
     silent_annotations = True,
     deps = [
         ":transaction",
-        ":transaction_java_proto",
-        ":value_java_proto",
+        ":transaction_proto_java",
+        ":value_proto_java",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/language",

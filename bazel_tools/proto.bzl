@@ -1,7 +1,11 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
+load("//bazel_tools:pom_file.bzl", "pom_file")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@rules_proto//proto:defs.bzl", "proto_library")
 
 # taken from rules_proto:
 # https://github.com/stackb/rules_proto/blob/f5d6eea6a4528bef3c1d3a44d486b51a214d61c2/compile.bzl#L369-L393
@@ -37,7 +41,7 @@ def get_plugin_runfiles(tool, plugin_runfiles):
 
 def _proto_gen_impl(ctx):
     src_descs = [src[ProtoInfo].direct_descriptor_set for src in ctx.attr.srcs]
-    dep_descs = [dep[ProtoInfo].direct_descriptor_set for dep in ctx.attr.deps]
+    dep_descs = [depset for dep in ctx.attr.deps for depset in dep[ProtoInfo].transitive_descriptor_sets.to_list()]
     descriptors = src_descs + dep_descs
 
     sources_out = ctx.actions.declare_directory(ctx.attr.name + "-sources")
@@ -159,3 +163,72 @@ proto_gen = rule(
 
 def _is_windows(ctx):
     return ctx.configuration.host_path_separator == ";"
+
+def maven_tags(group, artifact_prefix, artifact_suffix):
+    if group and artifact_prefix and artifact_suffix:
+        return ["maven_coordinates=%s:%s-%s:__VERSION__" % (group, artifact_prefix, artifact_suffix)]
+    else:
+        return []
+
+def proto_jars(
+        name,
+        srcs,
+        strip_import_prefix = "",
+        deps = [],
+        proto_deps = [],
+        java_deps = [],
+        scala_deps = [],
+        maven_group = None,
+        maven_artifact_prefix = None,
+        maven_java_artifact_suffix = "java-proto",
+        visibility = ["//visibility:public"]):
+    proto_library(
+        name = name,
+        srcs = srcs,
+        strip_import_prefix = strip_import_prefix,
+        visibility = visibility,
+        deps = deps + proto_deps,
+    )
+
+    native.java_proto_library(
+        name = "%s_java" % name,
+        tags = maven_tags(maven_group, maven_artifact_prefix, maven_java_artifact_suffix),
+        visibility = ["//visibility:public"],
+        deps = [":%s" % name] + java_deps,
+    )
+
+    if maven_group and maven_artifact_prefix:
+        pom_file(
+            name = "%s_java_pom" % name,
+            target = ":%s_java" % name,
+            visibility = ["//visibility:public"],
+        )
+
+    # Create an empty Javadoc JAR for uploading proto JARs to Maven Central.
+    # We don't need to create an empty JAR file for sources, because `java_proto_library` creates a
+    # source JAR automatically.
+    pkg_empty_zip(
+        name = "%s_java_javadoc" % name,
+        out = "%s_java_javadoc.jar" % name,
+    )
+
+    proto_gen(
+        name = "%s_scala_sources" % name,
+        srcs = [":%s" % name],
+        plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+        plugin_name = "scalapb",
+        visibility = ["//visibility:public"],
+        deps = deps + proto_deps,
+    )
+
+    scala_library(
+        name = "%s_scala" % name,
+        srcs = [":%s_scala_sources" % name],
+        unused_dependency_checker_mode = "error",
+        visibility = ["//visibility:public"],
+        deps = [
+            "@maven//:com_google_protobuf_protobuf_java",
+            "@maven//:com_thesamet_scalapb_lenses_2_12",
+            "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
+        ] + ["%s_scala" % label for label in proto_deps] + scala_deps,
+    )
