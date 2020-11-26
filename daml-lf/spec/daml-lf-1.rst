@@ -696,7 +696,7 @@ Then we can define our kinds, types, and expressions::
        | 'to_any' @τ e                              -- ExpToAny: Wrap a value of the given type in Any
        | 'from_any' @τ e                            -- ExpToAny: Extract a value of the given from Any or return None
        | 'type_rep' @τ                              -- ExpToTypeRep: A type representation
-       | 'throw' @τ @σ e                            -- ExpThrow: Throw an exception
+       | 'throw' @τ e                               -- ExpThrow: Throw an exception
        | 'to_any_exception' @τ e                    -- ExpToAnyException: Turn a concrete exception into an 'AnyException'
        | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException'
        |  u                                         -- ExpUpdate: Update expression
@@ -1240,11 +1240,10 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpCase
       Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ
 
-      Γ  ⊢  τ  :  ⋆      Γ  ⊢ₑ  τ
-      Γ  ⊢  σ  :  ⋆
-      Γ  ⊢  e  :  τ
+      Γ  ⊢  τ  :  ⋆
+      Γ  ⊢  e  :  'AnyException'
     ——————————————————————————————————————————————————————————————— ExpThrow
-      Γ  ⊢  'throw' @τ @σ e  :  σ
+      Γ  ⊢  'throw' @τ e  :  τ
 
       Γ  ⊢  τ  :  ⋆      Γ  ⊢ₑ  τ
       Γ  ⊢  e  :  τ
@@ -2533,11 +2532,11 @@ exact output.
 
       e  ⇓  Err v
     —————————————————————————————————————————————————————————————————————— EvExpThrowErr
-      'throw' @τ @σ e  ⇓  Err v
+      'throw' @τ e  ⇓  Err v
 
       e  ⇓  Ok v
     —————————————————————————————————————————————————————————————————————— EvExpThrow
-      'throw' @τ @σ e  ⇓  Err v
+      'throw' @τ e  ⇓  Err v
 
       e  ⇓  Err v
     —————————————————————————————————————————————————————————————————————— EvExpToAnyExceptionErr
