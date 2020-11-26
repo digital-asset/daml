@@ -265,8 +265,10 @@ TO configure IntelliJ to use this JDK:
 3. Press the _plus_ button and select "Add JDK".
 4. Choose the _dev-env/jdk_ directory.
 5. Name it "DAML JDK" or something similar.
-6. Open _Project Settings_ →  _Project_.
-7. Select the DAML JDK from the _Project SDK_ list.
+6. Ensure there's sources attached under the _Sourcepath_ tab. If not, add them.
+   Press the _plus_ button and select _dev-env/jdk/lib/openjdk/src.zip_.
+7. Open _Project Settings_ →  _Project_.
+8. Select the DAML JDK from the _Project SDK_ list.
 
 ### Overview over Bazel IntelliJ Integration
 
