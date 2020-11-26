@@ -23,7 +23,7 @@ import scala.collection.mutable
 private[kvutils] trait CommitContext {
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
-  def inputs: DamlStateMap
+  protected def inputs: DamlStateMap
 
   // NOTE(JM): The outputs must be iterable in deterministic order, hence we
   // keep track of insertion order.
@@ -58,6 +58,13 @@ private[kvutils] trait CommitContext {
   def read(key: DamlStateKey): Option[DamlStateValue] = {
     accessedInputKeys += key
     inputs.get(key).flatten
+  }
+
+  def readAllFiltered(
+      predicate: DamlStateKey => Boolean): Map[DamlStateKey, Option[DamlStateValue]] = {
+    val result = inputs.filterKeys(predicate)
+    result.keys.foreach(accessedInputKeys.add)
+    result
   }
 
   /** Set a value in the output state. */
