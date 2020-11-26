@@ -696,7 +696,6 @@ Then we can define our kinds, types, and expressions::
        | 'to_any' @τ e                              -- ExpToAny: Wrap a value of the given type in Any
        | 'from_any' @τ e                            -- ExpToAny: Extract a value of the given from Any or return None
        | 'type_rep' @τ                              -- ExpToTypeRep: A type representation
-       | 'throw' @τ e                               -- ExpThrow: Throw an exception
        | 'to_any_exception' @τ e                    -- ExpToAnyException: Turn a concrete exception into an 'AnyException'
        | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException'
        |  u                                         -- ExpUpdate: Update expression
@@ -1239,11 +1238,6 @@ Then we define *well-formed expressions*. ::
       τ  ⊲  alt₁, …, altₙ
     ——————————————————————————————————————————————————————————————— ExpCase
       Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ
-
-      Γ  ⊢  τ  :  ⋆
-      Γ  ⊢  e  :  'AnyException'
-    ——————————————————————————————————————————————————————————————— ExpThrow
-      Γ  ⊢  'throw' @τ e  :  τ
 
       Γ  ⊢  τ  :  ⋆      Γ  ⊢ₑ  τ
       Γ  ⊢  e  :  τ
@@ -2532,11 +2526,11 @@ exact output.
 
       e  ⇓  Err v
     —————————————————————————————————————————————————————————————————————— EvExpThrowErr
-      'throw' @τ e  ⇓  Err v
+      'THROW' @τ e  ⇓  Err v
 
       e  ⇓  Ok v
     —————————————————————————————————————————————————————————————————————— EvExpThrow
-      'throw' @τ e  ⇓  Err v
+      'THROW' @τ e  ⇓  Err v
 
       e  ⇓  Err v
     —————————————————————————————————————————————————————————————————————— EvExpToAnyExceptionErr
@@ -4262,6 +4256,11 @@ Error functions
 
   Throws an error with the string as message. See the evaluation rule
   ``EvExpError`` for precise semantics.
+
+* ``THROW: ∀ (α : ⋆) . 'AnyException' → α``
+
+  Throws an ``'AnyException'``. See the evaluation rule ``EvExpThrow`` for
+  precise semantics.
 
 * ``USER_EXCEPTION : 'Text' → 'UserException'``
 
