@@ -50,7 +50,11 @@ final class LedgerConfigProviderSpec
         index,
         optWriteService = Some(writeService),
         timeProvider = someTimeProvider,
-        config = someLedgerConfiguration,
+        config = LedgerConfiguration(
+          initialConfiguration = configurationWith(generation = 3),
+          initialConfigurationSubmitDelay = Duration.ofSeconds(1),
+          configurationLoadTimeout = Duration.ofSeconds(5),
+        ),
       )
 
       ledgerConfigProvider.ready
@@ -121,7 +125,6 @@ object LedgerConfigProviderSpec {
   private type ConfigurationSourceEntry = (LedgerOffset.Absolute, ConfigurationEntry)
 
   private val someTimeProvider = TimeProvider.Constant(Instant.EPOCH)
-  private val someLedgerConfiguration = LedgerConfiguration.defaultLedgerBackedIndex
 
   private def offset(value: String): LedgerOffset.Absolute = {
     LedgerOffset.Absolute(Ref.LedgerString.assertFromString(value))
