@@ -15,7 +15,7 @@ load("//bazel_tools:pom_file.bzl", "pom_file")
 
 compile_deps = [
     "//daml-lf/archive:daml_lf_archive_reader",
-    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+    "//daml-lf/archive:daml_lf_dev_archive_proto_java",
     "//daml-lf/data",
     "//daml-lf/engine",
     "//daml-lf/language",
@@ -123,7 +123,7 @@ da_scala_library(
         ":participant-integration-api",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction",
@@ -161,7 +161,7 @@ test_deps = [
     ":participant-integration-api-tests-lib",
     "//bazel_tools/runfiles:scala_runfiles",
     "//daml-lf/archive:daml_lf_archive_reader",
-    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+    "//daml-lf/archive:daml_lf_dev_archive_proto_java",
     "//daml-lf/data",
     "//daml-lf/engine",
     "//daml-lf/interpreter",

@@ -1,9 +1,11 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
+load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
@@ -178,6 +180,7 @@ def proto_jars(
         proto_deps = [],
         java_deps = [],
         scala_deps = [],
+        javadoc_root_packages = [],
         maven_group = None,
         maven_artifact_prefix = None,
         maven_java_artifact_suffix = "java-proto",
@@ -204,13 +207,22 @@ def proto_jars(
             visibility = ["//visibility:public"],
         )
 
-    # Create an empty Javadoc JAR for uploading proto JARs to Maven Central.
-    # We don't need to create an empty JAR file for sources, because `java_proto_library` creates a
-    # source JAR automatically.
-    pkg_empty_zip(
-        name = "%s_java_javadoc" % name,
-        out = "%s_java_javadoc.jar" % name,
-    )
+    if javadoc_root_packages:
+        javadoc_library(
+            name = "%s_java_javadoc" % name,
+            srcs = [":%s_java" % name],
+            root_packages = javadoc_root_packages,
+            visibility = ["//visibility:public"],
+            deps = ["@maven//:com_google_protobuf_protobuf_java"],
+        ) if not is_windows else None
+    else:
+        # Create an empty Javadoc JAR for uploading proto JARs to Maven Central.
+        # We don't need to create an empty JAR file for sources, because `java_proto_library`
+        # creates a source JAR automatically.
+        pkg_empty_zip(
+            name = "%s_java_javadoc" % name,
+            out = "%s_java_javadoc.jar" % name,
+        )
 
     proto_gen(
         name = "%s_scala_sources" % name,

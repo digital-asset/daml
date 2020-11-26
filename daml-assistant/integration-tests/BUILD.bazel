@@ -8,8 +8,8 @@ genrule(
     name = "integration-tests-mvn",
     srcs = [
         "@mvn_dev_env//:mvn",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto_pom",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java_pom",
         "//language-support/java/bindings:libbindings-java.jar",
         "//language-support/java/bindings:bindings-java_pom.xml",
         "//language-support/java/bindings-rxjava:libbindings-rxjava.jar",
@@ -30,20 +30,32 @@ genrule(
       MVN=($(locations @mvn_dev_env//:mvn))
       MVN="$${{MVN[0]}}"
       install_mvn() {{
+        if [[ $$# -eq 5 ]]; then
           "$$MVN" -q install:install-file \\
-          -Dmaven.repo.local=$$MVN_DB \\
-          "-DgroupId=$$1" \\
-          "-DartifactId=$$2" \\
-          "-Dfile=$$3" \\
-          "-DpomFile=$$4" \\
-          -Dpackaging=jar \\
-          -Dversion={mvn}
+            -Dmaven.repo.local=$$MVN_DB \\
+            "-DgroupId=$$1" \\
+            "-DartifactId=$$2" \\
+            "-Dsources=$$3" \\
+            "-Dfile=$$4" \\
+            "-DpomFile=$$5" \\
+            -Dpackaging=jar \\
+            -Dversion={mvn}
+        else
+          "$$MVN" -q install:install-file \\
+            -Dmaven.repo.local=$$MVN_DB \\
+            "-DgroupId=$$1" \\
+            "-DartifactId=$$2" \\
+            "-Dfile=$$3" \\
+            "-DpomFile=$$4" \\
+            -Dpackaging=jar \\
+            -Dversion={mvn}
+        fi
       }}
       tar xf $(location //docs:quickstart-java.tar.gz) -C "$$TMP_DIR"
       install_mvn \\
         "com.daml" "daml-lf-archive" \\
-        $(location //daml-lf/archive:daml_lf_dev_archive_java_proto) \\
-        $(location //daml-lf/archive:daml_lf_dev_archive_java_proto_pom)
+        $(locations //daml-lf/archive:daml_lf_dev_archive_proto_java) \\
+        $(location //daml-lf/archive:daml_lf_dev_archive_proto_java_pom)
       install_mvn \\
         "com.daml" "bindings-java" \\
         $(location //language-support/java/bindings:libbindings-java.jar) \\
