@@ -589,8 +589,6 @@ data Update
       -- ^ Choice to exercise.
     , exeContractId :: !Expr
       -- ^ Contract id of the contract template instance to exercise choice on.
-    , exeActors     :: !(Maybe Expr)
-      -- ^ Parties exercising the choice.
     , exeArg        :: !Expr
       -- ^ Argument for the choice.
     }

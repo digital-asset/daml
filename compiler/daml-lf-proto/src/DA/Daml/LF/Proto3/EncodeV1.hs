@@ -669,9 +669,9 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseTemplate <- encodeQualTypeConName exeTemplate
         update_ExerciseChoice <- encodeName unChoiceName exeChoice
         update_ExerciseCid <- encodeExpr exeContractId
-        update_ExerciseActor <- traverse encodeExpr' exeActors
         update_ExerciseArg <- encodeExpr exeArg
         pure $ P.UpdateSumExercise P.Update_Exercise{..}
+        where update_ExerciseActor = Nothing
     UExerciseByKey{..} -> do
         update_ExerciseByKeyTemplate <- encodeQualTypeConName exeTemplate
         update_ExerciseByKeyChoiceInternedStr <-
