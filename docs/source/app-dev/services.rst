@@ -173,7 +173,6 @@ Use the **party management service** to allocate parties on the ledger and retri
 
 Allocating parties is necessary to interact with the ledger. For more information, refer to the pages on :doc:`Identity Management</concepts/identity-and-package-management>` and :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.PartyManagementService>`.
 
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.PartyManagementService>`.
 
 .. _package-service:
 
