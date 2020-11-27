@@ -921,7 +921,7 @@ instance NM.Named DefValue where
 
 instance NM.Named DefException where
   type Name DefException = TypeConName
-  name = dexName
+  name = exnName
 
 instance NM.Named Template where
   type Name Template = TypeConName
