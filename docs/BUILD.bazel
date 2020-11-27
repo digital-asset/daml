@@ -750,6 +750,14 @@ daml_build_test(
 )
 
 daml_build_test(
+    name = "daml-upgrade-example-extend",
+    dar_dict = {
+        ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
+    },
+    project_dir = "source/upgrade/example/carbon-label",
+)
+
+daml_build_test(
     name = "daml-upgrade-example-upgrade-script",
     dar_dict = {
         ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
