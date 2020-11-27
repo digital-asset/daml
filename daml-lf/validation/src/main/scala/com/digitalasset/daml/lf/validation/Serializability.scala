@@ -6,7 +6,7 @@ package com.daml.lf.validation
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.language.LanguageVersion
 
 private[validation] object Serializability {
 
@@ -21,10 +21,6 @@ private[validation] object Serializability {
 
     import world._
 
-    private val supportsSerializablePolymorphicContractIds =
-      LanguageVersion.ordering
-        .gteq(languageVersion, LanguageVersion(LanguageMajorVersion.V1, "5"))
-
     def unserializable(reason: UnserializabilityReason): Nothing =
       throw EExpectedSerializableType(ctx, requirement, typeToSerialize, reason)
 
@@ -37,18 +33,8 @@ private[validation] object Serializability {
     def checkType(): Unit = checkType(typeToSerialize)
 
     def checkType(typ0: Type): Unit = typ0 match {
-      case TApp(TBuiltin(BTContractId), tArg) => {
-        if (supportsSerializablePolymorphicContractIds) {
-          checkType(tArg)
-        } else {
-          tArg match {
-            case TTyCon(Identifier(packageId, QualifiedName(modName, name)))
-                if lookupModule(ctx, packageId, modName).templates.isDefinedAt(name) =>
-              ()
-            case _ => unserializable(URContractId)
-          }
-        }
-      }
+      case TApp(TBuiltin(BTContractId), tArg) =>
+        checkType(tArg)
       case TVar(name) =>
         if (!vars(name)) unserializable(URFreeVar(name))
       case TNat(_) =>

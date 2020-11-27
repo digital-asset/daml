@@ -75,15 +75,7 @@ abstract class Reader[+Pkg] {
       hash: PackageId,
       lf: DamlLf.ArchivePayload): (Pkg, LanguageMajorVersion) = {
     val majorVersion = readArchiveVersion(lf)
-    // for DAML-LF v1, we translate "no version" to minor version 0,
-    // since we introduced minor versions once DAML-LF v1 was already
-    // out, and we want to be able to parse packages that were compiled
-    // before minor versions were a thing. DO NOT replicate this code
-    // beyond major version 1!
-    val minorVersion = (majorVersion, lf.getMinor) match {
-      case (LanguageMajorVersion.V1, "") => "0"
-      case (_, minor) => minor
-    }
+    val minorVersion = lf.getMinor
     val version =
       LanguageVersion(majorVersion, LanguageVersion.Minor fromProtoIdentifier minorVersion)
     if (!(majorVersion supportsMinorVersion minorVersion)) {

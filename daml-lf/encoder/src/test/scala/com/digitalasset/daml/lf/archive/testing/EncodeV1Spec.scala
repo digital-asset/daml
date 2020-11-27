@@ -156,8 +156,9 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
       val versions =
         Table(
           "minVersion",
-          LanguageVersion(V1, "0"),
-          LanguageVersion(V1, "1"),
+          LanguageVersion(V1, "6"),
+          LanguageVersion(V1, "7"),
+          LanguageVersion(V1, "8"),
           LanguageVersion.default)
 
       forEvery(versions) { version =>

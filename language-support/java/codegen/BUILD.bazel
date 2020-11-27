@@ -30,7 +30,6 @@ load(
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
-load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 
 da_scala_binary(
     name = "codegen",
