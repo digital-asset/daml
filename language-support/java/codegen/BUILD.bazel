@@ -20,6 +20,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "LF_VERSIONS",
     "lf_latest_version",
     "lf_stable_version",
 )
@@ -170,49 +171,54 @@ it_daml_lf_target_versions = [
     "1.dev",
 ]
 
+daml_compile(
+    name = "integration-tests-model-1_6",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Lib1_6.daml",
+        ],
+        exclude = ["src/it/daml/Tests/NumericTest.daml"],
+    ),
+    target = "1.6",
+)
+
+daml_compile(
+    name = "integration-tests-model-1_7",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Lib1_7.daml",
+        ],
+    ),
+    target = "1.7",
+)
+
+daml_compile(
+    name = "integration-tests-model-1_8",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Lib1_8.daml",
+        ],
+    ),
+    target = "1.8",
+)
+
+daml_compile(
+    name = "integration-tests-model-dev",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Libdev.daml",
+        ],
+    ),
+    target = "1.dev",
+)
+
 [
     [
-        genrule(
-            name = "integration-tests-model-%s" % mangle_for_java(target),
-            srcs = ["src/it/daml"],
-            outs = ["integration-tests-model-%s.dar" % mangle_for_java(target)],
-            cmd = """
-             set -eou pipefail
-             TMP_DIR=$$(mktemp -d)
-             cp -Lr $(location src/it/daml) $$TMP_DIR
-             cat << EOF > $$TMP_DIR/daml.yaml
-sdk-version: {sdk}
-name: daml-trigger
-source: daml
-version: {ghc}
-dependencies:
-  - daml-stdlib
-  - daml-prim
-build-options: {build_options}
-EOF
-             $(location //compiler/damlc) build --project-root $$TMP_DIR \
-                 --cpp $$PWD/$(location @stackage-exe//hpp) \
-                 -o $$PWD/$@
-             rm -rf $$TMP_DIR
-           """.format(
-                build_options = str([
-                    "--target",
-                    target,
-                ]),
-                sdk = sdk_version,
-                ghc = ghc_version,
-            ),
-            tools = [
-                "//compiler/damlc",
-                "@stackage-exe//hpp",
-            ],
-            visibility = ["//visibility:public"],
-        ),
-        #        daml_compile(
-        #            name = "integration-tests-model-%s" % mangle_for_java(target),
-        #            srcs = glob(["src/it/daml/**/*.daml"]),
-        #            target = target,
-        #        ),
+        #
         #
         # Compile the DAR files with and without a package to allow
         # DAML-LF version agnostic tests to be run using generated
@@ -221,13 +227,8 @@ EOF
         # package name qualified by the DAML-LF version.
         #
         dar_to_java(
-            name = "integration-tests-model-noprefix-%s" % target,
-            src = ":integration-tests-model-%s.dar" % mangle_for_java(target),
-        ),
-        dar_to_java(
             name = "integration-tests-model-%s" % target,
             src = ":integration-tests-model-%s.dar" % mangle_for_java(target),
-            package_prefix = "lf_%s" % mangle_for_java(target),
         ),
         java_test(
             name = "integration-tests-%s" % target,
@@ -235,10 +236,9 @@ EOF
                 "src/it/java-%s/**/*.java" % target,
                 "src/it/java/**/*.java",
             ]),
-            test_class = "com.daml.lf_%s.AllTests" % mangle_for_java(target),
+            test_class = "com.daml.AllTests",
             deps = [
                 ":integration-tests-model-%s.jar" % target,
-                ":integration-tests-model-noprefix-%s.jar" % target,
                 "//language-support/java/bindings:bindings-java",
                 "//ledger/sandbox-classic:sandbox-classic-scala-tests-lib",
                 "@maven//:com_google_protobuf_protobuf_java",
@@ -249,7 +249,7 @@ EOF
             ],
         ),
     ]
-    for target in it_daml_lf_target_versions
+    for target in LF_VERSIONS
 ]
 
 ########################################################

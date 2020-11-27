@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 
-module Lib where
+module Lib_1_7 where
 
 import Tests.Template1()
 import Tests.Template2()

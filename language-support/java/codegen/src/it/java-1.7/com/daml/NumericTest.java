@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf_1_7;
+package com.daml;
 
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.api.v1.ValueOuterClass;
@@ -22,7 +22,6 @@ import static org.junit.Assert.assertTrue;
 
 @RunWith(JUnitPlatform.class)
 public class NumericTest {
-
     void checkRecord(NumericBox myRecord) {
         assertEquals(myRecord.decimal, decimalValue());
         assertEquals(myRecord.numeric0, numeric0Value());
