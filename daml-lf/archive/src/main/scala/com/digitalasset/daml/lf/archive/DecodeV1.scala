@@ -983,6 +983,12 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           assertSince(LV.Features.typeRep, "Expr.type_rep")
           ETypeRep(decodeType(lfExpr.getTypeRep))
 
+        case PLF.Expr.SumCase.MAKE_ANY_EXCEPTION =>
+          throw ParseError("Expr.MAKE_ANY_EXCEPTION") // TODO #8020
+
+        case PLF.Expr.SumCase.FROM_ANY_EXCEPTION =>
+          throw ParseError("Expr.FROM_ANY_EXCEPTION") // TODO #8020
+
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw ParseError("Expr.SUM_NOT_SET")
       }
@@ -1146,6 +1152,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.Update.SumCase.EMBED_EXPR =>
           val embedExpr = lfUpdate.getEmbedExpr
           UpdateEmbedExpr(decodeType(embedExpr.getType), decodeExpr(embedExpr.getBody, definition))
+
+        case PLF.Update.SumCase.TRY_CATCH =>
+          throw ParseError("Update.TRY_CATCH") // TODO #8020
 
         case PLF.Update.SumCase.SUM_NOT_SET =>
           throw ParseError("Update.SUM_NOT_SET")
