@@ -20,7 +20,6 @@ proto_jars(
     maven_artifact_prefix = "ledger-api",
     maven_artifact_scala_suffix = "scalapb",
     maven_group = "com.daml",
-    strip_import_prefix = "/" + ledger_api_proto_source_root,
     deps = [
         "@com_github_googleapis_googleapis//google/rpc:status_proto",
         "@com_google_protobuf//:any_proto",

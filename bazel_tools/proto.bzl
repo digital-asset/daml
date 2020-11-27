@@ -168,8 +168,9 @@ def _is_windows(ctx):
     return ctx.configuration.host_path_separator == ";"
 
 def maven_tags(group, artifact_prefix, artifact_suffix):
-    if group and artifact_prefix and artifact_suffix:
-        return ["maven_coordinates=%s:%s-%s:__VERSION__" % (group, artifact_prefix, artifact_suffix)]
+    if group and artifact_prefix:
+        artifact = artifact_prefix + "-" + artifact_suffix if artifact_suffix else artifact_prefix
+        return ["maven_coordinates=%s:%s:__VERSION__" % (group, artifact)]
     else:
         return []
 
@@ -185,6 +186,7 @@ def proto_jars(
         javadoc_root_packages = [],
         maven_group = None,
         maven_artifact_prefix = None,
+        maven_artifact_proto_suffix = None,
         maven_artifact_java_suffix = "java-proto",
         maven_artifact_scala_suffix = "scala-proto"):
     # Tarball containing the *.proto files.
@@ -195,6 +197,22 @@ def proto_jars(
         strip_prefix = strip_import_prefix,
         visibility = ["//visibility:public"],
     )
+
+    # JAR containing the *.proto files.
+    native.java_library(
+        name = "%s_proto_jar" % name,
+        resources = srcs,
+        resource_strip_prefix = "%s/%s/" % (native.package_name(), strip_import_prefix),
+        tags = maven_tags(maven_group, maven_artifact_prefix, maven_artifact_proto_suffix),
+        visibility = ["//visibility:public"],
+    )
+
+    if maven_group and maven_artifact_prefix:
+        pom_file(
+            name = "%s_proto_jar_pom" % name,
+            target = ":%s_proto_jar" % name,
+            visibility = ["//visibility:public"],
+        )
 
     # Compiled protobufs. Used in subsequent targets.
     proto_library(
