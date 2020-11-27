@@ -439,60 +439,102 @@ class EngineTest
   }
 
   "minimal create command" should {
-    val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
+    val singlePartyTemplate = "BasicTests:Simple"
+    val multiPartyTemplate = "BasicTests:SimpleMultiParty"
+
+    val cases = Table(
+      ("templateId", "signatories", "submitters"),
+      (singlePartyTemplate, Set("p" -> party), Set(party)),
+      (multiPartyTemplate, Set("p1" -> alice, "p2" -> bob), Set(alice, bob)),
+      (multiPartyTemplate, Set("p1" -> alice, "p2" -> bob), Set(alice, bob, clara))
+    )
+
+    def id(templateId: String) = Identifier(basicTestsPkgId, templateId)
+    def command(templateId: String, signatories: Set[(String, Party)]) = {
+      val templateArgs: Set[(Some[Name], ValueParty)] = signatories.map {
+        case (label, party) =>
+          Some[Name](label) -> ValueParty(party)
+      }
+      CreateCommand(id(templateId), ValueRecord(Some(id(templateId)), ImmArray(templateArgs)))
+    }
+
     val let = Time.Timestamp.now()
-    val command =
-      CreateCommand(id, ValueRecord(Some(id), ImmArray((Some[Name]("p"), ValueParty(party)))))
     val submissionSeed = hash("minimal create command")
-    val res = preprocessor
-      .preprocessCommands(ImmArray(command))
-      .consume(lookupContract, lookupPackage, lookupKey)
-    res shouldBe 'right
-    val interpretResult = engine
-      .submit(Commands(Set(party), ImmArray(command), let, "test"), participant, submissionSeed)
-      .consume(lookupContract, lookupPackage, lookupKey)
+
+    def interpretResult(
+        templateId: String,
+        signatories: Set[(String, Party)],
+        submitters: Set[Party]) = {
+      val cmd = command(templateId, signatories)
+      val res = preprocessor
+        .preprocessCommands(ImmArray(cmd))
+        .consume(lookupContract, lookupPackage, lookupKey)
+      withClue("Preprocessing result: ")(res shouldBe 'right)
+
+      engine
+        .submit(Commands(submitters, ImmArray(cmd), let, "test"), participant, submissionSeed)
+        .consume(lookupContract, lookupPackage, lookupKey)
+    }
 
     "be translated" in {
-      interpretResult shouldBe 'right
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          interpretResult(templateId, signatories, submitters) shouldBe 'right
+      }
     }
 
     "reinterpret to the same result" in {
-      val Right((tx, txMeta)) = interpretResult
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          val Right((tx, txMeta)) = interpretResult(templateId, signatories, submitters)
 
-      val Right((rtx, _)) =
-        reinterpret(
-          engine,
-          Set(party),
-          tx.roots,
-          tx,
-          txMeta,
-          let,
-          lookupPackage
-        )
-      Tx.isReplayedBy(tx, rtx) shouldBe Right(())
+          val Right((rtx, _)) =
+            reinterpret(
+              engine,
+              signatories.map(_._2),
+              tx.roots,
+              tx,
+              txMeta,
+              let,
+              lookupPackage
+            )
+          Tx.isReplayedBy(tx, rtx) shouldBe Right(())
+      }
+
     }
 
     "be validated" in {
-      val Right((tx, meta)) = interpretResult
-      val Right(submitter) = tx.guessSubmitter
-      val validated = engine
-        .validate(Set(submitter), tx, let, participant, meta.submissionTime, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey)
-      validated match {
-        case Left(e) =>
-          fail(e.msg)
-        case Right(()) => ()
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          val Right((tx, meta)) = interpretResult(templateId, signatories, submitters)
+          val validated = engine
+            .validate(submitters, tx, let, participant, meta.submissionTime, submissionSeed)
+            .consume(lookupContract, lookupPackage, lookupKey)
+          validated match {
+            case Left(e) =>
+              fail(e.msg)
+            case Right(()) => succeed
+          }
       }
     }
 
     "cause used package to show up in transaction" in {
       // NOTE(JM): Other packages are pulled in by BasicTests.daml, e.g. daml-prim, but we
       // don't know the package ids here.
-      interpretResult.map(_._2.usedPackages.contains(basicTestsPkgId)) shouldBe Right(true)
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          interpretResult(templateId, signatories, submitters).map(
+            _._2.usedPackages.contains(basicTestsPkgId)) shouldBe Right(true)
+      }
     }
 
     "not mark any node as byKey" in {
-      interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          interpretResult(templateId, signatories, submitters).map {
+            case (tx, _) => byKeyNodes(tx).size
+          } shouldBe Right(0)
+      }
     }
 
   }
