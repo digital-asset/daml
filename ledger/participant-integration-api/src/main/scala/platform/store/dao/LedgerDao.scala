@@ -158,7 +158,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     * window before they could send a retry.
     *
     * @param commandId The command Id
-    * @param submitters The submitting party
+    * @param submitters The submitting parties
     * @return
     */
   def stopDeduplicatingCommand(
