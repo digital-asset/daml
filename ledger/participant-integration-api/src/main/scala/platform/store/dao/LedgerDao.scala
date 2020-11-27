@@ -123,7 +123,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Deduplicates commands.
     *
     * @param commandId The command Id
-    * @param submitters The submitting party
+    * @param submitters The submitting parties
     * @param submittedAt The time when the command was submitted
     * @param deduplicateUntil The time until which the command should be deduplicated
     * @return whether the command is a duplicate or not
