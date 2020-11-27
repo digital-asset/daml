@@ -315,6 +315,8 @@ Version: 1.dev
 
   + **Add** choice observers.
 
+  + **Add** exception handling.
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -643,6 +645,7 @@ Then we can define our kinds, types, and expressions::
        |  'TypeRep'                                 -- BTTypeRep
        |  'Update'                                  -- BTyUpdate
        |  'Scenario'                                -- BTyScenario
+       -- [*Available in version >= 1.dev*]
        |  'AnyException'                            -- BTyAnyException
        |  'GeneralError'                            -- BTyGeneralError
        |  'ArithmeticError'                         -- BTyArithmeticError
@@ -696,10 +699,11 @@ Then we can define our kinds, types, and expressions::
        | 'to_any' @τ e                              -- ExpToAny: Wrap a value of the given type in Any
        | 'from_any' @τ e                            -- ExpToAny: Extract a value of the given from Any or return None
        | 'type_rep' @τ                              -- ExpToTypeRep: A type representation
-       | 'make_any_exception' @τ eₘ eₚ              -- ExpMakeAnyException: Turn a concrete exception into an 'AnyException'
-       | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException'
        |  u                                         -- ExpUpdate: Update expression
        |  s                                         -- ExpScenario: Scenario expression
+       -- [*Available in version >= 1.dev*]
+       | 'make_any_exception' @τ eₘ eₚ              -- ExpMakeAnyException: Turn a concrete exception into an 'AnyException'
+       | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException'
 
   Patterns
     p
@@ -726,6 +730,7 @@ Then we can define our kinds, types, and expressions::
        |  'fetch_by_key' @τ e                       -- UpdateFecthByKey
        |  'lookup_by_key' @τ e                      -- UpdateLookUpByKey
        |  'embed_expr' @τ e                         -- UpdateEmbedExpr
+       -- [*Available in version >= 1.dev*]
        |  'try' @τ e₁ 'catch' x. e₂                 -- UpdateTryCatch
 
   Scenario
@@ -797,7 +802,7 @@ available for usage::
             , 'choices' { ChDef₁, …, ChDefₘ }
             , KeyDef
             }
-       |  'exception' (x: T)                        -- DefException
+       |  'exception' (x: T)                        -- DefException [*Available in version >= 1.dev*]
 
   Module (mnemonic: delta for definitions)
     Δ ::= ε                                         -- DefCtxEmpty
@@ -1955,15 +1960,15 @@ need to be evaluated further. ::
 
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValGeneralError
-     ⊢ᵥ  'GENERAL_ERROR' e
+     ⊢ᵥ  'MAKE_GENERAL_ERROR' e
 
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValArithmeticError
-     ⊢ᵥ  'ARITHMETIC_ERROR' e
+     ⊢ᵥ  'MAKE_ARITHMETIC_ERROR' e
 
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValContractError
-     ⊢ᵥ  'CONTRACT_ERROR' @τ e
+     ⊢ᵥ  'MAKE_CONTRACT_ERROR' @τ e
 
      ⊢ᵥᵤ  u
    ——————————————————————————————————————————————————— ValUpdate
@@ -2525,7 +2530,7 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpError
       'ERROR' @τ e
         ⇓
-      Err ('make_any_exception' @'GeneralError' v ('GENERAL_ERROR' v))
+      Err ('make_any_exception' @'GeneralError' v ('MAKE_GENERAL_ERROR' v))
 
       e  ⇓  Err v
     —————————————————————————————————————————————————————————————————————— EvExpThrowErr
@@ -2894,7 +2899,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdCreateFail
      'create' @Mod:T vₜ ‖ S₀
        ⇓ᵤ
-     (Err ('make_any_exception' @'ContractError' v ('CONTRACT_ERROR' v)), ε)
+     (Err ('make_any_exception' @'ContractError' v ('MAKE_CONTRACT_ERROR' v)), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
@@ -3567,7 +3572,7 @@ Int64 functions
 * ``ADD_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
   Adds the two integers. In case of an overflow, throws an exception
-  ``'make_any_exception' @'ArithmeticError' t ('ARITHMETIC_ERROR' t)``,
+  ``'make_any_exception' @'ArithmeticError' t ('MAKE_ARITHMETIC_ERROR' t)``,
   where ``t = "Overflow: ADD_INT64 {m} {n}"`` for ``m`` and ``n`` the actual
   values of the operands.
 
@@ -4278,33 +4283,52 @@ Error functions
 
 * ``THROW : ∀ (α : ⋆) . 'AnyException' → α``
 
+  [*Available in version >= 1.dev*]
+
   Throws an ``'AnyException'``. See the evaluation rule ``EvExpThrow`` for
   precise semantics.
 
 * ``ANY_EXCEPTION_MESSAGE : 'AnyException' → 'Text'``
 
-  Extract the message of an ``'AnyException'``.
+  [*Available in version >= 1.dev*]
 
-* ``GENERAL_ERROR : 'Text' → 'GeneralError'``
+  Extract the error message from an ``'AnyException'``.
 
-  This is not exposed in the expression language. It is only here so we can use
-  it in the value language.
+* ``MAKE_GENERAL_ERROR : 'Text' → 'GeneralError'``
+
+  [*Available in version >= 1.dev*]
+
+  Construct a ``'GeneralError'`` from its error message.
 
 * ``GENERAL_ERROR_MESSAGE : 'GeneralError' → 'Text'``
 
-* ``ARITHMETIC_ERROR : 'Text' → 'ArithmeticError'``
+  [*Available in version >= 1.dev*]
 
-  This is not exposed in the expression language. It is only here so we can use
-  it in the value language.
+  Extract the error message from a ``'GeneralError'``.
+
+* ``MAKE_ARITHMETIC_ERROR : 'Text' → 'ArithmeticError'``
+
+  [*Available in version >= 1.dev*]
+
+  Construct an ``'ArithmeticError'`` from its error message.
 
 * ``ARITHMETIC_ERROR_MESSAGE : 'ArithmeticError' → 'Text'``
 
-* ``CONTRACT_ERROR : 'Text' → 'ContractError'``
+  [*Available in version >= 1.dev*]
 
-  This is not exposed in the expression language. It is only here so we can use
-  it in the value language.
+  Extract the error message from ``'ArithmeticError'``.
+
+* ``MAKE_CONTRACT_ERROR : 'Text' → 'ContractError'``
+
+  [*Available in version >= 1.dev*]
+
+  Construct a ``'ContractError'`` from its error message.
 
 * ``CONTRACT_ERROR_MESSAGE : 'ContractError' → 'Text'``
+
+  [*Available in version >= 1.dev*]
+
+  Extract the error message from a ``'ContractError'``.
 
 
 Debugging functions
