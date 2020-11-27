@@ -1,9 +1,11 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//bazel_tools:java.bzl", "da_java_library")
 load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 load("//bazel_tools:pom_file.bzl", "pom_file")
+load("//bazel_tools:scala.bzl", "scala_source_jar", "scaladoc_jar")
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
@@ -166,16 +168,41 @@ proto_gen = rule(
 def _is_windows(ctx):
     return ctx.configuration.host_path_separator == ";"
 
-def maven_tags(group, artifact_prefix, artifact_suffix):
-    if group and artifact_prefix and artifact_suffix:
-        return ["maven_coordinates=%s:%s-%s:__VERSION__" % (group, artifact_prefix, artifact_suffix)]
+def _maven_tags(group, artifact_prefix, artifact_suffix):
+    if group and artifact_prefix:
+        artifact = artifact_prefix + "-" + artifact_suffix
+        return ["maven_coordinates=%s:%s:__VERSION__" % (group, artifact)]
     else:
         return []
+
+def _proto_scala_srcs(name, grpc):
+    return [":%s" % name] + ([
+        "@com_github_googleapis_googleapis//google/rpc:code_proto",
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
+        "@com_github_grpc_grpc//src/proto/grpc/health/v1:health_proto_descriptor",
+    ] if grpc else [])
+
+def _proto_scala_deps(grpc, proto_deps):
+    return [
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_lenses_2_12",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
+    ] + ([
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_12",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
+    ] if grpc else []) + [
+        "%s_scala" % label
+        for label in proto_deps
+    ]
 
 def proto_jars(
         name,
         srcs,
         strip_import_prefix = "",
+        grpc = False,
         deps = [],
         proto_deps = [],
         java_deps = [],
@@ -183,14 +210,33 @@ def proto_jars(
         javadoc_root_packages = [],
         maven_group = None,
         maven_artifact_prefix = None,
-        maven_java_artifact_suffix = "java-proto"):
+        maven_artifact_proto_suffix = "proto",
+        maven_artifact_java_suffix = "java-proto",
+        maven_artifact_scala_suffix = "scala-proto"):
     # Tarball containing the *.proto files.
     pkg_tar(
-        name = "%s_src" % name,
+        name = "%s_tar" % name,
         srcs = srcs,
         extension = "tar.gz",
         strip_prefix = strip_import_prefix,
         visibility = ["//visibility:public"],
+    )
+
+    # JAR and source JAR containing the *.proto files.
+    da_java_library(
+        name = "%s_jar" % name,
+        srcs = None,
+        deps = None,
+        resources = srcs,
+        resource_strip_prefix = "%s/%s/" % (native.package_name(), strip_import_prefix),
+        tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_proto_suffix),
+        visibility = ["//visibility:public"],
+    )
+
+    # An empty Javadoc JAR for uploading the source proto JAR to Maven Central.
+    pkg_empty_zip(
+        name = "%s_jar_javadoc" % name,
+        out = "%s_jar_javadoc.jar" % name,
     )
 
     # Compiled protobufs. Used in subsequent targets.
@@ -202,17 +248,18 @@ def proto_jars(
         deps = deps + proto_deps,
     )
 
-    # JAR containing the generated Java bindings.
+    # JAR and source JAR containing the generated Java bindings.
     native.java_proto_library(
         name = "%s_java" % name,
-        tags = maven_tags(maven_group, maven_artifact_prefix, maven_java_artifact_suffix),
+        tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
         visibility = ["//visibility:public"],
-        deps = [":%s" % name] + java_deps,
+        deps = [":%s" % name],
     )
 
     if maven_group and maven_artifact_prefix:
         pom_file(
             name = "%s_java_pom" % name,
+            tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
             target = ":%s_java" % name,
             visibility = ["//visibility:public"],
         )
@@ -226,9 +273,7 @@ def proto_jars(
             deps = ["@maven//:com_google_protobuf_protobuf_java"],
         ) if not is_windows else None
     else:
-        # Create an empty Javadoc JAR for uploading proto JARs to Maven Central.
-        # We don't need to create an empty JAR file for sources, because `java_proto_library`
-        # creates a source JAR automatically.
+        # An empty Javadoc JAR for uploading the compiled proto JAR to Maven Central.
         pkg_empty_zip(
             name = "%s_java_javadoc" % name,
             out = "%s_java_javadoc.jar" % name,
@@ -237,21 +282,42 @@ def proto_jars(
     # JAR containing the generated Scala bindings.
     proto_gen(
         name = "%s_scala_sources" % name,
-        srcs = [":%s" % name],
+        srcs = _proto_scala_srcs(name, grpc),
         plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
         plugin_name = "scalapb",
+        plugin_options = ["grpc"] if grpc else [],
         visibility = ["//visibility:public"],
         deps = deps + proto_deps,
     )
 
+    all_scala_deps = _proto_scala_deps(grpc, proto_deps)
+
     scala_library(
         name = "%s_scala" % name,
         srcs = [":%s_scala_sources" % name],
+        tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_scala_suffix),
         unused_dependency_checker_mode = "error",
         visibility = ["//visibility:public"],
-        deps = [
-            "@maven//:com_google_protobuf_protobuf_java",
-            "@maven//:com_thesamet_scalapb_lenses_2_12",
-            "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
-        ] + ["%s_scala" % label for label in proto_deps] + scala_deps,
+        deps = all_scala_deps,
+        exports = all_scala_deps,
     )
+
+    scala_source_jar(
+        name = "%s_scala_src" % name,
+        srcs = [":%s_scala_sources" % name],
+    )
+
+    scaladoc_jar(
+        name = "%s_scala_scaladoc" % name,
+        srcs = [":%s_scala_sources" % name],
+        tags = ["scaladoc"],
+        deps = [],
+        visibility = ["//visibility:public"],
+    ) if is_windows == False else None
+
+    if maven_group and maven_artifact_prefix:
+        pom_file(
+            name = "%s_scala_pom" % name,
+            target = ":%s_scala" % name,
+            visibility = ["//visibility:public"],
+        )
