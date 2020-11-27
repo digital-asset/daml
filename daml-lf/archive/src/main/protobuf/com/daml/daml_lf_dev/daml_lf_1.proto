@@ -1417,9 +1417,9 @@ message DefTemplate {
 message DefException {
   // The type constructor for the exception.
   // *Must be a valid interned name*
-  int32 tycon_interned_dname = 2; // *Available in versions >= 1.7*
+  int32 tycon_interned_dname = 1; // *Available in versions >= 1.7*
 
-  Location location = 3;
+  Location location = 2;
 }
 
 // Data type definition
