@@ -92,7 +92,7 @@ Examples
    :titlesonly:
    :maxdepth: 2
 
-   Examples <https://daml.com/samples>
+   Examples <https://daml.com/examples>
 
 Early Access Features
 ---------------------
