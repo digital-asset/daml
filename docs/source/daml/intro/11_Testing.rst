@@ -161,4 +161,4 @@ As you can see, the behavior of ``fetch``, ``fetchByKey`` and ``lookupByKey`` at
 Next up
 -------
 
-You've reached the end of the Introduction to DAML. Congratulations. If you think you understand all this material, you could test yourself by getting DAML certified at `https://academy.daml.com <https://academy.daml.com>`__. Or put your skills to good use by developing a DAML application. There are plenty of examples to inspire you on the :doc:`/examples/examples` page.
+You've reached the end of the Introduction to DAML. Congratulations. If you think you understand all this material, you could test yourself by getting DAML certified at `https://academy.daml.com <https://academy.daml.com>`__. Or put your skills to good use by developing a DAML application. There are plenty of examples to inspire you on the `https://daml.com/examples`_ page.
