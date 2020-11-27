@@ -168,12 +168,35 @@ proto_gen = rule(
 def _is_windows(ctx):
     return ctx.configuration.host_path_separator == ";"
 
-def maven_tags(group, artifact_prefix, artifact_suffix):
+def _maven_tags(group, artifact_prefix, artifact_suffix):
     if group and artifact_prefix:
         artifact = artifact_prefix + "-" + artifact_suffix
         return ["maven_coordinates=%s:%s:__VERSION__" % (group, artifact)]
     else:
         return []
+
+def _proto_scala_srcs(name, grpc):
+    return [":%s" % name] + ([
+        "@com_github_googleapis_googleapis//google/rpc:code_proto",
+        "@com_github_googleapis_googleapis//google/rpc:status_proto",
+        "@com_github_grpc_grpc//src/proto/grpc/health/v1:health_proto_descriptor",
+    ] if grpc else [])
+
+def _proto_scala_deps(grpc, proto_deps):
+    return [
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_lenses_2_12",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
+    ] + ([
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_12",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
+    ] if grpc else []) + [
+        "%s_scala" % label
+        for label in proto_deps
+    ]
 
 def proto_jars(
         name,
@@ -206,7 +229,7 @@ def proto_jars(
         deps = None,
         resources = srcs,
         resource_strip_prefix = "%s/%s/" % (native.package_name(), strip_import_prefix),
-        tags = maven_tags(maven_group, maven_artifact_prefix, maven_artifact_proto_suffix),
+        tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_proto_suffix),
         visibility = ["//visibility:public"],
     )
 
@@ -228,7 +251,7 @@ def proto_jars(
     # JAR and source JAR containing the generated Java bindings.
     native.java_proto_library(
         name = "%s_java" % name,
-        tags = maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
+        tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
         visibility = ["//visibility:public"],
         deps = [":%s" % name],
     )
@@ -236,7 +259,7 @@ def proto_jars(
     if maven_group and maven_artifact_prefix:
         pom_file(
             name = "%s_java_pom" % name,
-            tags = maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
+            tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
             target = ":%s_java" % name,
             visibility = ["//visibility:public"],
         )
@@ -257,30 +280,9 @@ def proto_jars(
         )
 
     # JAR containing the generated Scala bindings.
-    all_scala_srcs = [":%s" % name] + ([
-        "@com_github_googleapis_googleapis//google/rpc:code_proto",
-        "@com_github_googleapis_googleapis//google/rpc:status_proto",
-        "@com_github_grpc_grpc//src/proto/grpc/health/v1:health_proto_descriptor",
-    ] if grpc else [])
-
-    all_scala_deps = [
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_thesamet_scalapb_lenses_2_12",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
-    ] + ([
-        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_12",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
-        "@maven//:io_grpc_grpc_protobuf",
-        "@maven//:io_grpc_grpc_stub",
-    ] if grpc else []) + [
-        "%s_scala" % label
-        for label in proto_deps
-    ]
-
     proto_gen(
         name = "%s_scala_sources" % name,
-        srcs = all_scala_srcs,
+        srcs = _proto_scala_srcs(name, grpc),
         plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
         plugin_name = "scalapb",
         plugin_options = ["grpc"] if grpc else [],
@@ -288,10 +290,12 @@ def proto_jars(
         deps = deps + proto_deps,
     )
 
+    all_scala_deps = _proto_scala_deps(grpc, proto_deps)
+
     scala_library(
         name = "%s_scala" % name,
         srcs = [":%s_scala_sources" % name],
-        tags = maven_tags(maven_group, maven_artifact_prefix, maven_artifact_scala_suffix),
+        tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_scala_suffix),
         unused_dependency_checker_mode = "error",
         visibility = ["//visibility:public"],
         deps = all_scala_deps,
