@@ -192,7 +192,7 @@ def proto_jars(
         maven_artifact_scala_suffix = "scala-proto"):
     # Tarball containing the *.proto files.
     pkg_tar(
-        name = "%s_src" % name,
+        name = "%s_tar" % name,
         srcs = srcs,
         extension = "tar.gz",
         strip_prefix = strip_import_prefix,
@@ -201,7 +201,7 @@ def proto_jars(
 
     # JAR and source JAR containing the *.proto files.
     da_java_library(
-        name = "%s_proto_jar" % name,
+        name = "%s_jar" % name,
         srcs = None,
         deps = None,
         resources = srcs,
@@ -210,10 +210,10 @@ def proto_jars(
         visibility = ["//visibility:public"],
     )
 
-    # Create an empty Javadoc JAR for uploading the source proto JAR to Maven Central.
+    # An empty Javadoc JAR for uploading the source proto JAR to Maven Central.
     pkg_empty_zip(
-        name = "%s_proto_jar_javadoc" % name,
-        out = "%s_proto_jar_javadoc.jar" % name,
+        name = "%s_jar_javadoc" % name,
+        out = "%s_jar_javadoc.jar" % name,
     )
 
     # Compiled protobufs. Used in subsequent targets.
@@ -250,7 +250,7 @@ def proto_jars(
             deps = ["@maven//:com_google_protobuf_protobuf_java"],
         ) if not is_windows else None
     else:
-        # Create an empty Javadoc JAR for uploading the compiled proto JAR to Maven Central.
+        # An empty Javadoc JAR for uploading the compiled proto JAR to Maven Central.
         pkg_empty_zip(
             name = "%s_java_javadoc" % name,
             out = "%s_java_javadoc.jar" % name,
