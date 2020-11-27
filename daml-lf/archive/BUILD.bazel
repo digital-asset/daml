@@ -37,10 +37,6 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar")
         proto_jars(
             name = "daml_lf_%s_archive_proto" % version,
             srcs = [":daml_lf_%s_archive_proto_srcs" % version],
-            file_root = "com/{package}/daml_lf_{version}".format(
-                package = lf_version_package(version),
-                version = mangle_for_java(version),
-            ),
             javadoc_root_packages = [
                 "com.{package}.daml_lf_{version}".format(
                     package = lf_version_package(version),

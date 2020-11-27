@@ -180,7 +180,6 @@ def proto_jars(
         proto_deps = [],
         java_deps = [],
         scala_deps = [],
-        file_root = None,
         javadoc_root_packages = [],
         maven_group = None,
         maven_artifact_prefix = None,
@@ -191,7 +190,6 @@ def proto_jars(
         srcs = srcs,
         extension = "tar.gz",
         strip_prefix = strip_import_prefix,
-        package_dir = file_root,
         visibility = ["//visibility:public"],
     )
 
