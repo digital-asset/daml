@@ -1,9 +1,10 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE CPP #-}
 
 module Tests.NumericTest where
 
+#ifdef DAML_NUMERIC
 data NestedNumericBox = NoMore | Nested NumericBox
 
 data NumericBox = NumericBox {
@@ -12,3 +13,4 @@ data NumericBox = NumericBox {
   numeric37: Numeric 37,
   nestedBox: NestedNumericBox
 }
+#endif
