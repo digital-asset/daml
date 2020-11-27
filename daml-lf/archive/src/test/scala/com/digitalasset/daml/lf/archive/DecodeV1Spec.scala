@@ -71,7 +71,7 @@ class DecodeV1Spec
       stringTable: ImmArraySeq[String] = ImmArraySeq.empty,
       dottedNameTable: ImmArraySeq[DottedName] = ImmArraySeq.empty,
   ) = {
-    new DecodeV1(version.minor).DecoderEnv(
+    new DecodeV1(version.minor).Env(
       Ref.PackageId.assertFromString("noPkgId"),
       stringTable,
       dottedNameTable,
@@ -131,10 +131,10 @@ class DecodeV1Spec
       forEveryVersionAtOrAfter(LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(positiveTestCases) { (natType, nat) =>
-          decoder.decodeType(natType) shouldBe Ast.TNat(Numeric.Scale.assertFromInt(nat))
+          decoder.uncheckedDecodeType(natType) shouldBe Ast.TNat(Numeric.Scale.assertFromInt(nat))
         }
         forEvery(negativeTestCases) { natType =>
-          an[ParseError] shouldBe thrownBy(decoder.decodeType(natType))
+          an[ParseError] shouldBe thrownBy(decoder.uncheckedDecodeType(natType))
         }
       }
     }
@@ -189,7 +189,7 @@ class DecodeV1Spec
       forEveryVersionAtOrAfter(LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(numericTestCases) { (input, expectedOutput) =>
-          decoder.decodeType(input) shouldBe expectedOutput
+          decoder.uncheckedDecodeType(input) shouldBe expectedOutput
         }
       }
     }
@@ -213,7 +213,7 @@ class DecodeV1Spec
     "accept Any if 1.7 <= version >= 1.dev and " in {
       forEveryVersionAtOrAfter(LV.Features.anyType) { version =>
         val decoder = moduleDecoder(version)
-        decoder.decodeType(buildPrimType(ANY)) shouldBe TAny
+        decoder.uncheckedDecodeType(buildPrimType(ANY)) shouldBe TAny
       }
     }
 
@@ -269,13 +269,57 @@ class DecodeV1Spec
       forEveryVersionAtOrAfter(LV.Features.internedStrings) { version =>
         val decoder = moduleDecoder(version, stringTable)
         forEvery(negativeTestCases) { fieldNames =>
-          decoder.decodeType(buildTStructWithInterning(fieldNames))
+          decoder.uncheckedDecodeType(buildTStructWithInterning(fieldNames))
         }
         forEvery(positiveTestCases) { fieldNames =>
-          a[ParseError] shouldBe thrownBy(decoder.decodeType(buildTStructWithInterning(fieldNames)))
+          a[ParseError] shouldBe thrownBy(
+            decoder.uncheckedDecodeType(buildTStructWithInterning(fieldNames)))
         }
       }
     }
+
+    "reject non interned type for LF >= 1.dev" in {
+
+      val stringTable = ImmArraySeq("pkgId", "x")
+      val dottedNameTable = ImmArraySeq("Mod", "T", "S").map(DottedName.assertFromString)
+
+      val unit = DamlLf1.Unit.newBuilder().build()
+      val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
+      val modRef =
+        DamlLf1.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
+      val tyConName = DamlLf1.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
+      val tySynName = DamlLf1.TypeSynName.newBuilder().setModule(modRef).setNameInternedDname(2)
+
+      def newBuilder = DamlLf1.Type.newBuilder()
+
+      val star = DamlLf1.Kind.newBuilder().setStar(unit).build
+      val xWithStar =
+        DamlLf1.TypeVarWithKind.newBuilder().setVarInternedStr(1).setKind(star).build()
+      val typeVar = newBuilder.setVar(DamlLf1.Type.Var.newBuilder().setVarInternedStr(0)).build()
+      val typeBool =
+        newBuilder.setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.BOOL)).build()
+      val xWithBool =
+        DamlLf1.FieldWithType.newBuilder.setFieldInternedStr(1).setType(typeBool).build()
+
+      val testCases = Table[DamlLf1.Type](
+        "type",
+        typeVar,
+        newBuilder.setNat(10).build(),
+        newBuilder.setSyn(DamlLf1.Type.Syn.newBuilder().setTysyn(tySynName)).build(),
+        newBuilder.setCon(DamlLf1.Type.Con.newBuilder().setTycon(tyConName)).build(),
+        typeBool,
+        newBuilder
+          .setForall(DamlLf1.Type.Forall.newBuilder().addVars(xWithStar).setBody(typeVar))
+          .build(),
+        newBuilder.setStruct(DamlLf1.Type.Struct.newBuilder().addFields(xWithBool)).build(),
+      )
+
+      forEveryVersionAtOrAfter(LV.Features.internedTypes) { version =>
+        val decoder = moduleDecoder(version, stringTable, dottedNameTable)
+        forEvery(testCases)(proto => an[ParseError] shouldBe thrownBy(decoder.decodeType(proto)))
+      }
+    }
+
   }
 
   "decodeExpr" should {
@@ -845,7 +889,7 @@ class DecodeV1Spec
     "reject interned types if lf version < 1.dev" in {
       forEveryVersionBefore(LV.Features.internedTypes) { version =>
         val decoder = new DecodeV1(version.minor)
-        val env = decoder.DecoderEnv(
+        val env = decoder.Env(
           Ref.PackageId.assertFromString("noPkgId"),
           ImmArraySeq.empty,
           ImmArraySeq.empty,
