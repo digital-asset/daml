@@ -696,7 +696,7 @@ Then we can define our kinds, types, and expressions::
        | 'to_any' @τ e                              -- ExpToAny: Wrap a value of the given type in Any
        | 'from_any' @τ e                            -- ExpToAny: Extract a value of the given from Any or return None
        | 'type_rep' @τ                              -- ExpToTypeRep: A type representation
-       | 'to_any_exception' @τ eₘ eₚ                -- ExpToAnyException: Turn a concrete exception into an 'AnyException'
+       | 'make_any_exception' @τ eₘ eₚ              -- ExpMakeAnyException: Turn a concrete exception into an 'AnyException'
        | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException'
        |  u                                         -- ExpUpdate: Update expression
        |  s                                         -- ExpScenario: Scenario expression
@@ -1242,12 +1242,12 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  τ  :  ⋆      Γ  ⊢ₑ  τ
       Γ  ⊢  eₘ  : 'Text'
       Γ  ⊢  eₚ  :  τ
-    ——————————————————————————————————————————————————————————————— ExpToAnyException
-      Γ  ⊢  'to_any_exception' @τ eₘ eₚ  :  'AnyException'
+    ——————————————————————————————————————————————————————————————— ExpMakeAnyException
+      Γ  ⊢  'make_any_exception' @τ eₘ eₚ  :  'AnyException'
 
       Γ  ⊢  τ  :  ⋆      Γ  ⊢ₑ  τ
       Γ  ⊢  e  :  'AnyException'
-    ——————————————————————————————————————————————————————————————— ExpToAnyException
+    ——————————————————————————————————————————————————————————————— ExpFromAnyException
       Γ  ⊢  'from_any_exception' @τ e  :  'Option' τ
 
       Γ  ⊢  τ  :  ⋆      Γ  ⊢  e  :  τ
@@ -1950,8 +1950,8 @@ need to be evaluated further. ::
      ⊢ᵥ  'type_rep' @τ
 
      ⊢ᵥ  eₘ      ⊢ᵥ  eₚ
-   ——————————————————————————————————————————————————— ValToAnyException
-     ⊢ᵥ  'to_any_exception' @τ eₘ eₚ
+   ——————————————————————————————————————————————————— ValMakeAnyException
+     ⊢ᵥ  'make_any_exception' @τ eₘ eₚ
 
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValGeneralError
@@ -2525,7 +2525,7 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpError
       'ERROR' @τ e
         ⇓
-      Err ('to_any_exception' @'GeneralError' v ('GENERAL_ERROR' v))
+      Err ('make_any_exception' @'GeneralError' v ('GENERAL_ERROR' v))
 
       e  ⇓  Err v
     —————————————————————————————————————————————————————————————————————— EvExpThrowErr
@@ -2536,29 +2536,29 @@ exact output.
       'THROW' @τ e  ⇓  Err v
 
       eₘ  ⇓  Err v
-    —————————————————————————————————————————————————————————————————————— EvExpToAnyExceptionErr1
-      'to_any_exception' @τ eₘ eₚ  ⇓  Err v
+    —————————————————————————————————————————————————————————————————————— EvExpMakeAnyExceptionErr1
+      'make_any_exception' @τ eₘ eₚ  ⇓  Err v
 
       eₘ  ⇓  Ok vₘ
       eₚ  ⇓  Err v
-    —————————————————————————————————————————————————————————————————————— EvExpToAnyExceptionErr2
-      'to_any_exception' @τ eₘ eₚ  ⇓  Err v
+    —————————————————————————————————————————————————————————————————————— EvExpMakeAnyExceptionErr2
+      'make_any_exception' @τ eₘ eₚ  ⇓  Err v
 
       eₘ  ⇓  Ok vₘ
       eₚ  ⇓  Ok vₚ
-    —————————————————————————————————————————————————————————————————————— EvExpToAnyException
-      'to_any_exception' @τ eₘ eₚ  ⇓  Ok ('to_any_exception @τ vₘ vₚ)
+    —————————————————————————————————————————————————————————————————————— EvExpMakeAnyException
+      'make_any_exception' @τ eₘ eₚ  ⇓  Ok ('make_any_exception @τ vₘ vₚ)
 
       e  ⇓  Err v
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyExceptionErr
       'from_any_exception' @τ e  ⇓  Err v
 
-      e  ⇓  Ok ('to_any_exception' @σ vₘ vₚ)
+      e  ⇓  Ok ('make_any_exception' @σ vₘ vₚ)
       σ ≠ τ
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyExceptionNone
       'from_any_exception' @τ e  ⇓  Ok ('None' @τ)
 
-      e  ⇓  Ok ('to_any_exception' @σ vₘ vₚ)
+      e  ⇓  Ok ('make_any_exception' @σ vₘ vₚ)
       σ = τ
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyExceptionSome
       'from_any_exception' @τ e  ⇓  Ok ('Some' @τ vₚ)
@@ -2567,7 +2567,7 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpAnyExceptionMessageErr
       'ANY_EXCEPTION_MESSAGE' @τ e  ⇓  Err v
 
-      e  ⇓  Ok ('to_any_exception' @σ vₘ vₚ)
+      e  ⇓  Ok ('make_any_exception' @σ vₘ vₚ)
     —————————————————————————————————————————————————————————————————————— EvExpAnyExceptionMessage
       'ANY_EXCEPTION_MESSAGE' @τ e  ⇓  Ok vₘ
 
@@ -2894,7 +2894,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdCreateFail
      'create' @Mod:T vₜ ‖ S₀
        ⇓ᵤ
-     (Err ('to_any_exception' @'ContractError' v ('CONTRACT_ERROR' v)), ε)
+     (Err ('make_any_exception' @'ContractError' v ('CONTRACT_ERROR' v)), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
@@ -3567,7 +3567,7 @@ Int64 functions
 * ``ADD_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
   Adds the two integers. In case of an overflow, throws an exception
-  ``'to_any_exception' @'ArithmeticError' t ('ARITHMETIC_ERROR' t)``,
+  ``'make_any_exception' @'ArithmeticError' t ('ARITHMETIC_ERROR' t)``,
   where ``t = "Overflow: ADD_INT64 {m} {n}"`` for ``m`` and ``n`` the actual
   values of the operands.
 
