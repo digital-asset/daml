@@ -538,24 +538,24 @@ private[kvutils] class TransactionCommitter(
   // Helper to lookup contract instances. We verify the activeness of
   // contract instances here. Since we look up every contract that was
   // an input to a transaction, we do not need to verify the inputs separately.
-  private def lookupContract(
+  private[this] def lookupContract[X](
       transactionEntry: DamlTransactionEntrySummary,
-      inputState: DamlStateMap)(
-      coid: Value.ContractId,
-  ): Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]] = {
-    val stateKey = contractIdToStateKey(coid)
-    for {
-      // Fetch the state of the contract so that activeness and visibility can be checked.
-      // There is the possibility that the reinterpretation of the transaction yields a different
-      // result in a LookupByKey than the original transaction. This means that the contract state data for the
-      // contractId pointed to by that contractKey might not have been preloaded into the input state map.
-      // This is not a problem because after the transaction reinterpretation, we compare the original
-      // transaction with the reinterpreted one, and the LookupByKey node will not match.
-      // Additionally, all contract keys are checked to uphold causal monotonicity.
-      contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState))
-      if contractIsActiveAndVisibleToSubmitter(transactionEntry, contractState)
-      contract = Conversions.decodeContractInstance(contractState.getContractInstance)
-    } yield contract
+      inputState: DamlStateMap
+  ): (X, ContractId) => Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]] = {
+    (_, coid) =>
+      val stateKey = contractIdToStateKey(coid)
+      for {
+        // Fetch the state of the contract so that activeness and visibility can be checked.
+        // There is the possibility that the reinterpretation of the transaction yields a different
+        // result in a LookupByKey than the original transaction. This means that the contract state data for the
+        // contractId pointed to by that contractKey might not have been preloaded into the input state map.
+        // This is not a problem because after the transaction reinterpretation, we compare the original
+        // transaction with the reinterpreted one, and the LookupByKey node will not match.
+        // Additionally, all contract keys are checked to uphold causal monotonicity.
+        contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState))
+        if contractIsActiveAndVisibleToSubmitter(transactionEntry, contractState)
+        contract = Conversions.decodeContractInstance(contractState.getContractInstance)
+      } yield contract
   }
 
   // Helper to lookup package from the state. The package contents

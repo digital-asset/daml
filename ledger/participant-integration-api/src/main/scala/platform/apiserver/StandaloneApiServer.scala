@@ -126,12 +126,9 @@ final class StandaloneApiServer(
       engine
         .preloadPackage(pkgId, pkg)
         .consume(
-          { _ =>
-            sys.error("Unexpected request of contract")
-          },
-          packageContainer.getLfPackageSync, { _ =>
-            sys.error("Unexpected request of contract key")
-          }
+          (_, _) => sys.error("Unexpected request of contract"),
+          packageContainer.getLfPackageSync,
+          _ => sys.error("Unexpected request of contract key")
         )
       ()
     }

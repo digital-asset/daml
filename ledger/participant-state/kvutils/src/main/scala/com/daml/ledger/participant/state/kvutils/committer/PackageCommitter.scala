@@ -264,7 +264,7 @@ final private[kvutils] class PackageCommitter(
         case (pkgId, pkg) =>
           engine
             .preloadPackage(pkgId, pkg)
-            .consume(_ => None, pkgs.get, _ => None)
+            .consume((_, _) => None, pkgs.get, _ => None)
             .fold(err => List(err.detailMsg), _ => List.empty)
       }.toList
       metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>

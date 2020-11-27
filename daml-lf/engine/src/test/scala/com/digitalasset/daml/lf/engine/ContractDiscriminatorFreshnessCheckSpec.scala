@@ -283,4 +283,9 @@ class ContractDiscriminatorFreshnessCheckSpec
 
   private implicit def toName(s: String): Ref.Name = Ref.Name.assertFromString(s)
 
+  private[this] implicit def adaptLookup[X](
+      f: ContractId => Option[Value.ContractInst[Value.VersionedValue[ContractId]]]
+  ): (X, ContractId) => Option[Value.ContractInst[Value.VersionedValue[ContractId]]] =
+    (_, cid) => f(cid)
+
 }

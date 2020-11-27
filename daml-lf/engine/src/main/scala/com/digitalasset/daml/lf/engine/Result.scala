@@ -20,8 +20,8 @@ sealed trait Result[+A] extends Product with Serializable {
   def map[B](f: A => B): Result[B] = this match {
     case ResultDone(x) => ResultDone(f(x))
     case ResultError(err) => ResultError(err)
-    case ResultNeedContract(acoid, resume) =>
-      ResultNeedContract(acoid, mbContract => resume(mbContract).map(f))
+    case ResultNeedContract(templateId, acoid, resume) =>
+      ResultNeedContract(templateId, acoid, mbContract => resume(mbContract).map(f))
     case ResultNeedPackage(pkgId, resume) =>
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).map(f))
     case ResultNeedKey(gk, resume) =>
@@ -31,8 +31,8 @@ sealed trait Result[+A] extends Product with Serializable {
   def flatMap[B](f: A => Result[B]): Result[B] = this match {
     case ResultDone(x) => f(x)
     case ResultError(err) => ResultError(err)
-    case ResultNeedContract(acoid, resume) =>
-      ResultNeedContract(acoid, mbContract => resume(mbContract).flatMap(f))
+    case ResultNeedContract(templateId, acoid, resume) =>
+      ResultNeedContract(templateId, acoid, mbContract => resume(mbContract).flatMap(f))
     case ResultNeedPackage(pkgId, resume) =>
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).flatMap(f))
     case ResultNeedKey(gk, resume) =>
@@ -40,15 +40,16 @@ sealed trait Result[+A] extends Product with Serializable {
   }
 
   def consume(
-      pcs: ContractId => Option[ContractInst[VersionedValue[ContractId]]],
+      pcs: (TypeConName, ContractId) => Option[ContractInst[VersionedValue[ContractId]]],
       packages: PackageId => Option[Package],
-      keys: GlobalKeyWithMaintainers => Option[ContractId]): Either[Error, A] = {
+      keys: GlobalKeyWithMaintainers => Option[ContractId],
+  ): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
       res match {
         case ResultDone(x) => Right(x)
         case ResultError(err) => Left(err)
-        case ResultNeedContract(acoid, resume) => go(resume(pcs(acoid)))
+        case ResultNeedContract(templateId, acoid, resume) => go(resume(pcs(templateId, acoid)))
         case ResultNeedPackage(pkgId, resume) => go(resume(packages(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys(key)))
       }
@@ -71,6 +72,7 @@ final case class ResultError(err: Error) extends Result[Nothing]
   * </ul>
   */
 final case class ResultNeedContract[A](
+    templateId: TypeConName,
     acoid: ContractId,
     resume: Option[ContractInst[VersionedValue[ContractId]]] => Result[A])
     extends Result[A]
@@ -100,9 +102,10 @@ object Result {
     })
 
   private[lf] def needContract[A](
+      templateId: TypeConName,
       acoid: ContractId,
       resume: ContractInst[VersionedValue[ContractId]] => Result[A]) =
-    ResultNeedContract(acoid, {
+    ResultNeedContract(templateId, acoid, {
       case None => ResultError(Error(s"dependency error: couldn't find contract $acoid"))
       case Some(contract) => resume(contract)
     })
@@ -125,8 +128,9 @@ object Result {
                       Result
                         .sequence(results_)
                         .map(otherResults => (okResults :+ x) :++ otherResults)))
-            case ResultNeedContract(acoid, resume) =>
+            case ResultNeedContract(templateId, acoid, resume) =>
               ResultNeedContract(
+                templateId,
                 acoid,
                 coinst =>
                   resume(coinst).flatMap(

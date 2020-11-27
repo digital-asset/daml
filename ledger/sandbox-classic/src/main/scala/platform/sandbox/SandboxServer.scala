@@ -206,12 +206,9 @@ final class SandboxServer(
         engine
           .preloadPackage(pkgId, pkg)
           .consume(
-            { _ =>
-              sys.error("Unexpected request of contract")
-            },
-            packageStore.getLfPackageSync, { _ =>
-              sys.error("Unexpected request of contract key")
-            }
+            (_, _) => sys.error("Unexpected request of contract"),
+            packageStore.getLfPackageSync,
+            _ => sys.error("Unexpected request of contract key"),
           )
       }
     }

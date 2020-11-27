@@ -316,8 +316,9 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
             }
           )
 
-        case SResultNeedContract(contractId, _, _, _, cbPresent) =>
+        case SResultNeedContract(contractId, templateId, _, _, cbPresent) =>
           return Result.needContract(
+            templateId,
             contractId, { coinst =>
               cbPresent(coinst)
               interpretLoop(machine, time)
