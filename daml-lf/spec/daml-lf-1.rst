@@ -1968,7 +1968,7 @@ need to be evaluated further. ::
 
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValContractError
-     ⊢ᵥ  'MAKE_CONTRACT_ERROR' @τ e
+     ⊢ᵥ  'MAKE_CONTRACT_ERROR' e
 
      ⊢ᵥᵤ  u
    ——————————————————————————————————————————————————— ValUpdate
