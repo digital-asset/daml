@@ -1239,13 +1239,13 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpCase
       Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ
 
-      Γ  ⊢  τ  :  ⋆      Γ  ⊢ₑ  τ
+      ε  ⊢  τ  :  ⋆      ⊢ₑ  τ
       Γ  ⊢  eₘ  : 'Text'
       Γ  ⊢  eₚ  :  τ
     ——————————————————————————————————————————————————————————————— ExpMakeAnyException
       Γ  ⊢  'make_any_exception' @τ eₘ eₚ  :  'AnyException'
 
-      Γ  ⊢  τ  :  ⋆      Γ  ⊢ₑ  τ
+      ε  ⊢  τ  :  ⋆      ⊢ₑ  τ
       Γ  ⊢  e  :  'AnyException'
     ——————————————————————————————————————————————————————————————— ExpFromAnyException
       Γ  ⊢  'from_any_exception' @τ e  :  'Option' τ
