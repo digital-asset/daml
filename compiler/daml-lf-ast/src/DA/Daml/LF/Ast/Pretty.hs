@@ -504,9 +504,7 @@ instance Pretty DefTypeSyn where
 
 instance Pretty DefException where
   pPrintPrec lvl _prec (DefException mbLoc tycon) =
-    withSourceLoc lvl mbLoc $ (keyword_ "exception" <-> lhsDoc)
-    where
-      lhsDoc = pPrint tycon
+    withSourceLoc lvl mbLoc (keyword_ "exception" <-> pPrint tycon)
 
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =
