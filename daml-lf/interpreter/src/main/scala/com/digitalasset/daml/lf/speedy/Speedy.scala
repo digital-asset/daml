@@ -280,8 +280,8 @@ private[lf] object Speedy {
         // stack trace it produced back on the continuation stack to get
         // complete stack trace at the use site. Thus, we store the stack traces
         // of top level values separately during their execution.
-        case Some(KCacheVal(m, v, defn, stack_trace)) =>
-          kontStack.set(last_index, KCacheVal(m, v, defn, loc :: stack_trace)); ()
+        case Some(KCacheVal(machine, v, defn, stack_trace)) =>
+          kontStack.set(last_index, KCacheVal(machine, v, defn, loc :: stack_trace)); ()
         case _ => pushKont(KLocation(this, loc))
       }
     }
