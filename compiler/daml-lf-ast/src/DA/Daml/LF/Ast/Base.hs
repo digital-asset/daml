@@ -798,8 +798,8 @@ data Template = Template
 
 -- | Definition of an exception type.
 data DefException = DefException
-  { dexLocation :: !(Maybe SourceLoc)
-  , dexName :: !TypeConName
+  { exnLocation :: !(Maybe SourceLoc)
+  , exnName :: !TypeConName
   }
   deriving (Eq, Data, Generic, NFData, Show)
 

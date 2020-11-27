@@ -1197,12 +1197,12 @@ message Update {
   // Try-catch block.
   message TryCatch {
     Type return_type = 1;
-    Expr try = 2;
+    Expr try_expr = 2;
 
     // Name of the bound expression variable.
     // *Must be a valid interned identifier*
     int32 var_interned_str = 3;
-    Expr catch = 4;
+    Expr catch_expr = 4;
   }
 
   oneof Sum {
