@@ -1409,6 +1409,19 @@ message DefTemplate {
   DefKey key = 10; // optional // *Available in versions >= 1.3*
 }
 
+// Exception definition
+message DefException {
+  // The type constructor for the exception.
+  oneof tycon {
+    DottedName tycon_dname = 1;
+
+    // *Must be a valid interned name*
+    int32 tycon_interned_dname = 2; // *Available in versions >= 1.7*
+  }
+
+  Location location = 3;
+}
+
 // Data type definition
 message DefDataType {
   message Fields {
@@ -1530,6 +1543,7 @@ message Module {
   repeated DefDataType data_types = 5;
   repeated DefValue values = 6;
   repeated DefTemplate templates = 7;
+  repeated DefException exception = 10; // *Available in versions >= 1.dev
 }
 
 message InternedDottedName {
