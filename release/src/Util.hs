@@ -70,23 +70,19 @@ data ReleaseType
     deriving (Eq, Show)
 
 data JarType
-    = Plain
-      -- ^ Plain java or scala library, without source jar.
-    | Lib
+    = Lib
       -- ^ A java library jar, with source and javadoc jars.
     | Deploy
       -- ^ Deploy jar, e.g. a fat jar containing transitive deps.
     | Proto
       -- ^ A java protobuf library (*-speed.jar).
     | Scala
-      -- ^ A scala library jar, with source and scaladoc jars. Use when
-      -- source or scaladoc is desired, otherwise use 'Plain'.
+      -- ^ A scala library jar, with source and scaladoc jars.
     deriving (Eq, Show)
 
 instance FromJSON ReleaseType where
     parseJSON = withText "ReleaseType" $ \t ->
         case t of
-            "jar" -> pure $ Jar Plain
             "jar-lib" -> pure $ Jar Lib
             "jar-deploy" -> pure $ Jar Deploy
             "jar-proto" -> pure $ Jar Proto
@@ -210,7 +206,6 @@ mainExt Jar{} = "jar"
 
 mainFileName :: ReleaseType -> Text -> Text
 mainFileName (Jar jarTy) name = case jarTy of
-    Plain -> name <> ".jar"
     Lib -> "lib" <> name <> ".jar"
     Deploy -> name <> "_deploy.jar"
     Proto -> "lib" <> T.replace "_java" "" name <> "-speed.jar"
