@@ -139,7 +139,7 @@ protos_zip = rule(
         "daml_lf_tarballs": attr.label_list(
             allow_files = True,
             default = [
-                Label("//daml-lf/archive:daml_lf_{}_archive_proto_tarball.tar.gz".format(version))
+                Label("//daml-lf/archive:daml_lf_{}_archive_proto_src.tar.gz".format(version))
                 for version in LF_VERSIONS
             ],
         ),
