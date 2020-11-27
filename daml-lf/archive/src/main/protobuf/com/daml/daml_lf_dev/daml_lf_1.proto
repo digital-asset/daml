@@ -881,7 +881,7 @@ message Expr {
   // Wrap an exception value in AnyException
   // *Available in versions >= 1.dev*
   message MakeAnyException {
-    // type of argument. Must be an exxception type.
+    // type of argument. Must be an exception type.
     Type type = 1;
     // argument
     Expr expr = 2;
