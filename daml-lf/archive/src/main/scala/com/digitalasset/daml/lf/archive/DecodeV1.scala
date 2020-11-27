@@ -1697,9 +1697,9 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(MAKE_ARITHMETIC_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
       BuiltinFunctionInfo(MAKE_CONTRACT_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(GENERAL_ERROR_EXCEPTION, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(ARITHMETIC_ERROR_EXCEPTION, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(CONTROCT_ERROR_EXCEPTION, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(GENERAL_ERROR_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(ARITHMETIC_ERROR_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(CONTRACT_ERROR_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),
