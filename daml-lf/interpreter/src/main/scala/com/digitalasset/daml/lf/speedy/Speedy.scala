@@ -351,12 +351,11 @@ private[lf] object Speedy {
       */
     def setExpressionToEvaluate(expr: SExpr): Unit = {
       ctrl = expr
+      kontStack = initialKontStack()
       env = emptyEnv
       envBase = 0
       steps = 0
       track = Instrumentation()
-      kontStack = emptyKontStack
-      pushKont(KFinished(this))
     }
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
@@ -740,34 +739,33 @@ private[lf] object Speedy {
         checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
     ): Machine =
-      pushFinished(
-        new Machine(
-          ctrl = expr,
-          returnValue = null,
-          frame = null,
-          actuals = null,
-          env = emptyEnv,
-          envBase = 0,
-          kontStack = emptyKontStack,
-          lastLocation = None,
-          ledgerMode = OnLedger(
-            validating = validating,
-            checkAuthorization = checkAuthorization,
-            ptx = PartialTransaction.initial(submissionTime, initialSeeding),
-            committers = committers,
-            commitLocation = None,
-            dependsOnTime = false,
-            localContracts = Map.empty,
-            globalDiscriminators = globalCids.collect {
-              case V.ContractId.V1(discriminator, _) => discriminator
-            },
-          ),
-          traceLog = traceLog,
-          compiledPackages = compiledPackages,
-          steps = 0,
-          track = Instrumentation(),
-          profile = new Profile(),
-        ))
+      new Machine(
+        ctrl = expr,
+        returnValue = null,
+        frame = null,
+        actuals = null,
+        env = emptyEnv,
+        envBase = 0,
+        kontStack = initialKontStack(),
+        lastLocation = None,
+        ledgerMode = OnLedger(
+          validating = validating,
+          checkAuthorization = checkAuthorization,
+          ptx = PartialTransaction.initial(submissionTime, initialSeeding),
+          committers = committers,
+          commitLocation = None,
+          dependsOnTime = false,
+          localContracts = Map.empty,
+          globalDiscriminators = globalCids.collect {
+            case V.ContractId.V1(discriminator, _) => discriminator
+          },
+        ),
+        traceLog = traceLog,
+        compiledPackages = compiledPackages,
+        steps = 0,
+        track = Instrumentation(),
+        profile = new Profile(),
+      )
 
     @throws[PackageNotFound]
     @throws[CompilationError]
@@ -807,23 +805,22 @@ private[lf] object Speedy {
         expr: SExpr,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
     ): Machine =
-      pushFinished(
-        new Machine(
-          ctrl = expr,
-          returnValue = null,
-          frame = null,
-          actuals = null,
-          env = emptyEnv,
-          envBase = 0,
-          kontStack = emptyKontStack,
-          lastLocation = None,
-          ledgerMode = OffLedger,
-          traceLog = traceLog,
-          compiledPackages = compiledPackages,
-          steps = 0,
-          track = Instrumentation(),
-          profile = new Profile(),
-        ))
+      new Machine(
+        ctrl = expr,
+        returnValue = null,
+        frame = null,
+        actuals = null,
+        env = emptyEnv,
+        envBase = 0,
+        kontStack = initialKontStack(),
+        lastLocation = None,
+        ledgerMode = OffLedger,
+        traceLog = traceLog,
+        compiledPackages = compiledPackages,
+        steps = 0,
+        track = Instrumentation(),
+        profile = new Profile(),
+      )
 
     @throws[PackageNotFound]
     @throws[CompilationError]
@@ -850,11 +847,10 @@ private[lf] object Speedy {
   // We do this by pushing a KFinished continutaion on the initially empty stack, which
   // returns the final result (by raising it as a SpeedyHungry exception).
 
-  private[speedy] def emptyKontStack: util.ArrayList[Kont] = new util.ArrayList[Kont](128)
-
-  private[this] def pushFinished(machine: Machine): Machine = {
-    machine.pushKont(KFinished(machine))
-    machine
+  private[this] def initialKontStack(): util.ArrayList[Kont] = {
+    val kontStack = new util.ArrayList[Kont](128)
+    kontStack.add(KFinished)
+    kontStack
   }
 
   /** Kont, or continuation. Describes the next step for the machine
@@ -867,7 +863,7 @@ private[lf] object Speedy {
   }
 
   /** Final continuation; machine has computed final value */
-  private[speedy] final case class KFinished(machine: Machine) extends Kont {
+  private[speedy] final case object KFinished extends Kont {
     def execute(v: SValue) = {
       throw SpeedyHungry(SResultFinalValue(v))
     }
