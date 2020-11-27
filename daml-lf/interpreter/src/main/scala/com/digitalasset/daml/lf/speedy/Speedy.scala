@@ -393,7 +393,14 @@ private[lf] object Speedy {
             }
           }
         } catch {
-          case SpeedyHungry(res: SResult) => result = res //stop
+          case SpeedyHungry(res: SResult) =>
+            if (enableInstrumentation) {
+              res match {
+                case _: SResultFinalValue => track.print()
+                case _ => ()
+              }
+            }
+            result = res //stop
           case serr: SError =>
             serr match {
               case _: SErrorDamlException if tryHandleException() => () // outer loop will run again
@@ -862,9 +869,6 @@ private[lf] object Speedy {
   /** Final continuation; machine has computed final value */
   private[speedy] final case class KFinished(machine: Machine) extends Kont {
     def execute(v: SValue) = {
-      if (enableInstrumentation) {
-        machine.track.print()
-      }
       throw SpeedyHungry(SResultFinalValue(v))
     }
   }
