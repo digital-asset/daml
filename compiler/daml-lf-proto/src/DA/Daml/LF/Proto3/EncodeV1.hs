@@ -866,6 +866,7 @@ encodeModule Module{..} = do
     moduleDataTypes <- encodeNameMap encodeDefDataType moduleDataTypes
     moduleValues <- encodeNameMap encodeDefValue moduleValues
     moduleTemplates <- encodeNameMap encodeTemplate moduleTemplates
+    let moduleExceptions = V.empty -- TODO #8020
     pure P.Module{..}
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata

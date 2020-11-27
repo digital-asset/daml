@@ -119,10 +119,17 @@ decodeDottedName :: Util.EitherLike LF1.DottedName Int32 e
 decodeDottedName wrapDottedName mbDottedNameOrId = mayDecode "dottedName" mbDottedNameOrId $ \dottedNameOrId -> do
     (_, unmangledOrErr) <- case Util.toEither dottedNameOrId of
         Left (LF1.DottedName mangledV) -> decodeInternableStrings mangledV 0
-        Right dnId -> decodeInternableStrings V.empty dnId
+        Right dnId -> lookupDottedName dnId
     case unmangledOrErr of
       Left err -> throwError $ ParseError err
       Right unmangled -> pure $ wrapDottedName (coerce unmangled)
+
+decodeDottedNameId :: ([T.Text] -> a) -> Int32 -> Decode a
+decodeDottedNameId wrapDottedName dnId = do
+  (_, unmangledOrErr) <- lookupDottedName dnId
+  case unmangledOrErr of
+    Left err -> throwError $ ParseError err
+    Right unmangled -> pure $ wrapDottedName (coerce unmangled)
 
 -- | Decode the name of a top-level value. The name is mangled and will be
 -- interned in DAML-LF 1.7 and onwards.
@@ -204,7 +211,7 @@ decodeScenarioModule minorText protoPkg = do
     pure $ head $ NM.toList modules
 
 decodeModule :: LF1.Module -> Decode Module
-decodeModule (LF1.Module name flags synonyms dataTypes values templates) =
+decodeModule (LF1.Module name flags synonyms dataTypes values templates exceptions) =
   Module
     <$> decodeDottedName ModuleName name
     <*> pure Nothing
@@ -213,6 +220,7 @@ decodeModule (LF1.Module name flags synonyms dataTypes values templates) =
     <*> decodeNM DuplicateDataType decodeDefDataType dataTypes
     <*> decodeNM DuplicateValue decodeDefValue values
     <*> decodeNM EDuplicateTemplate decodeDefTemplate templates
+    <*> decodeNM DuplicateException decodeDefException exceptions
 
 decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =
@@ -230,6 +238,12 @@ decodeDefTypeSyn LF1.DefTypeSyn{..} =
     <*> decodeDottedName TypeSynName defTypeSynName
     <*> traverse decodeTypeVarWithKind (V.toList defTypeSynParams)
     <*> mayDecode "typeSynType" defTypeSynType decodeType
+
+decodeDefException :: LF1.DefException -> Decode DefException
+decodeDefException LF1.DefException{..} =
+  DefException
+    <$> traverse decodeLocation defExceptionLocation
+    <*> decodeDottedNameId TypeConName defExceptionNameInternedDname
 
 decodeDefDataType :: LF1.DefDataType -> Decode DefDataType
 decodeDefDataType LF1.DefDataType{..} =
@@ -420,7 +434,16 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionFOLDR          -> BEFoldr
   LF1.BuiltinFunctionEQUAL_LIST     -> BEEqualList
   LF1.BuiltinFunctionAPPEND_TEXT    -> BEAppendText
+
   LF1.BuiltinFunctionERROR          -> BEError
+  LF1.BuiltinFunctionTHROW -> undefined -- TODO #8020
+  LF1.BuiltinFunctionANY_EXCEPTION_MESSAGE -> undefined -- TODO #8020
+  LF1.BuiltinFunctionGENERAL_ERROR_MAKE -> undefined -- TODO #8020
+  LF1.BuiltinFunctionGENERAL_ERROR_MESSAGE -> undefined -- TODO #8020
+  LF1.BuiltinFunctionARITHMETIC_ERROR_MAKE -> undefined -- TODO #8020
+  LF1.BuiltinFunctionARITHMETIC_ERROR_MESSAGE -> undefined -- TODO #8020
+  LF1.BuiltinFunctionCONTRACT_ERROR_MAKE -> undefined -- TODO #8020
+  LF1.BuiltinFunctionCONTRACT_ERROR_MESSAGE -> undefined -- TODO #8020
 
   LF1.BuiltinFunctionTEXTMAP_EMPTY      -> BETextMapEmpty
   LF1.BuiltinFunctionTEXTMAP_INSERT     -> BETextMapInsert
@@ -463,6 +486,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionTEXT_REPLICATE -> BETextReplicate
   LF1.BuiltinFunctionTEXT_SPLIT_ON -> BETextSplitOn
   LF1.BuiltinFunctionTEXT_INTERCALATE -> BETextIntercalate
+
 
 decodeLocation :: LF1.Location -> Decode SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do
@@ -576,6 +600,9 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF1.ExprSumTypeRep typ ->
     ETypeRep <$> decodeType typ
 
+  LF1.ExprSumMakeAnyException _ -> error "EMakeAnyException" -- TODO #8020
+  LF1.ExprSumFromAnyException _ -> error "EFromAnyException" -- TODO #8020
+
 decodeUpdate :: LF1.Update -> Decode Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
   LF1.UpdateSumPure (LF1.Pure mbType mbExpr) ->
@@ -615,6 +642,8 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap (EUpdate . ULookupByKey) (decodeRetrieveByKey retrieveByKey)
   LF1.UpdateSumFetchByKey retrieveByKey ->
     fmap (EUpdate . UFetchByKey) (decodeRetrieveByKey retrieveByKey)
+
+  LF1.UpdateSumTryCatch _ -> error "UTryCatch" -- TODO #8020
 
 decodeRetrieveByKey :: LF1.Update_RetrieveByKey -> Decode RetrieveByKey
 decodeRetrieveByKey LF1.Update_RetrieveByKey{..} = RetrieveByKey
@@ -749,6 +778,10 @@ decodePrim = pure . \case
   LF1.PrimTypeARROW -> BTArrow
   LF1.PrimTypeANY -> BTAny
   LF1.PrimTypeTYPE_REP -> BTTypeRep
+  LF1.PrimTypeANY_EXCEPTION -> error "ANY_EXCEPTION" -- TODO #8020
+  LF1.PrimTypeGENERAL_ERROR -> error "GENERAL_ERROR" -- TODO #8020
+  LF1.PrimTypeARITHMETIC_ERROR -> error "ARITHMETIC_ERROR" -- TODO #8020
+  LF1.PrimTypeCONTRACT_ERROR -> error "CONTRACT_ERROR" -- TODO #8020
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =

@@ -1201,8 +1201,7 @@ message Update {
 
     // Name of the bound expression variable.
     // *Must be a valid interned identifier*
-    int32 var_interned_str = 3; // *Available in versions >= 1.dev*
-
+    int32 var_interned_str = 3;
     Expr catch = 4;
   }
 
@@ -1414,11 +1413,10 @@ message DefTemplate {
 }
 
 // Exception definition
+// *Available in versions >= 1.dev*
 message DefException {
-  // The type constructor for the exception.
-  // *Must be a valid interned name*
-  int32 tycon_interned_dname = 1; // *Available in versions >= 1.7*
-
+  // *Must be a valid interned dotted name*
+  int32 name_interned_dname = 1;
   Location location = 2;
 }
 
@@ -1543,7 +1541,7 @@ message Module {
   repeated DefDataType data_types = 5;
   repeated DefValue values = 6;
   repeated DefTemplate templates = 7;
-  repeated DefException exception = 10; // *Available in versions >= 1.dev
+  repeated DefException exceptions = 10; // *Available in versions >= 1.dev* (#8020)
 }
 
 message InternedDottedName {
