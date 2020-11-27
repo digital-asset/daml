@@ -170,7 +170,7 @@ def _is_windows(ctx):
 
 def maven_tags(group, artifact_prefix, artifact_suffix):
     if group and artifact_prefix:
-        artifact = artifact_prefix + "-" + artifact_suffix if artifact_suffix else artifact_prefix
+        artifact = artifact_prefix + "-" + artifact_suffix
         return ["maven_coordinates=%s:%s:__VERSION__" % (group, artifact)]
     else:
         return []
