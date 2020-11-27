@@ -96,6 +96,7 @@ instance FromJSON ReleaseType where
 data Artifact c = Artifact
     { artTarget :: !BazelTarget
     , artReleaseType :: !ReleaseType
+    , artMainJar :: !(Maybe (Path Rel File))
     , artJavadocJar :: !(Maybe (Path Rel File))
     , artSourceJar :: !(Maybe (Path Rel File))
     -- artJavadocJar and artSourceJar can be used to specify the path to
@@ -111,6 +112,7 @@ instance FromJSON (Artifact (Maybe ArtifactLocation)) where
     parseJSON = withObject "Artifact" $ \o -> Artifact
         <$> o .: "target"
         <*> o .: "type"
+        <*> o .:? "main-jar"
         <*> o .:? "javadoc-jar"
         <*> o .:? "src-jar"
         <*> o .:? "location"
@@ -292,7 +294,7 @@ artifactFiles artifact@Artifact{..} = do
         -- ^ Note that the Scaladoc is specified with the "javadoc" classifier.
 
 mainArtifactPath :: E.MonadThrow m => Text -> Artifact a -> m (Path Rel File)
-mainArtifactPath name artifact = parseRelFile $ unpack $ mainFileName (artReleaseType artifact) name
+mainArtifactPath name artifact = maybe (parseRelFile $ unpack $ mainFileName (artReleaseType artifact) name) return (artMainJar artifact)
 
 pomFilePath :: E.MonadThrow m => Text -> m (Path Rel File)
 pomFilePath name = parseRelFile $ unpack $ name <> "_pom.xml"

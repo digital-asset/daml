@@ -1,6 +1,7 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//bazel_tools:java.bzl", "da_java_library")
 load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 load("//bazel_tools:pom_file.bzl", "pom_file")
@@ -186,7 +187,7 @@ def proto_jars(
         javadoc_root_packages = [],
         maven_group = None,
         maven_artifact_prefix = None,
-        maven_artifact_proto_suffix = None,
+        maven_artifact_proto_suffix = "proto",
         maven_artifact_java_suffix = "java-proto",
         maven_artifact_scala_suffix = "scala-proto"):
     # Tarball containing the *.proto files.
@@ -198,21 +199,22 @@ def proto_jars(
         visibility = ["//visibility:public"],
     )
 
-    # JAR containing the *.proto files.
-    native.java_library(
+    # JAR and source JAR containing the *.proto files.
+    da_java_library(
         name = "%s_proto_jar" % name,
+        srcs = None,
+        deps = None,
         resources = srcs,
         resource_strip_prefix = "%s/%s/" % (native.package_name(), strip_import_prefix),
         tags = maven_tags(maven_group, maven_artifact_prefix, maven_artifact_proto_suffix),
         visibility = ["//visibility:public"],
     )
 
-    if maven_group and maven_artifact_prefix:
-        pom_file(
-            name = "%s_proto_jar_pom" % name,
-            target = ":%s_proto_jar" % name,
-            visibility = ["//visibility:public"],
-        )
+    # Create an empty Javadoc JAR for uploading the source proto JAR to Maven Central.
+    pkg_empty_zip(
+        name = "%s_proto_jar_javadoc" % name,
+        out = "%s_proto_jar_javadoc.jar" % name,
+    )
 
     # Compiled protobufs. Used in subsequent targets.
     proto_library(
@@ -223,7 +225,7 @@ def proto_jars(
         deps = deps + proto_deps,
     )
 
-    # JAR containing the generated Java bindings.
+    # JAR and source JAR containing the generated Java bindings.
     native.java_proto_library(
         name = "%s_java" % name,
         tags = maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
@@ -234,6 +236,7 @@ def proto_jars(
     if maven_group and maven_artifact_prefix:
         pom_file(
             name = "%s_java_pom" % name,
+            tags = maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
             target = ":%s_java" % name,
             visibility = ["//visibility:public"],
         )
@@ -247,9 +250,7 @@ def proto_jars(
             deps = ["@maven//:com_google_protobuf_protobuf_java"],
         ) if not is_windows else None
     else:
-        # Create an empty Javadoc JAR for uploading proto JARs to Maven Central.
-        # We don't need to create an empty JAR file for sources, because `java_proto_library`
-        # creates a source JAR automatically.
+        # Create an empty Javadoc JAR for uploading the compiled proto JAR to Maven Central.
         pkg_empty_zip(
             name = "%s_java_javadoc" % name,
             out = "%s_java_javadoc.jar" % name,
