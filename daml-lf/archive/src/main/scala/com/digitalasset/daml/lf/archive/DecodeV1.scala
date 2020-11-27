@@ -1369,7 +1369,11 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(ARROW, BTArrow),
       BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
       BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
-      BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep)
+      BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep),
+      BuiltinTypeInfo(ANY_EXCEPTION, BTText, minVersion = exceptions), // TODO #8020
+      BuiltinTypeInfo(GENERAL_ERROR, BTText, minVersion = exceptions), // TODO #8020
+      BuiltinTypeInfo(ARITHMETIC_ERROR, BTText, minVersion = exceptions), // TODO #8020
+      BuiltinTypeInfo(CONTRACT_ERROR, BTText, minVersion = exceptions) // TODO #8020
     )
   }
 
@@ -1689,6 +1693,13 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId, maxVersion = Some(genMap)),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId),
+      BuiltinFunctionInfo(MAKE_GENERAL_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(MAKE_ARITHMETIC_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(MAKE_CONTRACT_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(GENERAL_ERROR_EXCEPTION, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(ARITHMETIC_ERROR_EXCEPTION, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(CONTROCT_ERROR_EXCEPTION, BTextToUpper, minVersion = exceptions), // TODO #8020
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),
