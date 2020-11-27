@@ -438,11 +438,11 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionERROR          -> BEError
   LF1.BuiltinFunctionTHROW -> undefined -- TODO #8020
   LF1.BuiltinFunctionANY_EXCEPTION_MESSAGE -> undefined -- TODO #8020
-  LF1.BuiltinFunctionGENERAL_ERROR_MAKE -> undefined -- TODO #8020
+  LF1.BuiltinFunctionMAKE_GENERAL_ERROR -> undefined -- TODO #8020
   LF1.BuiltinFunctionGENERAL_ERROR_MESSAGE -> undefined -- TODO #8020
-  LF1.BuiltinFunctionARITHMETIC_ERROR_MAKE -> undefined -- TODO #8020
+  LF1.BuiltinFunctionMAKE_ARITHMETIC_ERROR -> undefined -- TODO #8020
   LF1.BuiltinFunctionARITHMETIC_ERROR_MESSAGE -> undefined -- TODO #8020
-  LF1.BuiltinFunctionCONTRACT_ERROR_MAKE -> undefined -- TODO #8020
+  LF1.BuiltinFunctionMAKE_CONTRACT_ERROR -> undefined -- TODO #8020
   LF1.BuiltinFunctionCONTRACT_ERROR_MESSAGE -> undefined -- TODO #8020
 
   LF1.BuiltinFunctionTEXTMAP_EMPTY      -> BETextMapEmpty
