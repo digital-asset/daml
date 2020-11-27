@@ -487,9 +487,9 @@ enum BuiltinFunction {
   ERROR = 25;
   THROW = 137;                      // *Available in versions >= 1.dev*
   ANY_EXCEPTION_MESSAGE = 138;      // *Available in versions >= 1.dev*
-  GENERAL_ERROR_CONS = 139;         // *Available in versions >= 1.dev*
+  GENERAL_ERROR_MAKE = 139;         // *Available in versions >= 1.dev*
   GENERAL_ERROR_MESSAGE = 140;      // *Available in versions >= 1.dev*
-  ARITHMETIC_ERROR_CONS = 141;      // *Available in versions >= 1.dev*
+  ARITHMETIC_ERROR_MAKE = 141;      // *Available in versions >= 1.dev*
   ARITHMETIC_ERROR_MESSAGE = 142;   // *Available in versions >= 1.dev*
   CONTRACT_ERROR_MAKE = 143;        // *Available in versions >= 1.dev*
   CONTRACT_ERROR_MESSAGE = 144;     // *Available in versions >= 1.dev*
