@@ -644,9 +644,9 @@ Then we can define our kinds, types, and expressions::
        |  'Update'                                  -- BTyUpdate
        |  'Scenario'                                -- BTyScenario
        |  'AnyException'                            -- BTyAnyException
-       |  'UserException'                           -- BTyUserException
-       |  'ArithmeticException'                     -- BTyArithmeticException
-       |  'PreconditionException'                   -- BTyPreconditionException
+       |  'GeneralError'                            -- BTyGeneralError
+       |  'ArithmeticError'                         -- BTyArithmeticError
+       |  'ContractError'                           -- BTyContractError
 
   Types (mnemonic: tau for type)
     τ, σ
@@ -1024,14 +1024,14 @@ We now formally defined *well-formed types*. ::
    ————————————————————————————————————————————— TyAnyException
      Γ  ⊢  'AnyException' : ⋆
 
-   ————————————————————————————————————————————— TyUserException
-     Γ  ⊢  'UserException' : ⋆
+   ————————————————————————————————————————————— TyGeneralError
+     Γ  ⊢  'GeneralError' : ⋆
 
-   ————————————————————————————————————————————— TyUserException
-     Γ  ⊢  'ArithmeticException' : ⋆
+   ————————————————————————————————————————————— TyArithmeticError
+     Γ  ⊢  'ArithmeticError' : ⋆
 
-   ————————————————————————————————————————————— TyPreconditionException
-     Γ  ⊢  'PreconditionException' : ⋆
+   ————————————————————————————————————————————— TyContractError
+     Γ  ⊢  'ContractError' : ⋆
 
 
 Exception types
@@ -1045,18 +1045,18 @@ can be thrown and caught by the exception handling mechanism. ::
   Exception types     │ ⊢ₑ  τ  │
                       └────────┘
 
-    ———————————————————————————————————————————————————————————————— ETyUserException
-      ⊢ₑ  'UserException'
-
-    ———————————————————————————————————————————————————————————————— ETyArithmeticException
-      ⊢ₑ  'ArithmeticException'
-
-    ———————————————————————————————————————————————————————————————— ETyPreconditionException
-      ⊢ₑ  'PreconditionException'
-
       'exception' (x : T) ↦ …  ∈  〚Ξ〛Mod
-    ———————————————————————————————————————————————————————————————— ETyDefException
+    ———————————————————————————————————————————————————————————————— ExnTyDefException
       ⊢ₑ  Mod:T
+
+    ———————————————————————————————————————————————————————————————— ExnTyGeneralError
+      ⊢ₑ  'GeneralError'
+
+    ———————————————————————————————————————————————————————————————— ExnTyArithmeticError
+      ⊢ₑ  'ArithmeticError'
+
+    ———————————————————————————————————————————————————————————————— ExnTyContractError
+      ⊢ₑ  'ContractError'
 
 Note that ``'AnyException'`` is not an exception type in order to avoid having
 ``'AnyException'`` wrapped into ``'AnyException'``.
@@ -1554,14 +1554,14 @@ types are the types whose values can be persisted on the ledger. ::
     ———————————————————————————————————————————————————————————————— STyAnyException
       ⊢ₛ  'AnyException'
 
-    ———————————————————————————————————————————————————————————————— STyUserException
-      ⊢ₛ  'UserException'
+    ———————————————————————————————————————————————————————————————— STyGeneralError
+      ⊢ₛ  'GeneralError'
 
-    ———————————————————————————————————————————————————————————————— STyArithmeticException
-      ⊢ₛ  'ArithmeticException'
+    ———————————————————————————————————————————————————————————————— STyArithmeticError
+      ⊢ₛ  'ArithmeticError'
 
-    ———————————————————————————————————————————————————————————————— STyPreconditionException
-      ⊢ₛ  'PreconditionException'
+    ———————————————————————————————————————————————————————————————— STyContractError
+      ⊢ₛ  'ContractError'
 
 Note that
 
@@ -1954,16 +1954,16 @@ need to be evaluated further. ::
      ⊢ᵥ  'to_any_exception' @τ eₘ eₚ
 
      ⊢ᵥ  e
-   ——————————————————————————————————————————————————— ValUserException
-     ⊢ᵥ  'USER_EXCEPTION' e
+   ——————————————————————————————————————————————————— ValGeneralError
+     ⊢ᵥ  'GENERAL_ERROR' e
 
      ⊢ᵥ  e
-   ——————————————————————————————————————————————————— ValArithmeticException
-     ⊢ᵥ  'ARITHMETIC_EXCEPTION' e
+   ——————————————————————————————————————————————————— ValArithmeticError
+     ⊢ᵥ  'ARITHMETIC_ERROR' e
 
      ⊢ᵥ  e
-   ——————————————————————————————————————————————————— ValPreconditionException
-     ⊢ᵥ  'PRECONDITION_EXCEPTION' @τ e
+   ——————————————————————————————————————————————————— ValContractError
+     ⊢ᵥ  'CONTRACT_ERROR' @τ e
 
      ⊢ᵥᵤ  u
    ——————————————————————————————————————————————————— ValUpdate
@@ -2252,14 +2252,14 @@ types that satisfies the following rules::
   ——————————————————————————————————————————————————— TypeOrderTyAppAnyException
     τ σ <ₜ 'AnyException'
 
-  ——————————————————————————————————————————————————— TypeOrderAnyExceptionUserException
-    'AnyException' <ₜ 'UserException'
+  ——————————————————————————————————————————————————— TypeOrderAnyExceptionGeneralError
+    'AnyException' <ₜ 'GeneralError'
 
-  ——————————————————————————————————————————————————— TypeOrderUserExceptionArithmeticException
-    'UserException' <ₜ 'ArithmeticException'
+  ——————————————————————————————————————————————————— TypeOrderGeneralErrorArithmeticError
+    'GeneralError' <ₜ 'ArithmeticError'
 
-  ——————————————————————————————————————————————————— TypeOrderArithmeticExceptionPreconditionException
-    'ArithmeticException' <ₜ 'PreconditionException'
+  ——————————————————————————————————————————————————— TypeOrderArithmeticErrorContractError
+    'ArithmeticError' <ₜ 'ContractError'
 
 
 Note that ``<ₜ`` is undefined on types containing variables,
@@ -2525,7 +2525,7 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpError
       'ERROR' @τ e
         ⇓
-      Err ('to_any_exception' @'UserException' v ('USER_EXCEPTION' v))
+      Err ('to_any_exception' @'GeneralError' v ('GENERAL_ERROR' v))
 
       e  ⇓  Err v
     —————————————————————————————————————————————————————————————————————— EvExpThrowErr
@@ -2894,7 +2894,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdCreateFail
      'create' @Mod:T vₜ ‖ S₀
        ⇓ᵤ
-     (Err ('to_any_exception' @'PreconditionException' v ('PRECONDITION_EXCEPTION' @Mod:T vₜ)), ε)
+     (Err ('to_any_exception' @'ContractError' v ('CONTRACT_ERROR' v)), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
@@ -3567,7 +3567,7 @@ Int64 functions
 * ``ADD_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
   Adds the two integers. In case of an overflow, throws an exception
-  ``'to_any_exception' @'ArithmeticException' t ('ARITHMETIC_EXCEPTION' t)``,
+  ``'to_any_exception' @'ArithmeticError' t ('ARITHMETIC_ERROR' t)``,
   where ``t = "Overflow: ADD_INT64 {m} {n}"`` for ``m`` and ``n`` the actual
   values of the operands.
 
@@ -4273,8 +4273,8 @@ Error functions
 
 * ``ERROR : ∀ (α : ⋆) . 'Text' → α``
 
-  Throws an error with the string as message. See the evaluation rule
-  ``EvExpError`` for precise semantics.
+  Throws a ``'GeneralError'`` with the string as message. See the evaluation
+  rule ``EvExpError`` for precise semantics.
 
 * ``THROW : ∀ (α : ⋆) . 'AnyException' → α``
 
@@ -4285,34 +4285,26 @@ Error functions
 
   Extract the message of an ``'AnyException'``.
 
-* ``USER_EXCEPTION : 'Text' → 'UserException'``
+* ``GENERAL_ERROR : 'Text' → 'GeneralError'``
 
   This is not exposed in the expression language. It is only here so we can use
   it in the value language.
 
-* ``USER_EXCEPTION_MESSAGE : 'UserException' → 'Text'``
+* ``GENERAL_ERROR_MESSAGE : 'GeneralError' → 'Text'``
 
-* ``ARITHMETIC_EXCEPTION : 'Text' → 'ArithmeticException'``
-
-  This is not exposed in the expression language. It is only here so we can use
-  it in the value language.
-
-* ``ARITHMETIC_EXCEPTION_MESSAGE : 'ArithmeticException' → 'Text'``
-
-* ``PRECONDITION_EXCEPTION : ∀ (τ : ⋆) . τ → 'PreconditionException'``
-
-  We have the additional constraint that ``τ`` needs to be a template type,
-  which can't properly express yet.
+* ``ARITHMETIC_ERROR : 'Text' → 'ArithmeticError'``
 
   This is not exposed in the expression language. It is only here so we can use
   it in the value language.
 
-* ``PRECONDITION_EXCEPTION_MESSAGE : 'PreconditionException' → 'Text'``
+* ``ARITHMETIC_ERROR_MESSAGE : 'ArithmeticError' → 'Text'``
 
-* ``PRECONDITION_EXCEPTION_PAYLOAD : 'PreconditionException' → 'Any'``
+* ``CONTRACT_ERROR : 'Text' → 'ContractError'``
 
-  Extract the payload of the template payload the precondition was violated on
-  and wrap it in ``to_any``.
+  This is not exposed in the expression language. It is only here so we can use
+  it in the value language.
+
+* ``CONTRACT_ERROR_MESSAGE : 'ContractError' → 'Text'``
 
 
 Debugging functions
