@@ -557,7 +557,6 @@ class EngineTest
             )
           Tx.isReplayedBy(tx, rtx) shouldBe Right(())
       }
-
     }
 
     "be validated" in {
@@ -572,6 +571,44 @@ class EngineTest
               fail(e.msg)
             case Right(()) => succeed
           }
+      }
+    }
+
+    "allow replay with a superset of submitters" in {
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          val Right((tx, _)) = interpretResult(templateId, signatories, submitters)
+
+          val replaySubmitters = submitters + party
+          val replayResult = engine.replay(
+            submitters = replaySubmitters,
+            tx = tx,
+            ledgerEffectiveTime = let,
+            participantId = participant,
+            submissionTime = let,
+            submissionSeed = submissionSeed,
+          )
+
+          replayResult shouldBe a[ResultDone[_]]
+      }
+    }
+
+    "not allow replay with a subset of submitters" in {
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          val Right((tx, _)) = interpretResult(templateId, signatories, submitters)
+
+          val replaySubmitters = submitters.drop(1)
+          val replayResult = engine.replay(
+            submitters = replaySubmitters,
+            tx = tx,
+            ledgerEffectiveTime = let,
+            participantId = participant,
+            submissionTime = let,
+            submissionSeed = submissionSeed,
+          )
+
+          replayResult shouldBe a[ResultError]
       }
     }
   }
