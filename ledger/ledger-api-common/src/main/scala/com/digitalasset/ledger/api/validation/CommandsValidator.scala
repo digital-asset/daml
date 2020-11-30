@@ -68,7 +68,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         submittedAt = currentUtcTime,
         deduplicateUntil = currentUtcTime.plus(deduplicationTime),
         commands = Commands(
-          submitter = submitter,
+          submitters = Set(submitter),
           commands = ImmArray(validatedCommands),
           ledgerEffectiveTime = ledgerEffectiveTimestamp,
           commandsReference = workflowId.fold("")(_.unwrap)

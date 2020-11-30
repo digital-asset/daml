@@ -449,7 +449,7 @@ class EngineTest
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe 'right
     val interpretResult = engine
-      .submit(Commands(party, ImmArray(command), let, "test"), participant, submissionSeed)
+      .submit(Commands(Set(party), ImmArray(command), let, "test"), participant, submissionSeed)
       .consume(lookupContract, lookupPackage, lookupKey)
 
     "be translated" in {
@@ -476,7 +476,7 @@ class EngineTest
       val Right((tx, meta)) = interpretResult
       val Right(submitter) = tx.guessSubmitter
       val validated = engine
-        .validate(submitter, tx, let, participant, meta.submissionTime, submissionSeed)
+        .validate(Set(submitter), tx, let, participant, meta.submissionTime, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -495,6 +495,122 @@ class EngineTest
       interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
     }
 
+  }
+
+  "multi-party create command" should {
+    val multiPartyTemplate = "BasicTests:SimpleMultiParty"
+
+    val cases = Table(
+      ("templateId", "signatories", "submitters"),
+      (multiPartyTemplate, Set("p1" -> alice, "p2" -> bob), Set(alice, bob)),
+      (multiPartyTemplate, Set("p1" -> alice, "p2" -> bob), Set(alice, bob, clara))
+    )
+
+    def id(templateId: String) = Identifier(basicTestsPkgId, templateId)
+    def command(templateId: String, signatories: Set[(String, Party)]) = {
+      val templateArgs: Set[(Some[Name], ValueParty)] = signatories.map {
+        case (label, party) =>
+          Some[Name](label) -> ValueParty(party)
+      }
+      CreateCommand(id(templateId), ValueRecord(Some(id(templateId)), ImmArray(templateArgs)))
+    }
+
+    val let = Time.Timestamp.now()
+    val submissionSeed = hash("multi-party create command")
+
+    def interpretResult(
+        templateId: String,
+        signatories: Set[(String, Party)],
+        submitters: Set[Party]) = {
+      val cmd = command(templateId, signatories)
+      val res = preprocessor
+        .preprocessCommands(ImmArray(cmd))
+        .consume(lookupContract, lookupPackage, lookupKey)
+      withClue("Preprocessing result: ")(res shouldBe 'right)
+
+      engine
+        .submit(Commands(submitters, ImmArray(cmd), let, "test"), participant, submissionSeed)
+        .consume(lookupContract, lookupPackage, lookupKey)
+    }
+
+    "be translated" in {
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          interpretResult(templateId, signatories, submitters) shouldBe 'right
+      }
+    }
+
+    "reinterpret to the same result" in {
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          val Right((tx, txMeta)) = interpretResult(templateId, signatories, submitters)
+
+          val Right((rtx, _)) =
+            reinterpret(
+              engine,
+              signatories.map(_._2),
+              tx.roots,
+              tx,
+              txMeta,
+              let,
+              lookupPackage
+            )
+          Tx.isReplayedBy(tx, rtx) shouldBe Right(())
+      }
+    }
+
+    "be validated" in {
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          val Right((tx, meta)) = interpretResult(templateId, signatories, submitters)
+          val validated = engine
+            .validate(submitters, tx, let, participant, meta.submissionTime, submissionSeed)
+            .consume(lookupContract, lookupPackage, lookupKey)
+          validated match {
+            case Left(e) =>
+              fail(e.msg)
+            case Right(()) => succeed
+          }
+      }
+    }
+
+    "allow replay with a superset of submitters" in {
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          val Right((tx, _)) = interpretResult(templateId, signatories, submitters)
+
+          val replaySubmitters = submitters + party
+          val replayResult = engine.replay(
+            submitters = replaySubmitters,
+            tx = tx,
+            ledgerEffectiveTime = let,
+            participantId = participant,
+            submissionTime = let,
+            submissionSeed = submissionSeed,
+          )
+
+          replayResult shouldBe a[ResultDone[_]]
+      }
+    }
+
+    "not allow replay with a subset of submitters" in {
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          val Right((tx, _)) = interpretResult(templateId, signatories, submitters)
+
+          val replaySubmitters = submitters.drop(1)
+          val replayResult = engine.replay(
+            submitters = replaySubmitters,
+            tx = tx,
+            ledgerEffectiveTime = let,
+            participantId = participant,
+            submissionTime = let,
+            submissionSeed = submissionSeed,
+          )
+
+          replayResult shouldBe a[ResultError]
+      }
+    }
   }
 
   "exercise command" should {
@@ -532,7 +648,7 @@ class EngineTest
 
     "be translated" in {
       val Right((rtx, _)) = engine
-        .submit(Commands(party, ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Commands(Set(party), ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       Tx.isReplayedBy(tx, rtx) shouldBe Right(())
     }
@@ -554,7 +670,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(submitter, tx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -593,7 +709,7 @@ class EngineTest
 
     "fail at submission" in {
       val submitResult = engine
-        .submit(Commands(alice, ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Commands(Set(alice), ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       submitResult.left.value.msg should startWith("dependency error: couldn't find key")
     }
@@ -636,7 +752,7 @@ class EngineTest
 
     "be translated" in {
       val submitResult = engine
-        .submit(Commands(alice, ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Commands(Set(alice), ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
         .map(_._1)
       (result.map(_._1) |@| submitResult)((tx, rtx) => Tx.isReplayedBy(tx, rtx)) shouldBe Right(
@@ -654,7 +770,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(submitter, tx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -848,7 +964,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(submitter, tx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -1037,7 +1153,7 @@ class EngineTest
       ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))))
 
     val Right((tx, txMeta)) = engine
-      .submit(Commands(bob, ImmArray(command), let, "test"), participant, submissionSeed)
+      .submit(Commands(Set(bob), ImmArray(command), let, "test"), participant, submissionSeed)
       .consume(lookupContract, lookupPackage, lookupKey)
 
     val submissionTime = txMeta.submissionTime
@@ -1425,7 +1541,7 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
       val Right((tx, _)) = engine
-        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, seed)
+        .submit(Commands(Set(alice), ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       val expectedByKeyNodes = tx.transaction.nodes.collect {
@@ -1443,7 +1559,7 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
       val Right((tx, txMeta)) = engine
-        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, seed)
+        .submit(Commands(Set(alice), ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
@@ -1472,7 +1588,7 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))))
       val Right((tx, txMeta)) = engine
-        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, seed)
+        .submit(Commands(Set(alice), ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
@@ -1530,7 +1646,7 @@ class EngineTest
         )
       engine
         .submit(
-          Commands(party, ImmArray(command), Time.Timestamp.now(), "test"),
+          Commands(Set(party), ImmArray(command), Time.Timestamp.now(), "test"),
           participant,
           submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1666,7 +1782,7 @@ class EngineTest
         choiceArgument = ValueRecord(None, ImmArray((None, ValueInt64(n.toLong)))),
       )
       engine
-        .submit(Commands(party, ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Commands(Set(party), ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(_ => None, lookupPackage, _ => None)
     }
 
@@ -1682,7 +1798,7 @@ class EngineTest
         for {
           submitter <- tx.guessSubmitter.left.map(ValidationError)
           res <- engine
-            .validate(submitter, tx, let, participant, metaData.submissionTime, submissionSeed)
+            .validate(Set(submitter), tx, let, participant, metaData.submissionTime, submissionSeed)
             .consume(_ => None, lookupPackage, _ => None)
         } yield res
 
