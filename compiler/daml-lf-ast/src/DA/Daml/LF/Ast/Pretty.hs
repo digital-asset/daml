@@ -502,6 +502,10 @@ instance Pretty DefTypeSyn where
     where
       lhsDoc = pPrint syn <-> hsep (map (pPrintAndKind lvl precParam) params) <-> "="
 
+instance Pretty DefException where
+  pPrintPrec lvl _prec (DefException mbLoc tycon) =
+    withSourceLoc lvl mbLoc (keyword_ "exception" <-> pPrint tycon)
+
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =
     withSourceLoc lvl mbLoc $ case dataCons of
@@ -573,7 +577,7 @@ pPrintFeatureFlags flags
   | otherwise = "@allowpartyliterals"
 
 instance Pretty Module where
-  pPrintPrec lvl _prec (Module modName _path flags synonyms dataTypes values templates) =
+  pPrintPrec lvl _prec (Module modName _path flags synonyms dataTypes values templates exceptions) =
     vcat $
       pPrintFeatureFlags flags
       : (keyword_ "module" <-> pPrint modName <-> keyword_ "where")
@@ -582,6 +586,7 @@ instance Pretty Module where
         , map (pPrintPrec lvl 0) (NM.toList synonyms)
         , map (pPrintPrec lvl 0) (NM.toList values)
         , map (pPrintTemplate lvl modName) (NM.toList templates)
+        , map (pPrintPrec lvl 0) (NM.toList exceptions)
         ]
 
 instance Pretty PackageName where

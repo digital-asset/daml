@@ -458,6 +458,7 @@ typeSynTests =
       , moduleDataTypes = NM.fromList []
       , moduleValues = NM.fromList valDefs
       , moduleTemplates = NM.empty
+      , moduleExceptions = NM.empty
       }
 
   mkBiggerTestcase :: (String,Module) -> TestTree

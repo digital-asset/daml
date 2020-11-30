@@ -55,6 +55,7 @@ object LanguageVersion {
     val contractIdTextConversions = v1_dev
     val exerciseByKey = v1_dev
     val internedTypes = v1_dev
+    val exceptions = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.
       * Features implemented with this flag should be moved to a separate

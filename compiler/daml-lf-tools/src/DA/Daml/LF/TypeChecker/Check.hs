@@ -791,9 +791,10 @@ checkTemplateKey param tcon TemplateKey{..} = do
 -- The type checker for expressions relies on the fact that data type
 -- definitions do _not_ contain free variables.
 checkModule :: MonadGamma m => Module -> m ()
-checkModule m@(Module _modName _path _flags synonyms dataTypes values templates) = do
+checkModule m@(Module _modName _path _flags synonyms dataTypes values templates _exceptions) = do
   let with ctx f x = withContext (ctx x) (f x)
   traverse_ (with (ContextDefTypeSyn m) checkDefTypeSyn) synonyms
   traverse_ (with (ContextDefDataType m) checkDefDataType) dataTypes
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
   traverse_ (with (ContextDefValue m) checkDefValue) values
+  -- TODO #8020: check exception types are well formed and don't overlap with templates
