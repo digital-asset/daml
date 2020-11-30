@@ -36,7 +36,6 @@ import spray.json.JsValue
 import scala.language.higherKinds
 import scala.concurrent.{ExecutionContext, Future}
 
-// TODO(Leo) split it into ContractsServiceInMemory and ContractsServiceDb
 class ContractsService(
     resolveTemplateId: PackageService.ResolveTemplateId,
     allTemplateIds: PackageService.AllTemplateIds,
@@ -98,21 +97,19 @@ class ContractsService(
       parties: OneAnd[Set, lar.Party],
       templateId: TemplateId.OptionalPkg,
       contractKey: LfValue,
-  ): Future[Option[domain.ActiveContract[JsValue]]] = {
-    val search = SearchDb getOrElse SearchInMemory
+  ): Future[Option[domain.ActiveContract[JsValue]]] =
     search.toFinal
       .findByContractKey(SearchContext[Id, Option](jwt, parties, templateId), contractKey)
-  }
 
   private[this] def findByContractId(
       jwt: Jwt,
       parties: OneAnd[Set, lar.Party],
       templateId: Option[domain.TemplateId.OptionalPkg],
       contractId: domain.ContractId,
-  ): Future[Option[domain.ActiveContract[JsValue]]] = {
-    val search = SearchDb getOrElse SearchInMemory
+  ): Future[Option[domain.ActiveContract[JsValue]]] =
     search.toFinal.findByContractId(SearchContext(jwt, parties, templateId), contractId)
-  }
+
+  private[this] def search: Search = SearchDb getOrElse SearchInMemory
 
   private object SearchInMemory extends Search {
     type LfV = LfValue
@@ -451,6 +448,9 @@ object ContractsService {
       templateIds: Tids[domain.TemplateId[Pkgs[String]]],
   )
 
+  // A prototypical abstraction over the in-memory/in-DB split, accounting for
+  // the fact that in-memory works with ADT-encoded LF values,
+  // whereas in-DB works with JsValues
   private sealed abstract class Search { self =>
     type LfV
     val lfvToJsValue: SearchValueFormat[LfV]
