@@ -114,6 +114,13 @@ export default class Component<A extends Action>
           <div>Verify that the ledger is available and try again</div>
         </WarningMessage>
       )
+    } else if (failure === 'unresponsive') {
+      errorEl = (
+        <WarningMessage>
+          <div>Actor for party was unresponsive</div>
+          <div>Try restarting Navigator</div>
+        </WarningMessage>
+      )
     } else if (failure === 'unknown-error') {
       errorEl = (
         <ErrorMessage>

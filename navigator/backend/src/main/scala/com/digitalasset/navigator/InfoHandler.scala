@@ -13,7 +13,7 @@ import com.daml.navigator.config.Arguments
 import com.daml.navigator.store.Store._
 import spray.json._
 import DefaultJsonProtocol._
-import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.store.Store
 import com.daml.navigator.time.TimeProviderType
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -56,7 +56,12 @@ case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(
       case _: PartyActorStarting => JsString("Starting")
       case _: PartyActorStarted => JsString("Started")
       case info: PartyActorFailed => JsString(s"Failed: ${info.error.getMessage}")
-      case _: PartyActorUnresponsive => JsString("Unresponsive")
+    }
+  }
+  private implicit object actorResponseWriter extends RootJsonWriter[PartyActorResponse] {
+    override def write(obj: PartyActorResponse): JsValue = obj match {
+      case PartyActorRunning(info) => info.toJson
+      case Store.PartyActorUnresponsive => JsString("Unresponsive")
     }
   }
   private implicit object appInfoWriter extends RootJsonWriter[ApplicationStateInfo] {
@@ -84,7 +89,7 @@ case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(
             "type" -> TimeProviderType.write(info.ledgerTime.`type`).toJson
           ),
           "partyActors" -> JsObject(
-            info.partyActors.map(p => ApiTypes.Party.unwrap(p.party) -> p.toJson).toMap
+            info.partyActors.map { case (p, s) => p -> s.toJson }.toMap
           )
         )
       case info: ApplicationStateFailed =>

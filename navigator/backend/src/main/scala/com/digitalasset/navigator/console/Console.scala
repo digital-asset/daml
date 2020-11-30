@@ -79,7 +79,7 @@ object Console {
       history = new DefaultHistory(),
       quit = false,
       rebuildLineReader = false,
-      party = config.parties.headOption.map(ps => ps.name).getOrElse(ApiTypes.Party("???")),
+      party = config.users.values.headOption.map(ps => ps.party).getOrElse(ApiTypes.Party("???")),
       arguments = arguments,
       config = config,
       store = store,
