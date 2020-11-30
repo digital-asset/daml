@@ -80,4 +80,7 @@ private[platform] object CommandCompletionsTable {
     }
   }
 
+  def prepareCompletionsDelete(endInclusive: Offset): SimpleSql[Row] =
+    SQL"delete from participant_command_completions where completion_offset <= $endInclusive"
+
 }

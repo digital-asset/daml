@@ -26,7 +26,6 @@ import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidatorParameters,
   ConflictDetection
 }
-import com.daml.ledger.validator.{CommitStrategy, DamlLedgerStateReader}
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -107,9 +106,6 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       _ <- processSubmissions(
         importer,
         submissionValidator,
-        commitStrategySupport.ledgerStateReader,
-        commitStrategySupport.commitStrategy,
-        commitStrategySupport.writeSet,
         expectedReadServiceFactory,
         actualReadServiceFactory,
         config,
@@ -176,8 +172,11 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       case Success((startTime, _)) =>
         Success {
           println("Successfully indexed all updates.".green)
-          val durationSeconds = Duration.fromNanos(System.nanoTime() - startTime).toSeconds
-          val updatesPerSecond = readService.updateCount() / durationSeconds.toDouble
+          val durationSeconds = Duration
+            .fromNanos(System.nanoTime() - startTime)
+            .toMillis
+            .toDouble / 1000.0
+          val updatesPerSecond = readService.updateCount() / durationSeconds
           println()
           println(s"Indexing duration: $durationSeconds seconds ($updatesPerSecond updates/second)")
         }
@@ -196,9 +195,6 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
   private def processSubmissions(
       importer: LedgerDataImporter,
       submissionValidator: BatchedSubmissionValidator[LogResult],
-      reader: DamlLedgerStateReader,
-      commitStrategy: CommitStrategy[LogResult],
-      queryableWriteSet: QueryableWriteSet,
       expectedReadServiceFactory: ReplayingReadServiceFactory,
       actualReadServiceFactory: ReplayingReadServiceFactory,
       config: Config,
@@ -214,6 +210,13 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
               + s" submissionEnvelopeSize=${submissionInfo.submissionEnvelope.size()}"
               + s" writeSetSize=${expectedWriteSet.size}"
           )
+          expectedWriteSet.foreach {
+            case (key, value) =>
+              val result = commitStrategySupport.checkEntryIsReadable(key, value)
+              result.left.foreach { message =>
+                throw new UnreadableWriteSetException(message)
+              }
+          }
           expectedReadServiceFactory.appendBlock(expectedWriteSet)
           if (!config.indexOnly) {
             submissionValidator.validateAndCommit(
@@ -221,10 +224,10 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
               submissionInfo.correlationId,
               submissionInfo.recordTimeInstant,
               submissionInfo.participantId,
-              reader,
-              commitStrategy,
+              commitStrategySupport.ledgerStateReader,
+              commitStrategySupport.commitStrategy,
             ) map { _ =>
-              val actualWriteSet = queryableWriteSet.getAndClearRecordedWriteSet()
+              val actualWriteSet = commitStrategySupport.writeSet.getAndClearRecordedWriteSet()
               val orderedActualWriteSet =
                 if (config.sortWriteSet)
                   actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
@@ -348,24 +351,29 @@ object IntegrityChecker {
   def bytesAsHexString(bytes: ByteString): String =
     bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
 
-  class CheckFailedException(message: String) extends RuntimeException(message)
+  abstract class CheckFailedException(message: String) extends RuntimeException(message)
 
-  class ComparisonFailureException(lines: String*)
+  final class UnreadableWriteSetException(message: String) extends CheckFailedException(message)
+
+  final class ComparisonFailureException(lines: String*)
       extends CheckFailedException(("FAIL" +: lines).mkString(System.lineSeparator))
 
-  class IndexingFailureException(message: String) extends CheckFailedException(message)
+  final class IndexingFailureException(message: String) extends CheckFailedException(message)
 
   def run[LogResult](
       args: Array[String],
       commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[LogResult],
-  ): Unit =
-    run(Config.parse(args).getOrElse {
+  ): Unit = {
+    val config = Config.parse(args).getOrElse {
       sys.exit(1)
-    }, commitStrategySupportFactory)
+    }
+    run(config, commitStrategySupportFactory)
+  }
 
   def run[LogResult](
       config: Config,
-      commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[LogResult]): Unit = {
+      commitStrategySupportFactory: ExecutionContext => CommitStrategySupport[LogResult],
+  ): Unit = {
     runAsync(config, commitStrategySupportFactory).failed
       .foreach {
         case exception: CheckFailedException =>

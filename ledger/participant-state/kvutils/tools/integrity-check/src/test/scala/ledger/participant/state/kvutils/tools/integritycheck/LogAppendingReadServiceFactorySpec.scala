@@ -24,7 +24,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration.Duration
 
-class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matchers {
+final class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matchers {
 
   "LogAppendingReadServiceFactory" should {
     "handle empty blocks" in {
@@ -42,6 +42,21 @@ class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matchers {
       factory.appendBlock(List(aSerializedLogEntryId -> aWrappedLogEntry))
 
       factory.createReadService
+        .stateUpdates(None)
+        .runWith(Sink.seq)
+        .map { updates =>
+          updates.size shouldBe 1
+          updates.head._2 should be(aPartyAddedToParticipantUpdate)
+        }
+    }
+
+    "replay appended blocks, even if they're appended later" in {
+      val factory = createFactory()
+      val readService = factory.createReadService
+
+      factory.appendBlock(List(aSerializedLogEntryId -> aWrappedLogEntry))
+
+      readService
         .stateUpdates(None)
         .runWith(Sink.seq)
         .map { updates =>

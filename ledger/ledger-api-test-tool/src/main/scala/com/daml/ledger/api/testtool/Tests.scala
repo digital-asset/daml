@@ -12,7 +12,7 @@ import scala.collection.SortedSet
 
 object Tests {
 
-  def all(config: Config): Vector[LedgerTestSuite] =
+  def default(config: Config): Vector[LedgerTestSuite] =
     Vector(
       new ActiveContractsServiceIT,
       new ClosedWorldIT,
@@ -34,6 +34,11 @@ object Tests {
       new WronglyTypedContractIdIT,
     )
 
+  val optional: Vector[LedgerTestSuite] =
+    Vector(
+      new ParticipantPruningIT,
+    )
+
   val retired: Vector[LedgerTestSuite] =
     Vector(
       new LotsOfPartiesIT,
@@ -51,7 +56,9 @@ object Tests {
         .map(BenchmarkReporter.toFile)
         .getOrElse(BenchmarkReporter.toStream(System.out))
 
-    Envelope.All.iterator.map(e => e.name -> PerformanceEnvelope(e, target.addReport)).toMap
+    Envelope.All.iterator
+      .map(e => e.name -> PerformanceEnvelope(e, target.addReport))
+      .toMap
   }
 
   private[testtool] val PerformanceTestsKeys: SortedSet[String] =

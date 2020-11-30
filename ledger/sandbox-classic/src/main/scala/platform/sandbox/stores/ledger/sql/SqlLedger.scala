@@ -368,7 +368,9 @@ private final class SqlLedger(
           ),
           _ => {
             val divulgedContracts = Nil
-            val blindingInfo = None // Currently derived from Fetch and LookupByKey nodes, soon pre-computed
+            // This indexer-ledger does not trim fetch and lookupByKey nodes in the transaction,
+            // so it doesn't need to pre-compute blinding information.
+            val blindingInfo = None
 
             val preparedInsert = ledgerDao.prepareTransactionInsert(
               submitterInfo = Some(submitterInfo),
@@ -383,7 +385,6 @@ private final class SqlLedger(
             ledgerDao.storeTransaction(
               preparedInsert,
               Some(submitterInfo),
-              transactionMeta.workflowId,
               transactionId,
               recordTime,
               transactionMeta.ledgerEffectiveTime.toInstant,

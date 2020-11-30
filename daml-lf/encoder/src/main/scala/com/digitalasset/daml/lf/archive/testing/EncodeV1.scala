@@ -13,10 +13,9 @@ import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.language.implicitConversions
-import scala.reflect.ClassTag
 
 // Important: do not use this in production code. It is designed for testing only.
-private[daml] class EncodeV1(val minor: LV.Minor) {
+private[daml] class EncodeV1(minor: LV.Minor) {
 
   import EncodeV1._
   import Encode._
@@ -24,47 +23,51 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
 
   private val languageVersion = LV(LV.Major.V1, minor)
 
-  def encodePackage(pkgId: PackageId, pkg: Package): PLF.Package = {
+  def encodePackage(pkgId: PackageId, pkg: Package): PLF.Package =
+    new PackageEncoder(pkgId).encode(pkg)
 
-    val stringsTable = new EncodeV1.TableBuilder[String]
-    val dottedNameTable = new EncodeV1.TableBuilder[DottedName]
+  private[this] class PackageEncoder(selfPkgId: PackageId) {
 
-    // moduleEncoder is not thread safe, because neither are stringsTable and dottedNameTable
-    val moduleEncoder = new ModuleEncoder(pkgId, stringsTable, dottedNameTable)
-
-    val builder = PLF.Package.newBuilder()
-    pkg.modules.sortByKey.values.foreach(m => builder.addModules(moduleEncoder.encode(m)))
-
-    if (!versionIsOlderThan(LV.Features.internedDottedNames)) {
-      dottedNameTable.build.foreach { dottedName =>
-        val b = PLF.InternedDottedName.newBuilder()
-        dottedName.segments.foreach { segment =>
-          b.addSegmentsInternedStr(stringsTable.insert(segment))
-          ()
-        }
-        builder.addInternedDottedNames(b)
+    private[this] val stringsTable =
+      new EncodeV1.TableBuilder[String, String] {
+        override def toProto(x: String): String = x
       }
+    private[this] val dottedNameTable =
+      new EncodeV1.TableBuilder[DottedName, PLF.InternedDottedName] {
+        override def toProto(dottedName: DottedName): PLF.InternedDottedName = {
+          val builder = PLF.InternedDottedName.newBuilder()
+          dottedName.segments.foreach { segment =>
+            builder.addSegmentsInternedStr(stringsTable.insert(segment))
+            ()
+          }
+          builder.build()
+        }
+      }
+    private[this] val typeTable = new EncodeV1.TableBuilder[Type, PLF.Type] {
+      override def toProto(typ: Type): PLF.Type =
+        encodeTypeBuilder(typ).build()
     }
 
-    pkg.metadata.foreach { metadata =>
-      val metadataBuilder = PLF.PackageMetadata.newBuilder
-      metadataBuilder.setNameInternedStr(stringsTable.insert(metadata.name))
-      metadataBuilder.setVersionInternedStr(stringsTable.insert(metadata.version))
-      builder.setMetadata(metadataBuilder.build)
-    }
+    def encode(pkg: Package): PLF.Package = {
+      val builder = PLF.Package.newBuilder()
+      pkg.modules.sortByKey.values.foreach(m => builder.addModules(encodeModule(m)))
 
-    if (!versionIsOlderThan(LV.Features.internedPackageId))
+      if (!versionIsOlderThan(LV.Features.packageMetadata))
+        pkg.metadata.foreach { metadata =>
+          val metadataBuilder = PLF.PackageMetadata.newBuilder
+          metadataBuilder.setNameInternedStr(stringsTable.insert(metadata.name))
+          metadataBuilder.setVersionInternedStr(stringsTable.insert(metadata.version))
+          builder.setMetadata(metadataBuilder.build)
+        }
+
+      typeTable.build.foreach(builder.addInternedTypes)
+      dottedNameTable.build.foreach(builder.addInternedDottedNames)
       stringsTable.build.foreach(builder.addInternedStrings)
 
-    builder.build()
-  }
+      builder.build()
+    }
 
-  class ModuleEncoder(
-      selfPkgId: PackageId,
-      stringsTable: TableBuilder[String],
-      dottedNameTable: TableBuilder[DottedName]) {
-
-    def encode(module: Module): PLF.Module = {
+    private[this] def encodeModule(module: Module): PLF.Module = {
 
       def addDefinition(
           builder: PLF.Module.Builder,
@@ -99,18 +102,17 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
     /** * Encode Reference ***/
     private val unit = PLF.Unit.newBuilder().build()
 
-    private val selfPgkId = PLF.PackageRef.newBuilder().setSelf(unit).build()
+    private val protoSelfPgkId = PLF.PackageRef.newBuilder().setSelf(unit).build()
 
     private implicit def encodePackageId(pkgId: PackageId): PLF.PackageRef =
-      if (pkgId == this.selfPkgId)
-        selfPgkId
+      if (pkgId == selfPkgId)
+        protoSelfPgkId
       else {
         val builder = PLF.PackageRef.newBuilder()
         setString(pkgId, builder.setPackageIdStr, builder.setPackageIdInternedStr)
         builder.build()
       }
 
-    @inline
     private implicit def encodeModuleRef(modRef: (PackageId, ModuleName)): PLF.ModuleRef = {
       val (pkgId, modName) = modRef
       val builder = PLF.ModuleRef.newBuilder()
@@ -208,7 +210,10 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
       }
 
     private implicit def encodeType(typ: Type): PLF.Type =
-      encodeTypeBuilder(typ).build()
+      if (versionIsOlderThan(LV.Features.internedTypes))
+        encodeTypeBuilder(typ).build()
+      else
+        PLF.Type.newBuilder().setInterned(typeTable.insert(typ)).build()
 
     private def encodeTypeBuilder(typ0: Type): PLF.Type.Builder = {
       val (typ, args) =
@@ -232,14 +237,6 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
         case TTyCon(tycon) =>
           builder.setCon(
             PLF.Type.Con.newBuilder().setTycon(tycon).accumulateLeft(args)(_ addArgs _))
-        case TBuiltin(BTArrow) if versionIsOlderThan(LV.Features.arrowType) =>
-          args match {
-            case ImmArraySnoc(firsts, last) =>
-              builder.setFun(
-                PLF.Type.Fun.newBuilder().accumulateLeft(firsts)(_ addParams _).setResult(last))
-            case _ =>
-              sys.error("unexpected errors")
-          }
         case TBuiltin(bType) =>
           val (proto, typs) =
             if (bType == BTNumeric && versionIsOlderThan(LV.Features.numeric))
@@ -355,17 +352,11 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
           builder.setCreate(PLF.Update.Create.newBuilder().setTemplate(templateId).setExpr(arg))
         case UpdateFetch(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
-        case UpdateExercise(templateId, choice, cid, actors, arg) =>
+        case UpdateExercise(templateId, choice, cid, arg) =>
           val b = PLF.Update.Exercise.newBuilder()
           b.setTemplate(templateId)
           setString(choice, b.setChoiceStr, b.setChoiceInternedStr)
           b.setCid(cid)
-          if (versionIsOlderThan(LV.Features.noExerciseActor))
-            b.setActor(
-              actors.getOrElse(
-                throw EncodeError(s"Update.Exercise.actors is required by DAML-LF 1.$minor")))
-          else if (actors.isDefined)
-            throw EncodeError(s"Update.Exercise.actors is not supported by DAML-LF 1.$minor")
           b.setArg(arg)
           builder.setExercise(b)
         case UpdateExerciseByKey(templateId, choice, key, arg) =>
@@ -379,10 +370,8 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
         case UpdateGetTime =>
           builder.setGetTime(unit)
         case UpdateFetchByKey(rbk) =>
-          assertSince(LV.Features.contractKeys, "fetchByKey")
           builder.setFetchByKey(rbk)
         case UpdateLookupByKey(rbk) =>
-          assertSince(LV.Features.contractKeys, "lookupByKey")
           builder.setLookupByKey(rbk)
         case UpdateEmbedExpr(typ, body) =>
           builder.setEmbedExpr(PLF.Update.EmbedExpr.newBuilder().setType(typ).setBody(body))
@@ -471,10 +460,8 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
           setString(tail, b.setVarTailStr, b.setVarTailInternedStr)
           builder.setCons(b)
         case CPNone =>
-          assertSince(LV.Features.optional, "CaseAlt.OptionalNone")
           builder.setOptionalNone(unit)
         case CPSome(x) =>
-          assertSince(LV.Features.optional, "CaseAlt.OptionalSome")
           val b = PLF.CaseAlt.OptionalSome.newBuilder()
           setString(x, b.setVarBodyStr, b.setVarBodyInternedStr)
           builder.setOptionalSome(b)
@@ -591,10 +578,8 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
               .accumulateLeft(front)(_ addFront _)
               .setTail(tail))
         case ENone(typ) =>
-          assertSince(LV.Features.optional, "Expr.OptionalNone")
           builder.setOptionalNone(PLF.Expr.OptionalNone.newBuilder().setType(typ))
         case ESome(typ, x) =>
-          assertSince(LV.Features.optional, "Expr.OptionalSome")
           builder.setOptionalSome(PLF.Expr.OptionalSome.newBuilder().setType(typ).setBody(x))
         case ELocation(loc, expr) =>
           encodeExprBuilder(expr).setLocation(loc)
@@ -602,6 +587,15 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
           builder.setUpdate(u)
         case EScenario(s) =>
           builder.setScenario(s)
+        case EToAny(ty, body) =>
+          assertSince(LV.Features.anyType, "Expr.FromAny")
+          builder.setToAny(PLF.Expr.ToAny.newBuilder().setType(ty).setExpr(body))
+        case EFromAny(ty, body) =>
+          assertSince(LV.Features.anyType, "Expr.FromAny")
+          builder.setFromAny(PLF.Expr.FromAny.newBuilder().setType(ty).setExpr(body))
+        case ETypeRep(ty) =>
+          assertSince(LV.Features.typeRep, "Expr.TypeRep")
+          builder.setTypeRep(ty)
       }
       builder
     }
@@ -819,15 +813,12 @@ object EncodeV1 {
     def values: Iterable[Y] = iterable.map(_._2)
   }
 
-  private class TableBuilder[X] {
-    private val map = mutable.Map.empty[X, Int]
-    private var idx = -1
-    def insert(x: X) = map.getOrElseUpdate(x, { idx = idx + 1; idx })
-    def build(implicit classTag: ClassTag[X]): Array[X] = {
-      val a = new Array[X](map.size)
-      for ((x, i) <- map) a(i) = x
-      a
-    }
+  private abstract class TableBuilder[Scala, Proto] {
+    private val map = mutable.Map.empty[Scala, Int]
+    private val buffer = List.newBuilder[Proto]
+    def insert(x: Scala): Int = map.getOrElseUpdate(x, { buffer += toProto(x); map.size })
+    def build: Iterable[Proto] = buffer.result()
+    def toProto(x: Scala): Proto
   }
 
 }

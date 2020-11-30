@@ -91,6 +91,7 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
         "@maven//:com_typesafe_akka_akka_testkit_2_12",
+        "@maven//:io_netty_netty_handler",
         "@maven//:io_zipkin_brave_brave",
         "@maven//:org_awaitility_awaitility",
         "@maven//:org_reactivestreams_reactive_streams",

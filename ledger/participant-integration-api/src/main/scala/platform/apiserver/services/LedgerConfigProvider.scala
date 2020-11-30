@@ -6,9 +6,9 @@ package com.daml.platform.apiserver.services
 import java.util.UUID
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
-import akka.{Done, NotUsed}
-import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
+import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
+import akka.{Done, NotUsed}
 import com.daml.api.util.TimeProvider
 import com.daml.dec.{DirectExecutionContext => DE}
 import com.daml.ledger.api.domain
@@ -18,15 +18,15 @@ import com.daml.ledger.participant.state.v1.{
   Configuration,
   SubmissionId,
   SubmissionResult,
-  WriteService
+  WriteConfigService
 }
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.LedgerConfiguration
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration.{DurationInt, DurationLong}
+import scala.concurrent.{Future, Promise}
 
 /**
   * Subscribes to ledger configuration updates coming from the index,
@@ -37,7 +37,7 @@ import scala.concurrent.duration.{DurationInt, DurationLong}
   */
 private[apiserver] final class LedgerConfigProvider private (
     index: IndexConfigManagementService,
-    optWriteService: Option[WriteService],
+    optWriteService: Option[WriteConfigService],
     timeProvider: TimeProvider,
     config: LedgerConfiguration,
     materializer: Materializer,
@@ -59,10 +59,16 @@ private[apiserver] final class LedgerConfigProvider private (
   // - Mark the provider as ready if no configuration was found after a timeout
   // - Submit the initial config if none is found after a delay
   startLoading()
-  materializer.scheduleOnce(config.configurationLoadTimeout.toNanos.nanos, () => {
-    readyPromise.trySuccess(())
-    ()
-  })
+  materializer.scheduleOnce(
+    config.configurationLoadTimeout.toNanos.nanos,
+    () => {
+      if (readyPromise.trySuccess(())) {
+        logger.warn(
+          s"No ledger configuration found after ${config.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found.")
+      }
+      ()
+    }
+  )
   optWriteService.foreach { writeService =>
     materializer.scheduleOnce(config.initialConfigurationSubmitDelay.toNanos.nanos, () => {
       if (latestConfiguration.isEmpty && !closed.get) submitInitialConfig(writeService)
@@ -80,10 +86,11 @@ private[apiserver] final class LedgerConfigProvider private (
       .map {
         case Some(result) =>
           logger.info(
-            s"Initial ledger configuration lookup found configuration ${result._2} at ${result._1}")
+            s"Initial ledger configuration lookup found configuration ${result._2} at ${result._1}. Looking for new ledger configurations from this offset.")
           configFound(result._1, result._2)
         case None =>
-          logger.info(s"Initial ledger configuration lookup did not find any configuration")
+          logger.info(
+            s"Initial ledger configuration lookup did not find any configuration. Looking for new ledger configurations from the ledger beginning.")
           state.set(None -> None)
       }(DE)
       .map(_ => startStreamingUpdates())(DE)
@@ -99,9 +106,11 @@ private[apiserver] final class LedgerConfigProvider private (
       Some(
         RestartSource
           .withBackoff(
-            minBackoff = 1.seconds,
-            maxBackoff = 30.seconds,
-            randomFactor = 0.1,
+            RestartSettings(
+              minBackoff = 1.seconds,
+              maxBackoff = 30.seconds,
+              randomFactor = 0.1,
+            )
           ) { () =>
             index
               .configurationEntries(state.get._1)
@@ -121,7 +130,7 @@ private[apiserver] final class LedgerConfigProvider private (
     ()
   }
 
-  private[this] def submitInitialConfig(writeService: WriteService): Future[Unit] = {
+  private[this] def submitInitialConfig(writeService: WriteConfigService): Future[Unit] = {
     // There are several reasons why the change could be rejected:
     // - The participant is not authorized to set the configuration
     // - There already is a configuration, it just didn't appear in the index yet
@@ -171,11 +180,9 @@ private[apiserver] object LedgerConfigProvider {
 
   def create(
       index: IndexConfigManagementService,
-      optWriteService: Option[WriteService],
+      optWriteService: Option[WriteConfigService],
       timeProvider: TimeProvider,
-      config: LedgerConfiguration)(
-      implicit materializer: Materializer,
-      loggingContext: LoggingContext,
-  ): LedgerConfigProvider =
+      config: LedgerConfiguration,
+  )(implicit materializer: Materializer, loggingContext: LoggingContext): LedgerConfigProvider =
     new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer)
 }

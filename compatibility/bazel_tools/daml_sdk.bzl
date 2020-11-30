@@ -162,7 +162,7 @@ cc_binary(
 # are used by the ledger API test tool.
 filegroup(
     name = "dar-files",
-    srcs = glob(["extracted-test-tool/ledger/test-common/**"]),
+    srcs = glob(["extracted-test-tool/ledger/test-common/**"], exclude = ["**/*-dev.dar"]),
 )
 exports_files(["daml-types.tgz", "daml-ledger.tgz", "daml-react.tgz", "create_daml_app.patch"])
 """.format(version = ctx.attr.version),

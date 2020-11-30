@@ -47,13 +47,29 @@ object Server extends StrictLogging {
     // TODO[AH] Make sure this is bounded in size - or avoid state altogether.
     val requests: TrieMap[UUID, Uri] = TrieMap()
     val route = concat(
-      path("auth") { get { auth(config) } },
-      path("login") { get { login(config, requests) } },
-      path("cb") { get { loginCallback(config, requests) } },
-      path("refresh") { post { refresh(config) } },
+      path("auth") {
+        get {
+          auth(config)
+        }
+      },
+      path("login") {
+        get {
+          login(config, requests)
+        }
+      },
+      path("cb") {
+        get {
+          loginCallback(config, requests)
+        }
+      },
+      path("refresh") {
+        post {
+          refresh(config)
+        }
+      },
     )
 
-    Http().bindAndHandle(route, "localhost", config.port.value)
+    Http().newServerAt("localhost", config.port.value).bind(route)
   }
 
   def stop(f: Future[ServerBinding])(implicit ec: ExecutionContext): Future[Done] =
@@ -91,7 +107,7 @@ object Server extends StrictLogging {
   }.getOrElse(false)
 
   private def auth(config: Config) =
-    parameters(('claims.as[Request.Claims]))
+    parameters('claims.as[Request.Claims])
       .as[Request.Auth](Request.Auth) { auth =>
         optionalToken {
           case Some(token)
@@ -106,7 +122,7 @@ object Server extends StrictLogging {
       }
 
   private def login(config: Config, requests: TrieMap[UUID, Uri]) =
-    parameters(('redirect_uri.as[Uri], 'claims.as[Request.Claims], 'state ?))
+    parameters('redirect_uri.as[Uri], 'claims.as[Request.Claims], 'state ?)
       .as[Request.Login](Request.Login) { login =>
         extractRequest { request =>
           val requestId = UUID.randomUUID
@@ -145,7 +161,7 @@ object Server extends StrictLogging {
     }
 
     concat(
-      parameters(('code, 'state ?))
+      parameters('code, 'state ?)
         .as[OAuthResponse.Authorize](OAuthResponse.Authorize) { authorize =>
           popRequest(authorize.state) {
             redirectUri =>
@@ -183,7 +199,7 @@ object Server extends StrictLogging {
               }
           }
         },
-      parameters(('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?))
+      parameters('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?)
         .as[OAuthResponse.Error](OAuthResponse.Error) { error =>
           popRequest(error.state) { redirectUri =>
             val uri = redirectUri.withQuery {

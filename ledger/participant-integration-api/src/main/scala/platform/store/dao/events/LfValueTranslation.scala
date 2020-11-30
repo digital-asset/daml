@@ -3,7 +3,6 @@
 
 package com.daml.platform.store.dao.events
 
-import anorm.NamedParameter
 import com.daml.caching
 import com.daml.ledger.EventId
 import com.daml.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
@@ -51,35 +50,33 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
       )
     )
 
-  def serialize(contractId: ContractId, createArgument: LfValue): NamedParameter = {
+  def serialize(contractId: ContractId, contractArgument: Value): Array[Byte] = {
     cache.contracts.put(
       key = LfValueTranslation.ContractCache.Key(contractId),
-      value = LfValueTranslation.ContractCache.Value(createArgument),
+      value = LfValueTranslation.ContractCache.Value(contractArgument),
     )
-    ("create_argument", serializeCreateArgOrThrow(contractId, createArgument))
+    serializeCreateArgOrThrow(contractId, contractArgument)
   }
 
-  def serialize(eventId: EventId, create: Create): Vector[NamedParameter] = {
+  def serialize(eventId: EventId, create: Create): (Array[Byte], Option[Array[Byte]]) = {
     cache.events.put(
       key = LfValueTranslation.EventCache.Key(eventId),
       value = LfValueTranslation.EventCache.Value.Create(create.coinst.arg, create.key.map(_.key)),
     )
-    Vector[NamedParameter](
-      "create_argument" -> serializeCreateArgOrThrow(create),
-      "create_key_value" -> serializeNullableKeyOrThrow(create),
+    cache.contracts.put(
+      key = LfValueTranslation.ContractCache.Key(create.coid),
+      value = LfValueTranslation.ContractCache.Value(create.coinst.arg),
     )
+    (serializeCreateArgOrThrow(create), serializeNullableKeyOrThrow(create))
   }
 
-  def serialize(eventId: EventId, exercise: Exercise): Vector[NamedParameter] = {
+  def serialize(eventId: EventId, exercise: Exercise): (Array[Byte], Option[Array[Byte]]) = {
     cache.events.put(
       key = LfValueTranslation.EventCache.Key(eventId),
       value =
         LfValueTranslation.EventCache.Value.Exercise(exercise.chosenValue, exercise.exerciseResult),
     )
-    Vector[NamedParameter](
-      "exercise_argument" -> serializeExerciseArgOrThrow(exercise),
-      "exercise_result" -> serializeNullableExerciseResultOrThrow(exercise),
-    )
+    (serializeExerciseArgOrThrow(exercise), serializeNullableExerciseResultOrThrow(exercise))
   }
 
   private def toApiValue(

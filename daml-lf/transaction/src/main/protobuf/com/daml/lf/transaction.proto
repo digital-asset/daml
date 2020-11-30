@@ -44,6 +44,8 @@ message Node {
         NodeExercise exercise = 5;
         NodeLookupByKey lookup_by_key = 6;
     }
+
+    string version = 63; // optional *since dev*
 }
 
 message KeyWithMaintainers {

@@ -7,7 +7,13 @@ package test
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
+import com.daml.lf.transaction.Node.{
+  KeyWithMaintainers,
+  NodeCreate,
+  NodeExercises,
+  NodeFetch,
+  VersionedNode
+}
 import com.daml.lf.transaction.VersionTimeline.Implicits._
 import com.daml.lf.transaction.{
   BlindingInfo,
@@ -15,6 +21,8 @@ import com.daml.lf.transaction.{
   NodeId,
   TransactionVersion,
   TransactionVersions,
+  VersionTimeline,
+  VersionedTransaction,
   Transaction => Tx
 }
 import com.daml.lf.value.Value.{NodeId => _, _}
@@ -434,6 +442,23 @@ object ValueGenerators {
       case (nodeIds, nodes) =>
         GenTransaction(nodes, nodeIds)
     }
+  }
+
+  def noDanglingRefGenVersionedTransaction: Gen[VersionedTransaction[NodeId, ContractId]] = {
+    import VersionTimeline.Implicits._
+    for {
+      tx <- noDanglingRefGenTransaction
+      txVer <- transactionVersionGen
+      nodeVersionGen = transactionVersionGen.filter(v => !(txVer precedes v))
+      nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, VersionedNode[NodeId, ContractId]])) {
+        case (acc, (nodeId, node)) =>
+          for {
+            hashMap <- acc
+            version <- nodeVersionGen
+          } yield hashMap.updated(nodeId, VersionedNode(version, node))
+      }
+    } yield VersionedTransaction(txVer, nodes, tx.roots)
+
   }
 
   val genBlindingInfo: Gen[BlindingInfo] = {

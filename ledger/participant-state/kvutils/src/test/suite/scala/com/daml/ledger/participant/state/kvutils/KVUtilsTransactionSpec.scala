@@ -91,6 +91,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
           submissionSeed = seed).map(_._2)
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
+        logEntry.getTransactionEntry.hasBlindingInfo shouldBe true
       }
     }
 
@@ -104,6 +105,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
           submissionSeed = seed).map(_._2)
       } yield {
         preExecutionResult.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
+        preExecutionResult.successfulLogEntry.getTransactionEntry.hasBlindingInfo shouldBe true
       }
     }
 
@@ -133,11 +135,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
           .from(0)
           .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
       for {
-        transaction1 <- runSimpleCommand(alice, seeds(0), simpleCreateCmd)
+        transaction1 <- runSimpleCommand(alice, seeds.head, simpleCreateCmd)
         result <- submitTransaction(
           submitter = alice,
           transaction = transaction1,
-          submissionSeed = seeds(0))
+          submissionSeed = seeds.head)
         (entryId, logEntry) = result
         update = KeyValueConsumption.logEntryToUpdate(entryId, logEntry).head
         coid = update
@@ -295,8 +297,8 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       val simpleCreateAndExerciseCmd = createAndExerciseCmd(simpleTemplateId, simpleTemplateArg)
 
       for {
-        tx1 <- runSimpleCommand(alice, seeds(0), simpleCreateAndExerciseCmd)
-        createAndExerciseTx1 <- submitTransaction(alice, tx1, seeds(0)).map(_._2)
+        tx1 <- runSimpleCommand(alice, seeds.head, simpleCreateAndExerciseCmd)
+        createAndExerciseTx1 <- submitTransaction(alice, tx1, seeds.head).map(_._2)
 
         tx2 <- runSimpleCommand(alice, seeds(1), simpleCreateAndExerciseCmd)
         createAndExerciseTx2 <- submitTransaction(alice, tx2, seeds(1)).map(_._2)

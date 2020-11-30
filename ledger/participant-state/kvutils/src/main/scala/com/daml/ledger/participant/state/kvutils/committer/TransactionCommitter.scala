@@ -17,7 +17,7 @@ import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Blinding, Engine}
+import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{
   BlindingInfo,
@@ -25,7 +25,9 @@ import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
+  ReplayNodeMismatch,
   SubmittedTransaction,
+  VersionedTransaction,
   Transaction => Tx
 }
 import com.daml.lf.value.Value
@@ -155,7 +157,7 @@ private[kvutils] class TransactionCommitter(
   /** Validate ledger effective time and the command's time-to-live. */
   private[committer] def validateLedgerTime: Step =
     (commitContext, transactionEntry) => {
-      val (_, config) = getCurrentConfiguration(defaultConfig, commitContext.inputs, logger)
+      val (_, config) = getCurrentConfiguration(defaultConfig, commitContext, logger)
       val timeModel = config.timeModel
 
       commitContext.getRecordTime match {
@@ -238,16 +240,65 @@ private[kvutils] class TransactionCommitter(
             err =>
               reject[DamlTransactionEntrySummary](
                 commitContext.getRecordTime,
-                buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.msg))),
+                buildRejectionLogEntry(transactionEntry, rejectionReasonForValidationError(err))),
             _ => StepContinue[DamlTransactionEntrySummary](transactionEntry)
           )
       })
 
+  private[committer] def rejectionReasonForValidationError(
+      validationError: com.daml.lf.engine.Error): RejectionReason = {
+    def disputed: RejectionReason = RejectionReason.Disputed(validationError.msg)
+
+    def resultIsCreatedInTx(
+        tx: VersionedTransaction[NodeId, ContractId],
+        result: Option[Value.ContractId]): Boolean =
+      result.exists { contractId =>
+        tx.nodes.exists {
+          case (nodeId @ _, create: Node.NodeCreate[_, _]) => create.coid == contractId
+          case _ => false
+        }
+      }
+
+    validationError match {
+      case ReplayMismatch(
+          ReplayNodeMismatch(recordedTx, recordedNodeId, replayedTx, replayedNodeId)) =>
+        // If the problem is that a key lookup has changed and the results do not involve contracts created in this transaction,
+        // then it's a consistency problem.
+
+        (recordedTx.nodes(recordedNodeId), replayedTx.nodes(replayedNodeId)) match {
+          case (
+              Node.NodeLookupByKey(
+                recordedTemplateId,
+                recordedOptLocation @ _,
+                recordedKey,
+                recordedResult),
+              Node.NodeLookupByKey(
+                replayedTemplateId,
+                replayedOptLocation @ _,
+                replayedKey,
+                replayedResult))
+              if recordedTemplateId == replayedTemplateId && recordedKey == replayedKey
+                && !resultIsCreatedInTx(recordedTx, recordedResult)
+                && !resultIsCreatedInTx(replayedTx, replayedResult) =>
+            RejectionReason.Inconsistent(validationError.msg)
+          case _ => disputed
+        }
+      case _ => disputed
+    }
+  }
+
   /** Validate the submission's conformance to the DAML model */
-  private def blind: Step =
+  private[committer] def blind: Step =
     (commitContext, transactionEntry) => {
       val blindingInfo = Blinding.blind(transactionEntry.transaction)
-      buildFinalResult(commitContext, transactionEntry, blindingInfo)
+      buildFinalResult(
+        commitContext,
+        transactionEntry.copy(
+          submission = transactionEntry.submission.toBuilder
+            .setBlindingInfo(Conversions.encodeBlindingInfo(blindingInfo))
+            .build),
+        blindingInfo,
+      )
     }
 
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
@@ -302,7 +353,7 @@ private[kvutils] class TransactionCommitter(
         recordTime,
         buildRejectionLogEntry(
           transactionEntry,
-          RejectionReason.Disputed("DuplicateKey: Contract Key not unique")))
+          RejectionReason.Inconsistent("DuplicateKey: Contract Key not unique")))
 
   }
 
@@ -630,7 +681,11 @@ private[kvutils] object TransactionCommitter {
     val ledgerEffectiveTime: Timestamp = parseTimestamp(submission.getLedgerEffectiveTime)
     val submitterInfo: DamlSubmitterInfo = submission.getSubmitterInfo
     val commandId: String = submitterInfo.getCommandId
-    val submitter: Party = Party.assertFromString(submitterInfo.getSubmitter)
+    val submitter: Party =
+      if (submitterInfo.getSubmittersCount == 1)
+        Party.assertFromString(submitterInfo.getSubmitters(0))
+      else
+        throw Err.InternalError("Multi-party submissions are not supported")
     lazy val transaction: Tx.Transaction = Conversions.decodeTransaction(submission.getTransaction)
     val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
     val submissionSeed: crypto.Hash = Conversions.parseHash(submission.getSubmissionSeed)

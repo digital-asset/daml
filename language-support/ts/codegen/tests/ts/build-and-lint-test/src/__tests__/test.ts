@@ -6,7 +6,7 @@ import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger, { Event, Stream } from  '@daml/ledger';
-import { Int } from '@daml/types';
+import { Int, emptyMap, Map } from '@daml/types';
 import pEvent from 'p-event';
 
 import * as buildAndLint from '@daml.js/build-and-lint-1.0.0'
@@ -259,6 +259,12 @@ test('create + fetch & exercise', async () => {
   alice6KeyStream.close();
   personStream.close();
 
+  const map: Map<buildAndLint.Main.Expr2<Int>, Int> =
+    emptyMap<buildAndLint.Main.Expr2<Int>, Int>()
+      .set({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '1'}, rhs:{tag: 'Lit2', value: '2'}}}, '3')
+      .set({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '5'}, rhs:{tag: 'Lit2', value: '4'}}}, '9')
+      .set({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '2'}, rhs:{tag: 'Lit2', value: '1'}}}, '3')
+      .set({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '3'}, rhs:{tag: 'Lit2', value: '1'}}}, '4');
   const allTypes: buildAndLint.Main.AllTypes = {
     unit: {},
     bool: true,
@@ -299,6 +305,7 @@ test('create + fetch & exercise', async () => {
     rec: {'recOptional': null, 'recList': [], 'recTextMap': {}},
     voidRecord: null,
     voidEnum: null,
+    genMap: map,
   };
   const allTypesContract = await aliceLedger.create(buildAndLint.Main.AllTypes, allTypes);
   expect(allTypesContract.payload).toEqual(allTypes);
@@ -338,10 +345,12 @@ test("createAndExercise", async () => {
 test("multi-{key,query} stream", async () => {
   const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
 
-  function collect<T extends object, K, I extends string, State>(stream: Stream<T, K, I, State>): [State, readonly Event<T, K, I>[]][] {
+  function collect<T extends object, K, I extends string, State>(stream: Stream<T, K, I, State>): Promise<[State, readonly Event<T, K, I>[]][]> {
     const res = [] as [State, readonly Event<T, K, I>[]][];
     stream.on('change', (state, events) => res.push([state, events]));
-    return res;
+    // wait until we’re live so that we get ordered transaction events
+    // rather than unordered acs events.
+    return new Promise(resolve => stream.on('live', () => resolve(res)));
   }
   async function create(t: string): Promise<void> {
     await ledger.create(buildAndLint.Main.Counter, {p: ALICE_PARTY, t, c: "0"});
@@ -364,13 +373,13 @@ test("multi-{key,query} stream", async () => {
     buildAndLint.Main.Counter,
     [{p: ALICE_PARTY, t: "included"},
      {c: {"%gt": 5}}]);
-  const queryResult = collect(q);
+  const queryResult = await collect(q);
   const ks = ledger.streamFetchByKeys(
     buildAndLint.Main.Counter,
     [{_1: ALICE_PARTY, _2: "included"},
      {_1: ALICE_PARTY, _2: "byKey"},
      {_1: ALICE_PARTY, _2: "included"}]);
-  const byKeysResult = collect(ks);
+  const byKeysResult = await collect(ks);
 
   await create("included");
   await create("byKey");

@@ -139,11 +139,14 @@ protos_zip = rule(
         "daml_lf_tarballs": attr.label_list(
             allow_files = True,
             default = [
-                Label("//daml-lf/archive:daml_lf_{}_archive_proto_tarball.tar.gz".format(version))
+                Label("//daml-lf/archive:daml_lf_{}_archive_proto_tar.tar.gz".format(version))
                 for version in LF_VERSIONS
             ],
         ),
-        "ledger_api_tarball": attr.label(allow_single_file = True, default = Label("//ledger-api/grpc-definitions:ledger-api-protos.tar.gz")),
+        "ledger_api_tarball": attr.label(
+            allow_single_file = True,
+            default = Label("//ledger-api/grpc-definitions:ledger_api_proto_tar.tar.gz"),
+        ),
         "zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
             cfg = "host",

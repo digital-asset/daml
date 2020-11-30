@@ -291,7 +291,7 @@ convertPrim _ "UExercise"
     (TContractId (TCon template) :-> TCon choice :-> TUpdate _returnTy) =
     ETmLam (mkVar "this", TContractId (TCon template)) $
     ETmLam (mkVar "arg", TCon choice) $
-    EUpdate $ UExercise template choiceName (EVar (mkVar "this")) Nothing (EVar (mkVar "arg"))
+    EUpdate $ UExercise template choiceName (EVar (mkVar "this")) (EVar (mkVar "arg"))
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 

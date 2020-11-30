@@ -425,7 +425,7 @@ Where:
 Creating a Contract with a Command ID
 *************************************
 
-When creating a new contract you may specify an optional ``meta`` field. This allows you to control the `commandId` used when submitting a commend to the ledger.
+When creating a new contract you may specify an optional ``meta`` field. This allows you to control the `commandId` used when submitting a command to the ledger.
 
 .. note:: You cannot currently use ``commandIds`` anywhere else in the JSON API, but you can use it for observing the results of its commands outside the JSON API in logs or via the Ledger API's :doc:`Command Services </app-dev/services>`
 
@@ -1201,7 +1201,7 @@ Streaming API
 *************
 
 Two subprotocols must be passed with every request, as described in
-`Passing token with WebSockets <#passing-token-with-websockets>`__.
+`Auth via WebSockets <#auth-via-websockets>`__.
 
 JavaScript/Node.js example demonstrating how to establish Streaming API connection:
 

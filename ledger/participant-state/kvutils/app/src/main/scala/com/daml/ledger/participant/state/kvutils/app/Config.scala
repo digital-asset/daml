@@ -156,6 +156,12 @@ object Config {
         .text("TLS: The crt file to be used as the trusted root CA.")
         .action((path, config) =>
           config.withTlsConfig(c => c.copy(trustCertCollectionFile = Some(new File(path)))))
+      opt[Boolean]("cert-revocation-checking")
+        .optional()
+        .text(
+          "TLS: enable/disable certificate revocation checks with the OCSP. Disabled by default.")
+        .action((checksEnabled, config) =>
+          config.withTlsConfig(c => c.copy(enableCertRevocationChecking = checksEnabled)))
 
       arg[File]("<archive>...")
         .optional()

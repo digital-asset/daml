@@ -390,7 +390,6 @@ message Type {
     Var var = 1;
     Con con = 2;
     Prim prim = 3; // FixMe: renamed
-    Fun fun = 4;
     Forall forall = 5;
     Struct struct = 7;
     // *Available in versions >= 1.7*
@@ -402,6 +401,7 @@ message Type {
     int32 interned = 13; // *Available in versions >= 1.dev*
   }
 
+  reserved 4; // This was fun.  Removed in favour of PrimType.ARROW
   reserved 6; // This was list. Removed in favour of PrimType.LIST
   reserved 8; // This was contract_id. Removed in favour of PrimType.CONTRACT_ID
   reserved 9; // This was update. Removed in favour of PrimType.UPDATE
@@ -1099,7 +1099,7 @@ message Update {
     Expr cid = 3;
     // actors
     // *Available in version < 1.5*
-    Expr actor = 4;
+    reserved 4; // Was actor
     // argument
     Expr arg = 5;
   }

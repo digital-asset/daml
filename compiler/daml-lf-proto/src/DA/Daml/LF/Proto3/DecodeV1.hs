@@ -594,7 +594,6 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
       <$> mayDecode "update_ExerciseTemplate" update_ExerciseTemplate decodeTypeConName
       <*> decodeName ChoiceName update_ExerciseChoice
       <*> mayDecode "update_ExerciseCid" update_ExerciseCid decodeExpr
-      <*> traverse decodeExpr update_ExerciseActor
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
   LF1.UpdateSumExerciseByKey LF1.Update_ExerciseByKey{..} ->
     fmap EUpdate $ UExerciseByKey
@@ -772,10 +771,6 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
     decodeWithArgs args $ TBuiltin <$> decodePrim prim
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Left idx)) _args) ->
     throwError (UnknownEnum "Prim" idx)
-  LF1.TypeSumFun (LF1.Type_Fun params mbResult) -> do
-    mkTFuns
-      <$> mapM decodeType (V.toList params)
-      <*> mayDecode "type_FunResult" mbResult decodeType
   LF1.TypeSumForall (LF1.Type_Forall binders mbBody) -> do
     body <- mayDecode "type_ForAllBody" mbBody decodeType
     foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)

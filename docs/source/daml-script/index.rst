@@ -351,10 +351,10 @@ In some cases, you only have access to the
 :doc:`HTTP JSON API </json-api/index>` but not to the gRPC of a ledger, e.g., on
 `project:DABL <https://projectdabl.com>`_. For this usecase, DAML
 script can be run against the JSON API. Note that if you do have
-access to the gRPC API, running DAML script against the JSON API does
+access to the gRPC Ledger API, running DAML script against the JSON API does
 not have any advantages.
 
-To run DAML script against the JSON API you have to pass the ``--json-api`` parameter to ``daml script``. There are a few differences and limitations compared to running DAML Script against the gRPC API:
+To run DAML script against the JSON API you have to pass the ``--json-api`` parameter to ``daml script``. There are a few differences and limitations compared to running DAML Script against the gRPC Ledger API:
 
 #. When running against the JSON API, the ``--host`` argument has to
    contain an ``http://`` or ``https://`` prefix, e.g., ``daml

@@ -44,8 +44,7 @@ jobs:
           pool: macOS-pool
     pool:
       name: $(pool)
-      ${{ if eq(variables['pool'], 'linux-pool') }}:
-        demands: assignment -equals default
+      demands: assignment -equals default
     steps:
       - checkout: self
       - ${{ if eq(variables['pool'], 'macos-pool') }}:
@@ -176,7 +175,7 @@ jobs:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
   - job: check_releases
-    timeoutInMinutes: 120
+    timeoutInMinutes: 240
     pool:
       name: linux-pool
       demands: assignment -equals default

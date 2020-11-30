@@ -315,7 +315,10 @@ There's a lot of information available about application development, starting w
 Ledger API
 ==========
 
-The **Ledger API** is an API that's exposed by any `DAML ledger <#ledger-daml-ledger>`__. It includes  the following :doc:`services </app-dev/services>`.
+The **Ledger API** is an API that's exposed by any `DAML ledger <#ledger-daml-ledger>`__.
+Alternative names: **DAML Ledger API** and **gRPC Ledger API** if disambiguation from other technologies is needed.
+See :doc:`/app-dev/ledger-api` page.
+It includes the following :doc:`services </app-dev/services>`.
 
 Command submission service
 --------------------------
@@ -371,11 +374,6 @@ Scala bindings
 --------------
 
 An idiomatic Scala library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`/app-dev/bindings-scala/index`.
-
-gRPC API
---------
-
-The low-level ledger API that all of the other bindings use. Written in gRPC. See :doc:`/app-dev/grpc/index`.
 
 Reading from the ledger
 =======================

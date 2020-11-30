@@ -9,6 +9,7 @@ import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxBackend}
 import com.daml.ports.Port
 import io.grpc.Channel
+import io.netty.handler.ssl.SslContext
 import org.scalatest.Suite
 
 import scala.concurrent.duration.DurationInt
@@ -19,6 +20,8 @@ trait SandboxNextFixture extends AbstractSandboxFixture with SuiteResource[(Port
   override protected def serverPort: Port = suiteResource.value._1
 
   override protected def channel: Channel = suiteResource.value._2
+
+  protected def clientSslContext: Option[SslContext] = None
 
   override protected lazy val suiteResource: Resource[(Port, Channel)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
@@ -32,7 +35,7 @@ trait SandboxNextFixture extends AbstractSandboxFixture with SuiteResource[(Port
           .getOrElse(SandboxBackend.H2Database.owner)
           .map(info => Some(info.jdbcUrl))
         port <- new Runner(config.copy(jdbcUrl = jdbcUrl))
-        channel <- GrpcClientResource.owner(port)
+        channel <- GrpcClientResource.owner(port, clientSslContext)
       } yield (port, channel),
       acquisitionTimeout = 1.minute,
       releaseTimeout = 1.minute,

@@ -178,7 +178,7 @@ final class SemanticTests extends LedgerTestSuite {
 
   test(
     "SemanticPaintCounterOffer",
-    "Conduct the paint counter-offer worflow successfully",
+    "Conduct the paint counter-offer workflow successfully",
     allocate(TwoParties, SingleParty),
   )(implicit ec => {
     case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>

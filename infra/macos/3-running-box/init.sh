@@ -33,6 +33,7 @@ VSTS_TOKEN=$1
 
 mkdir -p ~/agent
 cd ~/agent
+echo 'assignment=default' > .capabilities
 
 echo Determining matching VSTS agent...
 VSTS_AGENT_RESPONSE=\$(curl -sSfL \

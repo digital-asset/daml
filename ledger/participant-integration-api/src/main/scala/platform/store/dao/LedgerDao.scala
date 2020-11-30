@@ -165,6 +165,15 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       commandId: CommandId,
       submitter: Ref.Party,
   )(implicit loggingContext: LoggingContext): Future[Unit]
+
+  /**
+    * Prunes participant events and completions in archived history and remembers largest
+    * pruning offset processed thus far.
+    *
+    * @param pruneUpToInclusive offset up to which to prune archived history inclusively
+    * @return
+    */
+  def prune(pruneUpToInclusive: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
 }
 
 private[platform] trait LedgerWriteDao extends ReportsHealth {
@@ -195,7 +204,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,

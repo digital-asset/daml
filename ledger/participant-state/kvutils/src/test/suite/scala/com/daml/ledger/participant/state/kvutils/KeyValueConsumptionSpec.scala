@@ -266,7 +266,7 @@ class KeyValueConsumptionSpec extends WordSpec with Matchers {
 
   private def someSubmitterInfo: DamlSubmitterInfo =
     DamlSubmitterInfo.newBuilder
-      .setSubmitter("a submitter")
+      .addSubmitters("a submitter")
       .setApplicationId("test")
       .setCommandId("a command ID")
       .setDeduplicateUntil(com.google.protobuf.Timestamp.getDefaultInstance)

@@ -226,12 +226,11 @@ applySubstInUpdate subst = \case
     UCreate templateName e -> UCreate
         templateName
         (applySubstInExpr subst e)
-    UExercise templateName choiceName e1 e2M e3 -> UExercise
+    UExercise templateName choiceName e1 e2 -> UExercise
         templateName
         choiceName
         (applySubstInExpr subst e1)
-        (applySubstInExpr subst <$> e2M)
-        (applySubstInExpr subst e3)
+        (applySubstInExpr subst e2)
     UExerciseByKey templateName choiceName e1 e2 -> UExerciseByKey
         templateName
         choiceName

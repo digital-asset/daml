@@ -265,8 +265,11 @@ object KeyValueConsumption {
       transactionId = hexTxId,
       recordTime = recordTime,
       divulgedContracts = List.empty,
-      // Currently derived from Fetch and LookupByKey nodes, soon pre-computed
-      blindingInfo = None,
+      blindingInfo =
+        if (txEntry.hasBlindingInfo)
+          Some(Conversions.decodeBlindingInfo(txEntry.getBlindingInfo))
+        else
+          None,
     )
   }
 

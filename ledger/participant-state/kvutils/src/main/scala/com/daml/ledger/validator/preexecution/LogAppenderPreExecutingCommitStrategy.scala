@@ -32,7 +32,7 @@ final class LogAppenderPreExecutingCommitStrategy(
         serializedSuccessKeyValuePairs,
         (serializedSuccessLogEntryPair, serializedOutOfTimeBoundsLogEntryPair),
       ) <- inParallel(
-        Future(stateSerializationStrategy.serializeState(preExecutionResult.stateUpdates)),
+        Future(stateSerializationStrategy.serializeStateUpdates(preExecutionResult.stateUpdates)),
         Future(logEntryId.toByteString).flatMap(
           serializedId =>
             inParallel(
