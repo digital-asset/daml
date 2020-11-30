@@ -349,9 +349,7 @@ private[sandbox] final class InMemoryLedger(
       implicit loggingContext: LoggingContext,
   ): Unit = {
     logger.warn(s"Publishing error to ledger: ${reason.description}")
-    stopDeduplicatingCommand(
-      CommandId(submitterInfo.commandId),
-      submitterInfo.singleSubmitterOrThrow())
+    stopDeduplicatingCommand(CommandId(submitterInfo.commandId), submitterInfo.actAs)
     entries.publish(
       InMemoryLedgerEntry(
         LedgerEntry.Rejection(
@@ -573,18 +571,22 @@ private[sandbox] final class InMemoryLedger(
 
   private def deduplicationKey(
       commandId: CommandId,
-      submitter: Ref.Party,
-  ): String = commandId.unwrap + "%" + submitter
+      submitters: List[Ref.Party],
+  ): String =
+    if (submitters.length == 1)
+      commandId.unwrap + "%" + submitters.head
+    else
+      commandId.unwrap + "%" + submitters.asInstanceOf[List[String]].sorted.distinct.mkString("%")
 
   override def deduplicateCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
     Future.successful {
       this.synchronized {
-        val key = deduplicationKey(commandId, submitter)
+        val key = deduplicationKey(commandId, submitters)
         val entry = commands.get(key)
         if (entry.isEmpty) {
           // No previous entry - new command
@@ -614,11 +616,11 @@ private[sandbox] final class InMemoryLedger(
       }
     }
 
-  override def stopDeduplicatingCommand(commandId: CommandId, submitter: Party)(
+  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Party])(
       implicit loggingContext: LoggingContext,
   ): Future[Unit] =
     Future.successful {
-      val key = deduplicationKey(commandId, submitter)
+      val key = deduplicationKey(commandId, submitters)
       this.synchronized {
         commands.remove(key)
         ()

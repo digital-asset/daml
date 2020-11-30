@@ -123,13 +123,13 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   override def deduplicateCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
     Timed.future(
       metrics.daml.index.db.deduplicateCommand,
-      ledgerDao.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil))
+      ledgerDao.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil))
 
   override def removeExpiredDeduplicationData(currentTime: Instant)(
       implicit loggingContext: LoggingContext,
@@ -138,12 +138,12 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
       metrics.daml.index.db.removeExpiredDeduplicationData,
       ledgerDao.removeExpiredDeduplicationData(currentTime))
 
-  override def stopDeduplicatingCommand(commandId: CommandId, submitter: Party)(
+  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Party])(
       implicit loggingContext: LoggingContext,
   ): Future[Unit] =
     Timed.future(
       metrics.daml.index.db.stopDeduplicatingCommand,
-      ledgerDao.stopDeduplicatingCommand(commandId, submitter))
+      ledgerDao.stopDeduplicatingCommand(commandId, submitters))
 
   override def prune(pruneUpToInclusive: Offset)(
       implicit loggingContext: LoggingContext): Future[Unit] =
