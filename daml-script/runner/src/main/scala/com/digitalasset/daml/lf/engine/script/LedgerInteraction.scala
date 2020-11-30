@@ -686,11 +686,11 @@ class JsonLedgerClient(
 
   case class FailedJsonApiRequest(
       path: Path,
-      reqBody: JsValue,
+      reqBody: Option[JsValue],
       respStatus: StatusCode,
       errors: List[String])
       extends RuntimeException(
-        s"Request to $path with ${reqBody.compactPrint} failed with status $respStatus: $errors")
+        s"Request to $path with ${reqBody.map(_.compactPrint)} failed with status $respStatus: $errors")
 
   def request[A, B](path: Path, a: A)(
       implicit wa: JsonWriter[A],
@@ -707,12 +707,28 @@ class JsonLedgerClient(
     Http().singleRequest(req).flatMap(resp => Unmarshal(resp.entity).to[Response[B]])
   }
 
+  def request[A](path: Path)(implicit ra: JsonReader[A]): Future[Response[A]] = {
+    val req = HttpRequest(
+      method = HttpMethods.GET,
+      uri = uri.withPath(path),
+      headers = List(Authorization(OAuth2BearerToken(token.value)))
+    )
+    Http().singleRequest(req).flatMap(resp => Unmarshal(resp.entity).to[Response[A]])
+  }
+
   def requestSuccess[A, B](path: Path, a: A)(
       implicit wa: JsonWriter[A],
       rb: JsonReader[B]): Future[B] =
     request[A, B](path, a).flatMap {
       case ErrorResponse(errors, status) =>
-        Future.failed(FailedJsonApiRequest(path, a.toJson, status, errors))
+        Future.failed(FailedJsonApiRequest(path, Some(a.toJson), status, errors))
+      case SuccessResponse(result, _) => Future.successful(result)
+    }
+
+  def requestSuccess[A](path: Path)(implicit rb: JsonReader[A]): Future[A] =
+    request[A](path).flatMap {
+      case ErrorResponse(errors, status) =>
+        Future.failed(FailedJsonApiRequest(path, None, status, errors))
       case SuccessResponse(result, _) => Future.successful(result)
     }
 
@@ -825,9 +841,7 @@ class JsonLedgerClient(
   }
 
   override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
-    Future.failed(
-      new RuntimeException(
-        s"listKnownParties is not supported when running DAML Script over the JSON API"))
+    requestSuccess[List[PartyDetails]](uri.path./("v1")./("parties"))
   }
 
   override def getStaticTime()(
@@ -972,7 +986,11 @@ class JsonLedgerClient(
         // We don’t want to treat that failures as ones that can be caught
         // via `submitMustFail` so fail hard.
         Future.failed(
-          new FailedJsonApiRequest(uri.path./("v1")./(endpoint), argument.toJson, status, errors))
+          new FailedJsonApiRequest(
+            uri.path./("v1")./(endpoint),
+            Some(argument.toJson),
+            status,
+            errors))
       case SuccessResponse(result, _) => Future.successful(Right(result))
     }
   }
@@ -1031,6 +1049,12 @@ object JsonLedgerClient {
           case JsNull => None
           case _ => Some(v.convertTo[A])
       }
+    implicit def listReader[A: JsonReader]: JsonReader[List[A]] =
+      v =>
+        v match {
+          case JsArray(xs) => xs.toList.map(_.convertTo[A])
+          case _ => deserializationError(s"Expected JsArray but got $v")
+      }
     implicit def responseReader[A: JsonReader]: RootJsonReader[Response[A]] = v => {
       implicit val statusCodeReader: JsonReader[StatusCode] = v =>
         v match {
@@ -1040,10 +1064,29 @@ object JsonLedgerClient {
       val obj = v.asJsObject
       (obj.fields.get("status"), obj.fields.get("errors"), obj.fields.get("result")) match {
         case (Some(status), Some(err), None) =>
-          ErrorResponse(err.convertTo[List[String]], status.convertTo[StatusCode])
+          ErrorResponse(
+            err.convertTo[List[String]](DefaultJsonProtocol.listFormat),
+            status.convertTo[StatusCode])
         case (Some(status), _, Some(res)) =>
           SuccessResponse(res.convertTo[A], status.convertTo[StatusCode])
         case _ => deserializationError("Expected status and either errors or result field")
+      }
+    }
+
+    implicit val partyReader: JsonReader[Ref.Party] = v =>
+      v match {
+        case JsString(s) => Ref.Party.fromString(s).fold(deserializationError(_), identity)
+        case _ => deserializationError(s"Expected Party but got $v")
+    }
+    implicit val partyDetailsReader: JsonReader[PartyDetails] = v => {
+      val o = v.asJsObject
+      (o.fields.get("identifier"), o.fields.get("displayName"), o.fields.get("isLocal")) match {
+        case (Some(id), optName, Some(isLocal)) =>
+          PartyDetails(
+            id.convertTo[Party],
+            optName.map(_.convertTo[String]),
+            isLocal.convertTo[Boolean])
+        case _ => deserializationError(s"Expected PartyDetails but got $v")
       }
     }
 
@@ -1055,10 +1098,7 @@ object JsonLedgerClient {
     implicit val queryWriter: JsonWriter[QueryArgs] = args =>
       JsObject("templateIds" -> JsArray(identifierWriter.write(args.templateId)))
     implicit val queryReader: RootJsonReader[QueryResponse] = v =>
-      v match {
-        case JsArray(cs) => QueryResponse(cs.toList.map(_.convertTo[ActiveContract]))
-        case _ => deserializationError(s"Could not parse QueryResponse: $v")
-    }
+      QueryResponse(v.convertTo[List[ActiveContract]])
     implicit val fetchWriter: JsonWriter[FetchArgs] = args =>
       JsObject("contractId" -> args.contractId.coid.toString.toJson)
     implicit val fetchKeyWriter: JsonWriter[FetchKeyArgs] = args =>
@@ -1129,8 +1169,7 @@ object JsonLedgerClient {
     implicit val allocatePartyWriter: JsonFormat[AllocatePartyArgs] = jsonFormat2(AllocatePartyArgs)
     implicit val allocatePartyReader: RootJsonReader[AllocatePartyResponse] = v =>
       v.asJsObject.getFields("identifier") match {
-        case Seq(JsString(identifier)) =>
-          AllocatePartyResponse(Ref.Party.assertFromString(identifier))
+        case Seq(id) => AllocatePartyResponse(id.convertTo[Party])
         case _ => deserializationError(s"Could not parse AllocatePartyResponse: $v")
     }
   }
