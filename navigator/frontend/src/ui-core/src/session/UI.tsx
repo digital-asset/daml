@@ -4,15 +4,9 @@
 import * as React from 'react';
 import { Action } from 'redux';
 import styled from 'styled-components';
-import Button from '../Button';
 import { Dispatch } from '../types';
 import { sessionError, signIn } from './actions';
 import * as Session from './index';
-
-const SignInButton = styled(Button)`
-  width: 100%;
-  margin-top: 1rem;
-`;
 
 const SignInForm = styled.form`
   display: flex;
@@ -72,7 +66,6 @@ export type Props<A extends Action> = OwnProps<A> & ReduxProps<A>;
 
 export interface State {
   userId: string;
-  password: string;
 }
 
 export default class Component<A extends Action>
@@ -83,21 +76,20 @@ export default class Component<A extends Action>
     if (props.dispatch === undefined) {
       throw new Error('No dispatch function available to SignIn component');
     }
-    this.state = { userId: '', password: '' };
+    this.state = { userId: '' };
     this.signIn = this.signIn.bind(this);
   }
 
-  signIn(userId: Session.UserId, password?: string) {
+  signIn(userId: Session.UserId) {
     const { dispatch, toSelf } = this.props;
     if (!dispatch) { throw new Error('dispatch not available'); }
     if (userId) {
-      dispatch(signIn(toSelf, userId, password));
+      dispatch(signIn(toSelf, userId));
     }
   }
 
   render() {
     const { isAuthenticating, method, failure } = this.props;
-    const { userId, password } = this.state;
     let loginEl = null;
     let errorEl = null;
     if (failure === 'invalid-credentials') {
@@ -114,6 +106,13 @@ export default class Component<A extends Action>
           <div>Verify that the ledger is available and try again</div>
         </WarningMessage>
       )
+    } else if (failure === 'unresponsive') {
+      errorEl = (
+        <WarningMessage>
+          <div>Actor for party was unresponsive</div>
+          <div>Try restarting Navigator</div>
+        </WarningMessage>
+      )
     } else if (failure === 'unknown-error') {
       errorEl = (
         <ErrorMessage>
@@ -124,43 +123,6 @@ export default class Component<A extends Action>
     }
 
     switch (method.type) {
-
-      case 'password':
-        loginEl = (
-          <SignInForm>
-            {errorEl}
-            <input
-              type="text"
-              disabled={isAuthenticating}
-              placeholder="Username"
-              value={userId}
-              onChange={(e: React.FormEvent<HTMLInputElement>) => {
-                this.setState({ userId: e.currentTarget.value });
-              }}
-            />
-            <input
-              type="password"
-              disabled={isAuthenticating}
-              placeholder="Password"
-              value={password}
-              onChange={(e: React.FormEvent<HTMLInputElement>) => {
-                this.setState({ password: e.currentTarget.value });
-              }}
-            />
-            <SignInButton
-              type="main"
-              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.signIn(userId, password);
-              }}
-            >
-              Sign in
-            </SignInButton>
-          </SignInForm>
-        );
-        break;
-
       case 'select':
         loginEl = (
           <SignInForm>

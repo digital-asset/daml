@@ -114,6 +114,7 @@ main = do
             , moduleDataTypes = NM.fromList ([tplRec, chcArg, chcArg2] <> [emptyRec | withArchiveChoice])
             , moduleValues = NM.empty
             , moduleTemplates = NM.fromList [tpl]
+            , moduleExceptions = NM.empty
             }
     case checkModule (initWorld [] version) version mod of
         [] -> pure ()

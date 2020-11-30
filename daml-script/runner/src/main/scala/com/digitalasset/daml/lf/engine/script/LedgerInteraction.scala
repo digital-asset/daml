@@ -13,10 +13,11 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.unmarshalling._
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import akka.util.ByteString
 import io.grpc.{Status, StatusRuntimeException}
 import java.time.Instant
 import java.util.UUID
+
+import akka.http.scaladsl.model.Uri.Path
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
@@ -61,7 +62,6 @@ import com.daml.platform.participant.util.LfEngineToApi.{
   toApiIdentifier
 }
 import com.daml.script.converter.ConverterException
-
 import scalaz.OneAnd._
 import scalaz.std.either._
 import scalaz.std.set._
@@ -666,6 +666,7 @@ class JsonLedgerClient(
     actorSystem: ActorSystem)
     extends ScriptLedgerClient {
   import JsonLedgerClient.JsonProtocol._
+  import JsonLedgerClient._
 
   private val decodedJwt = JwtDecoder.decode(token) match {
     case -\/(e) => throw new IllegalArgumentException(e.toString)
@@ -683,27 +684,62 @@ class JsonLedgerClient(
   private def damlLfTypeLookup(id: Identifier) =
     envIface.typeDecls.get(id).map(_.`type`)
 
+  case class FailedJsonApiRequest(
+      path: Path,
+      reqBody: Option[JsValue],
+      respStatus: StatusCode,
+      errors: List[String])
+      extends RuntimeException(
+        s"Request to $path with ${reqBody.map(_.compactPrint)} failed with status $respStatus: $errors")
+
+  def request[A, B](path: Path, a: A)(
+      implicit wa: JsonWriter[A],
+      rb: JsonReader[B]): Future[Response[B]] = {
+    val req = HttpRequest(
+      method = HttpMethods.POST,
+      uri = uri.withPath(path),
+      entity = HttpEntity(
+        ContentTypes.`application/json`,
+        a.toJson.compactPrint
+      ),
+      headers = List(Authorization(OAuth2BearerToken(token.value)))
+    )
+    Http().singleRequest(req).flatMap(resp => Unmarshal(resp.entity).to[Response[B]])
+  }
+
+  def request[A](path: Path)(implicit ra: JsonReader[A]): Future[Response[A]] = {
+    val req = HttpRequest(
+      method = HttpMethods.GET,
+      uri = uri.withPath(path),
+      headers = List(Authorization(OAuth2BearerToken(token.value)))
+    )
+    Http().singleRequest(req).flatMap(resp => Unmarshal(resp.entity).to[Response[A]])
+  }
+
+  def requestSuccess[A, B](path: Path, a: A)(
+      implicit wa: JsonWriter[A],
+      rb: JsonReader[B]): Future[B] =
+    request[A, B](path, a).flatMap {
+      case ErrorResponse(errors, status) =>
+        Future.failed(FailedJsonApiRequest(path, Some(a.toJson), status, errors))
+      case SuccessResponse(result, _) => Future.successful(result)
+    }
+
+  def requestSuccess[A](path: Path)(implicit rb: JsonReader[A]): Future[A] =
+    request[A](path).flatMap {
+      case ErrorResponse(errors, status) =>
+        Future.failed(FailedJsonApiRequest(path, None, status, errors))
+      case SuccessResponse(result, _) => Future.successful(result)
+    }
+
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
-    val req = HttpRequest(
-      method = HttpMethods.POST,
-      uri = uri.withPath(uri.path./("v1")./("query")),
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        JsonLedgerClient.QueryArgs(templateId).toJson.prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
-    )
     for {
       () <- validateTokenParties(parties, "query")
-      resp <- Http().singleRequest(req)
-      queryResponse <- if (resp.status.isSuccess) {
-        Unmarshal(resp.entity).to[JsonLedgerClient.QueryResponse]
-      } else {
-        getResponseDataBytes(resp).flatMap {
-          case body => Future.failed(new RuntimeException(s"Failed to query ledger: $resp, $body"))
-        }
-      }
+      queryResponse <- requestSuccess[QueryArgs, QueryResponse](
+        uri.path./("v1")./("query"),
+        QueryArgs(templateId))
     } yield {
       val ctx = templateId.qualifiedName
       val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).right.get
@@ -720,24 +756,11 @@ class JsonLedgerClient(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       cid: ContractId)(implicit ec: ExecutionContext, mat: Materializer) = {
-    val req = HttpRequest(
-      method = HttpMethods.POST,
-      uri = uri.withPath(uri.path./("v1")./("fetch")),
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        JsonLedgerClient.FetchArgs(cid).toJson.prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
-    )
     for {
       () <- validateTokenParties(parties, "queryContractId")
-      resp <- Http().singleRequest(req)
-      fetchResponse <- if (resp.status.isSuccess) {
-        Unmarshal(resp.entity).to[JsonLedgerClient.FetchResponse]
-      } else {
-        getResponseDataBytes(resp).flatMap {
-          case body => Future.failed(new RuntimeException(s"Failed to query ledger: $resp, $body"))
-        }
-      }
+      fetchResponse <- requestSuccess[FetchArgs, FetchResponse](
+        uri.path./("v1")./("fetch"),
+        FetchArgs(cid))
     } yield {
       val ctx = templateId.qualifiedName
       val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).right.get
@@ -753,24 +776,11 @@ class JsonLedgerClient(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: SValue)(implicit ec: ExecutionContext, mat: Materializer) = {
-    val req = HttpRequest(
-      method = HttpMethods.POST,
-      uri = uri.withPath(uri.path./("v1")./("fetch")),
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        JsonLedgerClient.FetchKeyArgs(templateId, key.toValue).toJson.prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
-    )
     for {
       _ <- validateTokenParties(parties, "queryContractKey")
-      resp <- Http().singleRequest(req)
-      fetchResponse <- if (resp.status.isSuccess) {
-        Unmarshal(resp.entity).to[JsonLedgerClient.FetchResponse]
-      } else {
-        getResponseDataBytes(resp).flatMap {
-          case body => Future.failed(new RuntimeException(s"Failed to query ledger: $resp, $body"))
-        }
-      }
+      fetchResponse <- requestSuccess[FetchKeyArgs, FetchResponse](
+        uri.path./("v1")./("fetch"),
+        FetchKeyArgs(templateId, key.toValue))
     } yield {
       val ctx = templateId.qualifiedName
       val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).right.get
@@ -821,33 +831,17 @@ class JsonLedgerClient(
   override def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
-    val req = HttpRequest(
-      method = HttpMethods.POST,
-      uri = uri.withPath(uri.path./("v1")./("parties")./("allocate")),
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        JsonLedgerClient.AllocatePartyArgs(partyIdHint, displayName).toJson.prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
-    )
     for {
-      resp <- Http().singleRequest(req)
-      response <- if (resp.status.isSuccess) {
-        Unmarshal(resp.entity).to[JsonLedgerClient.AllocatePartyResponse]
-      } else {
-        getResponseDataBytes(resp).flatMap {
-          case body =>
-            Future.failed(new RuntimeException(s"Failed to allocate party: $resp, $body"))
-        }
-      }
+      response <- requestSuccess[AllocatePartyArgs, AllocatePartyResponse](
+        uri.path./("v1")./("parties")./("allocate"),
+        AllocatePartyArgs(partyIdHint, displayName))
     } yield {
       response.identifier
     }
   }
 
   override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
-    Future.failed(
-      new RuntimeException(
-        s"listKnownParties is not supported when running DAML Script over the JSON API"))
+    requestSuccess[List[PartyDetails]](uri.path./("v1")./("parties"))
   }
 
   override def getStaticTime()(
@@ -887,11 +881,9 @@ class JsonLedgerClient(
   private def create(tplId: Identifier, argument: Value[ContractId])
     : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CreateResult]]] = {
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
-    commandRequest[JsonLedgerClient.CreateArgs, JsonLedgerClient.CreateResponse](
-      "create",
-      JsonLedgerClient.CreateArgs(tplId, jsonArgument))
+    commandRequest[CreateArgs, CreateResponse]("create", CreateArgs(tplId, jsonArgument))
       .map(_.map {
-        case JsonLedgerClient.CreateResponse(cid) =>
+        case CreateResponse(cid) =>
           List(ScriptLedgerClient.CreateResult(ContractId.assertFromString(cid)))
       })
   }
@@ -908,11 +900,11 @@ class JsonLedgerClient(
       .template
       .choices(choice)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
-    commandRequest[JsonLedgerClient.ExerciseArgs, JsonLedgerClient.ExerciseResponse](
+    commandRequest[ExerciseArgs, ExerciseResponse](
       "exercise",
-      JsonLedgerClient.ExerciseArgs(tplId, contractId, choice, jsonArgument))
+      ExerciseArgs(tplId, contractId, choice, jsonArgument))
       .map(_.map {
-        case JsonLedgerClient.ExerciseResponse(result) =>
+        case ExerciseResponse(result) =>
           List(
             ScriptLedgerClient.ExerciseResult(
               tplId,
@@ -935,11 +927,11 @@ class JsonLedgerClient(
       .choices(choice)
     val jsonKey = LfValueCodec.apiValueToJsValue(key)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
-    commandRequest[JsonLedgerClient.ExerciseByKeyArgs, JsonLedgerClient.ExerciseResponse](
+    commandRequest[ExerciseByKeyArgs, ExerciseResponse](
       "exercise",
       JsonLedgerClient
         .ExerciseByKeyArgs(tplId, jsonKey, choice, jsonArgument)).map(_.map {
-      case JsonLedgerClient.ExerciseResponse(result) =>
+      case ExerciseResponse(result) =>
         List(
           ScriptLedgerClient.ExerciseResult(
             tplId,
@@ -962,14 +954,12 @@ class JsonLedgerClient(
       .choices(choice)
     val jsonTemplate = LfValueCodec.apiValueToJsValue(template)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
-    commandRequest[
-      JsonLedgerClient.CreateAndExerciseArgs,
-      JsonLedgerClient.CreateAndExerciseResponse](
+    commandRequest[CreateAndExerciseArgs, CreateAndExerciseResponse](
       "create-and-exercise",
       JsonLedgerClient
         .CreateAndExerciseArgs(tplId, jsonTemplate, choice, jsonArgument))
       .map(_.map {
-        case JsonLedgerClient.CreateAndExerciseResponse(cid, result) =>
+        case CreateAndExerciseResponse(cid, result) =>
           List(
             ScriptLedgerClient
               .CreateResult(ContractId.assertFromString(cid)): ScriptLedgerClient.CommandResult,
@@ -982,37 +972,26 @@ class JsonLedgerClient(
       })
   }
 
-  def getResponseDataBytes(resp: HttpResponse)(implicit mat: Materializer): Future[String] = {
-    val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
-    fb
-  }
-
   def commandRequest[In, Out](endpoint: String, argument: In)(
       implicit argumentWriter: JsonWriter[In],
       outputReader: RootJsonReader[Out]): Future[Either[StatusRuntimeException, Out]] = {
-    val req = HttpRequest(
-      method = HttpMethods.POST,
-      uri = uri.withPath(uri.path./("v1")./(endpoint)),
-      entity = HttpEntity(ContentTypes.`application/json`, argument.toJson.prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
-    )
-    Http().singleRequest(req).flatMap { resp =>
-      if (resp.status.isSuccess) {
-        Unmarshal(resp.entity).to[Out].map(Right(_))
-      } else if (resp.status == StatusCodes.InternalServerError) {
+    request[In, Out](uri.path./("v1")./(endpoint), argument).flatMap {
+      case ErrorResponse(errors, status) if status == StatusCodes.InternalServerError =>
         // TODO (MK) Using a grpc exception here doesn’t make that much sense.
         // We should refactor this to provide something more general.
-        getResponseDataBytes(resp).map(description =>
-          Left(new StatusRuntimeException(Status.UNKNOWN.withDescription(description))))
-      } else {
+        Future.successful(
+          Left(new StatusRuntimeException(Status.UNKNOWN.withDescription(errors.toString))))
+      case ErrorResponse(errors, status) =>
         // A non-500 failure is something like invalid JSON or “cannot resolve template ID”.
         // We don’t want to treat that failures as ones that can be caught
         // via `submitMustFail` so fail hard.
-        getResponseDataBytes(resp).flatMap(
-          description =>
-            Future.failed(
-              new RuntimeException(s"Request failed: $description, status code: ${resp.status}")))
-      }
+        Future.failed(
+          new FailedJsonApiRequest(
+            uri.path./("v1")./(endpoint),
+            Some(argument.toJson),
+            status,
+            errors))
+      case SuccessResponse(result, _) => Future.successful(Right(result))
     }
   }
 
@@ -1021,6 +1000,12 @@ class JsonLedgerClient(
 }
 
 object JsonLedgerClient {
+  sealed trait Response[A] {
+    def status: StatusCode
+  }
+  final case class ErrorResponse[A](errors: List[String], status: StatusCode) extends Response[A]
+  final case class SuccessResponse[A](result: A, status: StatusCode) extends Response[A]
+
   final case class QueryArgs(templateId: Identifier)
   final case class QueryResponse(results: List[ActiveContract])
   final case class ActiveContract(contractId: String, payload: JsValue)
@@ -1058,6 +1043,53 @@ object JsonLedgerClient {
   final case class AllocatePartyResponse(identifier: Ref.Party)
 
   object JsonProtocol extends SprayJsonSupport with DefaultJsonProtocol {
+    implicit def optionReader[A: JsonReader]: JsonReader[Option[A]] =
+      v =>
+        v match {
+          case JsNull => None
+          case _ => Some(v.convertTo[A])
+      }
+    implicit def listReader[A: JsonReader]: JsonReader[List[A]] =
+      v =>
+        v match {
+          case JsArray(xs) => xs.toList.map(_.convertTo[A])
+          case _ => deserializationError(s"Expected JsArray but got $v")
+      }
+    implicit def responseReader[A: JsonReader]: RootJsonReader[Response[A]] = v => {
+      implicit val statusCodeReader: JsonReader[StatusCode] = v =>
+        v match {
+          case JsNumber(value) => StatusCode.int2StatusCode(value.toIntExact)
+          case _ => deserializationError("Expected status code")
+      }
+      val obj = v.asJsObject
+      (obj.fields.get("status"), obj.fields.get("errors"), obj.fields.get("result")) match {
+        case (Some(status), Some(err), None) =>
+          ErrorResponse(
+            err.convertTo[List[String]](DefaultJsonProtocol.listFormat),
+            status.convertTo[StatusCode])
+        case (Some(status), _, Some(res)) =>
+          SuccessResponse(res.convertTo[A], status.convertTo[StatusCode])
+        case _ => deserializationError("Expected status and either errors or result field")
+      }
+    }
+
+    implicit val partyReader: JsonReader[Ref.Party] = v =>
+      v match {
+        case JsString(s) => Ref.Party.fromString(s).fold(deserializationError(_), identity)
+        case _ => deserializationError(s"Expected Party but got $v")
+    }
+    implicit val partyDetailsReader: JsonReader[PartyDetails] = v => {
+      val o = v.asJsObject
+      (o.fields.get("identifier"), o.fields.get("displayName"), o.fields.get("isLocal")) match {
+        case (Some(id), optName, Some(isLocal)) =>
+          PartyDetails(
+            id.convertTo[Party],
+            optName.map(_.convertTo[String]),
+            isLocal.convertTo[Boolean])
+        case _ => deserializationError(s"Expected PartyDetails but got $v")
+      }
+    }
+
     implicit val choiceNameWriter: JsonWriter[ChoiceName] = choice => JsString(choice.toString)
     implicit val identifierWriter: JsonWriter[Identifier] = identifier =>
       JsString(
@@ -1065,12 +1097,8 @@ object JsonLedgerClient {
 
     implicit val queryWriter: JsonWriter[QueryArgs] = args =>
       JsObject("templateIds" -> JsArray(identifierWriter.write(args.templateId)))
-    implicit val queryReader: RootJsonReader[QueryResponse] = v => {
-      v.asJsObject.getFields("result") match {
-        case Seq(JsArray(results)) => QueryResponse(results.toList.map(_.convertTo[ActiveContract]))
-        case _ => deserializationError(s"Could not parse QueryResponse: $v")
-      }
-    }
+    implicit val queryReader: RootJsonReader[QueryResponse] = v =>
+      QueryResponse(v.convertTo[List[ActiveContract]])
     implicit val fetchWriter: JsonWriter[FetchArgs] = args =>
       JsObject("contractId" -> args.contractId.coid.toString.toJson)
     implicit val fetchKeyWriter: JsonWriter[FetchKeyArgs] = args =>
@@ -1078,11 +1106,7 @@ object JsonLedgerClient {
         "templateId" -> args.templateId.toJson,
         "key" -> LfValueCodec.apiValueToJsValue(args.key))
     implicit val fetchReader: RootJsonReader[FetchResponse] = v =>
-      v.asJsObject.getFields("result") match {
-        case Seq(JsNull) => FetchResponse(None)
-        case Seq(r) => FetchResponse(Some(r.convertTo[ActiveContract]))
-        case _ => deserializationError(s"Could not parse FetchResponse: $v")
-    }
+      FetchResponse(v.convertTo[Option[ActiveContract]])
 
     implicit val activeContractReader: RootJsonReader[ActiveContract] = v => {
       v.asJsObject.getFields("contractId", "payload") match {
@@ -1093,15 +1117,10 @@ object JsonLedgerClient {
 
     implicit val createWriter: JsonWriter[CreateArgs] = args =>
       JsObject("templateId" -> args.templateId.toJson, "payload" -> args.payload)
-    implicit val createReader: RootJsonReader[CreateResponse] = v => {
-      v.asJsObject.getFields("result") match {
-        case Seq(result) =>
-          result.asJsObject.getFields("contractId") match {
-            case Seq(JsString(cid)) => CreateResponse(cid)
-            case _ => deserializationError(s"Could not parse CreateResponse: $v")
-          }
+    implicit val createReader: RootJsonReader[CreateResponse] = v =>
+      v.asJsObject.getFields("contractId") match {
+        case Seq(JsString(cid)) => CreateResponse(cid)
         case _ => deserializationError(s"Could not parse CreateResponse: $v")
-      }
     }
 
     implicit val exerciseWriter: JsonWriter[ExerciseArgs] = args =>
@@ -1116,15 +1135,10 @@ object JsonLedgerClient {
         "key" -> args.key,
         "choice" -> args.choice.toJson,
         "argument" -> args.argument)
-    implicit val exerciseReader: RootJsonReader[ExerciseResponse] = v => {
-      v.asJsObject.getFields("result") match {
-        case Seq(result) =>
-          result.asJsObject.getFields("exerciseResult") match {
-            case Seq(result) => ExerciseResponse(result)
-            case _ => deserializationError(s"Could not parse ExerciseResponse: $v")
-          }
+    implicit val exerciseReader: RootJsonReader[ExerciseResponse] = v =>
+      v.asJsObject.getFields("exerciseResult") match {
+        case Seq(result) => ExerciseResponse(result)
         case _ => deserializationError(s"Could not parse ExerciseResponse: $v")
-      }
     }
 
     implicit val createAndExerciseWriter: JsonWriter[CreateAndExerciseArgs] = args =>
@@ -1133,39 +1147,29 @@ object JsonLedgerClient {
         "payload" -> args.payload,
         "choice" -> args.choice.toJson,
         "argument" -> args.argument)
-    implicit val createAndExerciseReader: RootJsonReader[CreateAndExerciseResponse] = v => {
-      v.asJsObject.getFields("result") match {
-        case Seq(result) =>
-          result.asJsObject.getFields("exerciseResult", "events") match {
-            case Seq(result, events) =>
-              events match {
-                case JsArray(events) if events.size >= 1 =>
-                  events.head.asJsObject.getFields("created") match {
-                    case Seq(created) =>
-                      created.asJsObject.getFields("contractId") match {
-                        case Seq(JsString(cid)) => CreateAndExerciseResponse(cid, result)
-                        case _ =>
-                          deserializationError(s"Could not parse CreateAndExerciseResponse: $v")
-                      }
-                    case _ => deserializationError(s"Could not parse CreateAndExerciseResponse: $v")
+    implicit val createAndExerciseReader: RootJsonReader[CreateAndExerciseResponse] = v =>
+      v.asJsObject.getFields("exerciseResult", "events") match {
+        case Seq(result, events) =>
+          events match {
+            case JsArray(Seq(event, _*)) =>
+              event.asJsObject.getFields("created") match {
+                case Seq(created) =>
+                  created.asJsObject.getFields("contractId") match {
+                    case Seq(JsString(cid)) => CreateAndExerciseResponse(cid, result)
+                    case _ =>
+                      deserializationError(s"Could not parse CreateAndExerciseResponse: $v")
                   }
                 case _ => deserializationError(s"Could not parse CreateAndExerciseResponse: $v")
               }
             case _ => deserializationError(s"Could not parse CreateAndExerciseResponse: $v")
           }
         case _ => deserializationError(s"Could not parse CreateAndExerciseResponse: $v")
-      }
     }
 
     implicit val allocatePartyWriter: JsonFormat[AllocatePartyArgs] = jsonFormat2(AllocatePartyArgs)
     implicit val allocatePartyReader: RootJsonReader[AllocatePartyResponse] = v =>
-      v.asJsObject.getFields("result") match {
-        case Seq(result) =>
-          result.asJsObject.getFields("identifier") match {
-            case Seq(JsString(identifier)) =>
-              AllocatePartyResponse(Ref.Party.assertFromString(identifier))
-            case _ => deserializationError(s"Could not parse AllocatePartyResponse: $v")
-          }
+      v.asJsObject.getFields("identifier") match {
+        case Seq(id) => AllocatePartyResponse(id.convertTo[Party])
         case _ => deserializationError(s"Could not parse AllocatePartyResponse: $v")
     }
   }

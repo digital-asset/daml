@@ -29,8 +29,7 @@ export type State
   }
   | { type: 'authenticated', user: User }
 
-export type AuthMethod = AuthMethodPassword | AuthMethodSelect
-export type AuthMethodPassword = { type: 'password' }
+export type AuthMethod = AuthMethodSelect
 export type AuthMethodSelect = { type: 'select', users: UserId[] }
 export type AuthFailure = 'invalid-credentials';
 

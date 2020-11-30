@@ -22,9 +22,6 @@ You can use the Console to:
 
 If you prefer to use a graphical user interface for these tasks, use the :doc:`Navigator </tools/navigator/index>` instead.
 
-.. contents:: On this page:
-  :local:
-
 Try out the Navigator Console on the Quickstart
 ===============================================
 

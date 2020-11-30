@@ -110,7 +110,7 @@ class PlatformSubscriber(
       unstashAll()
 
     case GetPartyActorInfo =>
-      sender ! PartyActorStarting(party.name)
+      sender ! PartyActorStarting(party)
 
     case _ =>
       stash
@@ -128,13 +128,13 @@ class PlatformSubscriber(
       submitCommand(ledgerClient, state.commandTracker, party, command, commandSender)
 
     case GetPartyActorInfo =>
-      sender ! PartyActorStarted(party.name)
+      sender ! PartyActorStarted(party)
   }
 
   // Permanently failed state
   def failed(error: Throwable): Receive = {
     case GetApplicationStateInfo =>
-      sender ! PartyActorFailed(party.name, error)
+      sender ! PartyActorFailed(party, error)
 
     case _ => ()
   }

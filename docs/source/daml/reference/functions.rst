@@ -4,9 +4,7 @@
 Reference: functions
 ####################
 
-This page gives reference information on functions in DAML:
-
-.. contents:: :local:
+This page gives reference information on functions in DAML.
 
 DAML is a functional language. It lets you apply functions partially and also have functions that take other functions as arguments. This page discusses these *higher-order functions*.
 

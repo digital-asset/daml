@@ -4,9 +4,7 @@
 Reference: built-in functions
 #############################
 
-This page gives reference information on functions for:
-
-.. contents:: :local:
+This page gives reference information on functions for.
 
 Working with time
 *****************

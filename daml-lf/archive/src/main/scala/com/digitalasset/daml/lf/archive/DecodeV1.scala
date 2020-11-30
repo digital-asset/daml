@@ -983,6 +983,12 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           assertSince(LV.Features.typeRep, "Expr.type_rep")
           ETypeRep(decodeType(lfExpr.getTypeRep))
 
+        case PLF.Expr.SumCase.MAKE_ANY_EXCEPTION =>
+          throw ParseError("Expr.MAKE_ANY_EXCEPTION") // TODO #8020
+
+        case PLF.Expr.SumCase.FROM_ANY_EXCEPTION =>
+          throw ParseError("Expr.FROM_ANY_EXCEPTION") // TODO #8020
+
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw ParseError("Expr.SUM_NOT_SET")
       }
@@ -1146,6 +1152,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.Update.SumCase.EMBED_EXPR =>
           val embedExpr = lfUpdate.getEmbedExpr
           UpdateEmbedExpr(decodeType(embedExpr.getType), decodeExpr(embedExpr.getBody, definition))
+
+        case PLF.Update.SumCase.TRY_CATCH =>
+          throw ParseError("Update.TRY_CATCH") // TODO #8020
 
         case PLF.Update.SumCase.SUM_NOT_SET =>
           throw ParseError("Update.SUM_NOT_SET")
@@ -1360,7 +1369,11 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(ARROW, BTArrow),
       BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
       BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
-      BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep)
+      BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep),
+      BuiltinTypeInfo(ANY_EXCEPTION, BTText, minVersion = exceptions), // TODO #8020
+      BuiltinTypeInfo(GENERAL_ERROR, BTText, minVersion = exceptions), // TODO #8020
+      BuiltinTypeInfo(ARITHMETIC_ERROR, BTText, minVersion = exceptions), // TODO #8020
+      BuiltinTypeInfo(CONTRACT_ERROR, BTText, minVersion = exceptions) // TODO #8020
     )
   }
 
@@ -1680,6 +1693,14 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId, maxVersion = Some(genMap)),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId),
+      BuiltinFunctionInfo(THROW, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(MAKE_GENERAL_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(MAKE_ARITHMETIC_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(MAKE_CONTRACT_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(GENERAL_ERROR_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(ARITHMETIC_ERROR_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(CONTRACT_ERROR_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),

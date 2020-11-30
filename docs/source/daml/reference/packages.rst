@@ -5,9 +5,7 @@
 Reference: DAML packages
 ########################
 
-This page gives reference information on DAML package dependencies:
-
-.. contents:: :local:
+This page gives reference information on DAML package dependencies.
 
 Building DAML archives
 **********************

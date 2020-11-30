@@ -16,7 +16,9 @@ case object Parties extends SimpleCommand {
       state: State,
       args: List[String],
       set: CommandSet): Either[CommandError, (State, String)] = {
-    Right((state, state.config.parties.map(p => p.name).mkString("\n")))
+    for {
+      parties <- state.getParties ~> "Application not connected"
+    } yield (state, parties.values.map(ps => ps.name).mkString("\n"))
   }
 
 }

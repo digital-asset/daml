@@ -46,6 +46,8 @@ data ExprF expr
   | EToAnyF !Type !expr
   | EFromAnyF !Type !expr
   | ETypeRepF !Type
+  | EMakeAnyExceptionF !Type !expr !expr
+  | EFromAnyExceptionF !Type !expr
   deriving (Foldable, Functor, Traversable)
 
 data BindingF expr = BindingF !(ExprVarName, Type) !expr
@@ -62,6 +64,7 @@ data UpdateF expr
   | UEmbedExprF !Type !expr
   | UFetchByKeyF !(RetrieveByKeyF expr)
   | ULookupByKeyF !(RetrieveByKeyF expr)
+  | UTryCatchF !Type !expr !ExprVarName !expr
   deriving (Foldable, Functor, Traversable)
 
 data RetrieveByKeyF expr = RetrieveByKeyF
@@ -107,6 +110,7 @@ projectUpdate = \case
   UEmbedExpr a b -> UEmbedExprF a b
   ULookupByKey a -> ULookupByKeyF (projectRetrieveByKey a)
   UFetchByKey a -> UFetchByKeyF (projectRetrieveByKey a)
+  UTryCatch a b c d -> UTryCatchF a b c d
 
 projectRetrieveByKey :: RetrieveByKey -> RetrieveByKeyF Expr
 projectRetrieveByKey (RetrieveByKey tpl key) = RetrieveByKeyF tpl key
@@ -123,6 +127,7 @@ embedUpdate = \case
   UEmbedExprF a b -> UEmbedExpr a b
   UFetchByKeyF a -> UFetchByKey (embedRetrieveByKey a)
   ULookupByKeyF a -> ULookupByKey (embedRetrieveByKey a)
+  UTryCatchF a b c d -> UTryCatch a b c d
 
 embedRetrieveByKey :: RetrieveByKeyF Expr -> RetrieveByKey
 embedRetrieveByKey RetrieveByKeyF{..} = RetrieveByKey
@@ -181,6 +186,8 @@ instance Recursive Expr where
     EToAny a b  -> EToAnyF a b
     EFromAny a b -> EFromAnyF a b
     ETypeRep a -> ETypeRepF a
+    EMakeAnyException a b c -> EMakeAnyExceptionF a b c
+    EFromAnyException a b -> EFromAnyExceptionF a b
 
 instance Corecursive Expr where
   embed = \case
@@ -211,3 +218,5 @@ instance Corecursive Expr where
     EToAnyF a b  -> EToAny a b
     EFromAnyF a b -> EFromAny a b
     ETypeRepF a -> ETypeRep a
+    EMakeAnyExceptionF a b c -> EMakeAnyException a b c
+    EFromAnyExceptionF a b -> EFromAnyException a b

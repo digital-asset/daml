@@ -12,10 +12,6 @@ Scenarios emulate the ledger. You can specify a linear sequence of actions that 
 
 For more on how scenarios work, see the :ref:`daml-testing-examples` below.
 
-On this page:
-
-.. contents:: :local:
-
 Scenario syntax
 ***************
 

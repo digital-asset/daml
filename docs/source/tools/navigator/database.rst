@@ -12,9 +12,6 @@ The Navigator database is implemented on top of `SQLite <https://sqlite.org/inde
 
 To run queries, use the ``sql`` Navigator Console command. Take a look at the examples below to see how you might use this command.
 
-.. contents:: On this page:
-  :local:
-
 How the data is structured
 **************************
 To get full details of the schema, run ``sql_schema``.

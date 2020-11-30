@@ -141,6 +141,7 @@ startFromUpdate seen world update = case update of
     LF.UFetch{} -> Set.empty
     LF.ULookupByKey{} -> Set.empty
     LF.UFetchByKey{} -> Set.empty
+    LF.UTryCatch _ e1 _ e2 -> startFromExpr seen world e1 `Set.union` startFromExpr seen world e2
 
 startFromExpr :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Expr -> Set.Set Action
 startFromExpr seen world e = case e of

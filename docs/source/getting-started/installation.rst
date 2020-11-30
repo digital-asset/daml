@@ -31,9 +31,9 @@ Mac and Linux
 
 To install the SDK on Mac or Linux open a terminal and run:
 
-   .. code-block:: shell
+.. code-block:: shell
 
-      curl -sSL https://get.daml.com/ | sh
+   curl -sSL https://get.daml.com/ | sh
 
 The installer will setup the ``PATH`` variable for you. In order for it to take effect, you will have to
 log out and log in again.

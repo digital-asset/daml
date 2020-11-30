@@ -136,6 +136,19 @@ template Simple
       Hello : Text
         do pure "hello"
 
+template SimpleMultiParty
+  with
+    p1: Party
+    p2: Party
+  where
+    agreement show p1 <> show p2
+    signatory p1, p2
+
+    controller p1, p2 can
+      HelloMultiParty : Text
+        do pure "Hello multi-party"
+    
+
 template Composite
    with p1: Party
    where

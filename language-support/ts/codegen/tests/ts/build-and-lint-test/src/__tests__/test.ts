@@ -5,9 +5,10 @@ import { ChildProcess, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
-import Ledger, { Event, Stream } from  '@daml/ledger';
+import Ledger, { Event, Stream, PartyInfo } from  '@daml/ledger';
 import { Int, emptyMap, Map } from '@daml/types';
 import pEvent from 'p-event';
+import _ from 'lodash';
 
 import * as buildAndLint from '@daml.js/build-and-lint-1.0.0'
 
@@ -507,4 +508,25 @@ test('stream close behaviour', async () => {
     'after close',
     'close',
   ]);
+});
+
+test('party API', async () => {
+  const p = (id: string): PartyInfo => ({identifier: id, displayName: id, isLocal: true});
+  const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
+  const parties = await ledger.getParties([ALICE_PARTY, "unknown"]);
+  expect(parties).toEqual([p("Alice"), null]);
+  const rev = await ledger.getParties(["unknown", ALICE_PARTY]);
+  expect(rev).toEqual([null, p("Alice")]);
+
+  const allParties = await ledger.listKnownParties();
+  expect(_.sortBy(allParties, [(p: PartyInfo) => p.identifier])).toEqual([p("Alice"), p("Bob")]);
+
+  const newParty1 = await ledger.allocateParty({});
+  const newParty2 = await ledger.allocateParty({displayName: "Carol"});
+  await ledger.allocateParty({displayName: "Dave", identifierHint: "Dave"});
+
+  const allPartiesAfter = (await ledger.listKnownParties()).map((pi) => pi.identifier);
+
+  expect(_.sortBy(allPartiesAfter)).toEqual(_.sortBy(["Alice", "Bob", "Dave", newParty1.identifier, newParty2.identifier]));
+
 });

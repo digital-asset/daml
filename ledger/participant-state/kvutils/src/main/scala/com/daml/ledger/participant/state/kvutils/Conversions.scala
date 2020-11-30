@@ -123,7 +123,7 @@ private[state] object Conversions {
 
   def buildSubmitterInfo(subInfo: SubmitterInfo): DamlSubmitterInfo =
     DamlSubmitterInfo.newBuilder
-      .addAllSubmitters(subInfo.actAs.asInstanceOf[List[String]].asJava)
+      .addAllSubmitters((subInfo.actAs: List[String]).asJava)
       .setApplicationId(subInfo.applicationId)
       .setCommandId(subInfo.commandId)
       .setDeduplicateUntil(
@@ -257,8 +257,8 @@ private[state] object Conversions {
       }.toMap
     )
 
-  private def encodeParties(parties: Iterable[Party]): List[String] =
-    parties.asInstanceOf[Set[String]].toList.sorted
+  private def encodeParties(parties: Set[Party]): List[String] =
+    (parties.toList: List[String]).sorted
 
   private def encodeDisclosureEntry(disclosureEntry: (NodeId, Set[Party])): DisclosureEntry =
     DisclosureEntry.newBuilder

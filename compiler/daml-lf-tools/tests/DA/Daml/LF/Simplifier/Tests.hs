@@ -103,6 +103,7 @@ constantLiftingTests = testGroup "Constant Lifting"
             , moduleDataTypes = NM.empty
             , moduleTemplates = NM.empty
             , moduleValues = NM.fromList vs
+            , moduleExceptions = NM.empty
             }
     version = versionDev
     world = initWorld [] version

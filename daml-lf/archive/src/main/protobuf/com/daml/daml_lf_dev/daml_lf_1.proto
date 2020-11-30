@@ -47,6 +47,7 @@
 //        2019-10-13: Add ExerciseByKey Update
 //        2020-11-04: Add interning of types
 //        2020-11-??: Add choice-observers
+//        2020-11-27: Add exception handling & primitives
 
 syntax = "proto3";
 package daml_lf_1;
@@ -73,7 +74,7 @@ message PackageRef {
     // An index into `interned_package_ids` of the Package containing
     // this reference.
     // *Must be a valid interned package Id string*
-    int32 package_id_interned_str = 3; // *Available in versions >= 1.6*
+    int32 package_id_interned_str = 3;
   }
 }
 
@@ -308,6 +309,22 @@ enum PrimType {
   // Builtin type 'TGenMap`
   // *Available in versions >= 1.dev*
   GENMAP = 20;
+
+  // Builtin type 'TAnyException'
+  // *Available in versions >= 1.dev*
+  ANY_EXCEPTION = 21;
+
+  // Builtin type 'TGeneralError'
+  // *Available in versions >= 1.dev*
+  GENERAL_ERROR = 22;
+
+  // Builtin type 'TArithmeticError'
+  // *Available in versions >= 1.dev*
+  ARITHMETIC_ERROR = 23;
+
+  // Builtin type 'TContractError'
+  // *Available in versions >= 1.dev*
+  CONTRACT_ERROR = 24;
 }
 
 // Types
@@ -468,6 +485,14 @@ enum BuiltinFunction {
   APPEND_TEXT = 24;
 
   ERROR = 25;
+  THROW = 137;                      // *Available in versions >= 1.dev*
+  ANY_EXCEPTION_MESSAGE = 138;      // *Available in versions >= 1.dev*
+  MAKE_GENERAL_ERROR = 139;         // *Available in versions >= 1.dev*
+  GENERAL_ERROR_MESSAGE = 140;      // *Available in versions >= 1.dev*
+  MAKE_ARITHMETIC_ERROR = 141;      // *Available in versions >= 1.dev*
+  ARITHMETIC_ERROR_MESSAGE = 142;   // *Available in versions >= 1.dev*
+  MAKE_CONTRACT_ERROR = 143;        // *Available in versions >= 1.dev*
+  CONTRACT_ERROR_MESSAGE = 144;     // *Available in versions >= 1.dev*
 
   LEQ_INT64 = 33;         // *Available in versions < 1.dev*
   LEQ_DECIMAL = 34;       // *Available in versions < 1.7*
@@ -555,7 +580,7 @@ enum BuiltinFunction {
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
 
-  // Next id is 137. 136 is TO_TEXT_CONTRACT_ID.
+  // Next id is 145. 144 is CONTRACT_ERROR_MESSAGE.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
@@ -853,6 +878,27 @@ message Expr {
     Expr expr = 2;
   }
 
+  // Wrap an exception value in AnyException
+  // *Available in versions >= 1.dev*
+  message MakeAnyException {
+    // type of argument. Must be an exception type.
+    Type type = 1;
+    // argument
+    Expr expr = 2;
+    // error message
+    Expr message = 3;
+  }
+
+  // Extract the given exception type from AnyException or return None on type-mismatch
+  // *Available in versions >= 1.7*
+  message FromAnyException {
+    // type that should be extracted. Must be an exception type.
+    Type type = 1;
+    // Value of type AnyException
+    Expr expr = 2;
+  }
+
+
   // Location of the expression in the DAML code source.
   // Optional
   Location location = 25;
@@ -950,6 +996,14 @@ message Expr {
     // A type representation
     // *Available in versions >= 1.7*
     Type type_rep = 32;
+
+    // Wrap an arbitrary exception into an AnyException ('ExpMakeAnyException').
+    // *Available in versions >= 1.dev*
+    MakeAnyException make_any_exception = 33;
+
+    // Extract an arbitrary exception from an AnyException ('ExpFromAnyException').
+    // *Available in versions >= 1.dev*
+    FromAnyException from_any_exception = 34;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*
@@ -1140,6 +1194,17 @@ message Update {
     Expr key = 2;
   }
 
+  // Try-catch block.
+  message TryCatch {
+    Type return_type = 1;
+    Expr try_expr = 2;
+
+    // Name of the bound expression variable.
+    // *Must be a valid interned identifier*
+    int32 var_interned_str = 3;
+    Expr catch_expr = 4;
+  }
+
   oneof Sum {
     Pure pure = 1;
     Block block = 2;
@@ -1152,6 +1217,7 @@ message Update {
     RetrieveByKey fetch_by_key = 9; // *Available in versions >= 1.2*
     // see similar constructor in `Scenario` on why this is useful.
     EmbedExpr embed_expr = 7;
+    TryCatch try_catch = 11; // *Available in versions >= 1.dev*
   }
 }
 
@@ -1346,6 +1412,14 @@ message DefTemplate {
   DefKey key = 10; // optional // *Available in versions >= 1.3*
 }
 
+// Exception definition
+// *Available in versions >= 1.dev*
+message DefException {
+  // *Must be a valid interned dotted name*
+  int32 name_interned_dname = 1;
+  Location location = 2;
+}
+
 // Data type definition
 message DefDataType {
   message Fields {
@@ -1467,6 +1541,7 @@ message Module {
   repeated DefDataType data_types = 5;
   repeated DefValue values = 6;
   repeated DefTemplate templates = 7;
+  repeated DefException exceptions = 10; // *Available in versions >= 1.dev* (#8020)
 }
 
 message InternedDottedName {
@@ -1480,7 +1555,7 @@ message PackageMetadata {
 
 message Package {
   repeated Module modules = 1;
-  repeated string interned_strings = 2; // *Available in versions >= 1.6*
+  repeated string interned_strings = 2;
   repeated InternedDottedName interned_dotted_names = 3; // *Available in versions >= 1.7*
   PackageMetadata metadata = 4; // *Available and required in versions >= 1.8*
 

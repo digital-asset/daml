@@ -160,11 +160,11 @@ module.exports = function(grunt) {
     watch: {
       /* Compile sass changes into theme directory */
       sass: {
-        files: ['sass/*.sass', 'bower_components_static/**/*.sass'],
+        files: ['sass/**/*.sass', 'bower_components_static/**/*.sass'],
         tasks: ['sass:dev']
       },
       /* Static */
-      sass: {
+      browserify: {
         files: ['da_theme_skeleton/**/*'],
         tasks: ['clean','copy:skeleton','sass:dev','browserify:dev']
       },
