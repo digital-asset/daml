@@ -128,6 +128,10 @@ kindOfBuiltin = \case
   BTArrow -> KStar `KArrow` KStar `KArrow` KStar
   BTAny -> KStar
   BTTypeRep -> KStar
+  BTAnyException -> KStar
+  BTGeneralError -> KStar
+  BTArithmeticError -> KStar
+  BTContractError -> KStar
 
 checkKind :: MonadGamma m => Kind -> m ()
 checkKind = \case
@@ -208,6 +212,14 @@ typeOfBuiltin = \case
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
+  BEThrow            -> pure $ TForall (alpha, KStar) (TAnyException :-> tAlpha)
+  BEAnyExceptionMessage -> pure $ TAnyException :-> TText
+  BEGeneralErrorMessage -> pure $ TGeneralError :-> TText
+  BEArithmeticErrorMessage -> pure $ TArithmeticError :-> TText
+  BEContractErrorMessage -> pure $ TContractError :-> TText
+  BEMakeGeneralError -> pure $ TText :-> TGeneralError
+  BEMakeArithmeticError -> pure $ TText :-> TArithmeticError
+  BEMakeContractError -> pure $ TText :-> TContractError
   BEEqualGeneric     -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BELessGeneric      -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BELessEqGeneric    -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
@@ -617,6 +629,12 @@ typeOfUpdate = \case
   ULookupByKey retrieveByKey -> do
     (cidType, _contractType) <- checkRetrieveByKey retrieveByKey
     return (TUpdate (TOptional cidType))
+  UTryCatch typ expr var handler -> do
+    checkType typ KStar
+    checkExpr expr (TUpdate typ)
+    introExprVar var TAnyException $ do
+        checkExpr handler (TOptional (TUpdate typ))
+    pure (TUpdate typ)
 
 typeOfScenario :: MonadGamma m => Scenario -> m Type
 typeOfScenario = \case
@@ -679,6 +697,15 @@ typeOf' = \case
   ETypeRep ty -> do
     checkGroundType ty
     pure $ TBuiltin BTTypeRep
+  EMakeAnyException ty msg val -> do
+    checkExceptionType ty
+    checkExpr msg TText
+    checkExpr val ty
+    pure TAnyException
+  EFromAnyException ty val -> do
+    checkExceptionType ty
+    checkExpr val TAnyException
+    pure (TOptional ty)
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
@@ -700,6 +727,21 @@ checkGroundType :: MonadGamma m => Type -> m ()
 checkGroundType ty = do
     _ <- checkType ty KStar
     checkGroundType' ty
+
+checkExceptionType' :: MonadGamma m => Type -> m ()
+checkExceptionType' = \case
+    TGeneralError -> pure ()
+    TArithmeticError -> pure ()
+    TContractError -> pure ()
+    TCon qtcon -> do
+      _ <- inWorld (lookupException qtcon)
+      pure ()
+    ty -> throwWithContext (EExpectedExceptionType ty)
+
+checkExceptionType :: MonadGamma m => Type -> m ()
+checkExceptionType ty = do
+    checkType ty KStar
+    checkExceptionType' ty
 
 checkExpr' :: MonadGamma m => Expr -> Type -> m Type
 checkExpr' expr typ = do

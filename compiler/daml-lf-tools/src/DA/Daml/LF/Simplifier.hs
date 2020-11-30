@@ -83,6 +83,14 @@ safetyStep = \case
       BEUnit              -> Safe 0
       BEBool _            -> Safe 0
       BEError             -> Safe 0
+      BEThrow -> Safe 0
+      BEAnyExceptionMessage -> Safe 1
+      BEGeneralErrorMessage -> Safe 1
+      BEArithmeticErrorMessage -> Safe 1
+      BEContractErrorMessage -> Safe 1
+      BEMakeGeneralError -> Safe 1
+      BEMakeArithmeticError -> Safe 1
+      BEMakeContractError -> Safe 1
       BEEqualGeneric      -> Safe 1 -- may crash if values are incomparable
       BELessGeneric       -> Safe 1 -- may crash if values are incomparable
       BELessEqGeneric     -> Safe 1 -- may crash if values are incomparable
@@ -208,7 +216,12 @@ safetyStep = \case
     | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
   ETypeRepF _ -> Safe 0
-
+  EMakeAnyExceptionF _ s1 s2
+    | Safe _ <- min s1 s2 -> Safe 0
+    | otherwise -> Unsafe
+  EFromAnyExceptionF _ s
+    | Safe _ <- s -> Safe 0
+    | otherwise -> Unsafe
 
 isTypeClassDictionary :: DefValue -> Bool
 isTypeClassDictionary DefValue{..}

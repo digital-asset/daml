@@ -179,6 +179,10 @@ data BuiltinType
   | BTArrow
   | BTAny
   | BTTypeRep
+  | BTAnyException
+  | BTGeneralError
+  | BTArithmeticError
+  | BTContractError
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Type as used in typed binders.
@@ -230,8 +234,18 @@ data BuiltinExpr
   | BEUnit                       -- :: Unit
   | BEBool       !Bool           -- :: Bool
 
-  -- Polymorphic functions
+  -- Exceptions
   | BEError                      -- :: ∀a. Text -> a
+  | BEThrow                      -- :: ∀a. AnyException -> a
+  | BEAnyExceptionMessage        -- :: AnyException -> Text
+  | BEGeneralErrorMessage        -- :: GeneralError -> Text
+  | BEArithmeticErrorMessage     -- :: ArithmeticError -> Text
+  | BEContractErrorMessage       -- :: ContractError -> Text
+  | BEMakeGeneralError           -- :: Text -> GeneralError
+  | BEMakeArithmeticError        -- :: Text -> ArithmeticError
+  | BEMakeContractError          -- :: Text -> ContractError
+
+  -- Polymorphic functions
   | BEEqualGeneric               -- :: ∀t. t -> t -> Bool
   | BELessGeneric                -- :: ∀t. t -> t -> Bool
   | BELessEqGeneric              -- :: ∀t. t -> t -> Bool
@@ -501,6 +515,17 @@ data Expr
     , fromAnyBody :: !Expr
     }
   | ETypeRep !Type
+  -- | Construct an 'AnyException' value from a value of an exception type.
+  | EMakeAnyException
+    { makeAnyExceptionType :: !Type
+    , makeAnyExceptionMessage :: !Expr
+    , makeAnyExceptionValue :: !Expr
+    }
+  -- | Convert 'AnyException' back to its underlying value, if possible.
+  | EFromAnyException
+    { fromAnyExceptionType :: !Type
+    , fromAnyExceptionValue :: !Expr
+    }
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.
@@ -620,6 +645,12 @@ data Update
     }
   | ULookupByKey !RetrieveByKey
   | UFetchByKey !RetrieveByKey
+  | UTryCatch
+    { tryCatchType :: !Type
+    , tryCatchExpr :: !Expr
+    , tryCatchVar :: !ExprVarName
+    , tryCatchHandler :: !Expr
+    }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Expression in the scenario monad

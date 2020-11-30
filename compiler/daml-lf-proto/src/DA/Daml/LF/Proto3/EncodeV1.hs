@@ -133,6 +133,13 @@ encodeName'
 encodeName' unwrapName (unwrapName -> unmangled) = do
     Util.fromEither @TL.Text @Int32 <$> coerce (encodeNames @Identity) unmangled
 
+encodeNameId :: (a -> T.Text) -> a -> Encode Int32
+encodeNameId unwrapName (unwrapName -> unmangled) = do
+    (encoded :: Either TL.Text Int32) <- encodeName' id unmangled
+    case encoded of
+        Left _ -> error ("could not intern name " <> show unmangled)
+        Right id -> pure id
+
 encodeNames :: Traversable t => t T.Text -> Encode (Either (t TL.Text) (t Int32))
 encodeNames = encodeInternableStrings . fmap mangleName
     where
@@ -161,6 +168,13 @@ encodeDottedName' unmangled = do
         Right ids -> do
             id <- allocDottedName ids
             pure $ Right id
+
+encodeDottedNameId :: (a -> [T.Text]) -> a -> Encode Int32
+encodeDottedNameId unwrapDottedName (unwrapDottedName -> unmangled) = do
+    encoded <- encodeDottedName' unmangled
+    case encoded of
+        Left _ -> error ("could not intern dotted name " <> show unmangled)
+        Right id -> pure id
 
 -- | Encode the name of a top-level value. The name is mangled and will be
 -- interned in DAML-LF 1.7 and onwards.
@@ -293,6 +307,10 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTNumeric -> P.PrimTypeNUMERIC
     BTAny -> P.PrimTypeANY
     BTTypeRep -> P.PrimTypeTYPE_REP
+    BTAnyException -> P.PrimTypeANY_EXCEPTION
+    BTGeneralError -> P.PrimTypeGENERAL_ERROR
+    BTArithmeticError -> P.PrimTypeARITHMETIC_ERROR
+    BTContractError -> P.PrimTypeCONTRACT_ERROR
 
 encodeType' :: Type -> Encode P.Type
 encodeType' typ = do
@@ -496,7 +514,16 @@ encodeBuiltinExpr = \case
     BEAppendText -> builtin P.BuiltinFunctionAPPEND_TEXT
     BEImplodeText -> builtin P.BuiltinFunctionIMPLODE_TEXT
     BESha256Text -> builtin P.BuiltinFunctionSHA256_TEXT
+
     BEError -> builtin P.BuiltinFunctionERROR
+    BEThrow -> builtin P.BuiltinFunctionTHROW
+    BEAnyExceptionMessage -> builtin P.BuiltinFunctionANY_EXCEPTION_MESSAGE
+    BEGeneralErrorMessage -> builtin P.BuiltinFunctionGENERAL_ERROR_MESSAGE
+    BEArithmeticErrorMessage -> builtin P.BuiltinFunctionARITHMETIC_ERROR_MESSAGE
+    BEContractErrorMessage -> builtin P.BuiltinFunctionCONTRACT_ERROR_MESSAGE
+    BEMakeGeneralError -> builtin P.BuiltinFunctionMAKE_GENERAL_ERROR
+    BEMakeArithmeticError -> builtin P.BuiltinFunctionMAKE_ARITHMETIC_ERROR
+    BEMakeContractError -> builtin P.BuiltinFunctionMAKE_CONTRACT_ERROR
 
     BETextMapEmpty -> builtin P.BuiltinFunctionTEXTMAP_EMPTY
     BETextMapInsert -> builtin P.BuiltinFunctionTEXTMAP_INSERT
@@ -645,6 +672,15 @@ encodeExpr' = \case
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
     ETypeRep ty -> do
         expr . P.ExprSumTypeRep <$> encodeType' ty
+    EMakeAnyException ty msg val -> do
+        expr_MakeAnyExceptionType <- encodeType ty
+        expr_MakeAnyExceptionMessage <- encodeExpr msg
+        expr_MakeAnyExceptionExpr <- encodeExpr val
+        pureExpr $ P.ExprSumMakeAnyException P.Expr_MakeAnyException{..}
+    EFromAnyException ty val -> do
+        expr_FromAnyExceptionType <- encodeType ty
+        expr_FromAnyExceptionExpr <- encodeExpr val
+        pureExpr $ P.ExprSumFromAnyException P.Expr_FromAnyException{..}
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr
@@ -692,6 +728,12 @@ encodeUpdate = fmap (P.Update . Just) . \case
         P.UpdateSumFetchByKey <$> encodeRetrieveByKey rbk
     ULookupByKey rbk ->
         P.UpdateSumLookupByKey <$> encodeRetrieveByKey rbk
+    UTryCatch{..} -> do
+        update_TryCatchReturnType <- encodeType tryCatchType
+        update_TryCatchTryExpr <- encodeExpr tryCatchExpr
+        update_TryCatchVarInternedStr <- encodeNameId unExprVarName tryCatchVar
+        update_TryCatchCatchExpr <- encodeExpr tryCatchHandler
+        pure $ P.UpdateSumTryCatch P.Update_TryCatch{..}
 
 encodeRetrieveByKey :: RetrieveByKey -> Encode P.Update_RetrieveByKey
 encodeRetrieveByKey RetrieveByKey{..} = do
@@ -809,6 +851,12 @@ encodeDefValue DefValue{..} = do
     defValueLocation <- traverse encodeSourceLoc dvalLocation
     pure P.DefValue{..}
 
+encodeDefException :: DefException -> Encode P.DefException
+encodeDefException DefException{..} = do
+    defExceptionNameInternedDname <- encodeDottedNameId unTypeConName exnName
+    defExceptionLocation <- traverse encodeSourceLoc exnLocation
+    pure P.DefException{..}
+
 encodeTemplate :: Template -> Encode P.DefTemplate
 encodeTemplate Template{..} = do
     defTemplateTycon <- encodeDottedName unTypeConName tplTypeCon
@@ -866,7 +914,7 @@ encodeModule Module{..} = do
     moduleDataTypes <- encodeNameMap encodeDefDataType moduleDataTypes
     moduleValues <- encodeNameMap encodeDefValue moduleValues
     moduleTemplates <- encodeNameMap encodeTemplate moduleTemplates
-    let moduleExceptions = V.empty -- TODO #8020
+    moduleExceptions <- encodeNameMap encodeDefException moduleExceptions
     pure P.Module{..}
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata

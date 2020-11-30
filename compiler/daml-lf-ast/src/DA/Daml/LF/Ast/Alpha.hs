@@ -196,6 +196,15 @@ alphaExpr' env = \case
     ETypeRep t1 -> \case
         ETypeRep t2 -> alphaType' env t1 t2
         _ -> False
+    EMakeAnyException t1 e1a e1b -> \case
+        EMakeAnyException t2 e2a e2b -> alphaType' env t1 t2
+            && alphaExpr' env e1a e2a
+            && alphaExpr' env e1b e2b
+        _ -> False
+    EFromAnyException t1 e1 -> \case
+        EFromAnyException t2 e2 -> alphaType' env t1 t2
+            && alphaExpr' env e1 e2
+        _ -> False
     EUpdate u1 -> \case
         EUpdate u2 -> alphaUpdate env u1 u2
         _ -> False
@@ -286,6 +295,11 @@ alphaUpdate env = \case
         _ -> False
     UFetchByKey r1 -> \case
         UFetchByKey r2 -> alphaRetrieveByKey env r1 r2
+        _ -> False
+    UTryCatch t1 e1a x1 e1b -> \case
+        UTryCatch t2 e2a x2 e2b -> alphaType' env t1 t2
+            && alphaExpr' env e1a e2a
+            && alphaExpr' (bindExprVar x1 x2 env) e1b e2b
         _ -> False
 
 alphaRetrieveByKey :: AlphaEnv -> RetrieveByKey -> RetrieveByKey -> Bool
