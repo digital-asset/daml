@@ -92,7 +92,7 @@ DAML Documentation
    :hidden:
    :caption: Examples
 
-   examples/examples
+   Examples <https://daml.com/examples>
 
 .. toctree::
    :titlesonly:
