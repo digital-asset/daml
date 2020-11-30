@@ -70,6 +70,10 @@ object Queries {
       CREATE INDEX ON contract (tpid)
     """
 
+  private[this] val indexContractsKeys: Fragment = sql"""
+      CREATE INDEX ON contract USING BTREE (tpid, key)
+  """
+
   final case class DBOffset[+TpId](party: String, templateId: TpId, lastOffset: String)
 
   private[this] val dropOffsetTable: Fragment = dropTableIfExists("ledger_offset")
@@ -110,7 +114,8 @@ object Queries {
     (createTemplateIdsTable.update.run
       *> createOffsetTable.update.run
       *> createContractsTable.update.run
-      *> indexContractsTable.update.run).void
+      *> indexContractsTable.update.run
+      *> indexContractsKeys.update.run).void
 
   def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(
       implicit log: LogHandler): ConnectionIO[SurrogateTpId] =
