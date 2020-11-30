@@ -1060,10 +1060,7 @@ object JsonLedgerClient {
         "templateId" -> args.templateId.toJson,
         "key" -> LfValueCodec.apiValueToJsValue(args.key))
     implicit val fetchReader: RootJsonReader[FetchResponse] = v =>
-      v match {
-        case JsNull => FetchResponse(None)
-        case r => FetchResponse(Some(r.convertTo[ActiveContract]))
-    }
+      FetchResponse(v.convertTo[Option[ActiveContract]])
 
     implicit val activeContractReader: RootJsonReader[ActiveContract] = v => {
       v.asJsObject.getFields("contractId", "payload") match {
