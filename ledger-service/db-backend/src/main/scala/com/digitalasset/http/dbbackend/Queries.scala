@@ -259,7 +259,7 @@ object Queries {
       gvs: Get[Vector[String]],
       pvs: Put[Vector[String]])
     : ConnectionIO[Option[DBContract[Unit, JsValue, JsValue, Vector[String]]]] =
-    selectContracts(parties, tpid, sql"key = $key").option
+    selectContracts(parties, tpid, sql"key = $key::jsonb").option
 
   object Implicits {
     implicit val `JsValue put`: Meta[JsValue] =
