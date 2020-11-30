@@ -691,7 +691,7 @@ available for usage::
             , 'choices' { ChDef₁, …, ChDefₘ }
             , KeyDef
             }
-       |  'exception' (x: T)                        -- DefException [*Available in version >= 1.dev*]
+       |  'exception' (x: T)                        -- DefException [DAML-LF ≥ 1.dev]
 
   Module (mnemonic: delta for definitions)
     Δ ::= ε                                         -- DefCtxEmpty
@@ -915,16 +915,16 @@ We now formally defined *well-formed types*. ::
    ————————————————————————————————————————————— TyScenario
      Γ  ⊢  'Scenario' : ⋆ → ⋆
 
-   ————————————————————————————————————————————— TyAnyException
+   ————————————————————————————————————————————— TyAnyException [DAML-LF ≥ 1.dev]
      Γ  ⊢  'AnyException' : ⋆
 
-   ————————————————————————————————————————————— TyGeneralError
+   ————————————————————————————————————————————— TyGeneralError [DAML-LF ≥ 1.dev]
      Γ  ⊢  'GeneralError' : ⋆
 
-   ————————————————————————————————————————————— TyArithmeticError
+   ————————————————————————————————————————————— TyArithmeticError [DAML-LF ≥ 1.dev]
      Γ  ⊢  'ArithmeticError' : ⋆
 
-   ————————————————————————————————————————————— TyContractError
+   ————————————————————————————————————————————— TyContractError [DAML-LF ≥ 1.dev]
      Γ  ⊢  'ContractError' : ⋆
 
 
@@ -1136,12 +1136,12 @@ Then we define *well-formed expressions*. ::
       ε  ⊢  τ  :  ⋆      ⊢ₑ  τ
       Γ  ⊢  eₘ  : 'Text'
       Γ  ⊢  eₚ  :  τ
-    ——————————————————————————————————————————————————————————————— ExpMakeAnyException
+    ——————————————————————————————————————————————————————————————— ExpMakeAnyException [DAML-LF ≥ 1.dev]
       Γ  ⊢  'make_any_exception' @τ eₘ eₚ  :  'AnyException'
 
       ε  ⊢  τ  :  ⋆      ⊢ₑ  τ
       Γ  ⊢  e  :  'AnyException'
-    ——————————————————————————————————————————————————————————————— ExpFromAnyException
+    ——————————————————————————————————————————————————————————————— ExpFromAnyException [DAML-LF ≥ 1.dev]
       Γ  ⊢  'from_any_exception' @τ e  :  'Option' τ
 
       Γ  ⊢  τ  :  ⋆      Γ  ⊢  e  :  τ
@@ -1214,7 +1214,7 @@ Then we define *well-formed expressions*. ::
       τ  ↠  τ'
       Γ  ⊢  e₁  :  'Update' τ'
       x : 'AnyException' · Γ  ⊢  e₂  :  'Optional' ('Update' τ')
-    ——————————————————————————————————————————————————————————————— UpdTryCatch
+    ——————————————————————————————————————————————————————————————— UpdTryCatch [DAML-LF ≥ 1.dev]
       Γ  ⊢  'try' @τ e₁ 'catch' x. e₂  :  'Update' τ'
 
       Γ  ⊢  τ  : ⋆      Γ  ⊢  e  :  τ
@@ -1519,7 +1519,7 @@ for the ``DefTemplate`` rule). ::
     'record' T ↦ { f₁ : τ₁, …, fₙ : τₙ }  ∈  〚Ξ〛Mod
     ⊢ₛ  Mod:T
     x : Mod:T  ⊢  eₘ  :  'Text'
-  ——————————————————————————————————————————————————————————————— DefException
+  ——————————————————————————————————————————————————————————————— DefException [DAML-LF ≥ 1.dev]
     ⊢  'exception' (x : T) ↦ { 'message' eₘ }
 
                           ┌───────────────────┐
@@ -1711,6 +1711,7 @@ Then, a collection of packages ``Ξ`` is well-formed if:
 
 * Each definition in ``Ξ`` is `well-formed <well-formed-definitions_>`_;
 * Each template in ``Ξ`` is `coherent <Template coherence_>`_;
+* Each exception in ``Ξ`` is `coherent <Exception coherence_>`_;
 * The `party literal restriction`_ is respected for
   every module in ``Ξ`` -- taking the ``ForbidPartyLiterals`` flag into
   account.
@@ -2085,11 +2086,23 @@ types that satisfies the following rules::
   ——————————————————————————————————————————————————— TypeOrderTypeRepUpdate
     'TypeRep' <ₜ 'Update'
 
-  ——————————————————————————————————————————————————— TypeOrderTypeRepUpdate
+  ——————————————————————————————————————————————————— TypeOrderUpdateScenario
     'Update' <ₜ 'Scenario'
 
-  —————————————————————————————————————————————————— TypeOrderUpdateTyCon
-    'Update' <ₜ Mod:T
+  ——————————————————————————————————————————————————— TypeOrderScenarioAnyException
+    'Scenario' <ₜ 'AnyException'
+
+  ——————————————————————————————————————————————————— TypeOrderAnyExceptionGeneralError
+    'AnyException' <ₜ 'GeneralError'
+
+  ——————————————————————————————————————————————————— TypeOrderGeneralErrorArithmeticError
+    'GeneralError' <ₜ 'ArithmeticError'
+
+  ——————————————————————————————————————————————————— TypeOrderArithmeticErrorContractError
+    'ArithmeticError' <ₜ 'ContractError'
+
+  —————————————————————————————————————————————————— TypeOrderContractErrorTyCon
+    'ContractError' <ₜ Mod:T
 
     PkgId₁ comes lexicographically before PkgId₂
   ——————————————————————————————————————————————————— TypeOrderTyConPackageId
@@ -2137,18 +2150,6 @@ types that satisfies the following rules::
     σ₁ <ₜ σ₂
   ——————————————————————————————————————————————————— TypeOrderTypeAppRight
     τ σ₁ <ₜ τ σ₂
-
-  ——————————————————————————————————————————————————— TypeOrderTyAppAnyException
-    τ σ <ₜ 'AnyException'
-
-  ——————————————————————————————————————————————————— TypeOrderAnyExceptionGeneralError
-    'AnyException' <ₜ 'GeneralError'
-
-  ——————————————————————————————————————————————————— TypeOrderGeneralErrorArithmeticError
-    'GeneralError' <ₜ 'ArithmeticError'
-
-  ——————————————————————————————————————————————————— TypeOrderArithmeticErrorContractError
-    'ArithmeticError' <ₜ 'ContractError'
 
 
 Note that ``<ₜ`` is undefined on types containing variables,
@@ -2405,20 +2406,6 @@ exact output.
       ⟨ e 'with' fᵢ = eᵢ ⟩
         ⇓
       Ok ⟨ f₁= v₁, …, fᵢ= vᵢ', …, fₙ= vₙ ⟩
-
-      e  ⇓  Err v
-    —————————————————————————————————————————————————————————————————————— EvExpErrorErr
-      'ERROR' @τ e  ⇓  Err v
-
-      e  ⇓  Ok v
-    —————————————————————————————————————————————————————————————————————— EvExpError
-      'ERROR' @τ e
-        ⇓
-      Err ('make_any_exception' @'GeneralError' v ('MAKE_GENERAL_ERROR' v))
-
-      e  ⇓  Err v
-    —————————————————————————————————————————————————————————————————————— EvExpThrowErr
-      'THROW' @τ e  ⇓  Err v
 
       e  ⇓  Ok v
     —————————————————————————————————————————————————————————————————————— EvExpThrow
@@ -3115,18 +3102,18 @@ as described by the ledger model::
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err v₂, 'fail' v₁ tr₁)
 
      e₁  ⇓  Err v₁
-     e₂[x ↦ v₁]  ⇓  Ok ('None' @_)
+     e₂[x ↦ v₁]  ⇓  Ok ('None' @σ)
    —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr2e
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err v₁, ε)
 
      e₁  ⇓  Ok u₁
      u₁ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
-     e₂[x ↦ v₁]  ⇓  Ok ('None' @_)
+     e₂[x ↦ v₁]  ⇓  Ok ('None' @σ)
    —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr2u
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
 
      e₁  ⇓  Err v₁
-     e₂[x ↦ v₁]  ⇓  Ok ('Some' @_ u₂)
+     e₂[x ↦ v₁]  ⇓  Ok ('Some' @σ u₂)
      u2 ‖ S₀  ⇓ᵤ  (Err v₂, tr₂)
    —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr3e
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀
@@ -3135,7 +3122,7 @@ as described by the ledger model::
 
      e₁  ⇓  Ok u₁
      u₁ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
-     e₂[x ↦ v₁]  ⇓  Ok ('Some' @_ u₂)
+     e₂[x ↦ v₁]  ⇓  Ok ('Some' @σ u₂)
      u2 ‖ S₀  ⇓ᵤ  (Err v₂, tr₂)
    —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr3u
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀
@@ -3143,7 +3130,7 @@ as described by the ledger model::
      (Err v₂, ('fail' v₁ tr₁) ⋅ tr₂)
 
      e₁  ⇓  Err v₁
-     e₂[x ↦ v₁]  ⇓  Ok ('Some' @_ u₂)
+     e₂[x ↦ v₁]  ⇓  Ok ('Some' @σ u₂)
      u2 ‖ S₀  ⇓ᵤ  (Ok v₂, tr₂) ‖ S₂
    —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr4e
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀
@@ -3152,7 +3139,7 @@ as described by the ledger model::
 
      e₁  ⇓  Ok u₁
      u₁ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
-     e₂[x ↦ v₁]  ⇓  Ok ('Some' @_ u₂)
+     e₂[x ↦ v₁]  ⇓  Ok ('Some' @σ u₂)
      u2 ‖ S₀  ⇓ᵤ  (Ok v₂, tr₂) ‖ S₂
    —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr4u
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀
@@ -4125,8 +4112,12 @@ Error functions
 
 * ``ERROR : ∀ (α : ⋆) . 'Text' → α``
 
-  Throws a ``'GeneralError'`` with the string as message. See the evaluation
-  rule ``EvExpError`` for precise semantics.
+  Throws a ``'GeneralError'`` with the string as message. Formally the function
+  is defined as a shortcut for the function::
+
+    'ERROR' ≡
+        Λ (α : ⋆). λ (x : 'Text').
+        'THROW' @α ('make_any_exception' @'GeneralError' x ('MAKE_GENERAL_ERROR' x))
 
 * ``THROW : ∀ (α : ⋆) . 'AnyException' → α``
 
