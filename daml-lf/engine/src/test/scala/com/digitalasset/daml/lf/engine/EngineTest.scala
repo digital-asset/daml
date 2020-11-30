@@ -712,7 +712,7 @@ class EngineTest
           seeding = InitialSeeding.TransactionSeed(seed),
           globalCids = Set.empty,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume((_, _) => None, lookupPackage, lookupKey)
 
       inside(result) {
         case Left(err) =>
@@ -748,7 +748,7 @@ class EngineTest
           seeding = InitialSeeding.TransactionSeed(seed),
           globalCids = Set.empty,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume((_, _) => None, lookupPackage, lookupKey)
 
       inside(result) {
         case Left(err) =>
@@ -781,7 +781,7 @@ class EngineTest
           seeding = InitialSeeding.TransactionSeed(seed),
           globalCids = Set.empty,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume((_, _) => None, lookupPackage, lookupKey)
 
       inside(result) {
         case Left(err) =>
@@ -1507,7 +1507,7 @@ class EngineTest
           seeding = InitialSeeding.TransactionSeed(seed),
           globalCids = Set.empty,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume((_, _) => None, lookupPackage, lookupKey)
 
       inside(result) {
         case Left(err) =>
@@ -1667,7 +1667,7 @@ class EngineTest
       )
       engine
         .submit(Commands(party, ImmArray(command), let, "test"), participant, submissionSeed)
-        .consume(_ => None, lookupPackage, _ => None)
+        .consume((_, _) => None, lookupPackage, _ => None)
     }
 
     "produce a quadratic number of nodes" in {
@@ -1683,7 +1683,7 @@ class EngineTest
           submitter <- tx.guessSubmitter.left.map(ValidationError)
           res <- engine
             .validate(submitter, tx, let, participant, metaData.submissionTime, submissionSeed)
-            .consume(_ => None, lookupPackage, _ => None)
+            .consume((_, _) => None, lookupPackage, _ => None)
         } yield res
 
       run(0).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
@@ -1732,7 +1732,7 @@ class EngineTest
       val Right((cmds, globalCids)) = preprocessor
         .preprocessCommands(ImmArray(
           CreateAndExerciseCommand(templateId, createArg, "DontExecuteCreate", exerciseArg)))
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume((_, _) => None, lookupPackage, lookupKey)
 
       val result = engine
         .interpretCommands(
@@ -1744,7 +1744,7 @@ class EngineTest
           seeding = InitialSeeding.TransactionSeed(txSeed),
           globalCids = globalCids,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume((_, _) => None, lookupPackage, lookupKey)
       result shouldBe 'right
     }
 
@@ -1759,7 +1759,7 @@ class EngineTest
 
       val Right((cmds, globalCids)) = preprocessor
         .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume((_, _) => None, lookupPackage, lookupKey)
 
       val result = engine
         .interpretCommands(
@@ -1771,7 +1771,7 @@ class EngineTest
           seeding = InitialSeeding.TransactionSeed(txSeed),
           globalCids = globalCids,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume((_, _) => None, lookupPackage, lookupKey)
       result shouldBe 'left
       val Left(err) = result
       err.msg should not include ("Boom")
@@ -1789,7 +1789,7 @@ class EngineTest
 
       val Right((cmds, globalCids)) = preprocessor
         .preprocessCommands(ImmArray(CreateCommand(templateId, createArg)))
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume((_, _) => None, lookupPackage, lookupKey)
       val result = engine
         .interpretCommands(
           validating = false,
@@ -1800,7 +1800,7 @@ class EngineTest
           seeding = InitialSeeding.TransactionSeed(txSeed),
           globalCids = globalCids,
         )
-        .consume(_ => None, lookupPackage, lookupKey)
+        .consume((_, _) => None, lookupPackage, lookupKey)
 
       inside(result) {
         case Left(err) =>
@@ -2002,5 +2002,10 @@ object EngineTest {
         )
     }
   }
+
+  private[this] implicit def adaptLookup[X](
+      f: ContractId => Option[ContractInst[VersionedValue[ContractId]]]
+  ): (X, ContractId) => Option[ContractInst[VersionedValue[ContractId]]] =
+    (_, cid) => f(cid)
 
 }

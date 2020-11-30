@@ -104,7 +104,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
 
         case ResultError(err) => Future.successful(Left(err))
 
-        case ResultNeedContract(acoid, resume) =>
+        case ResultNeedContract(_, acoid, resume) =>
           val start = System.nanoTime
           Timed
             .future(

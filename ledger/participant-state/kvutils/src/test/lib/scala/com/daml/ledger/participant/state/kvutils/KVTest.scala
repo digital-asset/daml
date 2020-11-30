@@ -154,17 +154,14 @@ object KVTest {
           submissionSeed = submissionSeed,
         )
         .consume(
-          { coid =>
+          (_, coid) =>
             s.damlState
               .get(Conversions.contractIdToStateKey(coid))
               .map { v =>
                 Conversions.decodeContractInstance(v.getContractState.getContractInstance)
-              }
-          }, { _ =>
-            Some(decodedPackageWithContractData(additionalContractDataTy))
-          }, { _ =>
-            sys.error("no keys")
-          }
+            },
+          _ => Some(decodedPackageWithContractData(additionalContractDataTy)),
+          _ => sys.error("no keys")
         )
         .getOrElse(sys.error("Engine.submit fail"))
     } yield tx -> meta

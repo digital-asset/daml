@@ -207,7 +207,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
         participant,
         seed,
       )
-      .consume(pcs.get, lookupPackage, { _ =>
+      .consume((_, cid) => pcs.get(cid), lookupPackage, { _ =>
         sys.error("TODO keys for LargeTransactionTest")
       }) match {
       case Left(err) =>
