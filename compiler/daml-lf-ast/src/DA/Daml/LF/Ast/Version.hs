@@ -143,6 +143,14 @@ featureTypeInterning = Feature
     , featureCppFlag = Nothing
     }
 
+featureExceptions :: Feature
+featureExceptions = Feature
+    { featureName = "DAML Exceptions"
+    , featureMinVersion = versionDev
+        -- TODO (#8020): Update LF version number when we stabilize exceptions.
+    , featureCppFlag = Just "DAML_EXCEPTIONS"
+    }
+
 allFeatures :: [Feature]
 allFeatures =
     [ featureNumeric
@@ -157,6 +165,7 @@ allFeatures =
     , featureToTextContractId
     , featureChoiceObservers
     , featureTypeInterning
+    , featureExceptions
     ]
 
 allFeaturesForVersion :: Version -> [Feature]
