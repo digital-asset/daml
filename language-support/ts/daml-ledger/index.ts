@@ -169,6 +169,7 @@ function encodeQuery<T extends object, K, I extends string>(template: Template<T
 type LedgerResponse = {
   status: number;
   result: unknown;
+  warnings: unknown | undefined;
 }
 
 /**
@@ -177,6 +178,7 @@ type LedgerResponse = {
 type LedgerError = {
   status: number;
   errors: string[];
+  warnings: unknown | undefined;
 }
 
 /**
@@ -185,6 +187,7 @@ type LedgerError = {
 const decodeLedgerResponse: jtv.Decoder<LedgerResponse> = jtv.object({
   status: jtv.number(),
   result: jtv.unknownJson(),
+  warnings: jtv.optional(jtv.unknownJson()),
 });
 
 /**
@@ -193,6 +196,7 @@ const decodeLedgerResponse: jtv.Decoder<LedgerResponse> = jtv.object({
 const decodeLedgerError: jtv.Decoder<LedgerError> = jtv.object({
   status: jtv.number(),
   errors: jtv.array(jtv.string()),
+  warnings: jtv.optional(jtv.unknownJson()),
 });
 
 /**
@@ -308,6 +312,9 @@ class Ledger {
       throw jtv.Result.withException(decodeLedgerError.run(json));
     }
     const ledgerResponse = jtv.Result.withException(decodeLedgerResponse.run(json));
+    if (ledgerResponse.warnings) {
+      console.warn(ledgerResponse.warnings);
+    }
     return ledgerResponse.result;
   }
 
