@@ -25,7 +25,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.daml.ledger.api.{Identifiers, domain}
+import com.daml.ledger.api.{TraceIdentifiers, domain}
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1._
@@ -82,13 +82,14 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
       endAt: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] = {
-    Spans.attachEventsToCurrentSpan(
-      (txns: GetTransactionsResponse) =>
-        txns.transactions.map(txn => Event(txn.commandId, Identifiers.fromTransaction(txn))),
-      delegate.transactions(begin, endAt, filter, verbose)
-    )
-  }
+  )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
+    delegate
+      .transactions(begin, endAt, filter, verbose)
+      .wireTap(
+        _.transactions
+          .map(transaction =>
+            Event(transaction.commandId, TraceIdentifiers.fromTransaction(transaction)))
+          .foreach(Spans.addEventToCurrentSpan))
 
   override def transactionTrees(
       begin: domain.LedgerOffset,
@@ -96,11 +97,13 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
       filter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] =
-    Spans.attachEventsToCurrentSpan(
-      (txns: GetTransactionTreesResponse) =>
-        txns.transactions.map(txn => Event(txn.commandId, Identifiers.fromTransactionTree(txn))),
-      delegate.transactionTrees(begin, endAt, filter, verbose)
-    )
+    delegate
+      .transactionTrees(begin, endAt, filter, verbose)
+      .wireTap(
+        _.transactions
+          .map(transaction =>
+            Event(transaction.commandId, TraceIdentifiers.fromTransactionTree(transaction)))
+          .foreach(Spans.addEventToCurrentSpan))
 
   override def getTransactionById(
       transactionId: TransactionId,

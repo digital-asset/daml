@@ -9,7 +9,6 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.dec.{DirectExecutionContext => DEC}
-import com.daml.ledger.{OffsetRangeFromKey, OffsetRangeToKey}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.ConfigurationEntry.Accepted
 import com.daml.ledger.api.domain.{
@@ -41,7 +40,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Spans
+import com.daml.metrics.{SpanAttribute, Spans}
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -79,8 +78,9 @@ private[platform] final class LedgerBackedIndexService(
     between(startExclusive, endInclusive)(
       (from, to) => {
         from.foreach(offset =>
-          Spans.setCurrentSpanAttribute(OffsetRangeFromKey, offset.toHexString))
-        to.foreach(offset => Spans.setCurrentSpanAttribute(OffsetRangeToKey, offset.toHexString))
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom.key, offset.toHexString))
+        to.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo.key, offset.toHexString))
         ledger
           .transactionTrees(
             startExclusive = from,
@@ -101,8 +101,9 @@ private[platform] final class LedgerBackedIndexService(
     between(startExclusive, endInclusive)(
       (from, to) => {
         from.foreach(offset =>
-          Spans.setCurrentSpanAttribute(OffsetRangeFromKey, offset.toHexString))
-        to.foreach(offset => Spans.setCurrentSpanAttribute(OffsetRangeToKey, offset.toHexString))
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom.key, offset.toHexString))
+        to.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo.key, offset.toHexString))
         ledger
           .flatTransactions(
             startExclusive = from,
