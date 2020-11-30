@@ -148,6 +148,7 @@ featureExceptions = Feature
     { featureName = "DAML Exceptions"
     , featureMinVersion = versionDev
         -- TODO (#8020): Update LF version number when we stabilize exceptions.
+        -- https://github.com/digital-asset/daml/issues/8020
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 
