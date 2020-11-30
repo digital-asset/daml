@@ -225,6 +225,7 @@ class ContractsService(
   private[this] val SearchDb: Option[Search { type LfV = JsValue }] = daoAndFetch map {
     case (dao, fetch) =>
       new Search {
+        // we store create arguments as JSON in DB, that is why it is `JsValue` in the result
         type LfV = JsValue
         override val lfvToJsValue = SearchValueFormat(\/.right)
 
@@ -242,21 +243,20 @@ class ContractsService(
           SearchInMemory.toFinal
             .findByContractKey(ctx, contractKey)
 
-        // we store create arguments as JSON in DB, that is why it is `domain.ActiveContract[JsValue]` in the result
         override def search(
             ctx: SearchContext[Set, Id],
             queryParams: Map[String, JsValue],
         ): Source[Error \/ domain.ActiveContract[LfV], NotUsed] = {
 
           // TODO use `stream` when materializing DBContracts, so we could stream ActiveContracts
-          val fv: Future[Vector[domain.ActiveContract[JsValue]]] = dao
-            .transact {
-              searchDb_(fetch, dao.logHandler)(ctx, queryParams)
-            }
-            .unsafeToFuture()
+          val fv: Future[Vector[domain.ActiveContract[JsValue]]] =
+            unsafeRunAsync(searchDb_(fetch, dao.logHandler)(ctx, queryParams))
 
           Source.future(fv).mapConcat(identity).map(\/.right)
         }
+
+        private[this] def unsafeRunAsync[A](cio: doobie.ConnectionIO[A]) =
+          dao.transact(cio).unsafeToFuture()
 
         private[this] def searchDb_(fetch: ContractsFetch, doobieLog: doobie.LogHandler)(
             ctx: SearchContext[Set, Id],

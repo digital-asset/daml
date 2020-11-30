@@ -43,10 +43,7 @@ object ContractDao {
       implicit log: LogHandler): ConnectionIO[Map[domain.Party, domain.Offset]] = {
     import doobie.postgres.implicits._
     for {
-      tpId <- Queries.surrogateTemplateId(
-        templateId.packageId,
-        templateId.moduleName,
-        templateId.entityName)
+      tpId <- surrogateTemplateId(templateId)
       offset <- Queries
         .lastOffset(domain.Party.unsubst(parties), tpId)
     } yield {
@@ -90,10 +87,7 @@ object ContractDao {
       implicit log: LogHandler): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
     import doobie.postgres.implicits._
     for {
-      tpId <- Queries.surrogateTemplateId(
-        templateId.packageId,
-        templateId.moduleName,
-        templateId.entityName)
+      tpId <- surrogateTemplateId(templateId)
 
       dbContracts <- Queries
         .selectContracts(domain.Party.unsubst(parties), tpId, predicate)
@@ -101,6 +95,10 @@ object ContractDao {
       domainContracts = dbContracts.map(toDomain(templateId))
     } yield domainContracts
   }
+
+  private[this] def surrogateTemplateId(templateId: domain.TemplateId.RequiredPkg)(
+      implicit log: LogHandler) =
+    Queries.surrogateTemplateId(templateId.packageId, templateId.moduleName, templateId.entityName)
 
   private def toDomain(templateId: domain.TemplateId.RequiredPkg)(
       a: Queries.DBContract[Unit, JsValue, JsValue, Vector[String]])
