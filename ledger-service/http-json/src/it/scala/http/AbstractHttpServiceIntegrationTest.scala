@@ -1237,21 +1237,22 @@ abstract class AbstractHttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
-  "fetch by key containing variant and record, encoded as array" in withHttpService { (uri, _, _) =>
-    testFetchByCompositeKey(
-      uri,
-      jsObject("""{
+  "fetch by key containing variant and record, encoded as array with number num" in withHttpService {
+    (uri, _, _) =>
+      testFetchByCompositeKey(
+        uri,
+        jsObject("""{
             "templateId": "Account:KeyedByVariantAndRecord",
             "key": [
               "Alice",
-              {"tag": "Baz", "value": {"baz": "baz value"}},
+              {"tag": "Bar", "value": 42},
               {"baz": "another baz value"}
             ]
           }""")
-    )
+      )
   }
 
-  "fetch by key containing variant and record, encoded as record" in withHttpService {
+  "fetch by key containing variant and record, encoded as record with string num" in withHttpService {
     (uri, _, _) =>
       testFetchByCompositeKey(
         uri,
@@ -1259,7 +1260,7 @@ abstract class AbstractHttpServiceIntegrationTest
             "templateId": "Account:KeyedByVariantAndRecord",
             "key": {
               "_1": "Alice",
-              "_2": {"tag": "Baz", "value": {"baz": "baz value"}},
+              "_2": {"tag": "Bar", "value": "42"},
               "_3": {"baz": "another baz value"}
             }
           }""")
@@ -1273,7 +1274,7 @@ abstract class AbstractHttpServiceIntegrationTest
           "name": "ABC DEF",
           "party": "Alice",
           "age": 123,
-          "fooVariant": {"tag": "Baz", "value": {"baz": "baz value"}},
+          "fooVariant": {"tag": "Bar", "value": 42},
           "bazRecord": {"baz": "another baz value"}
         }
       }""")
