@@ -5,6 +5,10 @@ package com.daml.metrics
 
 import io.opentelemetry.trace.TracingContextUtils
 
+/**
+ * A wafer-thin abstraction over OpenTelemetry so other packages don't need to
+ * use `opentelemetry-api` directly.
+ */
 object Spans {
   def addEventToCurrentSpan(event: Event): Unit =
     TracingContextUtils.getCurrentSpan.addEvent(event)
