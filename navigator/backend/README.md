@@ -29,7 +29,6 @@ cat << EOF > navigator.conf
 users {
   OPERATOR: {
     party=OPERATOR
-    password=operator_password
   }
 }
 EOF
@@ -166,11 +165,11 @@ right corner and also that you have to be logged in order to run queries. You
 can either use the frontend in the same browser to login or you can login
 manually via command line as follows:
 
-- Send a JSON POST request with the `userId` and the `password` and make note of
+- Send a JSON POST request with the `userId` and make note of
   the cookie:
 
   ```bash
-  > curl -H "Content-Type: application/json" -d'{ "userId":"PARTY", "password":"password" }' localhost:4000/api/session/ -i
+  > curl -H "Content-Type: application/json" -d'{ "userId":"PARTY" }' localhost:4000/api/session/ -i
   HTTP/1.1 200 OK
   Set-Cookie: session-id=8b4601d4-7113-407b-9b81-7fd5b213a96b; Path=/
   Server: akka-http/10.0.4
@@ -194,10 +193,8 @@ Session API
 
 In addition to the GraphQL endpoint exposing data, the user needs to act as
 some party. This is to know which party's "view" on the ledger to expose. The
-backend supplies the frontend with a list of available users. Alternatively, if
-the backend is started with the `--require-password` flag, it will not supply a
-list of users and instead ask the frontend to present the user with a standard
-username/password form. The chosen user is set in a cookie and therefore
+backend supplies the frontend with a list of available users.
+The chosen user is set in a cookie and therefore
 persists across reloads.
 
 ```typescript
@@ -219,8 +216,7 @@ type SignIn = {
   error?: 'invalid-credentials';
 }
 
-type SignInMethod = SignInPassword | SignInSelect
-type SignInPassword = { type: 'password' }
+type SignInMethod = SignInSelect
 type SignInSelect = { type: 'select', users: UserId[] }
 ```
 
@@ -229,7 +225,7 @@ type SignInSelect = { type: 'select', users: UserId[] }
 GET /session/ => Status
 
 # Sign in
-POST /session/ -d'{ userId: UserId, password?: String }' => Status
+POST /session/ -d'{ userId: UserId }' => Status
 
 # Sign out
 DELETE /session/ => SignIn

@@ -42,8 +42,7 @@ class ServerTest
   val userId = "userId"
   val role = "role"
   val party = ApiTypes.Party("party")
-  val password = "password"
-  val userConfig = UserConfig(Some(password), party, Some(role), false)
+  val userConfig = UserConfig(party, Some(role), false)
   val partyState = new PartyState(userConfig)
   val user = User(userId, partyState, Some(role), true)
 
@@ -138,7 +137,7 @@ class ServerTest
   }
 
   "SelectMode POST /api/session/" should "allow to SignIn with an existing user" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId, None)) ~> connected ~> check {
+    Post("/api/session/", LoginRequest(userId)) ~> connected ~> check {
       Unmarshal(response.entity).to[String].value.map(_.map(_.parseJson)) shouldEqual Some(
         Success((sessionJson)))
       val sessionId = sessionCookie()
@@ -147,7 +146,7 @@ class ServerTest
   }
 
   it should "forbid to SignIn with a non existing user" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId + " ", None)) ~> connected ~> check {
+    Post("/api/session/", LoginRequest(userId + " ")) ~> connected ~> check {
       responseAs[SignIn] shouldEqual SignIn(
         method = SignInSelect(userIds = Set(userId)),
         Some(InvalidCredentials))
@@ -155,7 +154,7 @@ class ServerTest
   }
 
   it should "forbid to SignIn with when unauthorized and report the error" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId, None)) ~> unauthorized ~> check {
+    Post("/api/session/", LoginRequest(userId)) ~> unauthorized ~> check {
       responseAs[SignIn] shouldEqual SignIn(
         method = SignInSelect(userIds = Set()),
         Some(InvalidCredentials))
@@ -163,13 +162,13 @@ class ServerTest
   }
 
   it should "forbid to SignIn with when it's impossible to connect to the ledger" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId, None)) ~> failed ~> check {
+    Post("/api/session/", LoginRequest(userId)) ~> failed ~> check {
       responseAs[SignIn] shouldEqual SignIn(method = SignInSelect(userIds = Set()), Some(Unknown))
     }
   }
 
   it should "forbid to SignIn with when still connecting to a ledger" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId, None)) ~> connecting ~> check {
+    Post("/api/session/", LoginRequest(userId)) ~> connecting ~> check {
       responseAs[SignIn] shouldEqual SignIn(
         method = SignInSelect(userIds = Set()),
         Some(NotConnected))

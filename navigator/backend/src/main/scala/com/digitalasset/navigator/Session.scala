@@ -31,7 +31,7 @@ final case class SignIn(method: SignInMethod, error: Option[SignInError] = None)
 sealed abstract class SignInMethod
 final case class SignInSelect(userIds: Set[String]) extends SignInMethod
 
-case class LoginRequest(userId: String, maybePassword: Option[String])
+case class LoginRequest(userId: String)
 
 /** Maintains session information for browser clients. */
 object Session {
@@ -70,7 +70,6 @@ object SessionJsonProtocol extends DefaultJsonProtocol {
   val partyFieldName = "party"
   val canAdvanceTimeFieldName = "canAdvanceTime"
   val sessionType = JsString("session")
-  val passwordType = JsString("password")
   val selectType = JsString("select")
   val signInType = JsString("sign-in")
 
@@ -97,25 +96,14 @@ object SessionJsonProtocol extends DefaultJsonProtocol {
 
   implicit object loginRequestFormat extends RootJsonFormat[LoginRequest] {
     override def write(obj: LoginRequest): JsValue =
-      obj.maybePassword match {
-        case Some(password) =>
-          JsObject("userId" -> obj.userId.toJson, "password" -> password.toJson)
-        case None =>
-          JsObject("userId" -> obj.userId.toJson)
-      }
+      JsObject("userId" -> obj.userId.toJson)
 
     override def read(json: JsValue): LoginRequest = {
       val obj =
         json.asJsObject(errorMsg =
           s"LoginRequest should be an object but ${json.getClass.getCanonicalName} found")
       obj.fields.get("userId") match {
-        case Some(JsString(userId)) =>
-          obj.fields.get("password") match {
-            case Some(JsString(password)) =>
-              LoginRequest(userId, Some(password))
-            case _ =>
-              LoginRequest(userId, None)
-          }
+        case Some(JsString(userId)) => LoginRequest(userId)
         case _ =>
           throw DeserializationException(
             s"LoginRequest should contain a field called 'userId' of type String, got $json")
