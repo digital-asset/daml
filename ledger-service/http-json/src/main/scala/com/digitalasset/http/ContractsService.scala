@@ -215,12 +215,7 @@ class ContractsService(
       )
     } else {
       val searchCtx = SearchContext[Set, Id](jwt, parties, resolvedTemplateIds)
-      val source = SearchDb.cata(
-        x => x.search(searchCtx, queryParams),
-        SearchInMemory
-          .search(searchCtx, queryParams)
-          .map(_.flatMap(lfAcToJsAc)),
-      )
+      val source = search.toFinal.search(searchCtx, queryParams)
       domain.OkResponse(source, warnings)
     }
   }
@@ -414,11 +409,6 @@ class ContractsService(
       q: Map[String, JsValue],
   ): query.ValuePredicate =
     ValuePredicate.fromTemplateJsObject(q, templateId, lookupType)
-
-  private def lfAcToJsAc(
-      a: domain.ActiveContract[LfValue],
-  ): Error \/ domain.ActiveContract[JsValue] =
-    a.traverse(lfValueToJsValue)
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
