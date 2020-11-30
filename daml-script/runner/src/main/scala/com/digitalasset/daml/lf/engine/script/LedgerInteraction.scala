@@ -1025,6 +1025,12 @@ object JsonLedgerClient {
   final case class AllocatePartyResponse(identifier: Ref.Party)
 
   object JsonProtocol extends SprayJsonSupport with DefaultJsonProtocol {
+    implicit def optionReader[A: JsonReader]: JsonReader[Option[A]] =
+      v =>
+        v match {
+          case JsNull => None
+          case _ => Some(v.convertTo[A])
+      }
     implicit def responseReader[A: JsonReader]: RootJsonReader[Response[A]] = v => {
       implicit val statusCodeReader: JsonReader[StatusCode] = v =>
         v match {
@@ -1105,8 +1111,8 @@ object JsonLedgerClient {
       v.asJsObject.getFields("exerciseResult", "events") match {
         case Seq(result, events) =>
           events match {
-            case JsArray(events) if events.size >= 1 =>
-              events.head.asJsObject.getFields("created") match {
+            case JsArray(Seq(event, _*)) =>
+              event.asJsObject.getFields("created") match {
                 case Seq(created) =>
                   created.asJsObject.getFields("contractId") match {
                     case Seq(JsString(cid)) => CreateAndExerciseResponse(cid, result)
