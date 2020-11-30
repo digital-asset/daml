@@ -232,9 +232,23 @@ class ContractsService(
         override def findByContractId(
             ctx: SearchContext[Option, Option],
             contractId: domain.ContractId,
-        ): Future[Option[domain.ActiveContract[LfV]]] =
-          SearchInMemory.toFinal
-            .findByContractId(ctx, contractId)
+        ): Future[Option[domain.ActiveContract[LfV]]] = {
+          import ctx.{jwt, parties, templateIds => otemplateId}
+          val dbQueried = for {
+            templateId <- otemplateId
+            resolved <- resolveTemplateId(templateId)
+          } yield
+            unsafeRunAsync {
+              import dao.logHandler
+              import doobie.implicits._, cats.syntax.apply._
+              fetch.fetchAndPersist(jwt, parties, List(resolved)) *>
+                ContractDao.fetchById(parties, resolved, contractId) // TODO SC asLfValueCodec, somewhere
+            }
+          dbQueried getOrElse {
+            // we need a template ID to update the database
+            SearchInMemory.toFinal.findByContractId(ctx, contractId)
+          }
+        }
 
         override def findByContractKey(
             ctx: SearchContext[Id, Option],
