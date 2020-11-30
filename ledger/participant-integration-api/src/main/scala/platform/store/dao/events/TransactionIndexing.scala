@@ -77,13 +77,8 @@ object TransactionIndexing {
     private val disclosure = Map.newBuilder[NodeId, Set[Party]]
     private val visibility = Vector.newBuilder[(ContractId, Set[Party])]
 
-    init()
-
-    private def init(): Unit = {
-      for (contractId <- blinding.divulgence.keys) {
-        addDivulgence(contractId)
-      }
-      ()
+    for (contractId <- blinding.divulgence.keys) {
+      addDivulgence(contractId)
     }
 
     private def addEventAndDisclosure(event: (NodeId, Node)): Unit = {
