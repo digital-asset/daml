@@ -10,6 +10,3 @@ update participant_command_completions set submitters = array[submitting_party];
 create index participant_command_completions_idx on participant_command_completions(completion_offset, application_id, submitters);
 drop index PUBLIC.INDEX_2;
 alter table participant_command_completions drop column submitting_party;
-
--- Array subset functions
-create alias array_is_subset for "com.daml.platform.store.dao.events.SqlFunctions.arrayIsSubset"
