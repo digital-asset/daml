@@ -74,7 +74,7 @@ message PackageRef {
     // An index into `interned_package_ids` of the Package containing
     // this reference.
     // *Must be a valid interned package Id string*
-    int32 package_id_interned_str = 3; // *Available in versions >= 1.6*
+    int32 package_id_interned_str = 3;
   }
 }
 
@@ -1555,7 +1555,7 @@ message PackageMetadata {
 
 message Package {
   repeated Module modules = 1;
-  repeated string interned_strings = 2; // *Available in versions >= 1.6*
+  repeated string interned_strings = 2;
   repeated InternedDottedName interned_dotted_names = 3; // *Available in versions >= 1.7*
   PackageMetadata metadata = 4; // *Available and required in versions >= 1.8*
 
