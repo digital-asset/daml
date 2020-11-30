@@ -1693,6 +1693,7 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId, maxVersion = Some(genMap)),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId),
+      BuiltinFunctionInfo(THROW, BTextToUpper, minVersion = exceptions), // TODO #8020
       BuiltinFunctionInfo(MAKE_GENERAL_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
       BuiltinFunctionInfo(MAKE_ARITHMETIC_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
       BuiltinFunctionInfo(MAKE_CONTRACT_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
