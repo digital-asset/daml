@@ -439,12 +439,69 @@ class EngineTest
   }
 
   "minimal create command" should {
-    val singlePartyTemplate = "BasicTests:Simple"
+    val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
+    val let = Time.Timestamp.now()
+    val command =
+      CreateCommand(id, ValueRecord(Some(id), ImmArray((Some[Name]("p"), ValueParty(party)))))
+    val submissionSeed = hash("minimal create command")
+    val res = preprocessor
+      .preprocessCommands(ImmArray(command))
+      .consume(lookupContract, lookupPackage, lookupKey)
+    res shouldBe 'right
+    val interpretResult = engine
+      .submit(Commands(Set(party), ImmArray(command), let, "test"), participant, submissionSeed)
+      .consume(lookupContract, lookupPackage, lookupKey)
+
+    "be translated" in {
+      interpretResult shouldBe 'right
+    }
+
+    "reinterpret to the same result" in {
+      val Right((tx, txMeta)) = interpretResult
+
+      val Right((rtx, _)) =
+        reinterpret(
+          engine,
+          Set(party),
+          tx.roots,
+          tx,
+          txMeta,
+          let,
+          lookupPackage
+        )
+      Tx.isReplayedBy(tx, rtx) shouldBe Right(())
+    }
+
+    "be validated" in {
+      val Right((tx, meta)) = interpretResult
+      val Right(submitter) = tx.guessSubmitter
+      val validated = engine
+        .validate(Set(submitter), tx, let, participant, meta.submissionTime, submissionSeed)
+        .consume(lookupContract, lookupPackage, lookupKey)
+      validated match {
+        case Left(e) =>
+          fail(e.msg)
+        case Right(()) => ()
+      }
+    }
+
+    "cause used package to show up in transaction" in {
+      // NOTE(JM): Other packages are pulled in by BasicTests.daml, e.g. daml-prim, but we
+      // don't know the package ids here.
+      interpretResult.map(_._2.usedPackages.contains(basicTestsPkgId)) shouldBe Right(true)
+    }
+
+    "not mark any node as byKey" in {
+      interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
+    }
+
+  }
+
+  "multi-party create command" should {
     val multiPartyTemplate = "BasicTests:SimpleMultiParty"
 
     val cases = Table(
       ("templateId", "signatories", "submitters"),
-      (singlePartyTemplate, Set("p" -> party), Set(party)),
       (multiPartyTemplate, Set("p1" -> alice, "p2" -> bob), Set(alice, bob)),
       (multiPartyTemplate, Set("p1" -> alice, "p2" -> bob), Set(alice, bob, clara))
     )
@@ -459,7 +516,7 @@ class EngineTest
     }
 
     val let = Time.Timestamp.now()
-    val submissionSeed = hash("minimal create command")
+    val submissionSeed = hash("multi-party create command")
 
     def interpretResult(
         templateId: String,
@@ -517,26 +574,6 @@ class EngineTest
           }
       }
     }
-
-    "cause used package to show up in transaction" in {
-      // NOTE(JM): Other packages are pulled in by BasicTests.daml, e.g. daml-prim, but we
-      // don't know the package ids here.
-      forAll(cases) {
-        case (templateId, signatories, submitters) =>
-          interpretResult(templateId, signatories, submitters).map(
-            _._2.usedPackages.contains(basicTestsPkgId)) shouldBe Right(true)
-      }
-    }
-
-    "not mark any node as byKey" in {
-      forAll(cases) {
-        case (templateId, signatories, submitters) =>
-          interpretResult(templateId, signatories, submitters).map {
-            case (tx, _) => byKeyNodes(tx).size
-          } shouldBe Right(0)
-      }
-    }
-
   }
 
   "exercise command" should {
