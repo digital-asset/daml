@@ -12,6 +12,9 @@ import com.daml.http.LedgerClientJwt.Terminates
 import com.daml.http.dbbackend.ContractDao
 import com.daml.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
 import com.daml.http.json.JsonProtocol.LfValueCodec
+import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
+  apiValueToJsValue => toDbCompatibleJson
+}
 import com.daml.http.query.ValuePredicate
 import com.daml.http.util.ApiValueToLfValueConverter
 import com.daml.http.util.FutureUtil.toFuture
@@ -253,9 +256,18 @@ class ContractsService(
         override def findByContractKey(
             ctx: SearchContext[Id, Option],
             contractKey: LfValue,
-        ): Future[Option[domain.ActiveContract[LfV]]] =
-          SearchInMemory.toFinal
-            .findByContractKey(ctx, contractKey)
+        ): Future[Option[domain.ActiveContract[LfV]]] = {
+          import ctx.{jwt, parties, templateIds => templateId}
+          for {
+            resolved <- toFuture(resolveTemplateId(templateId))
+            found <- unsafeRunAsync {
+              import dao.logHandler
+              import doobie.implicits._, cats.syntax.apply._
+              fetch.fetchAndPersist(jwt, parties, List(resolved)) *>
+                ContractDao.fetchByKey(parties, resolved, toDbCompatibleJson(contractKey)) // TODO SC asLfValueCodec, somewhere
+            }
+          } yield found
+        }
 
         override def search(
             ctx: SearchContext[Set, Id],
