@@ -245,7 +245,7 @@ class ContractsService(
               import dao.logHandler
               import doobie.implicits._, cats.syntax.apply._
               fetch.fetchAndPersist(jwt, parties, List(resolved)) *>
-                ContractDao.fetchById(parties, resolved, contractId) // TODO SC asLfValueCodec, somewhere
+                ContractDao.fetchById(parties, resolved, contractId)
             }
           dbQueried getOrElse {
             // we need a template ID to update the database
@@ -264,7 +264,7 @@ class ContractsService(
               import dao.logHandler
               import doobie.implicits._, cats.syntax.apply._
               fetch.fetchAndPersist(jwt, parties, List(resolved)) *>
-                ContractDao.fetchByKey(parties, resolved, toDbCompatibleJson(contractKey)) // TODO SC asLfValueCodec, somewhere
+                ContractDao.fetchByKey(parties, resolved, toDbCompatibleJson(contractKey))
             }
           } yield found
         }
