@@ -19,7 +19,7 @@ object TraceIdentifiers {
     def setIfNotEmpty(attribute: SpanAttribute, value: String): Unit =
       if (!value.isEmpty) attributes += attribute.key -> value
 
-    setIfNotEmpty(SpanAttribute.TransactionId, transaction.offset)
+    setIfNotEmpty(SpanAttribute.Offset, transaction.offset)
     setIfNotEmpty(SpanAttribute.CommandId, transaction.commandId)
     setIfNotEmpty(SpanAttribute.TransactionId, transaction.transactionId)
     setIfNotEmpty(SpanAttribute.WorkflowId, transaction.workflowId)
@@ -35,7 +35,7 @@ object TraceIdentifiers {
     def setIfNotEmpty(attribute: SpanAttribute, value: String): Unit =
       if (!value.isEmpty) attributes += attribute.key -> value
 
-    setIfNotEmpty(SpanAttribute.TransactionId, transactionTree.offset)
+    setIfNotEmpty(SpanAttribute.Offset, transactionTree.offset)
     setIfNotEmpty(SpanAttribute.CommandId, transactionTree.commandId)
     setIfNotEmpty(SpanAttribute.TransactionId, transactionTree.transactionId)
     setIfNotEmpty(SpanAttribute.WorkflowId, transactionTree.workflowId)
