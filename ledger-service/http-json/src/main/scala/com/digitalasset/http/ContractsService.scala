@@ -146,7 +146,11 @@ class ContractsService(
           Future.successful(allTemplateIds()),
         ): Future[Set[domain.TemplateId.RequiredPkg]]
 
-        errorOrAc <- searchInMemory(jwt, parties, resolvedTemplateIds, isContractId(contractId) _)
+        errorOrAc <- searchInMemory(
+          jwt,
+          parties,
+          resolvedTemplateIds,
+          InMemoryQuery.Filter(isContractId(contractId)))
           .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract[LfValue]]]
 
         result <- lookupResult(errorOrAc)
@@ -156,7 +160,7 @@ class ContractsService(
 
     override def search(ctx: SearchContext[Set, Id], queryParams: Map[String, JsValue]) = {
       import ctx.{jwt, parties, templateIds}
-      searchInMemory(jwt, parties, templateIds, queryParams)
+      searchInMemory(jwt, parties, templateIds, InMemoryQuery.Params(queryParams))
     }
   }
 
@@ -180,8 +184,7 @@ class ContractsService(
       parties: OneAnd[Set, domain.Party],
   ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
     domain.OkResponse(
-      Source(allTemplateIds()).flatMapConcat(x =>
-        searchInMemoryOneTpId(jwt, parties, x, (_: Any) => true))
+      Source(allTemplateIds()).flatMapConcat(x => searchInMemoryOneTpId(jwt, parties, x, _ => true))
     )
 
   def search(
@@ -307,19 +310,19 @@ class ContractsService(
       }
   }
 
-  private[this] def searchInMemory[Q](
+  private[this] def searchInMemory(
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
       templateIds: Set[domain.TemplateId.RequiredPkg],
-      queryParams: Q,
-  )(implicit Q: InMemoryQuery[Q]): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
+      queryParams: InMemoryQuery,
+  ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
 
     type Ac = domain.ActiveContract[LfValue]
     val empty = (Vector.empty[Error], Vector.empty[Ac])
     import InsertDeleteStep.appendForgettingDeletes
 
     val funPredicates: Map[domain.TemplateId.RequiredPkg, Ac => Boolean] =
-      templateIds.iterator.map(tid => (tid, Q(tid, queryParams))).toMap
+      templateIds.iterator.map(tid => (tid, queryParams.toPredicate(tid))).toMap
 
     insertDeleteStepSource(jwt, parties, templateIds.toList)
       .map { step =>
@@ -344,32 +347,30 @@ class ContractsService(
       }
   }
 
-  private[this] def searchInMemoryOneTpId[Q: InMemoryQuery](
+  private[this] def searchInMemoryOneTpId(
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
-      queryParams: Q,
+      queryParams: InMemoryQuery.P,
   ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
-    searchInMemory(jwt, parties, Set(templateId), queryParams)
+    searchInMemory(jwt, parties, Set(templateId), InMemoryQuery.Filter(queryParams))
 
-  private[this] sealed abstract class InMemoryQuery[-Q] extends InMemoryQuery.T[Q]
+  private[this] sealed abstract class InMemoryQuery extends Product with Serializable {
+    import InMemoryQuery._
+    def toPredicate(tid: domain.TemplateId.RequiredPkg): P =
+      this match {
+        case Params(q) =>
+          val vp = valuePredicate(tid, q).toFunPredicate
+          ac =>
+            vp(ac.payload)
+        case Filter(p) => p
+      }
+  }
 
   private[this] object InMemoryQuery {
-    type T[-Q] = (domain.TemplateId.RequiredPkg, Q) => domain.ActiveContract[LfValue] => Boolean
-
-    private[this] def imq[Q](f: T[Q]): InMemoryQuery[Q] = new InMemoryQuery[Q] {
-      override def apply(tid: domain.TemplateId.RequiredPkg, q: Q) = f(tid, q)
-    }
-
-    implicit val queryParams: InMemoryQuery[Map[String, JsValue]] =
-      imq { (tid, q) =>
-        val vp = valuePredicate(tid, q).toFunPredicate
-        ac =>
-          vp(ac.payload)
-      }
-
-    implicit val filter: InMemoryQuery[domain.ActiveContract[LfValue] => Boolean] =
-      imq((_, f) => f)
+    type P = domain.ActiveContract[LfValue] => Boolean
+    sealed case class Params(params: Map[String, JsValue]) extends InMemoryQuery
+    sealed case class Filter(p: P) extends InMemoryQuery
   }
 
   private[http] def insertDeleteStepSource(
