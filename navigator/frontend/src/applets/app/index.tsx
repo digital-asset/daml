@@ -4,9 +4,7 @@
 import { defaultTheme, Dispatch, ThemeInterface, ThemeProvider } from '@da/ui-core';
 import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
 import * as Session from '@da/ui-core/lib/session';
-import { ApolloAction } from 'apollo-client/actions';
 import * as React from 'react';
-import { ApolloClient } from 'react-apollo';
 import { connect } from 'react-redux';
 import { Action as ReduxAction } from 'redux';
 import Frame from '../../components/Frame';
@@ -18,7 +16,7 @@ import {
   EvalConfigResult,
 } from '../../config';
 import * as Either from '../../config/either';
-import logoUrl = require('../../images/logo-large.png');
+import logoUrl from '../../images/logo-large.png';
 import { Connect } from '../../types';
 import * as ConfigSource from '../configsource';
 import * as Page from '../page';
@@ -29,7 +27,6 @@ export type Action
   | { type: 'TO_WATCHER', action: LedgerWatcher.Action }
   | { type: 'TO_CONFIG', action: ConfigSource.Action }
   | { type: 'RESET_APP' }
-  | ApolloAction
 
 export const toPage = (action: Page.Action): Action =>
   ({ type: 'TO_PAGE', action });
@@ -49,23 +46,17 @@ export const resetApp = (): Action =>
 export const initSession = () => Session.init(toSession);
 export const initConfig = () => ConfigSource.reload(toConfig);
 
-export type ApolloState = {};
-export type ApolloReducer = (state?: ApolloState, action?: ReduxAction) => {};
-
 export interface State {
-  apollo: ApolloState;
   session: Session.State;
   page: Page.State;
   watcher: LedgerWatcher.State;
   configSource: ConfigSource.State;
 }
 
-export function makeReducer(client: ApolloClient) {
-  const apollo = client.reducer() as ApolloReducer;
+export function makeReducer() {
   return function reduce(state?: State, anyAction?: ReduxAction): State {
     if (state === undefined || anyAction === undefined) {
       return {
-        apollo: apollo(state, anyAction),
         session: Session.reduce(),
         page: Page.reduce(),
         watcher: LedgerWatcher.reduce(),
@@ -106,7 +97,7 @@ export function makeReducer(client: ApolloClient) {
           configSource: ConfigSource.reduce(state.configSource, action.action),
         };
       default:
-        return { ...state, apollo: apollo(state.apollo, action) };
+        return state;
     }
   }
 }

@@ -1,7 +1,6 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-
 import * as configAPISource from '!raw-loader!../config/api/v1';
 import * as UICore from '@da/ui-core';
 import * as Session from '@da/ui-core/lib/session';

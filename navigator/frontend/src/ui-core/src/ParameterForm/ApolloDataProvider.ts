@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ApolloClient, gql } from 'react-apollo';
+import { ApolloClient, gql } from '@apollo/client';
 import * as DamlLfTypeF from '../api/DamlLfType';
 import { DamlLfDefDataType, DamlLfIdentifier } from '../api/DamlLfType';
 import {
@@ -59,9 +59,11 @@ query ParameterFormTypeQuery($id: ID!) {
 
 export default class ApolloDataProvider implements ContractIdProvider, TypeProvider {
 
-  readonly client: ApolloClient;
+  // tslint:disable-next-line:no-any
+  readonly client: ApolloClient<any>;
 
-  constructor(client: ApolloClient) {
+  // tslint:disable-next-line:no-any
+  constructor(client: ApolloClient<any>) {
     this.client = client;
   }
 

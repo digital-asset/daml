@@ -1,11 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import { gql } from '@apollo/client';
+import { withMutation, withQuery } from '@apollo/client/react/hoc';
 import { Dispatch } from '@da/ui-core';
 import { DamlLfValue } from '@da/ui-core/lib/api/DamlLfValue';
 import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
 import * as React from 'react';
-import { gql, graphql } from 'react-apollo';
 import { connect } from 'react-redux';
 import { compose } from 'redux';
 import {
@@ -186,20 +187,26 @@ const mutation = gql`
 // generally confusing to say the least, but works out with a bit of care and
 // thinking about the ordering and what each connect function adds.
 
-const withMutation: Connect<MutationProps, OwnProps> =
-  graphql<ContractExercise, OwnProps>(mutation, {
-    props: ({ mutate }) => ({
-      exercise: (contractId: string, choiceId: string, argument?: DamlLfValue) =>
-        (mutate && mutate({ variables: { contractId, choiceId, argument } })),
-    }),
-  });
+const _withMutation: Connect<MutationProps, OwnProps> =
+  withMutation<OwnProps, ContractExercise, {}, MutationProps>(mutation,
+    {
+      props: ({mutate}): MutationProps => ({
+        exercise: mutate && ((contractId: string, choiceId: String, argument?: DamlLfValue) =>
+          mutate({variables: { contractId, choiceId, argument}})
+      )}),
+    },
+    );
 
-const withQuery: Connect<QueryProps, OwnProps & MutationProps> =
-  graphql<ContractDetailsById, OwnProps & MutationProps>(query, {
-    props: ({ data }) => ({
-      isLoading: data ? data.loading : false,
-      contract: data ? data.node : null,
-    }),
+const _withQuery: Connect<QueryProps, OwnProps & MutationProps> =
+  withQuery<OwnProps, ContractDetailsById, ContractDetailsByIdVariables, QueryProps>(query, {
+    props: ({ data }) => {
+      const node = data?.node;
+      const contract = (node && node.__typename === 'Contract') ? node : null;
+      return {
+        isLoading: data ? data.loading : false,
+        contract,
+      }
+    },
     options: ({ state: { id } }: OwnProps) => ({ variables: { id } as ContractDetailsByIdVariables}),
   });
 
@@ -207,7 +214,7 @@ const withRedux: Connect<ReduxProps, OwnProps & QueryProps & MutationProps> =
   connect();
 
 export const UI = compose(
-  withMutation,
-  withQuery,
+  _withMutation,
+  _withQuery,
   withRedux,
 )(Component);

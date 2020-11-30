@@ -35,7 +35,7 @@ export default class SearchInput extends React.Component<Props, State> {
     const value = event.target.value;
     this.setState({ value });
     clearTimeout(this.delayTimer);
-    this.delayTimer = setTimeout(() => {
+    this.delayTimer = window.setTimeout(() => {
       this.props.onChange(value);
     }, this.props.debounceTime || DEBOUNCE_TIME_DEFAULT);
   }

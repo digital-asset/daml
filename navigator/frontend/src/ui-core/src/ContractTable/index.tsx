@@ -1,8 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import cx = require('classnames');
-import deepEqual = require('deep-equal');
+import cx from 'classnames';
+import deepEqual from 'deep-equal';
 import * as React from 'react';
 import {
   AutoSizer,
@@ -319,7 +319,7 @@ export default class ContractTable<C extends ContractTableConfig>
     if (!this.state.isLoading) {
       // If we're not loading, schedule reload after clearing existing one.
       if (this.reloadTimer) { clearTimeout(this.reloadTimer); }
-      this.reloadTimer = setTimeout(() => {
+      this.reloadTimer = window.setTimeout(() => {
         this.reload(false);
       }, DEFAULT_POLL_INTERVAL);
     }
@@ -348,7 +348,7 @@ export default class ContractTable<C extends ContractTableConfig>
       }
     }
     if (oldest >= 0) {
-      this.rerenderTimer = setTimeout(() => {
+      this.rerenderTimer = window.setTimeout(() => {
         this.rerenderTimer = undefined;
         this.table.recomputeRowHeights(0);
         this.forceUpdate();

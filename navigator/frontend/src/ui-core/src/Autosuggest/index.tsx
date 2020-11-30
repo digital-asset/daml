@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
-import * as Input from 'react-autosuggest';
+import Input from 'react-autosuggest';
 import { StyledTextInput } from '../Input';
 import styled, { hardcodedStyle } from '../theme';
 
@@ -91,7 +91,7 @@ export default class Autosuggest<R>
 
   onSuggestionFetchRequested({ value }: { value: string }) {
     clearTimeout(this.delayTimer);
-    this.delayTimer = setTimeout(() => {
+    this.delayTimer = window.setTimeout(() => {
       this.props.onFetchSuggestions(value, (suggestions: R[]) => {
         this.setState({ suggestions });
       });

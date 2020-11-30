@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
-import ReactMarkdown = require('react-markdown');
+import ReactMarkdown from 'react-markdown';
 import styled from '../theme';
 
 /**

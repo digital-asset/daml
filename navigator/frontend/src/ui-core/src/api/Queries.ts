@@ -1,6 +1,7 @@
 import * as OpaqueTypes from './OpaqueTypes'
 /* tslint:disable */
 /* eslint-disable */
+// @generated
 // This file was automatically generated and should not be edited.
 
 // ====================================================
@@ -24,14 +25,15 @@ export interface advanceTimeVariables {
 
 /* tslint:disable */
 /* eslint-disable */
+// @generated
 // This file was automatically generated and should not be edited.
 
 // ====================================================
 // GraphQL query operation: ContractsByIdQuery
 // ====================================================
 
-export interface ContractsByIdQuery_nodes_Transaction {
-  __typename: "Transaction" | "Template" | "DamlLfDefDataType" | "CreatedEvent" | "ExercisedEvent" | "CreateCommand" | "ExerciseCommand";
+export interface ContractsByIdQuery_nodes_CreateCommand {
+  __typename: "CreateCommand" | "CreatedEvent" | "DamlLfDefDataType" | "ExerciseCommand" | "ExercisedEvent" | "Template" | "Transaction";
   id: string;
 }
 
@@ -46,7 +48,7 @@ export interface ContractsByIdQuery_nodes_Contract {
   archiveEvent: ContractsByIdQuery_nodes_Contract_archiveEvent | null;
 }
 
-export type ContractsByIdQuery_nodes = ContractsByIdQuery_nodes_Transaction | ContractsByIdQuery_nodes_Contract;
+export type ContractsByIdQuery_nodes = ContractsByIdQuery_nodes_CreateCommand | ContractsByIdQuery_nodes_Contract;
 
 export interface ContractsByIdQuery {
   nodes: ContractsByIdQuery_nodes[];
@@ -58,14 +60,15 @@ export interface ContractsByIdQueryVariables {
 
 /* tslint:disable */
 /* eslint-disable */
+// @generated
 // This file was automatically generated and should not be edited.
 
 // ====================================================
 // GraphQL query operation: CommandResultsQuery
 // ====================================================
 
-export interface CommandResultsQuery_nodes_Transaction {
-  __typename: "Transaction" | "Template" | "DamlLfDefDataType" | "Contract" | "CreatedEvent" | "ExercisedEvent";
+export interface CommandResultsQuery_nodes_Contract {
+  __typename: "Contract" | "CreatedEvent" | "DamlLfDefDataType" | "ExercisedEvent" | "Template" | "Transaction";
   id: string;
 }
 
@@ -87,7 +90,7 @@ export interface CommandResultsQuery_nodes_CreateCommand {
   status: CommandResultsQuery_nodes_CreateCommand_status;
 }
 
-export type CommandResultsQuery_nodes = CommandResultsQuery_nodes_Transaction | CommandResultsQuery_nodes_CreateCommand;
+export type CommandResultsQuery_nodes = CommandResultsQuery_nodes_Contract | CommandResultsQuery_nodes_CreateCommand;
 
 export interface CommandResultsQuery {
   nodes: CommandResultsQuery_nodes[];
@@ -99,6 +102,7 @@ export interface CommandResultsQueryVariables {
 
 /* tslint:disable */
 /* eslint-disable */
+// @generated
 // This file was automatically generated and should not be edited.
 
 // ====================================================
@@ -163,14 +167,15 @@ export interface ParameterFormContractIdQueryVariables {
 
 /* tslint:disable */
 /* eslint-disable */
+// @generated
 // This file was automatically generated and should not be edited.
 
 // ====================================================
 // GraphQL query operation: ParameterFormTypeQuery
 // ====================================================
 
-export interface ParameterFormTypeQuery_node_Transaction {
-  __typename: "Transaction" | "Template" | "Contract" | "CreatedEvent" | "ExercisedEvent" | "CreateCommand" | "ExerciseCommand";
+export interface ParameterFormTypeQuery_node_Contract {
+  __typename: "Contract" | "CreateCommand" | "CreatedEvent" | "ExerciseCommand" | "ExercisedEvent" | "Template" | "Transaction";
 }
 
 export interface ParameterFormTypeQuery_node_DamlLfDefDataType {
@@ -179,7 +184,7 @@ export interface ParameterFormTypeQuery_node_DamlLfDefDataType {
   typeVars: string[];
 }
 
-export type ParameterFormTypeQuery_node = ParameterFormTypeQuery_node_Transaction | ParameterFormTypeQuery_node_DamlLfDefDataType;
+export type ParameterFormTypeQuery_node = ParameterFormTypeQuery_node_Contract | ParameterFormTypeQuery_node_DamlLfDefDataType;
 
 export interface ParameterFormTypeQuery {
   node: ParameterFormTypeQuery_node | null;
@@ -191,24 +196,7 @@ export interface ParameterFormTypeQueryVariables {
 
 /* tslint:disable */
 /* eslint-disable */
-// This file was automatically generated and should not be edited.
-
-// ====================================================
-// GraphQL mutation operation: WithExerciseQuery
-// ====================================================
-
-export interface WithExerciseQuery {
-  exercise: OpaqueTypes.CommandId;
-}
-
-export interface WithExerciseQueryVariables {
-  contractId: string;
-  choiceId: string;
-  argument?: OpaqueTypes.DamlLfValue | null;
-}
-
-/* tslint:disable */
-/* eslint-disable */
+// @generated
 // This file was automatically generated and should not be edited.
 
 // ====================================================
@@ -228,6 +216,7 @@ export interface LedgerTimeQuery {
 
 /* tslint:disable */
 /* eslint-disable */
+// @generated
 // This file was automatically generated and should not be edited.
 
 //==============================================================
