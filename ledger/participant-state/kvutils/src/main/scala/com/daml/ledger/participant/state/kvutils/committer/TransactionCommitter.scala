@@ -27,6 +27,7 @@ import com.daml.lf.transaction.{
   NodeId,
   ReplayNodeMismatch,
   SubmittedTransaction,
+  TransactionOuterClass,
   VersionedTransaction,
   Transaction => Tx
 }
@@ -69,7 +70,8 @@ private[kvutils] class TransactionCommitter(
     "validate_ledger_time" -> validateLedgerTime,
     "validate_contract_keys" -> validateContractKeys,
     "validate_model_conformance" -> validateModelConformance,
-    "blind" -> blind
+    "blind" -> blind,
+    "remove_unnecessary_nodes" -> removeUnnecessaryNodes,
   )
 
   private def contractIsActiveAndVisibleToSubmitter(
@@ -291,7 +293,7 @@ private[kvutils] class TransactionCommitter(
   private[committer] def blind: Step =
     (commitContext, transactionEntry) => {
       val blindingInfo = Blinding.blind(transactionEntry.transaction)
-      buildFinalResult(
+      buildFinalResultState(
         commitContext,
         transactionEntry.copy(
           submission = transactionEntry.submission.toBuilder
@@ -300,6 +302,51 @@ private[kvutils] class TransactionCommitter(
         blindingInfo,
       )
     }
+
+  /**
+    * Removes `Fetch` and `LookupByKey` nodes from the transactionEntry
+    */
+  private[committer] def removeUnnecessaryNodes: Step = (commitContext, transactionEntry) => {
+    val transaction = transactionEntry.submission.getTransaction
+    val nodes = transaction.getNodesList.asScala
+    val nodesToKeep = nodes.iterator.collect {
+      case node if node.hasCreate || node.hasExercise => node.getNodeId
+    }.toSet
+
+    val roots = transaction.getRootsList.asScala.filter(nodesToKeep)
+
+    def stripUnnecessaryNodes(node: TransactionOuterClass.Node) =
+      if (node.hasExercise) {
+        val exerciseNode = node.getExercise
+        val keep = exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
+        val newExercise = exerciseNode.toBuilder
+          .clearChildren()
+          .addAllChildren(keep.asJavaCollection)
+          .build()
+
+        node.toBuilder
+          .setExercise(newExercise)
+          .build()
+      } else node
+
+    val newNodes = nodes
+      .collect {
+        case node if nodesToKeep(node.getNodeId) => stripUnnecessaryNodes(node)
+      }
+
+    val newTx = transaction
+      .newBuilderForType()
+      .addAllRoots(roots.asJavaCollection)
+      .addAllNodes(newNodes.asJavaCollection)
+      .setVersion(transaction.getVersion)
+      .build()
+
+    val newTxEntry = transactionEntry.submission.toBuilder
+      .setTransaction(newTx)
+      .build()
+
+    StepStop(buildLogEntry(DamlTransactionEntrySummary(newTxEntry), commitContext))
+  }
 
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
     val damlState = commitContext.inputs
@@ -411,7 +458,7 @@ private[kvutils] class TransactionCommitter(
   }
 
   /** All checks passed. Produce the log entry and contract state updates. */
-  private def buildFinalResult(
+  private def buildFinalResultState(
       commitContext: CommitContext,
       transactionEntry: DamlTransactionEntrySummary,
       blindingInfo: BlindingInfo
@@ -431,7 +478,7 @@ private[kvutils] class TransactionCommitter(
 
     metrics.daml.kvutils.committer.transaction.accepts.inc()
     logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
-    StepStop(buildLogEntry(transactionEntry, commitContext))
+    StepContinue(transactionEntry)
   }
 
   private def updateContractState(

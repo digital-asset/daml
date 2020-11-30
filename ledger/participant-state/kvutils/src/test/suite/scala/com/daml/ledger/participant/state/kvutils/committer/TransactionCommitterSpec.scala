@@ -21,7 +21,8 @@ import com.daml.lf.transaction.{
   RecordedNodeMissing,
   ReplayNodeMismatch,
   ReplayedNodeMissing,
-  Transaction
+  Transaction,
+  TransactionOuterClass
 }
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
@@ -30,6 +31,8 @@ import com.google.protobuf.ByteString
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.Inspectors.forEvery
+
+import scala.collection.JavaConverters._
 
 class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar {
   private val metrics = new Metrics(new MetricRegistry)
@@ -66,6 +69,77 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     Map(
       Conversions.configurationStateKey -> Some(configurationStateValue),
       dedupKey -> Some(dedupValue))
+  private val aRichTransactionTreeSummary = {
+    val roots = Seq("Exercise-1", "Fetch-1", "LookupByKey-1", "Create-1")
+    val nodes: Seq[TransactionOuterClass.Node] = Seq(
+      createNode("Fetch-1")(_.setFetch(fetchNodeBuilder)),
+      createNode("LookupByKey-1")(_.setLookupByKey(lookupByKeyNodeBuilder)),
+      createNode("Create-1")(_.setCreate(createNodeBuilder)),
+      createNode("LookupByKey-2")(_.setLookupByKey(lookupByKeyNodeBuilder)),
+      createNode("Fetch-2")(_.setFetch(fetchNodeBuilder)),
+      createNode("Create-2")(_.setCreate(createNodeBuilder)),
+      createNode("Fetch-3")(_.setFetch(fetchNodeBuilder)),
+      createNode("Create-3")(_.setCreate(createNodeBuilder)),
+      createNode("LookupByKey-3")(_.setLookupByKey(lookupByKeyNodeBuilder)),
+      createNode("Exercise-2")(
+        _.setExercise(
+          exerciseNodeBuilder.addAllChildren(
+            Seq("Fetch-3", "Create-3", "LookupByKey-3").asJava
+          ))),
+      createNode("Exercise-1")(
+        _.setExercise(
+          exerciseNodeBuilder.addAllChildren(
+            Seq("LookupByKey-2", "Fetch-2", "Create-2", "Exercise-2").asJava
+          )))
+    )
+    val tx = TransactionOuterClass.Transaction
+      .newBuilder()
+      .addAllRoots(roots.asJava)
+      .addAllNodes(nodes.asJava)
+      .build()
+    val outTx = aDamlTransactionEntry.toBuilder.setTransaction(tx).build()
+    DamlTransactionEntrySummary(outTx)
+  }
+
+  private def createNode(nodeId: String)(
+      nodeImpl: TransactionOuterClass.Node.Builder => TransactionOuterClass.Node.Builder) =
+    nodeImpl(TransactionOuterClass.Node.newBuilder().setNodeId(nodeId)).build()
+
+  private def fetchNodeBuilder = TransactionOuterClass.NodeFetch.newBuilder()
+
+  private def exerciseNodeBuilder = TransactionOuterClass.NodeExercise.newBuilder()
+
+  private def createNodeBuilder = TransactionOuterClass.NodeCreate.newBuilder()
+
+  private def lookupByKeyNodeBuilder = TransactionOuterClass.NodeLookupByKey.newBuilder()
+
+  "removeUnnnecessaryNodes" should {
+    "remove `Fetch` and `LookupByKey` nodes from transaction tree" in {
+      val context = new FakeCommitContext(recordTime = None)
+
+      instance.removeUnnecessaryNodes(context, aRichTransactionTreeSummary) match {
+        case StepContinue(_) => fail("should be StepStop")
+        case StepStop(logEntry) =>
+          val transaction = logEntry.getTransactionEntry.getTransaction
+          transaction.getRootsList.asScala should contain theSameElementsInOrderAs Seq(
+            "Exercise-1",
+            "Create-1")
+          val nodes = transaction.getNodesList.asScala
+          nodes.map(_.getNodeId) should contain theSameElementsInOrderAs Seq(
+            "Create-1",
+            "Create-2",
+            "Create-3",
+            "Exercise-2",
+            "Exercise-1")
+          nodes.head.hasCreate shouldBe true
+          nodes(3).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq(
+            "Create-3")
+          nodes(4).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq(
+            "Create-2",
+            "Exercise-2")
+      }
+    }
+  }
 
   "deduplicateCommand" should {
     "continue if record time is not available" in {
@@ -266,10 +340,9 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
       val actual = instance.blind(context, aTransactionEntrySummary)
 
       actual match {
-        case StepContinue(_) => fail
-        case StepStop(logEntry) =>
-          logEntry.hasTransactionEntry shouldBe true
-          logEntry.getTransactionEntry.hasBlindingInfo shouldBe true
+        case StepContinue(partialResult) =>
+          partialResult.submission.hasBlindingInfo shouldBe true
+        case StepStop(_) => fail
       }
     }
   }
