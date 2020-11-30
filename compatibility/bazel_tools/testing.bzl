@@ -28,6 +28,15 @@ first_granular_test_tool = "1.3.0-snapshot.20200623.4546.0.4f68cfc4"
 excluded_test_tool_tests = [
     {
         "start": "1.0.0",
+        "end": "1.0.1",
+        "platform_ranges": [
+            {
+                "exclusions": ["ContractKeysSubmitterIsMaintainerIT"],
+            },
+        ],
+    },
+    {
+        "start": "1.0.0",
         "end": "1.0.0",
         "platform_ranges": [
             {
@@ -37,7 +46,7 @@ excluded_test_tool_tests = [
             },
             {
                 "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
-                "exclusions": ["ContractKeysIT", "ContractKeysSubmitterIsMaintainerIT"],
+                "exclusions": ["ContractKeysIT"],
             },
         ],
     },
@@ -48,10 +57,6 @@ excluded_test_tool_tests = [
             {
                 "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
                 "exclusions": ["ContractKeysIT"],
-            },
-            {
-                "start": "1.1.0-snapshot.20200430.4057.0.681c862d",
-                "exclusions": ["ContractKeysSubmitterIsMaintainerIT"],
             },
         ],
     },
