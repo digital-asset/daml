@@ -791,10 +791,10 @@ decodePrim = pure . \case
   LF1.PrimTypeARROW -> BTArrow
   LF1.PrimTypeANY -> BTAny
   LF1.PrimTypeTYPE_REP -> BTTypeRep
-  LF1.PrimTypeANY_EXCEPTION -> error "ANY_EXCEPTION" -- TODO #8020
-  LF1.PrimTypeGENERAL_ERROR -> error "GENERAL_ERROR" -- TODO #8020
-  LF1.PrimTypeARITHMETIC_ERROR -> error "ARITHMETIC_ERROR" -- TODO #8020
-  LF1.PrimTypeCONTRACT_ERROR -> error "CONTRACT_ERROR" -- TODO #8020
+  LF1.PrimTypeANY_EXCEPTION -> BTAnyException
+  LF1.PrimTypeGENERAL_ERROR -> BTGeneralError
+  LF1.PrimTypeARITHMETIC_ERROR -> BTArithmeticError
+  LF1.PrimTypeCONTRACT_ERROR -> BTContractError
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =
