@@ -145,7 +145,6 @@
       <div class="wy-side-scroll">
 
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          <i data-toggle="wy-nav-top" class="fa fa-times"><span class="wy-menu-vertical-title">Digital Asset</span></i>
           {% block menu %}
           {#
           The singlehtml builder doesn't handle this toctree call when the
@@ -170,25 +169,23 @@
     </nav>
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      {# MOBILE NAV, TRIGGLES SIDE NAV ON TOGGLE #}
-      <nav class="wy-nav-top" aria-label="top navigation">
-        {% block mobile_nav %}
-        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-        <a href="{{ pathto(master_doc) }}">{{ project }}</a>
-        {% endblock %}
-      </nav>
       {%- if url_root == './' %}
       {% set addClass = ' landing' %}
       {% endif %}
       <div class="topbar fixed">
+        {# MOBILE NAV, TRIGGLES SIDE NAV ON TOGGLE #}
+        <nav class="wy-nav-top" aria-label="top navigation">
+          {% block mobile_nav %}
+          <i data-toggle="wy-nav-top" class="wy-nav-top-toggle"></i>
+          {% endblock %}
+        </nav>
         {% include "navbar.html" %}
 
         <div class="version {{addClass}}">
           {%- if url_root == './' %}
-          <span class="hide-mobile">Documentation Version&nbsp;</span> <span class="version_switcher_placeholder"></span>
+          <span class="hide-tablet">Documentation&nbsp;</span><span class="hide-mobile">Version&nbsp;</span><span class="version_switcher_placeholder"></span>
           {% else %}
-          <span class="hide-mobile">Version&nbsp;</span> <span class="version_switcher_placeholder"></span>
+          <span class="hide-mobile">Version&nbsp;</span><span class="version_switcher_placeholder"></span>
           {% endif %}
         </div>
 

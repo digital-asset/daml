@@ -16,10 +16,6 @@ Prerequisites:
 - You understand what an IOU is. If you are not sure, read the :ref:`IOU tutorial overview<tutorials-iou-overview>`.
 - You have installed the SDK. See :doc:`installation </getting-started/installation>`.
 
-On this page:
-
-.. contents:: :local:
-
 .. _quickstart-download:
 
 Download the quickstart application
