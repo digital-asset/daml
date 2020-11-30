@@ -23,6 +23,7 @@ fi
 # a cheaper solution than having to reset the node.
 # Note that lsof returns a non-zero exit code if there is no match.
 SANDBOX_PID="$(lsof -ti tcp:6865 || true)"
+echo "'$SANDBOX_PID'"
 if [ -n "$SANDBOX_PID" ]; then
     kill "$SANDBOX_PID"
 fi
