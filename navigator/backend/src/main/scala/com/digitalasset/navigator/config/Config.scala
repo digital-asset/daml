@@ -19,11 +19,7 @@ import org.slf4j.LoggerFactory
 import pureconfig.{ConfigConvert, ConfigWriter}
 import scalaz.Tag
 
-final case class UserConfig(
-    password: Option[String],
-    party: ApiTypes.Party,
-    role: Option[String],
-    useDatabase: Boolean)
+final case class UserConfig(party: ApiTypes.Party, role: Option[String], useDatabase: Boolean)
 
 /* The configuration has an empty map as default list of users because you can login as party too */
 final case class Config(users: Map[String, UserConfig] = Map.empty[String, UserConfig]) {
@@ -50,6 +46,7 @@ final case class ExplicitConfig(path: Path) extends ConfigOption
 object Config {
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
+  private[this] def userFacingLogger = LoggerFactory.getLogger("user-facing-logs")
 
   def load(configOpt: ConfigOption, useDatabase: Boolean): Either[ConfigReadError, Config] = {
     configOpt match {
@@ -101,7 +98,7 @@ object Config {
         Right(
           Config(
             parties
-              .map(p => p -> UserConfig(None, ApiTypes.Party(p), None, useDatabase))
+              .map(p => p -> UserConfig(ApiTypes.Party(p), None, useDatabase))
               .toMap))
       case Right(None) =>
         // Pick up parties from party management service
@@ -120,7 +117,7 @@ object Config {
   def template(useDatabase: Boolean): Config =
     Config(
       Map(
-        "OPERATOR" -> UserConfig(Some("password"), ApiTypes.Party("party"), None, useDatabase)
+        "OPERATOR" -> UserConfig(ApiTypes.Party("party"), None, useDatabase)
       ))
 
   def writeTemplateToPath(configFile: Path, useDatabase: Boolean): Unit = {
@@ -142,7 +139,12 @@ object Config {
 
   private[this] def mkUserConfigConvert(useDatabase: Boolean): ConfigConvert[UserConfig] =
     implicitly[ConfigConvert[UserConfigHelper]].xmap(
-      helper => UserConfig(helper.password, ApiTypes.Party(helper.party), helper.role, useDatabase),
-      conf => UserConfigHelper(conf.password, Tag.unwrap(conf.party), conf.role)
+      helper => {
+        helper.password.foreach { _ =>
+          userFacingLogger.warn(s"password field set for user ${helper.party} is deprecated")
+        }
+        UserConfig(ApiTypes.Party(helper.party), helper.role, useDatabase)
+      },
+      conf => UserConfigHelper(None, Tag.unwrap(conf.party), conf.role)
     )
 }

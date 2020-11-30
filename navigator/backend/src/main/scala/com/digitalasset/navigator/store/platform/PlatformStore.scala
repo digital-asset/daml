@@ -168,11 +168,7 @@ class PlatformStore(
         }
         self ! Subscribe(
           displayName,
-          UserConfig(
-            password = None,
-            party = ApiTypes.Party(partyDetails.party),
-            role = None,
-            useDatabase = false))
+          UserConfig(party = ApiTypes.Party(partyDetails.party), role = None, useDatabase = false))
       }
 
     case Subscribe(displayName, config) =>
