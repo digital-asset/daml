@@ -16,11 +16,14 @@ object Identifiers {
     */
   def fromTransaction(transaction: Transaction): Map[String, String] = {
     val attributes = Map.newBuilder[String, String]
-    if (!transaction.offset.isEmpty) attributes += OffsetKey -> transaction.offset
-    if (!transaction.commandId.isEmpty) attributes += CommandIdKey -> transaction.commandId
-    if (!transaction.transactionId.isEmpty)
-      attributes += TransactionIdKey -> transaction.transactionId
-    if (!transaction.workflowId.isEmpty) attributes += WorkflowIdKey -> transaction.workflowId
+    def setIfNotEmpty(key: String, value: String): Unit =
+      if (!value.isEmpty) attributes += key -> value
+
+    setIfNotEmpty(OffsetKey, transaction.offset)
+    setIfNotEmpty(CommandIdKey, transaction.commandId)
+    setIfNotEmpty(TransactionIdKey, transaction.transactionId)
+    setIfNotEmpty(WorkflowIdKey, transaction.workflowId)
+
     attributes.result
   }
 
@@ -29,12 +32,14 @@ object Identifiers {
     */
   def fromTransactionTree(transactionTree: TransactionTree): Map[String, String] = {
     val attributes = Map.newBuilder[String, String]
-    if (!transactionTree.offset.isEmpty) attributes += OffsetKey -> transactionTree.offset
-    if (!transactionTree.commandId.isEmpty) attributes += CommandIdKey -> transactionTree.commandId
-    if (!transactionTree.transactionId.isEmpty)
-      attributes += TransactionIdKey -> transactionTree.transactionId
-    if (!transactionTree.workflowId.isEmpty)
-      attributes += WorkflowIdKey -> transactionTree.workflowId
+    def setIfNotEmpty(key: String, value: String): Unit =
+      if (!value.isEmpty) attributes += key -> value
+
+    setIfNotEmpty(OffsetKey, transactionTree.offset)
+    setIfNotEmpty(CommandIdKey, transactionTree.commandId)
+    setIfNotEmpty(TransactionIdKey, transactionTree.transactionId)
+    setIfNotEmpty(WorkflowIdKey, transactionTree.workflowId)
+
     attributes.result
   }
 }
