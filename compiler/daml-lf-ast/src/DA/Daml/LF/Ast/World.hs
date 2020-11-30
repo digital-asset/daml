@@ -14,6 +14,7 @@ module DA.Daml.LF.Ast.World(
     ExternalPackage(..),
     LookupError,
     lookupTemplate,
+    lookupException,
     lookupTypeSyn,
     lookupDataType,
     lookupChoice,
@@ -94,6 +95,7 @@ data LookupError
   | LEDataType !(Qualified TypeConName)
   | LEValue !(Qualified ExprValName)
   | LETemplate !(Qualified TypeConName)
+  | LEException !(Qualified TypeConName)
   | LEChoice !(Qualified TypeConName) !ChoiceName
   deriving (Eq, Ord, Show)
 
@@ -134,6 +136,9 @@ lookupValue = lookupDefinition moduleValues LEValue
 lookupTemplate :: Qualified TypeConName -> World -> Either LookupError Template
 lookupTemplate = lookupDefinition moduleTemplates LETemplate
 
+lookupException :: Qualified TypeConName -> World -> Either LookupError DefException
+lookupException = lookupDefinition moduleExceptions LEException
+
 lookupChoice :: (Qualified TypeConName, ChoiceName) -> World -> Either LookupError TemplateChoice
 lookupChoice (tplRef, chName) world = do
   tpl <- lookupTemplate tplRef world
@@ -150,4 +155,5 @@ instance Pretty LookupError where
     LEDataType datRef -> "unknown data type:" <-> pretty datRef
     LEValue valRef-> "unknown value:" <-> pretty valRef
     LETemplate tplRef -> "unknown template:" <-> pretty tplRef
+    LEException exnRef -> "unknown exception:" <-> pretty exnRef
     LEChoice tplRef chName -> "unknown choice:" <-> pretty tplRef <> ":" <> pretty chName

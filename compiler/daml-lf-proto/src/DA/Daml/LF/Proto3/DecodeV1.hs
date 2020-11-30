@@ -105,6 +105,11 @@ decodeName wrapName mbStrOrId = mayDecode "name" mbStrOrId $ \strOrId -> do
         Right strId -> snd <$> lookupString strId
     decodeNameString wrapName unmangledOrErr
 
+decodeNameId :: (T.Text -> a) -> Int32 -> Decode a
+decodeNameId wrapName strId = do
+    (_, s) <- lookupString strId
+    decodeNameString wrapName s
+
 decodeNameString :: (T.Text -> a) -> Either String UnmangledIdentifier -> Decode a
 decodeNameString wrapName unmangledOrErr =
     case unmangledOrErr of
@@ -436,14 +441,14 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionAPPEND_TEXT    -> BEAppendText
 
   LF1.BuiltinFunctionERROR          -> BEError
-  LF1.BuiltinFunctionTHROW -> undefined -- TODO #8020
-  LF1.BuiltinFunctionANY_EXCEPTION_MESSAGE -> undefined -- TODO #8020
-  LF1.BuiltinFunctionMAKE_GENERAL_ERROR -> undefined -- TODO #8020
-  LF1.BuiltinFunctionGENERAL_ERROR_MESSAGE -> undefined -- TODO #8020
-  LF1.BuiltinFunctionMAKE_ARITHMETIC_ERROR -> undefined -- TODO #8020
-  LF1.BuiltinFunctionARITHMETIC_ERROR_MESSAGE -> undefined -- TODO #8020
-  LF1.BuiltinFunctionMAKE_CONTRACT_ERROR -> undefined -- TODO #8020
-  LF1.BuiltinFunctionCONTRACT_ERROR_MESSAGE -> undefined -- TODO #8020
+  LF1.BuiltinFunctionTHROW -> BEThrow
+  LF1.BuiltinFunctionANY_EXCEPTION_MESSAGE -> BEAnyExceptionMessage
+  LF1.BuiltinFunctionGENERAL_ERROR_MESSAGE -> BEGeneralErrorMessage
+  LF1.BuiltinFunctionARITHMETIC_ERROR_MESSAGE -> BEArithmeticErrorMessage
+  LF1.BuiltinFunctionCONTRACT_ERROR_MESSAGE -> BEContractErrorMessage
+  LF1.BuiltinFunctionMAKE_GENERAL_ERROR -> BEMakeGeneralError
+  LF1.BuiltinFunctionMAKE_ARITHMETIC_ERROR -> BEMakeArithmeticError
+  LF1.BuiltinFunctionMAKE_CONTRACT_ERROR -> BEMakeContractError
 
   LF1.BuiltinFunctionTEXTMAP_EMPTY      -> BETextMapEmpty
   LF1.BuiltinFunctionTEXTMAP_INSERT     -> BETextMapInsert
@@ -505,7 +510,7 @@ decodeExpr (LF1.Expr mbLoc exprSum) = case mbLoc of
 decodeExprSum :: Maybe LF1.ExprSum -> Decode Expr
 decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF1.ExprSumVarStr var -> EVar <$> decodeNameString ExprVarName (snd $ decodeMangledString var)
-  LF1.ExprSumVarInternedStr strId -> EVar <$> (lookupString strId >>= decodeNameString ExprVarName . snd)
+  LF1.ExprSumVarInternedStr strId -> EVar <$> decodeNameId ExprVarName strId
   LF1.ExprSumVal val -> EVal <$> decodeValName val
   LF1.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltin <$> decodeBuiltinFunction bi
   LF1.ExprSumBuiltin (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltin" num)
@@ -599,9 +604,13 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     return (EFromAny type' expr)
   LF1.ExprSumTypeRep typ ->
     ETypeRep <$> decodeType typ
-
-  LF1.ExprSumMakeAnyException _ -> error "EMakeAnyException" -- TODO #8020
-  LF1.ExprSumFromAnyException _ -> error "EFromAnyException" -- TODO #8020
+  LF1.ExprSumMakeAnyException LF1.Expr_MakeAnyException {..} -> EMakeAnyException
+    <$> mayDecode "expr_MakeAnyExceptionType" expr_MakeAnyExceptionType decodeType
+    <*> mayDecode "expr_MakeAnyExceptionMessage" expr_MakeAnyExceptionMessage decodeExpr
+    <*> mayDecode "expr_MakeAnyExceptionExpr" expr_MakeAnyExceptionExpr decodeExpr
+  LF1.ExprSumFromAnyException LF1.Expr_FromAnyException {..} -> EFromAnyException
+    <$> mayDecode "expr_FromAnyExceptionType" expr_FromAnyExceptionType decodeType
+    <*> mayDecode "expr_FromAnyExceptionExpr" expr_FromAnyExceptionExpr decodeExpr
 
 decodeUpdate :: LF1.Update -> Decode Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
@@ -625,7 +634,7 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
   LF1.UpdateSumExerciseByKey LF1.Update_ExerciseByKey{..} ->
     fmap EUpdate $ UExerciseByKey
       <$> mayDecode "update_ExerciseByKeyTemplate" update_ExerciseByKeyTemplate decodeTypeConName
-      <*> (lookupString update_ExerciseByKeyChoiceInternedStr >>= decodeNameString ChoiceName . snd)
+      <*> decodeNameId ChoiceName update_ExerciseByKeyChoiceInternedStr
       <*> mayDecode "update_ExerciseByKeyKey" update_ExerciseByKeyKey decodeExpr
       <*> mayDecode "update_ExerciseByKeyArg" update_ExerciseByKeyArg decodeExpr
   LF1.UpdateSumFetch LF1.Update_Fetch{..} ->
@@ -642,8 +651,12 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap (EUpdate . ULookupByKey) (decodeRetrieveByKey retrieveByKey)
   LF1.UpdateSumFetchByKey retrieveByKey ->
     fmap (EUpdate . UFetchByKey) (decodeRetrieveByKey retrieveByKey)
-
-  LF1.UpdateSumTryCatch _ -> error "UTryCatch" -- TODO #8020
+  LF1.UpdateSumTryCatch LF1.Update_TryCatch{..} ->
+    fmap EUpdate $ UTryCatch
+      <$> mayDecode "update_TryCatchReturnType" update_TryCatchReturnType decodeType
+      <*> mayDecode "update_TryCatchTryExpr" update_TryCatchTryExpr decodeExpr
+      <*> decodeNameId ExprVarName update_TryCatchVarInternedStr
+      <*> mayDecode "update_TryCatchCatchExpr" update_TryCatchCatchExpr decodeExpr
 
 decodeRetrieveByKey :: LF1.Update_RetrieveByKey -> Decode RetrieveByKey
 decodeRetrieveByKey LF1.Update_RetrieveByKey{..} = RetrieveByKey
@@ -778,10 +791,10 @@ decodePrim = pure . \case
   LF1.PrimTypeARROW -> BTArrow
   LF1.PrimTypeANY -> BTAny
   LF1.PrimTypeTYPE_REP -> BTTypeRep
-  LF1.PrimTypeANY_EXCEPTION -> error "ANY_EXCEPTION" -- TODO #8020
-  LF1.PrimTypeGENERAL_ERROR -> error "GENERAL_ERROR" -- TODO #8020
-  LF1.PrimTypeARITHMETIC_ERROR -> error "ARITHMETIC_ERROR" -- TODO #8020
-  LF1.PrimTypeCONTRACT_ERROR -> error "CONTRACT_ERROR" -- TODO #8020
+  LF1.PrimTypeANY_EXCEPTION -> BTAnyException
+  LF1.PrimTypeGENERAL_ERROR -> BTGeneralError
+  LF1.PrimTypeARITHMETIC_ERROR -> BTArithmeticError
+  LF1.PrimTypeCONTRACT_ERROR -> BTContractError
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =

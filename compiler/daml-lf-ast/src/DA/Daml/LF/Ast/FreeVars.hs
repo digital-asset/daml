@@ -101,6 +101,8 @@ freeVarsStep = \case
     EToAnyF t e -> freeVarsInType t <> e
     EFromAnyF t e -> freeVarsInType t <> e
     ETypeRepF t -> freeVarsInType t
+    EMakeAnyExceptionF t e1 e2 -> freeVarsInType t <> e1 <> e2
+    EFromAnyExceptionF t e -> freeVarsInType t <> e
 
   where
 
@@ -135,6 +137,7 @@ freeVarsStep = \case
         UEmbedExprF t e -> freeVarsInType t <> e
         UFetchByKeyF r -> retrieveByKeyFKey r
         ULookupByKeyF r -> retrieveByKeyFKey r
+        UTryCatchF t e1 x e2 -> freeVarsInType t <> e1 <> bindExprVar x e2
 
     goScenario :: ScenarioF FreeVars -> FreeVars
     goScenario = \case
