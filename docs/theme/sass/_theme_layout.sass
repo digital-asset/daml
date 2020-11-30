@@ -104,7 +104,6 @@ html
     position: relative
     background: $menu-vertical-background-color
     border: none
-    +font-smooth
 
     &:hover
       background: $menu-vertical-background-color
@@ -173,14 +172,6 @@ html
       span.toctree-expand
         color: $menu-link-dark
 
-    &:active
-      background-color: $menu-logo-color
-      cursor: pointer
-      color: $menu-link-active
-
-      span.toctree-expand
-        color: $menu-link-active
-
 .wy-side-nav-search
   display: block
   width: $nav-desktop-width
@@ -216,7 +207,6 @@ html
     display: inline-block
     padding: $base-line-height / 6 $base-line-height / 4
     margin-bottom: $gutter / 2
-    +font-smooth
 
     &:hover
       background: rgba(255, 255, 255, .1)
@@ -322,7 +312,6 @@ html
   a
     color: $white
     font-weight: $weight-title
-    +font-smooth
 
   img
     margin-right: $base-line-height / 2
@@ -847,10 +836,6 @@ body
       color: $text-medium
       cursor: pointer
 
-    &:active
-      background-color: $menu-logo-color
-      cursor: pointer
-
     &:before
       content: ""
       display: block
@@ -1003,11 +988,6 @@ body
         &:hover
           color: $menu-link-medium
           cursor: pointer
-
-        &:active
-          background-color: $menu-logo-color
-          cursor: pointer
-          color: $menu-link-active
 
       &:not(.current)
         > a.reference
@@ -1223,11 +1203,6 @@ body
 
           &:hover
             background-color: $menu-background-color
-            border-left: 5px solid $blue
-            padding-left: 42px
-
-          &:active
-            background-color: $menu-logo-color
             border-left: 5px solid $blue
             padding-left: 42px
 
@@ -2074,10 +2049,6 @@ body
           &:hover
             text-decoration: none
             box-shadow: 2px 3px 6px -3px $gray-lighter, 2px 3px 6px -1px $blue-lighter
-
-          &:active
-            box-shadow: 2px 3px 6px -3px $gray-lighter, 2px 3px 6px -1px $blue-lighter
-
 
 ul.search
   em, .ss360-highlight
