@@ -37,7 +37,7 @@ register_toolchains(
 load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew", "dev_env_tool")
 load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
-    "nixpkgs_cc_configure_hermetic",
+    "nixpkgs_cc_configure",
     "nixpkgs_local_repository",
     "nixpkgs_package",
     "nixpkgs_python_configure",
@@ -102,11 +102,7 @@ common_nix_file_deps = [
 ]
 
 # Use Nix provisioned cc toolchain
-nixpkgs_cc_configure_hermetic(
-    # We override the Bazel's autodetect toolchain to avoid accidentaly
-    # dependencies on the inhermetic autodetected builtin include paths or
-    # builds failing due to Bazel not finding `cc` in `$PATH` or `$CC`.
-    name = "local_config_cc",
+nixpkgs_cc_configure(
     nix_file = "//nix:bazel-cc-toolchain.nix",
     nix_file_deps = common_nix_file_deps + [
         "//nix:tools/bazel-cc-toolchain/default.nix",
