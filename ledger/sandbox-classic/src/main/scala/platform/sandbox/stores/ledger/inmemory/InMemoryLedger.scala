@@ -576,7 +576,7 @@ private[sandbox] final class InMemoryLedger(
     if (submitters.length == 1)
       commandId.unwrap + "%" + submitters.head
     else
-      commandId.unwrap + "%" + submitters.asInstanceOf[List[String]].sorted.distinct.mkString("%")
+      commandId.unwrap + "%" + submitters.sorted(Ordering.String).distinct.mkString("%")
 
   override def deduplicateCommand(
       commandId: CommandId,
