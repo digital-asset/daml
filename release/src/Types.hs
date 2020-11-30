@@ -15,7 +15,6 @@ module Types (
     MonadCI,
     OS(..),
     PerformUpload(..),
-    Version(..),
     (#),
     dropFileName,
     groupIdString,
@@ -35,6 +34,7 @@ import           Control.Monad.Trans.Control          (MonadBaseControl)
 import           Data.Aeson
 import qualified Data.List                            as List
 import           Data.Maybe
+import           Data.SemVer (Version)
 import           Data.Text                            (Text)
 import qualified Data.Text                            as T
 import           Data.Typeable                        (Typeable)
@@ -107,14 +107,6 @@ type GitRev = Text
 
 newtype PerformUpload = PerformUpload{getPerformUpload :: Bool}
     deriving (Eq, Show)
-
--- versions
--- --------------------------------------------------------------------
-
---
--- | Version number bumping is fully automated using the @VERSION@
---   files that can be found in the root directory of the repo.
-newtype Version = Version Text deriving (Eq, Show)
 
 newtype MavenAllowUnsecureTls = MavenAllowUnsecureTls { getAllowUnsecureTls :: Bool }
     deriving (Eq, Show, FromJSON)

@@ -46,6 +46,8 @@ import           Data.Conduit ((.|))
 import qualified Data.Conduit as C
 import qualified Data.Conduit.Process as Proc
 import qualified Data.Conduit.Text as CT
+import           Data.SemVer (Version)
+import qualified Data.SemVer as SemVer
 import qualified System.Process
 import Data.Maybe
 import           Data.Text (Text, unpack)
@@ -152,7 +154,7 @@ buildTargets art@Artifact{..} =
 data PomData = PomData
   { pomGroupId :: GroupId
   , pomArtifactId :: ArtifactId
-  , pomVersion :: Text
+  , pomVersion :: Version
   } deriving (Eq, Show)
 
 readPomData :: FilePath -> IO PomData
@@ -162,7 +164,7 @@ readPomData f = do
     let elName name = XML.Name name (Just "http://maven.apache.org/POM/4.0.0") Nothing
     [artifactId] <- pure $ c XML.$/ (XML.element (elName "artifactId") XML.&/ XML.content)
     [groupId] <- pure $ c XML.$/ (XML.element (elName "groupId") XML.&/ XML.content)
-    [version] <- pure $ c XML.$/ (XML.element (elName "version") XML.&/ XML.content)
+    [Right version] <- pure $ map SemVer.fromText $ c XML.$/ (XML.element (elName "version") XML.&/ XML.content)
     pure $ PomData
         { pomGroupId = T.split (== '.') groupId
         , pomArtifactId = artifactId
@@ -170,7 +172,7 @@ readPomData f = do
         }
 
 resolvePomData :: BazelLocations -> Version -> Artifact (Maybe ArtifactLocation) -> IO (Artifact PomData)
-resolvePomData BazelLocations{..} (Version version) art =
+resolvePomData BazelLocations{..} version art =
     case artMetadata art of
         Just ArtifactLocation{..} -> pure art
             { artMetadata = PomData
@@ -262,12 +264,12 @@ artifactFiles :: E.MonadThrow m => Artifact PomData -> m [(Path Rel File, Path R
 artifactFiles artifact@Artifact{..} = do
     let PomData{..} = artMetadata
     outDir <- parseRelDir $ unpack $
-        T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# pomVersion #"/"
+        T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# SemVer.toText pomVersion #"/"
     let (directory, name) = splitBazelTarget artTarget
     directory <- parseRelDir $ unpack directory
 
     mainArtifactIn <- mainArtifactPath name artifact
-    mainArtifactOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # "." # mainExt artReleaseType))
+    mainArtifactOut <- parseRelFile (unpack (pomArtifactId #"-"# SemVer.toText pomVersion # "." # mainExt artReleaseType))
 
     pomFileIn <- pomFilePath name
     pomFileOut <- releasePomPath artMetadata
@@ -307,17 +309,17 @@ javadocJarPath artifact =
 -- | The file path to the source jar for the given artifact in the release directory.
 releaseSourceJarPath :: E.MonadThrow m => PomData -> m (Path Rel File)
 releaseSourceJarPath PomData{..} =
-    parseRelFile (unpack (pomArtifactId # "-" # pomVersion # "-sources.jar"))
+    parseRelFile (unpack (pomArtifactId # "-" # SemVer.toText pomVersion # "-sources.jar"))
 
 -- | The file path to the javadoc jar for the given artifact in the release directory.
 releaseDocJarPath :: E.MonadThrow m => PomData -> m (Path Rel File)
 releaseDocJarPath PomData{..} =
-    parseRelFile (unpack (pomArtifactId # "-" # pomVersion # "-javadoc.jar"))
+    parseRelFile (unpack (pomArtifactId # "-" # SemVer.toText pomVersion # "-javadoc.jar"))
 
 -- | The file path to the pom file for the given artifact in the release directory.
 releasePomPath :: E.MonadThrow m => PomData -> m (Path Rel File)
 releasePomPath PomData{..} =
-    parseRelFile (unpack (pomArtifactId # "-" # pomVersion # ".pom"))
+    parseRelFile (unpack (pomArtifactId # "-" # SemVer.toText pomVersion # ".pom"))
 
 -- | Given an artifact, produce a list of pairs of an input file and the Maven coordinates.
 -- This corresponds to the files uploaded to Maven Central.
@@ -325,15 +327,15 @@ mavenArtifactCoords :: E.MonadThrow m => Artifact PomData -> m [(MavenCoords, Pa
 mavenArtifactCoords Artifact{..} = do
     let PomData{..} = artMetadata
     outDir <- parseRelDir $ unpack $
-        T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# pomVersion #"/"
+        T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# SemVer.toText pomVersion #"/"
 
-    mainArtifactFile <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # "." # mainExt artReleaseType))
+    mainArtifactFile <- parseRelFile (unpack (pomArtifactId #"-"# SemVer.toText pomVersion # "." # mainExt artReleaseType))
     pomFile <- releasePomPath artMetadata
     sourcesFile <- releaseSourceJarPath artMetadata
     javadocFile <- releaseDocJarPath artMetadata
 
     let mavenCoords classifier artifactType =
-           MavenCoords { groupId = pomGroupId, artifactId = pomArtifactId, version = Version pomVersion, classifier, artifactType }
+           MavenCoords { groupId = pomGroupId, artifactId = pomArtifactId, version = pomVersion, classifier, artifactType }
     pure [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)
          , (mavenCoords Nothing "pom",  outDir </> pomFile)
          , (mavenCoords (Just "sources") "jar", outDir </> sourcesFile)
