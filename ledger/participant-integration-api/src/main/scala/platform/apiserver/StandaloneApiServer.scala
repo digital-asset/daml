@@ -104,7 +104,7 @@ final class StandaloneApiServer(
         config.port,
         config.maxInboundMessageSize,
         config.address,
-        config.tlsConfig.flatMap(_.server),
+        config.tlsConfig,
         AuthorizationInterceptor(authService, executionContext) :: otherInterceptors,
         metrics
       )

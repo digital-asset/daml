@@ -348,7 +348,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "fetch @Mod:T e" ->
           UpdateFetch(T.tycon, e"e"),
         "exercise @Mod:T Choice cid arg" ->
-          UpdateExercise(T.tycon, n"Choice", e"cid", None, e"arg"),
+          UpdateExercise(T.tycon, n"Choice", e"cid", e"arg"),
         "exercise_by_key @Mod:T Choice key arg" ->
           UpdateExerciseByKey(T.tycon, n"Choice", e"key", e"arg"),
         "fetch_by_key @Mod:T e" ->

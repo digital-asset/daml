@@ -110,6 +110,14 @@ abstract class CommonCliSpecBase(
         _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, None, Some(new File(pem)), None))))
     }
 
+    "set certificate revocation checks property" in {
+      checkOption(
+        Array("--cert-revocation-checking", "true"),
+        _.copy(tlsConfig = Some(
+          TlsConfiguration(enabled = true, None, None, None, enableCertRevocationChecking = true)))
+      )
+    }
+
     "parse the eager package loading flag when given" in {
       checkOption(Array("--eager-package-loading"), _.copy(eagerPackageLoading = true))
     }

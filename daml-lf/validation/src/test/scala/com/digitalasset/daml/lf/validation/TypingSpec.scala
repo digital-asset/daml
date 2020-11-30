@@ -5,7 +5,7 @@ package com.daml.lf.validation
 
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
+import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.{defaultPackageId, defaultLanguageVersion}
 import com.daml.lf.validation.SpecUtil._
@@ -837,9 +837,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
             choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
           },
           key @PositiveTestCase6:TBis
-              // In the next line, should use only record construction and projection, and variable. Here use string literal.
-              (PositiveTestCase6:TBis { person = "Alice", party = (PositiveTestCase6:T {person} this) })
-              (\ (key: PositiveTestCase6:TBis) -> Cons @Party [(PositiveTestCase6:TBis {party} key), 'Alice'] (Nil @Party)  )
+          // In the next line, the declared type do not match body
+          (NegativeTestCase:TBis { person = (PositiveTestCase6:T {name} this), party = (PositiveTestCase6:T {person} this) })
+          (\ (key: PositiveTestCase6:TBis) -> Cons @Party [(PositiveTestCase6:TBis {party} key), 'Alice'] (Nil @Party)  )
         } ;
       }
 
@@ -857,12 +857,11 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
             choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
           },
           key @PositiveTestCase7:TBis
-          // In the next line, the declared type do not match body
-          (NegativeTestCase:TBis { person = (PositiveTestCase7:T {name} this), party = (PositiveTestCase7:T {person} this) })
-          (\ (key: PositiveTestCase7:TBis) -> Cons @Party [(PositiveTestCase7:TBis {party} key), 'Alice'] (Nil @Party)  )
+          (PositiveTestCase7:TBis { person = (PositiveTestCase7:T {name} this), party = (PositiveTestCase7:T {person} this) })
+          // in the next line, expect PositiveTestCase7:TBis -> List Party
+          (\ (key: NegativeTestCase:TBis) -> Cons @Party [(PositiveTestCase7:TBis {party} key), 'Alice'] (Nil @Party)  )
         } ;
       }
-
 
       module PositiveTestCase8 {
         record @serializable T = {person: Party, name: Text};
@@ -878,31 +877,12 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           },
           key @PositiveTestCase8:TBis
           (PositiveTestCase8:TBis { person = (PositiveTestCase8:T {name} this), party = (PositiveTestCase8:T {person} this) })
-          // in the next line, expect PositiveTestCase8:TBis -> List Party
-          (\ (key: NegativeTestCase:TBis) -> Cons @Party [(PositiveTestCase8:TBis {party} key), 'Alice'] (Nil @Party)  )
+          // In the next line, cannot use `this`
+          (\ (key: PositiveTestCase8:TBis) -> Cons @Party [(PositiveTestCase8:T {person} this), 'Alice'] (Nil @Party)  )
         } ;
       }
 
       module PositiveTestCase9 {
-        record @serializable T = {person: Party, name: Text};
-        record @serializable TBis = {person: Text, party: Party};
-
-        template (this : T) =  {
-          precondition True,
-          signatories Cons @Party ['Bob'] (Nil @Party),
-          observers Cons @Party ['Alice'] (Nil @Party),
-          agreement "Agreement",
-          choices {
-            choice Ch (self) (i : Unit) : Unit, controllers Cons @Party ['Alice'] (Nil @Party) to upure @Unit ()
-          },
-          key @PositiveTestCase9:TBis
-          (PositiveTestCase9:TBis { person = (PositiveTestCase9:T {name} this), party = (PositiveTestCase9:T {person} this) })
-          // In the next line, cannot use `this`
-          (\ (key: PositiveTestCase9:TBis) -> Cons @Party [(PositiveTestCase9:T {person} this), 'Alice'] (Nil @Party)  )
-        } ;
-      }
-
-      module PositiveTestCase10 {
         record @serializable T (a: *) = {x: a};
 
         // in the next line, T must have kind *.
@@ -915,7 +895,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         } ;
       }
       
-      module PositiveTestCase11{
+      module PositiveTestCase10{
          // template without data type
          template (this : T) =  {
           precondition True,
@@ -933,8 +913,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         "PositiveTestCase_ControllersMustBeListParty",
         "PositiveTestCase_ChoiceObserversMustBeListParty",
         "PositiveTestCase3",
-        "PositiveTestCase7",
-        "PositiveTestCase8"
+        "PositiveTestCase6",
+        "PositiveTestCase7"
       )
 
       val kindMismatchCases = Table(
@@ -949,103 +929,14 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         pkg.modules(DottedName.assertFromString(modName))
       )
 
-      val version1_3 = LV(LVM.V1, "3")
       checkModule(pkg, "NegativeTestCase")
       forAll(typeMismatchCases)(module =>
         an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))) // and
       forAll(kindMismatchCases)(module =>
         an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module)))
-      an[EIllegalKeyExpression] shouldBe thrownBy(
-        checkModule(pkg.copy(languageVersion = version1_3), "PositiveTestCase6"))
-      checkModule(pkg, "PositiveTestCase6")
-      an[EUnknownExprVar] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase9"))
-      an[EExpectedTemplatableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase10"))
-      an[EUnknownDefinition] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase11"))
-    }
-
-  }
-
-  "rejects choice controller expressions that use choice argument if DAML-LF < 1.2 " in {
-
-    val testCases = Table[LV, Boolean](
-      "LF version" -> "reject",
-      LV(LVM.V1, "0") -> true,
-      LV(LVM.V1, "1") -> true,
-      LV(LVM.V1, "2") -> false,
-    )
-
-    val pkg0 =
-      p"""
-           module Mod {
-             record @serializable T = { party: Party };
-             template (this : T) =  {
-               precondition True,
-               signatories Cons @Party ['Bob'] (Nil @Party),
-               observers Cons @Party ['Alice'] (Nil @Party),
-               agreement "Agreement",
-               choices {
-                 choice Ch (self) (record : Mod:T) : Unit, controllers Cons @Party [(Mod:T {party} record), 'Alice'] (Nil @Party) to upure @Unit ()
-               }
-             } ;
-           }
-            """
-
-    val modName = DottedName.assertFromString("Mod")
-
-    forEvery(testCases) { (version: LV, rejected: Boolean) =>
-      val pkg = pkg0.copy(languageVersion = version)
-      val mod = pkg.modules(modName)
-      val world = new World(Map(defaultPackageId -> pkg))
-
-      if (rejected)
-        an[EUnknownExprVar] should be thrownBy
-          Typing.checkModule(world, defaultPackageId, mod)
-      else
-        Typing.checkModule(world, defaultPackageId, mod)
-
-      ()
-    }
-
-  }
-
-  "rejects choice that use same variable for template and choice params if DAML-LF < 1.2 " in {
-
-    val testCases = Table[LV, Boolean](
-      "LF version" -> "reject",
-      LV(LVM.V1, "0") -> true,
-      LV(LVM.V1, "1") -> true,
-      LV(LVM.V1, "2") -> false,
-    )
-
-    val pkg0 =
-      p"""
-           module Mod {
-             record @serializable T = { party: Party };
-             template (record : T) =  {
-               precondition True,
-               signatories Cons @Party ['Bob'] (Nil @Party),
-               observers Cons @Party ['Alice'] (Nil @Party),
-               agreement "Agreement",
-               choices {
-                 choice Ch (self) (record : Mod:T) : Unit, controllers Cons @Party [(Mod:T {party} record), 'Alice'] (Nil @Party) to upure @Unit ()
-               }
-             } ;
-           }
-            """
-
-    val modName = DottedName.assertFromString("Mod")
-
-    forEvery(testCases) { (version: LV, rejected: Boolean) =>
-      val pkg = pkg0.copy(languageVersion = version)
-      val mod = pkg.modules(modName)
-      val world = new World(Map(defaultPackageId -> pkg))
-
-      if (rejected)
-        an[EIllegalShadowingExprVar] should be thrownBy
-          Typing.checkModule(world, defaultPackageId, mod)
-      else
-        Typing.checkModule(world, defaultPackageId, mod)
-      ()
+      an[EUnknownExprVar] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase8"))
+      an[EExpectedTemplatableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase9"))
+      an[EUnknownDefinition] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase10"))
     }
 
   }

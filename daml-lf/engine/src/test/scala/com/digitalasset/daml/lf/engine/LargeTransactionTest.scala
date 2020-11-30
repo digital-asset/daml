@@ -203,7 +203,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
   ): Tx.Transaction = {
     engine
       .submit(
-        Commands(submitter, ImmArray(cmd), Time.Timestamp.now(), cmdReference),
+        Commands(Set(submitter), ImmArray(cmd), Time.Timestamp.now(), cmdReference),
         participant,
         seed,
       )

@@ -433,10 +433,20 @@ private class JdbcLedgerDao(
       blindingInfo,
     )
 
+  private def handleError(
+      offset: Offset,
+      info: SubmitterInfo,
+      recordTime: Instant,
+      rejectionReason: RejectionReason,
+  )(implicit connection: Connection): Unit = {
+    stopDeduplicatingCommandSync(domain.CommandId(info.commandId), info.singleSubmitterOrThrow())
+    prepareRejectionInsert(info, offset, recordTime, rejectionReason).execute()
+    ()
+  }
+
   override def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
@@ -467,11 +477,9 @@ private class JdbcLedgerDao(
               .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
               .foreach(_.execute())
           )
-        } else {
-          for (info @ SubmitterInfo(_, _, commandId, _) <- submitterInfo) {
-            stopDeduplicatingCommandSync(domain.CommandId(commandId), info.singleSubmitterOrThrow())
-            prepareRejectionInsert(info, offset, recordTime, error.get).execute()
-          }
+        }
+        for (reason <- error; info <- submitterInfo) {
+          handleError(offset, info, recordTime, reason)
         }
         Timed.value(
           metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
@@ -490,9 +498,8 @@ private class JdbcLedgerDao(
       if (enableAsyncCommits) {
         queries.enableAsyncCommit
       }
-      for (info @ SubmitterInfo(_, _, commandId, _) <- submitterInfo) {
-        stopDeduplicatingCommandSync(domain.CommandId(commandId), info.singleSubmitterOrThrow())
-        prepareRejectionInsert(info, offset, recordTime, reason).execute()
+      for (info <- submitterInfo) {
+        handleError(offset, info, recordTime, reason)
       }
       ParametersTable.updateLedgerEnd(offset)
       Ok

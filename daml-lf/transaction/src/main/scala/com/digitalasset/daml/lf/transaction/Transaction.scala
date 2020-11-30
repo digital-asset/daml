@@ -761,7 +761,7 @@ object Transaction {
 
 }
 
-sealed abstract class ReplayMismatch[Nid, Cid] {
+sealed abstract class ReplayMismatch[Nid, Cid] extends Product with Serializable {
   def recordedTransaction: VersionedTransaction[Nid, Cid]
   def replayedTransaction: VersionedTransaction[Nid, Cid]
 

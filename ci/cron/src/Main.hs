@@ -336,8 +336,8 @@ does_backup_exist gcp_credentials bash_lib path = do
         "'"]
     return $ read out
 
-push_to_gcp :: String -> FilePath -> FilePath  -> FilePath -> IO ()
-push_to_gcp gcp_credentials bash_lib local_path remote_path = do
+gcs_cp :: String -> FilePath -> FilePath  -> FilePath -> IO ()
+gcs_cp gcp_credentials bash_lib local_path remote_path = do
     shell_ $ unlines ["bash -c '",
         "set -euo pipefail",
         "eval \"$(dev-env/bin/dade assist)\"",
@@ -348,6 +348,14 @@ push_to_gcp gcp_credentials bash_lib local_path remote_path = do
         ")",
         "gcs \"$GCRED\" cp \"" <> local_path <> "\" \"" <> remote_path <> "\"",
         "'"]
+
+check_files_match :: String -> String -> IO Bool
+check_files_match f1 f2 = do
+    (exitCode, stdout, stderr) <- System.readProcessWithExitCode "diff" [f1, f2] ""
+    case exitCode of
+      Exit.ExitSuccess -> return True
+      Exit.ExitFailure 1 -> return False
+      Exit.ExitFailure _ -> fail $ "Diff failed.\n" ++ "STDOUT:\n" ++ stdout ++ "\nSTDERR:\n" ++ stderr
 
 check_releases :: Maybe String -> String -> Maybe Int -> IO ()
 check_releases gcp_credentials bash_lib max_releases = do
@@ -363,14 +371,17 @@ check_releases gcp_credentials bash_lib max_releases = do
             verify_signatures bash_lib temp_dir v >>= putStrLn
             Control.Monad.Extra.whenJust gcp_credentials $ \gcred ->
                 Directory.listDirectory temp_dir >>= Data.Foldable.traverse_ (\f -> do
-                  let gcp_path = "gs://daml-data/releases/" <> v <> "/github/" <> f
-                  exists <- does_backup_exist gcred bash_lib gcp_path
+                  let local_github = temp_dir </> f
+                  let local_gcp = temp_dir </> f <> ".gcp"
+                  let remote_gcp = "gs://daml-data/releases/" <> v <> "/github/" <> f
+                  exists <- does_backup_exist gcred bash_lib remote_gcp
                   if exists then do
-                      putStrLn $ gcp_path <> " already exists."
+                      gcs_cp gcred bash_lib remote_gcp local_gcp
+                      check_files_match local_github local_gcp >>= \case
+                          True -> putStrLn $ f <> " matches GCS backup."
+                          False -> Exit.die $ f <> " does not match GCS backup."
                   else do
-                      putStr $ gcp_path <> " does not exist; pushing..."
-                      push_to_gcp gcred bash_lib (temp_dir </> f) gcp_path
-                      putStrLn " done."))
+                      Exit.die $ remote_gcp <> " does not exist. Aborting."))
 
 data CliArgs = Docs
              | Check { bash_lib :: String,

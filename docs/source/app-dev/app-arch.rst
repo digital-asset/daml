@@ -39,7 +39,7 @@ The backend for your application can be any DAML ledger implementation running y
 We recommend using the :ref:`DAML JSON API <json-api>` as an interface to your frontend. It is
 served by the HTTP JSON API server connected to the ledger API server. It provides simple HTTP
 endpoints to interact with the ledger via GET/POST requests. However, if you prefer, you can also
-use the :ref:`gRPC API <grpc>` directly.
+use the :ref:`gRPC Ledger API <grpc>` directly.
 
 When you use the ``create-daml-app`` template application, you can start a DAML Sandbox together
 with a JSON API server by running
@@ -61,7 +61,7 @@ We recommended building your frontend with the `React <https://reactjs.org>`_ fr
 you can choose virtually any language for your frontend and interact with the ledger via
 :ref:`HTTP JSON <json-api>` endpoints. In addition, we provide support libraries for
 :ref:`Java <java-bindings>` and :ref:`Scala <scala-bindings>` and you can also interact with the
-:ref:`gRPC API <grpc>` directly.
+:ref:`gRPC Ledger API <grpc>` directly.
 
 
 We provide two libraries to build your React frontend for a DAML application.

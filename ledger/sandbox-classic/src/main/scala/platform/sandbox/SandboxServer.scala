@@ -342,7 +342,7 @@ final class SandboxServer(
         currentPort.getOrElse(config.port),
         config.maxInboundMessageSize,
         config.address,
-        config.tlsConfig.flatMap(_.server),
+        config.tlsConfig,
         List(
           AuthorizationInterceptor(authService, executionContext),
           resetService,

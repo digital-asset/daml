@@ -13,7 +13,8 @@ final case class TlsConfiguration(
     keyCertChainFile: Option[File], // mutual auth is disabled if null
     keyFile: Option[File],
     trustCertCollectionFile: Option[File], // System default if null
-    clientAuth: ClientAuth = ClientAuth.REQUIRE // Client auth setting used by the server. This is not used in the client configuration.
+    clientAuth: ClientAuth = ClientAuth.REQUIRE, // Client auth setting used by the server. This is not used in the client configuration.
+    enableCertRevocationChecking: Boolean = false
 ) {
 
   def keyFileOrFail: File =
@@ -51,6 +52,11 @@ final case class TlsConfiguration(
           .build
       )
     else None
+
+  /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS configuration. */
+  def setJvmTlsProperties(): Unit =
+    if (enabled && enableCertRevocationChecking) OcspProperties.enableOcsp()
+
 }
 
 object TlsConfiguration {

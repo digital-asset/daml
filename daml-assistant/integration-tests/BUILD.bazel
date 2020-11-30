@@ -8,8 +8,8 @@ genrule(
     name = "integration-tests-mvn",
     srcs = [
         "@mvn_dev_env//:mvn",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto_pom",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java_pom",
         "//language-support/java/bindings:libbindings-java.jar",
         "//language-support/java/bindings:bindings-java_pom.xml",
         "//language-support/java/bindings-rxjava:libbindings-rxjava.jar",
@@ -30,7 +30,7 @@ genrule(
       MVN=($(locations @mvn_dev_env//:mvn))
       MVN="$${{MVN[0]}}"
       install_mvn() {{
-          "$$MVN" -q install:install-file \\
+        "$$MVN" -q install:install-file \\
           -Dmaven.repo.local=$$MVN_DB \\
           "-DgroupId=$$1" \\
           "-DartifactId=$$2" \\
@@ -42,8 +42,8 @@ genrule(
       tar xf $(location //docs:quickstart-java.tar.gz) -C "$$TMP_DIR"
       install_mvn \\
         "com.daml" "daml-lf-archive" \\
-        $(location //daml-lf/archive:daml_lf_dev_archive_java_proto) \\
-        $(location //daml-lf/archive:daml_lf_dev_archive_java_proto_pom)
+        $$(echo $(locations //daml-lf/archive:daml_lf_dev_archive_proto_java) | xargs -n1 echo | grep -v -- '-src\\.jar$$') \\
+        $(location //daml-lf/archive:daml_lf_dev_archive_proto_java_pom)
       install_mvn \\
         "com.daml" "bindings-java" \\
         $(location //language-support/java/bindings:libbindings-java.jar) \\
@@ -137,6 +137,8 @@ da_haskell_test(
         "http-client",
         "http-types",
         "jwt",
+        "lens",
+        "lens-aeson",
         "network",
         "process",
         "safe",

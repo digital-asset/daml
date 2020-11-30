@@ -178,8 +178,6 @@ private[lf] object Pretty {
     failure match {
       case nc: FailedAuthorization.NoControllers =>
         s"node $id (${nc.templateId}) has no controllers"
-      case am: FailedAuthorization.ActorMismatch =>
-        s"node $id (${am.templateId}) controllers don't match given actors ${am.givenActors.mkString(",")}"
       case ma: FailedAuthorization.CreateMissingAuthorization =>
         s"node $id (${ma.templateId}) requires authorizers ${ma.requiredParties
           .mkString(",")}, but only ${ma.authorizingParties.mkString(",")} were given"

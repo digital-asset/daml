@@ -29,13 +29,6 @@ data AlphaEnv = AlphaEnv
     -- the depth of the binder which introduced them.
   }
 
-onMaybe :: (a -> a -> Bool) -> Maybe a -> Maybe a -> Bool
-onMaybe f me1 me2 = case (me1, me2) of
-    (Nothing, Nothing) -> True
-    (Nothing, Just _) -> False
-    (Just _, Nothing) -> False
-    (Just e1, Just e2) -> f e1 e2
-
 onList :: (a -> a -> Bool) -> [a] -> [a] -> Bool
 onList f xs ys = length xs == length ys
     && and (zipWith f xs ys)
@@ -265,12 +258,11 @@ alphaUpdate env = \case
         UCreate t2 e2 -> alphaTypeCon t1 t2
             && alphaExpr' env e1 e2
         _ -> False
-    UExercise t1 c1 e1a e1b e1c -> \case
-        UExercise t2 c2 e2a e2b e2c -> alphaTypeCon t1 t2
+    UExercise t1 c1 e1a e1b -> \case
+        UExercise t2 c2 e2a e2b -> alphaTypeCon t1 t2
             && c1 == c2
             && alphaExpr' env e1a e2a
-            && onMaybe (alphaExpr' env) e1b e2b
-            && alphaExpr' env e1c e2c
+            && alphaExpr' env e1b e2b
         _ -> False
     UExerciseByKey t1 c1 e1a e1b -> \case
         UExerciseByKey t2 c2 e2a e2b -> alphaTypeCon t1 t2

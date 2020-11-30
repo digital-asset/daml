@@ -1,0 +1,20 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Lib_1_7 where
+
+import Tests.Template1()
+import Tests.Template2()
+import Tests.RecordTest()
+import Tests.OptionalTest()
+import Tests.ListTest()
+import Tests.VariantTest()
+import Tests.NumericTest()
+
+import Tests.Import()
+import Tests.Escape()
+import Tests.MapTest()
+import Tests.Serializable()
+import Tests.ContractKeys()
+import Tests.ParametersOrder()

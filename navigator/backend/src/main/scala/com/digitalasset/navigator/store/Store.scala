@@ -5,8 +5,10 @@ package com.daml.navigator.store
 
 import java.time.Instant
 
+import com.daml.ledger.api.domain.PartyDetails
 import com.daml.navigator.model._
 import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.config.UserConfig
 import com.daml.navigator.time.TimeProviderWithType
 
 trait ActorStatus
@@ -28,8 +30,12 @@ object Store {
   /** Reinitialize the platform connection and reset all local state `Unit` */
   case object ResetConnection
 
+  case object UpdateParties
+
+  case class UpdatedParties(details: List[PartyDetails])
+
   /** Request to subscribe a party to the store (without response to sender). */
-  case class Subscribe(party: PartyState)
+  case class Subscribe(displayName: String, config: UserConfig)
 
   /** Request to create a contract instance for a template and respond with a `scala.util.Try[CommandId]`. */
   case class CreateContract(party: PartyState, templateId: TemplateStringId, argument: ApiRecord)
@@ -80,7 +86,7 @@ object Store {
       applicationId: String,
       ledgerId: String,
       ledgerTime: TimeProviderWithType,
-      partyActors: List[PartyActorInfo]
+      partyActors: Map[String, PartyActorResponse]
   ) extends ApplicationStateInfo
 
   /** Application failed to start up */
@@ -95,23 +101,26 @@ object Store {
   /** Request diagnostic information about a party and respond with a [[PartyActorInfo]]. */
   case object GetPartyActorInfo
 
+  sealed trait PartyActorResponse
+
+  final case class PartyActorRunning(info: PartyActorInfo) extends PartyActorResponse
+  final case object PartyActorUnresponsive extends PartyActorResponse
+
   /** Diagnostic information about a party */
   sealed trait PartyActorInfo {
-    def party: ApiTypes.Party
+    def party: ApiTypes.Party = state.name
+    def state: PartyState
   }
 
   /** Actor still starting up */
-  final case class PartyActorStarting(party: ApiTypes.Party) extends PartyActorInfo
+  final case class PartyActorStarting(state: PartyState) extends PartyActorInfo
 
   /** Actor running and consuming the transaction stream */
-  final case class PartyActorStarted(party: ApiTypes.Party) extends PartyActorInfo
+  final case class PartyActorStarted(state: PartyState) extends PartyActorInfo
 
   /** Actor permanently failed */
   final case class PartyActorFailed(
-      party: ApiTypes.Party,
+      state: PartyState,
       error: Throwable
   ) extends PartyActorInfo
-
-  /** Actor did not respond within a reasonable time */
-  final case class PartyActorUnresponsive(party: ApiTypes.Party) extends PartyActorInfo
 }

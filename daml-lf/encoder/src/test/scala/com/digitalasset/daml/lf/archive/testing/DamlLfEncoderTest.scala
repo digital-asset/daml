@@ -25,7 +25,7 @@ class DamlLfEncoderTest
 
     "be readable" in {
 
-      val modules_1_0 = Set[DottedName](
+      val modules_1_6 = Set[DottedName](
         "UnitMod",
         "BoolMod",
         "Int64Mod",
@@ -39,12 +39,12 @@ class DamlLfEncoderTest
         "VariantMod",
         "BuiltinMod",
         "TemplateMod",
+        "OptionMod",
+        "TextMapMod",
+        "EnumMod",
       )
 
-      val modules_1_1 = modules_1_0 + "OptionMod"
-      val modules_1_3 = modules_1_1 + "TextMapMod"
-      val modules_1_6 = modules_1_3 + "EnumMod"
-      val modules_1_7 = modules_1_6 + "NumericMod"
+      val modules_1_7 = modules_1_6 + "NumericMod" + "AnyMod"
       val modules_1_8 = modules_1_7 + "SynonymMod"
       val modules_1_dev = modules_1_8 + "GenMapMod"
 
@@ -63,7 +63,7 @@ class DamlLfEncoderTest
 
         dar shouldBe 'success
 
-        val findModules = dar.toOption.toList.flatMap(getModules).toSet
+        val findModules = dar.toOption.toList.flatMap(getNonEmptyModules).toSet
 
         findModules shouldBe expectedModules
       }
@@ -73,7 +73,7 @@ class DamlLfEncoderTest
 
   private val preInternalizationVersions = List.range(0, 7).map(_.toString).toSet
 
-  private def getModules(dar: Dar[(PackageId, DamlLf.ArchivePayload)]) = {
+  private def getNonEmptyModules(dar: Dar[(PackageId, DamlLf.ArchivePayload)]) = {
     for {
       pkgWithId <- dar.main +: dar.dependencies
       (_, pkg) = pkgWithId
@@ -82,13 +82,18 @@ class DamlLfEncoderTest
       dottedNames = pkg.getDamlLf1.getInternedDottedNamesList.asScala.map(
         _.getSegmentsInternedStrList.asScala.map(internedStrings(_))
       )
-      segments <- pkg.getDamlLf1.getModulesList.asScala.map(
-        mod =>
+      segments <- pkg.getDamlLf1.getModulesList.asScala.map {
+        case mod
+            if mod.getSynonymsCount != 0 ||
+              mod.getDataTypesCount != 0 ||
+              mod.getValuesCount != 0 ||
+              mod.getTemplatesCount != 0 =>
           if (preInternalizationVersions(version))
             mod.getNameDname.getSegmentsList.asScala
           else
             dottedNames(mod.getNameInternedDname)
-      )
+
+      }
     } yield DottedName.assertFromSegments(segments)
   }
 

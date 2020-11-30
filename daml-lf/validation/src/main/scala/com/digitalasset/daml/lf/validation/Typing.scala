@@ -7,7 +7,7 @@ import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.validation.AlphaEquiv._
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.traversable.TypeTraversable
@@ -280,12 +280,6 @@ private[validation] object Typing {
 
     /* Env Ops */
 
-    private val supportsFlexibleControllers =
-      LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "2"))
-
-    private val supportsComplexContractKeys =
-      LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "4"))
-
     private def introTypeVar(v: TypeVarName, k: Kind): Env = {
       copy(tVars = tVars + (v -> k))
     }
@@ -375,13 +369,7 @@ private[validation] object Typing {
             update) =>
           checkType(paramType, KStar)
           checkType(returnType, KStar)
-          if (supportsFlexibleControllers) {
-            introExprVar(param, paramType).checkExpr(controllers, TParties)
-          } else {
-            if (eVars.isDefinedAt(param))
-              throw EIllegalShadowingExprVar(ctx, param)
-            checkExpr(controllers, TParties)
-          }
+          introExprVar(param, paramType).checkExpr(controllers, TParties)
           choiceObservers.foreach {
             introExprVar(param, paramType)
               .checkExpr(_, TParties) // FIXME #7709, be conditional on: supportsContractObservers
@@ -404,27 +392,9 @@ private[validation] object Typing {
       mbKey.foreach { key =>
         checkType(key.typ, KStar)
         env.checkExpr(key.body, key.typ)
-        if (!supportsComplexContractKeys) {
-          checkValidKeyExpression(key.body)
-        }
         checkExpr(key.maintainers, TFun(key.typ, TParties))
         ()
       }
-    }
-
-    private def checkValidKeyExpression(expr0: Expr): Unit = expr0 match {
-      case ERecCon(_, fields) =>
-        fields.values.foreach(checkValidKeyExpression)
-      case otherwise =>
-        checkValidProjections(otherwise)
-    }
-
-    private def checkValidProjections(expr0: Expr): Unit = expr0 match {
-      case EVar(_) =>
-      case ERecProj(_, _, rec) =>
-        checkValidProjections(rec)
-      case e =>
-        throw EIllegalKeyExpression(ctx, e)
     }
 
     private def checkTypConApp(app: TypeConApp): DataCons = app match {
@@ -817,12 +787,10 @@ private[validation] object Typing {
         tpl: TypeConName,
         chName: ChoiceName,
         cid: Expr,
-        actors: Option[Expr],
         arg: Expr
     ): Type = {
       val choice = lookupChoice(ctx, tpl, chName)
       checkExpr(cid, TContractId(TTyCon(tpl)))
-      actors.foreach(checkExpr(_, TParties))
       checkExpr(arg, choice.argBinder._2)
       TUpdate(choice.returnType)
     }
@@ -863,8 +831,8 @@ private[validation] object Typing {
         typeOfUpdateBlock(bindings, body)
       case UpdateCreate(tpl, arg) =>
         typeOfCreate(tpl, arg)
-      case UpdateExercise(tpl, choice, cid, actors, arg) =>
-        typeOfExercise(tpl, choice, cid, actors, arg)
+      case UpdateExercise(tpl, choice, cid, arg) =>
+        typeOfExercise(tpl, choice, cid, arg)
       case UpdateExerciseByKey(tpl, choice, key, arg) =>
         typeOfExerciseByKey(tpl, choice, key, arg)
       case UpdateFetch(tpl, cid) =>

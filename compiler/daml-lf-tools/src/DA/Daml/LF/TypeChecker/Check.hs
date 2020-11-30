@@ -565,11 +565,10 @@ checkCreate tpl arg = do
   checkExpr arg (TCon tpl)
 
 typeOfExercise :: MonadGamma m =>
-  Qualified TypeConName -> ChoiceName -> Expr -> Maybe Expr -> Expr -> m Type
-typeOfExercise tpl chName cid mbActors arg = do
+  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
+typeOfExercise tpl chName cid arg = do
   choice <- inWorld (lookupChoice (tpl, chName))
   checkExpr cid (TContractId (TCon tpl))
-  whenJust mbActors $ \actors -> checkExpr actors (TList TParty)
   checkExpr arg (chcArgType choice)
   pure (TUpdate (chcReturnType choice))
 
@@ -605,7 +604,7 @@ typeOfUpdate = \case
   UPure typ expr -> checkPure typ expr $> TUpdate typ
   UBind binding body -> typeOfBind binding body
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
-  UExercise tpl choice cid actors arg -> typeOfExercise tpl choice cid actors arg
+  UExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
   UGetTime -> pure (TUpdate TTimestamp)
@@ -792,9 +791,10 @@ checkTemplateKey param tcon TemplateKey{..} = do
 -- The type checker for expressions relies on the fact that data type
 -- definitions do _not_ contain free variables.
 checkModule :: MonadGamma m => Module -> m ()
-checkModule m@(Module _modName _path _flags synonyms dataTypes values templates) = do
+checkModule m@(Module _modName _path _flags synonyms dataTypes values templates _exceptions) = do
   let with ctx f x = withContext (ctx x) (f x)
   traverse_ (with (ContextDefTypeSyn m) checkDefTypeSyn) synonyms
   traverse_ (with (ContextDefDataType m) checkDefDataType) dataTypes
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
   traverse_ (with (ContextDefValue m) checkDefValue) values
+  -- TODO #8020: check exception types are well formed and don't overlap with templates

@@ -755,6 +755,11 @@ genType (TypeRef curModName t) = go t
             let (t', ser) = go t
             in
             ("{ [key: string]: " <> t' <> " }", "damlTypes.TextMap(" <> ser <> ")")
+        TGenMap k v ->
+            let (k', kser) = go k
+                (v', vser) = go v
+            in
+            ("damlTypes.Map<" <> k' <> ", " <> v' <> ">", "damlTypes.Map(" <> kser <> ", " <> vser <> ")")
         TUpdate _ -> error "IMPOSSIBLE: Update not serializable"
         TScenario _ -> error "IMPOSSIBLE: Scenario not serializable"
         TContractId t ->

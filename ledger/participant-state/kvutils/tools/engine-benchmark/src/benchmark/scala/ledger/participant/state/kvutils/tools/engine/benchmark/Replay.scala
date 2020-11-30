@@ -37,11 +37,19 @@ import scala.collection.JavaConverters._
 final case class TxEntry(
     tx: SubmittedTransaction,
     participantId: ParticipantId,
-    submitter: Ref.Party,
+    submitters: List[Ref.Party],
     ledgerTime: Time.Timestamp,
     submissionTime: Time.Timestamp,
     submissionSeed: crypto.Hash,
-)
+) {
+  // Note: this method will be removed when the entire kvutils code base
+  // supports multi-party submissions
+  def singleSubmitterOrThrow(): Ref.Party =
+    if (submitters.length == 1)
+      submitters.head
+    else
+      sys.error("Multi-party submissions are not supported")
+}
 
 final case class BenchmarkState(
     name: String,
@@ -87,7 +95,7 @@ class Replay {
   def bench(): Unit = {
     val result = engine
       .replay(
-        benchmark.transaction.submitter,
+        benchmark.transaction.submitters.toSet,
         benchmark.transaction.tx,
         benchmark.transaction.ledgerTime,
         benchmark.transaction.participantId,
@@ -122,7 +130,7 @@ class Replay {
     // before running the bench, we validate the transaction first to be sure everything is fine.
     val result = engine
       .validate(
-        benchmark.transaction.submitter,
+        benchmark.transaction.submitters.toSet,
         benchmark.transaction.tx,
         benchmark.transaction.ledgerTime,
         benchmark.transaction.participantId,
@@ -180,7 +188,8 @@ object Replay {
           TxEntry(
             tx = tx,
             participantId = participantId,
-            submitter = Ref.Party.assertFromString(entry.getSubmitterInfo.getSubmitter),
+            submitters = entry.getSubmitterInfo.getSubmittersList.asScala.toList
+              .map(Ref.Party.assertFromString),
             ledgerTime = parseTimestamp(entry.getLedgerEffectiveTime),
             submissionTime = parseTimestamp(entry.getSubmissionTime),
             submissionSeed = parseHash(entry.getSubmissionSeed)

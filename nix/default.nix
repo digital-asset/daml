@@ -186,6 +186,7 @@ in rec {
     # System tools
     shellcheck = pkgs.shellcheck;
     curl = bazel_dependencies.curl;
+    lsof = pkgs.lsof;
 
     patch = pkgs.patch;
     wget = pkgs.wget;

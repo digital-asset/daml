@@ -25,7 +25,7 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//language-support/scala/bindings",
@@ -60,6 +60,7 @@ da_scala_test_suite(
     deps = [
         ":app",
         "//daml-lf/data",
+        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",

@@ -431,12 +431,6 @@ message FailedAuthorization {
     repeated Party authorizing_parties = 4;
     repeated Party required_authorizers = 5;
   }
-  message ActorMismatch {
-    Identifier template_id = 1;
-    string choice_id = 2;
-    Location location = 3; // optional
-    repeated Party given_actors = 5;
-  }
 
   message NoControllers {
     Identifier template_id = 1;
@@ -474,12 +468,11 @@ message FailedAuthorization {
   oneof sum {
     CreateMissingAuthorization create_missing_authorization = 2;
     ExerciseMissingAuthorization exercise_missing_authorization = 3;
-    ActorMismatch actor_mismatch = 4;
-    NoSignatories no_signatories = 5;
-    NoControllers no_controllers = 6;
-    FetchMissingAuthorization fetch_missing_authorization = 7;
-    LookupByKeyMissingAuthorization lookup_by_key_missing_authorization = 8;
-    MaintainersNotSubsetOfSignatories maintainers_not_subset_of_signatories = 9;
+    NoSignatories no_signatories = 4;
+    NoControllers no_controllers = 5;
+    FetchMissingAuthorization fetch_missing_authorization = 6;
+    LookupByKeyMissingAuthorization lookup_by_key_missing_authorization = 7;
+    MaintainersNotSubsetOfSignatories maintainers_not_subset_of_signatories = 8;
   }
 }
 

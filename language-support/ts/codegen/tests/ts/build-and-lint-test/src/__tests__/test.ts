@@ -5,9 +5,10 @@ import { ChildProcess, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
-import Ledger, { Event, Stream } from  '@daml/ledger';
-import { Int } from '@daml/types';
+import Ledger, { Event, Stream, PartyInfo } from  '@daml/ledger';
+import { Int, emptyMap, Map } from '@daml/types';
 import pEvent from 'p-event';
+import _ from 'lodash';
 
 import * as buildAndLint from '@daml.js/build-and-lint-1.0.0'
 
@@ -259,6 +260,12 @@ test('create + fetch & exercise', async () => {
   alice6KeyStream.close();
   personStream.close();
 
+  const map: Map<buildAndLint.Main.Expr2<Int>, Int> =
+    emptyMap<buildAndLint.Main.Expr2<Int>, Int>()
+      .set({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '1'}, rhs:{tag: 'Lit2', value: '2'}}}, '3')
+      .set({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '5'}, rhs:{tag: 'Lit2', value: '4'}}}, '9')
+      .set({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '2'}, rhs:{tag: 'Lit2', value: '1'}}}, '3')
+      .set({tag: 'Add2', value: {lhs:{tag: 'Lit2', value: '3'}, rhs:{tag: 'Lit2', value: '1'}}}, '4');
   const allTypes: buildAndLint.Main.AllTypes = {
     unit: {},
     bool: true,
@@ -299,6 +306,7 @@ test('create + fetch & exercise', async () => {
     rec: {'recOptional': null, 'recList': [], 'recTextMap': {}},
     voidRecord: null,
     voidEnum: null,
+    genMap: map,
   };
   const allTypesContract = await aliceLedger.create(buildAndLint.Main.AllTypes, allTypes);
   expect(allTypesContract.payload).toEqual(allTypes);
@@ -500,4 +508,25 @@ test('stream close behaviour', async () => {
     'after close',
     'close',
   ]);
+});
+
+test('party API', async () => {
+  const p = (id: string): PartyInfo => ({identifier: id, displayName: id, isLocal: true});
+  const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
+  const parties = await ledger.getParties([ALICE_PARTY, "unknown"]);
+  expect(parties).toEqual([p("Alice"), null]);
+  const rev = await ledger.getParties(["unknown", ALICE_PARTY]);
+  expect(rev).toEqual([null, p("Alice")]);
+
+  const allParties = await ledger.listKnownParties();
+  expect(_.sortBy(allParties, [(p: PartyInfo) => p.identifier])).toEqual([p("Alice"), p("Bob")]);
+
+  const newParty1 = await ledger.allocateParty({});
+  const newParty2 = await ledger.allocateParty({displayName: "Carol"});
+  await ledger.allocateParty({displayName: "Dave", identifierHint: "Dave"});
+
+  const allPartiesAfter = (await ledger.listKnownParties()).map((pi) => pi.identifier);
+
+  expect(_.sortBy(allPartiesAfter)).toEqual(_.sortBy(["Alice", "Bob", "Dave", newParty1.identifier, newParty2.identifier]));
+
 });

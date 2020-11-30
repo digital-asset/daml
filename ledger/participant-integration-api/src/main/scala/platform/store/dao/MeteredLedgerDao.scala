@@ -159,7 +159,6 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
   override def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
@@ -173,7 +172,6 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       ledgerDao.storeTransaction(
         preparedInsert,
         submitterInfo,
-        workflowId,
         transactionId,
         recordTime,
         ledgerEffectiveTime,

@@ -54,7 +54,7 @@ final case class ParameterSQL(name: String, description: String) extends Paramet
 final case class ParameterParty(name: String, description: String) extends Parameter {
   def paramName: String = s"<$name>"
   def completer(state: State): Completer =
-    new StringsCompleter(state.config.parties.toList.map(p => ApiTypes.Party.unwrap(p.name)).asJava)
+    new StringsCompleter(state.config.users.values.map(p => ApiTypes.Party.unwrap(p.party)).asJava)
 }
 
 final case class ParameterTemplateId(name: String, description: String) extends Parameter {

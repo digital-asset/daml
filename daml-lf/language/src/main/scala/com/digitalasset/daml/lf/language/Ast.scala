@@ -440,9 +440,8 @@ object Ast {
       templateId: TypeConName,
       choice: ChoiceName,
       cidE: Expr,
-      actorsE: Option[Expr],
-      argE: Expr)
-      extends Update
+      argE: Expr,
+  ) extends Update
   final case class UpdateExerciseByKey(
       templateId: TypeConName,
       choice: ChoiceName,

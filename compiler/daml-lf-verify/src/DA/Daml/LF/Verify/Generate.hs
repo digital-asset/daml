@@ -262,7 +262,7 @@ genUpdate = \case
     let out' = updateOutExpr (EUpdate $ UPure typ (_oExpr out)) out
     return (out', Just typ, Nothing)
   UCreate tem arg -> genForCreate tem arg
-  UExercise tem ch cid par arg -> genForExercise tem ch cid par arg
+  UExercise tem ch cid arg -> genForExercise tem ch cid arg
   UGetTime -> return (emptyOut (EUpdate UGetTime), Just $ TBuiltin BTTimestamp, Nothing)
   -- TODO: This can be extended with missing cases later on.
   u -> error ("Update not implemented yet: " ++ show u)
@@ -450,13 +450,11 @@ genForExercise :: (GenPhase ph, MonadEnv m ph)
   -> ChoiceName
   -- ^ The choice which is being exercised.
   -> Expr
-  -- ^ The contract id on which the choice is being exercised.
-  -> Maybe Expr
   -- ^ The party which exercises the choice.
   -> Expr
   -- ^ The arguments with which the choice is being exercised.
   -> m (Output ph, Maybe Type, Maybe Expr)
-genForExercise tem ch cid par arg = do
+genForExercise tem ch cid arg = do
   cidOut <- genExpr True cid
   arout <- genExpr True arg
   lookupChoice tem ch >>= \case
@@ -466,12 +464,12 @@ genForExercise tem ch cid par arg = do
           updSet = if containsChoiceRefs updSet_refs
             then addChoice emptyUpdateSet tem ch
             else updSet_refs
-      return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
+      return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) (_oExpr arout))) updSet
              , Just resType
              , Nothing )
     Nothing -> do
       let updSet = addChoice emptyUpdateSet tem ch
-      return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet
+      return ( Output (EUpdate (UExercise tem ch (_oExpr cidOut) (_oExpr arout))) updSet
              , Nothing
              , Nothing )
 

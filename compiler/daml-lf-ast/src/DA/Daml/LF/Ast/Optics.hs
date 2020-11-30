@@ -83,10 +83,11 @@ templateKeyExpr f (TemplateKey typ body maintainers) =
   <*> f maintainers
 
 moduleExpr :: Traversal' Module Expr
-moduleExpr f (Module name path flags synonyms dataTypes values templates) =
+moduleExpr f (Module name path flags synonyms dataTypes values templates exceptions) =
   Module name path flags synonyms dataTypes
   <$> (NM.traverse . _dvalBody) f values
   <*> (NM.traverse . templateExpr) f templates
+  <*> pure exceptions
 
 dataConsType :: Traversal' DataCons Type
 dataConsType f = \case
@@ -167,6 +168,7 @@ instance MonoTraversable ModuleRef IsSerializable
 instance MonoTraversable ModuleRef DataCons
 instance MonoTraversable ModuleRef DefDataType
 instance MonoTraversable ModuleRef DefTypeSyn
+instance MonoTraversable ModuleRef DefException
 
 instance MonoTraversable ModuleRef HasNoPartyLiterals
 instance MonoTraversable ModuleRef IsTest

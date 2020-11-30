@@ -22,7 +22,8 @@ case object Party extends SimpleCommand {
       set: CommandSet): Either[CommandError, (State, String)] = {
     for {
       arg1 <- args.headOption ~> "Missing <party> argument"
-      newParty <- state.config.parties
+      parties <- state.getParties ~> s"Application not connected"
+      newParty <- parties.values
         .find(ps => ApiTypes.Party.unwrap(ps.name) == arg1) ~> s"Unknown party $arg1"
     } yield {
       (state.copy(party = newParty.name), s"Active party set to $newParty")

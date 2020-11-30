@@ -669,7 +669,6 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseTemplate <- encodeQualTypeConName exeTemplate
         update_ExerciseChoice <- encodeName unChoiceName exeChoice
         update_ExerciseCid <- encodeExpr exeContractId
-        update_ExerciseActor <- traverse encodeExpr' exeActors
         update_ExerciseArg <- encodeExpr exeArg
         pure $ P.UpdateSumExercise P.Update_Exercise{..}
     UExerciseByKey{..} -> do
@@ -867,6 +866,7 @@ encodeModule Module{..} = do
     moduleDataTypes <- encodeNameMap encodeDefDataType moduleDataTypes
     moduleValues <- encodeNameMap encodeDefValue moduleValues
     moduleTemplates <- encodeNameMap encodeTemplate moduleTemplates
+    let moduleExceptions = V.empty -- TODO #8020
     pure P.Module{..}
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata

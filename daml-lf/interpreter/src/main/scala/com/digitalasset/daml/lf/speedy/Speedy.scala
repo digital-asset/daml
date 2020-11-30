@@ -76,20 +76,16 @@ private[lf] object Speedy {
 
    The environment "env" is now only used for let-bindings and pattern-matches.
 
-   Continuations are responsible for restoring their own environment. In the general case,
-   an arbitrary amount of computation may have occurred between the continuation being
-   pushed and then later entered.
+   Continuations are responsible for restoring their own frame/actuals.  On the other
+   hand, it is the code which executes a continuation which is responsible for ensuring
+   the env-stack of temporaries is popped to the correct height, before the continuation
+   is itself executed. See popTempStackToBase.
 
-   When we push a continuation which requires it's environment to be preserved, we record
-   the current frame, actuals and env-stack-depth within the continuation. Then, when the
-   continuation is entered, it will call `restoreEnv`.
-
-   We do this for KArg, KMatch, KPushTo, KCatch.
-
-   We *dont* need to do this for KFun. Because, when KFun is entered, it immediately
-   changes `frame` to point to itself, and there will be no references to existing
-   stack-variables within the body of the function. (They will have been translated to
-   free-var reference by the compiler).
+   When we create/push a continuation which requires it's environment to be preserved, we
+   record the current frame and actuals within the continuation. In addition, we call
+   markBase to allow the continuation access to temporaries on the env-stack: markBase
+   shifts envBase to the current env.size, returning the old envBase, allowing the
+   continuation to reset the envBase (calling restoreBase) when it is executed.
    */
 
   private type Frame = Array[SValue]
@@ -132,8 +128,13 @@ private[lf] object Speedy {
       var frame: Frame,
       /* Actuals: to access values for a function application's arguments. */
       var actuals: Actuals,
-      /* Environment: values pushed to a stack: let-bindings and pattern-matches. */
+      /* [env] is a stack of temporary values for: let-bindings and pattern-matches. */
       var env: Env,
+      /* [envBase] is the depth of the temporaries-stack when the current code-context was
+       * begun. We revert to this depth when entering a closure, or returning to the top
+       * continuation on the kontStack.
+       */
+      var envBase: Int,
       /* Kont, or continuation specifies what should be done next
        * once the control has been evaluated.
        */
@@ -210,23 +211,51 @@ private[lf] object Speedy {
       }
     }
 
+    // markBase is called when pushing a continuation which requires access to temporaries
+    // currently on the env-stack.  After this call, envBase is set to the current
+    // env.size. The old envBase is returned so it can be restored later by the caller.
     @inline
-    def restoreEnv(
-        frameToBeRestored: Frame,
-        actualsToBeRestored: Actuals,
-        envSizeToBeRestored: Int,
-    ): Unit = {
-      // Restore the frame and actuals to there state when the continuation was created.
-      frame = frameToBeRestored
-      actuals = actualsToBeRestored
-      // Pop the env-stack back to the size it was when the continuation was created.
-      if (envSizeToBeRestored != env.size) {
-        val count = env.size - envSizeToBeRestored
-        if (count < 1) {
-          crash(s"restoreEnv, unexpected negative count: $count!")
-        }
+    def markBase(): Int = {
+      val oldBase = this.envBase
+      val newBase = this.env.size
+      if (newBase < oldBase) {
+        crash(s"markBase: $oldBase -> $newBase -- NOT AN INCREASE")
+      }
+      this.envBase = newBase
+      oldBase
+    }
+
+    // restoreBase is called when executing a continuation which previously saved the
+    // value of envBase (by calling markBase).
+    @inline
+    def restoreBase(envBase: Int): Unit = {
+      if (this.envBase < envBase) {
+        crash(s"restoreBase: ${this.envBase} -> ${envBase} -- NOT A REDUCTION")
+      }
+      this.envBase = envBase
+    }
+
+    // popTempStackToBase is called when we begin a new code-context which does not need
+    // to access any temporaries pushed to the stack by the current code-context. This
+    // occurs either when returning to the top continuation on the kontStack or when
+    // entering (tail-calling) a closure.
+    @inline
+    def popTempStackToBase(): Unit = {
+      val envSizeToBeRestored = this.envBase
+      val count = env.size - envSizeToBeRestored
+      if (count < 0) {
+        crash(s"popTempStackToBase: ${env.size} --> ${envSizeToBeRestored} -- WRONG DIRECTION")
+      }
+      if (count > 0) {
         env.subList(envSizeToBeRestored, env.size).clear
       }
+    }
+
+    @inline
+    def restoreFrameAndActuals(frame: Frame, actuals: Actuals): Unit = {
+      // Restore the frame and actuals to the state when the continuation was created.
+      this.frame = frame
+      this.actuals = actuals
     }
 
     /** Push a single location to the continuation stack for the sake of
@@ -239,9 +268,9 @@ private[lf] object Speedy {
         // NOTE(MH): If the top of the continuation stack is the monadic token,
         // we push location information under it to account for the implicit
         // lambda binding the token.
-        case Some(KArg(Array(SEValue.Token), _, _, _)) => {
+        case Some(KArg(_, Array(SEValue.Token))) => {
           // Can't call pushKont here, because we don't push at the top of the stack.
-          kontStack.add(last_index, KLocation(loc))
+          kontStack.add(last_index, KLocation(this, loc))
           if (enableInstrumentation) {
             track.countPushesKont += 1
             if (kontDepth > track.maxDepthKont) track.maxDepthKont = kontDepth
@@ -251,9 +280,9 @@ private[lf] object Speedy {
         // stack trace it produced back on the continuation stack to get
         // complete stack trace at the use site. Thus, we store the stack traces
         // of top level values separately during their execution.
-        case Some(KCacheVal(v, defn, stack_trace)) =>
-          kontStack.set(last_index, KCacheVal(v, defn, loc :: stack_trace)); ()
-        case _ => pushKont(KLocation(loc))
+        case Some(KCacheVal(machine, v, defn, stack_trace)) =>
+          kontStack.set(last_index, KCacheVal(machine, v, defn, loc :: stack_trace)); ()
+        case _ => pushKont(KLocation(this, loc))
       }
     }
 
@@ -268,7 +297,7 @@ private[lf] object Speedy {
       val s = ImmArray.newBuilder[Location]
       kontStack.forEach { k =>
         k match {
-          case KLocation(location) => s += location
+          case KLocation(_, location) => s += location
           case _ => ()
         }
       }
@@ -324,6 +353,7 @@ private[lf] object Speedy {
       ctrl = expr
       kontStack = initialKontStack()
       env = emptyEnv
+      envBase = 0
       steps = 0
       track = Instrumentation()
     }
@@ -353,7 +383,8 @@ private[lf] object Speedy {
             if (returnValue != null) {
               val value = returnValue
               returnValue = null
-              popKont.execute(value, this)
+              popTempStackToBase()
+              popKont.execute(value)
             } else {
               val expr = ctrl
               ctrl = null
@@ -361,7 +392,14 @@ private[lf] object Speedy {
             }
           }
         } catch {
-          case SpeedyHungry(res: SResult) => result = res //stop
+          case SpeedyHungry(res: SResult) =>
+            if (enableInstrumentation) {
+              res match {
+                case _: SResultFinalValue => track.print()
+                case _ => ()
+              }
+            }
+            result = res //stop
           case serr: SError =>
             serr match {
               case _: SErrorDamlException if tryHandleException() => () // outer loop will run again
@@ -386,6 +424,7 @@ private[lf] object Speedy {
         kontStack.subList(catchIndex, kontStack.size).clear()
         env.subList(kcatch.envSize, env.size).clear()
         ctrl = kcatch.handler
+        envBase = env.size
         true
       } else
         false
@@ -406,7 +445,7 @@ private[lf] object Speedy {
                   eval.setCached(svalue, stackTrace)
                   returnValue = svalue
                 case None =>
-                  pushKont(KCacheVal(eval, defn, Nil))
+                  pushKont(KCacheVal(this, eval, defn, Nil))
                   ctrl = defn.body
               }
             case None =>
@@ -461,7 +500,7 @@ private[lf] object Speedy {
             if (othersLength > 0) {
               val others = new Array[SExprAtomic](othersLength)
               System.arraycopy(newArgs, missing, others, 0, othersLength)
-              this.pushKont(KOverApp(others, this.frame, this.actuals, this.env.size))
+              this.pushKont(KOverApp(this, others))
             }
             // Now the correct number of arguments is ensured. What kind of prim do we have?
             prim match {
@@ -472,9 +511,10 @@ private[lf] object Speedy {
                 val label = closure.label
                 if (label != null) {
                   this.profile.addOpenEvent(label)
-                  this.pushKont(KLeaveClosure(label))
+                  this.pushKont(KLeaveClosure(this, label))
                 }
                 // Start evaluating the body of the closure.
+                popTempStackToBase()
                 this.ctrl = closure.expr
 
               case PBuiltin(builtin) =>
@@ -509,23 +549,23 @@ private[lf] object Speedy {
 
           // Not enough arguments. Push a continuation to construct the PAP.
           if (othersLength < 0) {
-            this.pushKont(KPap(prim, actuals, arity))
+            this.pushKont(KPap(this, prim, actuals, arity))
           } else {
             // Too many arguments: Push a continuation to re-apply the over-applied args.
             if (othersLength > 0) {
               val others = new Array[SExpr](othersLength)
               System.arraycopy(newArgs, missing, others, 0, othersLength)
-              this.pushKont(KArg(others, this.frame, this.actuals, this.env.size))
+              this.pushKont(KArg(this, others))
             }
             // Now the correct number of arguments is ensured. What kind of prim do we have?
             prim match {
               case closure: PClosure =>
                 // Push a continuation to execute the function body when the arguments have been evaluated
-                this.pushKont(KFun(closure, actuals, this.env.size))
+                this.pushKont(KFun(this, closure, actuals))
 
               case PBuiltin(builtin) =>
                 // Push a continuation to execute the builtin when the arguments have been evaluated
-                this.pushKont(KBuiltin(builtin, actuals, this.env.size))
+                this.pushKont(KBuiltin(this, builtin, actuals))
             }
           }
           this.evaluateArguments(actuals, newArgs, newArgsLimit)
@@ -549,7 +589,7 @@ private[lf] object Speedy {
       var i = 1
       while (i < n) {
         val arg = args(n - i)
-        this.pushKont(KPushTo(actuals, arg, this.frame, this.actuals, this.env.size))
+        this.pushKont(KPushTo(this, actuals, arg))
         i = i + 1
       }
       this.ctrl = args(0)
@@ -705,6 +745,7 @@ private[lf] object Speedy {
         frame = null,
         actuals = null,
         env = emptyEnv,
+        envBase = 0,
         kontStack = initialKontStack(),
         lastLocation = None,
         ledgerMode = OnLedger(
@@ -770,6 +811,7 @@ private[lf] object Speedy {
         frame = null,
         actuals = null,
         env = emptyEnv,
+        envBase = 0,
         kontStack = initialKontStack(),
         lastLocation = None,
         ledgerMode = OffLedger,
@@ -817,78 +859,90 @@ private[lf] object Speedy {
   private[speedy] sealed trait Kont {
 
     /** Execute the continuation. */
-    def execute(v: SValue, machine: Machine): Unit
+    def execute(v: SValue): Unit
   }
 
   /** Final continuation; machine has computed final value */
   private[speedy] final case object KFinished extends Kont {
-    def execute(v: SValue, machine: Machine) = {
-      if (enableInstrumentation) {
-        machine.track.print()
-      }
+    def execute(v: SValue) = {
       throw SpeedyHungry(SResultFinalValue(v))
     }
   }
 
-  private[speedy] final case class KOverApp(
-      newArgs: Array[SExprAtomic],
-      frame: Frame,
-      actuals: Actuals,
-      envSize: Int)
+  private[speedy] final case class KOverApp(machine: Machine, newArgs: Array[SExprAtomic])
       extends Kont
       with SomeArrayEquals {
-    def execute(vfun: SValue, machine: Machine) = {
-      machine.restoreEnv(frame, actuals, envSize)
+
+    private val savedBase = machine.markBase()
+    private val frame = machine.frame
+    private val actuals = machine.actuals
+
+    def execute(vfun: SValue) = {
+      machine.restoreBase(savedBase);
+      machine.restoreFrameAndActuals(frame, actuals)
       machine.enterApplication(vfun, newArgs)
     }
   }
 
   /** The function has been evaluated to a value. Now restore the environment and execute the application */
   private[speedy] final case class KArg(
+      machine: Machine,
       newArgs: Array[SExpr],
-      frame: Frame,
-      actuals: Actuals,
-      envSize: Int)
-      extends Kont
+  ) extends Kont
       with SomeArrayEquals {
-    def execute(vfun: SValue, machine: Machine) = {
-      machine.restoreEnv(frame, actuals, envSize)
+
+    private val savedBase = machine.markBase()
+    private val frame = machine.frame
+    private val actuals = machine.actuals
+
+    def execute(vfun: SValue) = {
+      machine.restoreBase(savedBase);
+      machine.restoreFrameAndActuals(frame, actuals)
       machine.executeApplication(vfun, newArgs)
     }
   }
 
   /** The function-closure and arguments have been evaluated. Now execute the body. */
   private[speedy] final case class KFun(
+      machine: Machine,
       closure: PClosure,
-      actuals: util.ArrayList[SValue],
-      envSize: Int)
+      actuals: util.ArrayList[SValue])
       extends Kont
       with SomeArrayEquals {
-    def execute(v: SValue, machine: Machine) = {
+
+    private val savedBase = machine.markBase()
+
+    def execute(v: SValue) = {
       actuals.add(v)
       // Set frame/actuals to allow access to the function arguments and closure free-varables.
-      machine.restoreEnv(closure.frame, actuals, envSize)
+      machine.restoreBase(savedBase)
+      machine.restoreFrameAndActuals(closure.frame, actuals)
       // Maybe push a continuation for the profiler
       val label = closure.label
       if (label != null) {
         machine.profile.addOpenEvent(label)
-        machine.pushKont(KLeaveClosure(label))
+        machine.pushKont(KLeaveClosure(machine, label))
       }
       // Start evaluating the body of the closure.
+      machine.popTempStackToBase()
       machine.ctrl = closure.expr
     }
   }
 
   /** The builtin arguments have been evaluated. Now execute the builtin. */
   private[speedy] final case class KBuiltin(
+      machine: Machine,
       builtin: SBuiltin,
-      actuals: util.ArrayList[SValue],
-      envSize: Int)
+      actuals: util.ArrayList[SValue])
       extends Kont {
-    def execute(v: SValue, machine: Machine) = {
+
+    private val savedBase = machine.markBase()
+
+    def execute(v: SValue) = {
       actuals.add(v)
       // A builtin has no free-vars, so we set the frame to null.
-      machine.restoreEnv(null, actuals, envSize)
+      machine.restoreBase(savedBase)
+      machine.restoreFrameAndActuals(null, actuals)
       try {
         builtin.execute(actuals, machine)
       } catch {
@@ -900,9 +954,14 @@ private[lf] object Speedy {
   }
 
   /** The function's partial-arguments have been evaluated. Construct and return the PAP */
-  private[speedy] final case class KPap(prim: Prim, actuals: util.ArrayList[SValue], arity: Int)
+  private[speedy] final case class KPap(
+      machine: Machine,
+      prim: Prim,
+      actuals: util.ArrayList[SValue],
+      arity: Int)
       extends Kont {
-    def execute(v: SValue, machine: Machine) = {
+
+    def execute(v: SValue) = {
       actuals.add(v)
       machine.returnValue = SPAP(prim, actuals, arity)
     }
@@ -985,16 +1044,18 @@ private[lf] object Speedy {
       .body
   }
 
-  private[speedy] final case class KMatch(
-      alts: Array[SCaseAlt],
-      frame: Frame,
-      actuals: Actuals,
-      envSize: Int)
+  private[speedy] final case class KMatch(machine: Machine, alts: Array[SCaseAlt])
       extends Kont
       with SomeArrayEquals {
-    def execute(v: SValue, machine: Machine) = {
-      machine.restoreEnv(frame, actuals, envSize)
-      executeMatchAlts(machine, alts, v);
+
+    private val savedBase = machine.markBase()
+    private val frame = machine.frame
+    private val actuals = machine.actuals
+
+    def execute(v: SValue) = {
+      machine.restoreBase(savedBase);
+      machine.restoreFrameAndActuals(frame, actuals)
+      executeMatchAlts(machine, alts, v)
     }
   }
 
@@ -1005,34 +1066,40 @@ private[lf] object Speedy {
     * direy into the environment.
     */
   private[speedy] final case class KPushTo(
+      machine: Machine,
       to: util.ArrayList[SValue],
       next: SExpr,
-      frame: Frame,
-      actuals: Actuals,
-      envSize: Int)
-      extends Kont
+  ) extends Kont
       with SomeArrayEquals {
-    def execute(v: SValue, machine: Machine) = {
-      machine.restoreEnv(frame, actuals, envSize)
+
+    private val savedBase = machine.markBase()
+    private val frame = machine.frame
+    private val actuals = machine.actuals
+
+    def execute(v: SValue) = {
+      machine.restoreBase(savedBase);
+      machine.restoreFrameAndActuals(frame, actuals)
       to.add(v)
       machine.ctrl = next
     }
   }
 
   private[speedy] final case class KFoldl(
+      machine: Machine,
       func: SValue,
       var list: FrontStack[SValue],
-      frame: Frame,
-      actuals: Actuals,
-      envSize: Int,
   ) extends Kont
       with SomeArrayEquals {
-    def execute(acc: SValue, machine: Machine) = {
+
+    private val frame = machine.frame
+    private val actuals = machine.actuals
+
+    def execute(acc: SValue) = {
       list.pop match {
         case None =>
           machine.returnValue = acc
         case Some((item, rest)) =>
-          machine.restoreEnv(frame, actuals, envSize)
+          machine.restoreFrameAndActuals(frame, actuals)
           // NOTE: We are "recycling" the current continuation with the
           // remainder of the list to avoid allocating a new continuation.
           list = rest
@@ -1043,17 +1110,19 @@ private[lf] object Speedy {
   }
 
   private[speedy] final case class KFoldr(
+      machine: Machine,
       func: SValue,
       list: ImmArray[SValue],
       var lastIndex: Int,
-      frame: Frame,
-      actuals: Actuals,
-      envSize: Int,
   ) extends Kont
       with SomeArrayEquals {
-    def execute(acc: SValue, machine: Machine) = {
+
+    private val frame = machine.frame
+    private val actuals = machine.actuals
+
+    def execute(acc: SValue) = {
       if (lastIndex > 0) {
-        machine.restoreEnv(frame, actuals, envSize)
+        machine.restoreFrameAndActuals(frame, actuals)
         val currentIndex = lastIndex - 1
         val item = list(currentIndex)
         lastIndex = currentIndex
@@ -1068,23 +1137,25 @@ private[lf] object Speedy {
   // NOTE: See the explanation above the definition of `SBFoldr` on why we need
   // this continuation and what it does.
   private[speedy] final case class KFoldr1Map(
+      machine: Machine,
       func: SValue,
       var list: FrontStack[SValue],
       var revClosures: FrontStack[SValue],
       init: SValue,
-      frame: Frame,
-      actuals: Actuals,
-      envSize: Int,
   ) extends Kont
       with SomeArrayEquals {
-    def execute(closure: SValue, machine: Machine) = {
+
+    private val frame = machine.frame
+    private val actuals = machine.actuals
+
+    def execute(closure: SValue) = {
       revClosures = closure +: revClosures
       list.pop match {
         case None =>
-          machine.pushKont(KFoldr1Reduce(revClosures, frame, actuals, envSize))
+          machine.pushKont(KFoldr1Reduce(machine, revClosures))
           machine.returnValue = init
         case Some((item, rest)) =>
-          machine.restoreEnv(frame, actuals, envSize)
+          machine.restoreFrameAndActuals(frame, actuals)
           list = rest
           machine.pushKont(this) // NOTE: We've updated `revClosures` and `list`.
           machine.enterApplication(func, Array(SEValue(item)))
@@ -1095,18 +1166,20 @@ private[lf] object Speedy {
   // NOTE: See the explanation above the definition of `SBFoldr` on why we need
   // this continuation and what it does.
   private[speedy] final case class KFoldr1Reduce(
+      machine: Machine,
       var revClosures: FrontStack[SValue],
-      frame: Frame,
-      actuals: Actuals,
-      envSize: Int,
   ) extends Kont
       with SomeArrayEquals {
-    def execute(acc: SValue, machine: Machine) = {
+
+    private val frame = machine.frame
+    private val actuals = machine.actuals
+
+    def execute(acc: SValue) = {
       revClosures.pop match {
         case None =>
           machine.returnValue = acc
         case Some((closure, rest)) =>
-          machine.restoreEnv(frame, actuals, envSize)
+          machine.restoreFrameAndActuals(frame, actuals)
           revClosures = rest
           machine.pushKont(this) // NOTE: We've updated `revClosures`.
           machine.enterApplication(closure, Array(SEValue(acc)))
@@ -1122,11 +1195,13 @@ private[lf] object Speedy {
     * large record is updated multiple times.
     */
   private[speedy] final case class KCacheVal(
+      machine: Machine,
       v: SEVal,
       defn: SDefinition,
       stack_trace: List[Location])
       extends Kont {
-    def execute(sv: SValue, machine: Machine): Unit = {
+
+    def execute(sv: SValue): Unit = {
       machine.pushStackTrace(stack_trace)
       v.setCached(sv, stack_trace)
       defn.setCached(sv, stack_trace)
@@ -1140,22 +1215,32 @@ private[lf] object Speedy {
     * evaluated. If 'KCatch' is encountered naturally, then 'fin' is evaluated.
     */
   private[speedy] final case class KCatch(
+      machine: Machine,
       handler: SExpr,
       fin: SExpr,
-      frame: Frame,
-      actuals: Actuals,
-      envSize: Int)
-      extends Kont
+  ) extends Kont
       with SomeArrayEquals {
-    def execute(v: SValue, machine: Machine) = {
-      machine.restoreEnv(frame, actuals, envSize)
+
+    // We call [markBase] (as standard) so the continuation may access its temporaries.
+    // In addition [env.size] is recorded for use in [tryHandleException] to allow the
+    // env-stack to be unwound correctly when an exception is thrown.
+
+    val envSize = machine.env.size
+
+    private val savedBase = machine.markBase()
+    private val frame = machine.frame
+    private val actuals = machine.actuals
+
+    def execute(v: SValue) = {
+      machine.restoreBase(savedBase);
+      machine.restoreFrameAndActuals(frame, actuals)
       machine.ctrl = fin
     }
   }
 
   /** A location frame stores a location annotation found in the AST. */
-  final case class KLocation(location: Location) extends Kont {
-    def execute(v: SValue, machine: Machine) = {
+  final case class KLocation(machine: Machine, location: Location) extends Kont {
+    def execute(v: SValue) = {
       machine.returnValue = v
     }
   }
@@ -1164,8 +1249,9 @@ private[lf] object Speedy {
     * used during profiling. Its purpose is to attach a label to closures such
     * that entering the closure can write an "open event" with that label.
     */
-  private[speedy] final case class KLabelClosure(label: Profile.Label) extends Kont {
-    def execute(v: SValue, machine: Machine) = {
+  private[speedy] final case class KLabelClosure(machine: Machine, label: Profile.Label)
+      extends Kont {
+    def execute(v: SValue) = {
       v match {
         case SPAP(PClosure(_, expr, closure), args, arity) =>
           machine.returnValue = SPAP(PClosure(label, expr, closure), args, arity)
@@ -1178,8 +1264,9 @@ private[lf] object Speedy {
   /** Continuation marking the exit of a closure. This is only used during
     * profiling.
     */
-  private[speedy] final case class KLeaveClosure(label: Profile.Label) extends Kont {
-    def execute(v: SValue, machine: Machine) = {
+  private[speedy] final case class KLeaveClosure(machine: Machine, label: Profile.Label)
+      extends Kont {
+    def execute(v: SValue) = {
       machine.profile.addCloseEvent(label)
       machine.returnValue = v
     }

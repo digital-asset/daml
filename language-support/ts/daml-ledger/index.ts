@@ -8,6 +8,27 @@ import WebSocket from 'isomorphic-ws';
 import _ from 'lodash';
 
 /**
+ * Full information about a Party.
+ *
+ */
+export type PartyInfo = {
+  identifier: Party;
+  displayName?: string;
+  isLocal: boolean;
+}
+
+const partyInfoDecoder: jtv.Decoder<PartyInfo> =
+  jtv.object({
+    identifier: jtv.string(),
+    displayName: jtv.optional(jtv.string()),
+    isLocal: jtv.boolean(),
+  });
+
+const decode = <R>(decoder: jtv.Decoder<R>, data: unknown): R => {
+  return jtv.Result.withException(decoder.run(data));
+}
+
+/**
  * A newly created contract.
  *
  * @typeparam T The contract template type.
@@ -152,14 +173,16 @@ export type Query<T> = T extends object ? {[K in keyof T]?: Query<T[K]>} : T;
 
 /** @internal
  *
+ * Official documentation (docs/source/json-api/search-query-language.rst)
+ * currently explicitly forbids the use of lists, textmaps and genmaps in
+ * queries. As long as that restriction stays, there is no need for any kind of
+ * encoding here.
  */
 function encodeQuery<T extends object, K, I extends string>(template: Template<T, K, I>, query?: Query<T>): unknown {
-  // TODO: actually implement this.
   // I could not get the "unused" warning silenced, but this seems to count as "used"
   [template];
   return query;
 }
-
 
 /**
  * Status code and result returned by a call to the ledger.
@@ -167,6 +190,7 @@ function encodeQuery<T extends object, K, I extends string>(template: Template<T
 type LedgerResponse = {
   status: number;
   result: unknown;
+  warnings: unknown | undefined;
 }
 
 /**
@@ -175,6 +199,7 @@ type LedgerResponse = {
 type LedgerError = {
   status: number;
   errors: string[];
+  warnings: unknown | undefined;
 }
 
 /**
@@ -183,6 +208,7 @@ type LedgerError = {
 const decodeLedgerResponse: jtv.Decoder<LedgerResponse> = jtv.object({
   status: jtv.number(),
   result: jtv.unknownJson(),
+  warnings: jtv.optional(jtv.unknownJson()),
 });
 
 /**
@@ -191,6 +217,7 @@ const decodeLedgerResponse: jtv.Decoder<LedgerResponse> = jtv.object({
 const decodeLedgerError: jtv.Decoder<LedgerError> = jtv.object({
   status: jtv.number(),
   errors: jtv.array(jtv.string()),
+  warnings: jtv.optional(jtv.unknownJson()),
 });
 
 /**
@@ -291,14 +318,14 @@ class Ledger {
    *
    * Internal function to submit a command to the JSON API.
    */
-  private async submit(endpoint: string, payload: unknown): Promise<unknown> {
+  private async submit(endpoint: string, payload: unknown, method = 'post'): Promise<unknown> {
     const httpResponse = await fetch(this.httpBaseUrl + endpoint, {
       body: JSON.stringify(payload),
       headers: {
         'Authorization': 'Bearer ' + this.token,
         'Content-type': 'application/json'
       },
-      method: 'post',
+      method,
     });
     const json = await httpResponse.json();
     if (!httpResponse.ok) {
@@ -306,6 +333,9 @@ class Ledger {
       throw jtv.Result.withException(decodeLedgerError.run(json));
     }
     const ledgerResponse = jtv.Result.withException(decodeLedgerResponse.run(json));
+    if (ledgerResponse.warnings) {
+      console.warn(ledgerResponse.warnings);
+    }
     return ledgerResponse.result;
   }
 
@@ -871,6 +901,58 @@ class Ledger {
     }
     return this.streamSubmit("streamFetchByKeys", template, 'v1/stream/fetch', request, reconnectRequest, initState, change);
   }
+
+  /**
+   * Fetch parties by identifier.
+   *
+   * @param parties An array of Party identifiers.
+   *
+   * @returns An array of the same length, where each element corresponds to
+   * the same-index element of the given parties, ans is either a PartyInfo
+   * object if the party exists or null if it does not.
+   *
+   */
+  async getParties(parties: Party[]): Promise<(PartyInfo | null)[]> {
+    if (parties.length === 0) {
+      return [];
+    }
+    const json = await this.submit('v1/parties', parties);
+    const resp: PartyInfo[] = decode(jtv.array(partyInfoDecoder), json);
+    const mapping: {[ps: string]: PartyInfo} = {};
+    for (const p of resp) {
+      mapping[p.identifier] = p;
+    }
+    const ret: (PartyInfo | null)[] = Array(parties.length).fill(null);
+    for (let idx = 0; idx < parties.length; idx++) {
+      ret[idx] = mapping[parties[idx]] || null;
+    }
+    return ret;
+  }
+
+  /**
+   * Fetch all parties on the ledger.
+   *
+   * @returns All parties on the ledger, in no particular order.
+   *
+   */
+  async listKnownParties(): Promise<PartyInfo[]> {
+    const json = await this.submit('v1/parties', undefined, 'get');
+    return decode(jtv.array(partyInfoDecoder), json);
+  }
+
+  /**
+   * Allocate a new party.
+   *
+   * @param partyOpt Parameters for party allocation.
+   *
+   * @returns PartyInfo for the newly created party.
+   *
+   */
+  async allocateParty(partyOpt: {identifierHint?: string; displayName?: string}): Promise<PartyInfo> {
+    const json = await this.submit('v1/parties/allocate', partyOpt);
+    return decode(partyInfoDecoder, json);
+  }
+
 }
 
 export default Ledger;
