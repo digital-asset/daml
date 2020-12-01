@@ -120,7 +120,7 @@ def install_java_deps():
             "org.mockito:mockito-inline:2.24.0",
             "org.mockito:mockito-scala_2.12:1.1.2",
             "org.pcollections:pcollections:2.1.3",
-            "org.postgresql:postgresql:42.2.9",
+            "org.postgresql:postgresql:42.2.18",
             "org.reactivestreams:reactive-streams:1.0.2",
             "org.reactivestreams:reactive-streams-tck:1.0.2",
             "org.sangria-graphql:sangria_2.12:1.4.2",

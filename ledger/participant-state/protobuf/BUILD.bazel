@@ -8,6 +8,7 @@ proto_jars(
     srcs = ["com/daml/ledger/participant/state/ledger_configuration.proto"],
     maven_artifact_prefix = "participant-state-ledger-configuration",
     maven_group = "com.daml",
+    visibility = ["//ledger/participant-state:__subpackages__"],
     deps = [
         "@com_google_protobuf//:duration_proto",
     ],

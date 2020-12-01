@@ -7,7 +7,7 @@ import anorm.{Row, SimpleSql, SqlStringInterpolation}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.platform.store.Conversions.OffsetToStatement
 
-trait EventsTableDelete {
+object EventsTableDelete {
 
   /**
     * Delete

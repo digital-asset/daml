@@ -167,6 +167,7 @@ proto_jars(
         "//ledger/participant-state/protobuf:ledger_configuration_proto",
     ],
     strip_import_prefix = "src/main/protobuf",
+    visibility = ["//visibility:public"],
     deps = [
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",

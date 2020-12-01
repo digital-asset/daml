@@ -20,6 +20,7 @@ proto_jars(
     maven_artifact_prefix = "ledger-api",
     maven_artifact_scala_suffix = "scalapb",
     maven_group = "com.daml",
+    visibility = ["//visibility:public"],
     deps = [
         "@com_github_googleapis_googleapis//google/rpc:status_proto",
         "@com_google_protobuf//:any_proto",
@@ -250,16 +251,6 @@ proto_gen(
     plugin_runfiles = ["rst_mmd.tmpl"],
     visibility = [
         "//visibility:public",
-    ],
-    deps = [
-        "@com_github_googleapis_googleapis//google/rpc:code_proto",
-        "@com_github_googleapis_googleapis//google/rpc:status_proto",
-        "@com_google_protobuf//:any_proto",
-        "@com_google_protobuf//:descriptor_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:wrappers_proto",
     ],
 )
 

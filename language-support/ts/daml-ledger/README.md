@@ -112,18 +112,34 @@ format of the JSON API. See the [JSON API docs] for details.
 `getParties`
 ------------
 
-For a given list of party identifiers, returns full information, or null if
+For a given list of party identifiers, return full information, or null if
 the party doesn't exist.
 
 `listKnownParties`
 ------------------
 
-Returns an array of PartyInfo for all parties on the ledger.
+Return an array of PartyInfo for all parties on the ledger.
 
 `allocateParty`
 ---------------
 
-Allocates a new party.
+Allocate a new party.
+
+`listPackages`
+--------------
+
+Fetch a list of all known package IDs.
+
+`getPackage`
+------------
+
+Given a package ID, fetch the binary data for the corresponding DALF.
+
+`uploadDarFile`
+---------------
+
+Upload a given byte array as a DAR to the ledger. Note that this requires a
+token with admin access.
 
 ## Source
 

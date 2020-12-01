@@ -24,6 +24,8 @@ const partyInfoDecoder: jtv.Decoder<PartyInfo> =
     isLocal: jtv.boolean(),
   });
 
+export type PackageId = string;
+
 const decode = <R>(decoder: jtv.Decoder<R>, data: unknown): R => {
   return jtv.Result.withException(decoder.run(data));
 }
@@ -315,6 +317,24 @@ class Ledger {
 
   /**
    * @internal
+   */
+  private auth(): {[headers: string]: string} {
+    return {'Authorization': 'Bearer ' + this.token};
+  }
+
+  /**
+   * @internal
+   */
+  private async throwOnError(r: Response): Promise<void> {
+    if (!r.ok) {
+      const json = await r.json();
+      console.log(json);
+      throw decode(decodeLedgerError, json);
+    }
+  }
+
+  /**
+   * @internal
    *
    * Internal function to submit a command to the JSON API.
    */
@@ -322,16 +342,13 @@ class Ledger {
     const httpResponse = await fetch(this.httpBaseUrl + endpoint, {
       body: JSON.stringify(payload),
       headers: {
-        'Authorization': 'Bearer ' + this.token,
+        ...this.auth(),
         'Content-type': 'application/json'
       },
       method,
     });
+    await this.throwOnError(httpResponse);
     const json = await httpResponse.json();
-    if (!httpResponse.ok) {
-      console.log(json);
-      throw jtv.Result.withException(decodeLedgerError.run(json));
-    }
     const ledgerResponse = jtv.Result.withException(decodeLedgerResponse.run(json));
     if (ledgerResponse.warnings) {
       console.warn(ledgerResponse.warnings);
@@ -951,6 +968,51 @@ class Ledger {
   async allocateParty(partyOpt: {identifierHint?: string; displayName?: string}): Promise<PartyInfo> {
     const json = await this.submit('v1/parties/allocate', partyOpt);
     return decode(partyInfoDecoder, json);
+  }
+
+  /**
+   * Fetch a list of all package IDs from the ledger.
+   *
+   * @returns List of package IDs.
+   *
+   */
+  async listPackages(): Promise<PackageId[]> {
+    const json = await this.submit('v1/packages', undefined, 'get');
+    return decode(jtv.array(jtv.string()), json);
+  }
+
+  /**
+   * Fetch a binary package.
+   *
+   * @returns The content of the package as a raw ArrayBuffer.
+   *
+   */
+  async getPackage(id: PackageId): Promise<ArrayBuffer> {
+    const httpResponse = await fetch(this.httpBaseUrl + 'v1/packages/' + id, {
+      headers: this.auth(),
+      method: 'get',
+    });
+    await this.throwOnError(httpResponse);
+    return await httpResponse.arrayBuffer();
+  }
+
+  /**
+   * Upload a binary archive. Note that this requires admin privileges.
+   *
+   * @returns No return value on success; throws on error.
+   *
+   */
+  async uploadDarFile(abuf: ArrayBuffer): Promise<void> {
+    const httpResponse = await fetch(this.httpBaseUrl + 'v1/packages', {
+      body: abuf,
+      headers: {
+        ...this.auth(),
+        'Content-type': 'application/octet-stream'
+      },
+      method: 'post',
+    });
+    await this.throwOnError(httpResponse);
+    return;
   }
 
 }

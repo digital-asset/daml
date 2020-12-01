@@ -22,16 +22,14 @@ import com.daml.platform.store.DbType
 object TransactionsWriter {
 
   final class PreparedInsert private[TransactionsWriter] (
-      eventsTableExecutables: EventsTable.Executables,
+      eventsTableExecutables: EventsTable.Batches,
       contractsTableExecutables: ContractsTable.Executables,
       contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
   ) {
     def write(metrics: Metrics)(implicit connection: Connection): Unit = {
       import metrics.daml.index.db.storeTransactionDbMetrics._
 
-      val events = eventsTableExecutables.insertEvents.toList ++ eventsTableExecutables.updateArchives.toList
-
-      Timed.value(eventsBatch, events.foreach(_.execute()))
+      Timed.value(eventsBatch, eventsTableExecutables.execute())
 
       // Delete the witnesses of contracts that being removed first, to
       // respect the foreign key constraint of the underlying storage
@@ -65,6 +63,7 @@ private[dao] final class TransactionsWriter(
     lfValueTranslation: LfValueTranslation,
 ) {
 
+  private val eventsTable = EventsTable(dbType)
   private val contractsTable = ContractsTable(dbType)
   private val contractWitnessesTable = ContractWitnessesTable(dbType)
 
@@ -105,7 +104,7 @@ private[dao] final class TransactionsWriter(
       )
 
     new TransactionsWriter.PreparedInsert(
-      EventsTable.toExecutables(indexing.transaction, indexing.events, serialized),
+      eventsTable.toExecutables(indexing.transaction, indexing.events, serialized),
       contractsTable.toExecutables(indexing.transaction, indexing.contracts, serialized),
       contractWitnessesTable.toExecutables(indexing.contractWitnesses),
     )
@@ -113,6 +112,6 @@ private[dao] final class TransactionsWriter(
   }
 
   def prepareEventsDelete(endInclusive: Offset): SimpleSql[Row] =
-    EventsTable.prepareEventsDelete(endInclusive)
+    EventsTableDelete.prepareEventsDelete(endInclusive)
 
 }
