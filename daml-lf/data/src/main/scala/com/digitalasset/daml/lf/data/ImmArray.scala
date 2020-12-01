@@ -95,22 +95,22 @@ final class ImmArray[+A] private (
   def last: A = this(length - 1)
 
   /** O(1), crashes on empty list */
-  def tail: ImmArray[A] = {
-    if (length < 1) {
-      throw new RuntimeException("tail on empty ImmArray")
-    } else {
+  def tail: ImmArray[A] =
+    if (length > 1)
       new ImmArray(start + 1, length - 1, array)
-    }
-  }
+    else if (length > 0)
+      ImmArray.empty
+    else
+      throw new RuntimeException("tail on empty ImmArray")
 
   /** O(1), crashes on empty list */
-  def init: ImmArray[A] = {
-    if (length < 1) {
-      throw new RuntimeException("init on empty ImmArray")
-    } else {
+  def init: ImmArray[A] =
+    if (length > 1)
       new ImmArray(start, length - 1, array)
-    }
-  }
+    else if (length > 0)
+      ImmArray.empty
+    else
+      throw new RuntimeException("tail on empty ImmArray")
 
   /** O(1)
     *
@@ -141,29 +141,24 @@ final class ImmArray[+A] private (
     val until = Math.max(Math.min(until0, length), 0)
 
     val newLen = until - from
-    if (newLen <= 0) {
+    if (newLen <= 0)
       ImmArray.empty[A]
-    } else {
+    else
       new ImmArray(start + from, newLen, array)
-    }
   }
 
   /** O(n) */
   def map[B](f: A => B): ImmArray[B] = {
-    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(length)
-    for (i <- indices) {
-      newArray(i) = f(uncheckedGet(i))
-    }
-    ImmArray.unsafeFromArraySeq[B](newArray)
+    val builder = ImmArray.newBuilder[B](length)
+    foreach(builder += f(_))
+    builder.result()
   }
 
   /** O(n) */
   def reverse: ImmArray[A] = {
-    val newArray: mutable.ArraySeq[A] = new mutable.ArraySeq(length)
-    for (i <- indices) {
-      newArray(i) = array(start + length - (i + 1))
-    }
-    ImmArray.unsafeFromArraySeq[A](newArray)
+    val builder = ImmArray.newReverseBuilder[A](length)
+    foreach(builder += _)
+    builder.result()
   }
 
   /** O(n+m)
@@ -172,14 +167,10 @@ final class ImmArray[+A] private (
     * since to append ImmArray we must copy both of them.
     */
   def slowAppend[B >: A](other: ImmArray[B]): ImmArray[B] = {
-    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(length + other.length)
-    for (i <- indices) {
-      newArray(i) = uncheckedGet(i)
-    }
-    for (i <- other.indices) {
-      newArray(length + i) = other.uncheckedGet(i)
-    }
-    ImmArray.unsafeFromArraySeq(newArray)
+    val builder = ImmArray.newBuilder[B](length + other.length)
+    foreach(builder += _)
+    other.foreach(builder += _)
+    builder.result()
   }
 
   /** O(n)
@@ -188,12 +179,10 @@ final class ImmArray[+A] private (
     * since to cons an ImmArray we must copy it.
     */
   def slowCons[B >: A](el: B): ImmArray[B] = {
-    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(length + 1)
-    newArray(0) = el
-    for (i <- indices) {
-      newArray(i + 1) = uncheckedGet(i)
-    }
-    ImmArray.unsafeFromArraySeq(newArray)
+    val builder = ImmArray.newBuilder[B](length + 1)
+    builder += el
+    foreach(builder += _)
+    builder.result()
   }
 
   /** O(n)
@@ -202,22 +191,17 @@ final class ImmArray[+A] private (
     * since to snoc an ImmArray we must copy it.
     */
   def slowSnoc[B >: A](el: B): ImmArray[B] = {
-    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(length + 1)
-    for (i <- indices) {
-      newArray(i) = uncheckedGet(i)
-    }
-    newArray(length) = el
-    ImmArray.unsafeFromArraySeq(newArray)
+    val builder = ImmArray.newBuilder[B](length + 1)
+    foreach(builder += _)
+    builder += el
+    builder.result()
   }
 
   /** O(min(n, m)) */
   def zip[B](that: ImmArray[B]): ImmArray[(A, B)] = {
-    val newLen = Math.min(length, that.length)
-    val newArray: mutable.ArraySeq[(A, B)] = new mutable.ArraySeq(newLen)
-    for (i <- 0 until newLen) {
-      newArray(i) = (uncheckedGet(i), that.uncheckedGet(i))
-    }
-    ImmArray.unsafeFromArraySeq(newArray)
+    val builder = ImmArray.newBuilder[(A, B)](length min that.length)
+    (iterator zip that.iterator).foreach(builder += _)
+    builder.result()
   }
 
   /** O(1) */
@@ -258,7 +242,7 @@ final class ImmArray[+A] private (
 
   /** O(n) */
   def collect[B](f: PartialFunction[A, B]): ImmArray[B] = {
-    val builder = ImmArray.newBuilder[B]
+    val builder = ImmArray.newBuilder[B]()
     var i = 0
     while (i < length) {
       val a = uncheckedGet(i)
@@ -355,11 +339,12 @@ final class ImmArray[+A] private (
 
 object ImmArray extends ImmArrayInstances {
   private[this] val emptySingleton: ImmArray[Nothing] =
-    ImmArray.unsafeFromArraySeq(new mutable.ArraySeq(0))
+    new ImmArray(0, 0, mutable.ArraySeq.empty)
+
   def empty[T]: ImmArray[T] = emptySingleton
 
   def apply[T](element0: T, elements: T*): ImmArray[T] = {
-    val builder = ImmArray.newBuilder[T]
+    val builder = ImmArray.newBuilder[T](elements.length + 1)
     builder += element0
     builder ++= elements
     builder.result()
@@ -368,20 +353,12 @@ object ImmArray extends ImmArrayInstances {
   def apply[T](elements: Iterable[T]): ImmArray[T] = elements match {
     case ias: ImmArraySeq[T] => ias.toImmArray
     case _ =>
-      val builder = ImmArray.newBuilder[T]
+      val builder = ImmArray.newBuilder[T](elements.size)
       builder ++= elements
       builder.result()
   }
 
   def unapplySeq[T](arr: ImmArray[T]): Option[IndexedSeq[T]] = Some(arr.toIndexedSeq)
-
-  /** This is unsafe because if you modify the ArraySeq you are passing in after creating the ImmArray
-    * you'll modify the ImmArray too, which is supposed to be immutable. If you're using it,
-    * you must guarantee that the provided `Array` is not modified for the entire lifetime
-    * of the resulting `ImmArray`.
-    */
-  def unsafeFromArraySeq[T](arr: mutable.ArraySeq[_ <: T]): ImmArray[T] =
-    new ImmArray(0, arr.length, arr)
 
   implicit val immArrayInstance: Traverse[ImmArray] = new Traverse[ImmArray] {
     override def traverseImpl[F[_]: Applicative, A, B](immArr: ImmArray[A])(
@@ -401,15 +378,93 @@ object ImmArray extends ImmArrayInstances {
 
   private[ImmArray] final class IACanBuildFrom[A]
       extends CanBuildFrom[ImmArray[_], A, ImmArray[A]] {
-    override def apply(from: ImmArray[_]) = newBuilder[A]
-    override def apply() = newBuilder[A]
+    override def apply(from: ImmArray[_]) = newBuilder[A]()
+    override def apply() = newBuilder[A]()
   }
 
   implicit def `ImmArray canBuildFrom`[A]: CanBuildFrom[ImmArray[_], A, ImmArray[A]] =
     new IACanBuildFrom
 
-  def newBuilder[A]: mutable.Builder[A, ImmArray[A]] =
-    mutable.ArraySeq.newBuilder[A].mapResult(ImmArray.unsafeFromArraySeq)
+  private def copyArraySeq[A](
+      src: mutable.ArraySeq[A],
+      srcStart: Int,
+      dst: mutable.ArraySeq[A],
+      dstStart: Int,
+      len: Int,
+  ): Unit =
+    System.arraycopy(src.array, srcStart, dst.array, dstStart, len)
+
+  def newBuilder[A](initialCapacity: Int = 4): mutable.Builder[A, ImmArray[A]] =
+    new mutable.Builder[A, ImmArray[A]] {
+      private[this] var length = 0
+      private[this] var array = new mutable.ArraySeq[A](initialCapacity max 1)
+      private[this] def capacity = array.size
+
+      override def +=(elem: A): this.type = {
+        if (length == capacity) {
+          val newArray = new mutable.ArraySeq[A](length * 2)
+          copyArraySeq(array, 0, newArray, 0, length)
+          array = newArray
+        }
+        array(length) = elem
+        length += 1
+        this
+      }
+
+      override def clear(): Unit = length = 0
+
+      override def result(): ImmArray[A] = {
+        val result =
+          if (length == 0) {
+            empty[A]
+          } else if (length == capacity) {
+            new ImmArray[A](0, length, array)
+          } else {
+            val newArray = new mutable.ArraySeq[A](length)
+            copyArraySeq(array, 0, newArray, 0, length)
+            new ImmArray[A](0, length, newArray)
+          }
+        // to be use one does not reuse the builder
+        array = null
+        result
+      }
+    }
+
+  def newReverseBuilder[A](initialCapacity: Int = 4): mutable.Builder[A, ImmArray[A]] =
+    new mutable.Builder[A, ImmArray[A]] {
+      private[this] var length = 0
+      private[this] var array = new mutable.ArraySeq[A](initialCapacity)
+      private[this] def capacity = array.size
+
+      override def +=(elem: A): this.type = {
+        if (length == capacity) {
+          val newArray = new mutable.ArraySeq[A](length * 2)
+          copyArraySeq(array, 0, newArray, length, length)
+          array = newArray
+        }
+        length += 1
+        array(capacity - length) = elem
+        this
+      }
+
+      override def clear(): Unit = length = 0
+
+      override def result(): ImmArray[A] = {
+        val result =
+          if (length == 0) {
+            empty
+          } else if (length == capacity) {
+            new ImmArray[A](capacity - length, length, array)
+          } else {
+            val newArray = new mutable.ArraySeq[A](length)
+            copyArraySeq(array, capacity - length, newArray, 0, length)
+            new ImmArray[A](0, length, newArray)
+          }
+        // to be use one does not reuse the builder
+        array = null
+        result
+      }
+    }
 
   /** Note: we define this purely to be able to write `toSeq`. We cannot return
     * `ArraySeq` directly because that's a mutable `Seq`, which would allow people
@@ -488,7 +543,7 @@ object ImmArray extends ImmArrayInstances {
       new IASCanBuildFrom
 
     override def newBuilder[A]: mutable.Builder[A, ImmArraySeq[A]] =
-      ImmArray.newBuilder.mapResult(_.toSeq)
+      ImmArray.newBuilder().mapResult(_.toSeq)
   }
 }
 

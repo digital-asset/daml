@@ -56,7 +56,7 @@ object Ref {
   // results in `List("foo")` rather than `List("", "foo")`
   private def split(s: String, splitCh: Char): ImmArray[String] = {
     val splitCodepoint = splitCh.toInt
-    val segments = ImmArray.newBuilder[String]
+    val segments = ImmArray.newBuilder[String]()
     val currentString = new java.lang.StringBuilder()
     s.codePoints()
       .forEach(ch => {

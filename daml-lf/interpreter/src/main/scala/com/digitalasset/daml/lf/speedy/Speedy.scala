@@ -294,7 +294,7 @@ private[lf] object Speedy {
     /** Compute a stack trace from the locations in the continuation stack.
         The last seen location will come last. */
     def stackTrace(): ImmArray[Location] = {
-      val s = ImmArray.newBuilder[Location]
+      val s = ImmArray.newBuilder[Location]()
       kontStack.forEach { k =>
         k match {
           case KLocation(_, location) => s += location

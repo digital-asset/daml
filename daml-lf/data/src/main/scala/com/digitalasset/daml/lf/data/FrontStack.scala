@@ -12,7 +12,6 @@ import scalaz.{Applicative, Equal, Order, Traverse}
 
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
-import scala.collection.mutable
 import scala.language.higherKinds
 
 /** A stack which allows to cons, prepend, and pop in constant time, and generate an ImmArray in linear time.
@@ -48,23 +47,21 @@ final class FrontStack[+A] private (fq: FQ[A], val length: Int) {
 
   /** O(n) */
   def toImmArray: ImmArray[A] = {
-    val array = new mutable.ArraySeq[A](length)
+    val builder = ImmArray.newBuilder[A](length)
 
     @tailrec
-    def go(cursor: Int, fq: FQ[A]): Unit = fq match {
+    def go(fq: FQ[A]): Unit = fq match {
       case FQEmpty => ()
       case FQCons(head, tail) =>
-        array(cursor) = head
-        go(cursor + 1, tail)
+        builder += head
+        go(tail)
       case FQPrepend(head, tail) =>
-        for (i <- head.indices) {
-          array(cursor + i) = head(i)
-        }
-        go(cursor + head.length, tail)
+        head.foreach(builder += _)
+        go(tail)
     }
-    go(0, fq)
+    go(fq)
 
-    ImmArray.unsafeFromArraySeq(array)
+    builder.result()
   }
 
   /** O(1) */
@@ -176,7 +173,7 @@ object FrontStack extends FrontStackInstances {
     override def apply(from: FrontStack[_]) = apply()
 
     override def apply() =
-      ImmArray.newBuilder[A].mapResult(FrontStack(_))
+      ImmArray.newBuilder[A]().mapResult(FrontStack(_))
   }
 
   implicit def `FrontStack canBuildFrom`[A]: CanBuildFrom[FrontStack[_], A, FrontStack[A]] =

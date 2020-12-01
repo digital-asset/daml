@@ -59,6 +59,16 @@ class ImmArrayTest extends FlatSpec with Matchers with FlatSpecCheckLaws {
     ImmArray(1, 2, 3).strictSlice(1, 2).toString shouldBe "ImmArray(2)"
   }
 
+  behavior of "newReverseBuilder"
+
+  it should "build a ImmArray in reverse order" in {
+    val elements = List.range(0, 23)
+    val builder = ImmArray.newReverseBuilder[Int](1)
+    builder ++= elements
+
+    builder.result().toSeq shouldBe List.range(22, -1, -1)
+  }
+
   behavior of "traverse"
 
   checkLaws(ScalazProperties.traverse.laws[ImmArray])

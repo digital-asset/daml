@@ -6,7 +6,6 @@ package com.daml.lf.data
 import BackStack.{BQ, BQAppend, BQEmpty, BQSnoc}
 
 import scala.annotation.tailrec
-import scala.collection.mutable
 
 /** A stack which allows to snoc, append, and pop in constant time, and generate an ImmArray in linear time.
   */
@@ -25,24 +24,22 @@ final class BackStack[+A] private (fq: BQ[A], val length: Int) {
 
   /** O(n) */
   def toImmArray: ImmArray[A] = {
-    val array = new mutable.ArraySeq[A](length)
+    val builder = ImmArray.newReverseBuilder[A](length)
 
     @tailrec
-    def go(cursor: Int, fq: BQ[A]): Unit = fq match {
+    def go(fq: BQ[A]): Unit = fq match {
       case BQEmpty => ()
       case BQSnoc(init, last) =>
-        array(cursor) = last
-        go(cursor - 1, init)
+        builder += last
+        go(init)
       case BQAppend(init, last) =>
-        for (i <- last.indices) {
-          array(cursor - i) = last(last.length - 1 - i)
-        }
-        go(cursor - last.length, init)
+        last.reverseIterator.foreach(builder += _)
+        go(init)
     }
 
-    go(length - 1, fq)
+    go(fq)
 
-    ImmArray.unsafeFromArraySeq(array)
+    builder.result()
   }
 
   /** O(n) */

@@ -23,7 +23,7 @@ object Utf8 {
   // _.toList split in Character which are not Unicode codepoint.
   def explode(s: String): ImmArray[String] = {
     val len = s.length
-    val arr = ImmArray.newBuilder[String]
+    val arr = ImmArray.newBuilder[String]()
     var i = 0
     while (i < len) {
       // if s(i) is a high surrogate the current codepoint uses 2 chars
