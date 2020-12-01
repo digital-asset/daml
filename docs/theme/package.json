@@ -3,7 +3,7 @@
   "main": "js/theme.js",
   "version": "1.0.0",
   "private": true,
-  "resolutions" : {
+  "resolutions": {
     "**/elliptic": "^6.5.3"
   },
   "devDependencies": {

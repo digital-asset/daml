@@ -145,7 +145,7 @@ object KVTest {
       (tx, meta) = engine
         .submit(
           cmds = Commands(
-            submitter = submitter,
+            submitters = Set(submitter),
             commands = ImmArray(cmds),
             ledgerEffectiveTime = s.recordTime,
             commandsReference = "cmds-ref",

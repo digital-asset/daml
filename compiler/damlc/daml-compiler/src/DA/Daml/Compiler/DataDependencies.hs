@@ -802,6 +802,10 @@ convBuiltInTy env =
         LF.BTNumeric -> mkGhcType env "Numeric"
         LF.BTAny -> mkLfInternalType env "Any"
         LF.BTTypeRep -> mkLfInternalType env "TypeRep"
+        LF.BTAnyException -> error "data-dependencies AnyException" -- TODO #8020
+        LF.BTGeneralError -> error "data-dependencies GeneralError" -- TODO #8020
+        LF.BTArithmeticError -> error "data-dependencies ArithmeticError" -- TODO #8020
+        LF.BTContractError -> error "data-dependencies ContractError" -- TODO #8020
 
 errTooManyNameComponents :: [T.Text] -> a
 errTooManyNameComponents cs =

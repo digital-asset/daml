@@ -629,7 +629,7 @@ java_binary(
     srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-srcjar"],
     main_class = "com.daml.quickstart.iou.IouMain",
     deps = [
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//language-support/java/bindings:bindings-java",
         "//language-support/java/bindings-rxjava",
         "@maven//:ch_qos_logback_logback_classic",
@@ -747,6 +747,14 @@ daml_build_test(
         ":daml-upgrade-example-v2": "path/to/carbon-2.0.0.dar",
     },
     project_dir = "source/upgrade/example/carbon-upgrade",
+)
+
+daml_build_test(
+    name = "daml-upgrade-example-extend",
+    dar_dict = {
+        ":daml-upgrade-example-v1": "path/to/carbon-1.0.0.dar",
+    },
+    project_dir = "source/upgrade/example/carbon-label",
 )
 
 daml_build_test(

@@ -60,7 +60,6 @@ function init<A extends Redux.Action>(to: To<A>): ThunkAction<void> {
 function signIn<A extends Redux.Action>(
   to: To<A>,
   userId: UserId,
-  password?: string,
 ): ThunkAction<void> {
   return (dispatch) => {
     dispatch(to({ type: 'AUTHENTICATING' }));
@@ -68,7 +67,7 @@ function signIn<A extends Redux.Action>(
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, password }),
+      body: JSON.stringify({ userId }),
     })
       .then((res: Response) => (res.json() as Promise<ServerResponse>))
       .then(handleSessionResponse(to, dispatch));

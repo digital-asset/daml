@@ -333,7 +333,7 @@ final class JsonApiIt
         assert(result == SUnit)
       }
     }
-    "allocateParty" in {
+    "party management" in {
       for {
         clients <- getClients(parties = List(), admin = true)
         result <- run(

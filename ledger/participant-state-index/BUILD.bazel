@@ -16,11 +16,11 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",

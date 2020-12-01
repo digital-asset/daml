@@ -5,9 +5,7 @@
 Reference: DAML packages
 ########################
 
-This page gives reference information on DAML package dependencies:
-
-.. contents:: :local:
+This page gives reference information on DAML package dependencies.
 
 Building DAML archives
 **********************
@@ -22,7 +20,7 @@ You can specify a different path for the DAML archive by using the ``-o`` flag:
 
   daml build -o foo.dar
 
-For details on how to upload a DAML archive to the ledger, see the :ref:`deploy documentation <deploy-ref_overview>`. The rest of this page will focus on how to import a DAML packages in other DAML projects.
+For details on how to upload a DAML archive to the ledger, see the :ref:`deploy documentation <deploy-ref_overview>`. The rest of this page will focus on how to import a DAML package in other DAML projects.
 
 .. _inspecting_dars:
 
@@ -119,7 +117,7 @@ The following sections will cover these two approaches in more depth.
 Importing a DAML package via dependencies
 =========================================
 
-A DAML project can declare a DAML archive as a dependency in the ``dependencies`` field of ``daml.yaml``. This lets you import modules and reuse definitions from another DAML project. The main limitation of this method is that the dependency must be for the same SDK version as the importing project.
+A DAML project can declare a DAML archive as a dependency in the ``dependencies`` field of ``daml.yaml``. This lets you import modules and reuse definitions from another DAML project. The main limitation of this method is that the dependency must be built for the same SDK version as the importing project.
 
 Let's go through an example. Suppose you have an existing DAML project ``foo``, located at ``/home/user/foo``, and you want to use it as a dependency in a project ``bar``, located at ``/home/user/bar``.
 
@@ -142,7 +140,7 @@ The import path can also be absolute, for example, by changing the last line to:
 
     - /home/user/foo/foo.dar
 
-When you run ``daml build`` in ``bar`` project, the compiler will make the definitions in ``foo.dar`` available for importing. For example, if ``foo`` exports the module ``Foo``, you can import it in the usual way:
+When you run ``daml build`` in the ``bar`` project, the compiler will make the definitions in ``foo.dar`` available for importing. For example, if ``foo`` exports the module ``Foo``, you can import it in the usual way:
 
 .. code-block:: daml
 
@@ -193,7 +191,7 @@ Handling module name collisions
 
 Sometimes you will have multiple packages with the same module name. In that case, a simple import will fail, since the compiler doesn't know which version of the module to load. Fortunately, there are a few tools you can use to approach this problem.
 
-The first is to use package qualified imports. Supposing you have packages with different names, ``foo`` and ``bar``, which both expose a module ``X``. You can select which one you want with a package qualified import.
+The first is to use package qualified imports. Supposing you have packages with different names, ``foo`` and ``bar``, which both expose a module ``X``, you can select which one you want with a package qualified import.
 
 To get ``X`` from ``foo``:
 
@@ -246,7 +244,7 @@ can use the following:
     foo-2.0.0: Foo2
 
 That will allow you to import module ``X`` from package ``foo-1.0.0``
-as ``Foo1.X`` and ``X`` from package ``-foo-2.0.0`` as ``Foo2``.
+as ``Foo1.X`` and ``X`` from package ``foo-2.0.0`` as ``Foo2``.
 
 You can also use more complex module prefixes, e.g., ``foo-1.0.0:
 Foo1.Bar`` which will make module ``X`` available under

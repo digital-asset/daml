@@ -168,10 +168,10 @@ class Endpoints(
 
       ac <- eitherT(
         handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cl))
-      ): ET[Option[domain.ActiveContract[LfValue]]]
+      ): ET[Option[domain.ActiveContract[JsValue]]]
 
       jsVal <- either(
-        ac.cata(x => lfAcToJsValue(x), \/-(JsNull))
+        ac.cata(x => toJsValue(x), \/-(JsNull))
       ): ET[JsValue]
 
     } yield domain.OkResponse(jsVal)

@@ -148,6 +148,10 @@ instance Pretty BuiltinType where
     BTArrow -> parens docFunArrow
     BTAny -> "Any"
     BTTypeRep -> "TypeRep"
+    BTAnyException -> "AnyException"
+    BTGeneralError -> "GeneralError"
+    BTArithmeticError -> "ArithmeticError"
+    BTContractError -> "ContractError"
 
 pPrintRecord :: Pretty a => PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
 pPrintRecord lvl sept fields =
@@ -207,6 +211,14 @@ instance Pretty BuiltinExpr where
     BEUnit -> keyword_ "unit"
     BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     BEError -> "ERROR"
+    BEThrow -> "THROW"
+    BEAnyExceptionMessage -> "ANY_EXCEPTION_MESSAGE"
+    BEGeneralErrorMessage -> "GENERAL_ERROR_MESSAGE"
+    BEArithmeticErrorMessage -> "ARITHMETIC_ERROR_MESSAGE"
+    BEContractErrorMessage -> "CONTRACT_ERROR_MESSAGE"
+    BEMakeGeneralError -> "MAKE_GENERAL_ERROR"
+    BEMakeArithmeticError -> "MAKE_ARITHMETIC_ERROR"
+    BEMakeContractError -> "MAKE_CONTRACT_ERROR"
     BEEqualGeneric -> "EQUAL"
     BELessGeneric -> "LESS"
     BELessEqGeneric -> "LESS_EQ"
@@ -377,14 +389,10 @@ instance Pretty Update where
           $$ keyword_ "in" <-> pPrintPrec lvl precELam body
     UCreate tpl arg ->
       pPrintAppKeyword lvl prec "create" [tplArg tpl, TmArg arg]
-    UExercise tpl choice cid Nothing arg ->
+    UExercise tpl choice cid arg ->
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
       pPrintAppKeyword lvl prec "exercise"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
-    UExercise tpl choice cid (Just actor) arg ->
-      -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
-      pPrintAppKeyword lvl prec "exercise_with_actors"
-      [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg actor, TmArg arg]
     UExerciseByKey tpl choice key arg ->
       pPrintAppKeyword lvl prec "exercise_by_key"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg key, TmArg arg]
@@ -398,6 +406,8 @@ instance Pretty Update where
       pPrintAppKeyword lvl prec "ufetch_by_key" [tplArg retrieveByKeyTemplate, TmArg retrieveByKeyKey]
     ULookupByKey RetrieveByKey{..} ->
       pPrintAppKeyword lvl prec "ulookup_by_key" [tplArg retrieveByKeyTemplate, TmArg retrieveByKeyKey]
+    UTryCatch t e1 x e2 -> keyword_ "try" <-> pPrintTyArg lvl t <-> pPrintTmArg lvl e1
+      <-> keyword_ "catch" <-> pPrintPrec lvl precParam x <-> keyword_ "." <-> pPrintTmArg lvl e2
 
 instance Pretty Scenario where
   pPrintPrec lvl prec = \case
@@ -499,12 +509,20 @@ instance Pretty Expr where
     EToAny ty body -> pPrintAppKeyword lvl prec "to_any" [TyArg ty, TmArg body]
     EFromAny ty body -> pPrintAppKeyword lvl prec "from_any" [TyArg ty, TmArg body]
     ETypeRep ty -> pPrintAppKeyword lvl prec "type_rep" [TyArg ty]
+    EMakeAnyException ty msg val -> pPrintAppKeyword lvl prec "make_any_exception"
+        [TyArg ty, TmArg msg, TmArg val]
+    EFromAnyException ty val -> pPrintAppKeyword lvl prec "from_any_exception"
+        [TyArg ty, TmArg val]
 
 instance Pretty DefTypeSyn where
   pPrintPrec lvl _prec (DefTypeSyn mbLoc syn params typ) =
     withSourceLoc lvl mbLoc $ (keyword_ "synonym" <-> lhsDoc) $$ nest 2 (pPrintPrec lvl 0 typ)
     where
       lhsDoc = pPrint syn <-> hsep (map (pPrintAndKind lvl precParam) params) <-> "="
+
+instance Pretty DefException where
+  pPrintPrec lvl _prec (DefException mbLoc tycon) =
+    withSourceLoc lvl mbLoc (keyword_ "exception" <-> pPrint tycon)
 
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =
@@ -577,7 +595,7 @@ pPrintFeatureFlags flags
   | otherwise = "@allowpartyliterals"
 
 instance Pretty Module where
-  pPrintPrec lvl _prec (Module modName _path flags synonyms dataTypes values templates) =
+  pPrintPrec lvl _prec (Module modName _path flags synonyms dataTypes values templates exceptions) =
     vcat $
       pPrintFeatureFlags flags
       : (keyword_ "module" <-> pPrint modName <-> keyword_ "where")
@@ -586,6 +604,7 @@ instance Pretty Module where
         , map (pPrintPrec lvl 0) (NM.toList synonyms)
         , map (pPrintPrec lvl 0) (NM.toList values)
         , map (pPrintTemplate lvl modName) (NM.toList templates)
+        , map (pPrintPrec lvl 0) (NM.toList exceptions)
         ]
 
 instance Pretty PackageName where

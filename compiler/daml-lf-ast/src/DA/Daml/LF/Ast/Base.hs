@@ -179,6 +179,10 @@ data BuiltinType
   | BTArrow
   | BTAny
   | BTTypeRep
+  | BTAnyException
+  | BTGeneralError
+  | BTArithmeticError
+  | BTContractError
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Type as used in typed binders.
@@ -230,11 +234,21 @@ data BuiltinExpr
   | BEUnit                       -- :: Unit
   | BEBool       !Bool           -- :: Bool
 
-  -- Polymorphic functions
+  -- Exceptions
   | BEError                      -- :: ∀a. Text -> a
+  | BEThrow                      -- :: ∀a. AnyException -> a
+  | BEAnyExceptionMessage        -- :: AnyException -> Text
+  | BEGeneralErrorMessage        -- :: GeneralError -> Text
+  | BEArithmeticErrorMessage     -- :: ArithmeticError -> Text
+  | BEContractErrorMessage       -- :: ContractError -> Text
+  | BEMakeGeneralError           -- :: Text -> GeneralError
+  | BEMakeArithmeticError        -- :: Text -> ArithmeticError
+  | BEMakeContractError          -- :: Text -> ContractError
+
+  -- Polymorphic functions
   | BEEqualGeneric               -- :: ∀t. t -> t -> Bool
-  | BELessGeneric                -- :: ∀t. t -> t -> Bool   
-  | BELessEqGeneric              -- :: ∀t. t -> t -> Bool   
+  | BELessGeneric                -- :: ∀t. t -> t -> Bool
+  | BELessEqGeneric              -- :: ∀t. t -> t -> Bool
   | BEGreaterGeneric             -- :: ∀t. t -> t -> Bool
   | BEGreaterEqGeneric           -- :: ∀t. t -> t -> Bool
   | BEEqual      !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
@@ -501,6 +515,17 @@ data Expr
     , fromAnyBody :: !Expr
     }
   | ETypeRep !Type
+  -- | Construct an 'AnyException' value from a value of an exception type.
+  | EMakeAnyException
+    { makeAnyExceptionType :: !Type
+    , makeAnyExceptionMessage :: !Expr
+    , makeAnyExceptionValue :: !Expr
+    }
+  -- | Convert 'AnyException' back to its underlying value, if possible.
+  | EFromAnyException
+    { fromAnyExceptionType :: !Type
+    , fromAnyExceptionValue :: !Expr
+    }
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.
@@ -589,8 +614,6 @@ data Update
       -- ^ Choice to exercise.
     , exeContractId :: !Expr
       -- ^ Contract id of the contract template instance to exercise choice on.
-    , exeActors     :: !(Maybe Expr)
-      -- ^ Parties exercising the choice.
     , exeArg        :: !Expr
       -- ^ Argument for the choice.
     }
@@ -622,6 +645,12 @@ data Update
     }
   | ULookupByKey !RetrieveByKey
   | UFetchByKey !RetrieveByKey
+  | UTryCatch
+    { tryCatchType :: !Type
+    , tryCatchExpr :: !Expr
+    , tryCatchVar :: !ExprVarName
+    , tryCatchHandler :: !Expr
+    }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Expression in the scenario monad
@@ -798,6 +827,13 @@ data Template = Template
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
+-- | Definition of an exception type.
+data DefException = DefException
+  { exnLocation :: !(Maybe SourceLoc)
+  , exnName :: !TypeConName
+  }
+  deriving (Eq, Data, Generic, NFData, Show)
+
 -- | Single choice of a contract template.
 data TemplateChoice = TemplateChoice
   { chcLocation :: !(Maybe SourceLoc)
@@ -869,6 +905,7 @@ data Module = Module
     -- ^ Top-level value definitions.
   , moduleTemplates :: !(NM.NameMap Template)
     -- ^ Template definitions.
+  , moduleExceptions :: !(NM.NameMap DefException)
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
@@ -912,6 +949,10 @@ instance NM.Named DefDataType where
 instance NM.Named DefValue where
   type Name DefValue = ExprValName
   name = fst . dvalBinder
+
+instance NM.Named DefException where
+  type Name DefException = TypeConName
+  name = exnName
 
 instance NM.Named Template where
   type Name Template = TypeConName

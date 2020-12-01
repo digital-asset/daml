@@ -4,11 +4,7 @@
 Reference: choices
 ##################
 
-This page gives reference information on choices:
-
-.. contents:: :local:
-
-For information on the high-level structure of a choice, see :doc:`structure`.
+This page gives reference information on choices. For information on the high-level structure of a choice, see :doc:`structure`.
 
 ``choice`` first or ``controller`` first
 ****************************************

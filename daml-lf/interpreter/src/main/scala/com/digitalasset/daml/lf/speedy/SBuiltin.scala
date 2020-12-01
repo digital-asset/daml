@@ -443,13 +443,7 @@ private[lf] object SBuiltin {
       val func = args.get(0)
       val init = args.get(1)
       val list = args.get(2).asInstanceOf[SList].list
-      machine.pushKont(
-        KFoldl(
-          func,
-          list,
-          machine.frame,
-          machine.actuals
-        ))
+      machine.pushKont(KFoldl(machine, func, list))
       machine.returnValue = init
     }
   }
@@ -491,29 +485,14 @@ private[lf] object SBuiltin {
       val list = args.get(2)
       if (func.arity - func.actuals.size >= 2) {
         val array = list.asInstanceOf[SList].list.toImmArray
-        machine.pushKont(
-          KFoldr(
-            func,
-            array,
-            array.length,
-            machine.frame,
-            machine.actuals,
-          ))
+        machine.pushKont(KFoldr(machine, func, array, array.length))
         machine.returnValue = init
       } else {
         val stack = list.asInstanceOf[SList].list
         stack.pop match {
           case None => machine.returnValue = init
           case Some((head, tail)) =>
-            machine.pushKont(
-              KFoldr1Map(
-                func,
-                tail,
-                FrontStack.empty,
-                init,
-                machine.frame,
-                machine.actuals
-              ))
+            machine.pushKont(KFoldr1Map(machine, func, tail, FrontStack.empty, init))
             machine.enterApplication(func, Array(SEValue(head)))
         }
       }
@@ -948,7 +927,7 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-  ) extends OnLedgerBuiltin(8) {
+  ) extends OnLedgerBuiltin(7) {
 
     override protected final def execute(
         args: util.ArrayList[SValue],
@@ -960,16 +939,12 @@ private[lf] object SBuiltin {
         case SContractId(coid) => coid
         case v => crash(s"expected contract id, got: $v")
       }
-      val optActors = args.get(2) match {
-        case SOptional(optValue) => optValue.map(extractParties)
-        case v => crash(s"expect optional parties, got: $v")
-      }
-      val sigs = extractParties(args.get(3))
-      val templateObservers = extractParties(args.get(4))
-      val ctrls = extractParties(args.get(5))
-      val choiceObservers = extractParties(args.get(6))
+      val sigs = extractParties(args.get(2))
+      val templateObservers = extractParties(args.get(3))
+      val ctrls = extractParties(args.get(4))
+      val choiceObservers = extractParties(args.get(5))
 
-      val mbKey = extractOptionalKeyWithMaintainers(args.get(7))
+      val mbKey = extractOptionalKeyWithMaintainers(args.get(6))
       val auth = machine.auth
 
       onLedger.ptx = onLedger.ptx
@@ -980,10 +955,9 @@ private[lf] object SBuiltin {
           choiceId = choiceId,
           optLocation = machine.lastLocation,
           consuming = consuming,
-          actingParties = optActors.getOrElse(ctrls),
+          actingParties = ctrls,
           signatories = sigs,
           stakeholders = sigs union templateObservers,
-          controllers = ctrls,
           choiceObservers = choiceObservers,
           mbKey = mbKey,
           byKey = byKey,

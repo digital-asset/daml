@@ -8,7 +8,7 @@
             <g id="Group-12" transform="translate(469.000000, 4862.000000)">
                 <polygon id="Path" points="0.409090909 0 26.5909091 0 26.5909091 22 0.409090909 22"></polygon>
                 <g id="Group-8" transform="translate(0.818182, 0.000000)" fill-rule="nonzero">
-                    <polygon id="Shape" fill="#FFE800" points="0 22 25.3636364 22 12.6818182 0"></polygon>
+                    <polygon id="Shape" fill="#fff795" points="0 22 25.3636364 22 12.6818182 0"></polygon>
                     <rect id="Rectangle" fill="#FFFFFF" x="11.4545455" y="7.33333333" width="2.45454545" height="8.14814815"></rect>
                     <rect id="Rectangle" fill="#FFFFFF" x="11.4545455" y="17.1111111" width="2.45454545" height="2.44444444"></rect>
                 </g>

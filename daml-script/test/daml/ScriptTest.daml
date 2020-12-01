@@ -227,7 +227,12 @@ jsonExpectedFailureCreateAndExercise : Party -> Script ()
 jsonExpectedFailureCreateAndExercise p = submitMustFail p $ createAndExerciseCmd (C p 0) ShouldFail
 
 jsonAllocateParty : Text -> Script Party
-jsonAllocateParty p = allocatePartyWithHint p (PartyIdHint p)
+jsonAllocateParty p = do
+  pre <- listKnownParties
+  r <- allocatePartyWithHint p (PartyIdHint p)
+  post <- listKnownParties
+  sort (PartyDetails r (Some p) True :: pre) === sort post
+  pure r
 
 jsonMultiParty : (Party, Party) -> Script ()
 jsonMultiParty (alice, bob) = do

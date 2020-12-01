@@ -123,7 +123,7 @@ class ContractDiscriminatorFreshnessCheckSpec
     engine
       .submit(
         cmds = command.Commands(
-          submitter = alice,
+          submitters = Set(alice),
           commands = cmds,
           ledgerEffectiveTime = let,
           commandsReference = "test",
@@ -208,7 +208,7 @@ class ContractDiscriminatorFreshnessCheckSpec
 
     }
 
-    "fails when  a local conflicts with a local contract previously fetched" in {
+    "fails when a local conflicts with a local contract previously fetched" in {
 
       val conflictingCid = {
         val createNodeSeed = crypto.Hash.deriveNodeSeed(transactionSeed, 1)

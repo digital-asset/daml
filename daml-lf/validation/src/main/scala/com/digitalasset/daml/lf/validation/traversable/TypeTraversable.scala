@@ -100,10 +100,9 @@ private[validation] object TypeTraversable {
       case UpdateFetch(templateId, contractId) =>
         f(TTyCon(templateId))
         foreach(contractId, f)
-      case UpdateExercise(templateId, choice @ _, cid, actors, arg) =>
+      case UpdateExercise(templateId, choice @ _, cid, arg) =>
         f(TTyCon(templateId))
         foreach(cid, f)
-        actors.foreach(foreach(_, f))
         foreach(arg, f)
       case UpdateExerciseByKey(templateId, choice @ _, key, arg) =>
         f(TTyCon(templateId))

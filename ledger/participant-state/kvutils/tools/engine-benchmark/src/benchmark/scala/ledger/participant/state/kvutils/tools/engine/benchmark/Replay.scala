@@ -95,7 +95,7 @@ class Replay {
   def bench(): Unit = {
     val result = engine
       .replay(
-        benchmark.transaction.singleSubmitterOrThrow(),
+        benchmark.transaction.submitters.toSet,
         benchmark.transaction.tx,
         benchmark.transaction.ledgerTime,
         benchmark.transaction.participantId,
@@ -130,7 +130,7 @@ class Replay {
     // before running the bench, we validate the transaction first to be sure everything is fine.
     val result = engine
       .validate(
-        benchmark.transaction.singleSubmitterOrThrow(),
+        benchmark.transaction.submitters.toSet,
         benchmark.transaction.tx,
         benchmark.transaction.ledgerTime,
         benchmark.transaction.participantId,

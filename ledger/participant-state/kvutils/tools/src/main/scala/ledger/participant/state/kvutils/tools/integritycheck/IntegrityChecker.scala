@@ -172,8 +172,11 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       case Success((startTime, _)) =>
         Success {
           println("Successfully indexed all updates.".green)
-          val durationSeconds = Duration.fromNanos(System.nanoTime() - startTime).toSeconds
-          val updatesPerSecond = readService.updateCount() / durationSeconds.toDouble
+          val durationSeconds = Duration
+            .fromNanos(System.nanoTime() - startTime)
+            .toMillis
+            .toDouble / 1000.0
+          val updatesPerSecond = readService.updateCount() / durationSeconds
           println()
           println(s"Indexing duration: $durationSeconds seconds ($updatesPerSecond updates/second)")
         }

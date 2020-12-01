@@ -16,10 +16,6 @@ Prerequisites:
 - You understand what an IOU is. If you are not sure, read the :ref:`IOU tutorial overview<tutorials-iou-overview>`.
 - You have installed the SDK. See :doc:`installation </getting-started/installation>`.
 
-On this page:
-
-.. contents:: :local:
-
 .. _quickstart-download:
 
 Download the quickstart application
@@ -586,7 +582,7 @@ Great - you've completed the quickstart guide!
 
 Some steps you could take next include:
 
-- Explore :doc:`examples </examples/examples>` for guidance and inspiration.
+- Explore `examples <https://daml.com/examples>`_ for guidance and inspiration.
 - :doc:`Learn DAML </daml/intro/0_Intro>`.
 - :doc:`Language reference </daml/reference/index>`.
 - Learn more about :doc:`application development </app-dev/app-arch>`.

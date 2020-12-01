@@ -128,6 +128,10 @@ kindOfBuiltin = \case
   BTArrow -> KStar `KArrow` KStar `KArrow` KStar
   BTAny -> KStar
   BTTypeRep -> KStar
+  BTAnyException -> KStar
+  BTGeneralError -> KStar
+  BTArithmeticError -> KStar
+  BTContractError -> KStar
 
 checkKind :: MonadGamma m => Kind -> m ()
 checkKind = \case
@@ -208,6 +212,14 @@ typeOfBuiltin = \case
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
+  BEThrow            -> pure $ TForall (alpha, KStar) (TAnyException :-> tAlpha)
+  BEAnyExceptionMessage -> pure $ TAnyException :-> TText
+  BEGeneralErrorMessage -> pure $ TGeneralError :-> TText
+  BEArithmeticErrorMessage -> pure $ TArithmeticError :-> TText
+  BEContractErrorMessage -> pure $ TContractError :-> TText
+  BEMakeGeneralError -> pure $ TText :-> TGeneralError
+  BEMakeArithmeticError -> pure $ TText :-> TArithmeticError
+  BEMakeContractError -> pure $ TText :-> TContractError
   BEEqualGeneric     -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BELessGeneric      -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BELessEqGeneric    -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
@@ -565,11 +577,10 @@ checkCreate tpl arg = do
   checkExpr arg (TCon tpl)
 
 typeOfExercise :: MonadGamma m =>
-  Qualified TypeConName -> ChoiceName -> Expr -> Maybe Expr -> Expr -> m Type
-typeOfExercise tpl chName cid mbActors arg = do
+  Qualified TypeConName -> ChoiceName -> Expr -> Expr -> m Type
+typeOfExercise tpl chName cid arg = do
   choice <- inWorld (lookupChoice (tpl, chName))
   checkExpr cid (TContractId (TCon tpl))
-  whenJust mbActors $ \actors -> checkExpr actors (TList TParty)
   checkExpr arg (chcArgType choice)
   pure (TUpdate (chcReturnType choice))
 
@@ -605,7 +616,7 @@ typeOfUpdate = \case
   UPure typ expr -> checkPure typ expr $> TUpdate typ
   UBind binding body -> typeOfBind binding body
   UCreate tpl arg -> checkCreate tpl arg $> TUpdate (TContractId (TCon tpl))
-  UExercise tpl choice cid actors arg -> typeOfExercise tpl choice cid actors arg
+  UExercise tpl choice cid arg -> typeOfExercise tpl choice cid arg
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
   UGetTime -> pure (TUpdate TTimestamp)
@@ -618,6 +629,12 @@ typeOfUpdate = \case
   ULookupByKey retrieveByKey -> do
     (cidType, _contractType) <- checkRetrieveByKey retrieveByKey
     return (TUpdate (TOptional cidType))
+  UTryCatch typ expr var handler -> do
+    checkType typ KStar
+    checkExpr expr (TUpdate typ)
+    introExprVar var TAnyException $ do
+        checkExpr handler (TOptional (TUpdate typ))
+    pure (TUpdate typ)
 
 typeOfScenario :: MonadGamma m => Scenario -> m Type
 typeOfScenario = \case
@@ -680,6 +697,15 @@ typeOf' = \case
   ETypeRep ty -> do
     checkGroundType ty
     pure $ TBuiltin BTTypeRep
+  EMakeAnyException ty msg val -> do
+    checkExceptionType ty
+    checkExpr msg TText
+    checkExpr val ty
+    pure TAnyException
+  EFromAnyException ty val -> do
+    checkExceptionType ty
+    checkExpr val TAnyException
+    pure (TOptional ty)
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
@@ -701,6 +727,21 @@ checkGroundType :: MonadGamma m => Type -> m ()
 checkGroundType ty = do
     _ <- checkType ty KStar
     checkGroundType' ty
+
+checkExceptionType' :: MonadGamma m => Type -> m ()
+checkExceptionType' = \case
+    TGeneralError -> pure ()
+    TArithmeticError -> pure ()
+    TContractError -> pure ()
+    TCon qtcon -> do
+      _ <- inWorld (lookupException qtcon)
+      pure ()
+    ty -> throwWithContext (EExpectedExceptionType ty)
+
+checkExceptionType :: MonadGamma m => Type -> m ()
+checkExceptionType ty = do
+    checkType ty KStar
+    checkExceptionType' ty
 
 checkExpr' :: MonadGamma m => Expr -> Type -> m Type
 checkExpr' expr typ = do
@@ -792,9 +833,10 @@ checkTemplateKey param tcon TemplateKey{..} = do
 -- The type checker for expressions relies on the fact that data type
 -- definitions do _not_ contain free variables.
 checkModule :: MonadGamma m => Module -> m ()
-checkModule m@(Module _modName _path _flags synonyms dataTypes values templates) = do
+checkModule m@(Module _modName _path _flags synonyms dataTypes values templates _exceptions) = do
   let with ctx f x = withContext (ctx x) (f x)
   traverse_ (with (ContextDefTypeSyn m) checkDefTypeSyn) synonyms
   traverse_ (with (ContextDefDataType m) checkDefDataType) dataTypes
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
   traverse_ (with (ContextDefValue m) checkDefValue) values
+  -- TODO #8020: check exception types are well formed and don't overlap with templates

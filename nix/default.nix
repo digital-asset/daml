@@ -133,9 +133,8 @@ in rec {
       python3 = python3;
     };
 
-    sphinx            = pkgs.python37.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
-    sphinx-build      = sphinx;
-    sphinx-quickstart = sphinx;
+    sphinx-build      = sphinx183;
+    sphinx-quickstart = sphinx183;
 
     sphinx-autobuild = import ./tools/sphinx-autobuild/requirements.nix {
       inherit pkgs;

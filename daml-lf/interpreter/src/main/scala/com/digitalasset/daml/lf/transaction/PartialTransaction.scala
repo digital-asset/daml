@@ -91,7 +91,6 @@ private[lf] object PartialTransaction {
     *  @param chosenValue The chosen value.
     *  @param signatories The signatories of the contract.
     *  @param stakeholders The stakeholders of the contract.
-    *  @param controllers The controllers of the choice.
     *  @param nodeId The node to be inserted once we've
     *                         finished this sub-transaction.
     *  @param parent The context in which the exercises is
@@ -109,7 +108,6 @@ private[lf] object PartialTransaction {
       chosenValue: Value[Value.ContractId],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      controllers: Set[Party],
       choiceObservers: Set[Party],
       nodeId: NodeId,
       parent: Context,
@@ -346,7 +344,6 @@ private[lf] case class PartialTransaction(
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      controllers: Set[Party],
       choiceObservers: Set[Party],
       mbKey: Option[Node.KeyWithMaintainers[Value[Nothing]]],
       byKey: Boolean,
@@ -372,7 +369,6 @@ private[lf] case class PartialTransaction(
           chosenValue = chosenValue,
           signatories = signatories,
           stakeholders = stakeholders,
-          controllers = controllers,
           choiceObservers = choiceObservers,
           nodeId = nid,
           parent = context,
