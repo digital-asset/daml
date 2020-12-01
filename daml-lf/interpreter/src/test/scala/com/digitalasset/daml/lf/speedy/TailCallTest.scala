@@ -44,6 +44,9 @@ class TailCallTest extends WordSpec with Matchers with TableDrivenPropertyChecks
          val triangle_viaFoldRight : (Int64 -> Int64) = \ (x: Int64) ->
             FOLDR @Int64 @Int64 ADD_INT64 0 (F:generate Nil@Int64 x);
 
+         val triangle_viaFoldRight2 : (Int64 -> Int64) = \ (x: Int64) ->
+            FOLDR @Int64 @Int64 (\(y: Int64) -> ADD_INT64 y) 0 (F:generate Nil@Int64 x);
+
          // tail-recursive generator
          val generate : (List Int64 -> Int64 -> List Int64) = \ (acc: List Int64) (x: Int64) ->
            case (EQUAL @Int64 x 0) of
@@ -89,6 +92,12 @@ class TailCallTest extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   "fold-right executes with a small env-stack, and a small kont-stack" in {
     val exp = e"F:triangle_viaFoldRight 100"
+    val expected = SValue.SInt64(5050)
+    runExpr(exp, envBound = small, kontBound = small) shouldBe expected
+  }
+
+  "fold-right (KFoldr1Map/Reduce case) executes with a small env-stack, and a small kont-stack" in {
+    val exp = e"F:triangle_viaFoldRight2 100"
     val expected = SValue.SInt64(5050)
     runExpr(exp, envBound = small, kontBound = small) shouldBe expected
   }
