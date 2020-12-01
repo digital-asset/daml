@@ -24,6 +24,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByIdRequest,
   GetTransactionResponse
 }
+import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
 import com.daml.ledger.participant.state.v1.{Configuration => LedgerConfiguration}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -80,6 +81,8 @@ private[apiserver] final class ApiCommandService private (
     withEnrichedLoggingContext(
       logging.commandId(request.getCommands.commandId),
       logging.party(request.getCommands.party),
+      logging.actAs(request.getCommands.actAs),
+      logging.readAs(request.getCommands.readAs),
     ) { implicit loggingContext =>
       if (running) {
         ledgerConfigProvider.latestConfiguration.fold[Future[Completion]](
@@ -97,7 +100,10 @@ private[apiserver] final class ApiCommandService private (
       ledgerConfig: LedgerConfiguration,
   )(implicit loggingContext: LoggingContext): Future[Completion] = {
     val appId = request.getCommands.applicationId
-    val submitter = TrackerMap.Key(application = appId, party = request.getCommands.party)
+    // Note: command completions are returned as long as at least one of the original submitters
+    // is specified in the command completion request.
+    val party = CommandsValidator.effectiveSubmitters(request.getCommands).actAs.head
+    val submitter = TrackerMap.Key(application = appId, party = party)
     submissionTracker.track(submitter, request) {
       for {
         ledgerEnd <- services.getCompletionEnd().map(_.getOffset)

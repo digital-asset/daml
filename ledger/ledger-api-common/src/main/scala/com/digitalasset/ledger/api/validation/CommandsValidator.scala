@@ -44,7 +44,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       appId <- requireLedgerString(commands.applicationId, "application_id")
         .map(domain.ApplicationId(_))
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
-      submitter <- requireParty(commands.party, "party")
+      submitters <- CommandsValidator.validateSubmitters(commands)
       commandz <- requireNonEmpty(commands.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
       ledgerEffectiveTime <- validateLedgerTime(currentLedgerTime, commands)
@@ -64,11 +64,11 @@ final class CommandsValidator(ledgerId: LedgerId) {
         workflowId = workflowId,
         applicationId = appId,
         commandId = commandId,
-        submitter = submitter,
+        submitter = submitters.actAs.head,
         submittedAt = currentUtcTime,
         deduplicateUntil = currentUtcTime.plus(deduplicationTime),
         commands = Commands(
-          submitters = Set(submitter),
+          submitters = Set(submitters.actAs.head),
           commands = ImmArray(validatedCommands),
           ledgerEffectiveTime = ledgerEffectiveTimestamp,
           commandsReference = workflowId.fold("")(_.unwrap)
@@ -172,4 +172,50 @@ final class CommandsValidator(ledgerId: LedgerId) {
       case ProtoEmpty =>
         Left(missingField("command"))
     }
+}
+
+object CommandsValidator {
+
+  case class Submitters[T](actAs: Set[T], readAs: Set[T])
+
+  def effectiveSubmitters(commands: Option[ProtoCommands]): Submitters[String] = {
+    commands.fold(noSubmitters)(effectiveSubmitters)
+  }
+
+  def effectiveSubmitters(commands: ProtoCommands): Submitters[String] = {
+    val effectiveActAs =
+      if (commands.party.isEmpty)
+        commands.actAs.toSet
+      else
+        commands.actAs.toSet + commands.party
+    val effectiveReadAs = commands.readAs.toSet -- effectiveActAs
+    Submitters(effectiveActAs, effectiveReadAs)
+  }
+
+  val noSubmitters: Submitters[String] = Submitters(Set.empty, Set.empty)
+
+  def validateSubmitters(
+      commands: ProtoCommands): Either[StatusRuntimeException, Submitters[Ref.Party]] = {
+    def actAsMustNotBeEmpty(effectiveActAs: Set[Ref.Party]) =
+      if (effectiveActAs.isEmpty)
+        Left(missingField("party or act_as"))
+      else
+        Right(())
+
+    // Temporary check to reject all multi-party submissions until they are implemented
+    // Note: when removing this method, also remove the call to `actAs.head` in validateCommands()
+    def requireSingleSubmitter(actAs: Set[Ref.Party], readAs: Set[Ref.Party]) =
+      if ((actAs ++ readAs).size != 1)
+        Left(unimplemented("Multi-party submissions are not supported"))
+      else
+        Right(())
+
+    val submitters = effectiveSubmitters(commands)
+    for {
+      actAs <- requireParties(submitters.actAs)
+      readAs <- requireParties(submitters.readAs)
+      _ <- actAsMustNotBeEmpty(actAs)
+      _ <- requireSingleSubmitter(actAs, readAs)
+    } yield Submitters(actAs, readAs)
+  }
 }
