@@ -530,3 +530,41 @@ test('party API', async () => {
   expect(_.sortBy(allPartiesAfter)).toEqual(_.sortBy(["Alice", "Bob", "Dave", newParty1.identifier, newParty2.identifier]));
 
 });
+
+test('package API', async () => {
+  // expect().toThrow does not seem to work with async thunk
+  const expectFail = async <T>(p: Promise<T>): Promise<void> => {
+    try {
+      await p;
+      expect(true).toBe(false);
+    } catch (exc) {
+      expect(exc.status).toBe(500);
+      expect(exc.errors.length).toBe(1);
+    }
+  };
+  const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
+
+  const packagesBefore = await ledger.listPackages();
+
+  expect(packagesBefore).toEqual(expect.arrayContaining([buildAndLint.packageId]));
+  expect(packagesBefore.length > 1).toBe(true);
+
+  const nonSense = Uint8Array.from([1, 2, 3, 4]);
+
+  await expectFail(ledger.uploadDarFile(nonSense));
+
+  const upDar = await fs.readFile(getEnv('UPLOAD_DAR'));
+  // throws on error
+  await ledger.uploadDarFile(upDar);
+
+  const packagesAfter = await ledger.listPackages();
+
+  expect(packagesAfter).toEqual(expect.arrayContaining([buildAndLint.packageId]));
+  expect(packagesAfter.length > packagesBefore.length).toBe(true);
+  expect(packagesAfter).toEqual(expect.arrayContaining(packagesBefore));
+
+  await expectFail(ledger.getPackage("non-sense"));
+
+  const downSuc = await ledger.getPackage(buildAndLint.packageId);
+  expect(downSuc.byteLength > 0).toBe(true);
+});
