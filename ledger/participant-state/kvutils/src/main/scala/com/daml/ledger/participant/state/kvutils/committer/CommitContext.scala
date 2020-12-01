@@ -42,6 +42,7 @@ private[kvutils] trait CommitContext {
   var outOfTimeBoundsLogEntry: Option[DamlLogEntry] = None
 
   def getRecordTime: Option[Timestamp]
+
   def getParticipantId: ParticipantId
 
   def preExecute: Boolean = getRecordTime.isEmpty
@@ -60,6 +61,8 @@ private[kvutils] trait CommitContext {
     inputs.get(key).flatten
   }
 
+  /** Returns a filtered view of the inputs that match the given predicate.
+    * Records all keys in the returned map as being accessed. */
   def readAllFiltered(
       predicate: DamlStateKey => Boolean): Map[DamlStateKey, Option[DamlStateValue]] = {
     val result = inputs.filterKeys(predicate)
