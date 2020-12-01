@@ -78,9 +78,9 @@ private[platform] final class LedgerBackedIndexService(
     between(startExclusive, endInclusive)(
       (from, to) => {
         from.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom.key, offset.toHexString))
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString))
         to.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo.key, offset.toHexString))
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString))
         ledger
           .transactionTrees(
             startExclusive = from,
@@ -101,9 +101,9 @@ private[platform] final class LedgerBackedIndexService(
     between(startExclusive, endInclusive)(
       (from, to) => {
         from.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom.key, offset.toHexString))
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString))
         to.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo.key, offset.toHexString))
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString))
         ledger
           .flatTransactions(
             startExclusive = from,

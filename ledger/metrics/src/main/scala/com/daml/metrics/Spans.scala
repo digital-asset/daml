@@ -13,6 +13,6 @@ object Spans {
   def addEventToCurrentSpan(event: Event): Unit =
     TracingContextUtils.getCurrentSpan.addEvent(event)
 
-  def setCurrentSpanAttribute(key: String, value: String): Unit =
-    TracingContextUtils.getCurrentSpan.setAttribute(key, value)
+  def setCurrentSpanAttribute(attribute: SpanAttribute, value: String): Unit =
+    TracingContextUtils.getCurrentSpan.setAttribute(attribute.key, value)
 }
