@@ -193,6 +193,7 @@ def _proto_scala_deps(grpc, proto_deps):
 def proto_jars(
         name,
         srcs,
+        visibility = None,
         strip_import_prefix = "",
         grpc = False,
         deps = [],
@@ -211,7 +212,7 @@ def proto_jars(
         srcs = srcs,
         extension = "tar.gz",
         strip_prefix = strip_import_prefix,
-        visibility = ["//visibility:public"],
+        visibility = [":__subpackages__", "//release:__subpackages__"],
     )
 
     # JAR and source JAR containing the *.proto files.
@@ -222,7 +223,6 @@ def proto_jars(
         resources = srcs,
         resource_strip_prefix = "%s/%s/" % (native.package_name(), strip_import_prefix),
         tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_proto_suffix),
-        visibility = ["//visibility:public"],
     )
 
     # An empty Javadoc JAR for uploading the source proto JAR to Maven Central.
@@ -231,12 +231,12 @@ def proto_jars(
         out = "%s_jar_javadoc.jar" % name,
     )
 
-    # Compiled protobufs. Used in subsequent targets.
+    # Compiled protobufs.
     proto_library(
         name = name,
         srcs = srcs,
         strip_import_prefix = strip_import_prefix,
-        visibility = ["//visibility:public"],
+        visibility = visibility,
         deps = deps + proto_deps,
     )
 
@@ -244,7 +244,7 @@ def proto_jars(
     native.java_proto_library(
         name = "%s_java" % name,
         tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
-        visibility = ["//visibility:public"],
+        visibility = visibility,
         deps = [":%s" % name],
     )
 
@@ -253,7 +253,7 @@ def proto_jars(
             name = "%s_java_pom" % name,
             tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
             target = ":%s_java" % name,
-            visibility = ["//visibility:public"],
+            visibility = visibility,
         )
 
     if javadoc_root_packages:
@@ -261,7 +261,6 @@ def proto_jars(
             name = "%s_java_javadoc" % name,
             srcs = [":%s_java" % name],
             root_packages = javadoc_root_packages,
-            visibility = ["//visibility:public"],
             deps = ["@maven//:com_google_protobuf_protobuf_java"],
         ) if not is_windows else None
     else:
@@ -278,7 +277,6 @@ def proto_jars(
         plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
         plugin_name = "scalapb",
         plugin_options = ["grpc"] if grpc else [],
-        visibility = ["//visibility:public"],
     )
 
     all_scala_deps = _proto_scala_deps(grpc, proto_deps)
@@ -288,7 +286,7 @@ def proto_jars(
         srcs = [":%s_scala_sources" % name],
         tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_scala_suffix),
         unused_dependency_checker_mode = "error",
-        visibility = ["//visibility:public"],
+        visibility = visibility,
         deps = all_scala_deps,
         exports = all_scala_deps,
     )
@@ -303,12 +301,11 @@ def proto_jars(
         srcs = [":%s_scala_sources" % name],
         tags = ["scaladoc"],
         deps = [],
-        visibility = ["//visibility:public"],
     ) if is_windows == False else None
 
     if maven_group and maven_artifact_prefix:
         pom_file(
             name = "%s_scala_pom" % name,
             target = ":%s_scala" % name,
-            visibility = ["//visibility:public"],
+            visibility = visibility,
         )
