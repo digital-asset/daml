@@ -67,28 +67,30 @@ class CommitContextSpec extends WordSpec with Matchers {
     }
   }
 
-  "readAllFiltered" should {
-    "return keys matching the predicate and mark them as accessed" in {
-      val expectedKey1 = DamlStateKey.newBuilder.setContractId("a1").build
-      val expectedKey2 = DamlStateKey.newBuilder.setContractId("a2").build
+  "collectInputs" should {
+    "return keys matching the predicate and mark all inputs as accessed" in {
+      val expectedKey1 = aKeyWithContractId("a1")
+      val expectedKey2 = aKeyWithContractId("a2")
       val expected = Map(
         expectedKey1 -> Some(aValue),
         expectedKey2 -> None
       )
-      val inputs = expected ++ Map(DamlStateKey.newBuilder.setContractId("b").build -> Some(aValue))
+      val inputs = expected ++ Map(aKeyWithContractId("b") -> Some(aValue))
       val context =
         newInstance(inputs = inputs)
 
-      context.readAllFiltered(key => key.getContractId.startsWith("a")) shouldBe expected
-      context.getAccessedInputKeys shouldBe expected.keySet
+      context.collectInputs {
+        case (key, _) if key.getContractId.startsWith("a") => key
+      }.toSet shouldBe expected.keys
+      context.getAccessedInputKeys shouldBe inputs.keys
     }
 
-    "return no keys and mark nothing as accessed for an always negative predicate" in {
+    "return no keys and mark all inputs as accessed for a predicate producing empty output" in {
       val context =
         newInstance(inputs = newDamlStateMap(aKey -> aValue, anotherKey -> anotherValue))
 
-      context.readAllFiltered(_ => false) shouldBe Map.empty
-      context.getAccessedInputKeys shouldBe Set.empty
+      context.collectInputs { case _ if false => () } shouldBe empty
+      context.getAccessedInputKeys shouldBe Set(aKey, anotherKey)
     }
   }
 
@@ -146,9 +148,11 @@ class CommitContextSpec extends WordSpec with Matchers {
     }
   }
 
-  private val aKey: DamlStateKey = DamlStateKey.newBuilder.setContractId("contract ID 1").build
-  private val anotherKey: DamlStateKey =
-    DamlStateKey.newBuilder.setContractId("contract ID 2").build
+  private def aKeyWithContractId(id: String): DamlStateKey =
+    DamlStateKey.newBuilder.setContractId(id).build
+
+  private val aKey: DamlStateKey = aKeyWithContractId("contract ID 1")
+  private val anotherKey: DamlStateKey = aKeyWithContractId("contract ID 2")
   private val aValue: DamlStateValue = DamlStateValue.newBuilder
     .setParty(DamlPartyAllocation.newBuilder.setDisplayName("a party name"))
     .build
