@@ -14,7 +14,7 @@ import com.daml.lf.speedy.SResult.{SResultFinalValue}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.validation.Validation
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Assertion, WordSpec, Matchers}
+import org.scalatest.{WordSpec, Matchers}
 
 class TailCallTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
 
@@ -61,12 +61,18 @@ class TailCallTest extends WordSpec with Matchers with TableDrivenPropertyChecks
     val expected = SValue.SInt64(5050)
     // The point of this test is to prove that the bounded-evaluation checking really works.
     runExpr(exp, envBound = unbounded, kontBound = unbounded) shouldBe expected
-    expectThrows {
-      runExpr(exp, envBound = small, kontBound = unbounded)
-    }
-    expectThrows {
-      runExpr(exp, envBound = unbounded, kontBound = small)
-    }
+
+    the[RuntimeException]
+      .thrownBy {
+        runExpr(exp, envBound = small, kontBound = unbounded)
+      }
+      .toString() should include("BoundExceeded")
+
+    the[RuntimeException]
+      .thrownBy {
+        runExpr(exp, envBound = unbounded, kontBound = small)
+      }
+      .toString() should include("BoundExceeded")
   }
 
   "A tail-recursive definition executes with a small env-stack, and a small kont-stack" in {
@@ -96,16 +102,6 @@ class TailCallTest extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   val pkgs = typeAndCompile(pkg)
 
-  private def expectThrows[A](f: => A): Assertion = {
-    val throws: Boolean = try {
-      f
-      false
-    } catch {
-      case _: Throwable => true
-    }
-    throws shouldBe true
-  }
-
   // Evaluate an expression with optionally bounded env and kont stacks
   private def runExpr(e: Expr, envBound: Option[Int], kontBound: Option[Int]): SValue = {
     // create the machine
@@ -132,14 +128,17 @@ class TailCallTest extends WordSpec with Matchers with TableDrivenPropertyChecks
     // run the machine
     machine.run() match {
       case SResultFinalValue(v) => v
-      case res => throw new RuntimeException(s"runExpr, unexpected result $res")
+      case res => crash(s"runExpr, unexpected result $res")
     }
   }
 
-  class BoundedArrayList[T](bound: Int) extends util.ArrayList[T](bound) {
+  private case object BoundExceeded extends RuntimeException
+
+  private class BoundedArrayList[T](bound: Int) extends util.ArrayList[T](bound) {
+
     override def add(x: T): Boolean = {
       if (size >= bound) {
-        crash(s"BoundedArrayList, exceeded bound of $bound")
+        throw BoundExceeded
       }
       super.add(x)
     }
