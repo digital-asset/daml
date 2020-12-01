@@ -78,6 +78,9 @@ private[dao] final class TransactionsWriter(
       blindingInfo: Option[BlindingInfo],
   ): TransactionsWriter.PreparedInsert = {
 
+    // Backwards-compatibility: blinding info was previously not pre-computed and saved by the committer
+    // but rather computed on the read path from Fetch and LookupByKey nodes (now trimmed just before
+    // commit, for storage reduction).
     val blinding = blindingInfo.getOrElse(Blinding.blind(transaction))
 
     val indexing =

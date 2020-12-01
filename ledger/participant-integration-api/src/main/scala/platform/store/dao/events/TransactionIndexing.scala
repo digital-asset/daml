@@ -77,6 +77,10 @@ object TransactionIndexing {
     private val disclosure = Map.newBuilder[NodeId, Set[Party]]
     private val visibility = Vector.newBuilder[(ContractId, Set[Party])]
 
+    for (contractId <- blinding.divulgence.keys) {
+      addDivulgence(contractId)
+    }
+
     private def addEventAndDisclosure(event: (NodeId, Node)): Unit = {
       events += event
       disclosure += ((event._1, blinding.disclosure(event._1)))
@@ -116,8 +120,6 @@ object TransactionIndexing {
           } else {
             addStakeholders(nodeId, Set.empty)
           }
-        case (_, fetch: Fetch) =>
-          addDivulgence(fetch.coid)
         case _ =>
           () // ignore anything else
       }
