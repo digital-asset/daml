@@ -76,8 +76,7 @@ class CommitContextSpec extends WordSpec with Matchers {
         expectedKey2 -> None
       )
       val inputs = expected ++ Map(aKeyWithContractId("b") -> Some(aValue))
-      val context =
-        newInstance(inputs = inputs)
+      val context = newInstance(inputs = inputs)
 
       context.collectInputs {
         case (key, _) if key.getContractId.startsWith("a") => key

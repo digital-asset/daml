@@ -219,7 +219,7 @@ private[kvutils] class TransactionCommitter(
                     transactionEntry,
                     value.getContractState) =>
               value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
-          }.toMap
+          }
 
         engine
           .validate(
@@ -303,7 +303,7 @@ private[kvutils] class TransactionCommitter(
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
     val damlState = commitContext.collectInputs {
       case (key, Some(value)) if key.hasContractKey => key -> value
-    }.toMap ++ commitContext.getOutputs
+    } ++ commitContext.getOutputs
     val startingKeys = damlState.collect {
       case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty => k
     }.toSet

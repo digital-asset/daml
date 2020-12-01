@@ -15,7 +15,8 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time.Timestamp
 import org.slf4j.LoggerFactory
 
-import scala.collection.{immutable, mutable}
+import scala.collection.generic.CanBuildFrom
+import scala.collection.mutable
 
 /** Commit context provides access to state inputs, commit parameters (e.g. record time) and
   * allows committer to set state outputs.
@@ -61,10 +62,11 @@ private[kvutils] trait CommitContext {
     inputs.get(key).flatten
   }
 
-  /** Returns a filtered view of the inputs that match the given predicate.
+  /** Generates a collection from the inputs as determined by a partial function.
     * Records all keys in the input as being accessed. */
-  def collectInputs[T](
-      partialFunction: PartialFunction[(DamlStateKey, Option[DamlStateValue]), T]): Iterable[T] = {
+  def collectInputs[B, That](
+      partialFunction: PartialFunction[(DamlStateKey, Option[DamlStateValue]), B])(
+      implicit bf: CanBuildFrom[Map[DamlStateKey, Option[DamlStateValue]], B, That]): That = {
     val result = inputs.collect(partialFunction)
     inputs.keys.foreach(accessedInputKeys.add)
     result
