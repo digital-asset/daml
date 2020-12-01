@@ -72,6 +72,7 @@ private[kvutils] class TransactionCommitter(
     "validate_model_conformance" -> validateModelConformance,
     "blind" -> blind,
     "remove_unnecessary_nodes" -> removeUnnecessaryNodes,
+    "build_final_log_entry" -> buildFinalLogEntry,
   )
 
   private def contractIsActiveAndVisibleToSubmitter(
@@ -293,7 +294,7 @@ private[kvutils] class TransactionCommitter(
   private[committer] def blind: Step =
     (commitContext, transactionEntry) => {
       val blindingInfo = Blinding.blind(transactionEntry.transaction)
-      buildFinalResultState(
+      setDedupEntryAndUpdateContractState(
         commitContext,
         transactionEntry.copy(
           submission = transactionEntry.submission.toBuilder
@@ -304,49 +305,57 @@ private[kvutils] class TransactionCommitter(
     }
 
   /**
-    * Removes `Fetch` and `LookupByKey` nodes from the transactionEntry
+    * Removes `Fetch` and `LookupByKey` nodes from the transactionEntry.
     */
-  private[committer] def removeUnnecessaryNodes: Step = (commitContext, transactionEntry) => {
+  private[committer] def removeUnnecessaryNodes: Step = (_, transactionEntry) => {
     val transaction = transactionEntry.submission.getTransaction
     val nodes = transaction.getNodesList.asScala
     val nodesToKeep = nodes.iterator.collect {
       case node if node.hasCreate || node.hasExercise => node.getNodeId
     }.toSet
 
-    val roots = transaction.getRootsList.asScala.filter(nodesToKeep)
+    val filteredRoots = transaction.getRootsList.asScala.filter(nodesToKeep)
 
     def stripUnnecessaryNodes(node: TransactionOuterClass.Node) =
       if (node.hasExercise) {
         val exerciseNode = node.getExercise
-        val keep = exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
-        val newExercise = exerciseNode.toBuilder
+        val keptChildren = exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
+        val newExerciseNode = exerciseNode.toBuilder
           .clearChildren()
-          .addAllChildren(keep.asJavaCollection)
+          .addAllChildren(keptChildren.asJavaCollection)
           .build()
 
         node.toBuilder
-          .setExercise(newExercise)
+          .setExercise(newExerciseNode)
           .build()
-      } else node
+      } else {
+        node
+      }
 
-    val newNodes = nodes
+    val filteredNodes = nodes
       .collect {
         case node if nodesToKeep(node.getNodeId) => stripUnnecessaryNodes(node)
       }
 
-    val newTx = transaction
+    val newTransaction = transaction
       .newBuilderForType()
-      .addAllRoots(roots.asJavaCollection)
-      .addAllNodes(newNodes.asJavaCollection)
+      .addAllRoots(filteredRoots.asJavaCollection)
+      .addAllNodes(filteredNodes.asJavaCollection)
       .setVersion(transaction.getVersion)
       .build()
 
-    val newTxEntry = transactionEntry.submission.toBuilder
-      .setTransaction(newTx)
+    val newTransactionEntry = transactionEntry.submission.toBuilder
+      .setTransaction(newTransaction)
       .build()
 
-    StepStop(buildLogEntry(DamlTransactionEntrySummary(newTxEntry), commitContext))
+    StepContinue(DamlTransactionEntrySummary(newTransactionEntry))
   }
+
+  /**
+    * Builds the log entry as the final step.
+    */
+  private def buildFinalLogEntry: Step =
+    (commitContext, transactionEntry) => StepStop(buildLogEntry(transactionEntry, commitContext))
 
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
     val damlState = commitContext.inputs
@@ -363,7 +372,6 @@ private[kvutils] class TransactionCommitter(
           damlState)
       case err => err
     }
-
   }
 
   private def validateContractKeyUniqueness(
@@ -457,8 +465,8 @@ private[kvutils] class TransactionCommitter(
       )
   }
 
-  /** All checks passed. Produce the log entry and contract state updates. */
-  private def buildFinalResultState(
+  /** Produce the log entry and contract state updates. */
+  private def setDedupEntryAndUpdateContractState(
       commitContext: CommitContext,
       transactionEntry: DamlTransactionEntrySummary,
       blindingInfo: BlindingInfo
@@ -720,6 +728,7 @@ private[kvutils] class TransactionCommitter(
         .map(v => v.getNumber -> metrics.daml.kvutils.committer.transaction.rejection(v.name()))
         .toMap
   }
+
 }
 
 private[kvutils] object TransactionCommitter {

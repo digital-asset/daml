@@ -118,9 +118,8 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
       val context = new FakeCommitContext(recordTime = None)
 
       instance.removeUnnecessaryNodes(context, aRichTransactionTreeSummary) match {
-        case StepContinue(_) => fail("should be StepStop")
-        case StepStop(logEntry) =>
-          val transaction = logEntry.getTransactionEntry.getTransaction
+        case StepContinue(logEntry) =>
+          val transaction = logEntry.submission.getTransaction
           transaction.getRootsList.asScala should contain theSameElementsInOrderAs Seq(
             "Exercise-1",
             "Create-1")
@@ -131,12 +130,12 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
             "Create-3",
             "Exercise-2",
             "Exercise-1")
-          nodes.head.hasCreate shouldBe true
           nodes(3).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq(
             "Create-3")
           nodes(4).getExercise.getChildrenList.asScala should contain theSameElementsInOrderAs Seq(
             "Create-2",
             "Exercise-2")
+        case StepStop(_) => fail("should be StepContinue")
       }
     }
   }
