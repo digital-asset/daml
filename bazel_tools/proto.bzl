@@ -193,6 +193,7 @@ def _proto_scala_deps(grpc, proto_deps):
 def proto_jars(
         name,
         srcs,
+        visibility = None,
         strip_import_prefix = "",
         grpc = False,
         deps = [],
@@ -235,7 +236,7 @@ def proto_jars(
         name = name,
         srcs = srcs,
         strip_import_prefix = strip_import_prefix,
-        visibility = ["//visibility:public"],
+        visibility = visibility,
         deps = deps + proto_deps,
     )
 
@@ -243,7 +244,7 @@ def proto_jars(
     native.java_proto_library(
         name = "%s_java" % name,
         tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
-        visibility = ["//visibility:public"],
+        visibility = visibility,
         deps = [":%s" % name],
     )
 
@@ -252,7 +253,7 @@ def proto_jars(
             name = "%s_java_pom" % name,
             tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
             target = ":%s_java" % name,
-            visibility = ["//visibility:public"],
+            visibility = visibility,
         )
 
     if javadoc_root_packages:
@@ -285,7 +286,7 @@ def proto_jars(
         srcs = [":%s_scala_sources" % name],
         tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_scala_suffix),
         unused_dependency_checker_mode = "error",
-        visibility = ["//visibility:public"],
+        visibility = visibility,
         deps = all_scala_deps,
         exports = all_scala_deps,
     )
@@ -306,5 +307,5 @@ def proto_jars(
         pom_file(
             name = "%s_scala_pom" % name,
             target = ":%s_scala" % name,
-            visibility = ["//visibility:public"],
+            visibility = visibility,
         )
