@@ -166,7 +166,7 @@ jobs:
             --jwt=${JWT}
           done
 
-          tar -zcvf ${OUT}.tgz ${OUT}
+          GZIP=-9 tar -zcvf ${OUT}.tgz ${OUT}
 
           gcs "$GCRED" cp "$OUT.tgz" "gs://daml-data/perf/http-json/${REPORT_ID}.tgz"
 
