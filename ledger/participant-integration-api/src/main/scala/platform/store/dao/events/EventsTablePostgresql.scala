@@ -42,43 +42,42 @@ object EventsTablePostgresql extends EventsTable {
       info: TransactionIndexing.EventsInfo,
       serialized: TransactionIndexing.Serialized,
   ): EventsTable.Batches = {
-    val capacity = info.events.size
-    val eventIds = Array.fill(capacity)(null.asInstanceOf[String])
-    val eventOffsets = Array.fill(capacity)(tx.offset.toByteArray)
-    val contractIds = Array.fill(capacity)(null.asInstanceOf[String])
-    val transactionIds = Array.fill(capacity)(tx.transactionId.asInstanceOf[String])
-    val workflowIds = Array.fill(capacity)(tx.workflowId.map(_.asInstanceOf[String]).orNull)
-    val ledgerEffectiveTimes = Array.fill(capacity)(tx.ledgerEffectiveTime)
-    val templateIds = Array.fill(capacity)(null.asInstanceOf[String])
-    val nodeIndexes = Array.fill(capacity)(null.asInstanceOf[Int])
+    val batchSize = info.events.size
+    val eventIds = Array.ofDim[String](batchSize)
+    val eventOffsets = Array.fill(batchSize)(tx.offset.toByteArray)
+    val contractIds = Array.ofDim[String](batchSize)
+    val transactionIds = Array.fill(batchSize)(tx.transactionId.asInstanceOf[String])
+    val workflowIds = Array.fill(batchSize)(tx.workflowId.map(_.asInstanceOf[String]).orNull)
+    val ledgerEffectiveTimes = Array.fill(batchSize)(tx.ledgerEffectiveTime)
+    val templateIds = Array.ofDim[String](batchSize)
+    val nodeIndexes = Array.ofDim[java.lang.Integer](batchSize)
     val commandIds =
-      Array.fill(capacity)(tx.submitterInfo.map(_.commandId.asInstanceOf[String]).orNull)
+      Array.fill(batchSize)(tx.submitterInfo.map(_.commandId.asInstanceOf[String]).orNull)
     val applicationIds =
-      Array.fill(capacity)(tx.submitterInfo.map(_.applicationId.asInstanceOf[String]).orNull)
-    val submitters = Array.fill(capacity)(
+      Array.fill(batchSize)(tx.submitterInfo.map(_.applicationId.asInstanceOf[String]).orNull)
+    val submitters = Array.fill(batchSize)(
       tx.submitterInfo.map(_.singleSubmitterOrThrow().asInstanceOf[String]).orNull)
-    val flatEventWitnesses = Array.fill(capacity)(null.asInstanceOf[String])
-    val treeEventWitnesses = Array.fill(capacity)(null.asInstanceOf[String])
-    val createArguments = Array.fill(capacity)(null.asInstanceOf[Array[Byte]])
-    val createSignatories = Array.fill(capacity)(null.asInstanceOf[String])
-    val createObservers = Array.fill(capacity)(null.asInstanceOf[String])
-    val createAgreementTexts = Array.fill(capacity)(null.asInstanceOf[String])
-    val createConsumedAt = Array.fill(capacity)(null.asInstanceOf[Array[Byte]])
-    val createKeyValues = Array.fill(capacity)(null.asInstanceOf[Array[Byte]])
-    val exerciseConsuming = Array.fill(capacity)(null.asInstanceOf[Boolean])
-    val exerciseChoices = Array.fill(capacity)(null.asInstanceOf[String])
-    val exerciseArguments = Array.fill(capacity)(null.asInstanceOf[Array[Byte]])
-    val exerciseResults = Array.fill(capacity)(null.asInstanceOf[Array[Byte]])
-    val exerciseActors = Array.fill(capacity)(null.asInstanceOf[String])
-    val exerciseChildEventIds = Array.fill(capacity)(null.asInstanceOf[String])
+    val flatEventWitnesses = Array.ofDim[String](batchSize)
+    val treeEventWitnesses = Array.ofDim[String](batchSize)
+    val createArguments = Array.ofDim[Array[Byte]](batchSize)
+    val createSignatories = Array.ofDim[String](batchSize)
+    val createObservers = Array.ofDim[String](batchSize)
+    val createAgreementTexts = Array.ofDim[String](batchSize)
+    val createConsumedAt = Array.ofDim[Array[Byte]](batchSize)
+    val createKeyValues = Array.ofDim[Array[Byte]](batchSize)
+    val exerciseConsuming = Array.ofDim[java.lang.Boolean](batchSize)
+    val exerciseChoices = Array.ofDim[String](batchSize)
+    val exerciseArguments = Array.ofDim[Array[Byte]](batchSize)
+    val exerciseResults = Array.ofDim[Array[Byte]](batchSize)
+    val exerciseActors = Array.ofDim[String](batchSize)
+    val exerciseChildEventIds = Array.ofDim[String](batchSize)
 
     for (((nodeId, node), i) <- info.events.zipWithIndex) {
       node match {
         case create: Create =>
-          val eventId = EventId(tx.transactionId, nodeId)
           contractIds(i) = create.coid.coid
           templateIds(i) = create.coinst.template.toString
-          eventIds(i) = eventId.toLedgerString
+          eventIds(i) = EventId(tx.transactionId, nodeId).toLedgerString
           nodeIndexes(i) = nodeId.index
           flatEventWitnesses(i) = info.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
           treeEventWitnesses(i) = info.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
@@ -90,10 +89,9 @@ object EventsTablePostgresql extends EventsTable {
           }
           createKeyValues(i) = serialized.createKeyValues.get(nodeId).orNull
         case exercise: Exercise =>
-          val eventId = EventId(tx.transactionId, nodeId)
           contractIds(i) = exercise.targetCoid.coid
           templateIds(i) = exercise.templateId.toString
-          eventIds(i) = eventId.toLedgerString
+          eventIds(i) = EventId(tx.transactionId, nodeId).toLedgerString
           nodeIndexes(i) = nodeId.index
           flatEventWitnesses(i) = info.stakeholders.getOrElse(nodeId, Set.empty).mkString("|")
           treeEventWitnesses(i) = info.disclosure.getOrElse(nodeId, Set.empty).mkString("|")
@@ -149,22 +147,6 @@ object EventsTablePostgresql extends EventsTable {
 
   // Specific for PostgreSQL parallel unnesting insertions
 
-  private implicit object BooleanArrayToStatement extends ToStatement[Array[Boolean]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Boolean]): Unit = {
-      val conn = s.getConnection
-      val bs = conn.createArrayOf("BOOLEAN", v.map(Boolean.box))
-      s.setArray(index, bs)
-    }
-  }
-
-  private implicit object IntArrayToStatement extends ToStatement[Array[Int]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Int]): Unit = {
-      val conn = s.getConnection
-      val is = conn.createArrayOf("INT", v.map(Int.box))
-      s.setArray(index, is)
-    }
-  }
-
   private implicit object ByteArrayArrayToStatement extends ToStatement[Array[Array[Byte]]] {
     override def set(s: PreparedStatement, index: Int, v: Array[Array[Byte]]): Unit =
       s.setObject(index, v)
@@ -186,7 +168,7 @@ object EventsTablePostgresql extends EventsTable {
       workflowIds: Array[String],
       ledgerEffectiveTimes: Array[Instant],
       templateIds: Array[String],
-      nodeIndexes: Array[Int],
+      nodeIndexes: Array[java.lang.Integer],
       commandIds: Array[String],
       applicationIds: Array[String],
       submitters: Array[String],
@@ -198,7 +180,7 @@ object EventsTablePostgresql extends EventsTable {
       createAgreementTexts: Array[String],
       createConsumedAt: Array[Array[Byte]],
       createKeyValues: Array[Array[Byte]],
-      exerciseConsuming: Array[Boolean],
+      exerciseConsuming: Array[java.lang.Boolean],
       exerciseChoices: Array[String],
       exerciseArguments: Array[Array[Byte]],
       exerciseResults: Array[Array[Byte]],
