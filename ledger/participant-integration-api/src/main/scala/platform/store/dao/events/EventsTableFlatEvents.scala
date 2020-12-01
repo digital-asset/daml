@@ -8,10 +8,10 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions._
 
-private[events] trait EventsTableFlatEvents { this: EventsTable =>
+private[events] object EventsTableFlatEvents {
 
   private val createdFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Created]] =
-    createdEventRow map {
+    EventsTable.createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
         EventsTable.Entry(
           eventOffset = eventOffset,
@@ -36,7 +36,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
     }
 
   private val archivedFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Archived]] =
-    archivedEventRow map {
+    EventsTable.archivedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses =>
         EventsTable.Entry(
           eventOffset = eventOffset,
@@ -151,7 +151,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
   private def getActiveContractsQueries(sqlFunctions: SqlFunctions) =
     new EventsTableFlatEventsRangeQueries.GetActiveContracts(
       selectColumns = selectColumns,
-      sqlFunctions = sqlFunctions
+      sqlFunctions = sqlFunctions,
     )
 
   def preparePagedGetActiveContracts(sqlFunctions: SqlFunctions)(

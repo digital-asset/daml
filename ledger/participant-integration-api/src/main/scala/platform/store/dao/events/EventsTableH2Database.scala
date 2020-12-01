@@ -3,14 +3,23 @@
 
 package com.daml.platform.store.dao.events
 
+import java.sql.Connection
 import java.time.Instant
 
-import anorm.NamedParameter
+import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.{EventId, TransactionId}
 import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo, WorkflowId}
 import com.daml.platform.store.Conversions._
 
-private[events] trait EventsTableInsert { this: EventsTable =>
+object EventsTableH2Database extends EventsTable {
+
+  final class Batches(insertEvents: Option[BatchSql], updateArchives: Option[BatchSql])
+      extends EventsTable.Batches {
+    override def execute()(implicit connection: Connection): Unit = {
+      insertEvents.foreach(_.execute())
+      updateArchives.foreach(_.execute())
+    }
+  }
 
   private val insertEvent: String = {
     val (columns, values) = Seq(
@@ -173,7 +182,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       tx: TransactionIndexing.TransactionInfo,
       info: TransactionIndexing.EventsInfo,
       serialized: TransactionIndexing.Serialized,
-  ): EventsTable.Executables = {
+  ): EventsTable.Batches = {
 
     val events = transaction(
       offset = tx.offset,
@@ -193,11 +202,10 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     val archivals =
       info.archives.iterator.map(archive(tx.offset)).toList
 
-    EventsTable.Executables(
+    new Batches(
       insertEvents = batch(insertEvent, events),
       updateArchives = batch(updateArchived, archivals),
     )
 
   }
-
 }
