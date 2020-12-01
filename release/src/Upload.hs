@@ -24,6 +24,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.List as List
+import qualified Data.SemVer as SemVer
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding (encodeUtf8)
@@ -285,7 +286,7 @@ decodeSigningKey signingKey =  case Base64.decode $ C8.pack signingKey of
 uploadPath :: MavenCoords -> Text -> Text -> Text
 uploadPath MavenCoords{..} comDamlStagingRepoId comDigitalassetRepoId = do
     let stagingRepoId = if ["com", "daml"] `List.isPrefixOf` groupId then comDamlStagingRepoId else comDigitalassetRepoId
-    let Version v = version
+    let v = SemVer.toText version
     T.intercalate "/" ("/service/local/staging/deployByRepositoryId" : [stagingRepoId] <> groupId <> [artifactId, v, artifactId]) <> "-" <> v <> maybe "" ("-" <>) classifier <> "." <> artifactType
 
 getContentType :: ArtifactType -> Text

@@ -4,10 +4,12 @@
 {-# LANGUAGE TemplateHaskell, MultiWayIf #-}
 module Main (main) where
 
+import Control.Lens (view)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Control.Exception
+import qualified Data.SemVer as SemVer
 import Data.Yaml
 import qualified Data.Set as Set
 import qualified Data.List.Extra as List
@@ -37,7 +39,7 @@ main = do
       liftIO $ createDirIfMissing True releaseDir
       mvnArtifacts :: [Artifact (Maybe ArtifactLocation)] <- decodeFileThrow "release/artifacts.yaml"
 
-      let mvnVersion = Version $ T.pack SdkVersion.mvnVersion
+      Right mvnVersion <- pure $ SemVer.fromText $ T.pack SdkVersion.mvnVersion
       let mvnTargets = concatMap buildTargets mvnArtifacts
       $logInfo "Building all targets"
       liftIO $ callProcess "bazel" ("build" : map (T.unpack . getBazelTarget) mvnTargets)
@@ -138,7 +140,9 @@ main = do
                 (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
                 (Dir.removeFile npmrcPath)
                 (forM_ npmPackages
-                  $ \rule -> liftIO $ callCommand $ "bazel run " <> rule <> ":npm_package.publish -- --access public")
+                  $ \rule -> liftIO $ callCommand $ unwords $
+                      ["bazel", "run", rule <> ":npm_package.publish", "--", "--access", "public"] <>
+                      [ x | isSnapshot mvnVersion, x <- ["--tag", "next"] ])
 
           | optsLocallyInstallJars -> do
               pom <- generateAggregatePom bazelLocations mvnArtifacts
@@ -156,3 +160,6 @@ main = do
     runLog Options{..} m0 = do
         let m = filterLogger (\_ ll -> ll >= LevelDebug) m0
         runFastLoggingT m
+
+isSnapshot :: SemVer.Version -> Bool
+isSnapshot v = List.notNull (view SemVer.release v)
