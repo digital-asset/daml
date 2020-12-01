@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time.Timestamp
 import org.slf4j.LoggerFactory
 
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 
 /** Commit context provides access to state inputs, commit parameters (e.g. record time) and
   * allows committer to set state outputs.
@@ -62,11 +62,11 @@ private[kvutils] trait CommitContext {
   }
 
   /** Returns a filtered view of the inputs that match the given predicate.
-    * Records all keys in the returned map as being accessed. */
-  def readAllFiltered(
-      predicate: DamlStateKey => Boolean): Map[DamlStateKey, Option[DamlStateValue]] = {
-    val result = inputs.filterKeys(predicate)
-    result.keys.foreach(accessedInputKeys.add)
+    * Records all keys in the input as being accessed. */
+  def collectInputs[T](
+      partialFunction: PartialFunction[(DamlStateKey, Option[DamlStateValue]), T]): Iterable[T] = {
+    val result = inputs.collect(partialFunction)
+    inputs.keys.foreach(accessedInputKeys.add)
     result
   }
 

@@ -215,16 +215,14 @@ private[kvutils] class TransactionCommitter(
         // which are not evidenced in the transaction itself and hence the contract key state is
         // not included in the inputs.
         lazy val knownKeys: Map[DamlContractKey, Value.ContractId] =
-          commitContext
-            .readAllFiltered(_.getContractId.nonEmpty)
-            .collect {
-              case (key, Some(value))
-                  if value.getContractState.hasContractKey
-                    && contractIsActiveAndVisibleToSubmitter(
-                      transactionEntry,
-                      value.getContractState) =>
-                value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
-            }
+          commitContext.collectInputs {
+            case (key, Some(value))
+                if value.getContractState.hasContractKey
+                  && contractIsActiveAndVisibleToSubmitter(
+                    transactionEntry,
+                    value.getContractState) =>
+              value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
+          }.toMap
 
         engine
           .validate(
@@ -257,9 +255,9 @@ private[kvutils] class TransactionCommitter(
     }
 
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
-    val damlState = commitContext
-      .readAllFiltered(_.hasContractKey)
-      .collect { case (k, Some(v)) => k -> v } ++ commitContext.getOutputs
+    val damlState = commitContext.collectInputs {
+      case (key, Some(value)) if key.hasContractKey => key -> value
+    }.toMap ++ commitContext.getOutputs
     val startingKeys = damlState.collect {
       case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty => k
     }.toSet
