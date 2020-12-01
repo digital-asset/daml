@@ -44,19 +44,12 @@ def get_plugin_runfiles(tool, plugin_runfiles):
     return files
 
 def _proto_gen_impl(ctx):
-    src_descs = [src[ProtoInfo].direct_descriptor_set for src in ctx.attr.srcs]
-    dep_descs = [depset for dep in ctx.attr.deps for depset in dep[ProtoInfo].transitive_descriptor_sets.to_list()]
-    descriptors = src_descs + dep_descs
-
     sources_out = ctx.actions.declare_directory(ctx.attr.name + "-sources")
 
     descriptor_set_delim = "\\;" if _is_windows(ctx) else ":"
-
-    args = []
-    args += [
-        "--descriptor_set_in=" + descriptor_set_delim.join([d.path for d in descriptors]),
-    ]
-    args += [
+    descriptors = [depset for src in ctx.attr.srcs for depset in src[ProtoInfo].transitive_descriptor_sets.to_list()]
+    args = [
+        "--descriptor_set_in=" + descriptor_set_delim.join([depset.path for depset in descriptors]),
         "--{}_out={}:{}".format(ctx.attr.plugin_name, ",".join(ctx.attr.plugin_options), sources_out.path),
     ]
     plugins = []
@@ -133,8 +126,7 @@ def _proto_gen_impl(ctx):
 proto_gen = rule(
     implementation = _proto_gen_impl,
     attrs = {
-        "srcs": attr.label_list(allow_files = True),
-        "deps": attr.label_list(providers = [ProtoInfo]),
+        "srcs": attr.label_list(providers = [ProtoInfo]),
         "plugin_name": attr.string(),
         "plugin_exec": attr.label(
             cfg = "host",
@@ -287,7 +279,6 @@ def proto_jars(
         plugin_name = "scalapb",
         plugin_options = ["grpc"] if grpc else [],
         visibility = ["//visibility:public"],
-        deps = deps + proto_deps,
     )
 
     all_scala_deps = _proto_scala_deps(grpc, proto_deps)
