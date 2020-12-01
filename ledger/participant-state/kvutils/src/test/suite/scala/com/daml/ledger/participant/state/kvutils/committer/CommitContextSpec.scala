@@ -67,6 +67,31 @@ class CommitContextSpec extends WordSpec with Matchers {
     }
   }
 
+  "readAllFiltered" should {
+    "return keys matching the predicate and mark them as accessed" in {
+      val expectedKey1 = DamlStateKey.newBuilder.setContractId("a1").build
+      val expectedKey2 = DamlStateKey.newBuilder.setContractId("a2").build
+      val expected = Map(
+        expectedKey1 -> Some(aValue),
+        expectedKey2 -> None
+      )
+      val inputs = expected ++ Map(DamlStateKey.newBuilder.setContractId("b").build -> Some(aValue))
+      val context =
+        newInstance(inputs = inputs)
+
+      context.readAllFiltered(key => key.getContractId.startsWith("a")) shouldBe expected
+      context.getAccessedInputKeys shouldBe expected.keySet
+    }
+
+    "return no keys and mark nothing as accessed for an always negative predicate" in {
+      val context =
+        newInstance(inputs = newDamlStateMap(aKey -> aValue, anotherKey -> anotherValue))
+
+      context.readAllFiltered(_ => false) shouldBe Map.empty
+      context.getAccessedInputKeys shouldBe Set.empty
+    }
+  }
+
   "set" should {
     "maintain order of keys based on when they were seen first" in {
       val context = newInstance()
