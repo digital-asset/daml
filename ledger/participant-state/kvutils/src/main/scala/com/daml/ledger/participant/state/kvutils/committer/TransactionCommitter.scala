@@ -27,6 +27,7 @@ import com.daml.lf.transaction.{
   NodeId,
   ReplayNodeMismatch,
   SubmittedTransaction,
+  TransactionOuterClass,
   VersionedTransaction,
   Transaction => Tx
 }
@@ -69,7 +70,9 @@ private[kvutils] class TransactionCommitter(
     "validate_ledger_time" -> validateLedgerTime,
     "validate_contract_keys" -> validateContractKeys,
     "validate_model_conformance" -> validateModelConformance,
-    "blind" -> blind
+    "blind" -> blind,
+    "remove_unnecessary_nodes" -> removeUnnecessaryNodes,
+    "build_final_log_entry" -> buildFinalLogEntry,
   )
 
   private def contractIsActiveAndVisibleToSubmitter(
@@ -290,7 +293,7 @@ private[kvutils] class TransactionCommitter(
   private[committer] def blind: Step =
     (commitContext, transactionEntry) => {
       val blindingInfo = Blinding.blind(transactionEntry.transaction)
-      buildFinalResult(
+      setDedupEntryAndUpdateContractState(
         commitContext,
         transactionEntry.copy(
           submission = transactionEntry.submission.toBuilder
@@ -299,6 +302,59 @@ private[kvutils] class TransactionCommitter(
         blindingInfo,
       )
     }
+
+  /**
+    * Removes `Fetch` and `LookupByKey` nodes from the transactionEntry.
+    */
+  private[committer] def removeUnnecessaryNodes: Step = (_, transactionEntry) => {
+    val transaction = transactionEntry.submission.getTransaction
+    val nodes = transaction.getNodesList.asScala
+    val nodesToKeep = nodes.iterator.collect {
+      case node if node.hasCreate || node.hasExercise => node.getNodeId
+    }.toSet
+
+    val filteredRoots = transaction.getRootsList.asScala.filter(nodesToKeep)
+
+    def stripUnnecessaryNodes(node: TransactionOuterClass.Node) =
+      if (node.hasExercise) {
+        val exerciseNode = node.getExercise
+        val keptChildren = exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
+        val newExerciseNode = exerciseNode.toBuilder
+          .clearChildren()
+          .addAllChildren(keptChildren.asJavaCollection)
+          .build()
+
+        node.toBuilder
+          .setExercise(newExerciseNode)
+          .build()
+      } else {
+        node
+      }
+
+    val filteredNodes = nodes
+      .collect {
+        case node if nodesToKeep(node.getNodeId) => stripUnnecessaryNodes(node)
+      }
+
+    val newTransaction = transaction
+      .newBuilderForType()
+      .addAllRoots(filteredRoots.asJavaCollection)
+      .addAllNodes(filteredNodes.asJavaCollection)
+      .setVersion(transaction.getVersion)
+      .build()
+
+    val newTransactionEntry = transactionEntry.submission.toBuilder
+      .setTransaction(newTransaction)
+      .build()
+
+    StepContinue(DamlTransactionEntrySummary(newTransactionEntry))
+  }
+
+  /**
+    * Builds the log entry as the final step.
+    */
+  private def buildFinalLogEntry: Step =
+    (commitContext, transactionEntry) => StepStop(buildLogEntry(transactionEntry, commitContext))
 
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
     val damlState = commitContext.collectInputs {
@@ -409,8 +465,8 @@ private[kvutils] class TransactionCommitter(
       )
   }
 
-  /** All checks passed. Produce the log entry and contract state updates. */
-  private def buildFinalResult(
+  /** Produce the log entry and contract state updates. */
+  private def setDedupEntryAndUpdateContractState(
       commitContext: CommitContext,
       transactionEntry: DamlTransactionEntrySummary,
       blindingInfo: BlindingInfo
@@ -430,7 +486,7 @@ private[kvutils] class TransactionCommitter(
 
     metrics.daml.kvutils.committer.transaction.accepts.inc()
     logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
-    StepStop(buildLogEntry(transactionEntry, commitContext))
+    StepContinue(transactionEntry)
   }
 
   private def updateContractState(
@@ -671,6 +727,7 @@ private[kvutils] class TransactionCommitter(
         .map(v => v.getNumber -> metrics.daml.kvutils.committer.transaction.rejection(v.name()))
         .toMap
   }
+
 }
 
 private[kvutils] object TransactionCommitter {

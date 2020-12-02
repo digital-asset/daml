@@ -173,7 +173,7 @@ message DamlTransactionEntry {
   // The time used to derive contract ids
   google.protobuf.Timestamp submission_time = 6;
 
-  // The pre-computed transaction blinding information. Optional.
+  // The pre-computed transaction blinding information.
   DamlTransactionBlindingInfo blinding_info = 7;
 }
 
