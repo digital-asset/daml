@@ -173,6 +173,8 @@ class PlatformStore(
               party = ApiTypes.Party(partyDetails.party),
               role = None,
               useDatabase = false))
+        } else {
+          log.debug(s"Ignoring non-local party ${partyDetails.party}")
         }
       }
 
@@ -183,7 +185,7 @@ class PlatformStore(
         startPartyActor(state.ledgerClient, partyState)
         context.become(connected(state.copy(parties = state.parties + (displayName -> partyState))))
       } else {
-        log.info(s"Actor for $displayName is already running")
+        log.debug(s"Actor for $displayName is already running")
       }
 
     case CreateContract(party, templateId, value) =>
