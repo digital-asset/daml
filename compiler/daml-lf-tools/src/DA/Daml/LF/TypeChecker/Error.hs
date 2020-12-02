@@ -314,11 +314,11 @@ instance Pretty Error where
     EExpectedExceptionType foundType ->
       "expected an exception type, but found: " <> pretty foundType
     EExpectedExceptionTypeHasNoParams modName exnName ->
-      "exception type should not have type parameters: " <> pretty modName <> ":" <> pretty exnName
+      "exception type should not have type parameters: " <> pretty modName <> "." <> pretty exnName
     EExpectedExceptionTypeIsRecord modName exnName ->
-      "exception type should be a record type: " <> pretty modName <> ":" <> pretty exnName
+      "exception type should be a record type: " <> pretty modName <> "." <> pretty exnName
     EExpectedExceptionTypeIsNotTemplate modName exnName ->
-      "exception type should not be a template: " <> pretty modName <> ":" <> pretty exnName
+      "exception type should not be a template: " <> pretty modName <> "." <> pretty exnName
     EImpredicativePolymorphism typ ->
       vcat
       [ "impredicative polymorphism is not supported:"
@@ -365,6 +365,8 @@ instance Pretty Context where
       hsep [ "template", pretty (moduleName m) <> "." <>  pretty (tplTypeCon t), string (show p) ]
     ContextDefValue m v ->
       hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
+    ContextDefException m e ->
+      hsep [ "exception", pretty (moduleName m) <> "." <> pretty (exnName e) ]
 
 toDiagnostic :: DiagnosticSeverity -> Error -> Diagnostic
 toDiagnostic sev err = Diagnostic
