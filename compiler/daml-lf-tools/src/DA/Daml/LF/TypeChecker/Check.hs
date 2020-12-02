@@ -42,6 +42,7 @@ import           Data.List.Extended
 import Data.Generics.Uniplate.Data (para)
 import qualified Data.HashSet as HS
 import qualified Data.Map.Strict as Map
+import qualified Data.NameMap as NM
 import qualified Data.IntSet as IntSet
 import           Safe.Exact (zipExactMay)
 
@@ -52,6 +53,7 @@ import           DA.Daml.LF.Ast.Alpha
 import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
+
 
 -- | Check that a list does /not/ contain duplicate elements.
 checkUnique :: (MonadGamma m, Eq a, Hashable a) => (a -> Error) -> [a] -> m ()
@@ -829,14 +831,25 @@ checkTemplateKey param tcon TemplateKey{..} = do
       checkExpr tplKeyBody tplKeyType
     checkExpr tplKeyMaintainers (tplKeyType :-> TList TParty)
 
+checkDefException :: MonadGamma m => Module -> DefException -> m ()
+checkDefException m DefException{..} = do
+    let modName = moduleName m
+        tcon = Qualified PRSelf modName exnName
+    DefDataType _loc _name _serializable tyParams dataCons <- inWorld (lookupDataType tcon)
+    unless (null tyParams) $ throwWithContext (EExpectedExceptionTypeHasNoParams modName exnName)
+    _ <- match _DataRecord (EExpectedExceptionTypeIsRecord modName exnName) dataCons
+    case NM.lookup exnName (moduleTemplates m) of
+        Nothing -> pure ()
+        Just _ -> throwWithContext (EExpectedExceptionTypeIsNotTemplate modName exnName)
+
 -- NOTE(MH): It is important that the data type definitions are checked first.
 -- The type checker for expressions relies on the fact that data type
 -- definitions do _not_ contain free variables.
 checkModule :: MonadGamma m => Module -> m ()
-checkModule m@(Module _modName _path _flags synonyms dataTypes values templates _exceptions) = do
+checkModule m@(Module _modName _path _flags synonyms dataTypes values templates exceptions) = do
   let with ctx f x = withContext (ctx x) (f x)
   traverse_ (with (ContextDefTypeSyn m) checkDefTypeSyn) synonyms
   traverse_ (with (ContextDefDataType m) checkDefDataType) dataTypes
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
   traverse_ (with (ContextDefValue m) checkDefValue) values
-  -- TODO #8020: check exception types are well formed and don't overlap with templates
+  traverse_ (with (ContextDefException m) (checkDefException m)) exceptions
