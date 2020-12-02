@@ -18,7 +18,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-linux-temp" 
   name               = "vsts-agent-linux-temp"
   base_instance_name = "vsts-agent-linux-temp"
   region             = "us-east1"
-  target_size        = 1
+  target_size        = 10
 
   version {
     name              = "vsts-agent-linux-temp"

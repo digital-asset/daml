@@ -8,7 +8,7 @@ set -euo pipefail
 ## Hardening
 
 # Commit harakiri on failure
-#trap "shutdown -h now" EXIT
+trap "shutdown -h now" EXIT
 
 # replace the default nameserver to not use the metadata server
 echo "nameserver 8.8.8.8" > /etc/resolv.conf
