@@ -1,16 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-  ChoicesButton,
-  Dispatch,
-  WithRedux,
-} from '@da/ui-core';
+import { ChoicesButton } from '@da/ui-core';
 import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
 import * as Session from '@da/ui-core/lib/session';
 import { CellRenderParams, ColumnConfig } from '@da/ui-core/lib/Table';
 import * as React from 'react';
-import { connect } from 'react-redux';
+import { connect, ConnectedComponent } from 'react-redux';
+import { ThunkDispatch } from 'redux-thunk';
 import Link from '../../components/Link';
 import { ConfigInterface, ConfigType } from '../../config';
 import * as Routes from '../../routes';
@@ -139,7 +136,7 @@ interface OwnProps {
 }
 
 interface DispatchProps {
-  dispatch: Dispatch<Action>;
+  dispatch: ThunkDispatch<App.State, undefined, App.Action>;
 }
 
 type Props = DispatchProps & OwnProps;
@@ -311,6 +308,4 @@ class Component extends React.Component<Props, ComponentState> {
   }
 }
 
-const withRedux: WithRedux<Props> = connect();
-
-export const UI = withRedux(Component);
+export const UI: ConnectedComponent<typeof Component, OwnProps> = connect()(Component);

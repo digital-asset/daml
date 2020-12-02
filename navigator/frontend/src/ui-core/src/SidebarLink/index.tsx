@@ -52,7 +52,7 @@ const Count = styled.span`
   min-height: 1.75rem;
 `;
 
-export function makeSidebarLink<P extends {}>(Link: React.ComponentClass<P>) {
+export function makeSidebarLink<P extends {}>(Link: React.ComponentType<P>) {
 
   // First create the component with the required API. This uses the Link
   // component as the outer wrapper.

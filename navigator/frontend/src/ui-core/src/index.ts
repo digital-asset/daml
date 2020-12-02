@@ -41,9 +41,7 @@ export {
 } from './DataTable';
 export { ApolloDataProvider } from './ContractTable/ApolloDataProvider';
 export {
-  ThunkAction,
   Dispatch,
-  WithRedux,
   WithGraphQL,
 } from './types';
 export {

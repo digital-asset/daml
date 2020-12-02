@@ -8,7 +8,6 @@ import { DamlLfValue } from '@da/ui-core/lib/api/DamlLfValue';
 import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
 import * as React from 'react';
 import { connect } from 'react-redux';
-import { compose } from 'redux';
 import {
   CreateContract,
   CreateContractVariables,
@@ -18,7 +17,6 @@ import {
 } from '../../api/Queries';
 import { pathToAction } from '../../routes';
 import { contracts as dashboardRoute } from '../../routes';
-import { Connect } from '../../types';
 import * as App from '../app';
 import TemplateComponent from './TemplateComponent';
 
@@ -142,7 +140,7 @@ const mutation = gql`
  * - the contract data fetched from the GraphQL API
  */
 
-const _withMutation: Connect<MutationProps, OwnProps> =
+const _withMutation =
   withMutation<OwnProps, CreateContract, CreateContractVariables, MutationProps>(mutation, {
     props: ({ mutate }) => ({
       create: mutate && ((templateId: string, argument: DamlLfValue) =>
@@ -150,17 +148,11 @@ const _withMutation: Connect<MutationProps, OwnProps> =
     )}),
   });
 
-const _withQuery: Connect<QueryProps, OwnProps & MutationProps> =
-  withQuery<OwnProps, TemplateInstance, TemplateInstanceVariables, QueryProps>(query, {
+const _withQuery =
+  withQuery<OwnProps & MutationProps, TemplateInstance, TemplateInstanceVariables, QueryProps>(query, {
     options: ({ state: { id } }) =>
       ({ variables: { templateId: id } }),
   });
 
-const withRedux: Connect<ReduxProps, OwnProps & QueryProps & MutationProps> =
-  connect();
-
-export const UI = compose(
-  _withMutation,
-  _withQuery,
-  withRedux,
-)(Component);
+export const UI: React.ComponentClass<OwnProps> =
+  _withMutation(_withQuery(connect()(Component)));

@@ -4,10 +4,9 @@
 import { Dispatch, Route } from '@da/ui-core';
 import UntypedLink, { HrefTarget } from '@da/ui-core/lib/Link';
 import * as React from 'react';
-import { connect } from 'react-redux';
+import { connect, ConnectedComponent } from 'react-redux';
 import * as App from '../applets/app'
 import { pathToAction } from '../routes';
-import { Connect } from '../types';
 
 // Note: The react-redux typings for connect() try to remove
 // the 'dispatch' property from OwnProps. This makes sense since react-redux
@@ -58,6 +57,5 @@ class Link extends React.Component<Props, {}> {
   }
 }
 
-const withRedux: Connect<ReduxProps, OwnProps> = connect();
-
-export default withRedux(Link);
+const C: ConnectedComponent<typeof Link, React.PropsWithChildren<OwnProps>> = connect()(Link);
+export default C;
