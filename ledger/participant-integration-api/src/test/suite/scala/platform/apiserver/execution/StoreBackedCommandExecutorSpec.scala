@@ -8,6 +8,7 @@ import com.daml.ledger.api.domain.Commands
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.ParticipantId
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ResultDone}
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -52,6 +53,7 @@ class StoreBackedCommandExecutorSpec
       when(mockLfCommands.ledgerEffectiveTime).thenReturn(Time.Timestamp.now())
       when(mockDomainCommands.workflowId).thenReturn(None)
       when(mockDomainCommands.commands).thenReturn(mockLfCommands)
+      when(mockLfCommands.submitters).thenReturn(Set.empty[Party])
 
       LoggingContext.newLoggingContext { implicit context =>
         instance.execute(mockDomainCommands, Hash.hashPrivateKey("a key")).map { actual =>

@@ -64,7 +64,6 @@ final class CommandsValidator(ledgerId: LedgerId) {
         workflowId = workflowId,
         applicationId = appId,
         commandId = commandId,
-        submitter = submitters.actAs.head,
         submittedAt = currentUtcTime,
         deduplicateUntil = currentUtcTime.plus(deduplicationTime),
         commands = Commands(

@@ -79,4 +79,12 @@ case class Commands(
     commands: ImmArray[Command],
     ledgerEffectiveTime: Time.Timestamp,
     commandsReference: String,
-)
+) {
+  // Note: this function is only available temporarily until KVL-702 is resolved
+  def singleSubmitterOrThrow(): Party = {
+    if (submitters.size == 1)
+      submitters.head
+    else
+      throw new RuntimeException("com.daml.lf.Commands contains more than one acting party")
+  }
+}

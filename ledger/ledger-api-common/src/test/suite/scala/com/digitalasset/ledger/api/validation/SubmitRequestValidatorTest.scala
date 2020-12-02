@@ -75,7 +75,6 @@ class SubmitRequestValidatorTest
       workflowId = Some(workflowId),
       applicationId = applicationId,
       commandId = commandId,
-      submitter = DomainMocks.party,
       submittedAt = submittedAt,
       deduplicateUntil = deduplicateUntil,
       commands = LfCommands(
