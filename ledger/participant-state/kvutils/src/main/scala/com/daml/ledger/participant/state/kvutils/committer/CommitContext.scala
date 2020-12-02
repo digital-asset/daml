@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time.Timestamp
 import org.slf4j.LoggerFactory
 
+import scala.collection.generic.CanBuildFrom
 import scala.collection.mutable
 
 /** Commit context provides access to state inputs, commit parameters (e.g. record time) and
@@ -23,7 +24,7 @@ import scala.collection.mutable
 private[kvutils] trait CommitContext {
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
-  def inputs: DamlStateMap
+  protected def inputs: DamlStateMap
 
   // NOTE(JM): The outputs must be iterable in deterministic order, hence we
   // keep track of insertion order.
@@ -42,6 +43,7 @@ private[kvutils] trait CommitContext {
   var outOfTimeBoundsLogEntry: Option[DamlLogEntry] = None
 
   def getRecordTime: Option[Timestamp]
+
   def getParticipantId: ParticipantId
 
   def preExecute: Boolean = getRecordTime.isEmpty
@@ -53,6 +55,22 @@ private[kvutils] trait CommitContext {
       accessedInputKeys += key
       value
     }
+
+  /** Reads key from input state.  Records the key as being accessed even if it's not available. */
+  def read(key: DamlStateKey): Option[DamlStateValue] = {
+    accessedInputKeys += key
+    inputs.get(key).flatten
+  }
+
+  /** Generates a collection from the inputs as determined by a partial function.
+    * Records all keys in the input as being accessed. */
+  def collectInputs[B, That](
+      partialFunction: PartialFunction[(DamlStateKey, Option[DamlStateValue]), B])(
+      implicit bf: CanBuildFrom[Map[DamlStateKey, Option[DamlStateValue]], B, That]): That = {
+    val result = inputs.collect(partialFunction)
+    inputs.keys.foreach(accessedInputKeys.add)
+    result
+  }
 
   /** Set a value in the output state. */
   def set(key: DamlStateKey, value: DamlStateValue): Unit = {
