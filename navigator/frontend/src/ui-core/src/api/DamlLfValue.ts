@@ -1,9 +1,9 @@
 // Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 // All rights reserved.
 
-import * as Moment from 'moment';
+import Moment from 'moment';
 import {NonExhaustiveMatch} from '../util'
-import {DamlLfEnum, DamlLfIdentifier, DamlLfRecord, DamlLfType, DamlLfVariant} from './DamlLfType';
+import {DamlLfEnum, DamlLfIdentifier, DamlLfPrimType, DamlLfRecord, DamlLfType, DamlLfVariant} from './DamlLfType';
 
 // --------------------------------------------------------------------------------------------------------------------
 // Type definitions
@@ -212,7 +212,9 @@ export function initialValue(type: DamlLfType): DamlLfValue {
     case 'typevar': return undef();
     case 'typecon': return undef();
     case 'numeric':     return undef();
-    case 'primitive': switch (type.name) {
+    case 'primitive':
+    const n: DamlLfPrimType = type.name;
+    switch (n) {
       case 'text':        return undef();
       case 'int64':       return undef();
       case 'bool':        return bool(false);
@@ -225,7 +227,7 @@ export function initialValue(type: DamlLfType): DamlLfValue {
       case 'list':        return list([]);
       case 'textmap':         return textmap([]);
       case 'genmap':      return genmap([]);
-      default: throw new NonExhaustiveMatch(type.name);
+      default: throw new NonExhaustiveMatch(n);
     }
     default: throw new NonExhaustiveMatch(type);
   }

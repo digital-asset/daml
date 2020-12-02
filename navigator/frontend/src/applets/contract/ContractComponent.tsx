@@ -52,8 +52,10 @@ interface ActiveLinkProps extends OwnProps {
   isActive: boolean;
 }
 
-const ActiveLink = (props: ActiveLinkProps) => (
-  <Link {...props} />
+const ActiveLink: React.FC<ActiveLinkProps> = (props) => (
+  <Link {...props}>
+    {props.children}
+  </Link>
 );
 
 const ChoiceLink = styled(ActiveLink)`
@@ -173,4 +175,4 @@ export default (props: Props) => {
       </Content>
     </Wrapper>
   );
-}
+};

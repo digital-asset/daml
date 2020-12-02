@@ -1,9 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-
-// Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
-// All rights reserved.
-
+import { ApolloClient } from '@apollo/client';
+import { withApollo } from '@apollo/client/react/hoc'
 import {
   ApolloDataProvider,
   ContractColumn,
@@ -13,7 +11,6 @@ import {
 } from '@da/ui-core';
 import { User } from '@da/ui-core/lib/session';
 import * as React from 'react';
-import { ApolloClient, withApollo } from 'react-apollo';
 import { connect } from 'react-redux';
 import { compose } from 'redux';
 import { contract as contractRoute } from '../../routes';
@@ -57,7 +54,8 @@ interface ReduxProps {
 }
 
 interface ApolloProps {
-  client: ApolloClient;
+  // tslint:disable-next-line:no-any
+  client: ApolloClient<any>;
 }
 
 interface OwnProps {
@@ -116,6 +114,6 @@ class Component extends React.Component<Props, {}> {
 const withRedux: Connect<ReduxProps, OwnProps & ApolloProps> = connect();
 
 export const UI: React.ComponentClass<OwnProps> = compose(
-  withApollo,
+  (x) => withApollo<OwnProps>(x),
   withRedux,
 )(Component);

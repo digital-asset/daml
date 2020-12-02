@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as Color from 'color';
+import Color from 'color';
 import * as React from 'react';
 import { default as styled, hardcodedStyle, ThemeInterface } from '../theme';
 export { StyledComponent } from 'styled-components';
