@@ -23,7 +23,7 @@ Like most structures called ledgers, a DAML Ledger is just a list of *commits*. 
 
 *Transaction* is a concept we'll cover in more detail through this introduction. The most basic examples are the creation and archival of a *contract*.
 
-A contract is *active* from the point where there is a committed transaction that creates it, up to the point where there is a committed transaction that *archives* it again.
+A contract is *active* from the point where there is a committed transaction that creates it, up to the point where there is a committed transaction that *archives* it.
 
 .. Graphic with timeline inactive -> create -> active -> archive -> inactive
 
@@ -40,7 +40,7 @@ Each ``.daml`` file defines a *DAML Module*. At the top of each DAML file is a p
   :language: daml
   :lines: 6, 9
 
-Code comments in DAML are introduced with `--`:
+Code comments in DAML are introduced with ``--``:
 
 .. literalinclude:: daml/daml-intro-1/Token.daml
   :language: daml
