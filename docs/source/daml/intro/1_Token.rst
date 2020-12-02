@@ -34,17 +34,17 @@ DAML specifies what transactions are legal on a DAML Ledger. The rules the DAML 
 DAML files and modules
 ----------------------
 
-Each ``.daml`` file defines a *DAML Module*. At the top of each DAML file is a pragma informing the compiler of the language version and the module name:
+Each ``.daml`` file defines a *DAML Module* at the top:
 
 .. literalinclude:: daml/daml-intro-1/Token.daml
   :language: daml
-  :lines: 6, 9
+  :lines: 5, 9
 
 Code comments in DAML are introduced with ``--``:
 
 .. literalinclude:: daml/daml-intro-1/Token.daml
   :language: daml
-  :lines: 4-9
+  :lines: 1-5
 
 Templates
 ---------
@@ -53,7 +53,7 @@ A ``template`` defines a type of contract that can be created, and who has the r
 
 .. literalinclude:: daml/daml-intro-1/Token.daml
   :language: daml
-  :lines: 16,21,25,29,34
+  :lines: 12,17,21,25,30
   :caption: A simple template
 
 You declare a template starting with the ``template`` keyword, which takes a name as an argument.
