@@ -609,25 +609,25 @@ object Server {
         .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
     }
 
-    def refreshAccessToken(triggerInstance: UUID): Future[RunningTrigger] =
+    def refreshAccessToken(triggerInstance: UUID): Future[RunningTrigger] = {
+      def getOrFail[T](result: Option[T], ex: => Throwable): Future[T] = result match {
+        case Some(value) => Future.successful(value)
+        case None => Future.failed(ex)
+      }
+
       for {
         // Lookup running trigger
-        runningTrigger <- dao.getRunningTrigger(triggerInstance).flatMap {
-          case Some(trigger) => Future.successful(trigger)
-          case None =>
-            Future.failed(new RuntimeException(s"Unknown trigger $triggerInstance"))
-        }
+        runningTrigger <- dao
+          .getRunningTrigger(triggerInstance)
+          .flatMap(getOrFail(_, new RuntimeException(s"Unknown trigger $triggerInstance")))
         // Request a token refresh
-        authUri <- authConfig match {
-          case NoAuth =>
-            Future.failed(new RuntimeException("Cannot refresh token without authorization service"))
-          case AuthMiddleware(uri) => Future.successful(uri)
-        }
-        refreshToken <- runningTrigger.triggerRefreshToken match {
-          case Some(token) => Future.successful(token)
-          case None =>
-            Future.failed(new RuntimeException(s"No refresh token for $triggerInstance"))
-        }
+        authUri <- getOrFail(authConfig match {
+          case AuthMiddleware(uri) => Some(uri)
+          case _ => None
+        }, new RuntimeException("Cannot refresh token without authorization service"))
+        refreshToken <- getOrFail(
+          runningTrigger.triggerRefreshToken,
+          new RuntimeException(s"No refresh token for $triggerInstance"))
         requestEntity <- {
           import AuthJsonProtocol._
           Marshal(AuthRequest.Refresh(RefreshToken.unwrap(refreshToken)))
@@ -655,6 +655,7 @@ object Server {
       } yield
         runningTrigger
           .copy(triggerAccessToken = Some(accessToken), triggerRefreshToken = refreshToken)
+    }
 
     // The server running state.
     def running(binding: ServerBinding): Behavior[Message] =
