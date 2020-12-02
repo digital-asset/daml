@@ -1370,10 +1370,11 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
       BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
       BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep),
-      BuiltinTypeInfo(ANY_EXCEPTION, BTText, minVersion = exceptions), // TODO #8020
-      BuiltinTypeInfo(GENERAL_ERROR, BTText, minVersion = exceptions), // TODO #8020
-      BuiltinTypeInfo(ARITHMETIC_ERROR, BTText, minVersion = exceptions), // TODO #8020
-      BuiltinTypeInfo(CONTRACT_ERROR, BTText, minVersion = exceptions) // TODO #8020
+      // FIXME: https://github.com/digital-asset/daml/issues/8020
+//      BuiltinTypeInfo(ANY_EXCEPTION, ???, minVersion = exceptions),
+//      BuiltinTypeInfo(GENERAL_ERROR, ???, minVersion = exceptions),
+//      BuiltinTypeInfo(ARITHMETIC_ERROR, ???, minVersion = exceptions),
+//      BuiltinTypeInfo(CONTRACT_ERROR, ???, minVersion = exceptions)
     )
   }
 
