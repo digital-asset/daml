@@ -79,6 +79,7 @@ class SubmitRequestValidatorTest
       deduplicateUntil = deduplicateUntil,
       commands = LfCommands(
         Set(DomainMocks.party),
+        Set.empty,
         ImmArray(
           LfCreateCommand(
             Ref.Identifier(

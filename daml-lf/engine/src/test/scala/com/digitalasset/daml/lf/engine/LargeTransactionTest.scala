@@ -205,7 +205,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   ): Tx.Transaction = {
     engine
       .submit(
-        Commands(Set(submitter), ImmArray(cmd), Time.Timestamp.now(), cmdReference),
+        Commands(Set(submitter), Set.empty, ImmArray(cmd), Time.Timestamp.now(), cmdReference),
         participant,
         seed,
       )

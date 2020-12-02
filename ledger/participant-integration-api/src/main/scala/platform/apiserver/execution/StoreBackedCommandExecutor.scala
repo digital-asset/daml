@@ -49,7 +49,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     val submissionResult = Timed.trackedValue(
       metrics.daml.execution.engineRunning,
       engine.submit(commands.commands, participant, submissionSeed))
-    consume(commands.commands.submitters, submissionResult)
+    consume(commands.commands.actAs ++ commands.commands.readAs, submissionResult)
       .map { submission =>
         (for {
           result <- submission
@@ -58,7 +58,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           val interpretationTimeNanos = System.nanoTime() - start
           CommandExecutionResult(
             submitterInfo = SubmitterInfo(
-              commands.commands.submitters.toList,
+              commands.commands.actAs.toList,
               commands.applicationId.unwrap,
               commands.commandId.unwrap,
               commands.deduplicateUntil,
@@ -87,7 +87,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
   private val packagePromises: ConcurrentHashMap[Ref.PackageId, Promise[Option[Package]]] =
     new ConcurrentHashMap()
 
-  private def consume[A](submitters: Set[Ref.Party], result: Result[A])(
+  private def consume[A](readers: Set[Ref.Party], result: Result[A])(
       implicit ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[DamlLfError, A]] = {
@@ -109,7 +109,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           Timed
             .future(
               metrics.daml.execution.lookupActiveContract,
-              contractStore.lookupActiveContract(submitters, acoid),
+              contractStore.lookupActiveContract(readers, acoid),
             )
             .flatMap { instance =>
               lookupActiveContractTime.addAndGet(System.nanoTime() - start)
@@ -123,7 +123,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           Timed
             .future(
               metrics.daml.execution.lookupContractKey,
-              contractStore.lookupContractKey(submitters, key.globalKey))
+              contractStore.lookupContractKey(readers, key.globalKey))
             .flatMap { contractId =>
               lookupContractKeyTime.addAndGet(System.nanoTime() - start)
               lookupContractKeyCount.incrementAndGet()

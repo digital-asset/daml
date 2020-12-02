@@ -177,7 +177,8 @@ object KVTest {
       state.engine
         .submit(
           cmds = Commands(
-            submitters = Set(submitter),
+            actAs = Set(submitter),
+            readAs = Set.empty,
             commands = ImmArray(command),
             ledgerEffectiveTime = state.recordTime,
             commandsReference = "cmds-ref",

@@ -64,8 +64,6 @@ package object logging {
     "submissionId" -> id
   private[services] def submittedAt(t: Instant): (String, String) =
     "submittedAt" -> t.toString
-  private[services] def submitters(parties: Iterable[String]): (String, String) =
-    "submitters" -> StructuredArguments.toString(parties.toArray)
   private[services] def transactionId(id: TransactionId): (String, String) =
     "transactionId" -> id.unwrap
   private[services] def workflowId(id: WorkflowId): (String, String) =
@@ -77,7 +75,8 @@ package object logging {
         deduplicateUntil(cmds.deduplicateUntil),
         applicationId(cmds.applicationId),
         submittedAt(cmds.submittedAt),
-        submitters(cmds.commands.submitters),
+        actAs(cmds.commands.actAs),
+        readAs(cmds.commands.readAs)
       )
     cmds.workflowId.fold(context)(context + workflowId(_))
   }

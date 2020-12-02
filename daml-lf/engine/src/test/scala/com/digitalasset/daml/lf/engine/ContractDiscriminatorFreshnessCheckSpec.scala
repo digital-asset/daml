@@ -124,7 +124,8 @@ class ContractDiscriminatorFreshnessCheckSpec
     engine
       .submit(
         cmds = command.Commands(
-          submitters = Set(alice),
+          actAs = Set(alice),
+          readAs = Set.empty,
           commands = cmds,
           ledgerEffectiveTime = let,
           commandsReference = "test",

@@ -53,7 +53,7 @@ class StoreBackedCommandExecutorSpec
       when(mockLfCommands.ledgerEffectiveTime).thenReturn(Time.Timestamp.now())
       when(mockDomainCommands.workflowId).thenReturn(None)
       when(mockDomainCommands.commands).thenReturn(mockLfCommands)
-      when(mockLfCommands.submitters).thenReturn(Set.empty[Party])
+      when(mockLfCommands.actAs).thenReturn(Set.empty[Party])
 
       LoggingContext.newLoggingContext { implicit context =>
         instance.execute(mockDomainCommands, Hash.hashPrivateKey("a key")).map { actual =>

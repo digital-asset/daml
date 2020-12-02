@@ -98,7 +98,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         case (processedCmds, globalCids) =>
           interpretCommands(
             validating = false,
-            submitters = cmds.submitters,
+            submitters = cmds.actAs,
             commands = processedCmds,
             ledgerTime = cmds.ledgerEffectiveTime,
             submissionTime = submissionTime,
