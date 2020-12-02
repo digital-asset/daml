@@ -2044,53 +2044,53 @@ types that satisfies the following rules::
   ——————————————————————————————————————————————————— TypeOrderBoolInt64
     'Bool' <ₜ 'Int64'
 
-  ——————————————————————————————————————————————————— TypeOrderInt64Date
-    'Int64' <ₜ 'Date'
+  ——————————————————————————————————————————————————— TypeOrderInt64Text
+    'Int64' <ₜ 'Text'
 
-  ——————————————————————————————————————————————————— TypeOrderDateTimestamp
-    'Date' <ₜ 'Timestamp'
+  —————————————————————————————————————————————————— TypeOrderTextTimestamp
+    'Text' <ₜ 'Timestamp'
 
-  ——————————————————————————————————————————————————— TypeOrderTimestampText
-    'Timestamp' <ₜ 'Text'
+  ——————————————————————————————————————————————————— TypeOrderTimestampPArty
+    'Timestamp' <ₜ 'Party'
 
-  —————————————————————————————————————————————————— TypeOrderTextParty
-    'Text' <ₜ 'Party'
+  ——————————————————————————————————————————————————— TypeOrderPartyList
+    'Party' <ₜ 'List'
 
-  ——————————————————————————————————————————————————— TypeOrderPartyNumeric
-    'Party' <ₜ 'Numeric'
+  —————————————————————————————————————————————————— TypeOrderListUpdate
+    'List' <ₜ 'Update'
 
-  ——————————————————————————————————————————————————— TypeOrderNumericContractId
-    'Numeric' <ₜ 'ContractId'
+  ——————————————————————————————————————————————————— TypeOrderUpdateScenario
+    'Update' <ₜ 'Scenario'
 
-  ——————————————————————————————————————————————————— TypeOrderContractIdArrow
-    'ContractId' <ₜ'Arrow'
+  ——————————————————————————————————————————————————— TypeOrderScenarioDate
+    'Scenario' <ₜ 'Date'
 
-  ——————————————————————————————————————————————————— TypeOrderArrowOptional
-    'Arrow' <ₜ 'Optional'
+  ——————————————————————————————————————————————————— TypeOrderDateContractId
+    'Date' <ₜ 'ContractId'
 
-  ——————————————————————————————————————————————————— TypeOrderOptionalList
-    'Optional' <ₜ 'List'
+  ——————————————————————————————————————————————————— TypeOrderContractIdOptional
+    'ContractId' <ₜ 'Optional'
 
-  —————————————————————————————————————————————————— TypeOrderListTextMap
-    'List' <ₜ 'TextMap'
+  ——————————————————————————————————————————————————— TypeOrderOptionalArrow
+    'Optional' <ₜ 'Arrow'
 
-  ——————————————————————————————————————————————————— TypeOrderTextMapGenMap
-    'TextMap' <ₜ 'GenMap'
+  ——————————————————————————————————————————————————— TypeOrderArrowTextMap
+    'Arrow' <ₜ 'TextMap'
 
-  ——————————————————————————————————————————————————— TypeOrderGenMapAny
-    'GenMap' <ₜ 'Any'
+  ——————————————————————————————————————————————————— TypeOrderTextMapNumeric
+    'TextMap' <ₜ 'Numeric'
+
+  ——————————————————————————————————————————————————— TypeOrderNumericAny
+    'Numeric' <ₜ  'Any'
 
   ——————————————————————————————————————————————————— TypeOrderAnyTypeRep
     'Any' <ₜ 'TypeRep'
 
   ——————————————————————————————————————————————————— TypeOrderTypeRepUpdate
-    'TypeRep' <ₜ 'Update'
+    'TypeRep' <ₜ 'GenMap'
 
-  ——————————————————————————————————————————————————— TypeOrderUpdateScenario
-    'Update' <ₜ 'Scenario'
-
-  ——————————————————————————————————————————————————— TypeOrderScenarioAnyException
-    'Scenario' <ₜ 'AnyException'
+  ——————————————————————————————————————————————————— TypeOrderGenMapAny
+    'GenMap' <ₜ 'AnyException'
 
   ——————————————————————————————————————————————————— TypeOrderAnyExceptionGeneralError
     'AnyException' <ₜ 'GeneralError'

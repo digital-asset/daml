@@ -30,7 +30,16 @@ class DecodeV1Spec
 
   "The entries of primTypeInfos correspond to Protobuf DamlLf1.PrimType" in {
 
-    (Set(DamlLf1.PrimType.UNRECOGNIZED, DamlLf1.PrimType.DECIMAL) ++
+    (Set(
+      DamlLf1.PrimType.UNRECOGNIZED,
+      DamlLf1.PrimType.DECIMAL,
+      // FIXME: https://github.com/digital-asset/daml/issues/8020
+      // exception type should be in DecodeV1.builtinTypeInfos
+      DamlLf1.PrimType.ANY_EXCEPTION,
+      DamlLf1.PrimType.GENERAL_ERROR,
+      DamlLf1.PrimType.ARITHMETIC_ERROR,
+      DamlLf1.PrimType.CONTRACT_ERROR,
+    ) ++
       DecodeV1.builtinTypeInfos.map(_.proto)) shouldBe
       DamlLf1.PrimType.values().toSet
 
