@@ -146,6 +146,12 @@ object Ast {
   /** Unique textual representation of template Id **/
   final case class ETypeRep(typ: Type) extends Expr
 
+  /** Construct an AnyException from its message and payload */
+  final case class EMakeAnyException(typ: Type, message: Expr, value: Expr) extends Expr
+
+  /** Extract the payload from an AnyException if it matches the given exception type */
+  final case class EFromAnyException(typ: Type, value: Expr) extends Expr
+
   //
   // Kinds
   //
@@ -292,6 +298,10 @@ object Ast {
   case object BTArrow extends BuiltinType
   case object BTAny extends BuiltinType
   case object BTTypeRep extends BuiltinType
+  case object BTAnyException extends BuiltinType
+  case object BTGeneralError extends BuiltinType
+  case object BTArithmeticError extends BuiltinType
+  case object BTContractError extends BuiltinType
 
   //
   // Primitive literals
@@ -414,6 +424,16 @@ object Ast {
 
   final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
 
+  // Exceptions
+  final case object BThrow extends BuiltinFunction(1) // : ∀a. AnyException -> a
+  final case object BMakeGeneralError extends BuiltinFunction(1) // Text -> GeneralError
+  final case object BMakeArithmeticError extends BuiltinFunction(1) // Text -> ArithmeticError
+  final case object BMakeContractError extends BuiltinFunction(1) // Text -> ContractError
+  final case object BAnyExceptionMessage extends BuiltinFunction(1) // AnyException -> Text
+  final case object BGeneralErrorMessage extends BuiltinFunction(1) // GeneralError -> Text
+  final case object BArithmeticErrorMessage extends BuiltinFunction(1) // ArithmeticError -> Text
+  final case object BContractErrorMessage extends BuiltinFunction(1) // ContractError -> Text
+
   // Unstable Text Primitives
   final case object BTextToUpper extends BuiltinFunction(1) // Text → Text
   final case object BTextToLower extends BuiltinFunction(1) // : Text → Text
@@ -452,6 +472,12 @@ object Ast {
   final case class UpdateFetchByKey(rbk: RetrieveByKey) extends Update
   final case class UpdateLookupByKey(rbk: RetrieveByKey) extends Update
   final case class UpdateEmbedExpr(typ: Type, body: Expr) extends Update
+  final case class UpdateTryCatch(
+      typ: Type,
+      body: Expr,
+      binder: ExprVarName,
+      handler: Expr,
+  ) extends Update
 
   //
   // Scenario expressions
@@ -701,6 +727,7 @@ object Ast {
       name: ModuleName,
       definitions: Map[DottedName, GenDefinition[E]],
       templates: Map[DottedName, GenTemplate[E]],
+      exceptions: Map[DottedName, Unit],
       featureFlags: FeatureFlags
   ) extends NoCopy
 
@@ -713,6 +740,7 @@ object Ast {
         name: ModuleName,
         definitions: Iterable[(DottedName, GenDefinition[E])],
         templates: Iterable[(DottedName, GenTemplate[E])],
+        exceptions: Iterable[(DottedName, Unit)],
         featureFlags: FeatureFlags
     ): GenModule[E] = {
 
@@ -724,13 +752,18 @@ object Ast {
         throw PackageError(s"Collision on template name ${templName.toString}")
       }
 
-      new GenModule(name, definitions.toMap, templates.toMap, featureFlags)
+      findDuplicate(exceptions).foreach { exnName =>
+        throw PackageError(s"Collision on exception name ${exnName.toString}")
+      }
+
+      new GenModule(name, definitions.toMap, templates.toMap, exceptions.toMap, featureFlags)
     }
 
     def unapply(arg: GenModule[E]): Option[(
         ModuleName,
         Map[DottedName, GenDefinition[E]],
         Map[DottedName, GenTemplate[E]],
+        Map[DottedName, Unit],
         FeatureFlags)] =
       GenModule.unapply(arg)
   }

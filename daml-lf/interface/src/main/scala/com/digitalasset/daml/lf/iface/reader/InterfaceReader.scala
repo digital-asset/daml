@@ -238,6 +238,12 @@ object InterfaceReader {
         case Ast.BTOptional => \/-((1, PrimType.Optional))
         case Ast.BTTextMap => \/-((1, PrimType.TextMap))
         case Ast.BTGenMap => \/-((2, PrimType.GenMap))
+        case Ast.BTAnyException | Ast.BTGeneralError | Ast.BTArithmeticError | Ast.BTContractError =>
+          // TODO #8020 Add exception types to the interface reader
+          unserializableDataType(
+            ctx,
+            "Exception types are still under implementation, see issue #8020"
+          )
         case Ast.BTNumeric =>
           unserializableDataType(
             ctx,

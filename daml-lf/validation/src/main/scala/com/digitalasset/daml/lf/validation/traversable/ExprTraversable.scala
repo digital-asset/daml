@@ -62,6 +62,11 @@ private[validation] object ExprTraversable {
         f(body)
       case EFromAny(ty @ _, body) =>
         f(body)
+      case EMakeAnyException(typ @ _, message, value) =>
+        f(message)
+        f(value)
+      case EFromAnyException(typ @ _, value) =>
+        f(value)
     }
     ()
   }
@@ -90,6 +95,9 @@ private[validation] object ExprTraversable {
         f(rbk.key)
       case UpdateEmbedExpr(typ @ _, body) =>
         f(body)
+      case UpdateTryCatch(typ @ _, body, binder @ _, handler) =>
+        f(body)
+        f(handler)
     }
     ()
   }

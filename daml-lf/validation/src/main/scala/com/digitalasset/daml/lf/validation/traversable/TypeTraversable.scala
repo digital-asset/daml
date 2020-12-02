@@ -78,6 +78,13 @@ private[validation] object TypeTraversable {
         foreach(u, f)
       case EScenario(s) =>
         foreach(s, f)
+      case EMakeAnyException(typ, message, value) =>
+        f(typ)
+        foreach(message, f)
+        foreach(value, f)
+      case EFromAnyException(typ, value) =>
+        f(typ)
+        foreach(value, f)
       case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
           ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) |
           ETyAbs(_, _) =>
@@ -113,6 +120,10 @@ private[validation] object TypeTraversable {
         foreach(body, f)
       case UpdateGetTime | UpdateFetchByKey(_) | UpdateLookupByKey(_) =>
         ExprTraversable.foreach(update, foreach(_, f))
+      case UpdateTryCatch(typ, body, binder @ _, handler) =>
+        f(typ)
+        foreach(body, f)
+        foreach(handler, f)
     }
 
   private[validation] def foreach[U](binding: Binding, f: Type => U): Unit =
