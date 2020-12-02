@@ -620,7 +620,7 @@ object Server {
         // Request a token refresh
         authUri <- authConfig match {
           case NoAuth =>
-            throw new RuntimeException("Cannot refresh token without authorization service")
+            Future.failed(new RuntimeException("Cannot refresh token without authorization service"))
           case AuthMiddleware(uri) => Future.successful(uri)
         }
         refreshToken <- runningTrigger.triggerRefreshToken match {
