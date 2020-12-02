@@ -19,7 +19,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
   it should "be able to persist and load contracts" in {
     for {
       (_, tx) <- store(singleCreate)
-      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, alice)
+      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, Set(alice))
     } yield {
       // The agreement text is always empty when retrieved from the contract store
       result shouldEqual Some(someVersionedContractInstance.copy(agreementText = ""))
@@ -35,7 +35,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
         blindingInfo = None,
         offsetAndTx = divulgeAlreadyCommittedContract(id = create, divulgees = Set(charlie)),
       )
-      result <- ledgerDao.lookupActiveOrDivulgedContract(create, charlie)
+      result <- ledgerDao.lookupActiveOrDivulgedContract(create, Set(charlie))
     } yield {
       // The agreement text is always empty when retrieved from the contract store
       result shouldEqual Some(someVersionedContractInstance.copy(agreementText = ""))
@@ -45,7 +45,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
   it should "not find contracts that are not visible to the requester" in {
     for {
       (_, tx) <- store(singleCreate)
-      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, charlie)
+      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, Set(charlie))
     } yield {
       result shouldEqual None
     }

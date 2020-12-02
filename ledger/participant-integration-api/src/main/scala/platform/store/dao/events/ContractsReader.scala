@@ -15,6 +15,7 @@ import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.DbDispatcher
+import com.daml.platform.store.dao.events.SqlFunctions.{H2SqlFunctions, PostgresSqlFunctions}
 import com.daml.platform.store.serialization.ValueSerializer
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -41,16 +42,16 @@ private[dao] sealed abstract class ContractsReader(
   private val translation: LfValueTranslation =
     new LfValueTranslation(lfValueTranslationCache)
 
-  protected def lookupContractKeyQuery(submitter: Party, key: Key): SimpleSql[Row]
+  protected def lookupContractKeyQuery(readers: Set[Party], key: Key): SimpleSql[Row]
 
   /** Lookup of a contract in the case the contract value is not already known */
   private def lookupActiveContractAndLoadArgument(
-      submitter: Party,
+      readers: Set[Party],
       contractId: ContractId,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
     dispatcher
       .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-        SQL"select participant_contracts.contract_id, template_id, create_argument from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
+        SQL"select participant_contracts.contract_id, template_id, create_argument from #$contractsTable where contract_witness in ($readers) and participant_contracts.contract_id = $contractId"
           .as(contractRowParser.singleOpt)
       }
       .map(_.map {
@@ -66,14 +67,14 @@ private[dao] sealed abstract class ContractsReader(
 
   /** Lookup of a contract in the case the contract value is already known (loaded from a cache) */
   private def lookupActiveContractWithCachedArgument(
-      submitter: Party,
+      readers: Set[Party],
       contractId: ContractId,
       createArgument: Value,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
     dispatcher
       .executeSql(metrics.daml.index.db.lookupActiveContractWithCachedArgumentDbMetrics) {
         implicit connection =>
-          SQL"select participant_contracts.contract_id, template_id from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
+          SQL"select participant_contracts.contract_id, template_id from #$contractsTable where contract_witness in ($readers) and participant_contracts.contract_id = $contractId"
             .as(contractWithoutValueRowParser.singleOpt)
       }
       .map(
@@ -85,25 +86,25 @@ private[dao] sealed abstract class ContractsReader(
           )))
 
   override def lookupActiveContract(
-      submitter: Party,
+      readers: Set[Party],
       contractId: ContractId,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
     // Depending on whether the contract argument is cached or not, submit a different query to the database
     translation.cache.contracts
       .getIfPresent(LfValueTranslation.ContractCache.Key(contractId)) match {
       case Some(createArgument) =>
-        lookupActiveContractWithCachedArgument(submitter, contractId, createArgument.argument)
+        lookupActiveContractWithCachedArgument(readers, contractId, createArgument.argument)
       case None =>
-        lookupActiveContractAndLoadArgument(submitter, contractId)
+        lookupActiveContractAndLoadArgument(readers, contractId)
 
     }
 
   override def lookupContractKey(
-      submitter: Party,
+      readers: Set[Party],
       key: Key,
   )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
     dispatcher.executeSql(metrics.daml.index.db.lookupContractByKey) { implicit connection =>
-      lookupContractKeyQuery(submitter, key).as(contractId("contract_id").singleOpt)
+      lookupContractKeyQuery(readers, key).as(contractId("contract_id").singleOpt)
     }
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(
@@ -140,10 +141,13 @@ private[dao] object ContractsReader {
   )(implicit ec: ExecutionContext)
       extends ContractsReader(table, dispatcher, metrics, lfValueTranslationCache) {
     override protected def lookupContractKeyQuery(
-        submitter: Party,
+        readers: Set[Party],
         key: Key,
-    ): SimpleSql[Row] =
-      SQL"select participant_contracts.contract_id from #$contractsTable where $submitter =ANY(create_stakeholders) and contract_witness = $submitter and create_key_hash = ${key.hash}"
+    ): SimpleSql[Row] = {
+      val stakeholdersWhere =
+        PostgresSqlFunctions.arrayIntersectionWhereClause("create_stakeholders", readers)
+      SQL"select participant_contracts.contract_id from #$contractsTable where #$stakeholdersWhere and contract_witness in ($readers) and create_key_hash = ${key.hash}"
+    }
   }
 
   private final class H2Database(
@@ -154,10 +158,13 @@ private[dao] object ContractsReader {
   )(implicit ec: ExecutionContext)
       extends ContractsReader(table, dispatcher, metrics, lfValueTranslationCache) {
     override protected def lookupContractKeyQuery(
-        submitter: Party,
+                                                   readers: Set[Party],
         key: Key,
-    ): SimpleSql[Row] =
-      SQL"select participant_contracts.contract_id from #$contractsTable where array_contains(create_stakeholders, $submitter) and contract_witness = $submitter and create_key_hash = ${key.hash}"
+    ): SimpleSql[Row] = {
+      val stakeholdersWhere =
+        H2SqlFunctions.arrayIntersectionWhereClause("create_stakeholders", readers)
+      SQL"select participant_contracts.contract_id from #$contractsTable where #$stakeholdersWhere and contract_witness in ($readers) and create_key_hash = ${key.hash}"
+    }
   }
 
   private val contractsTable = "participant_contracts natural join participant_contract_witnesses"

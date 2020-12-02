@@ -55,12 +55,12 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   override def lookupActiveOrDivulgedContract(
       contractId: Value.ContractId,
-      forParty: Party,
+      forParties: Set[Party],
   )(implicit loggingContext: LoggingContext)
     : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     Timed.future(
       metrics.daml.index.db.lookupActiveContract,
-      ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty))
+      ledgerDao.lookupActiveOrDivulgedContract(contractId, forParties))
 
   override def lookupMaximumLedgerTime(
       contractIds: Set[ContractId],
@@ -71,9 +71,9 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
 
   override def transactionsReader: TransactionsReader = ledgerDao.transactionsReader
 
-  override def lookupKey(key: GlobalKey, forParty: Party)(
+  override def lookupKey(key: GlobalKey, forParties: Set[Party])(
       implicit loggingContext: LoggingContext): Future[Option[Value.ContractId]] =
-    Timed.future(metrics.daml.index.db.lookupKey, ledgerDao.lookupKey(key, forParty))
+    Timed.future(metrics.daml.index.db.lookupKey, ledgerDao.lookupKey(key, forParties))
 
   override def getParties(parties: Seq[Party])(
       implicit loggingContext: LoggingContext): Future[List[PartyDetails]] =

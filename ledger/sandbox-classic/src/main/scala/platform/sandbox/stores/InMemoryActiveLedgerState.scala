@@ -26,18 +26,18 @@ private[sandbox] case class InMemoryActiveLedgerState(
     parties: Map[Party, PartyDetails],
 ) extends ActiveLedgerState[InMemoryActiveLedgerState] {
 
-  def isVisibleForDivulgees(contractId: ContractId, forParty: Party): Boolean =
+  def isVisibleForDivulgees(contractId: ContractId, forParties: Set[Party]): Boolean =
     activeContracts
       .get(contractId)
-      .exists(ac => ac.witnesses.contains(forParty) || ac.divulgences.contains(forParty))
+      .exists(ac => ac.witnesses.exists(forParties.contains) || ac.divulgences.exists{ case (party, _) => forParties.contains(party) })
 
-  def isVisibleForStakeholders(contractId: ContractId, forParty: Party): Boolean =
+  def isVisibleForStakeholders(contractId: ContractId, forParties: Set[Party]): Boolean =
     activeContracts
       .get(contractId)
-      .exists(ac => ac.signatories.contains(forParty) || ac.observers.contains(forParty))
+      .exists(ac => ac.signatories.exists(forParties.contains) || ac.observers.exists(forParties.contains))
 
-  def lookupContractByKeyFor(key: GlobalKey, forParty: Party): Option[ContractId] =
-    keys.get(key).filter(isVisibleForStakeholders(_, forParty))
+//  def lookupContractByKeyFor(key: GlobalKey, forParty: Party): Option[ContractId] =
+//    keys.get(key).filter(isVisibleForStakeholders(_, forParty))
 
   override def lookupContractByKey(key: GlobalKey): Option[ContractId] =
     keys.get(key)
