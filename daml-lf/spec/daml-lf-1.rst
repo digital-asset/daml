@@ -2048,7 +2048,7 @@ types that satisfies the following rules::
     'Int64' <ₜ 'Text'
 
   —————————————————————————————————————————————————— TypeOrderTextTimestamp
-    'Text' <ₜ'Timestamp'
+    'Text' <ₜ 'Timestamp'
 
   ——————————————————————————————————————————————————— TypeOrderTimestampPArty
     'Timestamp' <ₜ 'Party'

@@ -67,6 +67,7 @@ object TypeOrdering extends Ordering[Type] {
 
   private[this] val builtinTypeIdx =
     // must be in the same order as declared in the archive protobuf
+    // no need to be overly careful though since we have a test enforcing this
     List(
       Ast.BTUnit,
       Ast.BTBool,
