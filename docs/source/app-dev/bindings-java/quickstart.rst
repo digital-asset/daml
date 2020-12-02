@@ -229,10 +229,17 @@ Now everything is running, you can try out the quickstart application:
 
    On the **Contracts** page, select **Include archived**. The page now shows all the contracts that *USD_Bank* has ever known about.
 
-   There are just three contracts:
+   There are just five contracts:
 
-   * An *IouTransfer* that was part of the scenario during sandbox startup.
-   * Bob's original *Iou* for $110.
+   * Three contracts created on startup:
+
+     1. A self-issued *Iou* for $110.
+     2. The *IouTransfer* to transfer that *Iou* to Bob
+     3. The resulting *Iou* owned by Bob.
+
+   * The transfer of Bob’s *Iou* to Alice that happened as part of the trade.
+     Note that this is a transient contract that got archived in the same transaction
+     it got created in.
    * The new $110 *Iou* owned by Alice. This is the only active contract.
 
    USD_Bank does not know anything about the trade or the EUR-leg. For more information on privacy, refer to the :ref:`da-ledgers`.
