@@ -71,7 +71,10 @@ apt-get install -qy \
     xdg-utils \
     wget
 
-#curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
+curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
+
+systemctl status google-fluentd.service
+journalctl -xe
 
 #install docker
 DOCKER_VERSION="5:18.09.5~3-0~ubuntu-$(lsb_release -cs)"
