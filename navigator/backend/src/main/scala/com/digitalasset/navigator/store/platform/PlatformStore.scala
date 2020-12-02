@@ -162,13 +162,20 @@ class PlatformStore(
       ()
     case UpdatedParties(details) =>
       details.foreach { partyDetails =>
-        val displayName = partyDetails.displayName match {
-          case Some(value) => value
-          case None => partyDetails.party
+        if (partyDetails.isLocal) {
+          val displayName = partyDetails.displayName match {
+            case Some(value) => value
+            case None => partyDetails.party
+          }
+          self ! Subscribe(
+            displayName,
+            UserConfig(
+              party = ApiTypes.Party(partyDetails.party),
+              role = None,
+              useDatabase = false))
+        } else {
+          log.debug(s"Ignoring non-local party ${partyDetails.party}")
         }
-        self ! Subscribe(
-          displayName,
-          UserConfig(party = ApiTypes.Party(partyDetails.party), role = None, useDatabase = false))
       }
 
     case Subscribe(displayName, config) =>
@@ -178,7 +185,7 @@ class PlatformStore(
         startPartyActor(state.ledgerClient, partyState)
         context.become(connected(state.copy(parties = state.parties + (displayName -> partyState))))
       } else {
-        log.info(s"Actor for $displayName is already running")
+        log.debug(s"Actor for $displayName is already running")
       }
 
     case CreateContract(party, templateId, value) =>
