@@ -196,6 +196,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     private def decodeModuleWithName(lfModule: PLF.Module, moduleName: ModuleName) = {
       val defs = mutable.ArrayBuffer[(DottedName, Definition)]()
       val templates = mutable.ArrayBuffer[(DottedName, Template)]()
+      val exceptions = mutable.ArrayBuffer[(DottedName, Unit)]()
 
       if (versionIsOlderThan(LV.Features.typeSynonyms)) {
         assertEmpty(lfModule.getSynonymsList, "Module.synonyms")
@@ -265,7 +266,17 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         templates += ((defName, decodeTemplate(defn)))
       }
 
-      Module(moduleName, defs, templates, decodeFeatureFlags(lfModule.getFlags))
+      if (versionIsOlderThan(LV.Features.exceptions)) {
+        assertEmpty(lfModule.getExceptionsList, "Module.exceptions")
+      } else if (!onlySerializableDataDefs) {
+        lfModule.getExceptionsList.asScala
+          .foreach { defn =>
+            val defName = getInternedDottedName(defn.getNameInternedDname)
+            exceptions += ((defName, ()))
+          }
+      }
+
+      Module(moduleName, defs, templates, exceptions, decodeFeatureFlags(lfModule.getFlags))
     }
 
     // -----------------------------------------------------------------------
@@ -987,10 +998,21 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           ETypeRep(decodeType(lfExpr.getTypeRep))
 
         case PLF.Expr.SumCase.MAKE_ANY_EXCEPTION =>
-          throw ParseError("Expr.MAKE_ANY_EXCEPTION") // TODO #8020
+          assertSince(LV.Features.exceptions, "Expr.make_any_exception")
+          val makeAnyException = lfExpr.getMakeAnyException
+          EMakeAnyException(
+            typ = decodeType(makeAnyException.getType),
+            message = decodeExpr(makeAnyException.getMessage, definition),
+            value = decodeExpr(makeAnyException.getExpr, definition),
+          )
 
         case PLF.Expr.SumCase.FROM_ANY_EXCEPTION =>
-          throw ParseError("Expr.FROM_ANY_EXCEPTION") // TODO #8020
+          assertSince(LV.Features.exceptions, "Expr.from_any_exception")
+          val fromAnyException = lfExpr.getFromAnyException
+          EFromAnyException(
+            typ = decodeType(fromAnyException.getType),
+            value = decodeExpr(fromAnyException.getExpr, definition),
+          )
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw ParseError("Expr.SUM_NOT_SET")
@@ -1157,7 +1179,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           UpdateEmbedExpr(decodeType(embedExpr.getType), decodeExpr(embedExpr.getBody, definition))
 
         case PLF.Update.SumCase.TRY_CATCH =>
-          throw ParseError("Update.TRY_CATCH") // TODO #8020
+          assertSince(LV.Features.exceptions, "Update.try_catch")
+          val tryCatch = lfUpdate.getTryCatch
+          UpdateTryCatch(
+            typ = decodeType(tryCatch.getReturnType),
+            body = decodeExpr(tryCatch.getTryExpr, definition),
+            binder = toName(internedStrings(tryCatch.getVarInternedStr)),
+            handler = decodeExpr(tryCatch.getCatchExpr, definition),
+          )
 
         case PLF.Update.SumCase.SUM_NOT_SET =>
           throw ParseError("Update.SUM_NOT_SET")
@@ -1373,11 +1402,10 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
       BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
       BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep),
-      // FIXME: https://github.com/digital-asset/daml/issues/8020
-//      BuiltinTypeInfo(ANY_EXCEPTION, ???, minVersion = exceptions),
-//      BuiltinTypeInfo(GENERAL_ERROR, ???, minVersion = exceptions),
-//      BuiltinTypeInfo(ARITHMETIC_ERROR, ???, minVersion = exceptions),
-//      BuiltinTypeInfo(CONTRACT_ERROR, ???, minVersion = exceptions)
+      BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = exceptions),
+      BuiltinTypeInfo(GENERAL_ERROR, BTGeneralError, minVersion = exceptions),
+      BuiltinTypeInfo(ARITHMETIC_ERROR, BTArithmeticError, minVersion = exceptions),
+      BuiltinTypeInfo(CONTRACT_ERROR, BTContractError, minVersion = exceptions)
     )
   }
 
@@ -1697,14 +1725,14 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId, maxVersion = Some(genMap)),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId),
-      BuiltinFunctionInfo(THROW, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(MAKE_GENERAL_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(MAKE_ARITHMETIC_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(MAKE_CONTRACT_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(GENERAL_ERROR_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(ARITHMETIC_ERROR_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(CONTRACT_ERROR_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(THROW, BThrow, minVersion = exceptions),
+      BuiltinFunctionInfo(MAKE_GENERAL_ERROR, BMakeGeneralError, minVersion = exceptions),
+      BuiltinFunctionInfo(MAKE_ARITHMETIC_ERROR, BMakeArithmeticError, minVersion = exceptions),
+      BuiltinFunctionInfo(MAKE_CONTRACT_ERROR, BMakeContractError, minVersion = exceptions),
+      BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
+      BuiltinFunctionInfo(GENERAL_ERROR_MESSAGE, BGeneralErrorMessage, minVersion = exceptions),
+      BuiltinFunctionInfo(ARITHMETIC_ERROR_MESSAGE, BArithmeticErrorMessage, minVersion = exceptions),
+      BuiltinFunctionInfo(CONTRACT_ERROR_MESSAGE, BContractErrorMessage, minVersion = exceptions),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),
