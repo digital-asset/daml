@@ -314,11 +314,11 @@ instance Pretty Error where
     EExpectedExceptionType foundType ->
       "expected an exception type, but found: " <> pretty foundType
     EExpectedExceptionTypeHasNoParams modName exnName ->
-      "exception type should not have type parameters: " <> pretty modName <> "." <> pretty exnName
+      "exception type must not have type parameters: " <> pretty modName <> "." <> pretty exnName
     EExpectedExceptionTypeIsRecord modName exnName ->
-      "exception type should be a record type: " <> pretty modName <> "." <> pretty exnName
+      "exception type must be a record type: " <> pretty modName <> "." <> pretty exnName
     EExpectedExceptionTypeIsNotTemplate modName exnName ->
-      "exception type should not be a template: " <> pretty modName <> "." <> pretty exnName
+      "exception type must not be a template: " <> pretty modName <> "." <> pretty exnName
     EImpredicativePolymorphism typ ->
       vcat
       [ "impredicative polymorphism is not supported:"

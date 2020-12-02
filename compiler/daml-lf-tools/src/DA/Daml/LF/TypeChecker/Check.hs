@@ -851,5 +851,5 @@ checkModule m@(Module _modName _path _flags synonyms dataTypes values templates 
   traverse_ (with (ContextDefTypeSyn m) checkDefTypeSyn) synonyms
   traverse_ (with (ContextDefDataType m) checkDefDataType) dataTypes
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
-  traverse_ (with (ContextDefValue m) checkDefValue) values
   traverse_ (with (ContextDefException m) (checkDefException m)) exceptions
+  traverse_ (with (ContextDefValue m) checkDefValue) values
