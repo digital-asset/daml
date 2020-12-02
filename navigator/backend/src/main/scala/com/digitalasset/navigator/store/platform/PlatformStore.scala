@@ -162,13 +162,18 @@ class PlatformStore(
       ()
     case UpdatedParties(details) =>
       details.foreach { partyDetails =>
-        val displayName = partyDetails.displayName match {
-          case Some(value) => value
-          case None => partyDetails.party
+        if (partyDetails.isLocal) {
+          val displayName = partyDetails.displayName match {
+            case Some(value) => value
+            case None => partyDetails.party
+          }
+          self ! Subscribe(
+            displayName,
+            UserConfig(
+              party = ApiTypes.Party(partyDetails.party),
+              role = None,
+              useDatabase = false))
         }
-        self ! Subscribe(
-          displayName,
-          UserConfig(party = ApiTypes.Party(partyDetails.party), role = None, useDatabase = false))
       }
 
     case Subscribe(displayName, config) =>
