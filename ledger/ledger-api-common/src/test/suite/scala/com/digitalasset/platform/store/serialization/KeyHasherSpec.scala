@@ -25,7 +25,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
   )
 
   private[this] def complexValue = {
-    val builder = ImmArray.newBuilder[(Option[Name], Value[Nothing])]
+    val builder = ImmArray.newBuilder[(Option[Name], Value[Nothing])]()
     builder += None -> ValueInt64(0)
     builder += None -> ValueInt64(123456)
     builder += None -> ValueInt64(-1)
