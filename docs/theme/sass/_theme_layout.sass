@@ -707,22 +707,6 @@ body
   -webkit-box-shadow: 0px 3px 2px -1px $gray-lighter
 
 .topbar
-  .navbar
-    h1
-      &:before
-        padding-left: 0
-        margin-bottom: initial
-        display: none
-
-    .navbar-menu
-      margin-top: -75px
-
-      +media($mobile)
-        margin-top: 0
-
-      &.landing
-        display: block
-
   .version
     margin-top: 49px
     top: 0
@@ -1684,12 +1668,6 @@ body
       .hide-mobile
         display: none
 
-    .navbar
-
-      .navbar-menu
-        .documentation
-          display: block
-
   .wy-nav-side
     overflow-y: unset
     overflow-x: unset
@@ -1811,79 +1789,18 @@ body
 
     .wy-breadcrumbs
       display: none
-
-    .navbar
-      .navbar-menu
-        display: none
-        align-items: start
-        position: absolute
-        top: 66px
-        left: 3
-        width: 100%
-
-        ul
-          display: flex
-          flex-direction: column
-          height: auto
-          width: 100%
-          justify-content: space-around
-
+    
     &.shift
-      left: 0
       width: 100%
-      position: relative
-      background: $menu-background-color
 
       .search-inline
-        display: block
-        width: 100%
-        margin-top: 110px
-
-      .navbar
-        background: $nav-background-color
-
-        .navbar-menu
           display: block
-          font-size: 14px
-          box-shadow: none
-          -moz-box-shadow: none
-          -webkit-box-shadow: none
-          padding-bottom: 10px
-
-          // todo - add color variable
-          background-color: $menu-background-color
-          z-index: 2
-
-          ul
-            li
-              margin-left: 0
-
-              a
-                font-weight: $weight-body
-                color: $text-dark
-
-              &.active
-                padding-top: 25px
-                border: none
-
-                a
-                  position: relative
-
-                  font-weight: $weight-body
-
-                  &:after
-                    content: ""
-                    display: block
-                    background: url("../images/Check.svg") no-repeat
-                    width: 14px
-                    height: 17px
-                    background-size: 14px
-                    position: absolute
-                    left: -20px
-                    top: 3px
+          width: 100%
+          margin-top: 110px
 
       .wy-nav-content
         margin-top: 110px
+
   .content-menu
     display: none
 
