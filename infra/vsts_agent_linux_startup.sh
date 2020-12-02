@@ -8,7 +8,7 @@ set -euo pipefail
 ## Hardening
 
 # Commit harakiri on failure
-#trap "shutdown -h now" EXIT
+trap "shutdown -h now" EXIT
 
 # replace the default nameserver to not use the metadata server
 echo "nameserver 8.8.8.8" > /etc/resolv.conf
@@ -71,7 +71,7 @@ apt-get install -qy \
     xdg-utils \
     wget
 
-#curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
+curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
 
 #install docker
 DOCKER_VERSION="5:18.09.5~3-0~ubuntu-$(lsb_release -cs)"
