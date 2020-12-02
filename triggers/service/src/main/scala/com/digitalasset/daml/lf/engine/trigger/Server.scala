@@ -486,7 +486,24 @@ object Server {
       replyTo: ActorRef[StatusReply[Unit]])
       extends Message
 
+  final case class RestartTrigger(
+      trigger: Trigger,
+      runningTrigger: RunningTrigger,
+      compiledPackages: CompiledPackages)
+      extends Message
+
   final case class GetRunner(replyTo: ActorRef[Option[ActorRef[TriggerRunner.Message]]], uuid: UUID)
+      extends Message
+
+  final case class TriggerTokenRefreshFailed(triggerInstance: UUID, cause: Throwable)
+      extends Message
+
+  // Messages passed to the server from a TriggerRunner
+
+  final case class TriggerTokenExpired(
+      triggerInstance: UUID,
+      trigger: Trigger,
+      compiledPackages: CompiledPackages)
       extends Message
 
   // Messages passed to the server from a TriggerRunnerImpl
@@ -507,15 +524,6 @@ object Server {
 
   private def triggerRunnerName(triggerInstance: UUID): String =
     triggerInstance.toString ++ "-monitor"
-
-  final case class TriggerTokenExpired(
-      triggerInstance: UUID,
-  ) extends Message
-
-  final case class TriggerTokenRefresh(
-      triggerInstance: UUID,
-      result: Try[Unit],
-  ) extends Message
 
   def apply(
       host: String,
@@ -561,30 +569,38 @@ object Server {
     def logTriggerStarted(m: TriggerStarted): Unit =
       server.logTriggerStatus(m.triggerInstance, "running")
 
-    def startTrigger(req: StartTrigger): Unit = {
-      val runningTrigger = req.runningTrigger
-      Try(
-        ctx.spawn(
-          TriggerRunner(
-            new TriggerRunner.Config(
-              ctx.self,
-              runningTrigger.triggerInstance,
-              runningTrigger.triggerParty,
-              runningTrigger.triggerApplicationId,
-              runningTrigger.triggerAccessToken,
-              runningTrigger.triggerRefreshToken,
-              req.compiledPackages,
-              req.trigger,
-              ledgerConfig,
-              restartConfig
-            ),
-            runningTrigger.triggerInstance.toString
+    def spawnTrigger(
+        trigger: Trigger,
+        runningTrigger: RunningTrigger,
+        compiledPackages: CompiledPackages): ActorRef[TriggerRunner.Message] =
+      ctx.spawn(
+        TriggerRunner(
+          new TriggerRunner.Config(
+            ctx.self,
+            runningTrigger.triggerInstance,
+            runningTrigger.triggerParty,
+            runningTrigger.triggerApplicationId,
+            runningTrigger.triggerAccessToken,
+            runningTrigger.triggerRefreshToken,
+            compiledPackages,
+            trigger,
+            ledgerConfig,
+            restartConfig
           ),
-          triggerRunnerName(runningTrigger.triggerInstance)
-        )) match {
+          runningTrigger.triggerInstance.toString
+        ),
+        triggerRunnerName(runningTrigger.triggerInstance)
+      )
+
+    def startTrigger(req: StartTrigger): Unit = {
+      Try(spawnTrigger(req.trigger, req.runningTrigger, req.compiledPackages)) match {
         case Failure(exception) => req.replyTo ! StatusReply.error(exception)
         case Success(_) => req.replyTo ! StatusReply.success(())
       }
+    }
+
+    def restartTrigger(req: RestartTrigger): Unit = {
+      val _ = spawnTrigger(req.trigger, req.runningTrigger, req.compiledPackages)
     }
 
     def getRunner(req: GetRunner) = {
@@ -593,7 +609,7 @@ object Server {
         .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
     }
 
-    def refreshAccessToken(triggerInstance: UUID): Future[Unit] =
+    def refreshAccessToken(triggerInstance: UUID): Future[RunningTrigger] =
       for {
         // Lookup running trigger
         runningTrigger <- dao.getRunningTrigger(triggerInstance).flatMap {
@@ -632,20 +648,13 @@ object Server {
               Future.failed(new RuntimeException(s"Failed to refresh token ($status): $msg"))
             }
         }
+        // Update the tokens in the trigger db
         accessToken = AccessToken(authorize.accessToken)
         refreshToken = RefreshToken.subst(authorize.refreshToken)
-        // Update and restart the trigger
         _ <- dao.updateRunningTriggerToken(triggerInstance, accessToken, refreshToken)
-        optTriggerRunner = ctx
-          .child(triggerRunnerName(triggerInstance))
-          .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
-        triggerRunner <- optTriggerRunner match {
-          case Some(runner) => Future.successful(runner)
-          case None =>
-            Future.failed(new RuntimeException(s"No trigger runner for $triggerInstance"))
-        }
-        _ = triggerRunner ! UpdateToken(accessToken, refreshToken)
-      } yield ()
+      } yield
+        runningTrigger
+          .copy(triggerAccessToken = Some(accessToken), triggerRefreshToken = refreshToken)
 
     // The server running state.
     def running(binding: ServerBinding): Behavior[Message] =
@@ -653,6 +662,9 @@ object Server {
         .receiveMessage[Message] {
           case req: StartTrigger =>
             startTrigger(req)
+            Behaviors.same
+          case req: RestartTrigger =>
+            restartTrigger(req)
             Behaviors.same
           case req: GetRunner =>
             getRunner(req)
@@ -683,18 +695,16 @@ object Server {
             // the management of a supervision strategy).
             Behaviors.same
 
-          case TriggerTokenExpired(triggerInstance) =>
-            ctx.log.debug(s"Trigger token expired $triggerInstance")
-            server.logTriggerStatus(triggerInstance, "stopped: access token expired")
-            ctx.pipeToSelf(refreshAccessToken(triggerInstance))(
-              TriggerTokenRefresh(triggerInstance, _))
+          case TriggerTokenExpired(triggerInstance, trigger, compiledPackages) =>
+            ctx.log.info(s"Updating token for $triggerInstance")
+            ctx.pipeToSelf(refreshAccessToken(triggerInstance)) {
+              case Success(runningTrigger) =>
+                RestartTrigger(trigger, runningTrigger, compiledPackages)
+              case Failure(cause) => TriggerTokenRefreshFailed(triggerInstance, cause)
+            }
             Behaviors.same
-          case TriggerTokenRefresh(triggerInstance, result) =>
-            ctx.log.debug(s"Trigger token refresh ${result.toString}")
-            server.logTriggerStatus(triggerInstance, result match {
-              case Failure(_) => "stopped: access token refresh failed"
-              case Success(_) => "started: access token refresh succeeded"
-            })
+          case TriggerTokenRefreshFailed(triggerInstance, cause) =>
+            server.logTriggerStatus(triggerInstance, s"stopped: failed to refresh token: $cause")
             Behaviors.same
 
           case GetServerBinding(replyTo) =>
@@ -754,6 +764,9 @@ object Server {
         case req: StartTrigger =>
           startTrigger(req)
           Behaviors.same
+        case req: RestartTrigger =>
+          restartTrigger(req)
+          Behaviors.same
         case req: GetRunner =>
           getRunner(req)
           Behaviors.same
@@ -761,7 +774,7 @@ object Server {
         case _: TriggerInitializationFailure | _: TriggerRuntimeFailure =>
           Behaviors.unhandled
 
-        case _: TriggerTokenExpired | _: TriggerTokenRefresh =>
+        case _: TriggerTokenExpired | _: TriggerTokenRefreshFailed =>
           Behaviors.unhandled
       }
 
