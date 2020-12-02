@@ -29,4 +29,3 @@ class TypeOrderingSpec extends WordSpec with Matchers {
   }
 
 }
-
