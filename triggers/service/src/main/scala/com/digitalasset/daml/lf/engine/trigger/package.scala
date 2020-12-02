@@ -24,6 +24,10 @@ package trigger {
     sealed trait AccessTokenTag
     type AccessToken = String @@ AccessTokenTag
     val AccessToken = Tag.of[AccessTokenTag]
+
+    sealed trait RefreshTokenTag
+    type RefreshToken = String @@ RefreshTokenTag
+    val RefreshToken = Tag.of[RefreshTokenTag]
   }
   import Tagged._
   import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
@@ -47,6 +51,7 @@ package trigger {
       triggerName: Identifier,
       triggerParty: Party,
       triggerApplicationId: ApplicationId,
-      triggerToken: Option[AccessToken],
+      triggerAccessToken: Option[AccessToken],
+      triggerRefreshToken: Option[RefreshToken],
   )
 }

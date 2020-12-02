@@ -5,8 +5,8 @@ package com.daml.lf.engine.trigger
 
 import java.io.File
 import java.net.InetAddress
-import java.time.LocalDateTime
-import java.util.UUID
+import java.time.{Clock, Duration => JDuration, Instant, LocalDateTime, ZoneId}
+import java.util.{Date, UUID}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 
 import io.grpc.Channel
@@ -21,10 +21,15 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri, headers}
 import akka.http.scaladsl.model.Uri.Path
+import com.auth0.jwt.JWT
+import com.auth0.jwt.JWTVerifier.BaseVerification
+import com.auth0.jwt.algorithms.Algorithm
+import com.auth0.jwt.interfaces.{Clock => Auth0Clock}
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.clock.AdjustableClock
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.jwt.domain.DecodedJwt
-import com.daml.jwt.{HMAC256Verifier, JwtSigner, JwtVerifierBase}
+import com.daml.jwt.{JwtSigner, JwtVerifier, JwtVerifierBase}
 import com.daml.ledger.api.auth
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.domain.LedgerId
@@ -158,17 +163,26 @@ trait AuthMiddlewareFixture
     jwt.value
   }
   protected def authConfig: AuthConfig = AuthMiddleware(authMiddlewareUri)
-  protected def authServer: OAuthServer = resource.value._1
+  protected def authClock: AdjustableClock = resource.value._1
+  protected def authServer: OAuthServer = resource.value._2
 
-  private def authVerifier: JwtVerifierBase = HMAC256Verifier(authSecret).toOption.get
-  private def authMiddleware: ServerBinding = resource.value._2
+  private def authVerifier: JwtVerifierBase = new JwtVerifier(
+    JWT
+      .require(Algorithm.HMAC256(authSecret))
+      .asInstanceOf[BaseVerification]
+      .build(new Auth0Clock {
+        override def getToday: Date = Date.from(authClock.instant())
+      })
+  )
+  private def authMiddleware: ServerBinding = resource.value._3
   private def authMiddlewareUri: Uri =
     Uri()
       .withScheme("http")
       .withAuthority(authMiddleware.localAddress.getHostString, authMiddleware.localAddress.getPort)
 
   private val authSecret: String = "secret"
-  private var resource: OwnedResource[ResourceContext, (OAuthServer, ServerBinding)] = null
+  private var resource
+    : OwnedResource[ResourceContext, (AdjustableClock, OAuthServer, ServerBinding)] = null
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -178,18 +192,23 @@ trait AuthMiddlewareFixture
       for {
         _ <- binding.unbind()
       } yield ()
-    val oauthConfig = OAuthConfig(
-      port = Port.Dynamic,
-      ledgerId = this.getClass.getSimpleName,
-      jwtSecret = authSecret,
-      parties = authParties,
-      clock = None,
-    )
-    resource = new OwnedResource(new ResourceOwner[(OAuthServer, ServerBinding)] {
-      override def acquire()(
-          implicit context: ResourceContext): Resource[(OAuthServer, ServerBinding)] = {
-        val oauthServer = OAuthServer(oauthConfig)
+    val ledgerId = this.getClass.getSimpleName
+    resource = new OwnedResource(new ResourceOwner[(AdjustableClock, OAuthServer, ServerBinding)] {
+      override def acquire()(implicit context: ResourceContext)
+        : Resource[(AdjustableClock, OAuthServer, ServerBinding)] = {
         for {
+          clock <- Resource(
+            Future(
+              AdjustableClock(Clock.fixed(Instant.now(), ZoneId.systemDefault()), JDuration.ZERO)))(
+            _ => Future(()))
+          oauthConfig = OAuthConfig(
+            port = Port.Dynamic,
+            ledgerId = ledgerId,
+            jwtSecret = authSecret,
+            parties = authParties,
+            clock = Some(clock),
+          )
+          oauthServer = OAuthServer(oauthConfig)
           oauth <- Resource(oauthServer.start())(closeServerBinding)
           uri = Uri()
             .withScheme("http")
@@ -203,7 +222,7 @@ trait AuthMiddlewareFixture
             tokenVerifier = authVerifier,
           )
           middleware <- Resource(MiddlewareServer.start(middlewareConfig))(closeServerBinding)
-        } yield (oauthServer, middleware)
+        } yield (clock, oauthServer, middleware)
       }
     })
     resource.setup()
