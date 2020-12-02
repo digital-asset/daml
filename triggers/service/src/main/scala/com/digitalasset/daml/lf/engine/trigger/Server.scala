@@ -16,6 +16,7 @@ import akka.actor.typed.{ActorRef, Behavior, Scheduler}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
@@ -36,7 +37,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine._
 import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
-import com.daml.lf.engine.trigger.Tagged.AccessToken
+import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
 import com.daml.lf.engine.trigger.TriggerRunner._
 import com.daml.lf.engine.trigger.dao._
 import com.daml.oauth.middleware.Request.Claims
@@ -146,10 +147,16 @@ class Server(
   // Note that this does not yet start the trigger.
   private def addNewTrigger(
       config: TriggerConfig,
-      token: Option[AccessToken]
+      auth: Option[Authorization],
   )(implicit ec: ExecutionContext): Future[Either[String, (Trigger, RunningTrigger)]] = {
     val runningTrigger =
-      RunningTrigger(config.instance, config.name, config.party, config.applicationId, token)
+      RunningTrigger(
+        config.instance,
+        config.name,
+        config.party,
+        config.applicationId,
+        auth.map(_.accessToken),
+        auth.flatMap(_.refreshToken))
     // Validate trigger id before persisting to DB
     Trigger.fromIdentifier(compiledPackages, runningTrigger.triggerName) match {
       case Left(value) => Future.successful(Left(value))
@@ -216,6 +223,8 @@ class Server(
   // TODO[AH] Make sure this is bounded in size.
   private val authCallbacks: TrieMap[UUID, Route] = TrieMap()
 
+  case class Authorization(accessToken: AccessToken, refreshToken: Option[RefreshToken])
+
   // This directive requires authorization for the given claims via the auth middleware, if configured.
   // If no auth middleware is configured, then the request will proceed without attempting authorization.
   //
@@ -225,14 +234,14 @@ class Server(
   // to proceed once the login flow completed and authentication succeeded.
   private def authorize(claims: AuthRequest.Claims)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[AccessToken]] =
+      system: ActorSystem): Directive1[Option[Authorization]] =
     authConfig match {
       case NoAuth => provide(None)
       case AuthMiddleware(authUri) =>
         // Attempt to obtain the access token from the middleware's /auth endpoint.
         // Forwards the current request's cookies.
         // Fails if the response is not OK or Unauthorized.
-        def auth: Directive1[Option[AccessToken]] = {
+        def auth: Directive1[Option[Authorization]] = {
           val uri = authUri
             .withPath(Path./("auth"))
             .withQuery(AuthRequest.Auth(claims).toQuery)
@@ -241,7 +250,10 @@ class Server(
             onSuccess(Http().singleRequest(HttpRequest(uri = uri, headers = cookies))).flatMap {
               case HttpResponse(StatusCodes.OK, _, entity, _) =>
                 onSuccess(Unmarshal(entity).to[AuthResponse.Authorize]).map { auth =>
-                  Some(AccessToken(auth.accessToken)): Option[AccessToken]
+                  Some(
+                    Authorization(
+                      AccessToken(auth.accessToken),
+                      RefreshToken.subst(auth.refreshToken))): Option[Authorization]
                 }
               case HttpResponse(StatusCodes.Unauthorized, _, _, _) =>
                 provide(None)
@@ -259,7 +271,7 @@ class Server(
         Directive { inner =>
           auth {
             // Authorization successful - pass token to continuation
-            case Some(token) => inner(Tuple1(Some(token)))
+            case Some(authorization) => inner(Tuple1(Some(authorization)))
             // Authorization failed - login and retry on callback request.
             case None => { ctx =>
               val requestId = UUID.randomUUID()
@@ -271,10 +283,10 @@ class Server(
                       // TODO[AH] Add WWW-Authenticate header
                       complete(errorResponse(StatusCodes.Unauthorized))
                     }
-                    case Some(token) =>
+                    case Some(authorization) =>
                       // Authorization successful after login - use old request context and pass token to continuation.
                       mapRequestContext(_ => ctx) {
-                        inner(Tuple1(Some(token)))
+                        inner(Tuple1(Some(authorization)))
                       }
                   }
                 }
@@ -298,7 +310,7 @@ class Server(
   // If the trigger does not exist, then the request will also proceed without attempting authorization.
   private def authorizeForTrigger(uuid: UUID, readOnly: Boolean = false)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[AccessToken]] =
+      system: ActorSystem): Directive1[Option[Authorization]] =
     authConfig match {
       case NoAuth => provide(None)
       case AuthMiddleware(_) =>
@@ -349,9 +361,9 @@ class Server(
                       applicationId = Some(config.applicationId))
                   // TODO[AH] Why do we need to pass ec, system explicitly?
                   authorize(claims)(ec, system) {
-                    token =>
+                    auth =>
                       val instOrErr: Future[Either[String, JsValue]] =
-                        addNewTrigger(config, token)
+                        addNewTrigger(config, auth)
                           .flatMap {
                             case Left(value) => Future.successful(Left(value))
                             case Right((trigger, runningTrigger)) =>
@@ -474,7 +486,24 @@ object Server {
       replyTo: ActorRef[StatusReply[Unit]])
       extends Message
 
+  final case class RestartTrigger(
+      trigger: Trigger,
+      runningTrigger: RunningTrigger,
+      compiledPackages: CompiledPackages)
+      extends Message
+
   final case class GetRunner(replyTo: ActorRef[Option[ActorRef[TriggerRunner.Message]]], uuid: UUID)
+      extends Message
+
+  final case class TriggerTokenRefreshFailed(triggerInstance: UUID, cause: Throwable)
+      extends Message
+
+  // Messages passed to the server from a TriggerRunner
+
+  final case class TriggerTokenExpired(
+      triggerInstance: UUID,
+      trigger: Trigger,
+      compiledPackages: CompiledPackages)
       extends Message
 
   // Messages passed to the server from a TriggerRunnerImpl
@@ -540,29 +569,38 @@ object Server {
     def logTriggerStarted(m: TriggerStarted): Unit =
       server.logTriggerStatus(m.triggerInstance, "running")
 
-    def startTrigger(req: StartTrigger): Unit = {
-      val runningTrigger = req.runningTrigger
-      Try(
-        ctx.spawn(
-          TriggerRunner(
-            new TriggerRunner.Config(
-              ctx.self,
-              runningTrigger.triggerInstance,
-              runningTrigger.triggerParty,
-              runningTrigger.triggerApplicationId,
-              AccessToken.unsubst(runningTrigger.triggerToken),
-              req.compiledPackages,
-              req.trigger,
-              ledgerConfig,
-              restartConfig
-            ),
-            runningTrigger.triggerInstance.toString
+    def spawnTrigger(
+        trigger: Trigger,
+        runningTrigger: RunningTrigger,
+        compiledPackages: CompiledPackages): ActorRef[TriggerRunner.Message] =
+      ctx.spawn(
+        TriggerRunner(
+          new TriggerRunner.Config(
+            ctx.self,
+            runningTrigger.triggerInstance,
+            runningTrigger.triggerParty,
+            runningTrigger.triggerApplicationId,
+            runningTrigger.triggerAccessToken,
+            runningTrigger.triggerRefreshToken,
+            compiledPackages,
+            trigger,
+            ledgerConfig,
+            restartConfig
           ),
-          triggerRunnerName(runningTrigger.triggerInstance)
-        )) match {
+          runningTrigger.triggerInstance.toString
+        ),
+        triggerRunnerName(runningTrigger.triggerInstance)
+      )
+
+    def startTrigger(req: StartTrigger): Unit = {
+      Try(spawnTrigger(req.trigger, req.runningTrigger, req.compiledPackages)) match {
         case Failure(exception) => req.replyTo ! StatusReply.error(exception)
         case Success(_) => req.replyTo ! StatusReply.success(())
       }
+    }
+
+    def restartTrigger(req: RestartTrigger): Unit = {
+      val _ = spawnTrigger(req.trigger, req.runningTrigger, req.compiledPackages)
     }
 
     def getRunner(req: GetRunner) = {
@@ -571,12 +609,63 @@ object Server {
         .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
     }
 
+    def refreshAccessToken(triggerInstance: UUID): Future[RunningTrigger] = {
+      def getOrFail[T](result: Option[T], ex: => Throwable): Future[T] = result match {
+        case Some(value) => Future.successful(value)
+        case None => Future.failed(ex)
+      }
+
+      for {
+        // Lookup running trigger
+        runningTrigger <- dao
+          .getRunningTrigger(triggerInstance)
+          .flatMap(getOrFail(_, new RuntimeException(s"Unknown trigger $triggerInstance")))
+        // Request a token refresh
+        authUri <- getOrFail(authConfig match {
+          case AuthMiddleware(uri) => Some(uri)
+          case _ => None
+        }, new RuntimeException("Cannot refresh token without authorization service"))
+        refreshToken <- getOrFail(
+          runningTrigger.triggerRefreshToken,
+          new RuntimeException(s"No refresh token for $triggerInstance"))
+        requestEntity <- {
+          import AuthJsonProtocol._
+          Marshal(AuthRequest.Refresh(RefreshToken.unwrap(refreshToken)))
+            .to[RequestEntity]
+        }
+        response <- Http().singleRequest(
+          HttpRequest(
+            method = HttpMethods.POST,
+            uri = authUri.withPath(Path./("refresh")),
+            entity = requestEntity,
+          ))
+        authorize <- response.status match {
+          case StatusCodes.OK =>
+            import AuthJsonProtocol._
+            Unmarshal(response.entity).to[AuthResponse.Authorize]
+          case status =>
+            Unmarshal(response).to[String].flatMap { msg =>
+              Future.failed(new RuntimeException(s"Failed to refresh token ($status): $msg"))
+            }
+        }
+        // Update the tokens in the trigger db
+        accessToken = AccessToken(authorize.accessToken)
+        refreshToken = RefreshToken.subst(authorize.refreshToken)
+        _ <- dao.updateRunningTriggerToken(triggerInstance, accessToken, refreshToken)
+      } yield
+        runningTrigger
+          .copy(triggerAccessToken = Some(accessToken), triggerRefreshToken = refreshToken)
+    }
+
     // The server running state.
     def running(binding: ServerBinding): Behavior[Message] =
       Behaviors
         .receiveMessage[Message] {
           case req: StartTrigger =>
             startTrigger(req)
+            Behaviors.same
+          case req: RestartTrigger =>
+            restartTrigger(req)
             Behaviors.same
           case req: GetRunner =>
             getRunner(req)
@@ -605,6 +694,18 @@ object Server {
             server.logTriggerStatus(triggerInstance, "stopped: runtime failure")
             // Don't send any messages to the runner here (it's under
             // the management of a supervision strategy).
+            Behaviors.same
+
+          case TriggerTokenExpired(triggerInstance, trigger, compiledPackages) =>
+            ctx.log.info(s"Updating token for $triggerInstance")
+            ctx.pipeToSelf(refreshAccessToken(triggerInstance)) {
+              case Success(runningTrigger) =>
+                RestartTrigger(trigger, runningTrigger, compiledPackages)
+              case Failure(cause) => TriggerTokenRefreshFailed(triggerInstance, cause)
+            }
+            Behaviors.same
+          case TriggerTokenRefreshFailed(triggerInstance, cause) =>
+            server.logTriggerStatus(triggerInstance, s"stopped: failed to refresh token: $cause")
             Behaviors.same
 
           case GetServerBinding(replyTo) =>
@@ -664,11 +765,17 @@ object Server {
         case req: StartTrigger =>
           startTrigger(req)
           Behaviors.same
+        case req: RestartTrigger =>
+          restartTrigger(req)
+          Behaviors.same
         case req: GetRunner =>
           getRunner(req)
           Behaviors.same
 
         case _: TriggerInitializationFailure | _: TriggerRuntimeFailure =>
+          Behaviors.unhandled
+
+        case _: TriggerTokenExpired | _: TriggerTokenRefreshFailed =>
           Behaviors.unhandled
       }
 

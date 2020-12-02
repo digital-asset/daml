@@ -1,18 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as Moment from 'moment';
-import * as React from 'react';
 import {
   ApolloClient,
   ApolloError,
   ApolloQueryResult,
   gql,
   NetworkStatus,
-  QueryProps,
-  Subscription,
-  withApollo,
-} from 'react-apollo';
+  ObservableSubscription,
+} from '@apollo/client';
+import { QueryControls, withApollo } from '@apollo/client/react/hoc';
+import Moment from 'moment';
+import * as React from 'react';
 import { TimeType } from '../api/OpaqueTypes';
 import { LedgerTimeQuery } from '../api/Queries';
 import { Connect } from '../types';
@@ -30,7 +29,7 @@ interface ApolloCurrentResult<T> {
 // ------------------------------------------------------------------------------------------------
 // Props
 // ------------------------------------------------------------------------------------------------
-interface QueryData extends QueryProps {
+interface QueryData extends QueryControls {
   ledgerTime: LedgerTimeResult;
 }
 
@@ -50,7 +49,8 @@ export interface InnerProps {
 }
 
 export interface ApolloProps {
-  client: ApolloClient;
+  // tslint:disable-next-line:no-any
+  client: ApolloClient<any>;
 }
 
 export interface State {
@@ -131,7 +131,7 @@ export default function withLedgerTime<P extends {}>(C: React.ComponentType<Inne
   type Props = P & ApolloProps;
   class Component extends React.Component<Props, State> {
     private timeoutId: number | undefined = undefined;
-    private querySubscription: Subscription | undefined = undefined;
+    private querySubscription: ObservableSubscription | undefined = undefined;
 
     constructor(props: Props) {
       super(props);
@@ -158,7 +158,7 @@ export default function withLedgerTime<P extends {}>(C: React.ComponentType<Inne
         query: timeQuery,
       });
       const next = () => {
-        const qr = observableQuery.currentResult();
+        const qr = observableQuery.getCurrentResult();
         const newState = resultToState(qr);
         this.setState(newState);
         this.scheduleUpdate(getUpdateInterval(newState.timeType));
@@ -182,7 +182,7 @@ export default function withLedgerTime<P extends {}>(C: React.ComponentType<Inne
 
     scheduleUpdate(interval: number) {
       if (interval < Infinity) {
-        this.timeoutId = setTimeout(() => {
+        this.timeoutId = window.setTimeout(() => {
           this.forceUpdate();
           this.scheduleUpdate(interval);
         }, interval);

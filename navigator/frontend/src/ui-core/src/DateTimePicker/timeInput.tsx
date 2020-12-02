@@ -8,7 +8,7 @@
 // The code was copied in order to simplify extensive customization.
 // In the future, we may decide to use another library to implement
 // this component.
-import * as Moment from 'moment';
+import Moment from 'moment';
 import * as React from 'react';
 import Button from '../Button';
 import { default as styled, hardcodedStyle } from '../theme';

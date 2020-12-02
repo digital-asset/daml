@@ -1,22 +1,24 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+
+import { ApolloClient } from '@apollo/client';
+import { withApollo, withQuery } from '@apollo/client/react/hoc';
 import {
   ApolloDataProvider,
   ContractColumn,
   ContractTable,
   ContractTableConfig,
   Dispatch,
-  WithGraphQL,
-  WithRedux,
 } from '@da/ui-core';
 import { User } from '@da/ui-core/lib/session';
 import * as React from 'react';
-import { ApolloClient, graphql, withApollo } from 'react-apollo';
 import { connect } from 'react-redux';
 import { compose } from 'redux';
+import { ContractsByTemplateParamQuery, ContractsByTemplateParamQueryVariables } from 'src/api/Queries';
 import { contract as contractRoute } from '../../routes';
 import { pathToAction } from '../../routes';
+import { Connect } from '../../types';
 import * as App from '../app';
 import makeColumns from './columns';
 import {
@@ -65,7 +67,8 @@ interface ReduxProps {
 }
 
 interface ApolloProps {
-  client: ApolloClient;
+  // tslint:disable-next-line: no-any
+  client: ApolloClient<any>;
 }
 
 interface GraphQLProps {
@@ -129,12 +132,14 @@ class Component extends React.Component<Props, {}> {
   }
 }
 
-const withRedux: WithRedux<Props> = connect();
-const withGraphQL: WithGraphQL<Props>
-  = graphql(paramQuery, { options: (s) => makeParamQueryVariables(s) });
+const withRedux: Connect<ReduxProps, ApolloProps & OwnProps> = connect();
+const withGraphQL: Connect<GraphQLProps, ReduxProps & ApolloProps & OwnProps>
+  =
+  withQuery<Props, ContractsByTemplateParamQuery, ContractsByTemplateParamQueryVariables, GraphQLProps>(
+    paramQuery, { options: (s) => makeParamQueryVariables(s) });
 
 export const UI: React.ComponentClass<OwnProps> = compose(
-  withApollo,
+  (x) => withApollo<OwnProps>(x),
   withRedux,
   withGraphQL,
 )(Component);

@@ -8,7 +8,7 @@ import * as React from 'react';
 import { connect } from 'react-redux';
 import styled from 'styled-components';
 import * as App from '../applets/app';
-import logoUrl = require('../images/logo-large.png');
+import logoUrl from '../images/logo-large.png';
 import { about } from '../routes';
 import { Icon } from './Icon';
 import Link from './Link';

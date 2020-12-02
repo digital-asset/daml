@@ -60,6 +60,7 @@ interface InputProps<T> {
   onChange(val: T): void;
   argument: DamlLfValue;
   validate?(val: T): boolean;
+  name: string;
 }
 
 
@@ -549,7 +550,7 @@ const BoolInput = (props: InputProps<DamlLfValueBool>): JSX.Element => {
           <StyledRadioInput
             type="radio"
             disabled={disabled}
-            name={name}
+            name={`${name}.true`}
             checked={value}
             onChange={(_) => { onChange(DamlLfValueF.bool(true)); }}
           />
@@ -560,7 +561,7 @@ const BoolInput = (props: InputProps<DamlLfValueBool>): JSX.Element => {
           <StyledRadioInput
             type="radio"
             disabled={disabled}
-            name={name}
+            name={`${name}.false`}
             checked={!value}
             onChange={(_) => { onChange(DamlLfValueF.bool(false)); }}
           />
@@ -980,7 +981,8 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
   } = props;
 
   if (parameter.type === 'primitive') {
-    switch (parameter.name) {
+    const primt = parameter.name;
+    switch (primt) {
       case 'text': return (
         <TextInput
           parameter={parameter}
@@ -988,6 +990,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
           onChange={onChange}
           argument={argument}
           validate={validate}
+          name={name}
         />
       );
       case 'party': return (
@@ -997,6 +1000,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
           onChange={onChange}
           argument={argument}
           validate={validate}
+          name={name}
         />
       );
       case 'contractid': return (
@@ -1017,6 +1021,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
           onChange={onChange}
           argument={argument}
           validate={validate}
+          name={name}
         />
       );
       case 'timestamp': return (
@@ -1042,6 +1047,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
           onChange={onChange}
           argument={argument}
           validate={validate}
+          name={name}
         />
       );
       case 'unit': return (
@@ -1051,6 +1057,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
           onChange={onChange}
           argument={argument}
           validate={validate}
+          name={name}
         />
       );
       case 'list': {
@@ -1106,7 +1113,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
           />
         );
       }
-      default: throw new NonExhaustiveMatch(parameter.name)
+      default: throw new NonExhaustiveMatch(primt)
     }
   } else if (parameter.type === 'numeric') {
     return (

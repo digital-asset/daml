@@ -26,9 +26,6 @@ export interface Dispatch<S> {
 // Types for higher order components
 // ----------------------------------------------------------------------------
 
-export type Diff<T, U> = T extends U ? never : T;
-export type Omit<T, K extends keyof T> = Pick<T, Diff<keyof T, K>>;
-
 /**
  * Given a component with properties P,
  * returns a component with properties ((P - Remove) & Add).

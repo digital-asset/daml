@@ -25,6 +25,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import TriggerRunner.{QueryingACS, Running, TriggerStatus}
+import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
 
 object TriggerRunnerImpl {
 
@@ -33,7 +34,8 @@ object TriggerRunnerImpl {
       triggerInstance: UUID,
       party: Party,
       applicationId: ApplicationId,
-      token: Option[String],
+      accessToken: Option[AccessToken],
+      refreshToken: Option[RefreshToken],
       compiledPackages: CompiledPackages,
       trigger: Trigger,
       ledgerConfig: LedgerConfig,
@@ -69,7 +71,7 @@ object TriggerRunnerImpl {
         commandClient = CommandClientConfiguration.default.copy(
           defaultDeduplicationTime = config.ledgerConfig.commandTtl),
         sslContext = None,
-        token = config.token,
+        token = AccessToken.unsubst(config.accessToken),
         maxInboundMessageSize = config.ledgerConfig.maxInboundMessageSize,
       )
 
@@ -80,6 +82,9 @@ object TriggerRunnerImpl {
           case Status(replyTo) =>
             replyTo ! QueryingACS
             Behaviors.same
+          case QueryACSFailed(cause: io.grpc.StatusRuntimeException)
+              if cause.getStatus == io.grpc.Status.UNAUTHENTICATED =>
+            throw new UnauthenticatedException(s"Querying ACS failed: ${cause.toString}")
           case QueryACSFailed(cause) =>
             // Report the failure to the server.
             config.server ! Server.TriggerInitializationFailure(triggerInstance, cause.toString)
@@ -138,6 +143,9 @@ object TriggerRunnerImpl {
             case Status(replyTo) =>
               replyTo ! Running
               Behaviors.same
+            case Failed(cause: io.grpc.StatusRuntimeException)
+                if cause.getStatus == io.grpc.Status.UNAUTHENTICATED =>
+              throw new UnauthenticatedException(s"Querying ACS failed: ${cause.toString}")
             case Failed(cause) =>
               // Report the failure to the server.
               config.server ! Server.TriggerRuntimeFailure(triggerInstance, cause.toString)

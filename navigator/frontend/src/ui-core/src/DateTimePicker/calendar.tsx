@@ -9,7 +9,7 @@
 // In the future, we may decide to use another library to implement
 // this component.
 import * as _ from 'lodash';
-import * as Moment from 'moment';
+import Moment from 'moment';
 import * as React from 'react';
 import Button from '../Button';
 import UntypedIcon from '../Icon';

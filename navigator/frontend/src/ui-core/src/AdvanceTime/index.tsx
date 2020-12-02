@@ -1,9 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as Moment from 'moment';
+
+import { gql } from '@apollo/client';
+import { MutateProps, withMutation } from '@apollo/client/react/hoc';
+import Moment from 'moment';
 import * as React from 'react';
-import { gql, graphql } from 'react-apollo';
 import styled from 'styled-components';
 import Button from '../Button';
 import DateTimePicker from '../DateTimePicker';
@@ -27,12 +29,7 @@ const InlineDiv = styled.div`
   display: inline;
 `;
 
-interface GraphQLProps {
-  //tslint:disable-next-line:no-any
-  mutate: any;
-}
-
-type Props = GraphQLProps & InnerProps;
+type Props = MutateProps & InnerProps;
 
 interface State {
   isOpen: boolean;
@@ -102,7 +99,7 @@ export const defaultAdvanceTimeQuery = gql`
 function makeAdvanceTime(
   advanceTimeQuery: typeof defaultAdvanceTimeQuery,
 ) {
-  return graphql(advanceTimeQuery)(withLedgerTime(AdvanceTime));
+  return withMutation(advanceTimeQuery)(withLedgerTime(AdvanceTime));
 }
 
 /** An AdvanceTime component with default sandbox GraphQL queries */

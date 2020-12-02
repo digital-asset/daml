@@ -1,11 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import { ApolloClient } from '@apollo/client';
+import { withApollo } from '@apollo/client/react/hoc';
 import * as React from 'react';
-import {
-  ApolloClient,
-  withApollo,
-} from 'react-apollo';
 import { connect } from 'react-redux';
 import { AnyAction, compose } from 'redux';
 import { Set } from 'typescript-collections';
@@ -46,7 +44,8 @@ export interface OwnProps<A extends Action> {
 }
 
 export interface ApolloProps {
-  client: ApolloClient;
+  // tslint:disable-next-line:no-any
+  client: ApolloClient<any>;
 }
 
 export interface ReduxProps<A extends Action> {
@@ -131,16 +130,13 @@ class Component<A extends Action>
   }
 }
 
-const _withApollo: Connect<ApolloProps, OwnProps<AnyAction>>
-  = withApollo;
-
 const withRedux: Connect<
   ReduxProps<AnyAction>,
   OwnProps<AnyAction> & ApolloProps
 >
   = connect();
 
-export const UI = compose(
-  _withApollo,
+export const UI: React.ComponentClass<OwnProps<AnyAction>> = compose(
+  (x) => withApollo<OwnProps<AnyAction>>(x),
   withRedux,
 )(Component);
