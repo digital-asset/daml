@@ -11,14 +11,13 @@ before or at a given ledger offset, for example in order to reduce hot storage u
 with privacy demands [1]_.
 
 The DAML Ledger API server pruning functionality is provided by
-the :ref:`Pruning Service <com.daml.ledger.api.v1.PruningService>`,
-it requires administrative privileges and it is currently considered EXPERIMENTAL.
+the :ref:`Pruning Service <com.daml.ledger.api.v1.PruningService>` Ledger API endpoint,
+requires administrative privileges and it is currently considered EXPERIMENTAL.
 
 Please refer to the specific DAML Driver information for detailed information about whether it
 supports pruning and its impacts.
 
-.. [1] For example, as enabled by provisions about the "right to be forgotten" of legislation
-such as `EU's GDPR <https://gdpr-info.eu/>`_.
+.. [1] For example, as enabled by provisions about the "right to be forgotten" of legislation such as `EU's GDPR <https://gdpr-info.eu/>`_.
 
 Impacts on DAML applications
 ----------------------------
