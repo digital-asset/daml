@@ -5,7 +5,8 @@ resource "google_compute_network" "hoogle" {
   name = "hoogle-network"
 }
 
-resource "google_compute_firewall" "hoogle" {
+// Required for service to function
+resource "google_compute_firewall" "hoogle-web" {
   name        = "hoogle-firewall"
   network     = "${google_compute_network.hoogle.name}"
   target_tags = ["hoogle"]
@@ -15,6 +16,27 @@ resource "google_compute_firewall" "hoogle" {
   allow {
     protocol = "tcp"
     ports    = ["8080", "8081"]
+  }
+}
+
+// Required only for security audit purposes
+resource "google_compute_firewall" "hoogle-ssh" {
+  name        = "hoogle-firewall-hole"
+  network     = "${google_compute_network.hoogle.name}"
+  target_tags = ["hoogle"]
+
+  source_ranges = [
+    // ???
+    "52.73.38.90/32",
+    // North Virginia VPN
+    "35.194.81.56/32",
+    // NYC office
+    "172.85.43.2/32"
+  ]
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
   }
 }
 
