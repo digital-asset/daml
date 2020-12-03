@@ -97,7 +97,7 @@ Time therefore has to be considered slightly fuzzy in DAML, with the fuzziness d
 
 For details, see :ref:`Background concepts - time <time>`.
 
-Time in scripts
+Time in test scripts
 ~~~~~~~~~~~~~~~~~
 
 In scripts, record and ledger time are always equal. You can set them using the following functions:
