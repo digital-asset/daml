@@ -223,8 +223,6 @@ jobs:
           var_name: bash_lib
       - bash: ./build.sh "_$(uname)"
         displayName: 'Build'
-        env:
-          DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
@@ -237,7 +235,6 @@ jobs:
           --detect.notices.report=true \
           --detect.report.timeout=1500
         displayName: 'Blackduck Haskell Scan'
-        condition: eq('${{parameters.name}}', 'linux')
         env:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
       - bash: |
@@ -260,7 +257,6 @@ jobs:
           --detect.cleanup.bdio.files=true \
           --detect.report.timeout=4500
         displayName: 'Blackduck Scan'
-        condition: eq('${{parameters.name}}', 'linux')
         env:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
       - template: ../daily_tell_slack.yml
