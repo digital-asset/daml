@@ -50,6 +50,7 @@ Other limitations
 - Pruning may be rejected even if the node is running correctly (for example, to preserve non-repudiation properties); in this case, the application might not be able to archive contracts containing PII or pruning of these contracts may not be possible; thus, actually deleting this PII may also be technically unfeasible.
 - Pruning may leave parties, packages, and configuration data on the participant node, even if they are no longer needed for transaction processing, and even if they contain PII [3]_.
 - Pruning does not move pruned information to cold storage but simply deletes pruned data; for this reason, it is advisable to back up the Participant Index DB before invoking pruning. See the next sub-section for more Participant Index DB-related advice before and after invoking `prune`.
+- Pruning is not selective but rather effectively truncates the ledger, removing the transactions and archived contracts at and before the pruning offset.
 
 .. [3] This might be improved in future versions.
 
