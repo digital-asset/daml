@@ -23,6 +23,9 @@
       +media($mobile)
         padding-left: 30px
 
+      pre
+        padding-right: 2em
+
       a.copybtn.o-tooltip--left
         position: absolute
         opacity: 1
@@ -62,9 +65,10 @@
 
     .linenos
       padding: 0
+      width: 25px
 
       .linenodiv
-        width: 25px
+        width: 100%
         position: relative
         left: 30px
         overflow: visible
@@ -82,15 +86,7 @@
 
     .highlighttable
       width: 100%
-      
-      tr
-        display: flex
-        align-items: stretch
-
-        td:last-child
-            flex: 1
-            display:inline-block
-    
+      table-layout: fixed
 
       div[class^='highlight']
         a.copybtn.o-tooltip--left
