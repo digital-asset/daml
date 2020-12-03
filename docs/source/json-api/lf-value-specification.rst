@@ -13,11 +13,11 @@ The output format is parameterized by two flags::
     encodeDecimalAsString: boolean
     encodeInt64AsString: boolean
 
-The suggested defaults for both of these flags is false.  If the
-intended recipient is written in JavaScript, however, note that the
-JavaScript data model will decode these as numbers, discarding data in
-some cases; encode-as-String avoids this, as mentioned with respect to
-``JSON.parse`` below.
+The suggested defaults for both of these flags is false. If the intended
+recipient is written in JavaScript, however, note that the JavaScript data
+model will decode these as numbers, discarding data in some cases;
+encode-as-String avoids this, as mentioned with respect to ``JSON.parse``
+below. For that reason, the HTTP JSON API Service uses ``true`` for both flags.
 
 Note that throughout the document the decoding is type-directed. In
 other words, the same JSON value can correspond to many DAML-LF values,
