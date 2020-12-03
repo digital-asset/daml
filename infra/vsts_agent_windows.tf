@@ -39,7 +39,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
 resource "google_compute_instance_template" "vsts-agent-windows" {
   name_prefix  = "vsts-agent-windows-"
   machine_type = "c2-standard-8"
-  labels       = "${local.labels}"
+  labels       = "${local.machine-labels}"
 
   disk {
     disk_size_gb = 200

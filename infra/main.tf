@@ -41,6 +41,8 @@ locals {
     target = "${basename(path.module)}"
   }
 
+  machine-labels = "${merge(local.labels, map("env", "production"))}"
+
   project = "da-dev-gcp-daml-language"
   region  = "us-east4"
   zone    = "us-east4-a"
