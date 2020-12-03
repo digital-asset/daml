@@ -61,3 +61,19 @@ Activities to be carried out *before* invoking a pruning operation include:
 Activities to be carried out *after* invoking a pruning operation include:
 
 - On a PostreSQL Index DB, a manual `VACUUM FULL` command is needed for the DB to give back disk space to the OS.
+
+Determining a suitable pruning offset
+-------------------------------------
+
+The :ref:`Active Contract Service <active-contract-service>` and the :ref:`Transaction Service <transaction-service>`
+provide offset information for transactions and for Active Contracts snapshots respectively: such offset can
+be used unchanged with `prune` calls.
+
+As an example, pruning at regular intervals could be performed by a cron job that:
+
+1. If a pruning interval has been saved to a well-known location:
+   a. Backs up the DAML Participant Index DB.
+   b. Performs pruning.
+   c. (If using PostgreSQL) Performs a `VACUUM FULL` command on the DAML Participant Index DB.
+
+2. Acquires a fresh Active Contract Set and saves the offset.
