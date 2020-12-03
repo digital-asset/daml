@@ -208,7 +208,7 @@ getCoin : Script Coin
 
 -- COIN_SCENARIO_BEGIN
 coin_test = do
-  -- The coin is pseudo-random on LET so change the parameter to change the game.
+  -- The coin is pseudo-random on LT so change the parameter to change the game.
   setTime (time (date 2019 Jun 1) 0 0 0)
   passTime (seconds 2)
   coin <- getCoin
