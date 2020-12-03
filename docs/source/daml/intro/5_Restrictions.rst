@@ -100,7 +100,7 @@ For details, see :ref:`Background concepts - time <time>`.
 Time in test scripts
 ~~~~~~~~~~~~~~~~~
 
-In scripts, record and ledger time are always equal. You can set them using the following functions:
+For tests, you can set time using the following functions:
 
 - ``setTime``, which set the ledger time to the given time.
 - ``passTime``, which takes a ``RelTime`` (a relative time) and moves the ledger by that much.
