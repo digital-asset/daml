@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlPartyAllocationEntry
-import com.daml.ledger.participant.state.kvutils.TestHelpers.{newCommitContext, theRecordTime}
+import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theRecordTime}
 import com.daml.metrics.Metrics
 import org.scalatest.{Matchers, WordSpec}
 
@@ -18,7 +18,7 @@ class PartyAllocationCommitterSpec extends WordSpec with Matchers {
   "buildLogEntry" should {
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
       val instance = new PartyAllocationCommitter(metrics)
-      val context = newCommitContext(recordTime = None)
+      val context = createCommitContext(recordTime = None)
 
       instance.buildLogEntry(context, aPartyAllocationEntry)
 
@@ -34,7 +34,7 @@ class PartyAllocationCommitterSpec extends WordSpec with Matchers {
 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
       val instance = new PartyAllocationCommitter(metrics)
-      val context = newCommitContext(recordTime = Some(theRecordTime))
+      val context = createCommitContext(recordTime = Some(theRecordTime))
 
       instance.buildLogEntry(context, aPartyAllocationEntry)
 
