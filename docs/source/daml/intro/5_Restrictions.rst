@@ -98,7 +98,7 @@ Time therefore has to be considered slightly fuzzy in DAML, with the fuzziness d
 For details, see :ref:`Background concepts - time <time>`.
 
 Time in test scripts
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 For tests, you can set time using the following functions:
 
