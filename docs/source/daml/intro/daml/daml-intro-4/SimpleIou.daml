@@ -33,7 +33,7 @@ test_iou = script do
   charlie <- allocateParty "Charlie"
   dora <- allocateParty "Dora"
 
-  -- The bank issues an Iou for $100 to Alice.
+  -- Dora issues an Iou for $100 to Alice.
   iou <- submit dora do
     createCmd SimpleIou with
       issuer = dora
