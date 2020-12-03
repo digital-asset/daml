@@ -156,9 +156,7 @@ Expressions like ``getTime``, ``allocateParty party``, ``passTime time``, ``subm
 - ``create iou : Update (ContractId Iou)``, where ``iou : Iou`` is a recipe for a transaction consisting of a single ``create`` action, and returns the contract id of the created contract if successful.
 - ``submit alice (createCmd iou) : Script (ContractId Iou)`` is a recipe for a script in which Alice sends the command ``createCmd iou`` to the ledger which produces a transaction and a return value of type ``ContractId Iou`` and returns that back to Alice.
 
-Any DAML ledger knows how to perform actions of type ``Update a``. Only some know how to run DAML Scripts, meaning they can perform actions of type ``Script a``.
-
-``Commands`` on the other hand is a bit more restricted than
+``Commands`` is a bit more restricted than
 ``Script`` and ``Update`` as it represents a list of independent
 commands sent to the ledger. You can still use ``do`` blocks but if
 you have more than one command in a single ``do`` block you need to
