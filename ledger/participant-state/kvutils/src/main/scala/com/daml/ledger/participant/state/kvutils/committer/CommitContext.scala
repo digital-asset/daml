@@ -24,7 +24,8 @@ import scala.collection.mutable
 private[kvutils] class CommitContext(
     inputs: DamlStateMap,
     recordTime: Option[Timestamp],
-    participantId: ParticipantId) {
+    participantId: ParticipantId,
+) {
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
   // NOTE(JM): The outputs must be iterable in deterministic order, hence we

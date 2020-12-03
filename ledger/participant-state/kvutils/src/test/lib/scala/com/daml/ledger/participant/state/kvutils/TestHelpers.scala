@@ -128,7 +128,8 @@ object TestHelpers {
   def createCommitContext(
       recordTime: Option[Timestamp],
       inputs: DamlStateMap = Map.empty,
-      participantId: Int = 0): CommitContext =
+      participantId: Int = 0,
+  ): CommitContext =
     new CommitContext(inputs, recordTime, mkParticipantId(participantId))
 
 }

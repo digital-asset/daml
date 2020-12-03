@@ -95,7 +95,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       inputState: DamlStateMap,
   ): PreExecutionResult =
     preExecutionRunTimer.time { () =>
-      val commitContext: CommitContext = new CommitContext(inputState, None, participantId)
+      val commitContext: CommitContext = new CommitContext(inputState, recordTime = None, participantId)
       preExecute(submission, commitContext)
     }
 
