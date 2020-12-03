@@ -91,14 +91,14 @@ final private[kvutils] class PackageCommitter(
 
   private[this] def authorizeSubmission: Step = {
     case (ctx, partialResult @ (uploadEntry, _)) =>
-      if (ctx.getParticipantId == uploadEntry.getParticipantId) {
+      if (ctx.participantId == uploadEntry.getParticipantId) {
         StepContinue(partialResult)
       } else {
         val msg =
-          s"Participant ID '${uploadEntry.getParticipantId}' did not match authorized participant ID '${ctx.getParticipantId}'"
+          s"Participant ID '${uploadEntry.getParticipantId}' did not match authorized participant ID '${ctx.participantId}'"
         rejectionTraceLog(msg, uploadEntry)
         reject(
-          ctx.getRecordTime,
+          ctx.recordTime,
           uploadEntry.getSubmissionId,
           uploadEntry.getParticipantId,
           _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder.setDetails(msg))
@@ -108,14 +108,14 @@ final private[kvutils] class PackageCommitter(
 
   private[this] def deduplicateSubmission: Step = {
     case (ctx, partialResult @ (uploadEntry, _)) =>
-      val submissionKey = packageUploadDedupKey(ctx.getParticipantId, uploadEntry.getSubmissionId)
+      val submissionKey = packageUploadDedupKey(ctx.participantId, uploadEntry.getSubmissionId)
       if (ctx.get(submissionKey).isEmpty) {
         StepContinue(partialResult)
       } else {
         val msg = s"duplicate submission='${uploadEntry.getSubmissionId}'"
         rejectionTraceLog(msg, uploadEntry)
         reject(
-          ctx.getRecordTime,
+          ctx.recordTime,
           uploadEntry.getSubmissionId,
           uploadEntry.getParticipantId,
           _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
@@ -148,7 +148,7 @@ final private[kvutils] class PackageCommitter(
               .mkString(", ")
         rejectionTraceLog(validationError, uploadEntry)
         reject(
-          ctx.getRecordTime,
+          ctx.recordTime,
           uploadEntry.getSubmissionId,
           uploadEntry.getParticipantId,
           _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(validationError))
@@ -221,7 +221,7 @@ final private[kvutils] class PackageCommitter(
         case Left(msg) =>
           rejectionTraceLog(msg, uploadEntry)
           reject(
-            ctx.getRecordTime,
+            ctx.recordTime,
             uploadEntry.getSubmissionId,
             uploadEntry.getParticipantId,
             _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(msg))
@@ -250,7 +250,7 @@ final private[kvutils] class PackageCommitter(
         val msg = errors.mkString(", ")
         rejectionTraceLog(msg, uploadEntry)
         reject(
-          ctx.getRecordTime,
+          ctx.recordTime,
           uploadEntry.getSubmissionId,
           uploadEntry.getParticipantId,
           _.setInvalidPackage(Invalid.newBuilder.setDetails(msg))
@@ -289,7 +289,7 @@ final private[kvutils] class PackageCommitter(
         case Left(msg) =>
           rejectionTraceLog(msg, uploadEntry)
           reject(
-            ctx.getRecordTime,
+            ctx.recordTime,
             uploadEntry.getSubmissionId,
             uploadEntry.getParticipantId,
             _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(msg))
@@ -358,13 +358,13 @@ final private[kvutils] class PackageCommitter(
         )
       }
       ctx.set(
-        packageUploadDedupKey(ctx.getParticipantId, uploadEntry.getSubmissionId),
+        packageUploadDedupKey(ctx.participantId, uploadEntry.getSubmissionId),
         DamlStateValue.newBuilder
           .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
           .build
       )
       val successLogEntry =
-        buildLogEntryWithOptionalRecordTime(ctx.getRecordTime, _.setPackageUploadEntry(uploadEntry))
+        buildLogEntryWithOptionalRecordTime(ctx.recordTime, _.setPackageUploadEntry(uploadEntry))
       if (ctx.preExecute) {
         setOutOfTimeBoundsLogEntry(uploadEntry, ctx)
       }

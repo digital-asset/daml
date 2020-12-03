@@ -40,7 +40,7 @@ object EventsTableH2Database extends EventsTable {
       "create_signatories" -> "{create_signatories}",
       "create_observers" -> "{create_observers}",
       "create_agreement_text" -> "{create_agreement_text}",
-      "create_consumed_at" -> "null",
+      "create_consumed_at" -> "null", // Every inserted contract starts as not consumed
       "create_key_value" -> "{create_key_value}",
       "exercise_consuming" -> "{exercise_consuming}",
       "exercise_choice" -> "{exercise_choice}",

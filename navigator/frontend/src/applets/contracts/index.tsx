@@ -12,10 +12,8 @@ import {
 import { User } from '@da/ui-core/lib/session';
 import * as React from 'react';
 import { connect } from 'react-redux';
-import { compose } from 'redux';
 import { contract as contractRoute } from '../../routes';
 import { pathToAction } from '../../routes';
-import { Connect } from '../../types';
 import * as App from '../app';
 import columns from './columns';
 import { Contract, dataToRows, makeQueryVariables, query } from './data';
@@ -111,9 +109,4 @@ class Component extends React.Component<Props, {}> {
   }
 }
 
-const withRedux: Connect<ReduxProps, OwnProps & ApolloProps> = connect();
-
-export const UI: React.ComponentClass<OwnProps> = compose(
-  (x) => withApollo<OwnProps>(x),
-  withRedux,
-)(Component);
+export const UI: React.ComponentClass<OwnProps> = withApollo<OwnProps>(connect()(Component));

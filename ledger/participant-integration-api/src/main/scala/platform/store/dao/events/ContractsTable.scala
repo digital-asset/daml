@@ -77,7 +77,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
     val inserts = localInserts.toVector ++ divulgedInserts.toVector
     ContractsTable.Executables(
       deleteContracts = batch(deleteContractQuery, deletes),
-      insertContracts = batch(insertContractQuery, inserts)
+      insertContracts = batch(insertContractQuery, inserts),
     )
   }
 

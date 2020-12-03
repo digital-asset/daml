@@ -353,6 +353,17 @@ for details.
 
 [rerun_failed_tests_issue]: https://github.com/bazelbuild/intellij/issues/446
 
+### Troubleshooting
+
+#### 'tools.dade-exec-nix-tool' not found
+
+If you get the error
+```
+error: attribute 'dade-exec-nix-tool' in selection path 'tools.dade-exec-nix-tool' not found
+```
+in the bazel console during project import, try starting IntelliJ from the root
+of the `daml` repository by calling `idea .`.
+
 ## Bazel Command Reference
 
 The following sections briefly list Bazel commands for the most common

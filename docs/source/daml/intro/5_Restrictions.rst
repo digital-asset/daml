@@ -91,7 +91,7 @@ Each DAML ledger has a policy on the allowed difference between LT and RT called
 
 ``getTime`` is an action that gets the LT from the ledger. In the above example, that time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18.
 
-Consider the following example: Suppose that the ledger had a skew of 10 seconds. At 17:59:55, Alice submits a transaction to redeem an Iou. One second later, the transaction is assigned a LET of 17:59:56, but then takes 10 seconds to commit and is recorded on the ledger at 18:00:06. Even though it was committed after business hours, it would be a valid transaction and be committed successfully as ``getTime`` will return 17:59:56 so ``hrs == 17``. Since the RT is 18:00:06, ``LT - RT <= 10 seconds`` and the transaction won't be rejected.
+Consider the following example: Suppose that the ledger had a skew of 10 seconds. At 17:59:55, Alice submits a transaction to redeem an Iou. One second later, the transaction is assigned a LT of 17:59:56, but then takes 10 seconds to commit and is recorded on the ledger at 18:00:06. Even though it was committed after business hours, it would be a valid transaction and be committed successfully as ``getTime`` will return 17:59:56 so ``hrs == 17``. Since the RT is 18:00:06, ``LT - RT <= 10 seconds`` and the transaction won't be rejected.
 
 Time therefore has to be considered slightly fuzzy in DAML, with the fuzziness depending on the skew parameter.
 
@@ -102,7 +102,7 @@ Time in test scripts
 
 For tests, you can set time using the following functions:
 
-- ``setTime``, which set the ledger time to the given time.
+- ``setTime``, which sets the ledger time to the given time.
 - ``passTime``, which takes a ``RelTime`` (a relative time) and moves the ledger by that much.
 
 Time on ledgers
@@ -152,7 +152,7 @@ You can always write a recipe using just pen and paper, but you can't cook it up
 Expressions like ``getTime``, ``allocateParty party``, ``passTime time``, ``submit party commands``, ``create contract`` and ``exercise choice`` should make more sense in that light. For example:
 
 - ``getTime : Update Time`` is the recipe for an empty transaction that also happens to return a value of type ``Time``.
-- ``passTime (days 10) : Script ()`` is a recipe for a transaction that doesn't submit any transactions, but has the side-effect of changing the LET of the test ledger. It returns ``()``, also called ``Unit`` and can be thought of as a zero-tuple.
+- ``passTime (days 10) : Script ()`` is a recipe for a transaction that doesn't submit any transactions, but has the side-effect of changing the LT of the test ledger. It returns ``()``, also called ``Unit`` and can be thought of as a zero-tuple.
 - ``create iou : Update (ContractId Iou)``, where ``iou : Iou`` is a recipe for a transaction consisting of a single ``create`` action, and returns the contract id of the created contract if successful.
 - ``submit alice (createCmd iou) : Script (ContractId Iou)`` is a recipe for a script in which Alice sends the command ``createCmd iou`` to the ledger which produces a transaction and a return value of type ``ContractId Iou`` and returns that back to Alice.
 
@@ -232,7 +232,7 @@ You can't play any ``CoinGame`` game on pen and paper as you don't have a coin, 
 
 The ``game`` expression is a ``CoinGame`` in which a coin is flipped three times. If all three tosses return ``Heads``, the result is ``"Win"``, or else ``"Loss"``.
 
-In a ``Script`` context you can get a ``Coin`` using the ``getCoin`` action, which uses the LET to calculate a seed, and play the game.
+In a ``Script`` context you can get a ``Coin`` using the ``getCoin`` action, which uses the LT to calculate a seed, and play the game.
 
 *Somehow* the ``Coin`` is threaded through the various actions. If you want to look through the looking glass and understand in-depth what's going on, you can look at the source file to see how the ``CoinGame`` action is implemented, though be warned that the implementation uses a lot of DAML features we haven't introduced yet in this introduction.
 

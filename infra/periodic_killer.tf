@@ -40,6 +40,7 @@ resource "google_compute_instance" "periodic-killer" {
   name         = "periodic-killer"
   machine_type = "g1-small"
   zone         = "us-east4-a"
+  labels       = "${local.machine-labels}"
 
   boot_disk {
     initialize_params {

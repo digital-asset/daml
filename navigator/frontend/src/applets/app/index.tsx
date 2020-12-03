@@ -5,7 +5,7 @@ import { defaultTheme, Dispatch, ThemeInterface, ThemeProvider } from '@da/ui-co
 import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
 import * as Session from '@da/ui-core/lib/session';
 import * as React from 'react';
-import { connect } from 'react-redux';
+import { connect, ConnectedComponent } from 'react-redux';
 import { Action as ReduxAction } from 'redux';
 import Frame from '../../components/Frame';
 import {
@@ -17,7 +17,6 @@ import {
 } from '../../config';
 import * as Either from '../../config/either';
 import logoUrl from '../../images/logo-large.png';
-import { Connect } from '../../types';
 import * as ConfigSource from '../configsource';
 import * as Page from '../page';
 
@@ -243,11 +242,5 @@ class Component extends React.Component<Props, ComponentState> {
   }
 };
 
-const withRedux: Connect<ReduxProps, OwnProps> =
-  connect(
-    (state) => ({ state }),
-    (dispatch) => ({ dispatch }),
-  );
-
-
-export const UI = withRedux(Component);
+export const UI: ConnectedComponent<typeof Component, OwnProps> =
+  connect((state) => ({state}), (dispatch) => ({dispatch}))(Component);

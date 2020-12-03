@@ -22,7 +22,7 @@ In this section you will test the ``Token`` model from :doc:`1_Token` using the 
 Script basics
 ---------------
 
-A ``Script`` is like a recipe for a test, where you can script different parties submitting a series of transactions, to check that your templates behave as you'd expect. You can also script some some external information like party identities, and ledger time.
+A ``Script`` is like a recipe for a test, where you can script different parties submitting a series of transactions, to check that your templates behave as you'd expect. You can also script some external information like party identities, and ledger time.
 
 Below is a basic script that creates a ``Token`` for a party called "Alice".
 
@@ -45,13 +45,13 @@ Before you can create any ``Token`` contracts, you need some parties on the test
   If that doesn't quite make sense yet, for the time being you can think of this arrow as extracting the right-hand-side value from the ledger and storing it into the variable on the left.
 - The argument ``"Alice"`` to ``allocateParty`` does not have to be enclosed in brackets. Functions in DAML are called using the syntax ``fn arg1 arg2 arg3``.
 
-With a variable ``alice`` of type ``Party`` in hand, you can submit your first transaction. Unsurprisingly, you do this using the ``submit`` function. ``submit`` takes two arguments: a ``Party`` and an ``Commands``.
+With a variable ``alice`` of type ``Party`` in hand, you can submit your first transaction. Unsurprisingly, you do this using the ``submit`` function. ``submit`` takes two arguments: the ``Party`` and the ``Commands``.
 
 Just like ``Script`` is a recipe for a test, ``Commands`` is a recipe for a transaction. ``createCmd Token with owner = alice`` is a ``Commands``, which translates to a list of commands that will be submitted to the ledger creating a transaction which creates a ``Token`` with owner Alice.
 
 You'll learn all about the syntax ``Token with owner = alice`` in :doc:`3_Data`.
 
-You could write this as ``submit alice (createCmd Token with owner = alice)``, but just like scripts, you can assemble commands using ``do`` blocks. A ``do`` block always takes the value of the last statement within it so the syntax shown in the commands above gives the same result, whilst being easier to read. Note however, that the commands submitted as part of a transaction are not allowed to depend n each other.
+You could write this as ``submit alice (createCmd Token with owner = alice)``, but just like scripts, you can assemble commands using ``do`` blocks. A ``do`` block always takes the value of the last statement within it so the syntax shown in the commands above gives the same result, whilst being easier to read. Note however, that the commands submitted as part of a transaction are not allowed to depend on each other.
 
 Running scripts
 ---------------
@@ -109,7 +109,7 @@ To test for failing submits and keep the script running thereafter, or fail if t
   :start-after: -- TOKEN_TEST_2_BEGIN
   :end-before: -- TOKEN_TEST_2_END
 
-``submitMustFail`` never has an impact on the ledger so the resulting tabular scenario view just shows the two Tokens resulting from the successful ``submit`` statements. Note the new column for Bob as well as the visibilities. Alice and Bob cannot see each others' Tokens.
+``submitMustFail`` never has an impact on the ledger so the resulting tabular script view just shows the two Tokens resulting from the successful ``submit`` statements. Note the new column for Bob as well as the visibilities. Alice and Bob cannot see each others' Tokens.
 
 .. _archiving:
 

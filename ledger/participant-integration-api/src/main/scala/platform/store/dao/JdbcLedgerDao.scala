@@ -477,9 +477,8 @@ private class JdbcLedgerDao(
               .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
               .foreach(_.execute())
           )
-        }
-        for (reason <- error; info <- submitterInfo) {
-          handleError(offset, info, recordTime, reason)
+        } else {
+          submitterInfo.foreach(handleError(offset, _, recordTime, error.get))
         }
         Timed.value(
           metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,

@@ -14,7 +14,6 @@ import Moment from 'moment';
 import * as React from 'react';
 import { TimeType } from '../api/OpaqueTypes';
 import { LedgerTimeQuery } from '../api/Queries';
-import { Connect } from '../types';
 import { utcStringToMoment } from '../util';
 
 // Not exported by the apollo library
@@ -125,7 +124,7 @@ export const timeQuery = gql`
  * Note: this does not implement any loading or error handling. If the ledger time is not
  * (yet) available for any reason, its value will be undefined.
  */
-export default function withLedgerTime<P extends {}>(C: React.ComponentType<InnerProps & P>)
+export default function withLedgerTime<P>(C: React.ComponentType<InnerProps & P>)
   : React.ComponentType<P> {
 
   type Props = P & ApolloProps;
@@ -211,5 +210,5 @@ export default function withLedgerTime<P extends {}>(C: React.ComponentType<Inne
     }
   }
 
-  return (withApollo as Connect<ApolloProps, P>)(Component);
+  return withApollo<P>(Component) as React.ComponentClass<P>;
 }

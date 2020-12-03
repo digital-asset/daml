@@ -69,6 +69,7 @@ message CompletionStreamRequest {
   repeated string parties = 3;
 
   // This field indicates the minimum offset for completions. This can be used to resume an earlier completion stream.
+  // This offset is exclusive: the response will only contain commands whose offset is strictly greater than this.
   // Optional, if not set the ledger uses the current ledger end offset instead.
   LedgerOffset offset = 4;
 }

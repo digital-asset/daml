@@ -58,7 +58,7 @@ export interface OwnProps<A extends Action> {
   logoUrl?: string;
 }
 
-export interface ReduxProps<A> {
+export interface ReduxProps<A extends Action> {
   dispatch: Dispatch<A>;
 }
 

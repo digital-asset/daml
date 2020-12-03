@@ -14,11 +14,9 @@ import {
 import { User } from '@da/ui-core/lib/session';
 import * as React from 'react';
 import { connect } from 'react-redux';
-import { compose } from 'redux';
 import { ContractsByTemplateParamQuery, ContractsByTemplateParamQueryVariables } from 'src/api/Queries';
 import { contract as contractRoute } from '../../routes';
 import { pathToAction } from '../../routes';
-import { Connect } from '../../types';
 import * as App from '../app';
 import makeColumns from './columns';
 import {
@@ -132,14 +130,18 @@ class Component extends React.Component<Props, {}> {
   }
 }
 
-const withRedux: Connect<ReduxProps, ApolloProps & OwnProps> = connect();
-const withGraphQL: Connect<GraphQLProps, ReduxProps & ApolloProps & OwnProps>
+const withGraphQL
   =
-  withQuery<Props, ContractsByTemplateParamQuery, ContractsByTemplateParamQueryVariables, GraphQLProps>(
+  withQuery<
+    ReduxProps & ApolloProps & OwnProps,
+    ContractsByTemplateParamQuery,
+    ContractsByTemplateParamQueryVariables,
+    GraphQLProps>(
     paramQuery, { options: (s) => makeParamQueryVariables(s) });
 
-export const UI: React.ComponentClass<OwnProps> = compose(
-  (x) => withApollo<OwnProps>(x),
-  withRedux,
-  withGraphQL,
-)(Component);
+export const UI: React.ComponentClass<OwnProps> =
+  withApollo<OwnProps>(
+    connect()(
+      withGraphQL(Component),
+    ),
+  );
