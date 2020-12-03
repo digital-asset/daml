@@ -127,7 +127,7 @@ object TransactionIndexing {
     }
 
     private def visibility(contracts: Iterable[DivulgedContract]): WitnessRelation[ContractId] =
-      Relation(
+      Relation.from(
         contracts.map(c => c.contractId -> blinding.divulgence.getOrElse(c.contractId, Set.empty)),
       )
 
@@ -146,7 +146,7 @@ object TransactionIndexing {
       val netCreates = created.filterNot(c => archived(c.coid))
       val netArchives = archived.filterNot(allCreatedContractIds)
       val netDivulgedContracts = divulgedContracts.filterNot(c => allContractIds(c.contractId))
-      val netTransactionVisibility = Relation(visibility.result()).filterKeys(!archived(_))
+      val netTransactionVisibility = Relation.from(visibility.result()).filterKeys(!archived(_))
       val netVisibility = Relation.union(netTransactionVisibility, visibility(netDivulgedContracts))
       TransactionIndexing(
         transaction = TransactionInfo(
