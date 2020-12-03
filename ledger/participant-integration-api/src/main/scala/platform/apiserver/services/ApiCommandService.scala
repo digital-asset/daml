@@ -154,10 +154,11 @@ private[apiserver] final class ApiCommandService private (
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] =
     submitAndWaitInternal(request).flatMap { resp =>
+      val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
       val txRequest = GetTransactionByIdRequest(
         request.getCommands.ledgerId,
         resp.transactionId,
-        List(request.getCommands.party))
+        effectiveActAs.toList)
       services
         .getFlatTransactionById(txRequest)
         .map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
@@ -166,10 +167,11 @@ private[apiserver] final class ApiCommandService private (
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] =
     submitAndWaitInternal(request).flatMap { resp =>
+      val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
       val txRequest = GetTransactionByIdRequest(
         request.getCommands.ledgerId,
         resp.transactionId,
-        List(request.getCommands.party))
+        effectiveActAs.toList)
       services
         .getTransactionById(txRequest)
         .map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
