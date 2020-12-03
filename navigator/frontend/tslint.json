@@ -50,7 +50,12 @@
     "object-literal-key-quotes": [true, "consistent-as-needed"],
     "object-literal-shorthand": true,
     "one-variable-per-declaration": [true],
-    "ordered-imports": [true],
+    "ordered-imports": [
+      true,
+      {
+        "named-imports-order": "case-insensitive-legacy"
+      }
+    ],
     "prefer-const": true,
     "prefer-function-over-method": [true, "allow-public"],
     "prefer-method-signature": true,

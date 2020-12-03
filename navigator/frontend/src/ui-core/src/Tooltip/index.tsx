@@ -197,19 +197,21 @@ export interface StyleProps {
 export interface OtherProps {
   /** Content of the tooltip */
   children: React.ReactChild;
+  forwardedRef: React.Ref<HTMLDivElement>
 }
 
 export type Props = StyleProps & OtherProps;
 
-export default class Tooltip extends React.Component<Props, {}> {
+class Tooltip extends React.Component<Props, {}> {
   render() {
     const {
       children,
+      forwardedRef,
       ...otherProps
     } = this.props;
 
     return (
-      <ContentOuterContainer {...otherProps} onClick={this.props.onClick}>
+      <ContentOuterContainer {...otherProps} onClick={this.props.onClick} ref={forwardedRef}>
         <Arrow {...otherProps}/>
         <ContentInnerContainer>
           {children}
@@ -218,3 +220,7 @@ export default class Tooltip extends React.Component<Props, {}> {
     );
   }
 };
+
+export default React.forwardRef<HTMLDivElement, Omit<Props, 'forwardedRef'>>((props, ref) =>
+  (<Tooltip {...props} forwardedRef={ref} />),
+);

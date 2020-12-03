@@ -103,7 +103,8 @@ export interface Props {
   theme?: ThemeInterface;
 }
 
-const Button = ({ onClick, disabled, className, children, autoFocus, tabIndex }: Props) => (
+const Button = React.forwardRef<HTMLButtonElement>(
+  ({ onClick, disabled, className, children, autoFocus, tabIndex } : Props, ref) => (
   <button
     onClick={onClick}
     disabled={disabled}
@@ -111,10 +112,11 @@ const Button = ({ onClick, disabled, className, children, autoFocus, tabIndex }:
     type="button"
     autoFocus={autoFocus}
     tabIndex={tabIndex}
+    ref={ref}
   >
     {wrapStringInSpan(children)}
   </button>
-);
+));
 
 // We wrap the functional button so we can style conditionally on type.
 
