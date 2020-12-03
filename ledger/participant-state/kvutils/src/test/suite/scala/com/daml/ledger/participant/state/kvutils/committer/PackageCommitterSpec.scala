@@ -500,7 +500,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
     def newCommitter = new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.No)
 
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
-      val context = new FakeCommitContext(recordTime = None)
+      val context = newCommitContext(recordTime = None)
 
       newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)
 
@@ -515,7 +515,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
     }
 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
-      val context = new FakeCommitContext(recordTime = Some(theRecordTime))
+      val context = newCommitContext(recordTime = Some(theRecordTime))
 
       newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)
 
