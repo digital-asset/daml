@@ -206,7 +206,6 @@ flipCoin : CoinGame Face
 getCoin : Script Coin
 -- COIN_END
 
-coin_test : Script ()
 -- COIN_SCENARIO_BEGIN
 coin_test = do
   -- The coin is pseudo-random on LET so change the parameter to change the game.
