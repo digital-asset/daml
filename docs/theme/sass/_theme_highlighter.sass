@@ -65,20 +65,22 @@
 
     .linenos
       padding: 0
-      width: 25px
+      width: 27px
 
       .linenodiv
         width: 100%
         position: relative
-        left: 30px
+        left: 38px
         overflow: visible
         z-index: 1
+        padding-right: 10px
+        border-right: solid 1px $gray
 
         +media($tablet)
-          left: 8px
+          left: 16px
 
         +media($mobile)
-          left: 13px
+          left: 21px
 
         pre
           text-align: end
@@ -92,7 +94,7 @@
         a.copybtn.o-tooltip--left
 
           +media($desktop)
-            left: -10px
+            left: -11px
 
   .literal-block-wrapper, .literal-block-wrapper:last-child
     margin-top: 35px
