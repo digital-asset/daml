@@ -220,9 +220,11 @@ def proto_jars(
         name = "%s_jar" % name,
         srcs = None,
         deps = None,
+        runtime_deps = ["%s_jar" % label for label in proto_deps],
         resources = srcs,
         resource_strip_prefix = "%s/%s/" % (native.package_name(), strip_import_prefix),
         tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_proto_suffix),
+        visibility = visibility,
     )
 
     # An empty Javadoc JAR for uploading the source proto JAR to Maven Central.

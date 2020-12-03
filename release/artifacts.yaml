@@ -3,12 +3,20 @@
 
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
   type: jar-scala
+- target: //daml-lf/archive:daml_lf_1.6_archive_proto_jar
+  type: jar-lib
 - target: //daml-lf/archive:daml_lf_1.6_archive_proto_java
   type: jar-proto
+- target: //daml-lf/archive:daml_lf_1.7_archive_proto_jar
+  type: jar-lib
 - target: //daml-lf/archive:daml_lf_1.7_archive_proto_java
   type: jar-proto
+- target: //daml-lf/archive:daml_lf_1.8_archive_proto_jar
+  type: jar-lib
 - target: //daml-lf/archive:daml_lf_1.8_archive_proto_java
   type: jar-proto
+- target: //daml-lf/archive:daml_lf_dev_archive_proto_jar
+  type: jar-lib
 - target: //daml-lf/archive:daml_lf_dev_archive_proto_java
   type: jar-proto
 - target: //daml-lf/archive:daml_lf_archive_reader
@@ -29,8 +37,12 @@
   type: jar-scala
 - target: //daml-lf/transaction:transaction
   type: jar-scala
+- target: //daml-lf/transaction:transaction_proto_jar
+  type: jar-lib
 - target: //daml-lf/transaction:transaction_proto_java
   type: jar-proto
+- target: //daml-lf/transaction:value_proto_jar
+  type: jar-lib
 - target: //daml-lf/transaction:value_proto_java
   type: jar-proto
 - target: //daml-lf/transaction-test-lib:transaction-test-lib
@@ -113,6 +125,8 @@
   type: jar-scala
 - target: //ledger/participant-state/kvutils/tools:tools
   type: jar-scala
+- target: //ledger/participant-state/protobuf:ledger_configuration_proto_jar
+  type: jar-lib
 - target: //ledger/participant-state/protobuf:ledger_configuration_proto_java
   type: jar-proto
 - target: //ledger/participant-state-index:participant-state-index
