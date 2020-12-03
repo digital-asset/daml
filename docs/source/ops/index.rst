@@ -65,11 +65,11 @@ Activities to be carried out *after* invoking a pruning operation include:
 Determining a suitable pruning offset
 -------------------------------------
 
-The :ref:`Active Contract Service <active-contract-service>` and the :ref:`Transaction Service <transaction-service>`
-provide offset information for transactions and for Active Contracts snapshots respectively: such offset can
-be used unchanged with `prune` calls.
+The :ref:`Active Contract Service <active-contract-service>` and the :ref:`Transaction Service <transaction-service>` provide offset information for transactions and for Active Contracts snapshots respectively: such offset can be used unchanged with `prune` calls.
 
-As an example, pruning at regular intervals could be performed by a cron job that:
+Scheduled jobs, applications and/or operator tools can be built on top of the DAML Ledger API to implement pruning automatically, for example at regular intervals, or on-demand, for example according to a user-initiated process.
+
+For instance, pruning at regular intervals could be performed by a cron job that:
 
 1. If a pruning interval has been saved to a well-known location:
    a. Backs up the DAML Participant Index DB.
@@ -77,3 +77,7 @@ As an example, pruning at regular intervals could be performed by a cron job tha
    c. (If using PostgreSQL) Performs a `VACUUM FULL` command on the DAML Participant Index DB.
 
 2. Acquires a fresh Active Contract Set and saves the offset.
+
+Pruning could also be initiated on-demand at the offset of a specific transaction [4]_, for example as provided by a user application based on a search.
+
+.. [4] Note that not only a specific transaction but also earlier transactions and archived contracts will be pruned.
