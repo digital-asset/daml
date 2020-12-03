@@ -75,8 +75,8 @@ package object logging {
         deduplicateUntil(cmds.deduplicateUntil),
         applicationId(cmds.applicationId),
         submittedAt(cmds.submittedAt),
-        actAs(cmds.commands.actAs),
-        readAs(cmds.commands.readAs)
+        actAs(cmds.actAs),
+        readAs(cmds.readAs)
       )
     cmds.workflowId.fold(context)(context + workflowId(_))
   }

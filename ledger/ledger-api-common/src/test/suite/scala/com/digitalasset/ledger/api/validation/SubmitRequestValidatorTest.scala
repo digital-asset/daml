@@ -75,11 +75,11 @@ class SubmitRequestValidatorTest
       workflowId = Some(workflowId),
       applicationId = applicationId,
       commandId = commandId,
+      actAs = Set(DomainMocks.party),
+      readAs = Set.empty,
       submittedAt = submittedAt,
       deduplicateUntil = deduplicateUntil,
       commands = LfCommands(
-        Set(DomainMocks.party),
-        Set.empty,
         ImmArray(
           LfCreateCommand(
             Ref.Identifier(

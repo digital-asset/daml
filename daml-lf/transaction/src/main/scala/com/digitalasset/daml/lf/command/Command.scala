@@ -68,25 +68,13 @@ final case class CreateAndExerciseCommand(
 
 /** Commands input adapted from ledger-api
   *
-  *  @param actAs TODO
-  *  @param readAs TODO
   *  @param commands a batch of commands to be interpreted/executed
   *  @param ledgerEffectiveTime approximate time the commands to be effective,
   *    interpretation will take this instant
   *  @param commandsReference id passed only for error reporting
   */
 case class Commands(
-                   actAs: Set[Party],
-                   readAs: Set[Party],
     commands: ImmArray[Command],
     ledgerEffectiveTime: Time.Timestamp,
     commandsReference: String,
-) {
-  // Note: this function is only available temporarily until KVL-702 is resolved
-  def singleSubmitterOrThrow(): Party = {
-    if (actAs.size == 1)
-      actAs.head
-    else
-      throw new RuntimeException("com.daml.lf.Commands contains more than one acting party")
-  }
-}
+)

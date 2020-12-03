@@ -46,10 +46,11 @@ private[apiserver] final class StoreBackedCommandExecutor(
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val start = System.nanoTime()
+    val actAsReadAsUnion = commands.actAs ++ commands.readAs
     val submissionResult = Timed.trackedValue(
       metrics.daml.execution.engineRunning,
-      engine.submit(commands.commands, participant, submissionSeed))
-    consume(commands.commands.actAs ++ commands.commands.readAs, submissionResult)
+      engine.submit(actAsReadAsUnion, commands.commands, participant, submissionSeed))
+    consume(actAsReadAsUnion, submissionResult)
       .map { submission =>
         (for {
           result <- submission
@@ -58,7 +59,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           val interpretationTimeNanos = System.nanoTime() - start
           CommandExecutionResult(
             submitterInfo = SubmitterInfo(
-              commands.commands.actAs.toList,
+              commands.actAs.toList,
               commands.applicationId.unwrap,
               commands.commandId.unwrap,
               commands.deduplicateUntil,

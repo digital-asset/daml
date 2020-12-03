@@ -8,7 +8,6 @@ import com.daml.ledger.api.domain.Commands
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.ParticipantId
-import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ResultDone}
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -36,7 +35,7 @@ class StoreBackedCommandExecutorSpec
   "execute" should {
     "add interpretation time to result" in {
       val mockEngine = mock[Engine]
-      when(mockEngine.submit(any[com.daml.lf.command.Commands], any[ParticipantId], any[Hash]))
+      when(mockEngine.submit(any[Set[Ref.Party]], any[com.daml.lf.command.Commands], any[ParticipantId], any[Hash]))
         .thenReturn(
           ResultDone[(SubmittedTransaction, Transaction.Metadata)](
             (TransactionBuilder.EmptySubmitted, emptyTransactionMetadata)
@@ -53,7 +52,8 @@ class StoreBackedCommandExecutorSpec
       when(mockLfCommands.ledgerEffectiveTime).thenReturn(Time.Timestamp.now())
       when(mockDomainCommands.workflowId).thenReturn(None)
       when(mockDomainCommands.commands).thenReturn(mockLfCommands)
-      when(mockLfCommands.actAs).thenReturn(Set.empty[Party])
+      when(mockDomainCommands.actAs).thenReturn(Set.empty[Ref.Party])
+      when(mockDomainCommands.readAs).thenReturn(Set.empty[Ref.Party])
 
       LoggingContext.newLoggingContext { implicit context =>
         instance.execute(mockDomainCommands, Hash.hashPrivateKey("a key")).map { actual =>
