@@ -1,11 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Dispatch, styled, ThunkAction } from '@da/ui-core';
+import { Dispatch, styled } from '@da/ui-core';
 import * as React from 'react';
-import { connect } from 'react-redux';
-import { compose } from 'redux';
-import { Connect } from '../../types';
+import { connect, ConnectedComponent } from 'react-redux';
+import { ThunkAction, ThunkDispatch } from 'redux-thunk';
 import * as App from '../app';
 
 export type Action
@@ -38,7 +37,7 @@ export interface State {
   backendVersionInfo: BackendVersionInfoResult;
 }
 
-export type ToSelf = (action: Action | ThunkAction<void>) => App.Action;
+export type ToSelf = (action: Action | ThunkAction<void, App.State, undefined, Action>) => App.Action;
 
 export function init(): State {
   return {
@@ -46,7 +45,7 @@ export function init(): State {
   };
 }
 
-export function reloadBackendInfo(toSelf: ToSelf): ThunkAction<void> {
+export function reloadBackendInfo(toSelf: ToSelf): ThunkAction<void, App.State, undefined, App.Action> {
   return (dispatch) => {
     dispatch(toSelf(setBackendInfoLoading()));
 
@@ -65,13 +64,13 @@ export function reloadBackendInfo(toSelf: ToSelf): ThunkAction<void> {
   };
 }
 
-function handleBackendInfoResponse(to: ToSelf, dispatch: Dispatch<Action>) {
+function handleBackendInfoResponse(to: ToSelf, dispatch: Dispatch<App.Action>) {
   return (source: BackendVersionInfo): void => {
     dispatch(to(setBackendInfoResult(source)));
   };
 }
 
-function handleBackendInfoFetchError(to: ToSelf, dispatch: Dispatch<Action>) {
+function handleBackendInfoFetchError(to: ToSelf, dispatch: Dispatch<App.Action>) {
   // tslint:disable-next-line no-any
   return (reason: any) => {
     if (reason instanceof Error) {
@@ -119,12 +118,12 @@ interface OwnProps {
   toSelf: ToSelf;
 }
 interface ReduxProps {
-  dispatch: Dispatch<App.Action>;
+  dispatch: ThunkDispatch<App.State, undefined, App.Action>;
 }
 
 type Props = OwnProps & ReduxProps;
 
-const BackendInfo: React.StatelessComponent<{info: BackendVersionInfoResult}>
+const BackendInfo: React.FC<{info: BackendVersionInfoResult}>
 = ({info}) => {
   switch (info.type) {
     case 'none': return <p />;
@@ -169,6 +168,4 @@ class Component extends React.Component<Props, {}> {
   }
 };
 
-const withRedux: Connect<ReduxProps, OwnProps> = connect();
-
-export const UI = compose(withRedux)(Component);
+export const UI: ConnectedComponent<typeof Component, OwnProps> = connect()(Component);

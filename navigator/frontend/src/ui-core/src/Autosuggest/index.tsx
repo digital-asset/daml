@@ -137,7 +137,7 @@ export default class Autosuggest<R>
           ); }
         }
         renderSuggestionsContainer={
-          ({containerProps, children}: {containerProps: {}, children: {}[]}) =>
+          ({containerProps, children}) =>
           (
             <SuggestionsContainer {...containerProps} >
               {children}

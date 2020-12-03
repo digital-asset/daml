@@ -8,14 +8,12 @@ import { DamlLfValue } from '@da/ui-core/lib/api/DamlLfValue';
 import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
 import * as React from 'react';
 import { connect } from 'react-redux';
-import { compose } from 'redux';
 import {
   ContractDetailsById,
   ContractDetailsById_node_Contract,
   ContractDetailsByIdVariables,
   ContractExercise,
 } from '../../api/Queries';
-import { Connect } from '../../types';
 import * as App from '../app';
 import ContractComponent from './ContractComponent';
 
@@ -187,7 +185,7 @@ const mutation = gql`
 // generally confusing to say the least, but works out with a bit of care and
 // thinking about the ordering and what each connect function adds.
 
-const _withMutation: Connect<MutationProps, OwnProps> =
+const _withMutation =
   withMutation<OwnProps, ContractExercise, {}, MutationProps>(mutation,
     {
       props: ({mutate}): MutationProps => ({
@@ -197,8 +195,8 @@ const _withMutation: Connect<MutationProps, OwnProps> =
     },
     );
 
-const _withQuery: Connect<QueryProps, OwnProps & MutationProps> =
-  withQuery<OwnProps, ContractDetailsById, ContractDetailsByIdVariables, QueryProps>(query, {
+const _withQuery =
+  withQuery<OwnProps & MutationProps, ContractDetailsById, ContractDetailsByIdVariables, QueryProps>(query, {
     props: ({ data }) => {
       const node = data?.node;
       const contract = (node && node.__typename === 'Contract') ? node : null;
@@ -210,11 +208,5 @@ const _withQuery: Connect<QueryProps, OwnProps & MutationProps> =
     options: ({ state: { id } }: OwnProps) => ({ variables: { id } as ContractDetailsByIdVariables}),
   });
 
-const withRedux: Connect<ReduxProps, OwnProps & QueryProps & MutationProps> =
-  connect();
-
-export const UI = compose(
-  _withMutation,
-  _withQuery,
-  withRedux,
-)(Component);
+export const UI: React.ComponentClass<OwnProps> =
+  _withMutation(_withQuery(connect()(Component)));

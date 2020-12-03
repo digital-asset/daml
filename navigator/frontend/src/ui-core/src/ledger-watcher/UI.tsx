@@ -5,7 +5,7 @@ import { ApolloClient } from '@apollo/client';
 import { withApollo } from '@apollo/client/react/hoc';
 import * as React from 'react';
 import { connect } from 'react-redux';
-import { AnyAction, compose } from 'redux';
+import { AnyAction } from 'redux';
 import { Set } from 'typescript-collections';
 import Watcher, {
   Action,
@@ -14,7 +14,7 @@ import Watcher, {
   WatchedCommand,
 } from '.';
 import styled from '../theme';
-import { Connect, Dispatch } from '../types';
+import { Dispatch } from '../types';
 import { createIcon, fadeTime } from './icons';
 
 // TODO: with ES6, just pass an array to the Set constructor.
@@ -130,13 +130,5 @@ class Component<A extends Action>
   }
 }
 
-const withRedux: Connect<
-  ReduxProps<AnyAction>,
-  OwnProps<AnyAction> & ApolloProps
->
-  = connect();
-
-export const UI: React.ComponentClass<OwnProps<AnyAction>> = compose(
-  (x) => withApollo<OwnProps<AnyAction>>(x),
-  withRedux,
-)(Component);
+export const UI: React.ComponentClass<OwnProps<AnyAction>>
+  = withApollo<OwnProps<AnyAction>>(connect()(Component));

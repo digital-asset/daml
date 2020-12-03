@@ -15,7 +15,7 @@ import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { Provider } from 'react-redux';
 import { applyMiddleware, compose, createStore, Store } from 'redux';
-import ReduxThunk from 'redux-thunk';
+import ReduxThunk, { ThunkDispatch } from 'redux-thunk';
 import * as App from './applets/app';
 import { pathToAction, stateToPath } from './routes';
 
@@ -40,19 +40,24 @@ const client = new ApolloClient({
 
 // Set up a function to compose Redux enhancers such that Redux DevTools
 // understand them.
-declare const window: { __REDUX_DEVTOOLS_EXTENSION_COMPOSE__?: Function };
+declare global {
+  interface Window {
+    __REDUX_DEVTOOLS_EXTENSION_COMPOSE__?: Function
+  }
+}
 const composeEnhancers =
   typeof window === 'object' && window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__
     ? window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__({})
     : compose;
 
 // Create Redux store
-const store: Store<App.State> = createStore<App.State>(
-  App.makeReducer(),
-  composeEnhancers(applyMiddleware(
-    Router.middleware({ stateToUrl: stateToPath, urlToAction: pathToAction }),
-    ReduxThunk,
-  )),
+const store: Store<App.State> &  {dispatch: ThunkDispatch<App.State, undefined, App.Action>} =
+  createStore<App.State, App.Action, undefined, undefined>(
+    App.makeReducer(),
+    composeEnhancers(applyMiddleware(
+      Router.middleware({ stateToUrl: stateToPath, urlToAction: pathToAction }),
+      ReduxThunk,
+    )),
 );
 
 
@@ -68,5 +73,8 @@ ReactDOM.render((
   document.getElementById('app'),
 );
 
+// Dispatch an action for the initial URL so that the reducer can set the
+// initial state correctly.
+store.dispatch(pathToAction(window.location.pathname));
 store.dispatch(App.initSession());
 store.dispatch(App.initConfig());

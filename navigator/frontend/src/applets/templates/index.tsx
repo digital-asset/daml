@@ -9,15 +9,12 @@ import {
   Dispatch,
 
   WithGraphQL,
-  WithRedux,
 } from '@da/ui-core';
 import { User } from '@da/ui-core/lib/session';
 import * as React from 'react';
 import { connect } from 'react-redux';
-import { compose } from 'redux';
 import { template as templateRoute } from '../../routes';
 import { pathToAction } from '../../routes';
-import { Connect } from '../../types';
 import * as App from '../app';
 import columns from './columns';
 import {
@@ -120,10 +117,4 @@ class Component
   }
 }
 
-const withRedux: WithRedux<Props & ApolloProps> = connect();
-const _withApollo: Connect<ApolloProps, Omit<Props, keyof ApolloProps>> = (x) => withApollo<Props>(x);
-
-export const UI: React.ComponentClass<OwnProps> = compose(
-  _withApollo,
-  withRedux,
-)(Component);
+export const UI: React.ComponentClass<OwnProps> = withApollo<OwnProps>(connect()(Component));
