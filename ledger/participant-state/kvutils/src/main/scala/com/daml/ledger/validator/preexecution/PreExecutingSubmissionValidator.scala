@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.kvutils.{
 }
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.batch.BatchedSubmissionValidator
+import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidator._
 import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidationFailed}
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -133,13 +134,12 @@ class PreExecutingSubmissionValidator[WriteSet](
 
   private[preexecution] def generateReadSet(
       fetchedInputs: DamlStateMapWithFingerprints,
-      accessedKeys: Set[DamlStateKey]): ReadSet =
+      accessedKeys: Set[DamlStateKey],
+  ): ReadSet =
     accessedKeys
       .map { key =>
-        val (_, fingerprint) = fetchedInputs.getOrElse(
-          key,
-          throw new IllegalStateException(
-            "Committer accessed key that was not present in the input"))
+        val (_, fingerprint) =
+          fetchedInputs.getOrElse(key, throw new KeyNotPresentInInputException(key))
         key -> fingerprint
       }
       .map {
@@ -148,4 +148,12 @@ class PreExecutingSubmissionValidator[WriteSet](
       }
       .toVector
       .sortBy(_._1.asReadOnlyByteBuffer)
+}
+
+object PreExecutingSubmissionValidator {
+
+  final class KeyNotPresentInInputException(key: DamlStateKey)
+      extends IllegalStateException(
+        s"The committer accessed a key that was not present in the input.\nKey: $key")
+
 }
