@@ -21,7 +21,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with MockitoSugar {
   "buildLogEntry" should {
     "set record time in log entry if record time is available" in {
       val instance = new PackageCommitter(mock[Engine], metrics)
-      val context = new FakeCommitContext(recordTime = Some(theRecordTime))
+      val context = newCommitContext(recordTime = Some(theRecordTime))
 
       val actual = instance.buildLogEntry(context, anEmptyResult)
 
@@ -35,7 +35,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with MockitoSugar {
 
     "skip setting record time in log entry when it is not available" in {
       val instance = new PackageCommitter(mock[Engine], metrics)
-      val context = new FakeCommitContext(recordTime = None)
+      val context = newCommitContext(recordTime = None)
 
       val actual = instance.buildLogEntry(context, anEmptyResult)
 
@@ -47,7 +47,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with MockitoSugar {
     }
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
       val instance = new PackageCommitter(mock[Engine], metrics)
-      val context = new FakeCommitContext(recordTime = None)
+      val context = newCommitContext(recordTime = None)
 
       instance.buildLogEntry(context, anEmptyResult)
 
@@ -63,7 +63,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with MockitoSugar {
 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
       val instance = new PackageCommitter(mock[Engine], metrics)
-      val context = new FakeCommitContext(recordTime = Some(theRecordTime))
+      val context = newCommitContext(recordTime = Some(theRecordTime))
 
       instance.buildLogEntry(context, anEmptyResult)
 
