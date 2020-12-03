@@ -125,7 +125,7 @@ object TestHelpers {
   def randomLedgerString: Ref.LedgerString =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
 
-  def newCommitContext(
+  def createCommitContext(
       recordTime: Option[Timestamp],
       inputs: DamlStateMap = Map.empty,
       participantId: Int = 0): CommitContext =

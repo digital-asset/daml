@@ -8,7 +8,7 @@ import java.time.{Duration, Instant}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, configurationStateKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.TestHelpers.{newCommitContext, theDefaultConfig}
+import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theDefaultConfig}
 import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Err}
 import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
@@ -191,7 +191,7 @@ class CommitterSpec
   "getCurrentConfiguration" should {
     "return configuration in case there is one available on the ledger" in {
       val inputState = Map(configurationStateKey -> Some(aConfigurationStateValue))
-      val commitContext = newCommitContext(recordTime = None, inputState)
+      val commitContext = createCommitContext(recordTime = None, inputState)
 
       val (Some(actualConfigurationEntry), actualConfiguration) =
         Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
@@ -202,7 +202,7 @@ class CommitterSpec
 
     "return default configuration in case there is no configuration on the ledger" in {
       val inputState = Map(configurationStateKey -> None)
-      val commitContext = newCommitContext(recordTime = None, inputState)
+      val commitContext = createCommitContext(recordTime = None, inputState)
 
       val (actualConfigurationEntry, actualConfiguration) =
         Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
@@ -212,7 +212,7 @@ class CommitterSpec
     }
 
     "throw in case configuration key is not declared in the input" in {
-      val commitContext = newCommitContext(recordTime = None, Map.empty)
+      val commitContext = createCommitContext(recordTime = None, Map.empty)
 
       assertThrows[Err.MissingInputState] {
         Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
@@ -227,7 +227,7 @@ class CommitterSpec
             .setConfiguration(LedgerConfiguration.newBuilder.setGeneration(123456))
         )
         .build
-      val commitContext = newCommitContext(
+      val commitContext = createCommitContext(
         recordTime = None,
         Map(configurationStateKey -> Some(invalidConfigurationEntry)))
 
