@@ -63,8 +63,12 @@
     overflow: auto
   pre.literal-block, div[class^='highlight']
     overflow-x: auto
-    // 1px hack otherwise border won't show. lame
-    margin: 35px 0 35px -46px
+    margin: 35px 0 35px -47px
+    +media($tablet)
+      margin-left: -25px
+
+    +media($mobile)
+      margin-left: -30px
 
     div[class^='highlight']
       padding: 0px

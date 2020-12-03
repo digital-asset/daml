@@ -304,8 +304,12 @@ function scrollContentMenu($sections) {
 }
 
 function setHighlighterWidth() {
-    $('div[class*="highlight"]').css('width', ($('.wy-nav-content').outerWidth()) + 'px');
-    $('div[class*="highlight"] div[class*="highlight"]').css('width', '100%');
+    var contentWidth = $('.wy-nav-content').outerWidth();
+    $('div[class*="highlight"]').css('width', contentWidth + 'px');
+    $('.highlighttable').each(function(i, e) {
+        var codewidth =  contentWidth -  $($(e).find('div[class="highlight"]')[0]).position().left;
+        $(e).find('div[class="highlight"]').css('width', codewidth + 'px');
+    });
 }
 
 function performSearch(fullSearchState, search, results, inline) {
