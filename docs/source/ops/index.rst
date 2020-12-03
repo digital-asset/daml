@@ -11,7 +11,7 @@ DAML Participant pruning
 
 The DAML Ledger API exposes an append-only ledger model; on the other hand, DAML Participants must be able to operate continuously for an indefinite amount of time on a limited amount of hot storage.
 
-In addition, privacy demands [1]_ may require to remove removing Personally Identifiable Information (PII) upon request.
+In addition, privacy demands [1]_ may require removing Personally Identifiable Information (PII) upon request.
 
 To satisfy these requirements, the :ref:`Pruning Service <com.daml.ledger.api.v1.admin.ParticipantPruningService>` Ledger API endpoint [2]_ allows DAML Participants to support pruning of DAML contracts and transactions that were respectively archived and submitted before or at a given ledger offset.
 
