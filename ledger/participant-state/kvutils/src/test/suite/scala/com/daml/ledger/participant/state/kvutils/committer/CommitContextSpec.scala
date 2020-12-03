@@ -8,8 +8,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
-import com.daml.ledger.participant.state.kvutils.{DamlStateMap, TestHelpers}
+import com.daml.ledger.participant.state.kvutils.committer.CommitContextSpec._
+import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err, TestHelpers}
 import com.daml.lf.data.Time
 import org.scalatest.{Matchers, WordSpec}
 
@@ -45,7 +45,7 @@ class CommitContextSpec extends WordSpec with Matchers {
 
     "throw in case key cannot be found" in {
       val context = newInstance()
-      assertThrows[MissingInputState](context.get(aKey))
+      assertThrows[Err.MissingInputState](context.get(aKey))
     }
   }
 
@@ -59,10 +59,15 @@ class CommitContextSpec extends WordSpec with Matchers {
     }
 
     "record key as accessed even if it is not available in the input" in {
-      val context = newInstance()
+      val context = newInstance(inputs = Map(aKey -> None))
 
       context.read(aKey) shouldBe None
       context.getAccessedInputKeys shouldBe Set(aKey)
+    }
+
+    "throw in case key cannot be found" in {
+      val context = newInstance()
+      assertThrows[Err.MissingInputState](context.read(aKey))
     }
   }
 
@@ -145,7 +150,9 @@ class CommitContextSpec extends WordSpec with Matchers {
       context.preExecute shouldBe true
     }
   }
+}
 
+object CommitContextSpec {
   private def aKeyWithContractId(id: String): DamlStateKey =
     DamlStateKey.newBuilder.setContractId(id).build
 
