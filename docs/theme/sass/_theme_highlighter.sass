@@ -1,34 +1,47 @@
 .rst-content
 
   div > .highlight
-    padding-left: 47px !important
-    margin-left: -56px
+    padding-left: 19px !important
+    margin-left: -47px
 
   dd, li
     div > .highlight
-      padding-left: calc(47px + 1.6em) !important
-      margin-left: calc(-56px - 1.6em)
+      padding-left: calc(19px + 1.6em) !important
+      margin-left: calc(-47px - 1.6em)
     div[class^='highlight']
-      margin-left: calc(-56px - 1.6em)
+      margin-left: calc(-47px - 1.6em)
 
     dd, li
       div > .highlight
-        padding-left: calc(47px + 2 * 1.6em) !important
-        margin-left: calc(-56px - 2 * 1.6em)
+        padding-left: calc(19px + 2 * 1.6em) !important
+        margin-left: calc(-47px - 2 * 1.6em)
       div[class^='highlight']
-        margin-left: calc(-56px - 2 * 1.6em)
+        margin-left: calc(-47px - 2 * 1.6em)
 
-  .linenos
-    padding-left: 11px
 
   div[class^="highlight"]
     padding-left: 18px
     background-color: #171B26
-    overflow-x: hidden !important
-    width: 160%
 
-    .linenodiv
-      color: #ffffff
+    .linenos
+      padding: 0
+
+      .linenodiv
+        width: 47px
+        color: #ffffff
+
+        pre
+          text-align: end
+          padding-left: 0
+
+    .highlighttable
+      div[class^="highlight"]
+        overflow-x: visible
+
+      a.copybtn.o-tooltip--left
+        +media($desktop)
+          left: -52px
+
 
   .literal-block-wrapper, .literal-block-wrapper:last-child
     margin-top: 35px
