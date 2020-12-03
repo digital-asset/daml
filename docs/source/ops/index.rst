@@ -6,18 +6,14 @@
 DAML Participant pruning
 ========================
 
-```suggestion
-DAML Participant pruning is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`
+.. HINT::
+   DAML Participant pruning is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`
 
-The DAML Ledger API exposes an append-only ledger model; on the other hand, DAML Participants must be able
-to operate continuously for an indefinite amount of time on a limited amount of hot storage.
+The DAML Ledger API exposes an append-only ledger model; on the other hand, DAML Participants must be able to operate continuously for an indefinite amount of time on a limited amount of hot storage.
 
-In addition, privacy demands [1]_ may require to remove removing Personally Identifiable Information (PII) upon
-request.
+In addition, privacy demands [1]_ may require to remove removing Personally Identifiable Information (PII) upon request.
 
-To satisfy these requirements, the :ref:`Pruning Service <com.daml.ledger.api.v1.PruningService>` Ledger API
-endpoint [2]_ allows DAML Participants to support pruning of DAML contracts and transactions that were respectively
-archived and submitted before or at a given ledger offset.
+To satisfy these requirements, the :ref:`Pruning Service <com.daml.ledger.api.v1.PruningService>` Ledger API endpoint [2]_ allows DAML Participants to support pruning of DAML contracts and transactions that were respectively archived and submitted before or at a given ledger offset.
 
 Please refer to the specific DAML Driver information for details about its pruning support.
 
@@ -28,47 +24,30 @@ Please refer to the specific DAML Driver information for details about its pruni
 Impacts on DAML applications
 ----------------------------
 
-When supported, pruning can be invoked by an operator with administrative privileges at any time on a healthy
-DAML participant; furthermore, it doesn't require stopping nor suspending normal operation.
+When supported, pruning can be invoked by an operator with administrative privileges at any time on a healthy DAML participant; furthermore, it doesn't require stopping nor suspending normal operation.
 
 Still, DAML applications may be affected in the following ways:
 
-- Pruning is potentially a long-running operation and demanding one in terms of system resources; as such, it may
-  significantly reduce DAML Ledger API throughput and increase latency while it is being performed.
-  It is thus recommended to plan pruning invocations when low system utilization is expected.
-- Pruning may degrade the behavior of and/or crash the system if the pruning offset is too recent. In particular,
-  the system might misbehave if command completions are pruned before the command trackers are able to process
-  the completions.
-- Pruning may affect the behavior of Ledger API calls that allow to read data from the ledger: see the next
-  sub-section for more information about API impacts.
+- Pruning is potentially a long-running operation and demanding one in terms of system resources; as such, it may significantly reduce DAML Ledger API throughput and increase latency while it is being performed. It is thus recommended to plan pruning invocations when low system utilization is expected.
+- Pruning may degrade the behavior of and/or crash the system if the pruning offset is too recent. In particular, the system might misbehave if command completions are pruned before the command trackers are able to process the completions.
+- Pruning may affect the behavior of Ledger API calls that allow to read data from the ledger: see the next sub-section for more information about API impacts.
 
 How the DAML Ledger API is affected
 -----------------------------------
 
-- Active data streams from the DAML Participant may abort and need to be re-established by the DAML application
-  from a later offset than pruned, even if they are already streaming past it.
-- Requesting information at offsets that predate pruning, including from the ledger's start, will result
-  in a ``NOT_FOUND`` gRPC error.
-  - As a consequence, after pruning, a DAML application must bootstrap from the Active Contract Service and a
-  recent offset [3]_.
+- Active data streams from the DAML Participant may abort and need to be re-established by the DAML application from a later offset than pruned, even if they are already streaming past it.
+- Requesting information at offsets that predate pruning, including from the ledger's start, will result in a ``NOT_FOUND`` gRPC error.
+  - As a consequence, after pruning, a DAML application must bootstrap from the Active Contract Service and a recent offset [3]_.
 
-Please refer to the :doc:`protobuf documentation of the API </app-dev/grpc/proto-docs>` for details about the
-``prune`` operation itself and the behavior of other DAML Ledger API endpoints when pruning is being or has been
-performed.
+Please refer to the :doc:`protobuf documentation of the API </app-dev/grpc/proto-docs>` for details about the ``prune`` operation itself and the behavior of other DAML Ledger API endpoints when pruning is being or has been performed.
 
 Other limitations
 -----------------
 
-- If the number of divulged contracts continually grows, the storage used by the participant node may still
-  keep growing, even with regular pruning.
-- Pruning may be rejected even if the node is running correctly (for example, to preserve non-repudiation properties);
-  in this case, the application might not be able to archive contracts containing PII or pruning of these contracts
-  may not be possible; thus, actually deleting this PII may also be technically unfeasible.
-- Pruning may leave parties, packages, and configuration data on the participant node, even if they are no longer
-  needed for transaction processing, and even if they contain PII [3]_.
-- Pruning does not move pruned information to cold storage but simply deletes pruned data; for this reason, it is
-  advisable to back up the Participant Index DB before invoking pruning. See the next sub-section for more Participant
-  Index DB-related advice before and after invoking `prune`.
+- If the number of divulged contracts continually grows, the storage used by the participant node may still keep growing, even with regular pruning.
+- Pruning may be rejected even if the node is running correctly (for example, to preserve non-repudiation properties); in this case, the application might not be able to archive contracts containing PII or pruning of these contracts may not be possible; thus, actually deleting this PII may also be technically unfeasible.
+- Pruning may leave parties, packages, and configuration data on the participant node, even if they are no longer needed for transaction processing, and even if they contain PII [3]_.
+- Pruning does not move pruned information to cold storage but simply deletes pruned data; for this reason, it is advisable to back up the Participant Index DB before invoking pruning. See the next sub-section for more Participant Index DB-related advice before and after invoking `prune`.
 
 .. [3] This might be improved in future versions.
 
@@ -77,8 +56,7 @@ Pruning and the DAML Participant Index DB
 
 Activities to be carried out *before* invoking a pruning operation include:
 
-- Backing up the Participant Index DB, as pruning will not move information to cold storage but rather it will
-  delete archived contracts and transactions earlier than or at the pruning offset.
+- Backing up the Participant Index DB, as pruning will not move information to cold storage but rather it will delete archived contracts and transactions earlier than or at the pruning offset.
 
 Activities to be carried out *after* invoking a pruning operation include:
 
