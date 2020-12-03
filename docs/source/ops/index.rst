@@ -39,6 +39,8 @@ How the DAML Ledger API is affected
 - Requesting information at offsets that predate pruning, including from the ledger's start, will result in a ``NOT_FOUND`` gRPC error.
   - As a consequence, after pruning, a DAML application must bootstrap from the Active Contract Service and a recent offset [3]_.
 
+Submission validation and DAML Ledger API endpoints that write to the ledger are generally not affected by pruning; an exception is that in-progress calls could abort while awaiting completion.
+
 Please refer to the :doc:`protobuf documentation of the API </app-dev/grpc/proto-docs>` for details about the ``prune`` operation itself and the behavior of other DAML Ledger API endpoints when pruning is being or has been performed.
 
 Other limitations
