@@ -102,7 +102,7 @@ Time in scenarios
 
 In scenarios, record and ledger time are always equal. You can set them using the following functions:
 
-- ``setTime``, which set the ledger time to the given time.
+- ``setTime``, which sets the ledger time to the given time.
 - ``passTime``, which takes a ``RelTime`` (a relative time) and moves the ledger by that much.
 
 Time on ledgers
