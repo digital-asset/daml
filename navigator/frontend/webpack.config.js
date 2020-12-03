@@ -5,7 +5,6 @@ const fs = require('fs');
 const path = require('path');
 const webpack = require("webpack");
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const FaviconsWebpackPlugin = require('favicons-webpack-plugin');
 const TsConfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 const CaseSensitivePathsPlugin = require('case-sensitive-paths-webpack-plugin');
 
@@ -74,28 +73,10 @@ module.exports = (env) => {
   var plugins = [
     new HtmlWebpackPlugin({
       title: APP_NAME,
-      template: 'src/index.html'
-    }),
-    new FaviconsWebpackPlugin({
-      logo: './src/images/favicon.png',
-      prefix: 'icons-[hash]/',
-      inject: true, // into HtmlWebpackPlugin
-      background: '#fff',
-      title: APP_NAME,
-      icons: {
-        android: false,
-        appleIcon: true,
-        appleStartup: true,
-        coast: false,
-        favicons: true,
-        firefox: true,
-        opengraph: false,
-        twitter: false,
-        yandex: false,
-        windows: false
-      }
-    }),
-  ]
+      template: 'src/index.html',
+      favicon: './src/images/favicon.png',
+    })
+  ];
 
   if (paths_case_check === 'true') {
     plugins.push(new CaseSensitivePathsPlugin())
