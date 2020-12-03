@@ -10,8 +10,8 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ResultDone}
-import com.daml.lf.transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.{SubmittedTransaction, Transaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.mockito.ArgumentMatchers._
@@ -34,7 +34,7 @@ class StoreBackedCommandExecutorSpec extends AsyncWordSpec with MockitoSugar wit
       val mockEngine = mock[Engine]
       when(mockEngine.submit(any[com.daml.lf.command.Commands], any[ParticipantId], any[Hash]))
         .thenReturn(
-          ResultDone[(Transaction.SubmittedTransaction, Transaction.Metadata)](
+          ResultDone[(SubmittedTransaction, Transaction.Metadata)](
             (TransactionBuilder.EmptySubmitted, emptyTransactionMetadata)
           )
         )
