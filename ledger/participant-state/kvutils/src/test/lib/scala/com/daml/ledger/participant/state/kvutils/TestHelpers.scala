@@ -129,6 +129,5 @@ object TestHelpers {
       recordTime: Option[Timestamp],
       inputs: DamlStateMap = Map.empty,
       participantId: Int = 0): CommitContext =
-    new CommitContext(inputs, recordTime, mkParticipantId(participantId))
-
+    CommitContext(inputs, recordTime, mkParticipantId(participantId))
 }

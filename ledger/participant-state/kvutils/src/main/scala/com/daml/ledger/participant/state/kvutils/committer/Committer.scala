@@ -84,7 +84,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       inputState: DamlStateMap,
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
-      val commitContext: CommitContext = new CommitContext(inputState, recordTime, participantId)
+      val commitContext = CommitContext(inputState, recordTime, participantId)
       val logEntry = runSteps(commitContext, submission)
       logEntry -> commitContext.getOutputs.toMap
     }
@@ -95,7 +95,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       inputState: DamlStateMap,
   ): PreExecutionResult =
     preExecutionRunTimer.time { () =>
-      val commitContext: CommitContext = new CommitContext(inputState, None, participantId)
+      val commitContext = CommitContext(inputState, None, participantId)
       preExecute(submission, commitContext)
     }
 

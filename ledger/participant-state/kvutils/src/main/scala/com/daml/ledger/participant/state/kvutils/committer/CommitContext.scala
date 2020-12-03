@@ -21,8 +21,8 @@ import scala.collection.mutable
 /** Commit context provides access to state inputs, commit parameters (e.g. record time) and
   * allows committer to set state outputs.
   */
-private[kvutils] class CommitContext(
-    inputs: DamlStateMap,
+private[kvutils] case class CommitContext(
+    private val inputs: DamlStateMap,
     recordTime: Option[Timestamp],
     participantId: ParticipantId) {
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
