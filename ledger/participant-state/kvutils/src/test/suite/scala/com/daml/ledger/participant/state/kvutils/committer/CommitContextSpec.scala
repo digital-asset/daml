@@ -161,7 +161,7 @@ class CommitContextSpec extends WordSpec with Matchers {
   private def newInstance(
       recordTime: Option[Time.Timestamp] = Some(Time.Timestamp.now()),
       inputs: DamlStateMap = Map.empty) =
-    new CommitContext(inputs, recordTime, TestHelpers.mkParticipantId(1))
+    CommitContext(inputs, recordTime, TestHelpers.mkParticipantId(1))
 
   private def newDamlStateMap(keyAndValues: (DamlStateKey, DamlStateValue)*): DamlStateMap =
     (for ((key, value) <- keyAndValues)
