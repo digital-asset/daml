@@ -13,7 +13,7 @@ The DAML Ledger API exposes an append-only ledger model; on the other hand, DAML
 
 In addition, privacy demands [1]_ may require to remove removing Personally Identifiable Information (PII) upon request.
 
-To satisfy these requirements, the :ref:`Pruning Service <com.daml.ledger.api.v1.PruningService>` Ledger API endpoint [2]_ allows DAML Participants to support pruning of DAML contracts and transactions that were respectively archived and submitted before or at a given ledger offset.
+To satisfy these requirements, the :ref:`Pruning Service <com.daml.ledger.api.v1.admin.ParticipantPruningService>` Ledger API endpoint [2]_ allows DAML Participants to support pruning of DAML contracts and transactions that were respectively archived and submitted before or at a given ledger offset.
 
 Please refer to the specific DAML Driver information for details about its pruning support.
 
