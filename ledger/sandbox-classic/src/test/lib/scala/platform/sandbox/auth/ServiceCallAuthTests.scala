@@ -42,6 +42,9 @@ trait ServiceCallAuthTests
   protected def expectUnauthenticated(f: Future[Any]): Future[Assertion] =
     expectFailure(f, Status.Code.UNAUTHENTICATED)
 
+  protected def expectUnimplemented(f: Future[Any]): Future[Assertion] =
+    expectFailure(f, Status.Code.UNIMPLEMENTED)
+
   protected def expectFailure(f: Future[Any], code: Status.Code): Future[Assertion] =
     f.failed.collect {
       case GrpcException(GrpcStatus(`code`, _), _) => succeed

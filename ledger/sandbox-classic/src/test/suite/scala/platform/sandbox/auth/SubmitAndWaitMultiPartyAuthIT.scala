@@ -3,19 +3,19 @@
 
 package com.daml.platform.sandbox.auth
 
-import com.daml.platform.sandbox.services.SubmitMultiPartyDummyCommand
+import com.daml.platform.sandbox.services.SubmitAndWaitMultiPartyDummyCommand
 
 import scala.concurrent.Future
 
-final class SubmitMultiPartyAuthIT
+final class SubmitAndWaitMultiPartyAuthIT
     extends MultiPartyServiceCallAuthTests
-    with SubmitMultiPartyDummyCommand {
+    with SubmitAndWaitMultiPartyDummyCommand {
 
-  override def serviceCallName: String = "CommandSubmissionService#Submit"
+  override def serviceCallName: String = "CommandService#SubmitAndWait"
 
   override def serviceCallWithToken(
       token: Option[String],
       requestSubmitters: RequestSubmitters): Future[Any] =
-    submit(token, requestSubmitters.party, requestSubmitters.actAs, requestSubmitters.readAs)
+    submitAndWait(token, requestSubmitters.party, requestSubmitters.actAs, requestSubmitters.readAs)
 
 }

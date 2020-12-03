@@ -15,46 +15,197 @@ import scala.concurrent.Future
   */
 trait MultiPartyServiceCallAuthTests extends ServiceCallAuthTests {
 
-  private val actorsCount: Int = 3
-  private val readersCount: Int = 3
+  // Parties specified in the API request
+  sealed case class RequestSubmitters(party: String, actAs: Seq[String], readAs: Seq[String])
 
-  protected val actAs: List[String] = List.fill(actorsCount)(UUID.randomUUID.toString)
-  protected val readAs: List[String] = List.fill(readersCount)(UUID.randomUUID.toString)
+  // Parties specified in the access token
+  sealed case class TokenParties(actAs: List[String], readAs: List[String])
 
-  private val randomActAs: List[String] = List.fill(actorsCount)(UUID.randomUUID.toString)
-  private val randomReadAs: List[String] = List.fill(readersCount)(UUID.randomUUID.toString)
+  private[this] val actorsCount: Int = 3
+  private[this] val readersCount: Int = 3
 
-  private def serviceCallFor(actAs: List[String], readAs: List[String]): Future[Any] = {
-    val token = Option(toHeader(multiPartyToken(actAs, readAs)))
-    serviceCallWithToken(token)
+  private[this] val actAs: List[String] = List.fill(actorsCount)(UUID.randomUUID.toString)
+  private[this] val readAs: List[String] = List.fill(readersCount)(UUID.randomUUID.toString)
+  private[this] val submitters: RequestSubmitters = RequestSubmitters("", actAs, readAs)
+
+  private[this] val singleParty = UUID.randomUUID.toString
+  private[this] val randomParty = UUID.randomUUID.toString
+
+  private[this] val randomActAs: List[String] = List.fill(actorsCount)(UUID.randomUUID.toString)
+  private[this] val randomReadAs: List[String] = List.fill(readersCount)(UUID.randomUUID.toString)
+
+  override def serviceCallWithToken(token: Option[String]): Future[Any] =
+    serviceCallWithToken(token, submitters)
+
+  def serviceCallWithToken(token: Option[String], requestSubmitters: RequestSubmitters): Future[Any]
+
+  private[this] def serviceCallFor(
+      tokenParties: TokenParties,
+      requestSubmitters: RequestSubmitters,
+  ): Future[Any] = {
+    val token = Option(toHeader(multiPartyToken(tokenParties.actAs, tokenParties.readAs)))
+    serviceCallWithToken(token, requestSubmitters)
   }
 
-  it should "allow calls authorized to exactly the required parties" in {
-    expectSuccess(serviceCallFor(actAs, readAs))
+  // Notes for multi-party submissions:
+  // - ActAs parties can be specified through a "party" field, and/or an "actAs" field.
+  //   The contents of those fields are merged.
+  // - ActAs parties from the request require ActAs claims in the token
+  // - ReadAs parties from the request require ReadAs or ActAs claims in the token
+
+  it should "allow single-party calls authorized to exactly the submitter (party)" in {
+    expectSuccess(
+      serviceCallFor(
+        TokenParties(List(singleParty), List.empty),
+        RequestSubmitters(singleParty, List.empty, List.empty),
+      ))
   }
-  it should "allow calls authorized to a superset of the required parties" in {
-    expectSuccess(serviceCallFor(randomActAs ++ actAs, randomReadAs ++ readAs))
+  it should "allow single-party calls authorized to exactly the submitter (actAs)" in {
+    expectSuccess(
+      serviceCallFor(
+        TokenParties(List(singleParty), List.empty),
+        RequestSubmitters("", List(singleParty), List.empty),
+      ))
   }
-  it should "allow calls with all parties authorized in read-write mode" in {
-    expectPermissionDenied(serviceCallFor(actAs ++ readAs, List.empty))
+  it should "allow single-party calls authorized to exactly the submitter (party, actAs, and readAs)" in {
+    expectSuccess(
+      serviceCallFor(
+        TokenParties(List(singleParty), List.empty),
+        RequestSubmitters(singleParty, List(singleParty), List(singleParty)),
+      ))
+  }
+  it should "allow single-party calls authorized to a superset of the required parties (party)" in {
+    expectSuccess(
+      serviceCallFor(
+        TokenParties(randomActAs :+ singleParty, randomReadAs),
+        RequestSubmitters(singleParty, List.empty, List.empty),
+      ))
   }
 
-  it should "deny calls authorized to no parties" in {
-    expectPermissionDenied(serviceCallFor(List.empty, List.empty))
+  it should "deny single-party calls authorized to no parties (party)" in {
+    expectPermissionDenied(
+      serviceCallFor(
+        TokenParties(List.empty, List.empty),
+        RequestSubmitters(singleParty, List.empty, List.empty),
+      ))
   }
-  it should "deny calls authorized to random parties" in {
-    expectPermissionDenied(serviceCallFor(randomActAs, randomReadAs))
+  it should "deny single-party calls authorized to no parties (actAs)" in {
+    expectPermissionDenied(
+      serviceCallFor(
+        TokenParties(List.empty, List.empty),
+        RequestSubmitters("", List(singleParty), List.empty),
+      ))
   }
-  it should "deny calls with all parties authorized in read-only mode" in {
-    expectPermissionDenied(serviceCallFor(List.empty, actAs ++ readAs))
+  it should "deny single-party calls authorized in read-only mode (party)" in {
+    expectPermissionDenied(
+      serviceCallFor(
+        TokenParties(List.empty, List(singleParty)),
+        RequestSubmitters(singleParty, List.empty, List.empty),
+      ))
   }
-  it should "deny calls with one missing actor authorization" in {
-    expectPermissionDenied(serviceCallFor(actAs.take(actorsCount - 1), readAs))
+  it should "deny single-party calls authorized in read-only mode (actAs)" in {
+    expectPermissionDenied(
+      serviceCallFor(
+        TokenParties(List.empty, List(singleParty)),
+        RequestSubmitters("", List(singleParty), List.empty),
+      ))
   }
-  it should "deny calls with one missing reader authorization" in {
-    expectPermissionDenied(serviceCallFor(actAs, readAs.take(readersCount - 1)))
+  it should "deny single-party calls authorized to a random party (party)" in {
+    expectPermissionDenied(
+      serviceCallFor(
+        TokenParties(List(randomParty), List.empty),
+        RequestSubmitters(singleParty, List.empty, List.empty),
+      ))
   }
-  it should "deny calls authorized to swapped actAs/readAs parties" in {
-    expectPermissionDenied(serviceCallFor(readAs, actAs))
+  it should "deny single-party calls authorized to a random party (actAs)" in {
+    expectPermissionDenied(
+      serviceCallFor(
+        TokenParties(List(randomParty), List.empty),
+        RequestSubmitters("", List(singleParty), List.empty),
+      ))
+  }
+
+  it should "allow multi-party calls authorized to exactly the required parties" in {
+    // Note: use expectSuccess() once multi-party submissions are enabled
+    expectUnimplemented(
+      serviceCallFor(
+        TokenParties(actAs, readAs),
+        RequestSubmitters("", actAs, readAs),
+      ))
+  }
+  it should "allow multi-party calls authorized to a superset of the required parties" in {
+    // Note: use expectSuccess() once multi-party submissions are enabled
+    expectUnimplemented(
+      serviceCallFor(
+        TokenParties(randomActAs ++ actAs, randomReadAs ++ readAs),
+        RequestSubmitters("", actAs, readAs),
+      ))
+  }
+  it should "allow multi-party calls with all parties authorized in read-write mode" in {
+    // Note: use expectSuccess() once multi-party submissions are enabled
+    expectUnimplemented(
+      serviceCallFor(
+        TokenParties(actAs ++ readAs, List.empty),
+        RequestSubmitters("", actAs, readAs),
+      ))
+  }
+  it should "allow multi-party calls with actAs parties spread across party and actAs fields" in {
+    // Note: use expectSuccess() once multi-party submissions are enabled
+    expectUnimplemented(
+      serviceCallFor(
+        TokenParties(actAs, readAs),
+        RequestSubmitters(actAs.head, actAs.tail, readAs),
+      ))
+  }
+  it should "allow multi-party calls with actAs parties duplicated in the readAs field" in {
+    // Note: use expectSuccess() once multi-party submissions are enabled
+    expectUnimplemented(
+      serviceCallFor(
+        TokenParties(actAs, readAs),
+        RequestSubmitters("", actAs, actAs ++ readAs),
+      ))
+  }
+
+  it should "deny multi-party calls authorized to no parties" in {
+    expectPermissionDenied(
+      serviceCallFor(
+        TokenParties(List.empty, List.empty),
+        RequestSubmitters("", actAs, readAs),
+      ))
+  }
+  it should "deny multi-party calls authorized to random parties" in {
+    expectPermissionDenied(
+      serviceCallFor(
+        TokenParties(randomActAs, randomReadAs),
+        RequestSubmitters("", actAs, readAs),
+      ))
+  }
+  it should "deny multi-party calls with all parties authorized in read-only mode" in {
+    expectPermissionDenied(
+      serviceCallFor(
+        TokenParties(List.empty, actAs ++ readAs),
+        RequestSubmitters("", actAs, readAs),
+      ))
+  }
+  it should "deny multi-party calls with one missing actor authorization" in {
+    expectPermissionDenied(
+      serviceCallFor(
+        TokenParties(actAs.take(actorsCount - 1), readAs),
+        RequestSubmitters("", actAs, readAs),
+      ))
+  }
+  it should "deny multi-party calls with one missing reader authorization" in {
+    expectPermissionDenied(
+      serviceCallFor(
+        TokenParties(actAs, readAs.take(readersCount - 1)),
+        RequestSubmitters("", actAs, readAs),
+      ))
+  }
+  it should "deny multi-party calls authorized to swapped actAs/readAs parties" in {
+    expectPermissionDenied(
+      serviceCallFor(
+        TokenParties(readAs, actAs),
+        RequestSubmitters("", actAs, readAs),
+      ))
   }
 }
