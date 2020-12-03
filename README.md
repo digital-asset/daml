@@ -25,6 +25,7 @@ If you have questions about how to use DAML or how to build DAML-based solutions
 We warmly welcome [contributions](./CONTRIBUTING.md). If you are looking for ideas on how to contribute, please browse our
 [issues](https://github.com/digital-asset/daml/issues). To build and test DAML:
 
+
 ### 1. Clone this repository
 
 ```
