@@ -488,7 +488,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
         case SResultNeedKey(keyWithMaintainers, committers, cb) =>
           scenarioRunner.lookupKey(keyWithMaintainers.globalKey, committers, cb).toTry.get
         case SResultFinalValue(SUnit) =>
-          onLedger.ptx.finish(machine.compiledPackages.packageLanguageVersion) match {
+          onLedger.ptx.finish match {
             case PartialTransaction.CompleteTransaction(tx) =>
               val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
                 tx.nodes(n) match {

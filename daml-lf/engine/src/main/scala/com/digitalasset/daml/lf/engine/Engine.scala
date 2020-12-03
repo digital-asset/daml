@@ -352,9 +352,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       }
     }
 
-    onLedger.ptx.finish(
-      compiledPackages.packageLanguageVersion,
-    ) match {
+    onLedger.ptx.finish match {
       case PartialTransaction.CompleteTransaction(tx) =>
         val meta = Tx.Metadata(
           submissionSeed = None,

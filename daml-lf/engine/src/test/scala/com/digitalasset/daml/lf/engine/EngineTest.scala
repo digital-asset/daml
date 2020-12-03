@@ -29,7 +29,6 @@ import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
-import com.daml.lf.transaction.Node.VersionedNode
 import com.daml.lf.transaction.TransactionVersions.UnversionedNode
 import com.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalactic.Equality
@@ -1220,6 +1219,7 @@ class EngineTest
             _,
             _,
             _,
+            _,
             ) =>
           coid shouldBe originalCoid
           consuming shouldBe true
@@ -1230,7 +1230,7 @@ class EngineTest
       }
 
       findNodeByIdx(bobView.nodes, 1).getOrElse(fail("node not found")) match {
-        case Node.NodeCreate(_, coins, _, _, stakeholders, _) =>
+        case Node.NodeCreate(_, coins, _, _, stakeholders, _, _) =>
           coins.template shouldBe templateId
           stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
@@ -1242,7 +1242,7 @@ class EngineTest
 
       claraView.nodes.size shouldBe 1
       findNodeByIdx(claraView.nodes, 1).getOrElse(fail("node not found")) match {
-        case Node.NodeCreate(_, coins, _, _, stakeholders, _) =>
+        case Node.NodeCreate(_, coins, _, _, stakeholders, _, _) =>
           coins.template shouldBe templateId
           stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
@@ -1367,7 +1367,7 @@ class EngineTest
 
     def actFetchActors[Nid, Cid, Val](n: Node.GenNode[Nid, Cid, Val]): Set[Party] = {
       n match {
-        case Node.NodeFetch(_, _, _, actingParties, _, _, _, _) => actingParties
+        case Node.NodeFetch(_, _, _, actingParties, _, _, _, _, _) => actingParties
         case _ => Set()
       }
     }
@@ -1420,8 +1420,8 @@ class EngineTest
 
     "be retained when reinterpreting single fetch nodes" in {
       val Right((tx, txMeta)) = runExample(fetcher1Cid, clara)
-      val fetchNodes = tx.versionedNodes.iterator.collect {
-        case entry @ (_, VersionedNode(_, Node.NodeFetch(_, _, _, _, _, _, _, _))) => entry
+      val fetchNodes = tx.nodes.iterator.collect {
+        case entry @ (_, Node.NodeFetch(_, _, _, _, _, _, _, _, _)) => entry
       }
 
       fetchNodes.foreach {
@@ -1429,7 +1429,7 @@ class EngineTest
           val fetchTx = VersionedTransaction(n.version, Map(nid -> n), ImmArray(nid))
           val Right((reinterpreted, _)) =
             engine
-              .reinterpret(n.node.requiredAuthorizers, n.node, txMeta.nodeSeeds.toSeq.collectFirst {
+              .reinterpret(n.requiredAuthorizers, n, txMeta.nodeSeeds.toSeq.collectFirst {
                 case (`nid`, seed) => seed
               }, txMeta.submissionTime, let)
               .consume(lookupContract, lookupPackage, lookupKey)
@@ -1481,6 +1481,7 @@ class EngineTest
         stakeholders = Set.empty,
         key = None,
         byKey = false,
+        version = TxVersions.default,
       )
 
       val let = Time.Timestamp.now()
@@ -1531,7 +1532,7 @@ class EngineTest
         tx: GenTx[Nid, Cid, Val],
     ): Option[(Nid, Node.NodeLookupByKey[Cid, Val])] =
       tx.nodes.collectFirst {
-        case (nid, nl @ Node.NodeLookupByKey(_, _, _, _)) => nid -> nl
+        case (nid, nl @ Node.NodeLookupByKey(_, _, _, _, _)) => nid -> nl
       }
 
     val now = Time.Timestamp.now()
@@ -1686,7 +1687,7 @@ class EngineTest
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       tx.transaction.nodes.values.headOption match {
-        case Some(Node.NodeFetch(_, _, _, _, _, _, key, _)) =>
+        case Some(Node.NodeFetch(_, _, _, _, _, _, key, _, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
             case Some(Node.KeyWithMaintainers(_, maintainers)) =>
@@ -1811,7 +1812,7 @@ class EngineTest
     "be partially reinterpretable" in {
       val Right((tx, txMeta)) = run(3)
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _, _) =
+      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
@@ -2062,11 +2063,13 @@ object EngineTest {
                       _,
                       _,
                       _,
-                      _))) =>
+                      _,
+                      _,
+                    ))) =>
                 (contracts - targetCoid, keys)
               case (
                   (contracts, keys),
-                  (_, Node.NodeCreate(cid: ContractId, coinst, _, _, _, key))) =>
+                  (_, Node.NodeCreate(cid: ContractId, coinst, _, _, _, key, _))) =>
                 (
                   contracts.updated(
                     cid,
@@ -2106,7 +2109,6 @@ object EngineTest {
       case (nodes, roots, dependsOnTime, nodeSeeds, _, _) =>
         (
           TxVersions.asVersionedTransaction(
-            engine.compiledPackages().packageLanguageVersion,
             roots.toImmArray,
             nodes,
           ),

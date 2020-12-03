@@ -9,11 +9,11 @@ abstract class LfVersions[V](versionsAscending: NonEmptyList[V])(protoValue: V =
 
   protected val maxVersion: V = versionsAscending.last
 
-  val acceptedVersions: List[V] = versionsAscending.list.toList
+  private[lf] val acceptedVersions: List[V] = versionsAscending.list.toList
 
   private val acceptedVersionsMap: Map[String, V] =
     acceptedVersions.iterator.map(v => (protoValue(v), v)).toMap
 
-  def isAcceptedVersion(version: String): Option[V] = acceptedVersionsMap.get(version)
+  private[lf] def isAcceptedVersion(version: String): Option[V] = acceptedVersionsMap.get(version)
 
 }

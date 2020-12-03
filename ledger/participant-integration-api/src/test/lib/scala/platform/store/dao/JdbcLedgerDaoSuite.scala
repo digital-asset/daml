@@ -19,7 +19,13 @@ import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, Node, NodeId}
+import com.daml.lf.transaction.{
+  BlindingInfo,
+  CommittedTransaction,
+  Node,
+  NodeId,
+  TransactionVersions
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueRecord, ValueText, ValueUnit}
 import com.daml.logging.LoggingContext
@@ -110,7 +116,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       optLocation = None,
       signatories = signatories,
       stakeholders = signatories,
-      key = None
+      key = None,
+      version = TransactionVersions.minVersion,
     )
 
   protected final def createWithStakeholders(
@@ -124,7 +131,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       optLocation = None,
       signatories = signatories,
       stakeholders = stakeholders,
-      key = None
+      key = None,
+      version = TransactionVersions.minVersion,
     )
 
   private def exercise(
@@ -145,6 +153,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       exerciseResult = Some(ValueText("some exercise result")),
       key = None,
       byKey = false,
+      version = TransactionVersions.minVersion,
     )
 
   // All non-transient contracts created in a transaction
@@ -232,6 +241,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         exerciseResult = Some(ValueUnit),
         key = None,
         byKey = false,
+        version = TransactionVersions.minVersion,
       )
     )
     txBuilder.add(
@@ -244,6 +254,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         stakeholders = Set(alice),
         None,
         byKey = false,
+        version = TransactionVersions.minVersion,
       ),
       exerciseId,
     )
@@ -561,7 +572,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         optLocation = None,
         signatories = Set(party),
         stakeholders = Set(party),
-        key = Some(KeyWithMaintainers(ValueText(key), Set(party)))
+        key = Some(KeyWithMaintainers(ValueText(key), Set(party))),
+        version = TransactionVersions.minVersion,
       ))
     nextOffset() ->
       LedgerEntry.Transaction(
@@ -600,6 +612,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         exerciseResult = Some(ValueUnit),
         key = maybeKey.map(k => KeyWithMaintainers(ValueText(k), Set(party))),
         byKey = false,
+        version = TransactionVersions.minVersion,
       ))
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
@@ -627,6 +640,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         None,
         KeyWithMaintainers(ValueText(key), Set(party)),
         result,
+        version = TransactionVersions.minVersion,
       ))
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
@@ -656,6 +670,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         stakeholders = Set(party),
         None,
         byKey = false,
+        version = TransactionVersions.minVersion,
       ))
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),

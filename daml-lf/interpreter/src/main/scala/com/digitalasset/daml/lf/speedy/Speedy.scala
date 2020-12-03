@@ -15,6 +15,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.transaction.TransactionVersions
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
@@ -629,7 +630,8 @@ private[lf] object Speedy {
       onLedger.committers = Set.empty
       onLedger.commitLocation = None
       onLedger.ptx = PartialTransaction.initial(
-        submissionTime = onLedger.ptx.submissionTime,
+        onLedger.ptx.packageToTransactionVersion,
+        onLedger.ptx.submissionTime,
         InitialSeeding.TransactionSeed(freshSeed),
       )
     }
@@ -738,7 +740,9 @@ private[lf] object Speedy {
         validating: Boolean = false,
         checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
-    ): Machine =
+    ): Machine = {
+      val pkg2TxVersion =
+        compiledPackages.packageLanguageVersion.andThen(TransactionVersions.assignNodeVersion)
       new Machine(
         ctrl = expr,
         returnValue = null,
@@ -751,7 +755,7 @@ private[lf] object Speedy {
         ledgerMode = OnLedger(
           validating = validating,
           checkAuthorization = checkAuthorization,
-          ptx = PartialTransaction.initial(submissionTime, initialSeeding),
+          ptx = PartialTransaction.initial(pkg2TxVersion, submissionTime, initialSeeding),
           committers = committers,
           commitLocation = None,
           dependsOnTime = false,
@@ -766,6 +770,7 @@ private[lf] object Speedy {
         track = Instrumentation(),
         profile = new Profile(),
       )
+    }
 
     @throws[PackageNotFound]
     @throws[CompilationError]

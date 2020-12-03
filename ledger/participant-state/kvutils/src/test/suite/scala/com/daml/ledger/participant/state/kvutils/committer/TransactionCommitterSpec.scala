@@ -36,6 +36,7 @@ import org.scalatest.Inspectors.forEvery
 import scala.collection.JavaConverters._
 
 class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSugar {
+  private[this] val txBuilder = TransactionBuilder()
   private val metrics = new Metrics(new MetricRegistry)
   private val aDamlTransactionEntry = DamlTransactionEntry.newBuilder
     .setTransaction(Conversions.encodeTransaction(TransactionBuilder.Empty))
@@ -352,7 +353,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     val dummyValue = TransactionBuilder.record("field" -> "value")
 
     def create(contractId: String, key: String = "key"): TransactionBuilder.Create =
-      TransactionBuilder.create(
+      txBuilder.create(
         id = contractId,
         template = "dummyPackage:DummyModule:DummyTemplate",
         argument = dummyValue,
@@ -386,7 +387,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     val create1 = create("#someContractId")
     val create2 = create("#otherContractId")
 
-    val exercise = TransactionBuilder.exercise(
+    val exercise = txBuilder.exercise(
       contract = createInput,
       choice = "DummyChoice",
       consuming = false,
@@ -398,7 +399,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
     val lookupNodes @ Seq(lookup1, lookup2, lookupNone, lookupOther @ _) =
       Seq(create1 -> true, create2 -> true, create1 -> false, otherKeyCreate -> true) map {
-        case (create, found) => TransactionBuilder.lookupByKey(create, found)
+        case (create, found) => txBuilder.lookupByKey(create, found)
       }
     val Seq(tx1, tx2, txNone, txOther) = lookupNodes map { node =>
       val builder = TransactionBuilder()
