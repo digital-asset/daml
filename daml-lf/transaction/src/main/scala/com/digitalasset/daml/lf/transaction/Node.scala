@@ -4,8 +4,8 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.data.{ImmArray, ScalazEqual}
 import com.daml.lf.data.Ref._
+import com.daml.lf.data.{ImmArray, ScalazEqual}
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.value.{
   CidContainer,
@@ -15,11 +15,11 @@ import com.daml.lf.value.{
   CidMapper,
   Value
 }
-
-import scala.language.higherKinds
 import scalaz.Equal
 import scalaz.std.option._
 import scalaz.syntax.equal._
+
+import scala.language.higherKinds
 
 /**
   * Generic transaction node type for both update transactions and the
@@ -367,12 +367,6 @@ object Node {
           key === key2 && result === result2
       }
     }(recorded, isReplayedBy)
-
-  @deprecated("use com.daml.lf.transaction.GlobalKey", "1.4.0")
-  type GlobalKey = transaction.GlobalKey
-
-  @deprecated("use com.daml.lf.transaction.GlobalKey", "1.4.0")
-  val GlobalKey = transaction.GlobalKey
 
   sealed trait WithTxValue2[F[+ _, + _]] {
     type WithTxValue[+Cid] = F[Cid, Transaction.Value[Cid]]

@@ -367,7 +367,7 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
           nodes(nid) match {
             case exe: Node.NodeExercises[Nid, Cid, Val] =>
               exerciseBegin(nid, exe)
-              loop(FrontStack(exe.children), (((nid, exe), rest)) +: stack)
+              loop(FrontStack(exe.children), ((nid, exe), rest) +: stack)
             case node: Node.LeafOnlyNode[Cid, Val] =>
               leaf(nid, node)
               loop(rest, stack)
@@ -499,76 +499,56 @@ object GenTransaction extends value.CidContainer3[GenTransaction] {
 
 object Transaction {
 
-  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.4.0")
-  type NodeId = transaction.NodeId
-  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.4.0")
-  val NodeId = transaction.NodeId
-
-  @deprecated("Use daml.lf.value.Value.ContractId directly", since = "1.2.0")
-  type TContractId = Value.ContractId
-
   type Value[+Cid] = Value.VersionedValue[Cid]
 
   type ContractInst[+Cid] = Value.ContractInst[Value[Cid]]
 
   /** Transaction nodes */
-  type Node = Node.GenNode.WithTxValue[transaction.NodeId, Value.ContractId]
+  type Node = Node.GenNode.WithTxValue[NodeId, Value.ContractId]
   type LeafNode = Node.LeafOnlyNode.WithTxValue[Value.ContractId]
 
   /** (Complete) transactions, which are the result of interpreting a
-    *  ledger-update. These transactions are consumed by either the
-    *  scenario-interpreter or the DAML-engine code. Both of these
-    *  code-paths share the computations for segregating the
-    *  transaction into party-specific ledgers and for computing
-    *  divulgence of contracts.
+    * ledger-update. These transactions are consumed by either the
+    * scenario-interpreter or the DAML-engine code. Both of these
+    * code-paths share the computations for segregating the
+    * transaction into party-specific ledgers and for computing
+    * divulgence of contracts.
     *
     */
-  type Transaction = VersionedTransaction[transaction.NodeId, Value.ContractId]
-  val Transaction = VersionedTransaction
+  type Transaction = VersionedTransaction[NodeId, Value.ContractId]
+  val Transaction: VersionedTransaction.type = VersionedTransaction
 
   /** Transaction meta data
-    * @param submissionSeed: the submission seed used to derive the contract IDs.
-    *        If undefined no seed has been used (the legacy contract ID scheme
-    *        have been used) or it is unknown (output of partial reinterpretation).
-    * @param submissionTime: the submission time
-    * @param usedPackages The set of packages used during command processing.
-    *        This is a hint for what packages are required to validate
-    *        the transaction using the current interpreter.
-    *        If set to `empty` the package dependency have not be computed.
-    * @param dependsOnTime: indicate the transaction computation depends on ledger
-    *        time.
-    * @param nodeSeeds: An association list that maps to each ID of create and exercise
-    *        nodes its seeds.
+    *
+    * @param submissionSeed : the submission seed used to derive the contract IDs.
+    *                       If undefined no seed has been used (the legacy contract ID scheme
+    *                       have been used) or it is unknown (output of partial reinterpretation).
+    * @param submissionTime : the submission time
+    * @param usedPackages   The set of packages used during command processing.
+    *                       This is a hint for what packages are required to validate
+    *                       the transaction using the current interpreter.
+    *                       If set to `empty` the package dependency have not be computed.
+    * @param dependsOnTime  : indicate the transaction computation depends on ledger
+    *                       time.
+    * @param nodeSeeds      : An association list that maps to each ID of create and exercise
+    *                       nodes its seeds.
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       usedPackages: Set[PackageId],
       dependsOnTime: Boolean,
-      nodeSeeds: ImmArray[(transaction.NodeId, crypto.Hash)],
+      nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
   )
 
-  @deprecated("Use com.daml.lf.transaction.SubmittedTransaction", since = "1.4.0")
-  type SubmittedTransaction = transaction.SubmittedTransaction
-
-  @deprecated("Use com.daml.lf.transaction.SubmittedTransaction", since = "1.4.0")
-  val SubmittedTransaction = transaction.SubmittedTransaction
-
-  @deprecated("Use com.daml.lf.transaction.CommittedTransaction", since = "1.4.0")
-  type CommittedTransaction = transaction.CommittedTransaction
-
-  @deprecated("Use com.daml.lf.transaction.CommittedTransaction", since = "1.4.0")
-  val CommittedTransaction = transaction.CommittedTransaction
+  def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =
+    CommittedTransaction(submittedTransaction)
 
   def commitTransaction(
-      submittedTransaction: transaction.SubmittedTransaction): transaction.CommittedTransaction =
-    transaction.CommittedTransaction(submittedTransaction)
-
-  def commitTransaction(
-      submittedTransaction: transaction.SubmittedTransaction,
+      submittedTransaction: SubmittedTransaction,
       f: crypto.Hash => Bytes,
-  ): Either[String, transaction.CommittedTransaction] =
-    submittedTransaction.suffixCid(f).map(transaction.CommittedTransaction(_))
+  ): Either[String, CommittedTransaction] =
+    submittedTransaction.suffixCid(f).map(CommittedTransaction(_))
 
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable
@@ -579,16 +559,16 @@ object Transaction {
   case object EndExerciseInRootContext extends TransactionError
 
   /** Signals that the contract-id `coid` was expected to be active, but
-    *  is not.
+    * is not.
     */
   final case class ContractNotActive(
       coid: Value.ContractId,
       templateId: TypeConName,
-      consumedBy: transaction.NodeId)
-      extends TransactionError
+      consumedBy: NodeId,
+  ) extends TransactionError
 
   final case class AuthFailureDuringExecution(
-      nid: transaction.NodeId,
+      nid: NodeId,
       fa: FailedAuthorization,
   ) extends TransactionError
 
@@ -605,8 +585,8 @@ object Transaction {
       recorded: VersionedTransaction[Nid, Cid],
       replayed: VersionedTransaction[Nid, Cid],
   )(implicit ECid: Equal[Cid], EVal: Equal[Value[Cid]]): Either[ReplayMismatch[Nid, Cid], Unit] = {
-    import scalaz.syntax.equal._
     import scalaz.std.option._
+    import scalaz.syntax.equal._
 
     type Exe = Node.NodeExercises.WithTxValue[Nid, Cid]
 
