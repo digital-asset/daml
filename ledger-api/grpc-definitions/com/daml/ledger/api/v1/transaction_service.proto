@@ -88,12 +88,12 @@ message GetTransactionsRequest {
   string ledger_id = 1;
 
   // Beginning of the requested ledger section.
-  // This offset is exclusive: the response will not contain any transaction whose offset is less than or equal to this.
+  // This offset is exclusive: the response will only contain transactions whose offset is strictly greater than this.
   // Required
   LedgerOffset begin = 2;
 
   // End of the requested ledger section.
-  // This offset is inclusive: the response will not contain any transaction whose offset is strictly greater than this.
+  // This offset is inclusive: the response will only contain transactions whose offset is less than or equal to this.
   // Optional, if not set, the stream will not terminate.
   LedgerOffset end = 3;
 
