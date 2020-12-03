@@ -15,6 +15,7 @@ import com.daml.ledger.validator.caching.{
   CachingDamlLedgerStateReaderWithFingerprints
 }
 import com.daml.ledger.validator.{LedgerStateAccess, StateKeySerializationStrategy}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._
@@ -45,6 +46,8 @@ class PreExecutingValidatingCommitter[LogResult](
     cacheUpdatePolicy: CacheUpdatePolicy,
 ) {
 
+  private val logger = ContextualizedLogger.get(getClass)
+
   /**
     * Pre-executes and then commits a submission.
     */
@@ -54,36 +57,40 @@ class PreExecutingValidatingCommitter[LogResult](
       submittingParticipantId: ParticipantId,
       ledgerStateAccess: LedgerStateAccess[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
-    // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
-    ledgerStateAccess.inTransaction { ledgerStateOperations =>
-      for {
-        preExecutionOutput <- validator
-          .validate(
-            submissionEnvelope,
-            correlationId,
-            submittingParticipantId,
-            CachingDamlLedgerStateReaderWithFingerprints(
-              stateValueCache,
-              cacheUpdatePolicy,
-              new LedgerStateReaderWithFingerprintsFromValues(
-                ledgerStateOperations,
-                valueToFingerprint),
-              keySerializationStrategy,
+    LoggingContext.newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
+      // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
+      ledgerStateAccess.inTransaction { ledgerStateOperations =>
+        for {
+          preExecutionOutput <- validator
+            .validate(
+              submissionEnvelope,
+              submittingParticipantId,
+              CachingDamlLedgerStateReaderWithFingerprints(
+                stateValueCache,
+                cacheUpdatePolicy,
+                new LedgerStateReaderWithFingerprintsFromValues(
+                  ledgerStateOperations,
+                  valueToFingerprint),
+                keySerializationStrategy,
+              )
             )
-          )
-        submissionResult <- retry {
-          case PostExecutionFinalizer.ConflictDetectedException => true
-        } { (_, _) =>
-          postExecutionFinalizer.conflictDetectAndFinalize(
-            now,
-            preExecutionOutput,
-            ledgerStateOperations)
-        }.transform {
-          case Failure(PostExecutionFinalizer.ConflictDetectedException) =>
-            Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
-          case result => result
-        }
-      } yield submissionResult
+          submissionResult <- retry {
+            case PostExecutionFinalizer.ConflictDetectedException =>
+              logger.error("Conflict detected during post-execution. Retrying...")
+              true
+          } { (_, _) =>
+            postExecutionFinalizer.conflictDetectAndFinalize(
+              now,
+              preExecutionOutput,
+              ledgerStateOperations)
+          }.transform {
+            case Failure(PostExecutionFinalizer.ConflictDetectedException) =>
+              logger.error("Too many conflicts detected during post-execution. Giving up.")
+              Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
+            case result => result
+          }
+        } yield submissionResult
+      }
     }
 
   private[this] def retry: PartialFunction[Throwable, Boolean] => RetryStrategy =

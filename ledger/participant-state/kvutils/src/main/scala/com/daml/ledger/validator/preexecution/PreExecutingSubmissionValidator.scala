@@ -17,7 +17,6 @@ import com.daml.ledger.validator.batch.BatchedSubmissionValidator
 import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidator._
 import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidationFailed}
-import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 
@@ -36,43 +35,40 @@ class PreExecutingSubmissionValidator[WriteSet](
 
   def validate(
       submissionEnvelope: Bytes,
-      correlationId: String,
       submittingParticipantId: ParticipantId,
       ledgerStateReader: DamlLedgerStateReaderWithFingerprints,
-  )(implicit executionContext: ExecutionContext): Future[PreExecutionOutput[WriteSet]] =
-    newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
-      Timed.timedAndTrackedFuture(
-        metrics.daml.kvutils.submission.validator.validatePreExecute,
-        metrics.daml.kvutils.submission.validator.validatePreExecuteRunning,
-        for {
-          decodedSubmission <- decodeSubmission(submissionEnvelope)
-          fetchedInputs <- fetchSubmissionInputs(decodedSubmission, ledgerStateReader)
-          preExecutionResult <- preExecuteSubmission(
-            decodedSubmission,
-            submittingParticipantId,
-            fetchedInputs)
-          logEntryId = BatchedSubmissionValidator.bytesToLogEntryId(submissionEnvelope)
-          inputState = fetchedInputs.map { case (key, (value, _)) => key -> value }
-          generatedWriteSets <- Timed.future(
-            metrics.daml.kvutils.submission.validator.generateWriteSets,
-            commitStrategy.generateWriteSets(
-              submittingParticipantId,
-              logEntryId,
-              inputState,
-              preExecutionResult)
-          )
-        } yield {
-          PreExecutionOutput(
-            minRecordTime = preExecutionResult.minimumRecordTime.map(_.toInstant),
-            maxRecordTime = preExecutionResult.maximumRecordTime.map(_.toInstant),
-            successWriteSet = generatedWriteSets.successWriteSet,
-            outOfTimeBoundsWriteSet = generatedWriteSets.outOfTimeBoundsWriteSet,
-            readSet = generateReadSet(fetchedInputs, preExecutionResult.readSet),
-            involvedParticipants = generatedWriteSets.involvedParticipants
-          )
-        }
-      )
-    }
+  )(
+      implicit executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[PreExecutionOutput[WriteSet]] =
+    Timed.timedAndTrackedFuture(
+      metrics.daml.kvutils.submission.validator.validatePreExecute,
+      metrics.daml.kvutils.submission.validator.validatePreExecuteRunning,
+      for {
+        decodedSubmission <- decodeSubmission(submissionEnvelope)
+        fetchedInputs <- fetchSubmissionInputs(decodedSubmission, ledgerStateReader)
+        preExecutionResult <- preExecuteSubmission(
+          decodedSubmission,
+          submittingParticipantId,
+          fetchedInputs)
+        logEntryId = BatchedSubmissionValidator.bytesToLogEntryId(submissionEnvelope)
+        inputState = fetchedInputs.map { case (key, (value, _)) => key -> value }
+        generatedWriteSets <- Timed.future(
+          metrics.daml.kvutils.submission.validator.generateWriteSets,
+          commitStrategy
+            .generateWriteSets(submittingParticipantId, logEntryId, inputState, preExecutionResult)
+        )
+      } yield {
+        PreExecutionOutput(
+          minRecordTime = preExecutionResult.minimumRecordTime.map(_.toInstant),
+          maxRecordTime = preExecutionResult.maximumRecordTime.map(_.toInstant),
+          successWriteSet = generatedWriteSets.successWriteSet,
+          outOfTimeBoundsWriteSet = generatedWriteSets.outOfTimeBoundsWriteSet,
+          readSet = generateReadSet(fetchedInputs, preExecutionResult.readSet),
+          involvedParticipants = generatedWriteSets.involvedParticipants
+        )
+      }
+    )
 
   private def decodeSubmission(submissionEnvelope: Bytes)(
       implicit executionContext: ExecutionContext,

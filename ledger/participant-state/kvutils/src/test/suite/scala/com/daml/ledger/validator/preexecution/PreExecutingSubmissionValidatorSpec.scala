@@ -25,6 +25,7 @@ import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidatorSpe
 import com.daml.ledger.validator.{StateKeySerializationStrategy, TestHelper}
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers._
@@ -36,6 +37,8 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSugar {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   "validate" should {
     "generate correct output in case of success" in {
       val expectedReadSet = Map(
@@ -57,11 +60,7 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       val ledgerStateReader = createLedgerStateReader(expectedReadSet)
 
       instance
-        .validate(
-          anEnvelope(expectedReadSet.keySet),
-          aCorrelationId,
-          aParticipantId,
-          ledgerStateReader)
+        .validate(anEnvelope(expectedReadSet.keySet), aParticipantId, ledgerStateReader)
         .map { actual =>
           actual.minRecordTime shouldBe expectedMinRecordTime
           actual.maxRecordTime shouldBe expectedMaxRecordTime
@@ -79,11 +78,7 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       val ledgerStateReader = createLedgerStateReader(expectedReadSet)
 
       instance
-        .validate(
-          anEnvelope(expectedReadSet.keySet),
-          aCorrelationId,
-          aParticipantId,
-          ledgerStateReader)
+        .validate(anEnvelope(expectedReadSet.keySet), aParticipantId, ledgerStateReader)
         .map { actual =>
           val expectedSortedReadSet = expectedReadSet
             .map {
@@ -108,7 +103,6 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       instance
         .validate(
           Envelope.enclose(aBatchedSubmission),
-          aCorrelationId,
           aParticipantId,
           mock[DamlLedgerStateReaderWithFingerprints])
         .failed
@@ -122,11 +116,7 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       val instance = createInstance()
 
       instance
-        .validate(
-          anInvalidEnvelope,
-          aCorrelationId,
-          aParticipantId,
-          mock[DamlLedgerStateReaderWithFingerprints])
+        .validate(anInvalidEnvelope, aParticipantId, mock[DamlLedgerStateReaderWithFingerprints])
         .failed
         .map {
           case ValidationError(actualReason) =>
@@ -141,7 +131,6 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       instance
         .validate(
           anEnvelopedDamlLogEntry,
-          aCorrelationId,
           aParticipantId,
           mock[DamlLedgerStateReaderWithFingerprints])
         .failed
@@ -176,8 +165,6 @@ object PreExecutingSubmissionValidatorSpec {
   private val metrics = new Metrics(new MetricRegistry)
 
   private val keySerializationStrategy = StateKeySerializationStrategy.createDefault()
-
-  private val aCorrelationId = "correlation ID"
 
   private val aParticipantId = TestHelpers.mkParticipantId(1)
 
