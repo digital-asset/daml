@@ -44,11 +44,7 @@ private[kvutils] case class CommitContext(
   // pre-execution.
   var outOfTimeBoundsLogEntry: Option[DamlLogEntry] = None
 
-  def getRecordTime: Option[Timestamp] = recordTime
-
-  def getParticipantId: ParticipantId = participantId
-
-  def preExecute: Boolean = getRecordTime.isEmpty
+  def preExecute: Boolean = recordTime.isEmpty
 
   /** Retrieve value from output state, or if not found, from input state. */
   def get(key: DamlStateKey): Option[DamlStateValue] =
