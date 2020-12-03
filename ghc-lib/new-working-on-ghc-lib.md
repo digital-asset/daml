@@ -127,11 +127,10 @@ ci/configure-bazel.sh
 vi build.ps1
 ```
 
-13. Run the powershell script. It uses `Scoop` to install stuff. Takes about 5 minutes. Say "yes" to a couple of popup dialogues:
+13. Run the powershell script. It uses `Scoop` to install stuff. Takes about 5 minutes. Say "yes" to a couple of popup dialogues. Then stay in `powershell`:
 ```
 $ powershell
 PS C:\Users\u\daml> .\build.ps1
-PS C:\Users\u\daml> exit
 ```
 
 14. Run the bazel command. That's what we came here to do! Takes 5 minutes of so.
