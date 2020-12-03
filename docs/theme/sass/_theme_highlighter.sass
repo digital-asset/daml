@@ -1,47 +1,102 @@
 .rst-content
-
-  div > .highlight
-    padding-left: 19px !important
-    margin-left: -47px
-
-  dd, li
-    div > .highlight
-      padding-left: calc(19px + 1.6em) !important
-      margin-left: calc(-47px - 1.6em)
-    div[class^='highlight']
-      margin-left: calc(-47px - 1.6em)
-
-    dd, li
-      div > .highlight
-        padding-left: calc(19px + 2 * 1.6em) !important
-        margin-left: calc(-47px - 2 * 1.6em)
-      div[class^='highlight']
-        margin-left: calc(-47px - 2 * 1.6em)
-
-
-  div[class^="highlight"]
-    padding-left: 18px
+  pre.literal-block, div[class^="highlight"]
     background-color: #171B26
+    overflow-x: auto
+    margin: 35px 0 35px -47px
+
+    +media($tablet)
+      margin-left: -25px
+
+    +media($mobile)
+      margin-left: -30px
+
+    div[class^='highlight']
+      padding: 0
+      border: none
+      margin: 0
+      padding-left: 47px
+      overflow-x: visible
+
+      +media($tablet)
+        padding-left: 25px
+
+      +media($mobile)
+        padding-left: 30px
+
+      a.copybtn.o-tooltip--left
+        position: absolute
+        opacity: 1
+        top: 0.7em
+
+        +media($desktop)
+          left: 15px
+
+        +media($tablet)
+          right: 2em
+
+        &:before
+          content: ""
+          background: url("../images/copy-button.svg") no-repeat
+          position: absolute
+          vertical-align: top
+          margin: 0
+          top: 0
+          left: 0
+          height: 20px
+          width: 20px
+
+        &:after
+          padding: 6px
+          top: -7px
+          background: $gray-lighter
+          color: $text-dark
+
+          +media($desktop)
+            left: 4.5em
+
+          +media($tablet)
+            left: -0.5em
+
+        img
+          display: none
 
     .linenos
       padding: 0
 
       .linenodiv
-        width: 47px
-        color: #ffffff
+        width: 25px
+        position: relative
+        left: 30px
+        overflow: visible
+        z-index: 1
+
+        +media($tablet)
+          left: 8px
+
+        +media($mobile)
+          left: 13px
 
         pre
           text-align: end
           padding-left: 0
 
     .highlighttable
-      div[class^="highlight"]
-        overflow-x: visible
+      width: 100%
+      
+      tr
+        display: flex
+        align-items: stretch
 
-      a.copybtn.o-tooltip--left
-        +media($desktop)
-          left: -52px
+        td:last-child
+            flex: 1
+            display:inline-block
+    
 
+      div[class^='highlight']
+        a.copybtn.o-tooltip--left
+
+          +media($desktop)
+            left: -10px
 
   .literal-block-wrapper, .literal-block-wrapper:last-child
     margin-top: 35px
@@ -75,3 +130,25 @@
       color: #FFFFFF
     .nx
       color: #DCDCA4
+  
+  dd, li
+    pre.literal-block, div[class^='highlight']
+      padding-left: 1.6em
+      margin-left: calc(-47px - 1.6em)
+
+      +media($tablet)
+        margin-left: calc(-25px - 1.6em)
+
+      +media($mobile)
+        margin-left: calc(-40px - 1.6em)
+
+    dd, li
+      pre.literal-block, div[class^='highlight']
+        padding-left: 3.2em
+        margin-left: calc(-47px - 2 * 1.6em)
+
+        +media($tablet)
+          margin-left: calc(-25px - 2 * 1.6em)
+
+        +media($mobile)
+          margin-left: calc(-40px - 2 * 1.6em)
