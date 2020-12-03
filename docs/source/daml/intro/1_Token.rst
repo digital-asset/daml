@@ -38,13 +38,13 @@ Each ``.daml`` file defines a *DAML Module* at the top:
 
 .. literalinclude:: daml/daml-intro-1/Token.daml
   :language: daml
-  :lines: 5, 9
+  :lines: 5
 
 Code comments in DAML are introduced with ``--``:
 
 .. literalinclude:: daml/daml-intro-1/Token.daml
   :language: daml
-  :lines: 1-5
+  :lines: 4-5
 
 Templates
 ---------
