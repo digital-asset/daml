@@ -90,7 +90,7 @@ private[kvutils] class TransactionCommitter(
   /** Reject duplicate commands
     */
   private[committer] def deduplicateCommand: Step = (commitContext, transactionEntry) => {
-    commitContext.getRecordTime
+    commitContext.recordTime
       .map { recordTime =>
         val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
         val dedupEntry = commitContext.get(dedupKey)
@@ -102,7 +102,7 @@ private[kvutils] class TransactionCommitter(
           logger.trace(
             s"Transaction rejected, duplicate command, correlationId=${transactionEntry.commandId}")
           reject(
-            commitContext.getRecordTime,
+            commitContext.recordTime,
             DamlTransactionRejectionEntry.newBuilder
               .setSubmitterInfo(transactionEntry.submitterInfo)
               .setDuplicateCommand(Duplicate.newBuilder.setDetails(""))
@@ -135,20 +135,20 @@ private[kvutils] class TransactionCommitter(
   private def authorizeSubmitter: Step = (commitContext, transactionEntry) => {
     commitContext.get(partyStateKey(transactionEntry.submitter)) match {
       case Some(partyAllocation) =>
-        if (partyAllocation.getParty.getParticipantId == commitContext.getParticipantId)
+        if (partyAllocation.getParty.getParticipantId == commitContext.participantId)
           StepContinue(transactionEntry)
         else
           reject(
-            commitContext.getRecordTime,
+            commitContext.recordTime,
             buildRejectionLogEntry(
               transactionEntry,
               RejectionReason.SubmitterCannotActViaParticipant(
-                s"Party '${transactionEntry.submitter}' not hosted by participant ${commitContext.getParticipantId}")
+                s"Party '${transactionEntry.submitter}' not hosted by participant ${commitContext.participantId}")
             )
           )
       case None =>
         reject(
-          commitContext.getRecordTime,
+          commitContext.recordTime,
           buildRejectionLogEntry(
             transactionEntry,
             RejectionReason.PartyNotKnownOnLedger(
@@ -163,7 +163,7 @@ private[kvutils] class TransactionCommitter(
       val (_, config) = getCurrentConfiguration(defaultConfig, commitContext, logger)
       val timeModel = config.timeModel
 
-      commitContext.getRecordTime match {
+      commitContext.recordTime match {
         case Some(recordTime) =>
           val givenLedgerTime = transactionEntry.ledgerEffectiveTime.toInstant
 
@@ -172,7 +172,7 @@ private[kvutils] class TransactionCommitter(
             .fold(
               reason =>
                 reject(
-                  commitContext.getRecordTime,
+                  commitContext.recordTime,
                   buildRejectionLogEntry(
                     transactionEntry,
                     RejectionReason.InvalidLedgerTime(reason))),
@@ -229,7 +229,7 @@ private[kvutils] class TransactionCommitter(
             transactionEntry.submitter,
             SubmittedTransaction(transactionEntry.transaction),
             transactionEntry.ledgerEffectiveTime,
-            commitContext.getParticipantId,
+            commitContext.participantId,
             transactionEntry.submissionTime,
             transactionEntry.submissionSeed,
           )
@@ -241,7 +241,7 @@ private[kvutils] class TransactionCommitter(
           .fold(
             err =>
               reject[DamlTransactionEntrySummary](
-                commitContext.getRecordTime,
+                commitContext.recordTime,
                 buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.msg))),
             _ => StepContinue[DamlTransactionEntrySummary](transactionEntry)
           )
@@ -261,10 +261,10 @@ private[kvutils] class TransactionCommitter(
     val startingKeys = damlState.collect {
       case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty => k
     }.toSet
-    validateContractKeyUniqueness(commitContext.getRecordTime, transactionEntry, startingKeys) match {
+    validateContractKeyUniqueness(commitContext.recordTime, transactionEntry, startingKeys) match {
       case StepContinue(transactionEntry) =>
         validateContractKeyCausalMonotonicity(
-          commitContext.getRecordTime,
+          commitContext.recordTime,
           transactionEntry,
           startingKeys,
           damlState)
@@ -356,7 +356,7 @@ private[kvutils] class TransactionCommitter(
       StepContinue(transactionEntry)
     else
       reject(
-        commitContext.getRecordTime,
+        commitContext.recordTime,
         buildRejectionLogEntry(
           transactionEntry,
           RejectionReason.PartyNotKnownOnLedger("Not all parties known"))
@@ -465,7 +465,7 @@ private[kvutils] class TransactionCommitter(
       commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
     }
     buildLogEntryWithOptionalRecordTime(
-      commitContext.getRecordTime,
+      commitContext.recordTime,
       _.setTransactionEntry(transactionEntry.submission))
   }
 
