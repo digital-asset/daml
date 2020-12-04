@@ -194,15 +194,15 @@ Similar to choices, you can see how the scripts in this project are built up fro
 
 In the above, the ``test_issuance`` script in ``Test.Intro.Asset.Role`` uses the output of the ``setupRoles`` script in the same module.
 
-The same line shows a new kind of pattern matching. Rather than writing ``setupResults <- setupRoles`` and then accessing the components of ``setupResults`` using ``_1``, ``_2``, etc., you can give them names. It's equivalent to writing
+The same line shows a new kind of pattern matching. Rather than writing ``setupResult <- setupRoles`` and then accessing the components of ``setupResult`` using ``_1``, ``_2``, etc., you can give them names. It's equivalent to writing
 
 .. code-block:: daml
 
-  setupResults <- setupRoles
-  case setupResults of
+  setupResult <- setupRoles
+  case setupResult of
     (alice, bob, bank, aha, ahb) -> ...
 
-Just writing ``(alice, bob, bank, aha, ahb) <- setupRoles`` would also be legal, but ``setupResults`` is used in the return value of ``test_issuance`` so it makes sense to give it a name, too. The notation with ``@`` allows you to give both the whole value as well as its constituents names in one go.
+Just writing ``(alice, bob, bank, aha, ahb) <- setupRoles`` would also be legal, but ``setupResult`` is used in the return value of ``test_issuance`` so it makes sense to give it a name, too. The notation with ``@`` allows you to give both the whole value as well as its constituents names in one go.
 
 .. _execution_model:
 
