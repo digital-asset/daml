@@ -30,7 +30,7 @@ export const INITIAL_FETCH_SIZE = 100;
 
 export type State = TableConfig;
 
-export const init = () => ({
+export const init = (): State => ({
   search: '',
   filter: [],
   count: INITIAL_FETCH_SIZE,

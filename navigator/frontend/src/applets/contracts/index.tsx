@@ -22,7 +22,7 @@ export const INITIAL_FETCH_SIZE = 100;
 
 export type State = ContractTableConfig;
 
-export const init = () => ({
+export const init = (): State => ({
   search: '',
   filter: [],
   includeArchived: false,
@@ -94,7 +94,7 @@ class Component extends React.Component<Props, {}> {
         dataProvider={this.dataProvider}
         config={this.props.state}
         hideActionRow={false}
-        columns={this.props.columns || columns}
+        columns={this.props.columns || columns}
         onConfigChange={this.onConfigChange}
         onContractClick={this.onClick}
         rowClassName="ContractTable__row"

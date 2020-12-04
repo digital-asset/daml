@@ -166,7 +166,8 @@ export type EvalConfigCache = {[hash: string]: EvalConfigResult};
  * A cached version of evalConfig
  * Warning: Assumes the loaded config function is referentially transparent!
  */
-export function evalConfigCached(user: Session.User, source: string, cache: EvalConfigCache) {
+export function evalConfigCached(user: Session.User, source: string, cache: EvalConfigCache):
+ { cache: EvalConfigCache, result: Either<Error, ConfigType> } {
   const hash = `${user.id};${user.party};${user.role};${source}`;
   if (cache[hash]) {
     const result = cache[hash];
@@ -187,7 +188,7 @@ export function prettyPrintConfig(config: ConfigType): Either<Error, string> {
     // JSON.stringify, but stringify functions
     return right(JSON.stringify(config, (_key, value) => {
       if (typeof value === 'function') {
-        return (value as Function).toString();
+        return value.toString();
       }
       else {
         return value;

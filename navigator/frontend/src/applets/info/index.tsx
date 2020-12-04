@@ -12,7 +12,7 @@ import { ThunkAction, ThunkDispatch } from 'redux-thunk';
 import * as App from '../app';
 
 // The backend returns an opaque JSON object
-export type Info = Object
+export type Info = Record<string, unknown>
 
 export type Action
   = { type: 'SET_BACKENDINFO_RESULT', info: Info }
@@ -29,7 +29,7 @@ export const setBackendInfoFetchError = (error: string): Action =>
 
 export type BackendInfoResult
   = {type: 'none'}
-  | {type: 'loading'}
+  | {type: 'loading'}
   | {type: 'loaded', info: Info}
   | {type: 'fetch-error', error: string}
   ;
@@ -66,7 +66,7 @@ export function reloadBackendInfo(toSelf: ToSelf): ThunkAction<void, App.State, 
 }
 
 function handleBackendInfoResponse(to: ToSelf, dispatch: ThunkDispatch<App.State, undefined, App.Action>) {
-  return (source: Object): void => {
+  return (source: Record<string, unknown>): void => {
     dispatch(to(setBackendInfoResult(source)));
   };
 }
@@ -152,6 +152,6 @@ class Component extends React.Component<Props, {}> {
       </Wrapper>
     );
   }
-};
+}
 
 export const UI: ConnectedComponent<typeof Component, OwnProps> = connect()(Component);

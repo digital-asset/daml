@@ -19,7 +19,7 @@ export default class SearchInputGuide extends React.Component<{}, State> {
     super({});
     this.state = { value: 'Mockingbird' };
   }
-  render() {
+  render(): JSX.Element {
     return (
       <Section
         title="Search and filter inputs"
@@ -34,7 +34,7 @@ export default class SearchInputGuide extends React.Component<{}, State> {
           <span>Value seen by parent:</span> {this.state.value}
         </p>
         <SearchInput
-          onChange={() => { ; }}
+          onChange={() => { return; }}
           placeholder="Placeholder"
           disabled={true}
           initialValue="Hello, world"

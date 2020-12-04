@@ -45,12 +45,12 @@ const StyledUnderline = styled(Underline)`
   top: 0.25rem;
 `
 
-export function makeTabLink<P extends {}>(Link: React.ComponentClass<P>) {
+export function makeTabLink<P>(Link: React.ComponentClass<P>): StyledComponent<React.FC<Props & P>, ThemeInterface, Props & P> {
 
   // First create the component with the required API. This uses the Link
   // component as the outer wrapper.
 
-  const A = (props: Props & P) => {
+  const A: React.FC<Props & P> = (props: Props & P) => {
     // The no-any is a hack because of a TypeScript issue
     // (https://github.com/Microsoft/TypeScript/pull/13288)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -78,4 +78,4 @@ export function makeTabLink<P extends {}>(Link: React.ComponentClass<P>) {
 
   // And return the styled version.
   return B;
-};
+}

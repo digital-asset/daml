@@ -32,7 +32,7 @@ export default class Link extends React.Component<Props, {}> {
     this.click = this.click.bind(this);
   }
 
-  click(e: React.MouseEvent<HTMLAnchorElement>) {
+  click(e: React.MouseEvent<HTMLAnchorElement>): void {
     e.stopPropagation();
     if (e.metaKey || e.shiftKey || e.ctrlKey || e.altKey) {
       return;

@@ -87,7 +87,7 @@ class Component<A extends Action>
     }
   }
 
-  componentWillReceiveProps(nextProps: Props<A>) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props<A>) {
     const nextCommands = nextProps.watcher.commands;
     const commands = this.props.watcher.commands;
     const oldCommands = this.state.oldCommands;

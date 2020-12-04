@@ -138,7 +138,7 @@ function Arrow(props: StyleProps) {
   else {
     return null;
   }
-};
+}
 
 function getArrowMargin(props: StyleProps) {
   switch (props.placement) {
@@ -202,7 +202,7 @@ export interface OtherProps {
 
 export type Props = StyleProps & OtherProps;
 
-class Tooltip extends React.Component<Props, {}> {
+class Tooltip extends React.Component<Props> {
   render() {
     const {
       children,
@@ -219,7 +219,7 @@ class Tooltip extends React.Component<Props, {}> {
       </ContentOuterContainer>
     );
   }
-};
+}
 
 export default React.forwardRef<HTMLDivElement, Omit<Props, 'forwardedRef'>>((props, ref) =>
   (<Tooltip {...props} forwardedRef={ref} />),

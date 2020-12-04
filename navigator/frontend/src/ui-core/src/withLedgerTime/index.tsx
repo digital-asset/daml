@@ -3,34 +3,20 @@
 
 import {
   ApolloClient,
-  ApolloError,
   ApolloQueryResult,
   gql,
-  NetworkStatus,
   ObservableSubscription,
 } from '@apollo/client';
-import { QueryControls, withApollo } from '@apollo/client/react/hoc';
+import { withApollo } from '@apollo/client/react/hoc';
 import Moment from 'moment';
 import * as React from 'react';
 import { TimeType } from '../api/OpaqueTypes';
 import { LedgerTimeQuery } from '../api/Queries';
 import { utcStringToMoment } from '../util';
 
-// Not exported by the apollo library
-interface ApolloCurrentResult<T> {
-  data: T | {};
-  loading: boolean;
-  networkStatus: NetworkStatus;
-  error?: ApolloError;
-  partial?: boolean;
-};
-
 // ------------------------------------------------------------------------------------------------
 // Props
 // ------------------------------------------------------------------------------------------------
-interface QueryData extends QueryControls {
-  ledgerTime: LedgerTimeResult;
-}
 
 export interface LedgerTimeResult {
   id: string;
@@ -39,7 +25,7 @@ export interface LedgerTimeResult {
 }
 
 export type LedgerTime = {
-  value: Moment.Moment | undefined;
+  value: Moment.Moment | undefined;
   readonly: boolean;
 }
 
@@ -62,7 +48,7 @@ export interface State {
 // GraphQL query
 // ------------------------------------------------------------------------------------------------
 
-function getCurrentTime(state: State): Moment.Moment | undefined {
+function getCurrentTime(state: State): Moment.Moment | undefined {
   switch (state.timeType) {
     case 'static': return state.ledgerTime;
     case 'wallclock': return Moment.utc();
@@ -91,8 +77,8 @@ function getUpdateInterval(timeType: TimeType | undefined) {
   }
 }
 
-function resultToState(qr: ApolloQueryResult<QueryData> | ApolloCurrentResult<QueryData>): State {
-  const qd = qr.data as QueryData;
+function resultToState(qr: ApolloQueryResult<LedgerTimeQuery>): State {
+  const qd = qr.data; // .data as QueryData;
   if (qd && qd.ledgerTime) {
     return {
       ledgerTime: utcStringToMoment(qd.ledgerTime.time),
@@ -152,7 +138,7 @@ export default function withLedgerTime<P>(C: React.ComponentType<InnerProps & P>
 
     startCacheWatcher() {
       this.stopCacheWatcher();
-      const observableQuery = this.props.client.watchQuery<QueryData>({
+      const observableQuery = this.props.client.watchQuery<LedgerTimeQuery>({
         fetchPolicy: 'cache-only',
         query: timeQuery,
       });

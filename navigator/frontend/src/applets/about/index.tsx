@@ -28,7 +28,7 @@ export interface BackendVersionInfo {
 
 export type BackendVersionInfoResult
   = {type: 'none'}
-  | {type: 'loading'}
+  | {type: 'loading'}
   | {type: 'loaded', info: BackendVersionInfo}
   | {type: 'fetch-error', error: string}
   ;
@@ -166,6 +166,6 @@ class Component extends React.Component<Props, {}> {
       </Wrapper>
     );
   }
-};
+}
 
 export const UI: ConnectedComponent<typeof Component, OwnProps> = connect()(Component);

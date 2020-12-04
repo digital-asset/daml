@@ -89,15 +89,15 @@ export default class Popover extends React.Component<Props, {}> {
     super(props);
   }
 
-  componentDidMount() {
+  componentDidMount(): void {
     document.addEventListener('click', this.onClickDocument, true);
   }
 
-  componentWillUnmount() {
+  componentWillUnmount(): void {
     document.removeEventListener('click', this.onClickDocument, true);
   }
 
-  handleDocumentClick(e: MouseEvent) {
+  handleDocumentClick(e: MouseEvent): void {
     if (
       (!this.target.current || !this.target.current.contains(e.target as Node)) &&
       (!this.contentNode.current || !this.contentNode.current.contains(e.target as Node)) &&
@@ -107,7 +107,8 @@ export default class Popover extends React.Component<Props, {}> {
     }
   }
 
-  cloneTarget(target: JSX.Element | undefined) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cloneTarget(target: JSX.Element | undefined): React.FunctionComponentElement<any> | null {
     if (target === undefined) {
       return null;
     }
@@ -141,14 +142,14 @@ export default class Popover extends React.Component<Props, {}> {
     }
   }
 
-  onInteraction(type: InteractionType) {
+  onInteraction(type: InteractionType): void {
     if (this.props.onInteraction) {
       const isOpen = this.props.isOpen;
       this.props.onInteraction(type, this.getNextState(type, isOpen));
     }
   }
 
-  render() {
+  render(): JSX.Element {
     const {
       arrow = true,
       content,

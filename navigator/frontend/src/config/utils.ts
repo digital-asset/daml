@@ -28,7 +28,7 @@ export function loadExportedFunction<F extends Function>(
   name: string,
   args: string[],
   defaultResult: F,
-) {
+): F {
   if (!(name in exports)) {
     if (defaultResult) {
       return defaultResult;

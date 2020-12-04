@@ -47,7 +47,7 @@ export default class TimeInput extends React.Component<Props, State> {
     }
   }
 
-  render() {
+  render(): JSX.Element {
     const { argument, parameter, disabled, onChange} = this.props;
     if (
       ((argument.type === 'timestamp' || argument.type === 'undefined') && parameter.name === 'timestamp') ||
@@ -66,7 +66,7 @@ export default class TimeInput extends React.Component<Props, State> {
             target={(
               <StyledTextInput
                 value={formatMoment(moment, parameter.name)}
-                onChange={() => { ; }}
+                onChange={() => { return; }}
                 placeholder={paramName === 'timestamp' ? 'Time' : 'Date'}
                 disabled={disabled}
               />
@@ -88,4 +88,4 @@ export default class TimeInput extends React.Component<Props, State> {
       return (<TypeErrorElement parameter={parameter} argument={argument} />);
     }
   }
-};
+}

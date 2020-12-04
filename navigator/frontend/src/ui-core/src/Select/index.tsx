@@ -100,7 +100,7 @@ export default class Select extends React.Component<Props, State> {
     };
   }
 
-  render() {
+  render(): JSX.Element {
     const { value, disabled, options, onChange, minWidth } = this.props;
 
     return (

@@ -39,7 +39,7 @@ export function renderActionBar<
   readonly title?: string,
   readonly actionRowContent?: React.ReactNode;
   onConfigChange?(config: C): void,
-}) {
+}): JSX.Element {
   const {
     actionRowContent,
     title,
@@ -116,7 +116,7 @@ export default class DataTable<
   // Life cycle and data loading
   // --------------------------------------------------------------------------
 
-  componentWillReceiveProps(nextProps: Props<C, R, D>) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props<C, R, D>): void {
     if (!deepEqual(this.props, nextProps)) {
       this.setState(this.extractRowData(nextProps));
     }
@@ -133,7 +133,7 @@ export default class DataTable<
     return result;
   }
 
-  onScroll(height: number, y: number) {
+  onScroll(height: number, y: number): void {
     if (
       y > length * this.rowHeight - height &&
       length < this.state.totalCount

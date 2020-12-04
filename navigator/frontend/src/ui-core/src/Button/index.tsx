@@ -7,7 +7,7 @@ import { default as styled, hardcodedStyle, ThemeInterface } from '../theme';
 export { StyledComponent } from 'styled-components';
 import { StyledComponent } from 'styled-components';
 
-export function applyColors([bg, fg]: [string, string]) {
+export function applyColors([bg, fg]: [string, string]): string {
   return `
     color: ${fg};
     background: ${bg};
@@ -86,9 +86,9 @@ export type ButtonType
   | 'danger'
   | 'transparent'
   | 'minimal'
-  | 'nav-transparent'
-  | 'nav-primary'
-  | 'nav-secondary'
+  | 'nav-transparent'
+  | 'nav-primary'
+  | 'nav-secondary'
   | 'inverted-primary';
 
 export interface Props {

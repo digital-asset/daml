@@ -9,7 +9,7 @@ import styled from '../theme';
 
 const Icon = UntypedIcon as IconType<IconName>;
 
-function logClick() { console.log('CLICK!'); };
+function logClick() { console.log('CLICK!'); }
 
 const ButtonRow = ({ type }: { type: ButtonType }) => (
   <tr>
@@ -30,7 +30,7 @@ const NavTable = styled.table`
   background: ${({theme}) => theme.documentBackground };
 `;
 
-export default () => (
+export default (): JSX.Element => (
   <Section
     title="Button"
     description="Different types of buttons."

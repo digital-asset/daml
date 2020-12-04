@@ -169,16 +169,16 @@ export type DamlLfValue
   = DamlLfValueText
   | DamlLfValueNumeric
   | DamlLfValueBool
-  | DamlLfValueContractId
-  | DamlLfValueTimestamp
+  | DamlLfValueContractId
+  | DamlLfValueTimestamp
   | DamlLfValueDate
-  | DamlLfValueParty
-  | DamlLfValueUnit
+  | DamlLfValueParty
+  | DamlLfValueUnit
   | DamlLfValueInt64
-  | DamlLfValueOptional
-  | DamlLfValueList
-  | DamlLfValueRecord
-  | DamlLfValueVariant
+  | DamlLfValueOptional
+  | DamlLfValueList
+  | DamlLfValueRecord
+  | DamlLfValueVariant
   | DamlLfValueUndefined
   ;
 
@@ -226,7 +226,7 @@ export interface ContractsRowData {
      * or active (if __typename=='Block')
      */
     activeAtOrArchiveTx: {
-        __typename: 'Transaction' | 'Block';
+        __typename: 'Transaction' | 'Block';
         id: string;
     };
     /** Contract argument */

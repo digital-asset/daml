@@ -40,7 +40,7 @@ export class ApolloDataProvider<C extends ContractTableConfig>
     this.stopCacheWatcher = this.stopCacheWatcher.bind(this);
   }
 
-  fetchData(config: ContractTableConfig, onResult: ResultCallback) {
+  fetchData(config: ContractTableConfig, onResult: ResultCallback): void {
     this.client.query<{}>({
       query: this.query,
       variables: this.createVariables(config),
@@ -52,7 +52,7 @@ export class ApolloDataProvider<C extends ContractTableConfig>
     });
   }
 
-  startCacheWatcher(config: ContractTableConfig, onResult: ResultCallback) {
+  startCacheWatcher(config: ContractTableConfig, onResult: ResultCallback): void {
     this.stopCacheWatcher();
     this.observableQuery = this.client.watchQuery<{}>({
       fetchPolicy: 'cache-only',
@@ -66,7 +66,7 @@ export class ApolloDataProvider<C extends ContractTableConfig>
     this.querySubscription = this.observableQuery.subscribe({ next });
   }
 
-  stopCacheWatcher() {
+  stopCacheWatcher(): void {
     if (this.querySubscription) {
       this.querySubscription.unsubscribe();
       this.querySubscription = undefined;

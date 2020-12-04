@@ -63,7 +63,7 @@ export function makeQueryVariables(config: ContractTableConfig): ContractsQueryV
   };
 }
 
-export function dataToRows(data: QueryControls & ContractsQuery) {
+export function dataToRows(data: QueryControls & ContractsQuery): { contracts: Contract[], totalCount: number } {
   if (data.loading || data.error) {
     return { contracts: [], totalCount: 0 }
   } else {

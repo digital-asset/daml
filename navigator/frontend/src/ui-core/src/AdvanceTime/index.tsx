@@ -57,7 +57,7 @@ class AdvanceTime extends React.Component<Props, State> {
       ledgerTime.value.format(hardcodedStyle.defaultTimeFormat) : 'LOADING';
     return ledgerTime.readonly ? (
       <InlineDiv>
-        <Button type="nav-transparent" onClick={() => { ; }}>
+        <Button type="nav-transparent" onClick={() => { return; }}>
           <LeftIcon name="clock" />
           {formattedTime}
         </Button>
@@ -70,7 +70,7 @@ class AdvanceTime extends React.Component<Props, State> {
         position={'bottom'}
         target={(
           <InlineDiv>
-            <Button type="nav-transparent" onClick={() => { ; }}>
+            <Button type="nav-transparent" onClick={() => { return; }}>
               <LeftIcon name="clock" />
               {formattedTime}
               <RightIcon name="chevron-down" />

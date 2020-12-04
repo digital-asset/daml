@@ -35,17 +35,17 @@ const TooltipContent = () => (
 );
 
 const TooltipTarget = () => (
-  <Button onClick={() => { ; }}>
+  <Button onClick={() => {  return; }}>
     Button
   </Button>
 )
 
-export default class PopoverGuide extends React.Component<{}, {}> {
+export default class PopoverGuide extends React.Component {
   constructor() {
     super({});
   }
 
-  render() {
+  render(): JSX.Element {
     return (
       <Section
         title="Tooltip"

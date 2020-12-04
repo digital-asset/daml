@@ -182,6 +182,6 @@ class Component extends React.Component<Props, {}> {
       </Wrapper>
     );
   }
-};
+}
 
 export const UI: ConnectedComponent<typeof Component, OwnProps> = connect()(Component);

@@ -56,19 +56,19 @@ export default class ModalGuide extends React.Component<{}, State> {
     };
   }
 
-  open() {
+  open(): void {
     this.setState({
       isOpen: true,
     });
   }
 
-  close() {
+  close(): void {
     this.setState({
       isOpen: false,
     });
   }
 
-  render() {
+  render(): JSX.Element {
     return (
       <Section
         title="Modal"

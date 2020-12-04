@@ -19,7 +19,7 @@ export interface OwnProps<P = any> {
   params: P;
   className?: string;
   target?: HrefTarget;
-};
+}
 
 interface ReduxProps {
   dispatch: Dispatch<App.Action>;

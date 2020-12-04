@@ -67,7 +67,7 @@ export default class TableActionBarGuide extends React.Component<{}, State> {
     this.onConfigChange = this.onConfigChange.bind(this);
   }
 
-  render() {
+  render(): JSX.Element {
     return (
       <Section
         title="Table action bar"
@@ -139,7 +139,7 @@ export default class TableActionBarGuide extends React.Component<{}, State> {
     );
   }
 
-  onConfigChange(config: Config) {
+  onConfigChange(config: Config): void {
     this.setState({ config });
   }
 }

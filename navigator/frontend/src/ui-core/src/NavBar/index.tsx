@@ -39,7 +39,7 @@ const Right = styled.div`
  * - A left-aligned logo, the height of a default button
  * - A right-aligned list of custom controls
  */
-const NavBar = ({
+const NavBar: React.FC<Props> = ({
   logo,
   children,
 }: Props) => (

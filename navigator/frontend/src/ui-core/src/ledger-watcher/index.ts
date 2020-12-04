@@ -306,9 +306,9 @@ class Watcher {
 }
 
 function parseCommand(node: CommandResultsQuery_nodes): WatchedCommand {
-  if (node.__typename === 'CreateCommand' || node.__typename === 'ExerciseCommand') {
+  if (node.__typename === 'CreateCommand' || node.__typename === 'ExerciseCommand') {
     return { commandId: node.id, result: parseCommandResult(node.status) };
-  } else {
+  } else {
     return { commandId: node.id, result: undefined };
   }
 }

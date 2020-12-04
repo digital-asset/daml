@@ -37,7 +37,7 @@ export interface TableConfig extends ContractTableConfig {
 
 export type State = TableConfig;
 
-export const init = (id: string) => ({
+export const init = (id: string): TableConfig => ({
   search: '',
   filter: [],
   includeArchived: true,

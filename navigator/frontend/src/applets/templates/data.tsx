@@ -60,7 +60,7 @@ export function makeQueryVariables({config}: TableProps): QueryFunctionOptions {
 }
 
 // Computing row data from raw data
-export function dataToRows(data: QueryControls & TemplatesQuery) {
+export function dataToRows(data: QueryControls & TemplatesQuery): { data : Template[], totalCount: number } {
   if (data.loading || data.error) {
     return { data: [], totalCount: 0 }
   } else {

@@ -84,10 +84,10 @@ export default class HeaderCell extends React.Component<HeaderCellProps, {}> {
 export function createHeader<
   C extends TableConfig,
   R
->(col: ColumnConfig<R, {}>, props: {
+>(col: ColumnConfig<R, unknown>, props: {
   readonly config: C,
   onConfigChange?(config: C): void,
-}) {
+}): JSX.Element {
   const { sort } = props.config;
   const colSort = sort.filter((c) => c.field === col.key)[0];
   const onSortChanged = (b: string, d: SortDirection) => {

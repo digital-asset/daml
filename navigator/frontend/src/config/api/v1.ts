@@ -169,7 +169,7 @@ export type Parameter
   | { type: 'unit' }
   | UnsupportedParameter
   | RecordParameter
-  | VariantParameter
+  | VariantParameter
   | ListParameter
   ;
 
@@ -192,7 +192,7 @@ export interface ContractsRowData {
      * or active (if __typename=='Block')
      */
     activeAtOrArchiveTx: {
-        __typename: 'Transaction' | 'Block';
+        __typename: 'Transaction' | 'Block';
         id: string;
     };
     /** Contract argument */

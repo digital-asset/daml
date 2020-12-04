@@ -91,7 +91,7 @@ export default class ApolloDataProvider implements ContractIdProvider, TypeProvi
     });
   }
 
-  fetchType(id: DamlLfIdentifier, onResult: (id: DamlLfIdentifier, result: DamlLfDefDataType | undefined) => void) {
+  fetchType(id: DamlLfIdentifier, onResult: (id: DamlLfIdentifier, result: DamlLfDefDataType | undefined) => void): void {
     this.client.query<ParameterFormTypeQuery>({
       query: typeQuery,
       variables: {

@@ -41,7 +41,7 @@ class Component extends React.Component<Props, Local> {
     this.state = { argument: DamlLfValueF.initialValue(props.parameter) };
   }
 
-  componentWillReceiveProps(nextProps: Props) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props) {
     // If the choice changes, re-initialize the argument
     // (trying to reuse as much argument values as possible).
     if (this.props.choice !== nextProps.choice) {

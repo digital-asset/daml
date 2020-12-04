@@ -44,7 +44,7 @@ export interface GraphQLProps {
   data?: any;
   // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   mutate?: any;
-};
+}
 
 export type WithGraphQL<P extends GraphQLProps>
   = ComponentEnhancer<GraphQLProps, P>;
