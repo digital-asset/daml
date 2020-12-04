@@ -219,7 +219,7 @@ jobs:
           
           bazel build //...
           # Make sure that Bazel query works
-          bazel query 'deps(//...)' >/dev/nul
+          bazel query 'deps(//...)'
         displayName: 'Build'
       - bash: |
           set -euo pipefail
