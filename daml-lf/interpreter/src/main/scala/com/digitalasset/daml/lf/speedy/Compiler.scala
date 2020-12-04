@@ -396,10 +396,12 @@ private[lf] final class Compiler(
       case ECons(_, front, tail) =>
         // TODO(JM): Consider emitting SEValue(SList(...)) for
         // constant lists?
-        SEApp(
-          SEBuiltin(SBConsMany(front.length)),
-          front.iterator.map(compile).toArray :+ compile(tail),
-        )
+        val args = (front.iterator.map(compile) ++ Seq(compile(tail))).toArray
+        if (front.length == 1) {
+          SEApp(SEBuiltin(SBCons), args)
+        } else {
+          SEApp(SEBuiltin(SBConsMany(front.length)), args)
+        }
       case ENone(_) =>
         SEValue.None
       case ESome(_, body) =>
