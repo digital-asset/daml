@@ -101,6 +101,11 @@ if [ -d $DAML_HOME ] ; then
 fi
 
 #
+# Add daml.yaml in temp directory.
+#
+echo "sdk-version: $VERSION" > $TMPDIR/daml.yaml
+
+#
 # Extract and install SDK tarball.
 #
 echo "Extracting SDK release tarball."
