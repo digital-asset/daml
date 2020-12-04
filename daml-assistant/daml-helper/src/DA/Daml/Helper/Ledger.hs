@@ -17,10 +17,12 @@ module DA.Daml.Helper.Ledger (
     runLedgerUploadDar,
     runLedgerFetchDar,
     runLedgerNavigator,
+    runLedgerReset,
     ) where
 
 import Control.Exception (SomeException(..), catch)
 import Control.Lens (toListOf)
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Extra hiding (fromMaybeM)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
@@ -30,6 +32,7 @@ import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
 import Data.Map.Strict (Map)
+import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Data.String (IsString, fromString)
@@ -47,7 +50,9 @@ import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Process.Typed
+import qualified Web.JWT as JWT
 
+import Com.Daml.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
 import DA.Daml.Compiler.Dar (createArchive, createDarFile)
 import DA.Daml.Helper.Util
 import qualified DA.Daml.LF.Ast as LF
@@ -70,7 +75,7 @@ data LedgerFlags = LedgerFlags
   , fTimeout :: L.TimeoutSeconds
   -----------------------------------------
   -- The following values get defaults from the project config by
-  -- running `getDefaultArgs`
+  -- running `getDefaultLedgerFlags`
   , fHostM :: Maybe String
   , fPortM :: Maybe Int
   , fTokFileM :: Maybe FilePath
@@ -344,6 +349,80 @@ allocateParty args name = do
         httpJsonRequest args "POST" "/v1/parties/allocate" $
         setRequestBodyJSON $ AllocatePartyRequest {identifierHint = text, displayName = text}
   return party
+
+tokenFor :: [L.Party] -> L.LedgerId -> L.Token
+tokenFor parties ledgerId =
+  L.Token $
+  T.unpack $
+  JWT.encodeSigned
+    (JWT.HMACSecret "secret")
+    mempty
+    mempty
+      { JWT.unregisteredClaims =
+          JWT.ClaimsMap $
+          Map.fromList
+            [ ( "https://daml.com/ledger-api"
+              , A.Object $
+                HashMap.fromList
+                  [ ("actAs", A.toJSON $ map (TL.toStrict . L.unParty) parties)
+                  , ("readAs", A.toJSON $ map (TL.toStrict . L.unParty) parties)
+                  , ("ledgerId", A.String $ TL.toStrict $ L.unLedgerId ledgerId)
+                  ])
+            ]
+      }
+
+runLedgerReset :: LedgerFlags -> IO ()
+runLedgerReset flags = do
+  putStrLn $ "Resetting ledger."
+  args <- getDefaultArgs flags
+  reset args
+
+reset :: LedgerArgs -> IO ()
+reset args =
+  case api args of
+    Grpc ->
+      runWithLedgerArgs args $ do
+        parties0 <- L.listKnownParties
+        let parties = [party | L.PartyDetails {party} <- parties0]
+        let parties' = nubSort $ "Alice" : [L.unParty p | p <- parties]
+        -- we add 'Alice' just to make sure the filters aren't empty in the `getActiveContracts`
+        -- command.
+        ledgerId <- L.getLedgerIdentity
+        L.setToken (tokenFor parties ledgerId) $ do
+          activeContracts <-
+            (L.getActiveContracts
+               ledgerId
+               (TransactionFilter $ Map.fromList [(p, Just $ Filters Nothing) | p <- parties'])
+               (L.Verbosity False))
+          let cmds =
+                L.Commands
+                  { coms =
+                      [ L.ExerciseCommand
+                        { tid = tid
+                        , cid = cid
+                        , choice = L.Choice "Archive"
+                        , arg = L.VRecord $ L.Record Nothing []
+                        }
+                      | (_offset, _mbWid, events) <- activeContracts
+                      , L.CreatedEvent {cid, tid} <- events
+                      ]
+                  , lid = ledgerId
+                  , wid = Nothing
+                  , aid = L.ApplicationId "hotreload"
+                  , cid = L.CommandId "reset"
+                  , actAs = parties
+                  , readAs = parties
+                  , dedupTime = Nothing
+                  , minLeTimeAbs = Nothing
+                  , minLeTimeRel = Nothing
+                  }
+          errOrEmpty <- L.submit cmds
+          case errOrEmpty of
+            Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
+            Right () -> pure ()
+    HttpJson ->
+      fail
+        "The reset command is currently not available for the HTTP JSON API. Please use the gRPC API."
 
 -- | Run navigator against configured ledger. We supply Navigator with
 -- the list of parties from the ledger, but in the future Navigator

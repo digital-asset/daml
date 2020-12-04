@@ -504,7 +504,17 @@ damlStartTests getDamlStart =
                   threadDelay 40_000_000
                   initialRequest <-
                       parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
-                  let queryRequest =
+                  manager <- newManager defaultManagerSettings
+                  let queryRequestT =
+                          initialRequest
+                              { method = "POST"
+                              , requestHeaders = authorizationHeaders
+                              , requestBody =
+                                    RequestBodyLBS $
+                                    Aeson.encode $
+                                    Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:T"]]
+                              }
+                  let queryRequestS =
                           initialRequest
                               { method = "POST"
                               , requestHeaders = authorizationHeaders
@@ -513,12 +523,16 @@ damlStartTests getDamlStart =
                                     Aeson.encode $
                                     Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:S"]]
                               }
-                  manager <- newManager defaultManagerSettings
-                  queryResponse <- httpLbs queryRequest manager
-                  statusCode (responseStatus queryResponse) @?= 200
+                  queryResponseT <- httpLbs queryRequestT manager
+                  queryResponseS <- httpLbs queryRequestS manager
+                  -- check that there are no more active contracts of template T
+                  statusCode (responseStatus queryResponseT) @?= 200
+                  preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
+                  -- check that a new contract of template S was created
+                  statusCode (responseStatus queryResponseS) @?= 200
                   preview
                       (key "result" . nth 0 . key "payload" . key "newFieldName")
-                      (responseBody queryResponse) @?=
+                      (responseBody queryResponseS) @?=
                       Just "Alice"
         , testCase "daml start --sandbox-port=0" $
           withTempDir $ \tmpDir -> do
