@@ -82,9 +82,9 @@ And this is indeed what happens. We can define a different version of ``incremen
   :start-after: -- INCREMENT2_BEGIN
   :end-before: -- INCREMENT2_END
 
-If you try this out in your IDE, you'll see that the compiler infers type ``Int -> Int`` again. It can do so because the literal ``1 : Int``.
+If you try this out in your IDE, you'll see that the compiler infers type ``Int -> Int`` again. It can do so because of the literal ``1 : Int``.
 
-So if we have a function ``f : a -> b -> c -> d`` and a value ``valA : a``, we get ``f valA : b -> c -> d`` ie we can apply the function argument by argument. If we also had ``valB : b``, we have ``f valA valB : c -> d``. What this tells you is that function *application* is left associative: ``f valA valB == (f valA) valB``.
+So if we have a function ``f : a -> b -> c -> d`` and a value ``valA : a``, we get ``f valA : b -> c -> d``, ie we can apply the function argument by argument. If we also had ``valB : b``, we would have ``f valA valB : c -> d``. What this tells you is that function *application* is left associative: ``f valA valB == (f valA) valB``.
 
 Infix Functions
 ...............
