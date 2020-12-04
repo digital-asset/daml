@@ -54,7 +54,7 @@ const ExhibitWrapper = styled.div`
 
 const description = `Icon that opens a popover with contract choices.`;
 
-export default () => (
+export default (): JSX.Element => (
   <Section
     title="Choice buttons"
     description={description}

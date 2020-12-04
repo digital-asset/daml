@@ -84,17 +84,16 @@ export default class HeaderCell extends React.Component<HeaderCellProps, {}> {
 export function createHeader<
   C extends TableConfig,
   R
->(col: ColumnConfig<R, {}>, props: {
+>(col: ColumnConfig<R, unknown>, props: {
   readonly config: C,
   onConfigChange?(config: C): void,
-}) {
+}): JSX.Element {
   const { sort } = props.config;
   const colSort = sort.filter((c) => c.field === col.key)[0];
   const onSortChanged = (b: string, d: SortDirection) => {
     if (props.onConfigChange) {
       props.onConfigChange({
-        //tslint:disable-next-line:no-any (becuase of TypeScript bug)
-        ...props.config as any,
+        ...props.config,
         sort: [{
           field: b,
           direction: d,

@@ -30,7 +30,13 @@ export class Route<P, A, S> {
   }
 }
 
-export function combineRoutes<P, A, S>(routes: Route<P, A, S>[]) {
+type CombinedRoutes<P, A, S> = {
+  stateToPath: (state: S) => Path,
+  pathToAction: (path: Path) => A,
+  activeRoute: () => Route<P, A, S>,
+};
+
+export function combineRoutes<P, A, S>(routes: Route<P, A, S>[]): CombinedRoutes<P, A, S> {
 
   // Given a state, what's the current path?
   function stateToPath(state: S): Path {

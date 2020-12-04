@@ -23,7 +23,7 @@ export interface State {
   open: boolean;
 }
 
-// tslint:disable-next-line:no-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const DropdownContainer = styled('ul')<{minWidth: string}>`
   min-width: ${({ minWidth }) => minWidth};
   padding: 0;
@@ -100,7 +100,7 @@ export default class Select extends React.Component<Props, State> {
     };
   }
 
-  render() {
+  render(): JSX.Element {
     const { value, disabled, options, onChange, minWidth } = this.props;
 
     return (

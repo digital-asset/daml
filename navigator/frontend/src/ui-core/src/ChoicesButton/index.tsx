@@ -17,7 +17,7 @@ export interface Contract {
   template: {
     choices: Choice[];
   }
-  archiveEvent: { id: string } | null;
+  archiveEvent: { id: string } | null;
 }
 
 const List = styled.ul`
@@ -96,7 +96,7 @@ export default class ChoicesButton extends React.Component<Props, State> {
     };
   }
 
-  render() {
+  render(): JSX.Element {
     const target = (
       <Button
         type={'minimal'}

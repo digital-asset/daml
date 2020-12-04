@@ -35,14 +35,12 @@ export const TableActionBar
 
 /** Simple spacing element */
 export const TableActionBarSpace
-  : React.FC<{}>
   = styled.div`
   flex: 1;
 `;
 
 /** Simple spacing element */
 export const TableActionBarSideMargin
-  : React.FC<{}>
   = styled.div`
   width: ${hardcodedStyle.tableSideMargin};
 `;
@@ -77,7 +75,7 @@ export const RawTableActionBarSearchInput
   }
 `;
 
-export const UnstyledTableActionBarSearchInput =
+export const UnstyledTableActionBarSearchInput: React.FC<SearchInputProps & {with? : string ,className?: string}> =
   (props: SearchInputProps & {width?: string; className?: string}) => {
     const {className, ...rest} = props;
     return (
@@ -159,7 +157,7 @@ export function TableActionBarConfigSearchInput(props: {
   onConfigChange?(config: {readonly search: string}): void,
   readonly placeholder: string;
   readonly width?: string;
-}){
+}): JSX.Element {
   return (
     <TableActionBarSearchInput
       onChange={(value) => {
@@ -179,13 +177,13 @@ export function TableActionBarConfigSearchInput(props: {
 
 /** A checkbox, wired up to control a TableConfig */
 export function TableActionBarConfigCheckbox<
-  Config extends {}
+  Config
 >(props: {
   readonly config: Config,
   onConfigChange?(config: Config): void,
   readonly configKey: keyof Config;
   readonly title: string;
-}){
+}): JSX.Element {
   return (
     <TableActionBarCheckboxLabel>
       <TableActionBarCheckbox
@@ -195,8 +193,7 @@ export function TableActionBarConfigCheckbox<
           if (props.onConfigChange) {
             const el = e.target as HTMLInputElement;
             props.onConfigChange({
-              //tslint:disable-next-line:no-any (becuase of TS bug)
-              ...props.config as any,
+              ...props.config,
               [props.configKey]: el.checked,
             });
           }

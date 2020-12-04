@@ -27,7 +27,7 @@ const Wrapper = styled.div<{size: number}>`
   margin-bottom: 1rem;
 `;
 
-export default () => (
+export default (): JSX.Element => (
   <Section
     title="Truncate text"
     description={description}

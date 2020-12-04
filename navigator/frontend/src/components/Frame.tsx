@@ -27,7 +27,7 @@ interface FrameProps {
   toWatcher(action: LedgerWatcher.Action): App.Action;
 }
 
-const Frame = ({
+const Frame: React.FC<FrameProps> = ({
   user,
   page,
   watcher,

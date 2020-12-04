@@ -61,11 +61,11 @@ const Content = styled.div`
  * - A side bar box, left of the content box
  * - Content box, right of the sidebar box
  */
-const Frame = ({
+const Frame: React.FC<FrameProps> = ({
   top,
   left,
   content,
-}: FrameProps) => (
+}) => (
   <Wrapper>
     <Bar>{top}</Bar>
     <Main>

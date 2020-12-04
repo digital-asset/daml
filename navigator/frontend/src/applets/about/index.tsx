@@ -28,7 +28,7 @@ export interface BackendVersionInfo {
 
 export type BackendVersionInfoResult
   = {type: 'none'}
-  | {type: 'loading'}
+  | {type: 'loading'}
   | {type: 'loaded', info: BackendVersionInfo}
   | {type: 'fetch-error', error: string}
   ;
@@ -71,7 +71,7 @@ function handleBackendInfoResponse(to: ToSelf, dispatch: Dispatch<App.Action>) {
 }
 
 function handleBackendInfoFetchError(to: ToSelf, dispatch: Dispatch<App.Action>) {
-  // tslint:disable-next-line no-any
+  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   return (reason: any) => {
     if (reason instanceof Error) {
       // Log to console to show error call stack
@@ -166,6 +166,6 @@ class Component extends React.Component<Props, {}> {
       </Wrapper>
     );
   }
-};
+}
 
 export const UI: ConnectedComponent<typeof Component, OwnProps> = connect()(Component);

@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { keyframes } from 'styled-components';
-import { WatchedCommand } from '.';
+import { WatchedCommand } from '.';
 import UntypedIcon from '../Icon';
 import styled from '../theme';
 

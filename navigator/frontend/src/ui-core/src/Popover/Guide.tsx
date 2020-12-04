@@ -43,7 +43,7 @@ const popoverContent = (
 );
 
 const popoverTarget = (
-  <Button onClick={() => { ; }}>
+  <Button onClick={() => { return; }}>
     Click to toggle
   </Button>
 )
@@ -67,21 +67,21 @@ export default class PopoverGuide extends React.Component<{}, State> {
     };
   }
 
-  setPlacement(value: string) {
+  setPlacement(value: string): void {
     this.setState({
       ...this.state,
       position: value as PopoverPosition,
     });
   }
 
-  setArrow(value: boolean) {
+  setArrow(value: boolean): void {
     this.setState({
       ...this.state,
       arrow: value,
     });
   }
 
-  render() {
+  render(): JSX.Element {
     return (
       <Section
         title="Popover"
@@ -93,8 +93,8 @@ export default class PopoverGuide extends React.Component<{}, State> {
             value={this.state.position}
             onChange={(e) => { this.setPlacement(e.target.value) }}
           >
-            {placementStrings.map((str) => (
-              <option value={str}>{str}</option>
+            {placementStrings.map((str, index) => (
+              <option key={index} value={str}>{str}</option>
             ))}
           </select>
         </label>

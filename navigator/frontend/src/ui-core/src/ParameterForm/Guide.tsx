@@ -78,7 +78,7 @@ const exampleRecordTc: DamlLfTypeCon = { type: 'typecon', name: exampleRecordId,
 
 const typeProvider: TypeProvider = {
   fetchType(id: DamlLfIdentifier,
-            onResult: (id: DamlLfIdentifier, result: DamlLfDefDataType | undefined) => void): void {
+            onResult: (id: DamlLfIdentifier, result: DamlLfDefDataType | undefined) => void): void {
     if (id.name ===  exampleRecordId.name) {
       onResult(id, exampleRecordDef);
     } else {
@@ -114,7 +114,7 @@ export default class ParameterFormGuide extends React.Component<{}, State> {
     };
   }
 
-  render() {
+  render(): JSX.Element {
     return (
       <Section
         title="Parameter form"

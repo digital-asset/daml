@@ -7,7 +7,7 @@ import { default as styled, hardcodedStyle, ThemeInterface } from '../theme';
 export { StyledComponent } from 'styled-components';
 import { StyledComponent } from 'styled-components';
 
-export function applyColors([bg, fg]: [string, string]) {
+export function applyColors([bg, fg]: [string, string]): string {
   return `
     color: ${fg};
     background: ${bg};
@@ -59,12 +59,12 @@ function getBoxShadow(_: ThemeInterface, type?: ButtonType): string {
 }
 
 function hover(color: string) {
-  // tslint:disable-next-line:no-magic-numbers
+  // eslint-disable-next-line no-magic-numbers
   return Color(color).darken(20 / 100).hex().toString();
 }
 
 function active(color: string) {
-  // tslint:disable-next-line:no-magic-numbers
+  // eslint-disable-next-line no-magic-numbers
   return Color(color).darken(50 / 100).hex().toString();
 }
 
@@ -75,7 +75,7 @@ const TextNode = styled.span`
   &:last-child { padding-right: initial; }
 `;
 
-// tslint:disable-next-line:no-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const wrapStringInSpan = (children: any) =>
   React.Children.map(children, (child: JSX.Element | string) =>
     (typeof child === 'string' ? <TextNode>{child}</TextNode> : child));
@@ -86,9 +86,9 @@ export type ButtonType
   | 'danger'
   | 'transparent'
   | 'minimal'
-  | 'nav-transparent'
-  | 'nav-primary'
-  | 'nav-secondary'
+  | 'nav-transparent'
+  | 'nav-primary'
+  | 'nav-secondary'
   | 'inverted-primary';
 
 export interface Props {
@@ -98,7 +98,7 @@ export interface Props {
   className?: string;
   autoFocus?: boolean;
   tabIndex?: number;
-  // tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   children?: any;
   theme?: ThemeInterface;
 }
