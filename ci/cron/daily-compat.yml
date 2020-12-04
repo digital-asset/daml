@@ -212,9 +212,6 @@ jobs:
           IS_FORK: $(System.PullRequest.IsFork)
           # to upload to the bazel cache
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)        
-      - template: ../bash-lib.yml
-        parameters:
-          var_name: bash_lib
       - bash: ./build.sh "_$(uname)"
         displayName: 'Build'
       - bash: |
