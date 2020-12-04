@@ -52,7 +52,7 @@ export type PopoverPosition =
   Placement
   | 'inline';
 
-// tslint:disable-next-line no-any
+// eslint-disable-next-line  @typescript-eslint/no-explicit-any
 export type AnyReactElement = React.ReactElement<any>;
 
 export interface Props {

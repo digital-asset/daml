@@ -59,10 +59,10 @@ query ParameterFormTypeQuery($id: ID!) {
 
 export default class ApolloDataProvider implements ContractIdProvider, TypeProvider {
 
-  // tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly client: ApolloClient<any>;
 
-  // tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(client: ApolloClient<any>) {
     this.client = client;
   }

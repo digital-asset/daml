@@ -48,7 +48,7 @@ export interface InnerProps {
 }
 
 export interface ApolloProps {
-  // tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: ApolloClient<any>;
 }
 
@@ -199,7 +199,7 @@ export default function withLedgerTime<P>(C: React.ComponentType<InnerProps & P>
     }
 
     render() {
-      // tslint:disable-next-line:no-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const {...rest} = this.props as any;
       const ledgerTime: LedgerTime = {
         value: getCurrentTime(this.state),

@@ -16,7 +16,7 @@ import { Either, left, right } from './either';
 import { catchToError } from './utils';
 
 /** List of approved and bundled imports that are available to the config file */
-// tslint:disable-next-line: no-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const imports: {[name: string]: any} = {
   'react': React,
   'react-DOM': ReactDOM,
@@ -75,7 +75,7 @@ export function loadConfig(source: string): LoadConfigResult {
         }
     };
 
-    // tslint:disable-next-line: no-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const configExports: any = {};
 
     // Evaluate transformed source

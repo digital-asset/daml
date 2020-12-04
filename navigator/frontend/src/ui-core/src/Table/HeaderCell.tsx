@@ -93,8 +93,7 @@ export function createHeader<
   const onSortChanged = (b: string, d: SortDirection) => {
     if (props.onConfigChange) {
       props.onConfigChange({
-        //tslint:disable-next-line:no-any (becuase of TypeScript bug)
-        ...props.config as any,
+        ...props.config,
         sort: [{
           field: b,
           direction: d,

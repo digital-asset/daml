@@ -7,7 +7,7 @@ import styled from '../theme';
 
 export interface Props {
   className?: string;
-  //tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   children?: any;
 }
 
@@ -38,7 +38,7 @@ const Divider = styled(Icon)`
 
 const Breadcrumbs = (props: Props): JSX.Element => {
   const { className, children } = props;
-  //tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parts: any[] = [];
   React.Children.forEach(children, (child, idx) => {
     if (idx > 0) {

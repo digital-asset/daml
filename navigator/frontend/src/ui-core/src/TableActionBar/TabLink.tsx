@@ -53,7 +53,7 @@ export function makeTabLink<P extends {}>(Link: React.ComponentClass<P>) {
   const A = (props: Props & P) => {
     // The no-any is a hack because of a TypeScript issue
     // (https://github.com/Microsoft/TypeScript/pull/13288)
-    // tslint:disable-next-line:no-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { title, icon, count, isActive, ...params } = props as any;
     const iconEl = icon ? <MainIcon name={icon} /> : null;
     const countEl = count !== undefined ? <Count>{count}</Count> : null;

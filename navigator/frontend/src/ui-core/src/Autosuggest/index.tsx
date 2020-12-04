@@ -122,7 +122,7 @@ export default class Autosuggest<R>
         renderSuggestion={this.props.renderSuggestion}
         inputProps={inputProps}
         shouldRenderSuggestions={() => true}
-        // tslint:disable-next-line:no-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         renderInputComponent={(inputComponentProps: any) => {
           const { ref, ...otherInputComponentProps } = inputComponentProps;
           const refCallback = (input: HTMLInputElement) => ref(input);

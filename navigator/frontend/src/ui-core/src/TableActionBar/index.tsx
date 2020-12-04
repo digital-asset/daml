@@ -195,8 +195,7 @@ export function TableActionBarConfigCheckbox<
           if (props.onConfigChange) {
             const el = e.target as HTMLInputElement;
             props.onConfigChange({
-              //tslint:disable-next-line:no-any (becuase of TS bug)
-              ...props.config as any,
+              ...props.config,
               [props.configKey]: el.checked,
             });
           }

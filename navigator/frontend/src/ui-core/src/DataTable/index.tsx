@@ -142,8 +142,7 @@ export default class DataTable<
         this.state.totalCount);
       if (this.props.onConfigChange) {
         this.props.onConfigChange({
-          //tslint:disable-next-line:no-any (becuase of TypeScript bug)
-          ...this.props.config as any,
+          ...this.props.config,
           count,
         });
       }

@@ -34,15 +34,15 @@ export type ComponentEnhancer<Remove, P extends Remove, Add = {}> =
 
 /** Properties that are injected by connect() */
 export interface ReduxProps {
-  // tslint:disable-next-line no-any
+  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   dispatch: any;
 }
 
 /** Properties that are injected by graphql() */
 export interface GraphQLProps {
-  // tslint:disable-next-line no-any
+  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   data?: any;
-  // tslint:disable-next-line no-any
+  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   mutate?: any;
 };
 

@@ -230,7 +230,7 @@ class Watcher {
   contractsTimer: number;
   commandsTimer: number;
   constructor(
-    // tslint:disable-next-line:no-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private client: ApolloClient<any>,
     private getWatcherState: () => State,
     private dispatch: (action: Action) => void) {

@@ -47,7 +47,7 @@ export interface RowInfo {
   removedAt?: Date;
 }
 
-// tslint:disable-next-line no-any
+// eslint-disable-next-line  @typescript-eslint/no-explicit-any
 export type ContractColumn<T, R = any> = ColumnConfig<T, R>;
 
 interface RowClassProps<C> {
@@ -363,8 +363,7 @@ export default class ContractTable<C extends ContractTableConfig>
       const newCount = Math.min(count + this.fetchIncrement, this.totalCount);
       if (this.props.onConfigChange) {
         this.props.onConfigChange({
-          //tslint:disable-next-line:no-any (becuase of TypeScript bug)
-          ...this.props.config as any,
+          ...this.props.config,
           count: newCount,
         });
       }

@@ -231,9 +231,9 @@ export default class Calendar extends React.Component<Props, State> {
     const d2 = m.clone().date(1).day();
     const d3 = m.clone().endOf('month').date();
     const days = [
-      // tslint:disable-next-line:restrict-plus-operands -- false positive
+      // eslint-disable-next-line @typescript-eslint/restrict-plus-operands, , ,
       ..._.range(d1 - d2 + 1, d1 + 1),
-      // tslint:disable-next-line:restrict-plus-operands -- false positive
+      // eslint-disable-next-line @typescript-eslint/restrict-plus-operands
       ..._.range(1, d3 + 1),
       ..._.range(1, 42 - d3 - d2 + 1),
     ];

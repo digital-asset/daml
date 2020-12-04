@@ -48,7 +48,7 @@ import ContractIdInput from './ContractIdInput';
 import * as DamlLfValueF from '@da/ui-core/lib/api/DamlLfValue';
 
 
-//tslint:disable:no-use-before-declare
+/* eslint-disable @typescript-eslint/no-use-before-define */
 
 //------------------------------------------------------------------------------
 // Input Types

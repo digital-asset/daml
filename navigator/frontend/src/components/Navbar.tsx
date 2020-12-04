@@ -17,13 +17,13 @@ import { about } from '../routes';
 import { Icon } from './Icon';
 import Link from './Link';
 
-// tslint:disable-next-line:no-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function signOut<S>(client: ApolloClient<any>, toSession: (action: Session.Action) => App.Action) {
   return Session.signOut<S, App.Action>(toSession, ((dispatch: Dispatch<App.Action>) => {
     client.resetStore();
     dispatch(App.resetApp());
   // Session.signOut signature can't handle ThunkAction
-  // tslint:disable-next-line
+  // eslint-disable-next-line
   }) as ThunkAction<void, App.State, undefined, AnyAction> as any);
 }
 
@@ -36,7 +36,7 @@ interface OwnProps {
   user: Session.User;
   watcher: LedgerWatcher.State;
 }
-// tslint:disable-next-line:no-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Props = ReduxProps & OwnProps & { client: ApolloClient<any> };
 
 const InlineDiv = styled.div`

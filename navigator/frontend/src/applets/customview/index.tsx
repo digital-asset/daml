@@ -170,7 +170,7 @@ function findCustomView(config: ConfigType, id: string)
 }
 
 function createColumns(config: ConfigType, viewId: string)
-  // tslint:disable-next-line: no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   : ColumnConfig<any, any>[] {
   const view = findCustomView(config, viewId);
   return view ? view.columns.map((col, index) => ({
@@ -180,9 +180,9 @@ function createColumns(config: ConfigType, viewId: string)
     width: col.width || 50,
     weight: col.weight || 1,
     alignment: col.alignment || 'left',
-    // tslint:disable-next-line: no-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     extractCellData: (rowData: any) => rowData,
-    // tslint:disable-next-line: no-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     createCell: (props: CellRenderParams<any, any>) => {
       try {
         if (typeof col.createCell !== 'function') {
@@ -205,7 +205,7 @@ function createColumns(config: ConfigType, viewId: string)
               )}
             />
           );
-          // tslint:disable-next-line: no-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           default: throw new Error(`Unknown cell type ${(cell as any).type}`);
         }
       }
@@ -218,7 +218,7 @@ function createColumns(config: ConfigType, viewId: string)
 }
 
 interface ComponentState {
-  // tslint:disable-next-line: no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   columns: ColumnConfig<any, any>[];
 }
 

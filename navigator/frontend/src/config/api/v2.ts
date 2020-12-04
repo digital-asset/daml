@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// tslint:disable no-any
+// eslint-disable  @typescript-eslint/no-explicit-any
 
 // ----------------------------------------------------------------------------
 // Sort and filter

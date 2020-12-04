@@ -45,7 +45,7 @@ export function middleware<S>(options: RouterOptions<S>): Middleware<{}, S> {
       const returnValue = next(action);
       // Middleware typings are not very good in Redux 3,
       // We know that S and S2 are the same type.
-      // tslint:disable-next-line:no-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const url = stateToUrl(getState() as any as S);
       if (window.location.pathname !== url) {
         window.history.pushState({}, '', url);

@@ -16,7 +16,7 @@ import {
 
 export class ApolloDataProvider<C extends ContractTableConfig>
   implements DataProvider<C> {
-  // tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: ApolloClient<any>;
   query: DocumentNode;
   observableQuery: ObservableQuery<{}>;
@@ -25,7 +25,7 @@ export class ApolloDataProvider<C extends ContractTableConfig>
   dataToContractsResult: (data: {}) => ContractsResult;
 
   constructor(
-    // tslint:disable-next-line:no-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     client: ApolloClient<any>,
     query: DocumentNode,
     createVariables: (config: ContractTableConfig) => {},

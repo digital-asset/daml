@@ -23,7 +23,7 @@ interface Props {
   error?: string;
   onSubmit(e: React.MouseEvent<HTMLButtonElement>, argument?: DamlLfValue): void;
   className?: string;
-  // tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: ApolloClient<any>;
 }
 
