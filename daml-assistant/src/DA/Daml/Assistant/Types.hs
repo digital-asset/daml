@@ -65,6 +65,9 @@ data BuiltinCommand
     | Uninstall SdkVersion
     deriving (Eq, Show)
 
+newtype LookForProjectPath = LookForProjectPath
+    { unLookForProjectPath :: Bool }
+
 data Command
     = Builtin BuiltinCommand
     | Dispatch SdkCommandInfo UserCommandArgs

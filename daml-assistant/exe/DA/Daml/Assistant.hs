@@ -56,10 +56,10 @@ main = do
         builtinCommandM <- tryBuiltinCommand
         case builtinCommandM of
             Just builtinCommand -> do
-                env <- getDamlEnv damlPath
+                env <- getDamlEnv damlPath (commandWantsProjectPath builtinCommand)
                 handleCommand env logger builtinCommand
             Nothing -> do
-                env@Env{..} <- autoInstall =<< getDamlEnv damlPath
+                env@Env{..} <- autoInstall =<< getDamlEnv damlPath (LookForProjectPath True)
 
                 -- We already know we can't parse the command without an installed SDK.
                 -- So if we can't find it, let the user know. This will happen whenever
@@ -85,6 +85,15 @@ main = do
                         userCommand <- getCommand sdkCommands
                         versionChecks env
                         handleCommand env logger userCommand
+
+commandWantsProjectPath :: Command -> LookForProjectPath
+commandWantsProjectPath cmd = LookForProjectPath $
+    case cmd of
+        Builtin (Install InstallOptions{..})
+            | Just RawInstallTarget_Project <- iTargetM -> True
+            | otherwise -> False
+        Builtin Uninstall{} -> False
+        _ -> True
 
 -- | Perform version checks, i.e. warn user if project SDK version or assistant SDK
 -- versions are out of date with the latest known release.

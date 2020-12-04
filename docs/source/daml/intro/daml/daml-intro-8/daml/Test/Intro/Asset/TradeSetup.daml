@@ -51,7 +51,7 @@ test_issuance = do
 
   return (setupResult, assetCid)
 
--- A copy of the `tradeSetup` Scenario from the chaper 7 model
+-- A copy of the `tradeSetup` Script from the chapter 7 model
 tradeSetup = do
   (setupResult@(alice, bob, usdbank, usdha, usdhb), usdCid) <- test_issuance
   eurbank <- allocateParty "EUR_Bank"
