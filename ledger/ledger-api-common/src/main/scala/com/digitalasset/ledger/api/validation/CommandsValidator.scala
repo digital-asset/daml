@@ -176,6 +176,11 @@ final class CommandsValidator(ledgerId: LedgerId) {
 
 object CommandsValidator {
 
+  /**
+    * Effective submitters of a command
+    * @param actAs Guaranteed to be non-empty. Will contain exactly one element in most cases.
+    * @param readAs May be empty.
+    */
   case class Submitters[T](actAs: Set[T], readAs: Set[T])
 
   def effectiveSubmitters(commands: Option[ProtoCommands]): Submitters[String] = {
@@ -195,17 +200,15 @@ object CommandsValidator {
   val noSubmitters: Submitters[String] = Submitters(Set.empty, Set.empty)
 
   def validateSubmitters(
-      commands: ProtoCommands): Either[StatusRuntimeException, Submitters[Ref.Party]] = {
+      commands: ProtoCommands,
+  ): Either[StatusRuntimeException, Submitters[Ref.Party]] = {
     def actAsMustNotBeEmpty(effectiveActAs: Set[Ref.Party]) =
-      if (effectiveActAs.isEmpty)
-        Left(missingField("party or act_as"))
-      else
-        Right(())
+      Either.cond(effectiveActAs.isEmpty, (), missingField("party or act_as"))
 
     // Temporary check to reject all multi-party submissions until they are implemented
     // Note: when removing this method, also remove the call to `actAs.head` in validateCommands()
     def requireSingleSubmitter(actAs: Set[Ref.Party], readAs: Set[Ref.Party]) =
-      if ((actAs ++ readAs).size != 1)
+      if (actAs.size > 1 || readAs.nonEmpty)
         Left(unimplemented("Multi-party submissions are not supported"))
       else
         Right(())

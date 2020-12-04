@@ -190,14 +190,14 @@ trait MultiPartyServiceCallAuthTests extends ServiceCallAuthTests {
   it should "deny multi-party calls with one missing actor authorization" in {
     expectPermissionDenied(
       serviceCallFor(
-        TokenParties(actAs.take(actorsCount - 1), readAs),
+        TokenParties(actAs.dropRight(1), readAs),
         RequestSubmitters("", actAs, readAs),
       ))
   }
   it should "deny multi-party calls with one missing reader authorization" in {
     expectPermissionDenied(
       serviceCallFor(
-        TokenParties(actAs, readAs.take(readersCount - 1)),
+        TokenParties(actAs, readAs.dropRight(1)),
         RequestSubmitters("", actAs, readAs),
       ))
   }

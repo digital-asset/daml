@@ -46,7 +46,7 @@ object RetryLogger extends LazyLogging {
     val effectiveActAs = request.commands.map(c => CommandsValidator.effectiveSubmitters(c).actAs)
     format(
       (BIM, request.commands.map(_.commandId)),
-      (ACTAS, effectiveActAs),
+      (ACT_AS, effectiveActAs),
       (WORKFLOW_ID, request.commands.map(_.workflowId)),
       (ERROR_CODE, status.code),
       (ERROR_MESSAGE, status.message),
@@ -57,6 +57,6 @@ object RetryLogger extends LazyLogging {
   @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable", "org.wartremover.warts.Any"))
   private def format(fs: (String, Any)*): String = fs.map(f => s"${f._1} = ${f._2}").mkString(", ")
 
-  private val ACTAS = "act-as"
+  private val ACT_AS = "act-as"
   private val BIM = "bim"
 }
