@@ -214,7 +214,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)        
       - bash: |
           set -euo pipefail
-          eval "$("$(dirname "$0")/dev-env/bin/dade-assist")"
+          eval "$(dev-env/bin/dade assist)"
           export LC_ALL=en_US.UTF-8
           
           bazel build //...
