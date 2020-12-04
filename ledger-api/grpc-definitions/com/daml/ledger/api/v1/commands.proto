@@ -41,8 +41,9 @@ message Commands {
   // Required
   string command_id = 4;
 
-  // Party on whose behalf the command should be executed. It is up to the server to verify that the
-  // authorisation can be granted and that the connection has been authenticated for that party.
+  // Party on whose behalf the command should be executed.
+  // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
+  // to act on behalf of the given party.
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Deprecated in favor of the ``act_as`` field. If both are set, then the effective list of parties on whose
   // behalf the command should be executed is the union of all parties listed in ``party`` and ``act_as``.
@@ -75,8 +76,9 @@ message Commands {
   // Optional
   google.protobuf.Duration min_ledger_time_rel = 11;
 
-  // Set of parties on whose behalf the command should be executed. It is up to the server to verify that the
-  // authorisation can be granted and that the connection has been authenticated for the given set of parties.
+  // Set of parties on whose behalf the command should be executed.
+  // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
+  // to act on behalf of each of the given parties.
   // This field supersedes the ``party`` field. The effective set of parties on whose behalf the command
   // should be executed is the union of all parties listed in ``party`` and ``act_as``, which must be non-empty.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
@@ -89,6 +91,8 @@ message Commands {
   // node is only visible to a subset of these parties. A command can only use contracts that are visible to at least
   // one of the parties in ``act_as`` or ``read_as``. This visibility check is independent from the DAML authorization
   // rules for fetch operations.
+  // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
+  // to read contract data on behalf of each of the given parties.
   // Optional
   repeated string read_as = 13;
 }
