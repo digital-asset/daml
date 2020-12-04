@@ -572,11 +572,14 @@ private[sandbox] final class InMemoryLedger(
   private def deduplicationKey(
       commandId: CommandId,
       submitters: List[Ref.Party],
-  ): String =
-    if (submitters.length == 1)
-      commandId.unwrap + "%" + submitters.head
-    else
-      commandId.unwrap + "%" + submitters.sorted(Ordering.String).distinct.mkString("%")
+  ): String = {
+    val submitterPart =
+      if (submitters.length == 1)
+        submitters.head
+      else
+        submitters.sorted(Ordering.String).distinct.mkString("%")
+    commandId.unwrap + "%" + submitterPart
+  }
 
   override def deduplicateCommand(
       commandId: CommandId,

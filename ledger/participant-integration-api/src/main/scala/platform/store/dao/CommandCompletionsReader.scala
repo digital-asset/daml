@@ -41,7 +41,7 @@ private[dao] final class CommandCompletionsReader(
       endInclusive = endInclusive,
       applicationId = applicationId,
       parties = parties,
-      sqlFunctions,
+      sqlFunctions = sqlFunctions,
     )
     Source
       .future(

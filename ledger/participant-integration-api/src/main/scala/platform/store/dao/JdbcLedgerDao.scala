@@ -771,11 +771,14 @@ private class JdbcLedgerDao(
   private def deduplicationKey(
       commandId: domain.CommandId,
       submitters: List[Ref.Party],
-  ): String =
-    if (submitters.length == 1)
-      commandId.unwrap + "%" + submitters.head
-    else
-      commandId.unwrap + "%" + submitters.sorted(Ordering.String).distinct.mkString("%")
+  ): String = {
+    val submitterPart =
+      if (submitters.length == 1)
+        submitters.head
+      else
+        submitters.sorted(Ordering.String).distinct.mkString("%")
+    commandId.unwrap + "%" + submitterPart
+  }
 
   override def deduplicateCommand(
       commandId: domain.CommandId,
@@ -829,7 +832,8 @@ private class JdbcLedgerDao(
 
   private[this] def stopDeduplicatingCommandSync(
       commandId: domain.CommandId,
-      submitters: List[Party])(implicit conn: Connection): Unit = {
+      submitters: List[Party],
+  )(implicit conn: Connection): Unit = {
     val key = deduplicationKey(commandId, submitters)
     SQL_DELETE_COMMAND
       .on("deduplicationKey" -> key)

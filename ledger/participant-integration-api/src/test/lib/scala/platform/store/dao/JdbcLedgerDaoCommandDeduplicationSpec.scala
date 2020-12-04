@@ -16,7 +16,7 @@ import org.scalatest.{AsyncFlatSpec, Matchers}
 private[dao] trait JdbcLedgerDaoCommandDeduplicationSpec {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
-  behavior of "JdbcLedgerDao (comman deduplication)"
+  behavior of "JdbcLedgerDao (command deduplication)"
 
   it should "correctly deduplicate a command" in {
     val commandId: CommandId = CommandId(UUID.randomUUID.toString)
@@ -59,7 +59,7 @@ private[dao] trait JdbcLedgerDaoCommandDeduplicationSpec {
     }
   }
 
-  it should "not deduplicate a command after it was cancelled" in {
+  it should "not deduplicate a command after its deduplication was stopped" in {
     val commandId: CommandId = CommandId(UUID.randomUUID.toString)
     for {
       original1 <- ledgerDao.deduplicateCommand(commandId, List(alice), t(0), t(10000))
