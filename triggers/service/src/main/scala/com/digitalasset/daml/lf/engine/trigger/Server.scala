@@ -268,12 +268,12 @@ class Server(
             }
           }
         }
-        Directive { inner =>
-          auth {
-            // Authorization successful - pass token to continuation
-            case Some(authorization) => inner(Tuple1(Some(authorization)))
-            // Authorization failed - login and retry on callback request.
-            case None => { ctx =>
+        auth.flatMap {
+          // Authorization successful - pass token to continuation
+          case Some(authorization) => provide(Some(authorization))
+          // Authorization failed - login and retry on callback request.
+          case None =>
+            Directive { inner => ctx =>
               val requestId = UUID.randomUUID()
               authCallbacks.update(
                 requestId, {
@@ -301,7 +301,6 @@ class Server(
                 .withQuery(AuthRequest.Login(callbackUri, claims, Some(requestId.toString)).toQuery)
               ctx.redirect(uri, StatusCodes.Found)
             }
-          }
         }
     }
 
