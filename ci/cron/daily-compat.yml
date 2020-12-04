@@ -212,7 +212,7 @@ jobs:
           IS_FORK: $(System.PullRequest.IsFork)
           # to upload to the bazel cache
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)        
-      - bash: ./build.sh "_$(uname)"
+      - bash: bazel build //...
         displayName: 'Build'
       - bash: |
           set -euo pipefail
@@ -242,9 +242,10 @@ jobs:
           --detect.tools=DETECTOR,BAZEL,DOCKER \
           --detect.bazel.target=//... \
           --detect.bazel.dependency.type=maven_install \
-          --detect.detector.search.exclusion.paths=language-support/ts/codegen/tests/ts,language-support/ts,/Users/brianhealey/g/daml/language-support/scala/examples/iou-no-codegen,language-support/scala/examples/quickstart-scala,docs/source/app-dev/bindings-java/code-snippets,docs/source/app-dev/bindings-java/quickstart/template-root,language-support/scala/examples/quickstart-scala,language-support/scala/examples/iou-no-codegen \
+          --detect.detector.search.exclusion.paths=language-support/ts/codegen/tests/ts,language-support/ts,language-support/scala/examples/iou-no-codegen,language-support/scala/examples/quickstart-scala,docs/source/app-dev/bindings-java/code-snippets,docs/source/app-dev/bindings-java/quickstart/template-root,language-support/scala/examples/quickstart-scala,language-support/scala/examples/iou-no-codegen \
           --detect.cleanup=false \
           --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
+          --detect.notices.report=true \
           --detect.cleanup.bdio.files=true \
           --detect.report.timeout=4500
         displayName: 'Blackduck Scan'
