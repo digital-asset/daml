@@ -123,14 +123,14 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Deduplicates commands.
     *
     * @param commandId The command Id
-    * @param submitter The submitting party
+    * @param submitters The submitting parties
     * @param submittedAt The time when the command was submitted
     * @param deduplicateUntil The time until which the command should be deduplicated
     * @return whether the command is a duplicate or not
     */
   def deduplicateCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult]
@@ -158,12 +158,12 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     * window before they could send a retry.
     *
     * @param commandId The command Id
-    * @param submitter The submitting party
+    * @param submitters The submitting parties
     * @return
     */
   def stopDeduplicatingCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Unit]
 
   /**

@@ -160,13 +160,13 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
 
   override def deduplicateCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
     Timed.future(
       metrics.daml.index.deduplicateCommand,
-      ledger.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil))
+      ledger.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil))
 
   override def removeExpiredDeduplicationData(currentTime: Instant)(
       implicit loggingContext: LoggingContext,
@@ -177,11 +177,11 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
 
   override def stopDeduplicatingCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     Timed.future(
       metrics.daml.index.stopDeduplicatingCommand,
-      ledger.stopDeduplicatingCommand(commandId, submitter))
+      ledger.stopDeduplicatingCommand(commandId, submitters))
 
   override def prune(pruneUpToInclusive: Offset)(
       implicit loggingContext: LoggingContext): Future[Unit] =

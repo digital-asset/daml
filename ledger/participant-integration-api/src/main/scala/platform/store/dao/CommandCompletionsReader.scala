@@ -12,14 +12,19 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionStreamRespons
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
-import com.daml.platform.store.dao.events.QueryNonPruned
+import com.daml.platform.store.DbType
+import com.daml.platform.store.dao.events.{QueryNonPruned, SqlFunctions}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[dao] final class CommandCompletionsReader(
     dispatcher: DbDispatcher,
+    dbType: DbType,
     metrics: Metrics,
-    executionContext: ExecutionContext) {
+    executionContext: ExecutionContext,
+) {
+
+  private val sqlFunctions = SqlFunctions(dbType)
 
   private def offsetFor(response: CompletionStreamResponse): Offset =
     ApiOffset.assertFromString(response.checkpoint.get.offset.get.getAbsolute)
@@ -36,6 +41,7 @@ private[dao] final class CommandCompletionsReader(
       endInclusive = endInclusive,
       applicationId = applicationId,
       parties = parties,
+      sqlFunctions = sqlFunctions,
     )
     Source
       .future(

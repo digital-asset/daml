@@ -19,7 +19,7 @@ private[platform] object LedgerEntry {
       recordTime: Instant,
       commandId: CommandId,
       applicationId: ApplicationId,
-      submitter: Party,
+      actAs: List[Party],
       rejectionReason: RejectionReason)
       extends LedgerEntry
 
@@ -27,7 +27,7 @@ private[platform] object LedgerEntry {
       commandId: Option[CommandId],
       transactionId: TransactionId,
       applicationId: Option[ApplicationId],
-      submittingParty: Option[Party],
+      actAs: List[Party],
       workflowId: Option[WorkflowId],
       ledgerEffectiveTime: Instant,
       recordedAt: Instant,

@@ -158,7 +158,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       QueryParts.ByArith(
         read = (range, limitExpr) => SQL"""
             select #$selectColumns, array[$party] as event_witnesses,
-                   case when submitter = $party then command_id else '' end as command_id
+                   case when submitters = array[$party] then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
@@ -178,7 +178,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       QueryParts.ByArith(
         read = (range, limitExpr) => SQL"""
             select #$selectColumns, array[$party] as event_witnesses,
-                   case when submitter = $party then command_id else '' end as command_id
+                   case when submitters = array[$party] then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
@@ -197,10 +197,12 @@ private[events] object EventsTableFlatEventsRangeQueries {
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", parties)
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
+      val submittersInPartiesClause =
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       QueryParts.ByArith(
         read = (range, limitExpr) => SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when submitter in ($parties) then command_id else '' end as command_id
+                   case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
@@ -219,10 +221,12 @@ private[events] object EventsTableFlatEventsRangeQueries {
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", parties)
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
+      val submittersInPartiesClause =
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       QueryParts.ByArith(
         read = (range, limitExpr) => SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when submitter in ($parties) then command_id else '' end as command_id
+                   case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
@@ -245,10 +249,12 @@ private[events] object EventsTableFlatEventsRangeQueries {
           partiesAndTemplateIds)
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
+      val submittersInPartiesClause =
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       QueryParts.ByArith(
         read = (range, limitExpr) => SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when submitter in ($parties) then command_id else '' end as command_id
+                   case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
@@ -273,10 +279,12 @@ private[events] object EventsTableFlatEventsRangeQueries {
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", wildcardParties)
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
+      val submittersInPartiesClause =
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       QueryParts.ByArith(
         read = (range, limitExpr) => SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when submitter in ($parties) then command_id else '' end as command_id
+                   case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
@@ -301,7 +309,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
       SQL"""select #$selectColumns, array[$party] as event_witnesses,
-                   case when submitter = $party then command_id else '' end as command_id
+                   case when submitters = array[$party] then command_id else '' end as command_id
             from participant_events
             where create_argument is not null
                   and event_sequential_id > ${range.startExclusive._2: Long}
@@ -320,7 +328,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
       SQL"""select #$selectColumns, array[$party] as event_witnesses,
-                   case when submitter = $party then command_id else '' end as command_id
+                   case when submitters = array[$party] then command_id else '' end as command_id
             from participant_events
             where create_argument is not null
                   and event_sequential_id > ${range.startExclusive._2: Long}
@@ -340,8 +348,10 @@ private[events] object EventsTableFlatEventsRangeQueries {
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", parties)
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
+      val submittersInPartiesClause =
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when submitter in ($parties) then command_id else '' end as command_id
+                   case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
             where create_argument is not null
                   and event_sequential_id > ${range.startExclusive._2: Long}
@@ -361,8 +371,10 @@ private[events] object EventsTableFlatEventsRangeQueries {
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", parties)
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
+      val submittersInPartiesClause =
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when submitter in ($parties) then command_id else '' end as command_id
+                   case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
             where create_argument is not null
                   and event_sequential_id > ${range.startExclusive._2: Long}
@@ -386,8 +398,10 @@ private[events] object EventsTableFlatEventsRangeQueries {
           partiesAndTemplateIds)
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
+      val submittersInPartiesClause =
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when submitter in ($parties) then command_id else '' end as command_id
+                   case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
             where create_argument is not null
                   and event_sequential_id > ${range.startExclusive._2: Long}
@@ -413,8 +427,10 @@ private[events] object EventsTableFlatEventsRangeQueries {
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", wildcardParties)
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
+      val submittersInPartiesClause =
+        sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
       SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when submitter in ($parties) then command_id else '' end as command_id
+                   case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
             where create_argument is not null
                   and event_sequential_id > ${range.startExclusive._2: Long}

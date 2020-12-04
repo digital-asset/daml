@@ -35,7 +35,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     for {
       (_, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(transactionId = "WRONG", Set(tx.submittingParty.get))
+        .lookupFlatTransactionById(transactionId = "WRONG", tx.actAs.toSet)
     } yield {
       result shouldBe None
     }
@@ -55,7 +55,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     for {
       (offset, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(tx.transactionId, Set(tx.submittingParty.get))
+        .lookupFlatTransactionById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
@@ -70,7 +70,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               val (nodeId, createNode: NodeCreate.WithTxValue[ContractId]) =
                 tx.transaction.nodes.head
               created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
-              created.witnessParties should contain only tx.submittingParty.get
+              created.witnessParties should contain only (tx.actAs: _*)
               created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
               created.contractKey shouldBe None
               created.createArguments shouldNot be(None)
@@ -88,7 +88,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       (_, create) <- store(singleCreate)
       (offset, exercise) <- store(singleExercise(nonTransient(create).loneElement))
       result <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(exercise.transactionId, Set(exercise.submittingParty.get))
+        .lookupFlatTransactionById(exercise.transactionId, exercise.actAs.toSet)
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
@@ -103,7 +103,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               val (nodeId, exerciseNode: NodeExercises.WithTxValue[NodeId, ContractId]) =
                 exercise.transaction.nodes.head
               archived.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
-              archived.witnessParties should contain only exercise.submittingParty.get
+              archived.witnessParties should contain only (exercise.actAs: _*)
               archived.contractId shouldBe exerciseNode.targetCoid.coid
               archived.templateId shouldNot be(None)
           }
@@ -111,11 +111,48 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
+  it should "show command IDs to the original submitters" in {
+    val signatories = Set(alice, bob)
+    val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
+    val actAs = List(alice, bob, david) // David is submitter but not signatory
+    for {
+      (_, tx) <- store(
+        multiPartySingleCreateP(createWithStakeholders(_, signatories, stakeholders), actAs))
+      // Response 1: querying as all submitters
+      result1 <- ledgerDao.transactionsReader
+        .lookupFlatTransactionById(tx.transactionId, Set(alice, bob, david))
+      // Response 2: querying as a proper subset of all submitters
+      result2 <- ledgerDao.transactionsReader
+        .lookupFlatTransactionById(tx.transactionId, Set(alice, david))
+      // Response 3: querying as a proper superset of all submitters
+      result3 <- ledgerDao.transactionsReader
+        .lookupFlatTransactionById(tx.transactionId, Set(alice, bob, charlie, david))
+    } yield {
+      result1.value.transaction.value.commandId shouldBe tx.commandId.get
+      result2.value.transaction.value.commandId shouldBe tx.commandId.get
+      result3.value.transaction.value.commandId shouldBe tx.commandId.get
+    }
+  }
+
+  it should "hide command IDs from non-submitters" in {
+    val signatories = Set(alice, bob)
+    val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
+    val actAs = List(alice, bob, david) // David is submitter but not signatory
+    for {
+      (_, tx) <- store(
+        multiPartySingleCreateP(createWithStakeholders(_, signatories, stakeholders), actAs))
+      result <- ledgerDao.transactionsReader
+        .lookupFlatTransactionById(tx.transactionId, Set(charlie))
+    } yield {
+      result.value.transaction.value.commandId shouldBe ""
+    }
+  }
+
   it should "hide events on transient contracts to the original submitter" in {
     for {
       (offset, tx) <- store(fullyTransient)
       result <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(tx.transactionId, Set(tx.submittingParty.get))
+        .lookupFlatTransactionById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
@@ -379,7 +416,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         .getFlatTransactions(
           from,
           offset,
-          Map(exercise.submittingParty.get -> Set.empty[Identifier]),
+          exercise.actAs.map(submitter => submitter -> Set.empty[Identifier]).toMap,
           verbose = true)
         .runWith(Sink.seq)
     } yield {
@@ -413,7 +450,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         .getFlatTransactions(
           offset1,
           offset2,
-          Map(exercise.submittingParty.get -> Set.empty[Identifier]),
+          exercise.actAs.map(submitter => submitter -> Set.empty[Identifier]).toMap,
           verbose = true)
         .runWith(Sink.seq)
 
