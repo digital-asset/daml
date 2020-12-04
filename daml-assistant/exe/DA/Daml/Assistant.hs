@@ -89,8 +89,9 @@ main = do
 commandWantsProjectPath :: Command -> LookForProjectPath
 commandWantsProjectPath cmd = LookForProjectPath $
     case cmd of
-        Builtin (Install InstallOptions {iTargetM = Just (RawInstallTarget "project")}) -> True
-        Builtin Install{} -> False
+        Builtin (Install InstallOptions{..})
+            | Just RawInstallTarget_Project <- iTargetM -> True
+            | otherwise -> False
         Builtin Uninstall{} -> False
         _ -> True
 
