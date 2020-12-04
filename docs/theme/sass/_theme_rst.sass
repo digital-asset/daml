@@ -61,18 +61,6 @@
     font-weight: $weight-code
     display: block
     overflow: auto
-  pre.literal-block, div[class^='highlight']
-    overflow-x: auto
-    // 1px hack otherwise border won't show. lame
-    margin: 35px 0 35px -76px
-
-    +media($desktop-wider)
-      margin: 35px 0 35px -76px
-
-    div[class^='highlight']
-      padding: 0px
-      border: none
-      margin: 0
   // Needs 100% width for line highlighting to work properly
   div[class^='highlight'] td.code
     width: 100%
@@ -88,7 +76,7 @@
     font-weight: $weight-code
     white-space: pre
     margin: 0
-    padding: $base-line-height / 2 $base-line-height / 2
+    padding: $base-line-height / 2 0
     display: block
     overflow: auto
     & .hll
