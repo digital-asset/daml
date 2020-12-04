@@ -66,6 +66,14 @@ DAML Documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
+   :caption: Operating DAML
+
+   ops/index
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+   :hidden:
    :caption: Developer Tools
 
    tools/assistant

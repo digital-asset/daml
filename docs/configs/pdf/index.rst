@@ -59,6 +59,15 @@ Deploying to DAML ledgers
    deploy/generic_ledger
    deploy/ledger-topologies
 
+Operating DAML
+--------------
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+
+   ops/index
+
 Developer Tools
 ---------------
 
