@@ -63,6 +63,7 @@ If you do this, and wonder what type the compiler has inferred, you can hover ov
 
 What you see here is a slightly more complex signature:
 
+
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
   :language: daml
   :start-after: -- ADD_SIG_BEGIN
