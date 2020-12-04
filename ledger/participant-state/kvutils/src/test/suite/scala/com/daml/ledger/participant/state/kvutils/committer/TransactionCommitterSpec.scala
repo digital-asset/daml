@@ -113,11 +113,11 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
   private def lookupByKeyNodeBuilder = TransactionOuterClass.NodeLookupByKey.newBuilder()
 
-  "removeUnnecessaryNodes" should {
+  "trimUnnecessaryNodes" should {
     "remove `Fetch` and `LookupByKey` nodes from transaction tree" in {
       val context = createCommitContext(recordTime = None)
 
-      instance.removeUnnecessaryNodes(context, aRichTransactionTreeSummary) match {
+      instance.trimUnnecessaryNodes(context, aRichTransactionTreeSummary) match {
         case StepContinue(logEntry) =>
           val transaction = logEntry.submission.getTransaction
           transaction.getRootsList.asScala should contain theSameElementsInOrderAs Seq(

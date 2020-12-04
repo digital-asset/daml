@@ -71,7 +71,7 @@ private[kvutils] class TransactionCommitter(
     "validate_contract_keys" -> validateContractKeys,
     "validate_model_conformance" -> validateModelConformance,
     "blind" -> blind,
-    "remove_unnecessary_nodes" -> removeUnnecessaryNodes,
+    "trim_unnecessary_nodes" -> trimUnnecessaryNodes,
     "build_final_log_entry" -> buildFinalLogEntry,
   )
 
@@ -306,7 +306,7 @@ private[kvutils] class TransactionCommitter(
   /**
     * Removes `Fetch` and `LookupByKey` nodes from the transactionEntry.
     */
-  private[committer] def removeUnnecessaryNodes: Step = (_, transactionEntry) => {
+  private[committer] def trimUnnecessaryNodes: Step = (_, transactionEntry) => {
     val transaction = transactionEntry.submission.getTransaction
     val nodes = transaction.getNodesList.asScala
     val nodesToKeep = nodes.iterator.collect {
