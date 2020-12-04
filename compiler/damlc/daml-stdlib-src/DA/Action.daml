@@ -24,7 +24,7 @@ import DA.Functor
 -- This function has short-circuiting semantics, i.e., when both arguments are
 -- present and the first arguments evaluates to `False`, the second argument
 -- is not evaluated at all.
-when      : Applicative f => Bool -> f () -> f ()
+when : Applicative f => Bool -> f () -> f ()
 when p s  = if p then s else pure ()
 
 -- | The reverse of `when`.
