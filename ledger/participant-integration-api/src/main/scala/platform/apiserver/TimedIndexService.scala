@@ -129,8 +129,8 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       delegate.getActiveContracts(filter, verbose))
 
   override def lookupActiveContract(
-                                     readers: Set[Party],
-                                     contractId: Value.ContractId,
+      readers: Set[Party],
+      contractId: Value.ContractId,
   )(implicit loggingContext: LoggingContext)
     : Future[Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]]] =
     Timed.future(
@@ -138,8 +138,8 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       delegate.lookupActiveContract(readers, contractId))
 
   override def lookupContractKey(
-                                  readers: Set[Party],
-                                  key: GlobalKey,
+      readers: Set[Party],
+      key: GlobalKey,
   )(implicit loggingContext: LoggingContext): Future[Option[Value.ContractId]] =
     Timed.future(
       metrics.daml.services.index.lookupContractKey,

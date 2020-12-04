@@ -87,7 +87,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     * The resulting transaction is annotated with packages required to validate it.
     */
   def submit(
-            submitters: Set[Party],
+      submitters: Set[Party],
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,

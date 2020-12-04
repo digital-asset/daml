@@ -108,9 +108,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     Ref.LedgerString.assertFromString(s)
 
   protected final def create(
-                            absCid: ContractId,
-                            signatories: Set[Party] = Set(alice, bob),
-                            ): NodeCreate[ContractId, Value[ContractId]] =
+      absCid: ContractId,
+      signatories: Set[Party] = Set(alice, bob),
+  ): NodeCreate[ContractId, Value[ContractId]] =
     create(absCid, signatories, signatories, None)
 
   protected final def create(
@@ -176,9 +176,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       case (set, _) =>
         set
     }
-
-  protected final def singleCreateP(create: ContractId => NodeCreate[ContractId, Value[ContractId]],
-                                    submittingParty: Party = alice,
+  
+  protected final def singleCreateP(
+      create: ContractId => NodeCreate[ContractId, Value[ContractId]],
+      submittingParty: Party = alice,
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
     val cid = txBuilder.newCid
@@ -232,22 +233,23 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   // TODO: `submittingParty: Party` should be changed to Set[Party] when multi-party changes in LedgerEntry are ready
   protected final def createAndStoreContract(
-                                    submittingParty: Party,
-                                    signatories: Set[Party],
-                                    stakeholders: Set[Party],
-                                    key: Option[KeyWithMaintainers[Value[ContractId]]]
-                                    ): Future[(Offset, LedgerEntry.Transaction)] =
-    store(singleCreateP(
-      create = { cid =>
-        create(
-          absCid = cid,
-          signatories = signatories,
-          stakeholders = stakeholders,
-          key = key,
-        )
-      },
-      submittingParty = submittingParty
-    ))
+      submittingParty: Party,
+      signatories: Set[Party],
+      stakeholders: Set[Party],
+      key: Option[KeyWithMaintainers[Value[ContractId]]]
+  ): Future[(Offset, LedgerEntry.Transaction)] =
+    store(
+      singleCreateP(
+        create = { cid =>
+          create(
+            absCid = cid,
+            signatories = signatories,
+            stakeholders = stakeholders,
+            key = key,
+          )
+        },
+        submittingParty = submittingParty
+      ))
 
   protected def divulgeAlreadyCommittedContract(
       id: ContractId,

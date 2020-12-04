@@ -29,12 +29,16 @@ private[sandbox] case class InMemoryActiveLedgerState(
   def isVisibleForDivulgees(contractId: ContractId, forParties: Set[Party]): Boolean =
     activeContracts
       .get(contractId)
-      .exists(ac => ac.witnesses.exists(forParties.contains) || ac.divulgences.exists{ case (party, _) => forParties.contains(party) })
+      .exists(ac =>
+        ac.witnesses.exists(forParties.contains) || ac.divulgences.exists {
+          case (party, _) => forParties.contains(party)
+      })
 
   def isVisibleForStakeholders(contractId: ContractId, forParties: Set[Party]): Boolean =
     activeContracts
       .get(contractId)
-      .exists(ac => ac.signatories.exists(forParties.contains) || ac.observers.exists(forParties.contains))
+      .exists(ac =>
+        ac.signatories.exists(forParties.contains) || ac.observers.exists(forParties.contains))
 
 //  def lookupContractByKeyFor(key: GlobalKey, forParty: Party): Option[ContractId] =
 //    keys.get(key).filter(isVisibleForStakeholders(_, forParty))

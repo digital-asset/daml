@@ -272,13 +272,13 @@ object domain {
       submittedAt: Instant,
       deduplicateUntil: Instant,
       commands: LfCommands) {
-      // Note: this function is only available temporarily until KVL-702 is resolved
-      def singleSubmitterOrThrow(): Ref.Party = {
-        if (actAs.size == 1)
-          actAs.head
-        else
-          throw new RuntimeException("com.daml.lf.Commands contains more than one acting party")
-      }
+    // Note: this function is only available temporarily until KVL-702 is resolved
+    def singleSubmitterOrThrow(): Ref.Party = {
+      if (actAs.size == 1)
+        actAs.head
+      else
+        throw new RuntimeException("com.daml.lf.Commands contains more than one acting party")
+    }
   }
 
   /**

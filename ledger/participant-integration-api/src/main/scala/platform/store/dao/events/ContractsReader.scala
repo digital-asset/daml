@@ -158,7 +158,7 @@ private[dao] object ContractsReader {
   )(implicit ec: ExecutionContext)
       extends ContractsReader(table, dispatcher, metrics, lfValueTranslationCache) {
     override protected def lookupContractKeyQuery(
-                                                   readers: Set[Party],
+        readers: Set[Party],
         key: Key,
     ): SimpleSql[Row] = {
       val stakeholdersWhere =

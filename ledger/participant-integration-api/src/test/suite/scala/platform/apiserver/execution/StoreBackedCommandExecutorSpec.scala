@@ -35,7 +35,12 @@ class StoreBackedCommandExecutorSpec
   "execute" should {
     "add interpretation time to result" in {
       val mockEngine = mock[Engine]
-      when(mockEngine.submit(any[Set[Ref.Party]], any[com.daml.lf.command.Commands], any[ParticipantId], any[Hash]))
+      when(
+        mockEngine.submit(
+          any[Set[Ref.Party]],
+          any[com.daml.lf.command.Commands],
+          any[ParticipantId],
+          any[Hash]))
         .thenReturn(
           ResultDone[(SubmittedTransaction, Transaction.Metadata)](
             (TransactionBuilder.EmptySubmitted, emptyTransactionMetadata)

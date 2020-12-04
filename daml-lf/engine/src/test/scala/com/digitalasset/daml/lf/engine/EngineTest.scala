@@ -520,9 +520,9 @@ class EngineTest
     val submissionSeed = hash("multi-party create command")
 
     def interpretResult(
-                         templateId: String,
-                         signatories: Set[(String, Party)],
-                         actAs: Set[Party]) = {
+        templateId: String,
+        signatories: Set[(String, Party)],
+        actAs: Set[Party]) = {
       val cmd = command(templateId, signatories)
       val res = preprocessor
         .preprocessCommands(ImmArray(cmd))
