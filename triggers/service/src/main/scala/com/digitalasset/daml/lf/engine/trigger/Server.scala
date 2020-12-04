@@ -273,33 +273,40 @@ class Server(
           case Some(authorization) => provide(Some(authorization))
           // Authorization failed - login and retry on callback request.
           case None =>
-            Directive { inner => ctx =>
-              val requestId = UUID.randomUUID()
-              authCallbacks.update(
-                requestId, {
-                  auth {
-                    case None => {
-                      // Authorization failed after login - respond with 401
-                      // TODO[AH] Add WWW-Authenticate header
-                      complete(errorResponse(StatusCodes.Unauthorized))
-                    }
-                    case Some(authorization) =>
-                      // Authorization successful after login - use old request context and pass token to continuation.
-                      mapRequestContext(_ => ctx) {
-                        inner(Tuple1(Some(authorization)))
+            // Ensure that the request is fully uploaded.
+            // TODO[AH] Make these parameters configurable on the CLI
+            val timeout: FiniteDuration = 1.minute
+            val maxBytes: Long = 10 * 1024 * 1024
+            toStrictEntity(timeout, maxBytes).tflatMap { _ =>
+              Directive { inner => ctx =>
+                val requestId = UUID.randomUUID()
+                authCallbacks.update(
+                  requestId, {
+                    auth {
+                      case None => {
+                        // Authorization failed after login - respond with 401
+                        // TODO[AH] Add WWW-Authenticate header
+                        complete(errorResponse(StatusCodes.Unauthorized))
                       }
+                      case Some(authorization) =>
+                        // Authorization successful after login - use old request context and pass token to continuation.
+                        mapRequestContext(_ => ctx) {
+                          inner(Tuple1(Some(authorization)))
+                        }
+                    }
                   }
-                }
-              )
-              // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
-              val callbackUri = Uri()
-                .withScheme(ctx.request.uri.scheme)
-                .withAuthority(ctx.request.uri.authority)
-                .withPath(Path./("cb"))
-              val uri = authUri
-                .withPath(Path./("login"))
-                .withQuery(AuthRequest.Login(callbackUri, claims, Some(requestId.toString)).toQuery)
-              ctx.redirect(uri, StatusCodes.Found)
+                )
+                // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
+                val callbackUri = Uri()
+                  .withScheme(ctx.request.uri.scheme)
+                  .withAuthority(ctx.request.uri.authority)
+                  .withPath(Path./("cb"))
+                val uri = authUri
+                  .withPath(Path./("login"))
+                  .withQuery(
+                    AuthRequest.Login(callbackUri, claims, Some(requestId.toString)).toQuery)
+                ctx.redirect(uri, StatusCodes.Found)
+              }
             }
         }
     }
