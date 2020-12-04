@@ -756,7 +756,8 @@ private[kvutils] class TransactionCommitter(
 
 private[kvutils] object TransactionCommitter {
 
-  case class DamlTransactionEntrySummary(submission: DamlTransactionEntry) {
+  // Warning!! maybe a better design reveals itself.
+  class DamlTransactionEntrySummary(val submission: DamlTransactionEntry, tx: => Tx.Transaction) {
     val ledgerEffectiveTime: Timestamp = parseTimestamp(submission.getLedgerEffectiveTime)
     val submitterInfo: DamlSubmitterInfo = submission.getSubmitterInfo
     val commandId: String = submitterInfo.getCommandId
@@ -765,9 +766,18 @@ private[kvutils] object TransactionCommitter {
         Party.assertFromString(submitterInfo.getSubmitters(0))
       else
         throw Err.InternalError("Multi-party submissions are not supported")
-    lazy val transaction: Tx.Transaction = Conversions.decodeTransaction(submission.getTransaction)
+    lazy val transaction: Tx.Transaction = tx
     val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
     val submissionSeed: crypto.Hash = Conversions.parseHash(submission.getSubmissionSeed)
+    // Avoid the need to redo the transaction parsing if not needed (very expensive)
+    // This design is brittle, the Tx.Transaction needs to be extracted probably
+    def copy(submission: DamlTransactionEntry): DamlTransactionEntrySummary =
+      new DamlTransactionEntrySummary(submission, transaction)
+  }
+
+  object DamlTransactionEntrySummary{
+    def apply(submission: DamlTransactionEntry): DamlTransactionEntrySummary =
+      new DamlTransactionEntrySummary(submission, Conversions.decodeTransaction(submission.getTransaction))
   }
 
   // Helper to read the _current_ contract state.
