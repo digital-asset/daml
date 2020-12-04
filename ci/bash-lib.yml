@@ -22,6 +22,16 @@ steps:
             echo "Authorization: basic $(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev | tr -d '\n' | base64 -w0)"
         fi
     }
+    user_slack_handle() {
+        local email sha
+        sha=$1
+        email=$(git log -n 1 --format=%ae $sha)
+        if cat ci/slack_user_ids | grep $email >/dev/null 2>&1; then
+            echo $(cat ci/slack_user_ids | grep $email | awk '{print $2}')
+        else
+            echo ""
+        fi
+    }
     tell_slack() {
         local message channel
         message="$1"

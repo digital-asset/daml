@@ -74,17 +74,31 @@ jobs:
       - git_sha
     variables:
       fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
-      pr_commit: $[ dependencies.git_sha.outputs['out.branch'] ]
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
+      pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
       demands: assignment -equals default
     steps:
       - checkout: self
+      - template: ci/bash-lib.yml
+        parameters:
+          var_name: bash-lib
       - bash: |
           set -euo pipefail
-          git checkout $(pr_commit)
-          ci/check-changelog.sh $(fork_sha)
+          source $(bash-lib)
+          git checkout $(branch_sha)
+          if ci/check-changelog.sh $(fork_sha); then
+              exit 0
+          else
+              user=$(user_slack_handle $(branch_sha))
+              if [ "$user" != "" ]; then
+                  tell_slack "<@${user}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> is missing a changelog entry." \
+                         "$(Slack.team-daml-ci)"
+              fi
+              exit 1
+          fi
 
   - template: ci/da-ghc-lib/compile.yml
     parameters:
@@ -819,38 +833,25 @@ jobs:
       - git_sha
       - collect_build_data
       - check_for_release
+      - check_changelog_entry
     pool:
       name: 'linux-pool'
       demands: assignment -equals default
     variables:
       pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
-      status: $[ dependencies.collect_build_data.result ]
+      build_status: $[ dependencies.collect_build_data.result ]
+      changelog_status: $[ dependencies.check_changelog_entry.result ]
     steps:
+      - template: ci/bash-lib.yml
+        parameters:
+          var_name: bash-lib
       - bash: |
           set -euo pipefail
+          source $(bash-lib)
 
-          tell_slack() {
-              local MESSAGE=$1
-              local USER_ID=$2
-              curl -XPOST \
-                   -i \
-                   -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<@${USER_ID}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has completed with status ${MESSAGE}.\"}" \
-                   $(Slack.team-daml-ci)
-          }
-
-          EMAIL=$(git log -n 1 --format=%ae $(branch_sha))
-          user_registered() {
-              cat ci/slack_user_ids | grep $EMAIL
-          }
-
-          user_id() {
-              echo $(cat ci/slack_user_ids | grep $EMAIL | awk '{print $2}')
-          }
-
-          if user_registered; then
-              tell_slack "$(status)" "$(user_id)"
-          else
-              echo "User $(user_id) did not opt in for notifications."
+          user=$(user_slack_handle $(branch_sha))
+          if [ "$user" != "" ]; then
+              tell_slack "<@${user}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has completed with status $(build_status) (changelog: $(changelog_status))." \
+                         "$(Slack.team-daml-ci)"
           fi
