@@ -29,11 +29,11 @@ import Control.Exception.Safe
 import Data.Maybe
 
 -- | Calculate the environment variables in which to run daml commands.
-getDamlEnv :: DamlPath -> IO Env
-getDamlEnv envDamlPath = do
+getDamlEnv :: DamlPath -> LookForProjectPath -> IO Env
+getDamlEnv envDamlPath lookForProjectPath = do
     envDamlAssistantSdkVersion <- getDamlAssistantSdkVersion
     envDamlAssistantPath <- getDamlAssistantPath envDamlPath
-    envProjectPath <- getProjectPath
+    envProjectPath <- getProjectPath lookForProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath envProjectPath
     envLatestStableSdkVersion <- getLatestStableSdkVersion envDamlPath
     pure Env {..}
@@ -151,8 +151,9 @@ getDamlPath = wrapErr "Determining daml home directory." $ do
 --
 -- The project path can be overriden by passing the DAML_PROJECT
 -- environment variable.
-getProjectPath :: IO (Maybe ProjectPath)
-getProjectPath = wrapErr "Detecting daml project." $ do
+getProjectPath :: LookForProjectPath -> IO (Maybe ProjectPath)
+getProjectPath (LookForProjectPath False) = pure Nothing
+getProjectPath (LookForProjectPath True) = wrapErr "Detecting daml project." $ do
         pathM <- overrideWithEnvVarMaybe @SomeException projectPathEnvVar makeAbsolute Right $ do
             cwd <- getCurrentDirectory
             findM hasProjectConfig (ascendants cwd)
