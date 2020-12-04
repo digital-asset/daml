@@ -57,7 +57,10 @@ In the case of ``increment`` it could have been omitted. Similarly, we could def
   :start-after: -- ADD_BEGIN
   :end-before: -- ADD_END
 
-If you do this, and wonder what type the compiler has inferred, you can hover over the function name in the IDE.
+If you do this, and wonder what type the compiler has inferred, you can hover over the function name in the IDE:
+
+.. figure:: images/9_Functional101/signature.png
+
 What you see here is a slightly more complex signature:
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
