@@ -269,7 +269,7 @@ DAML's privacy model is based on two principles:
 1. Parties see those actions that they have a stake in.
 2. Every party that sees an action sees its (transitive) consequences.
 
-Item 2. is necessary to ensure that every party can independently verify the validity of every transaction they see.
+Item 2 is necessary to ensure that every party can independently verify the validity of every transaction they see.
 
 A party has a stake in an action if
 
