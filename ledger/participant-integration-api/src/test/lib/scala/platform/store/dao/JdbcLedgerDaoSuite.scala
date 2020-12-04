@@ -56,6 +56,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final val bob = Party.assertFromString("Bob")
   protected final val charlie = Party.assertFromString("Charlie")
   protected final val david = Party.assertFromString("David")
+  protected final val emma = Party.assertFromString("Emma")
 
   protected final val defaultAppId = "default-app-id"
   protected final val defaultWorkflowId = "default-workflow-id"
@@ -107,15 +108,22 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     Ref.LedgerString.assertFromString(s)
 
   protected final def create(
+                            absCid: ContractId,
+                            signatories: Set[Party] = Set(alice, bob),
+                            ): NodeCreate[ContractId, Value[ContractId]] =
+    create(absCid, signatories, signatories)
+
+  protected final def create(
       absCid: ContractId,
-      signatories: Set[Party] = Set(alice, bob),
+      signatories: Set[Party],
+      stakeholders: Set[Party],
   ): NodeCreate[ContractId, Value[ContractId]] =
     NodeCreate(
       coid = absCid,
       coinst = someContractInstance,
       optLocation = None,
       signatories = signatories,
-      stakeholders = signatories,
+      stakeholders = stakeholders,
       key = None,
       version = TransactionVersions.minVersion,
     )
@@ -168,8 +176,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         set
     }
 
-  protected final def singleCreateP(create: ContractId => NodeCreate[ContractId, Value[ContractId]])
-    : (Offset, LedgerEntry.Transaction) = {
+  protected final def singleCreateP(create: ContractId => NodeCreate[ContractId, Value[ContractId]],
+                                    submittingParty: Party = alice,
+  ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
     val cid = txBuilder.newCid
     val creation = create(cid)
@@ -181,7 +190,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       commandId = Some(s"commandId$id"),
       transactionId = s"trId$id",
       applicationId = Some("appID1"),
-      actAs = List(alice),
+      actAs = List(submittingParty),
       workflowId = Some("workflowId"),
       ledgerEffectiveTime = let,
       recordedAt = let,
@@ -219,6 +228,23 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected final def multiPartySingleCreate: (Offset, LedgerEntry.Transaction) =
     multiPartySingleCreateP(create(_, Set(alice, bob)), List(alice, bob))
+
+  // TODO: `submittingParty: Party` should be changed to Set[Party] when multi-party changes in LedgerEntry are ready
+  protected final def createAndStoreContract(
+                                    submittingParty: Party,
+                                    signatories: Set[Party],
+                                    stakeholders: Set[Party],
+                                    ): Future[(Offset, LedgerEntry.Transaction)] =
+    store(singleCreateP(
+      create = { cid =>
+        create(
+          absCid = cid,
+          signatories = signatories,
+          stakeholders = stakeholders,
+        )
+      },
+      submittingParty = submittingParty
+    ))
 
   protected def divulgeAlreadyCommittedContract(
       id: ContractId,

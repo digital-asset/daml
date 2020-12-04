@@ -51,7 +51,7 @@ private[dao] sealed abstract class ContractsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
     dispatcher
       .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-        SQL"select participant_contracts.contract_id, template_id, create_argument from #$contractsTable where contract_witness in ($readers) and participant_contracts.contract_id = $contractId"
+        SQL"select participant_contracts.contract_id, template_id, create_argument from #$contractsTable where contract_witness in ($readers) and participant_contracts.contract_id = $contractId limit 1"
           .as(contractRowParser.singleOpt)
       }
       .map(_.map {
@@ -146,7 +146,7 @@ private[dao] object ContractsReader {
     ): SimpleSql[Row] = {
       val stakeholdersWhere =
         PostgresSqlFunctions.arrayIntersectionWhereClause("create_stakeholders", readers)
-      SQL"select participant_contracts.contract_id from #$contractsTable where #$stakeholdersWhere and contract_witness in ($readers) and create_key_hash = ${key.hash}"
+      SQL"select participant_contracts.contract_id from #$contractsTable where #$stakeholdersWhere and contract_witness in ($readers) and create_key_hash = ${key.hash} limit 1"
     }
   }
 
@@ -163,7 +163,7 @@ private[dao] object ContractsReader {
     ): SimpleSql[Row] = {
       val stakeholdersWhere =
         H2SqlFunctions.arrayIntersectionWhereClause("create_stakeholders", readers)
-      SQL"select participant_contracts.contract_id from #$contractsTable where #$stakeholdersWhere and contract_witness in ($readers) and create_key_hash = ${key.hash}"
+      SQL"select participant_contracts.contract_id from #$contractsTable where #$stakeholdersWhere and contract_witness in ($readers) and create_key_hash = ${key.hash} limit 1"
     }
   }
 
