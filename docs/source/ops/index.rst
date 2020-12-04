@@ -30,6 +30,7 @@ Still, DAML applications may be affected in the following ways:
 
 - Pruning is potentially a long-running operation and demanding one in terms of system resources; as such, it may significantly reduce DAML Ledger API throughput and increase latency while it is being performed. It is thus strongly recommended to plan pruning invocations, preferably, when the system is offline or at least when very low system utilization is expected.
 - Pruning may degrade the behavior of or abort in-progress requests if the pruning offset is too recent. In particular, the system might misbehave if command completions are pruned before the command trackers are able to process the completions.
+- Command deduplication and command tracker retention should always configured in such a way, that the associated windows don't overlap with the pruning window, so that their operation is unaffected by pruning.
 - Pruning may affect the behavior of Ledger API calls that allow to read data from the ledger: see the next sub-section for more information about API impacts.
 
 How the DAML Ledger API is affected
@@ -57,22 +58,22 @@ Other limitations
 How Pruning affects Index DB administration
 -------------------------------------------
 
-Pruning deletes data from the underlying database and therefore frees up space within it, which can and will be reused during the continued operation of the Index DB. Whether this freed up space is handed back to the OS depends on the database in use. For example, in PostgreSQL the deleted data frees up space in the table storage itself, but does not shrink the size of the files backing the tables of the IndexDB. Please refer to the PostgreSQL documentation on `VACUUM` and `VACUUM FULL` for more information.
+Pruning deletes data from the participant's database and therefore frees up space within it, which can and will be reused during the continued operation of the Index DB. Whether this freed up space is handed back to the OS depends on the database in use. For example, in PostgreSQL the deleted data frees up space in the table storage itself, but does not shrink the size of the files backing the tables of the IndexDB. Please refer to the PostgreSQL documentation on `VACUUM` and `VACUUM FULL` for more information.
 
 Activities to be carried out *before* invoking a pruning operation should thus include backing up the Participant Index DB, as pruning will not move information to cold storage but rather it will delete events on behalf of archived contracts and command completions before or at the pruning offset.
 
 In addition, activities to be carried out *after* invoking a pruning operation might include:
 
-- On a PostreSQL Index DB, especially if auto-vacuum tuning has not been performed, issuing `VACUUM` commands at appropriate times may improve performance and storage usage by letting the DB reuse freed space. Note that `VACUUM FULL` commands are still needed for the OS to reclaim disk space previously used by the DB.
+- On a PostreSQL Index DB, especially if auto-vacuum tuning has not been performed, issuing `VACUUM` commands at appropriate times may improve performance and storage usage by letting the database reuse freed space. Note that `VACUUM FULL` commands are still needed for the OS to reclaim disk space previously used by the database.
 
 Backing up and vacuuming, in addition to pruning itself, are also long-running and resource-hungry operations that might negatively affect the performance of regular workloads and even the availability of the system: this is true in particular for `VACUUM FULL` in PostgreSQL and equivalent commands in other DBMSs. These operations should thus be planned and taken carefully into account when sizing system resources. They should also be scheduled sensibly in relation to the desired sustained performance levels of regular workloads and to the hot storage usage goals.
 
-Professional advice on DB administration is strongly recommended that would take into account the DB specifics as well as all of the above aspects.
+Professional advice on database administration is strongly recommended that would take into account the DB specifics as well as all of the above aspects.
 
 Determining a suitable pruning offset
 -------------------------------------
 
-The :ref:`Active Contract Service <active-contract-service>` and the :ref:`Transaction Service <transaction-service>` provide offset information for transactions and for Active Contracts snapshots respectively: such offset can be used unchanged with `prune` calls.
+The :ref:`Transaction Service <transaction-service>` and the :ref:`Active Contract Service <active-contract-service>` provide offsets of the ledger end, as well as of transactions, and of Active Contracts snapshots respectively; such offsets can be passed unchanged to `prune` calls.
 
 Scheduled jobs, applications and/or operator tools can be built on top of the DAML Ledger API to implement pruning automatically, for example at regular intervals, or on-demand, for example according to a user-initiated process.
 
@@ -83,7 +84,9 @@ For instance, pruning at regular intervals could be performed by a cron job that
    b. Performs pruning.
    c. (If using PostgreSQL) Performs a `VACUUM FULL` command on the DAML Participant Index DB.
 
-2. Acquires a fresh Active Contract Set and saves the offset.
+2. Queries the current ledger end and saves its offset.
+
+The interval between 2 (i.e. saving a recent ledger end offset) and the next cron job run determines the data retention window, that should be long enough not to affect deduplication and commands completion. For example, pruning at a recent ledger end offset could be problematic and should be avoided.
 
 Pruning could also be initiated on-demand at the offset of a specific transaction [4]_, for example as provided by a user application based on search.
 
