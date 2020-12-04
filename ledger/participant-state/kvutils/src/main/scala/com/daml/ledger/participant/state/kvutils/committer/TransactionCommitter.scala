@@ -19,6 +19,7 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch}
 import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.{
   BlindingInfo,
   GlobalKey,
@@ -54,6 +55,8 @@ private[kvutils] class TransactionCommitter(
     engine: Engine,
     override protected val metrics: Metrics,
     inStaticTimeMode: Boolean,
+    decodeTransaction: TransactionOuterClass.Transaction => Transaction =
+      Conversions.decodeTransaction,
 ) extends Committer[DamlTransactionEntrySummary] {
   override protected val committerName = "transaction"
 
@@ -61,7 +64,7 @@ private[kvutils] class TransactionCommitter(
       commitContext: CommitContext,
       submission: DamlSubmission,
   ): DamlTransactionEntrySummary =
-    DamlTransactionEntrySummary(submission.getTransactionEntry)
+    DamlTransactionEntrySummary(submission.getTransactionEntry, decodeTransaction)
 
   override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
     "authorize_submitter" -> authorizeSubmitters,
@@ -332,7 +335,7 @@ private[kvutils] class TransactionCommitter(
       val blindingInfo = Blinding.blind(transactionEntry.transaction)
       setDedupEntryAndUpdateContractState(
         commitContext,
-        transactionEntry.copy(
+        transactionEntry.copyPreservingDecodedTransaction(
           submission = transactionEntry.submission.toBuilder
             .setBlindingInfo(Conversions.encodeBlindingInfo(blindingInfo))
             .build
@@ -384,7 +387,7 @@ private[kvutils] class TransactionCommitter(
       .setTransaction(newTransaction)
       .build()
 
-    StepContinue(DamlTransactionEntrySummary(newTransactionEntry))
+    StepContinue(DamlTransactionEntrySummary(newTransactionEntry, decodeTransaction))
   }
 
   /** Builds the log entry as the final step.
@@ -789,15 +792,34 @@ private[kvutils] class TransactionCommitter(
 }
 
 private[kvutils] object TransactionCommitter {
-  case class DamlTransactionEntrySummary(submission: DamlTransactionEntry) {
+  class DamlTransactionEntrySummary(
+      val submission: DamlTransactionEntry,
+      val transaction: Tx.Transaction,
+  ) {
     val ledgerEffectiveTime: Timestamp = parseTimestamp(submission.getLedgerEffectiveTime)
     val submitterInfo: DamlSubmitterInfo = submission.getSubmitterInfo
     val commandId: String = submitterInfo.getCommandId
     val submitters: List[Party] =
       submitterInfo.getSubmittersList.asScala.toList.map(Party.assertFromString)
-    lazy val transaction: Tx.Transaction = Conversions.decodeTransaction(submission.getTransaction)
     val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
     val submissionSeed: crypto.Hash = Conversions.parseHash(submission.getSubmissionSeed)
+
+    // On copy, avoid decoding the transaction again if not needed
+    def copyPreservingDecodedTransaction(
+        submission: DamlTransactionEntry
+    ): DamlTransactionEntrySummary =
+      new DamlTransactionEntrySummary(submission, transaction)
+  }
+
+  object DamlTransactionEntrySummary {
+    def apply(
+        submission: DamlTransactionEntry,
+        decodeTransaction: TransactionOuterClass.Transaction => Transaction,
+    ): DamlTransactionEntrySummary =
+      new DamlTransactionEntrySummary(
+        submission,
+        decodeTransaction(submission.getTransaction),
+      )
   }
 
   // Helper to read the _current_ contract state.

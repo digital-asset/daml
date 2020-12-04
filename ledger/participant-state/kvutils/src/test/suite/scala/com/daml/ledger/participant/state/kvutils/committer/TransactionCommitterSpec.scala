@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter.DamlTransactionEntrySummary
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ReplayMismatch}
 import com.daml.lf.transaction
@@ -24,6 +25,8 @@ import com.daml.lf.transaction.{
   ReplayedNodeMissing,
   Transaction,
   TransactionOuterClass,
+  TransactionVersion,
+  VersionedTransaction,
 }
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
@@ -40,7 +43,14 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
   private[this] val txBuilder = TransactionBuilder()
   private val metrics = new Metrics(new MetricRegistry)
   private val aDamlTransactionEntry = createTransactionEntry(List("aSubmitter"))
-  private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
+  private val transactionMock = VersionedTransaction[NodeId, Value.ContractId](
+    TransactionVersion.VDev,
+    Map.empty,
+    ImmArray.empty,
+  )
+  private val aTransactionEntrySummary = damlTransactionEntrySummaryWithTxMock(
+    aDamlTransactionEntry
+  )
   private val aRecordTime = Timestamp(100)
   private val instance = createTransactionCommitter() // Stateless, can be shared between tests
   private val dedupKey = Conversions
@@ -56,7 +66,9 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       .setLedgerEffectiveTime(aLedgerEffectiveTime)
       .build()
   private val aDamlTransactionEntrySummaryWithSubmissionAndLedgerEffectiveTimes =
-    DamlTransactionEntrySummary(aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimes)
+    damlTransactionEntrySummaryWithTxMock(
+      aDamlTransactionEntryWithSubmissionAndLedgerEffectiveTimes
+    )
   private val aDeduplicateUntil = createProtobufTimestamp(seconds = 3)
   private val dedupValue = DamlStateValue.newBuilder
     .setCommandDedup(DamlCommandDedupValue.newBuilder.setDeduplicatedUntil(aDeduplicateUntil))
@@ -99,8 +111,12 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       .addAllNodes(nodes.asJava)
       .build()
     val outTx = aDamlTransactionEntry.toBuilder.setTransaction(tx).build()
-    DamlTransactionEntrySummary(outTx)
+
+    damlTransactionEntrySummaryWithTxMock(outTx)
   }
+
+  private def damlTransactionEntrySummaryWithTxMock(entry: DamlTransactionEntry) =
+    DamlTransactionEntrySummary(entry, _ => transactionMock)
 
   private def createNode(nodeId: String)(
       nodeImpl: TransactionOuterClass.Node.Builder => TransactionOuterClass.Node.Builder
@@ -272,7 +288,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       for (ledgerEffectiveTime <- Iterable(lowerBound, upperBound)) {
         val context =
           createCommitContext(recordTime = Some(recordTime), inputs = inputWithDeclaredConfig)
-        val transactionEntrySummary = DamlTransactionEntrySummary(
+        val transactionEntrySummary = damlTransactionEntrySummaryWithTxMock(
           aDamlTransactionEntry.toBuilder
             .setLedgerEffectiveTime(
               com.google.protobuf.Timestamp.newBuilder
@@ -497,7 +513,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         ),
         participantId = ParticipantId,
       )
-      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob, Emma)))
+      val tx = damlTransactionEntrySummaryWithTxMock(createTransactionEntry(List(Alice, Bob, Emma)))
 
       assertThrows[MissingInputState](instance.authorizeSubmitters.apply(context, tx))
     }
@@ -511,7 +527,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         ),
         participantId = ParticipantId,
       )
-      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob)))
+      val tx = damlTransactionEntrySummaryWithTxMock(createTransactionEntry(List(Alice, Bob)))
 
       val result = instance.authorizeSubmitters.apply(context, tx)
       result shouldBe a[StepStop]
@@ -533,7 +549,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         ),
         participantId = ParticipantId,
       )
-      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob)))
+      val tx = damlTransactionEntrySummaryWithTxMock(createTransactionEntry(List(Alice, Bob)))
 
       val result = instance.authorizeSubmitters.apply(context, tx)
       result shouldBe a[StepStop]
@@ -558,7 +574,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         ),
         participantId = ParticipantId,
       )
-      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob, Emma)))
+      val tx = damlTransactionEntrySummaryWithTxMock(createTransactionEntry(List(Alice, Bob, Emma)))
 
       instance.authorizeSubmitters.apply(context, tx) shouldBe a[StepContinue[_]]
     }
@@ -588,8 +604,15 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       }.toMap
   }
 
-  private def createTransactionCommitter(): TransactionCommitter =
-    new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
+  private def createTransactionCommitter(): TransactionCommitter = {
+    new TransactionCommitter(
+      theDefaultConfig,
+      mock[Engine],
+      metrics,
+      inStaticTimeMode = false,
+      _ => transactionMock,
+    )
+  }
 
   private def contextWithTimeModelAndEmptyCommandDeduplication() =
     createCommitContext(recordTime = None, inputs = inputWithTimeModelAndEmptyCommandDeduplication)
