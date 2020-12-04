@@ -6,7 +6,9 @@ package com.daml.platform.store.dao
 import java.time.Instant
 import java.util.UUID
 
-import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.Node.KeyWithMaintainers
+import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import org.scalatest.{Inside, LoneElement, OptionValues}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -56,7 +58,8 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       (_, tx) <- createAndStoreContract(
         submittingParty = alice,
         signatories = Set(alice, bob),
-        stakeholders = Set(alice, bob)
+        stakeholders = Set(alice, bob),
+        key = None,
       )
       contractId = nonTransient(tx).loneElement
       result <- ledgerDao.lookupActiveOrDivulgedContract(contractId, Set(charlie, emma))
@@ -70,7 +73,8 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       (_, tx) <- createAndStoreContract(
         submittingParty = alice, // TODO: make this a set of parties
         signatories = Set(alice, bob),
-        stakeholders = Set(alice, bob)
+        stakeholders = Set(alice, bob),
+        key = None,
       )
       contractId = nonTransient(tx).loneElement
       result <- ledgerDao.lookupActiveOrDivulgedContract(contractId, Set(bob, emma))
@@ -84,7 +88,8 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       (_, tx) <- createAndStoreContract(
         submittingParty = alice, // TODO: make this a set of parties
         signatories = Set(alice, bob),
-        stakeholders = Set(alice, bob, charlie)
+        stakeholders = Set(alice, bob, charlie),
+        key = None,
       )
       contractId = nonTransient(tx).loneElement
       result <- ledgerDao.lookupActiveOrDivulgedContract(contractId, Set(charlie, emma))
@@ -94,23 +99,53 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   }
 
   it should "not find keys that are not visible to any of the requesters" in {
-//    for {
-//      (_, tx) <- createAndStoreContract(
-//        submittingParty = alice, // TODO: make this a set of parties
-//        signatories = Set(alice, bob),
-//        stakeholders = Set(alice, bob, charlie),
-//        key = Some(KeyWithMaintainers(ValueParty(alice), Set(alice, bob)))
-//      )
-//      contractId = nonTransient(tx).loneElement
-//      result <- ledgerDao.lookupKey(GlobalKey())
-//    } yield {
-//      result.value shouldBe a[ContractInst[_]]
-//    }
-    fail
+    val aTextValue = ValueText(scala.util.Random.nextString(10))
+    for {
+      (_, _) <- createAndStoreContract(
+        submittingParty = alice,
+        signatories = Set(alice, bob),
+        stakeholders = Set(alice, bob),
+        key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
+      )
+      key = GlobalKey.assertBuild(someTemplateId, aTextValue)
+      result <- ledgerDao.lookupKey(key, Set(charlie, emma))
+    } yield {
+      result shouldBe None
+    }
   }
 
-  it should "find keys that are visible to at least one of the requesters" in {
-    fail
+  it should "find a key if at least one of requesters is a signatory" in {
+    val aTextValue = ValueText(scala.util.Random.nextString(10))
+    for {
+      (_, tx) <- createAndStoreContract(
+        submittingParty = alice,
+        signatories = Set(alice, bob),
+        stakeholders = Set(alice, bob),
+        key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
+      )
+      contractId = nonTransient(tx).loneElement
+      key = GlobalKey.assertBuild(someTemplateId, aTextValue)
+      result <- ledgerDao.lookupKey(key, Set(emma, bob))
+    } yield {
+      result.value shouldBe contractId
+    }
+  }
+
+  it should "find a key if at least one of requesters is a stakeholder" in {
+    val aTextValue = ValueText(scala.util.Random.nextString(10))
+    for {
+      (_, tx) <- createAndStoreContract(
+        submittingParty = alice,
+        signatories = Set(alice, bob),
+        stakeholders = Set(alice, bob, charlie),
+        key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
+      )
+      contractId = nonTransient(tx).loneElement
+      key = GlobalKey.assertBuild(someTemplateId, aTextValue)
+      result <- ledgerDao.lookupKey(key, Set(emma, charlie))
+    } yield {
+      result.value shouldBe contractId
+    }
   }
 
   it should "prevent retrieving the maximum ledger time if some contracts are not found" in {

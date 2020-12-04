@@ -111,12 +111,13 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
                             absCid: ContractId,
                             signatories: Set[Party] = Set(alice, bob),
                             ): NodeCreate[ContractId, Value[ContractId]] =
-    create(absCid, signatories, signatories)
+    create(absCid, signatories, signatories, None)
 
   protected final def create(
       absCid: ContractId,
       signatories: Set[Party],
       stakeholders: Set[Party],
+      key: Option[KeyWithMaintainers[Value[ContractId]]]
   ): NodeCreate[ContractId, Value[ContractId]] =
     NodeCreate(
       coid = absCid,
@@ -124,7 +125,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       optLocation = None,
       signatories = signatories,
       stakeholders = stakeholders,
-      key = None,
+      key = key,
       version = TransactionVersions.minVersion,
     )
 
@@ -234,6 +235,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
                                     submittingParty: Party,
                                     signatories: Set[Party],
                                     stakeholders: Set[Party],
+                                    key: Option[KeyWithMaintainers[Value[ContractId]]]
                                     ): Future[(Offset, LedgerEntry.Transaction)] =
     store(singleCreateP(
       create = { cid =>
@@ -241,6 +243,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
           absCid = cid,
           signatories = signatories,
           stakeholders = stakeholders,
+          key = key,
         )
       },
       submittingParty = submittingParty
