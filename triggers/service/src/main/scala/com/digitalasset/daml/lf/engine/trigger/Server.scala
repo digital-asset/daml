@@ -432,27 +432,32 @@ class Server(
       // upload a DAR as a multi-part form request with a single field called
       // "dar".
       post {
-        fileUpload("dar") {
-          case (_, byteSource) =>
-            val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
-            onSuccess(byteStringF) {
-              byteString =>
-                val inputStream = new ByteArrayInputStream(byteString.toArray)
-                DarReader()
-                  .readArchive("package-upload", new ZipInputStream(inputStream)) match {
-                  case Failure(err) =>
-                    complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
-                  case Success(dar) =>
-                    onComplete(addDar(dar)) {
-                      case Failure(err: ParseError) =>
-                        complete(errorResponse(StatusCodes.UnprocessableEntity, err.description))
-                      case Failure(exception) =>
-                        complete(
-                          errorResponse(StatusCodes.InternalServerError, exception.description))
-                      case Success(()) =>
-                        val mainPackageId =
-                          JsObject(("mainPackageId", dar.main._1.name.toJson))
-                        complete(successResponse(mainPackageId))
+        val claims = Claims(admin = true)
+        authorize(claims)(ec, system) {
+          _ =>
+            fileUpload("dar") {
+              case (_, byteSource) =>
+                val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
+                onSuccess(byteStringF) {
+                  byteString =>
+                    val inputStream = new ByteArrayInputStream(byteString.toArray)
+                    DarReader()
+                      .readArchive("package-upload", new ZipInputStream(inputStream)) match {
+                      case Failure(err) =>
+                        complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
+                      case Success(dar) =>
+                        onComplete(addDar(dar)) {
+                          case Failure(err: ParseError) =>
+                            complete(
+                              errorResponse(StatusCodes.UnprocessableEntity, err.description))
+                          case Failure(exception) =>
+                            complete(
+                              errorResponse(StatusCodes.InternalServerError, exception.description))
+                          case Success(()) =>
+                            val mainPackageId =
+                              JsObject(("mainPackageId", dar.main._1.name.toJson))
+                            complete(successResponse(mainPackageId))
+                        }
                     }
                 }
             }
