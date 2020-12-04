@@ -28,8 +28,8 @@ When supported, pruning can be invoked by an operator with administrative privil
 
 Still, DAML applications may be affected in the following ways:
 
-- Pruning is potentially a long-running operation and demanding one in terms of system resources; as such, it may significantly reduce DAML Ledger API throughput and increase latency while it is being performed. It is thus recommended to plan pruning invocations when low system utilization is expected.
-- Pruning may degrade the behavior of and/or crash the system if the pruning offset is too recent. In particular, the system might misbehave if command completions are pruned before the command trackers are able to process the completions.
+- Pruning is potentially a long-running operation and demanding one in terms of system resources; as such, it may significantly reduce DAML Ledger API throughput and increase latency while it is being performed. It is thus strongly recommended to plan pruning invocations, preferably, when the system is offline or at least when very low system utilization is expected.
+- Pruning may degrade the behavior of or abort in-progress requests if the pruning offset is too recent. In particular, the system might misbehave if command completions are pruned before the command trackers are able to process the completions.
 - Pruning may affect the behavior of Ledger API calls that allow to read data from the ledger: see the next sub-section for more information about API impacts.
 
 How the DAML Ledger API is affected
@@ -50,20 +50,24 @@ Other limitations
 - Pruning may be rejected even if the node is running correctly (for example, to preserve non-repudiation properties); in this case, the application might not be able to archive contracts containing PII or pruning of these contracts may not be possible; thus, actually deleting this PII may also be technically unfeasible.
 - Pruning may leave parties, packages, and configuration data on the participant node, even if they are no longer needed for transaction processing, and even if they contain PII [3]_.
 - Pruning does not move pruned information to cold storage but simply deletes pruned data; for this reason, it is advisable to back up the Participant Index DB before invoking pruning. See the next sub-section for more Participant Index DB-related advice before and after invoking `prune`.
-- Pruning is not selective but rather effectively truncates the ledger, removing the transactions and archived contracts at and before the pruning offset.
+- Pruning is not selective but rather effectively truncates the ledger, removing events on behalf of archived contracts and command completions at the pruning offset and all previous offsets.
 
 .. [3] This might be improved in future versions.
 
-Pruning and the DAML Participant Index DB
------------------------------------------
+How Pruning affects Index DB administration
+-------------------------------------------
 
-Activities to be carried out *before* invoking a pruning operation include:
+Pruning deletes data from the underlying database and therefore frees up space within it, which can and will be reused during the continued operation of the Index DB. Whether this freed up space is handed back to the OS depends on the database in use. For example, in PostgreSQL the deleted data frees up space in the table storage itself, but does not shrink the size of the files backing the tables of the IndexDB. Please refer to the PostgreSQL documentation on `VACUUM` and `VACUUM FULL` for more information.
 
-- Backing up the Participant Index DB, as pruning will not move information to cold storage but rather it will delete archived contracts and transactions earlier than or at the pruning offset.
+Activities to be carried out *before* invoking a pruning operation should thus include backing up the Participant Index DB, as pruning will not move information to cold storage but rather it will delete events on behalf of archived contracts and command completions before or at the pruning offset.
 
-Activities to be carried out *after* invoking a pruning operation include:
+In addition, activities to be carried out *after* invoking a pruning operation might include:
 
-- On a PostreSQL Index DB, a manual `VACUUM FULL` command is needed for the DB to give back disk space to the OS.
+- On a PostreSQL Index DB, especially if auto-vacuum tuning has not been performed, issuing `VACUUM` commands at appropriate times may improve performance and storage usage by letting the DB reuse freed space. Note that `VACUUM FULL` commands are still needed for the OS to reclaim disk space previously used by the DB.
+
+Backing up and vacuuming, in addition to pruning itself, are also long-running and resource-hungry operations that might negatively affect the performance of regular workloads and even the availability of the system: this is true in particular for `VACUUM FULL` in PostgreSQL and equivalent commands in other DBMSs. These operations should thus be planned and taken carefully into account when sizing system resources. They should also be scheduled sensibly in relation to the desired sustained performance levels of regular workloads and to the hot storage usage goals.
+
+Professional advice on DB administration is strongly recommended that would take into account the DB specifics as well as all of the above aspects.
 
 Determining a suitable pruning offset
 -------------------------------------
@@ -81,6 +85,6 @@ For instance, pruning at regular intervals could be performed by a cron job that
 
 2. Acquires a fresh Active Contract Set and saves the offset.
 
-Pruning could also be initiated on-demand at the offset of a specific transaction [4]_, for example as provided by a user application based on a search.
+Pruning could also be initiated on-demand at the offset of a specific transaction [4]_, for example as provided by a user application based on search.
 
-.. [4] Note that not only a specific transaction but also earlier transactions and archived contracts will be pruned.
+.. [4] Note that all the events on behalf of archived contracts and command completions found at earlier offsets will also be pruned.
