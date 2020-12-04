@@ -55,7 +55,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'DAML SDK'
-copyright = u'2016-2018 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.  Any unauthorized use, duplication or distribution is strictly prohibited'
+copyright = u'© Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.'
 author = u'Digital Asset'
 
 # The version info for the project you're documenting, acts as replacement for
