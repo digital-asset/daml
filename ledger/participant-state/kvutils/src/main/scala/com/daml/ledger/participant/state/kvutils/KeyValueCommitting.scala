@@ -3,15 +3,16 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.daml.caching.Cache
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.committer.{
   ConfigCommitter,
-  SubmissionExecutor,
   PackageCommitter,
   PartyAllocationCommitter,
+  SubmissionExecutor,
   TransactionCommitter
 }
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
@@ -19,8 +20,10 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.TransactionOuterClass
-import com.daml.lf.value.ValueOuterClass
+import com.daml.lf.value.Value.ContractId
+import com.daml.lf.value.{Value, ValueOuterClass}
 import com.daml.metrics.Metrics
+import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -34,12 +37,14 @@ import scala.collection.JavaConverters._
 class KeyValueCommitting private[daml] (
     engine: Engine,
     metrics: Metrics,
-    inStaticTimeMode: Boolean) {
+    inStaticTimeMode: Boolean,
+    cache: Cache[(ContractId, ByteString), Value.ContractInst[Value.VersionedValue[ContractId]]] =
+      Cache.none) {
   import KeyValueCommitting.submissionOutputs
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  def this(engine: Engine, metrics: Metrics) = this(engine, metrics, false)
+  def this(engine: Engine, metrics: Metrics) = this(engine, metrics, false, Cache.none)
 
   /** Processes a DAML submission, given the allocated log entry id, the submission and its resolved inputs.
     * Produces the log entry to be committed, and DAML state updates.
@@ -137,7 +142,7 @@ class KeyValueCommitting private[daml] (
         new ConfigCommitter(defaultConfig, maximumRecordTime, metrics)
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-        new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode)
+        new TransactionCommitter(defaultConfig, engine, metrics, inStaticTimeMode, cache)
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InvalidSubmission("DamlSubmission payload not set")

@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.committer
 import java.time.Instant
 
 import com.codahale.metrics.Counter
+import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
@@ -34,7 +35,7 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
-import com.google.protobuf.{Timestamp => ProtoTimestamp}
+import com.google.protobuf.{ByteString, Timestamp => ProtoTimestamp}
 
 import scala.collection.JavaConverters._
 
@@ -53,7 +54,10 @@ private[kvutils] class TransactionCommitter(
     defaultConfig: Configuration,
     engine: Engine,
     override protected val metrics: Metrics,
-    inStaticTimeMode: Boolean
+    inStaticTimeMode: Boolean,
+    contractsCache: Cache[
+      (ContractId, ByteString),
+      Value.ContractInst[Value.VersionedValue[ContractId]]] = Cache.none
 ) extends Committer[DamlTransactionEntrySummary] {
   override protected val committerName = "transaction"
 
@@ -609,9 +613,28 @@ private[kvutils] class TransactionCommitter(
       // Additionally, all contract keys are checked to uphold causal monotonicity.
       contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState))
       if contractIsActiveAndVisibleToSubmitter(transactionEntry, contractState)
-      contract = Conversions.decodeContractInstance(contractState.getContractInstance)
-    } yield contract
+      contractInstance = contractState.getContractInstance
+      fingerprint = ByteString.copyFromUtf8(contractInstance.getValue.getVersion)
+//      templateIdentifier = Conversions.decodeIdentifier(contractInstance.getTemplateId) // try to not decode this identifier
+      ctr = contractsCache
+        .getIfPresent((coid, fingerprint))
+        .getOrElse {
+          val decoded = Conversions.decodeContractInstance(contractInstance)
+          contractsCache.put((coid, fingerprint), decoded)
+          decoded
+        }
+    } yield ctr
   }
+
+//  private def toContract(
+//                          templateId: Ref.Identifier,
+//                          createArgument: Value.VersionedValue[ContractId],
+//                        ): Value.ContractInst[Value.VersionedValue[ContractId]] =
+//    Value.ContractInst[Value.VersionedValue[ContractId]](
+//      template = templateId,
+//      arg = createArgument,
+//      agreementText = ""
+//    )
 
   // Helper to lookup package from the state. The package contents
   // are stored in the [[DamlLogEntry]], which we find by looking up

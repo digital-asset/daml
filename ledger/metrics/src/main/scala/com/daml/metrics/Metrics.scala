@@ -189,6 +189,7 @@ final class Metrics(val registry: MetricRegistry) {
           val releaseTransactionLock: Timer = registry.timer(Prefix :+ "release_transaction_lock")
 
           val stateValueCache = new CacheMetrics(registry, Prefix :+ "state_value_cache")
+          val contractsLfCache = new CacheMetrics(registry, Prefix :+ "contracts_lf_cache")
 
           // The below metrics are only generated during parallel validation.
           // The counters track how many submissions we're processing in parallel.
