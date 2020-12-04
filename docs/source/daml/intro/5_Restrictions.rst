@@ -205,7 +205,7 @@ Not only are ``Update`` and ``Script`` examples of ``Action``, they are both exa
 
 Each has a special action ``abort txt`` that represents failure, and that takes on type ``Update ()`` or ``Script ()`` depending on context .
 
-Transactions and scripts succeed or fail *atomically* as a whole. So an occurrence of an ``abort`` action will always fail the **entire** evaluation of the current ``Script`` or ``Update``.
+Transactions succeed or fail *atomically* as a whole. Scripts on the other hand do not fail atomically: while each ``submit`` is atomic, if a ``submit`` succeeded and the script fails later, the effects of that ``submit`` will still be applied to the ledger.
 
 The last expression in the ``do`` block of the ``Redeem`` choice is a pattern matching expression on ``dow``. It has type ``Update ()`` and is either an ``abort`` or ``return`` depending on the day of week. So during the week, it's a no-op and on weekends, it's the special failure action. Thanks to the atomicity of transactions, no transaction can ever make use of the ``Redeem`` choice on weekends, because it fails the entire transaction.
 
