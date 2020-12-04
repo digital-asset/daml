@@ -112,7 +112,7 @@ If we want to partially apply an infix operation we can also do that as follows:
 
 .. note::
 
-  While function application is left associative by default, infix operators can be declared left or right associative and given a precedence. Good examples are the boolean operations ``&&`` and ``||``, which are declared right associative with precedences 3, and 2, respectively. This allows you to write ``False && True || True && True`` and get value ``True``. See section 4.4.2 of `the Haskell 98 report <https://www.haskell.org/onlinereport/decls.html>`_ for more on fixities. 
+  While function application is left associative by default, infix operators can be declared left or right associative and given a precedence. Good examples are the boolean operations ``&&`` and ``||``, which are declared right associative with precedences 3, and 2, respectively. This allows you to write ``True || True && False`` and get value ``True``. See section 4.4.2 of `the Haskell 98 report <https://www.haskell.org/onlinereport/decls.html>`_ for more on fixities. 
 
 Type Constraints
 ................
