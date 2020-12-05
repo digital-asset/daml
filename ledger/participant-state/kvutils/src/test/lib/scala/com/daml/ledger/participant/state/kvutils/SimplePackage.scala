@@ -27,15 +27,24 @@ class SimplePackage(additionalContractDataType: String) {
       }
 
       module Simple {
-       record @serializable SimpleTemplate = { owner: Party, observer: Party, contractData: $additionalContractDataType } ;
-       variant @serializable SimpleVariant = SV: Party ;
-       template (this : SimpleTemplate) =  {
+        record @serializable SimpleTemplate = { owner: Party, observer: Party, contractData: $additionalContractDataType } ;
+        variant @serializable SimpleVariant = SV: Party ;
+        template (this : SimpleTemplate) = {
           precondition True,
           signatories Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party),
           observers Cons @Party [Simple:SimpleTemplate {observer} this] (Nil @Party),
           agreement "",
           choices {
-            choice Consume (self) (x: Unit) : Unit, controllers Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party) to upure @Unit ()
+            choice Consume (self) (x: Unit) : Unit,
+              controllers Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party) to
+                upure @Unit (),
+            choice Replace (self) (x: Unit) : ContractId Simple:SimpleTemplate,
+              controllers Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party) to
+                create @Simple:SimpleTemplate (Simple:SimpleTemplate {
+                  owner = Simple:SimpleTemplate {owner} this,
+                  observer = Simple:SimpleTemplate {observer} this,
+                  contractData = Simple:SimpleTemplate {contractData} this
+                })
           },
           key @Party (Simple:SimpleTemplate {owner} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party))
         } ;
@@ -105,6 +114,9 @@ class SimplePackage(additionalContractDataType: String) {
   private val simpleConsumeChoiceName: Ref.ChoiceName =
     Ref.ChoiceName.assertFromString("Consume")
 
+  private val simpleReplaceChoiceName: Ref.ChoiceName =
+    Ref.ChoiceName.assertFromString("Replace")
+
   def simpleCreateCmd(templateArg: Value[Value.ContractId]): Command =
     createCmd(simpleTemplateId, templateArg)
 
@@ -113,6 +125,9 @@ class SimplePackage(additionalContractDataType: String) {
 
   def simpleCreateAndExerciseConsumeCmd(templateArg: Value[Value.ContractId]): Command =
     createAndExerciseCmd(simpleTemplateId, templateArg, simpleConsumeChoiceName)
+
+  def simpleExerciseReplaceByKeyCmd(partyKey: Ref.Party): Command =
+    exerciseByKeyCmd(partyKey, simpleTemplateId, simpleReplaceChoiceName)
 
   def mkSimpleTemplateArg(
       owner: String,

@@ -106,6 +106,48 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
         }
     }
 
+    "reject a pre-executed submission referring to a replaced key" in KVTest
+      .runTestWithSimplePackage(alice, bob, eve) { simplePackage =>
+        val seeds =
+          Stream
+            .from(0)
+            .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
+        for {
+          createTransaction <- runSimpleCommand(alice, seeds.head, simpleCreateCmd(simplePackage))
+          _ <- preExecuteTransaction(
+            submitter = alice,
+            transaction = createTransaction,
+            submissionSeed = seeds.head,
+          )
+
+          preExecuted <- inParallelKeepingFirst(
+            (1 to 2)
+              .map(i => seeds(i))
+              .map(seed =>
+                for {
+                  exerciseTransaction <- runSimpleCommand(
+                    alice,
+                    seed,
+                    simplePackage.simpleExerciseReplaceByKeyCmd(alice),
+                  )
+                  submission <- prepareTransactionSubmission(
+                    submitter = alice,
+                    transaction = exerciseTransaction,
+                    submissionSeed = seed,
+                  )
+                } yield submission))
+          preExecutionResults <- sequentially(preExecuted.map(preExecute(_).map(_._2)))
+        } yield {
+          val Seq(resultA, resultB) = preExecutionResults
+          resultA.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
+
+          resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.DISPUTED
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getDisputed.getDetails should startWith(
+            "dependency error: couldn't find contract ")
+        }
+      }
+
     "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
       simplePackage =>
         val seed = hash(this.getClass.getName)

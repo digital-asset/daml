@@ -23,7 +23,6 @@ import scalaz.std.list._
 import scalaz.syntax.traverse._
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 final case class KVTestState(
     participantId: ParticipantId,
@@ -65,6 +64,16 @@ object KVTest {
       damlState = Map.empty,
     )
   }
+
+  def sequentially[A](operations: Seq[KVTest[A]]): KVTest[List[A]] =
+    operations.toList.sequence
+
+  def inParallelKeepingFirst[A](operations: Seq[KVTest[A]]): KVTest[Seq[A]] =
+    for {
+      state <- get[KVTestState]
+      results = operations.map(_.run(state))
+      _ <- put(results.head._1)
+    } yield results.map(_._2)
 
   def runTest[A](test: KVTest[A]): A =
     test.eval(initialTestState)
@@ -185,7 +194,7 @@ object KVTest {
               .get(Conversions.globalKeyToStateKey(globalKey.globalKey))
               .map(value => Conversions.decodeContractId(value.getContractKeyState.getContractId)),
         )
-        .getOrElse(sys.error("Engine.submit fail"))
+        .fold(error => throw new RuntimeException(error.detailMsg), identity)
     } yield tx -> meta
 
   def runSimpleCommand(
@@ -233,9 +242,9 @@ object KVTest {
       submitter: Party,
       transaction: (SubmittedTransaction, Transaction.Metadata),
       submissionSeed: crypto.Hash,
-      letDelta: Duration,
-      commandId: CommandId,
-      deduplicationTime: Duration,
+      letDelta: Duration = Duration.ZERO,
+      commandId: CommandId = randomLedgerString,
+      deduplicationTime: Duration = Duration.ofDays(1),
   ): KVTest[DamlSubmission] = {
     val (tx, txMetaData) = transaction
     for {
@@ -352,18 +361,17 @@ object KVTest {
       entryId -> logEntry
     }
 
-  private def preExecute(
-      damlSubmission: DamlSubmission,
-  ): KVTest[(DamlLogEntryId, PreExecutionResult)] =
+  def preExecute(damlSubmission: DamlSubmission): KVTest[(DamlLogEntryId, PreExecutionResult)] =
     for {
       testState <- get[KVTestState]
       entryId <- freshEntryId
       inputKeys = damlSubmission.getInputDamlStateList.asScala
+      inputState <- createInputState(inputKeys)
       preExecutionResult = testState.keyValueCommitting.preExecuteSubmission(
         defaultConfig = testState.defaultConfig,
         submission = damlSubmission,
         participantId = testState.participantId,
-        inputState = createInputState(inputKeys, testState),
+        inputState = inputState,
       )
       PreExecutionResult(readSet, successfulLogEntry, newState, outOfTimeBoundsLogEntry, _, _) = preExecutionResult
       _ <- addDamlState(newState)
@@ -385,16 +393,14 @@ object KVTest {
     }
 
   private[this] def createInputState(
-      inputKeys: mutable.Buffer[DamlStateKey],
-      testState: KVTestState): Map[DamlStateKey, Option[DamlStateValue]] = {
-    inputKeys.map { key =>
-      {
-        val damlStateValue = testState.damlState
-          .get(key)
-        key -> damlStateValue
-      }
-    }.toMap
-  }
+      inputKeys: Seq[DamlStateKey],
+  ): KVTest[Map[DamlStateKey, Option[DamlStateValue]]] =
+    for {
+      state <- get[KVTestState]
+    } yield
+      inputKeys.view
+        .map(key => key -> state.damlState.get(key))
+        .toMap
 
   private def createSubmitterInfo(
       submitter: Party,
