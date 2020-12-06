@@ -5,6 +5,11 @@ package com.daml.platform.store.dao
 
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v1.Offset
+import com.daml.platform.indexer.IncrementalOffsetStep
+import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 
 private[dao] trait JdbcLedgerDaoPackagesSpec {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
@@ -17,18 +22,14 @@ private[dao] trait JdbcLedgerDaoPackagesSpec {
     val offset1 = nextOffset()
     val offset2 = nextOffset()
     for {
-      firstUploadResult <- ledgerDao
-        .storePackageEntry(
-          offset1,
-          packages
-            .map(a => a._1 -> a._2.copy(sourceDescription = Some(firstDescription)))
-            .take(1),
-          None)
-      secondUploadResult <- ledgerDao
-        .storePackageEntry(
-          offset2,
-          packages.map(a => a._1 -> a._2.copy(sourceDescription = Some(secondDescription))),
-          None)
+      firstUploadResult <- storePackageEntry(
+        offset1,
+        packages
+          .map(a => a._1 -> a._2.copy(sourceDescription = Some(firstDescription)))
+          .take(1))
+      secondUploadResult <- storePackageEntry(
+        offset2,
+        packages.map(a => a._1 -> a._2.copy(sourceDescription = Some(secondDescription))))
       loadedPackages <- ledgerDao.listLfPackages
     } yield {
       firstUploadResult shouldBe PersistenceResponse.Ok
@@ -39,4 +40,17 @@ private[dao] trait JdbcLedgerDaoPackagesSpec {
     }
   }
 
+  it should "fail on storing package entry with non-incremental offsets" in {
+    val offset = nextOffset()
+    recoverToSucceededIf[LedgerEndUpdateError](
+      ledgerDao
+        .storePackageEntry(IncrementalOffsetStep(offset, offset), packages, None)
+    )
+  }
+
+  private def storePackageEntry(
+      offset: Offset,
+      packageList: List[(DamlLf.Archive, PackageDetails)]) =
+    ledgerDao
+      .storePackageEntry(nextOffsetStep(offset), packageList, None)
 }
