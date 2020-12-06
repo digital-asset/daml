@@ -28,6 +28,7 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdMode, MismatchException}
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.LedgerIdGenerator
 import com.daml.platform.sandbox.config.LedgerName
@@ -48,7 +49,7 @@ import scala.util.{Failure, Success}
 
 private[sandbox] object SqlLedger {
 
-  private type PersistenceQueue = SourceQueueWithComplete[Offset => Future[Unit]]
+  private type PersistenceQueue = SourceQueueWithComplete[OffsetStep => Future[Unit]]
 
   object Owner {
 
@@ -211,7 +212,7 @@ private[sandbox] object SqlLedger {
         })
 
         ledgerDao
-          .storePackageEntry(newLedgerEnd, packages, None)
+          .storePackageEntry(OffsetStep(None, newLedgerEnd), packages, None)
           .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(
             DEC)
       } else {
@@ -260,7 +261,7 @@ private[sandbox] object SqlLedger {
       override def acquire()(implicit context: ResourceContext): Resource[PersistenceQueue] =
         Resource(Future.successful {
           val queue =
-            Source.queue[Offset => Future[Unit]](queueDepth, OverflowStrategy.dropNew)
+            Source.queue[OffsetStep => Future[Unit]](queueDepth, OverflowStrategy.dropNew)
 
           // By default we process the requests in batches when under pressure (see semantics of `batch`). Note
           // that this is safe on the read end because the readers rely on the dispatchers to know the
@@ -275,16 +276,18 @@ private[sandbox] object SqlLedger {
           persistenceQueue
         })(queue => Future.successful(queue.complete()))
 
-      private def persistAll(queue: Queue[Offset => Future[Unit]]): Future[Unit] = {
+      private def persistAll(queue: Queue[OffsetStep => Future[Unit]]): Future[Unit] = {
         implicit val executionContext: ExecutionContext = DEC
         val startOffset = SandboxOffset.fromOffset(dispatcher.getHead())
         // This will attempt to run the SQL queries concurrently, but there is no parallelism here,
         // so they will still run sequentially.
+        val previousOffset = new AtomicReference(Option.empty[Offset])
         Future
           .sequence(queue.toIterator.zipWithIndex.map {
             case (persist, i) =>
               val offset = startOffset + i + 1
-              persist(SandboxOffset.toOffset(offset))
+              val newOffset = SandboxOffset.toOffset(offset)
+              persist(OffsetStep(previousOffset.getAndSet(Some(newOffset)), newOffset))
           })
           .map { _ =>
             // note that we can have holes in offsets in case of the storing of an entry failed for some reason
@@ -351,8 +354,8 @@ private final class SqlLedger(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
-    enqueue { offset =>
-      val transactionId = offset.toApiString
+    enqueue { offsetStep =>
+      val transactionId = offsetStep.offset.toApiString
 
       val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
       val recordTime = timeProvider.getCurrentTime
@@ -363,7 +366,7 @@ private final class SqlLedger(
             ledgerDao.storeRejection(
               Some(submitterInfo),
               recordTime,
-              offset,
+              offsetStep,
               reason,
           ),
           _ => {
@@ -377,7 +380,7 @@ private final class SqlLedger(
               workflowId = transactionMeta.workflowId,
               transactionId = transactionId,
               ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-              offset = offset,
+              offset = offsetStep.offset,
               transaction = transactionCommitter.commitTransaction(transactionId, transaction),
               divulgedContracts = divulgedContracts,
               blindingInfo = blindingInfo
@@ -388,7 +391,7 @@ private final class SqlLedger(
               transactionId,
               recordTime,
               transactionMeta.ledgerEffectiveTime.toInstant,
-              offset,
+              offsetStep,
               transactionCommitter.commitTransaction(transactionId, transaction),
               divulgedContracts,
               blindingInfo,
@@ -398,13 +401,14 @@ private final class SqlLedger(
         .transform(
           _.map(_ => ()).recover {
             case NonFatal(t) =>
-              logger.error(s"Failed to persist entry with offset: ${offset.toApiString}", t)
+              logger
+                .error(s"Failed to persist entry with offset: ${offsetStep.offset.toApiString}", t)
           }
         )(DEC)
 
     }
 
-  private def enqueue(persist: Offset => Future[Unit]): Future[SubmissionResult] =
+  private def enqueue(persist: OffsetStep => Future[Unit]): Future[SubmissionResult] =
     persistenceQueue
       .offer(persist)
       .transform {
@@ -423,10 +427,10 @@ private final class SqlLedger(
       party: Party,
       displayName: Option[String],
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult] = {
-    enqueue { offset =>
+    enqueue { offsetStep =>
       ledgerDao
         .storePartyEntry(
-          offset,
+          offsetStep,
           PartyLedgerEntry.AllocationAccepted(
             Some(submissionId),
             timeProvider.getCurrentTime,
@@ -437,7 +441,9 @@ private final class SqlLedger(
         .recover {
           case t =>
             //recovering from the failure so the persistence stream doesn't die
-            logger.error(s"Failed to persist party $party with offset: ${offset.toApiString}", t)
+            logger.error(
+              s"Failed to persist party $party with offset: ${offsetStep.offset.toApiString}",
+              t)
             ()
         }(DEC)
     }
@@ -451,10 +457,10 @@ private final class SqlLedger(
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult] = {
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
-    enqueue { offset =>
+    enqueue { offsetStep =>
       ledgerDao
         .storePackageEntry(
-          offset,
+          offsetStep,
           packages,
           Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)),
         )
@@ -462,7 +468,9 @@ private final class SqlLedger(
         .recover {
           case t =>
             //recovering from the failure so the persistence stream doesn't die
-            logger.error(s"Failed to persist packages with offset: ${offset.toApiString}", t)
+            logger.error(
+              s"Failed to persist packages with offset: ${offsetStep.offset.toApiString}",
+              t)
             ()
         }(DEC)
     }
@@ -473,7 +481,7 @@ private final class SqlLedger(
       submissionId: String,
       config: Configuration,
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
-    enqueue { offset =>
+    enqueue { offsetStep =>
       val recordTime = timeProvider.getCurrentTime
       val mrt = maxRecordTime.toInstant
 
@@ -481,7 +489,7 @@ private final class SqlLedger(
         if (recordTime.isAfter(mrt)) {
           ledgerDao
             .storeConfigurationEntry(
-              offset,
+              offsetStep,
               recordTime,
               submissionId,
               config,
@@ -497,7 +505,7 @@ private final class SqlLedger(
           implicit val ec: ExecutionContext = DEC
           for {
             response <- ledgerDao.storeConfigurationEntry(
-              offset,
+              offsetStep,
               recordTime,
               submissionId,
               config,
@@ -515,7 +523,7 @@ private final class SqlLedger(
         .recover {
           case t =>
             //recovering from the failure so the persistence stream doesn't die
-            logger.error(s"Failed to persist configuration with offset: $offset", t)
+            logger.error(s"Failed to persist configuration with offset: ${offsetStep.offset}", t)
             ()
         }(DEC)
     }
