@@ -162,6 +162,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       transactionId: TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
+      previousOffset: Option[Offset],
       offset: Offset,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
@@ -175,6 +176,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
         transactionId,
         recordTime,
         ledgerEffectiveTime,
+        previousOffset,
         offset,
         transaction,
         divulged,
@@ -206,12 +208,13 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
   override def storeRejection(
       submitterInfo: Option[SubmitterInfo],
       recordTime: Instant,
+      previousOffset: Option[Offset],
       offset: Offset,
       reason: RejectionReason,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storeRejection,
-      ledgerDao.storeRejection(submitterInfo, recordTime, offset, reason),
+      ledgerDao.storeRejection(submitterInfo, recordTime, previousOffset, offset, reason),
     )
 
   override def storeInitialState(
@@ -235,15 +238,17 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     ledgerDao.reset()
 
   override def storePartyEntry(
+      previousOffset: Option[Offset],
       offset: Offset,
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storePartyEntry,
-      ledgerDao.storePartyEntry(offset, partyEntry),
+      ledgerDao.storePartyEntry(previousOffset, offset, partyEntry),
     )
 
   override def storeConfigurationEntry(
+      previousOffset: Option[Offset],
       offset: Offset,
       recordTime: Instant,
       submissionId: String,
@@ -253,6 +258,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     Timed.future(
       metrics.daml.index.db.storeConfigurationEntry,
       ledgerDao.storeConfigurationEntry(
+        previousOffset,
         offset,
         recordTime,
         submissionId,
@@ -262,12 +268,13 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     )
 
   override def storePackageEntry(
+      previousOffset: Option[Offset],
       offset: Offset,
       packages: List[(Archive, PackageDetails)],
       entry: Option[PackageLedgerEntry],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storePackageEntry,
-      ledgerDao.storePackageEntry(offset, packages, entry))
+      ledgerDao.storePackageEntry(previousOffset, offset, packages, entry))
 
 }

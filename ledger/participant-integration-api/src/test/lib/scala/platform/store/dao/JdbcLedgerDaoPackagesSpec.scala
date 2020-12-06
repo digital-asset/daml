@@ -3,6 +3,9 @@
 
 package com.daml.platform.store.dao
 
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v1.Offset
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
 private[dao] trait JdbcLedgerDaoPackagesSpec {
@@ -16,18 +19,14 @@ private[dao] trait JdbcLedgerDaoPackagesSpec {
     val offset1 = nextOffset()
     val offset2 = nextOffset()
     for {
-      firstUploadResult <- ledgerDao
-        .storePackageEntry(
-          offset1,
-          packages
-            .map(a => a._1 -> a._2.copy(sourceDescription = Some(firstDescription)))
-            .take(1),
-          None)
-      secondUploadResult <- ledgerDao
-        .storePackageEntry(
-          offset2,
-          packages.map(a => a._1 -> a._2.copy(sourceDescription = Some(secondDescription))),
-          None)
+      firstUploadResult <- storePackageEntry(
+        offset1,
+        packages
+          .map(a => a._1 -> a._2.copy(sourceDescription = Some(firstDescription)))
+          .take(1))
+      secondUploadResult <- storePackageEntry(
+        offset2,
+        packages.map(a => a._1 -> a._2.copy(sourceDescription = Some(secondDescription))))
       loadedPackages <- ledgerDao.listLfPackages
     } yield {
       firstUploadResult shouldBe PersistenceResponse.Ok
@@ -38,4 +37,14 @@ private[dao] trait JdbcLedgerDaoPackagesSpec {
     }
   }
 
+  private def storePackageEntry(
+      offset: Offset,
+      packageList: List[(DamlLf.Archive, PackageDetails)]) = {
+    ledgerDao
+      .storePackageEntry(previousOffset.get(), offset, packageList, None)
+      .map { r =>
+        previousOffset.set(Some(offset))
+        r
+      }
+  }
 }

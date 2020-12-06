@@ -211,7 +211,7 @@ private[sandbox] object SqlLedger {
         })
 
         ledgerDao
-          .storePackageEntry(newLedgerEnd, packages, None)
+          .storePackageEntry(None, newLedgerEnd, packages, None)
           .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(
             DEC)
       } else {
@@ -363,6 +363,7 @@ private final class SqlLedger(
             ledgerDao.storeRejection(
               Some(submitterInfo),
               recordTime,
+              None,
               offset,
               reason,
           ),
@@ -388,6 +389,7 @@ private final class SqlLedger(
               transactionId,
               recordTime,
               transactionMeta.ledgerEffectiveTime.toInstant,
+              None,
               offset,
               transactionCommitter.commitTransaction(transactionId, transaction),
               divulgedContracts,
@@ -426,6 +428,7 @@ private final class SqlLedger(
     enqueue { offset =>
       ledgerDao
         .storePartyEntry(
+          None,
           offset,
           PartyLedgerEntry.AllocationAccepted(
             Some(submissionId),
@@ -454,6 +457,7 @@ private final class SqlLedger(
     enqueue { offset =>
       ledgerDao
         .storePackageEntry(
+          None,
           offset,
           packages,
           Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)),
@@ -481,6 +485,7 @@ private final class SqlLedger(
         if (recordTime.isAfter(mrt)) {
           ledgerDao
             .storeConfigurationEntry(
+              None,
               offset,
               recordTime,
               submissionId,
@@ -497,6 +502,7 @@ private final class SqlLedger(
           implicit val ec: ExecutionContext = DEC
           for {
             response <- ledgerDao.storeConfigurationEntry(
+              None,
               offset,
               recordTime,
               submissionId,

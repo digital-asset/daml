@@ -6,7 +6,7 @@ package com.daml.platform.store.dao
 import java.io.File
 import java.time.{Duration, Instant}
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles.rlocation
@@ -35,11 +35,16 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected implicit final val loggingContext: LoggingContext = LoggingContext.ForTesting
 
+  val previousOffset: AtomicReference[Option[Offset]] =
+    new AtomicReference[Option[Offset]](Option.empty)
+
   protected final val nextOffset: () => Offset = {
     val base = BigInt(1) << 32
     val counter = new AtomicLong(0)
     () =>
-      Offset.fromByteArray((base + counter.getAndIncrement()).toByteArray)
+      {
+        Offset.fromByteArray((base + counter.getAndIncrement()).toByteArray)
+      }
   }
 
   protected final implicit class OffsetToLong(offset: Offset) {
@@ -523,11 +528,15 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         transaction = committedTransaction,
         recordTime = entry.recordedAt,
         ledgerEffectiveTime = ledgerEffectiveTime,
+        previousOffset = previousOffset.get(),
         offset = offset,
         divulged = divulged,
         blindingInfo = blindingInfo,
       )
-      .map(_ => offsetAndTx)
+      .map(_ => {
+        previousOffset.set(Some(offset))
+        offsetAndTx
+      })
   }
 
   protected final def store(

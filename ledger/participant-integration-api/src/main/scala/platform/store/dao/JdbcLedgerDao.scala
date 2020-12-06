@@ -210,6 +210,7 @@ private class JdbcLedgerDao(
         |""".stripMargin)
 
   override def storeConfigurationEntry(
+      previousOffset: Option[Offset],
       offset: Offset,
       recordedAt: Instant,
       submissionId: String,
@@ -241,7 +242,7 @@ private class JdbcLedgerDao(
             rejectionReason
         }
 
-      ParametersTable.updateLedgerEnd(offset)
+      ParametersTable.updateLedgerEnd(previousOffset, offset)
       val configurationBytes = Configuration.encode(configuration).toByteArray
       val typ = if (finalRejectionReason.isEmpty) {
         acceptType
@@ -288,6 +289,7 @@ private class JdbcLedgerDao(
         |""".stripMargin)
 
   override def storePartyEntry(
+      previousOffset: Option[Offset],
       offset: Offset,
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
@@ -295,7 +297,7 @@ private class JdbcLedgerDao(
       if (enableAsyncCommits) {
         queries.enableAsyncCommit
       }
-      ParametersTable.updateLedgerEnd(offset)
+      ParametersTable.updateLedgerEnd(previousOffset, offset)
 
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
@@ -450,6 +452,7 @@ private class JdbcLedgerDao(
       transactionId: TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
+      previousOffset: Option[Offset],
       offset: Offset,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
@@ -482,7 +485,7 @@ private class JdbcLedgerDao(
         }
         Timed.value(
           metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
-          ParametersTable.updateLedgerEnd(offset)
+          ParametersTable.updateLedgerEnd(previousOffset, offset)
         )
         Ok
       }
@@ -490,6 +493,7 @@ private class JdbcLedgerDao(
   override def storeRejection(
       submitterInfo: Option[SubmitterInfo],
       recordTime: Instant,
+      previousOffset: Option[Offset],
       offset: Offset,
       reason: RejectionReason,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
@@ -500,7 +504,7 @@ private class JdbcLedgerDao(
       for (info <- submitterInfo) {
         handleError(offset, info, recordTime, reason)
       }
-      ParametersTable.updateLedgerEnd(offset)
+      ParametersTable.updateLedgerEnd(previousOffset, offset)
       Ok
     }
 
@@ -540,7 +544,7 @@ private class JdbcLedgerDao(
                 ).execute()
             }
         }
-        ParametersTable.updateLedgerEnd(newLedgerEnd)
+        ParametersTable.updateLedgerEnd(None, newLedgerEnd)
     }
 
   private def toParticipantRejection(reason: domain.RejectionReason): RejectionReason =
@@ -662,6 +666,7 @@ private class JdbcLedgerDao(
         |""".stripMargin)
 
   override def storePackageEntry(
+      previousOffset: Option[Offset],
       offset: Offset,
       packages: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry]
@@ -671,7 +676,7 @@ private class JdbcLedgerDao(
         if (enableAsyncCommits) {
           queries.enableAsyncCommit
         }
-        ParametersTable.updateLedgerEnd(offset)
+        ParametersTable.updateLedgerEnd(previousOffset, offset)
 
         if (packages.nonEmpty) {
           val uploadId = optEntry.map(_.submissionId).getOrElse(UUID.randomUUID().toString)

@@ -6,6 +6,7 @@ package com.daml.platform.store.dao
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
+import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.platform.store.entries.ConfigurationEntry
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
@@ -20,12 +21,10 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
       startingOffset <- ledgerDao.lookupLedgerEnd()
       startingConfig <- ledgerDao.lookupLedgerConfiguration()
 
-      response <- ledgerDao.storeConfigurationEntry(
+      response <- storeConfigurationEntry(
         offset,
-        Instant.EPOCH,
         s"submission-$offsetString",
         defaultConfig,
-        None,
       )
       optStoredConfig <- ledgerDao.lookupLedgerConfiguration()
       endingOffset <- ledgerDao.lookupLedgerEnd()
@@ -44,12 +43,11 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
     for {
       startingConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2))
       proposedConfig = startingConfig.getOrElse(defaultConfig)
-      response <- ledgerDao.storeConfigurationEntry(
+      response <- storeConfigurationEntry(
         offset,
-        Instant.EPOCH,
         s"config-rejection-$offsetString",
         proposedConfig,
-        Some("bad config"),
+        Some("bad config")
       )
       storedConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2))
       entries <- ledgerDao
@@ -75,47 +73,34 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
 
       // Store a new configuration with a known submission id
       submissionId = s"refuse-config-$offsetString0"
-      resp0 <- ledgerDao.storeConfigurationEntry(
+      resp0 <- storeConfigurationEntry(
         offset0,
-        Instant.EPOCH,
         submissionId,
         config.copy(generation = config.generation + 1),
-        None,
       )
       newConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
 
-      // Submission with duplicate submissionId is rejected
-      offset1 = nextOffset()
-      resp1 <- ledgerDao.storeConfigurationEntry(
-        offset1,
-        Instant.EPOCH,
+      resp1 <- storeConfigurationEntry(
+        nextOffset(),
         submissionId,
         newConfig.copy(generation = config.generation + 1),
-        None,
+        shouldUpdateLedgerEnd = false,
       )
 
       // Submission with mismatching generation is rejected
       offset2 = nextOffset()
       offsetString2 = offset2.toLong
-      resp2 <- ledgerDao.storeConfigurationEntry(
+      resp2 <- storeConfigurationEntry(
         offset2,
-        Instant.EPOCH,
         s"refuse-config-$offsetString2",
         config,
-        None,
       )
 
       // Submission with unique submissionId and correct generation is accepted.
       offset3 = nextOffset()
-      offsetString3 = offset3.toLong
+      offsetString3 = offset3
       lastConfig = newConfig.copy(generation = newConfig.generation + 1)
-      resp3 <- ledgerDao.storeConfigurationEntry(
-        offset3,
-        Instant.EPOCH,
-        s"refuse-config-$offsetString3",
-        lastConfig,
-        None,
-      )
+      resp3 <- storeConfigurationEntry(offset3, s"refuse-config-$offsetString3", lastConfig)
       lastConfigActual <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
 
       entries <- ledgerDao.getConfigurationEntries(startExclusive, offset3).runWith(Sink.seq)
@@ -138,4 +123,23 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
     }
   }
 
+  private def storeConfigurationEntry(
+      offset: Offset,
+      submissionId: String,
+      lastConfig: Configuration,
+      rejectionReason: Option[String] = None,
+      shouldUpdateLedgerEnd: Boolean = true) =
+    ledgerDao
+      .storeConfigurationEntry(
+        previousOffset.get(),
+        offset,
+        Instant.EPOCH,
+        submissionId,
+        lastConfig,
+        rejectionReason,
+      )
+      .map { r =>
+        if (shouldUpdateLedgerEnd) previousOffset.set(Some(offset))
+        r
+      }
 }

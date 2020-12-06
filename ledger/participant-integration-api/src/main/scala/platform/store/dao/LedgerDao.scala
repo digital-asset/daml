@@ -207,6 +207,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       transactionId: TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
+      previousOffset: Option[Offset],
       offset: Offset,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
@@ -216,6 +217,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   def storeRejection(
       submitterInfo: Option[SubmitterInfo],
       recordTime: Instant,
+      previousOffset: Option[Offset],
       offset: Offset,
       reason: RejectionReason,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
@@ -239,7 +241,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     * @param partyEntry  the PartyEntry to be stored
     * @return Ok when the operation was successful otherwise a Duplicate
     */
-  def storePartyEntry(offset: Offset, partyEntry: PartyLedgerEntry)(
+  def storePartyEntry(previousOffset: Option[Offset], offset: Offset, partyEntry: PartyLedgerEntry)(
       implicit loggingContext: LoggingContext,
   ): Future[PersistenceResponse]
 
@@ -247,17 +249,19 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     * Store a configuration change or rejection.
     */
   def storeConfigurationEntry(
+      previousOffset: Option[Offset],
       offset: Offset,
       recordedAt: Instant,
       submissionId: String,
       configuration: Configuration,
-      rejectionReason: Option[String]
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
+      rejectionReason: Option[String])(
+      implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   /**
     * Store a DAML-LF package upload result.
     */
   def storePackageEntry(
+      previousOffset: Option[Offset],
       offset: Offset,
       packages: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry]

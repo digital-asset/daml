@@ -72,11 +72,18 @@ private[dao] object ParametersTable {
   def getInitialLedgerEnd(connection: Connection): Option[Offset] =
     SelectLedgerEnd.as(LedgerEndParser.single)(connection)
 
-  def updateLedgerEnd(ledgerEnd: Offset)(implicit connection: Connection): Unit =
-    discard(
-      SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where (#$LedgerEndColumnName is null or #$LedgerEndColumnName < $ledgerEnd)"
-        .execute()
-    )
+  def updateLedgerEnd(previousOffset: Option[Offset], ledgerEnd: Offset)(
+      implicit connection: Connection): Unit =
+    previousOffset
+      .map { prev =>
+        val updatedRows =
+          SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where (#$LedgerEndColumnName is null or #$LedgerEndColumnName = $prev)"
+            .executeUpdate()
+        if (updatedRows != 1) throw LedgerEndUpdateError(prev)
+      }
+      .getOrElse(discard(
+        SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where (#$LedgerEndColumnName is null or #$LedgerEndColumnName < $ledgerEnd)"
+          .execute()))
 
   def updateConfiguration(configuration: Array[Byte])(
       implicit connection: Connection,
@@ -88,4 +95,7 @@ private[dao] object ParametersTable {
       LedgerEndAndConfigurationParser.single
     )(connection)
 
+  case class LedgerEndUpdateError(expected: Offset)
+      extends RuntimeException(s"""Could not update ledger end.
+         |Previous ledger end does not match expected ${expected.toHexString}""".stripMargin)
 }
