@@ -46,6 +46,7 @@ data SerializabilityRequirement
   | SRChoiceRes
   | SRKey
   | SRDataType
+  | SRExceptionArg
 
 -- | Reason why a type is not serializable.
 data UnserializabilityReason
@@ -170,6 +171,7 @@ instance Pretty SerializabilityRequirement where
     SRChoiceRes -> "choice result"
     SRDataType -> "serializable data type"
     SRKey -> "template key"
+    SRExceptionArg -> "exception argument"
 
 instance Pretty UnserializabilityReason where
   pPrint = \case

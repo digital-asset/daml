@@ -163,6 +163,12 @@ checkTemplate mod0 tpl = do
   for_ (tplKey tpl) $ \key -> withContext (ContextTemplate mod0 tpl TPKey) $ do
     checkType SRKey (tplKeyType key)
 
+-- | Check whether exception is serializable.
+checkException :: MonadGamma m => Module -> DefException -> m ()
+checkException mod0 exn = do
+    let tcon = Qualified PRSelf (moduleName mod0) (exnName exn)
+    checkType SRExceptionArg (TCon tcon)
+
 -- | Check whether a module satisfies all serializability constraints.
 checkModule :: MonadGamma m => Module -> m ()
 checkModule mod0 = do
@@ -172,3 +178,6 @@ checkModule mod0 = do
   for_ (moduleTemplates mod0) $ \tpl ->
     withContext (ContextTemplate mod0 tpl TPWhole) $
       checkTemplate mod0 tpl
+  for_ (moduleExceptions mod0) $ \exn ->
+    withContext (ContextDefException mod0 exn) $
+      checkException mod0 exn
