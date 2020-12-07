@@ -36,7 +36,8 @@ private[sql] final class Cli(
         config.copy(jdbcUrl = getEnv(env).orElse(
           throw new IllegalArgumentException(s"The '$env' environment variable is undefined."))))
 
-    opt[String]("sql-backend-jdbcurl")
+    parser
+      .opt[String]("sql-backend-jdbcurl")
       .optional()
       .text(
         s"The JDBC connection URL to a Postgres database containing the username and password as well. If present, $Name will use the database to persist its data.")
