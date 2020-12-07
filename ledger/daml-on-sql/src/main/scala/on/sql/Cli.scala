@@ -39,7 +39,7 @@ private[sql] final class Cli(
     opt[String]("sql-backend-jdbcurl")
       .optional()
       .text(
-        s"The JDBC connection URL to a Postgres database containing the username and password as well. If present, $name will use the database to persist its data.")
+        s"The JDBC connection URL to a Postgres database containing the username and password as well. If present, $Name will use the database to persist its data.")
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
     // Ideally we would set the relevant options to `required()`, but it doesn't seem to work.
