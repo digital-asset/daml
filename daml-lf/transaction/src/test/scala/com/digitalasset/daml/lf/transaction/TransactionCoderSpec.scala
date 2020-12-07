@@ -175,8 +175,12 @@ class TransactionCoderSpec
         }
       }
 
-    // FIXME: do not accept a PR that contains this comment
-    "succeed with encoding under later version if succeeded under earlier version" ignore
+    "succeed with encoding under later version if succeeded under earlier version" in {
+      def ignoreNodeVersions[Nid, Cid](tx: GenTransaction.WithTxValue[Nid, Cid]) = {
+        tx.copy(nodes = tx.nodes.transform((_, node) =>
+          node.updateVersion(TransactionVersions.minVersion)))
+      }
+
       forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
         forAll(transactionVersionGen, transactionVersionGen, minSuccessful(20)) {
           (txVer1, txVer2) =>
@@ -211,14 +215,16 @@ class TransactionCoderSpec
                       )),
                   ) {
                     case (Right(decWithMin), Right(decWithMax)) =>
-                      decWithMin.transaction shouldBe minimalistTx(txvMin, tx)
-                      decWithMin.transaction shouldBe
-                        minimalistTx(txvMin, decWithMax.transaction)
+                      ignoreNodeVersions(decWithMin.transaction) shouldBe
+                        ignoreNodeVersions(minimalistTx(txvMin, tx))
+                      ignoreNodeVersions(decWithMin.transaction) shouldBe
+                        ignoreNodeVersions(minimalistTx(txvMin, decWithMax.transaction))
                   }
               }
             }
         }
       }
+    }
 
     "transactions decoding should fail when unsupported value version received" in
       forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>

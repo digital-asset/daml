@@ -118,19 +118,6 @@ object TransactionCoder {
         .build()
     )
 
-  private[lf] def encodeNode[Nid, Cid](
-      encodeNid: EncodeNid[Nid],
-      encodeCid: ValueCoder.EncodeCid[Cid],
-      enclosingVersion: TransactionVersion,
-      nodeId: Nid,
-      node: GenNode.WithTxValue[Nid, Cid],
-  ): Either[EncodeError, TransactionOuterClass.Node] =
-    if (enclosingVersion precedes node.version)
-      Left(EncodeError(
-        s"A transaction of version $enclosingVersion cannot contain nodes of newer version (${node.version}"))
-    else
-      encodeNode(encodeNid, encodeCid, node.version, nodeId, node)
-
   /**
     * encodes a [[GenNode[Nid, Cid]] to protocol buffer
     * @param nodeId node id of the node to be encoded
@@ -141,7 +128,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return protocol buffer format node
     */
-  private[lf] def encodeNodes[Nid, Cid](
+  private[lf] def encodeNode[Nid, Cid](
       encodeNid: EncodeNid[Nid],
       encodeCid: ValueCoder.EncodeCid[Cid],
       enclosingVersion: TransactionVersion,
