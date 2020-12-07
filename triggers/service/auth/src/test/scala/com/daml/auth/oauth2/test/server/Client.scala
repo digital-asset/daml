@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.oauth.server
+package com.daml.auth.oauth2.test.server
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -12,6 +12,7 @@ import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
+import com.daml.auth.oauth2.api.{Request, Response}
 import com.daml.ports.Port
 import spray.json._
 
@@ -21,7 +22,7 @@ import scala.language.postfixOps
 // This is a test client (using terminology from oauth).
 // The trigger service would also take the role of a client.
 object Client {
-  import com.daml.oauth.server.JsonProtocol._
+  import com.daml.auth.oauth2.api.JsonProtocol._
 
   case class Config(
       port: Port,

@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.oauth.middleware
+package com.daml.auth.middleware.oauth2
 
 import akka.Done
 import akka.actor.ActorSystem
@@ -15,10 +15,11 @@ import akka.http.scaladsl.server.Directive1
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.oauth.server.{Request => OAuthRequest, Response => OAuthResponse}
+import com.daml.auth.oauth2.api.{Request => OAuthRequest, Response => OAuthResponse}
 import com.typesafe.scalalogging.StrictLogging
 import java.util.UUID
 
+import com.daml.auth.middleware.api.{Request, Response}
 import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
@@ -31,8 +32,8 @@ import scala.util.Try
 // This is an implementation of the trigger service authentication middleware
 // for OAuth2 as specified in `/triggers/service/authentication.md`
 object Server extends StrictLogging {
-  import JsonProtocol._
-  import com.daml.oauth.server.JsonProtocol._
+  import com.daml.auth.middleware.api.JsonProtocol._
+  import com.daml.auth.oauth2.api.JsonProtocol._
   implicit private val unmarshal: Unmarshaller[String, Uri] = Unmarshaller.strict(Uri(_))
 
   // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
@@ -173,7 +174,7 @@ object Server extends StrictLogging {
                     redirectUri = toRedirectUri(request.uri),
                     clientId = config.clientId,
                     clientSecret = config.clientSecret)
-                  import com.daml.oauth.server.Request.Token.marshalRequestEntity
+                  import com.daml.auth.oauth2.api.Request.Token.marshalRequestEntity
                   val tokenRequest =
                     for {
                       entity <- Marshal(body).to[RequestEntity]
@@ -221,7 +222,7 @@ object Server extends StrictLogging {
         refreshToken = refresh.refreshToken,
         clientId = config.clientId,
         clientSecret = config.clientSecret)
-      import com.daml.oauth.server.Request.Refresh.marshalRequestEntity
+      import com.daml.auth.oauth2.api.Request.Refresh.marshalRequestEntity
       val tokenRequest =
         for {
           entity <- Marshal(body).to[RequestEntity]

@@ -40,8 +40,8 @@ import com.daml.lf.engine.trigger.Response._
 import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
 import com.daml.lf.engine.trigger.TriggerRunner._
 import com.daml.lf.engine.trigger.dao._
-import com.daml.oauth.middleware.Request.Claims
-import com.daml.oauth.middleware.{
+import com.daml.auth.middleware.api.Request.Claims
+import com.daml.auth.middleware.api.{
   JsonProtocol => AuthJsonProtocol,
   Request => AuthRequest,
   Response => AuthResponse

@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.oauth.server
+package com.daml.auth.oauth2.test.server
 
 import java.time.Instant
 import java.util.UUID
@@ -14,6 +14,7 @@ import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.{StatusCodes, Uri}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
+import com.daml.auth.oauth2.api.{Request, Response}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
@@ -157,7 +158,7 @@ class Server(config: Config) {
                       config.jwtSecret)
                     .getOrElse(throw new IllegalArgumentException("Failed to sign a token"))
                     .value
-                  import JsonProtocol._
+                  import com.daml.auth.oauth2.api.JsonProtocol._
                   complete(
                     Response.Token(
                       accessToken = accessToken,

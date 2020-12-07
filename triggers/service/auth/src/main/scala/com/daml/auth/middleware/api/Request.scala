@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.oauth.middleware
+package com.daml.auth.middleware.api
 
 import akka.http.scaladsl.marshalling.Marshaller
 import akka.http.scaladsl.model.Uri

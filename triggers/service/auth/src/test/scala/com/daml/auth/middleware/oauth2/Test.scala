@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.oauth.middleware
+package com.daml.auth.middleware.oauth2
 
 import java.time.Duration
 
@@ -12,16 +12,17 @@ import akka.http.scaladsl.model.Uri.{Path, Query}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Cookie, Location, `Set-Cookie`}
 import akka.http.scaladsl.unmarshalling.Unmarshal
+import com.daml.auth.middleware.api.{Request, Response}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.oauth.server.{Response => OAuthResponse}
+import com.daml.auth.oauth2.api.{Response => OAuthResponse}
 import org.scalatest.AsyncWordSpec
 
 class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
-  import JsonProtocol._
+  import com.daml.auth.middleware.api.JsonProtocol._
   lazy private val middlewareUri = {
     lazy val middlewareBinding = suiteResource.value._3.localAddress
     Uri()

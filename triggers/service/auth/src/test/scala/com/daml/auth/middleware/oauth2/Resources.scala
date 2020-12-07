@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.oauth.middleware
+package com.daml.auth.middleware.oauth2
 
 import java.time.{Clock, Duration, Instant, ZoneId}
 
@@ -9,7 +9,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import com.daml.clock.AdjustableClock
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.oauth.server.{Config => OAuthConfig, Server => OAuthServer}
+import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
 
 import scala.concurrent.Future
 
