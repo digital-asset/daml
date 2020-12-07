@@ -23,8 +23,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
   private def requestToken(
       parties: Seq[String],
       applicationId: Option[String]): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
-    lazy val clientBinding = suiteResource.value._3.localAddress
-    lazy val clientUri = Uri().withAuthority(clientBinding.getHostString, clientBinding.getPort)
+    lazy val clientUri = Uri()
+      .withAuthority(clientBinding.localAddress.getHostString, clientBinding.localAddress.getPort)
     val req = HttpRequest(
       uri = clientUri.withPath(Path./("access")).withScheme("http"),
       method = HttpMethods.POST,
@@ -65,8 +65,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
 
   private def requestRefresh(
       refreshToken: String): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
-    lazy val clientBinding = suiteResource.value._3.localAddress
-    lazy val clientUri = Uri().withAuthority(clientBinding.getHostString, clientBinding.getPort)
+    lazy val clientUri = Uri()
+      .withAuthority(clientBinding.localAddress.getHostString, clientBinding.localAddress.getPort)
     val req = HttpRequest(
       uri = clientUri.withPath(Path./("refresh")).withScheme("http"),
       method = HttpMethods.POST,
@@ -147,7 +147,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     "refresh a token" in {
       for {
         (token1, refresh1) <- expectToken(Seq())
-        _ <- Future(suiteResource.value._1.set(token1.exp.get.plusSeconds(1)))
+        _ <- Future(clock.set(token1.exp.get.plusSeconds(1)))
         (token2, _) <- expectRefresh(refresh1)
       } yield {
         assert(token2.exp.get.isAfter(token1.exp.get))

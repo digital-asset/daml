@@ -20,12 +20,13 @@ object Resources {
           Future(()))
       }
     }
-  def authServer(config: Config)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
+  def authServerBinding(server: Server)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
-        Resource(Server(config).start())(_.unbind().map(_ => ()))
+        Resource(server.start())(_.unbind().map(_ => ()))
     }
-  def authClient(config: Client.Config)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
+  def authClientBinding(config: Client.Config)(
+      implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
         Resource(Client.start(config))(_.unbind().map(_ => ()))

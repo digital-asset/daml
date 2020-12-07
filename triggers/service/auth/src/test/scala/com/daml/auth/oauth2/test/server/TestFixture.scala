@@ -21,18 +21,22 @@ import org.scalatest.Suite
 
 trait TestFixture
     extends AkkaBeforeAndAfterAll
-    with SuiteResource[(AdjustableClock, ServerBinding, ServerBinding)] {
+    with SuiteResource[(AdjustableClock, Server, ServerBinding, ServerBinding)] {
   self: Suite =>
   protected val ledgerId: String = "test-ledger"
   protected val applicationId: String = "test-application"
   protected val jwtSecret: String = "secret"
+  lazy protected val clock: AdjustableClock = suiteResource.value._1
+  lazy protected val server: Server = suiteResource.value._2
+  lazy protected val serverBinding: ServerBinding = suiteResource.value._3
+  lazy protected val clientBinding: ServerBinding = suiteResource.value._4
   override protected lazy val suiteResource
-    : Resource[(AdjustableClock, ServerBinding, ServerBinding)] = {
+    : Resource[(AdjustableClock, Server, ServerBinding, ServerBinding)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[ResourceContext, (AdjustableClock, ServerBinding, ServerBinding)](
+    new OwnedResource[ResourceContext, (AdjustableClock, Server, ServerBinding, ServerBinding)](
       for {
         clock <- Resources.clock(Instant.now(), ZoneId.systemDefault())
-        server <- Resources.authServer(
+        server = Server(
           Config(
             port = Port.Dynamic,
             ledgerId = ledgerId,
@@ -40,16 +44,19 @@ trait TestFixture
             parties = Some(Party.subst(Set("Alice", "Bob"))),
             clock = Some(clock)
           ))
-        client <- Resources.authClient(
+        serverBinding <- Resources.authServerBinding(server)
+        clientBinding <- Resources.authClientBinding(
           Client.Config(
             port = Port.Dynamic,
             authServerUrl = Uri()
               .withScheme("http")
-              .withAuthority(server.localAddress.getHostString, server.localAddress.getPort),
+              .withAuthority(
+                serverBinding.localAddress.getHostString,
+                serverBinding.localAddress.getPort),
             clientId = "test-client",
             clientSecret = "test-client-secret"
           ))
-      } yield { (clock, server, client) }
+      } yield { (clock, server, serverBinding, clientBinding) }
     )
   }
 }
