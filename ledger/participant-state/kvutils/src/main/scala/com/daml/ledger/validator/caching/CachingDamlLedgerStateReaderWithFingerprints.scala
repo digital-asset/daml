@@ -8,11 +8,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, Daml
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Fingerprint}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderWithFingerprints.StateCacheWithFingerprints
-import com.daml.ledger.validator.preexecution.{
-  DamlLedgerStateReaderWithFingerprints,
-  LedgerStateReaderWithFingerprints,
-  RawToDamlLedgerStateReaderWithFingerprintsAdapter
-}
+import com.daml.ledger.validator.preexecution.{DamlLedgerStateReaderWithFingerprints, LedgerStateReaderWithFingerprints, RawToDamlLedgerStateReaderWithFingerprintsAdapter}
 import com.google.protobuf.MessageLite
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,10 +20,10 @@ import scala.concurrent.{ExecutionContext, Future}
 class CachingDamlLedgerStateReaderWithFingerprints(
     val cache: StateCacheWithFingerprints,
     shouldCache: DamlStateKey => Boolean,
-    delegate: DamlLedgerStateReaderWithFingerprints)(implicit executionContext: ExecutionContext)
+    delegate: RawToDamlLedgerStateReaderWithFingerprintsAdapter)(implicit executionContext: ExecutionContext)
     extends DamlLedgerStateReaderWithFingerprints {
-  override def read(keys: Seq[DamlKvutils.DamlStateKey])
-    : Future[Seq[(Option[DamlKvutils.DamlStateValue], Fingerprint)]] = {
+  override def read(keys: Seq[DamlStateKey], validateCached: Seq[(DamlStateKey, Fingerprint)])
+  : Future[Seq[(Option[DamlKvutils.DamlStateValue], Fingerprint)]] = {
     @SuppressWarnings(Array("org.wartremover.warts.Any")) // Required to make `.view` work.
     val cachedValues: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)] = keys.view
       .map(key => key -> cache.getIfPresent(key))
@@ -35,26 +31,34 @@ class CachingDamlLedgerStateReaderWithFingerprints(
         case (key, Some((value, fingerprint))) => (key, (Some(value), fingerprint))
       }
       .toMap
-    val keysToRead = keys.toSet -- cachedValues.keySet
-    if (keysToRead.nonEmpty) {
-      delegate
-        .read(keysToRead.toSeq)
-        .map { readStateValues =>
-          assert(keysToRead.size == readStateValues.size)
-          val readValues = keysToRead.zip(readStateValues).toMap
-          readValues.collect {
-            case (key, (Some(value), fingerprint)) if shouldCache(key) =>
-              cache.put(key, value -> fingerprint)
-          }
-          val all = cachedValues ++ readValues
-          keys.map(all(_))
+
+    val (immutables, mutablesCached) = cachedValues.partition{case (key, _) => isImmutable(key)}
+
+    val keysToRead = (keys.toSet -- cachedValues.keySet).toSeq
+    val mutableValueQuerySeq = mutablesCached.view.map{case (k, (_, fp)) => k -> fp}.toSeq
+    val result = if (keysToRead.nonEmpty || mutableValueQuerySeq.nonEmpty) {
+      for {
+        (nonCached, invalidatedCached) <- delegate.read(keysToRead, mutableValueQuerySeq)
+      } yield {
+        assert(keysToRead.size == nonCached.size)
+        val readValues = keysToRead.zip(nonCached) ++ invalidatedCached
+        readValues.collect {
+          case (key, (Some(value), fingerprint)) if shouldCache(key) =>
+            cache.put(key, value -> fingerprint)
         }
+        val all = immutables ++ mutablesCached ++ readValues
+        keys.map(all(_))
+      }
     } else {
       Future {
         keys.map(cachedValues(_))
       }
     }
+    result
   }
+
+  private def isImmutable(key: DamlStateKey): Boolean =
+    key.getPackageId.nonEmpty || key.getParty.nonEmpty
 }
 
 object CachingDamlLedgerStateReaderWithFingerprints {

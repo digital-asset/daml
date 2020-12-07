@@ -16,9 +16,9 @@ trait LedgerStateReaderWithFingerprints {
     * @param keys  list of keys to look up data for
     * @return  fingerprinted results of key lookups for the requested keys, in the same order as requested
     */
-  def read(keys: Seq[Key]): Future[Seq[(Option[Value], Fingerprint)]]
+  def read(keys: Seq[Key], validateCached: Seq[(Key, Fingerprint)]): Future[(Seq[(Option[Value], Fingerprint)], Seq[(Key, (Option[Value], Fingerprint))])]
 }
 
 trait DamlLedgerStateReaderWithFingerprints {
-  def read(keys: Seq[DamlStateKey]): Future[Seq[(Option[DamlStateValue], Fingerprint)]]
+  def read(keys: Seq[DamlStateKey], validateCached: Seq[(DamlStateKey, Fingerprint)]): Future[Seq[(Option[DamlStateValue], Fingerprint)]]
 }

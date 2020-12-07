@@ -111,7 +111,7 @@ class PreExecutingSubmissionValidator[WriteSet](
       metrics.daml.kvutils.submission.validator.fetchInputs,
       metrics.daml.kvutils.submission.validator.fetchInputsRunning,
       ledgerStateReader
-        .read(inputKeys)
+        .read(inputKeys, Seq.empty)
         .map { values =>
           assert(inputKeys.size == values.size)
           inputKeys.zip(values).toMap
