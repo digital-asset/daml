@@ -167,12 +167,6 @@ class CommonCli(name: LedgerName) {
         .text("This flag is deprecated -- please use --sql-backend-jdbcurl.")
         .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
-      opt[String]("sql-backend-jdbcurl")
-        .optional()
-        .text(
-          s"The JDBC connection URL to a Postgres database containing the username and password as well. If present, $name will use the database to persist its data.")
-        .action((url, config) => config.copy(jdbcUrl = Some(url)))
-
       opt[String]("log-level")
         .optional()
         .validate(l =>
