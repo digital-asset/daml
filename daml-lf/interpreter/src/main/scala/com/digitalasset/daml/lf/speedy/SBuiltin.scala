@@ -696,6 +696,13 @@ private[lf] object SBuiltin {
     }
   }
 
+  /** $cons :: a -> List a -> List a */
+  final case object SBCons extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      SList(args.get(0) +: args.get(1).asInstanceOf[SList].list)
+    }
+  }
+
   /** $some :: a -> Optional a */
   final case object SBSome extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {

@@ -468,6 +468,7 @@ private[lf] object Pretty {
         case SEBuiltin(x) =>
           x match {
             case SBConsMany(n) => text(s"$$consMany[$n]")
+            case SBCons => text(s"$$cons")
             case SBRecCon(id, fields) =>
               text("$record") + char('[') + text(id.qualifiedName.toString) + char('^') + str(
                 fields.length,
