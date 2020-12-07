@@ -1,7 +1,7 @@
 <!-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-{%- if url_root == './' %}
+{%- if theme_index_page_boxes and url_root == './' %}
 {% set addClass = ' landing' %}
 {% endif %}
 <div class="search-inline{{addClass}}">
