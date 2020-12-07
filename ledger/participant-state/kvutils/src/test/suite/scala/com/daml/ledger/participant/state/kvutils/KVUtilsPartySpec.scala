@@ -84,7 +84,7 @@ class KVUtilsPartySpec extends AnyWordSpec with Matchers {
       }
     }
 
-    "update metrics" in KVTest.runTestWithSimplePackage() {
+    "update metrics" in KVTest.runTest {
       for {
         //Submit party twice to force one acceptance and one rejection on duplicate
         _ <- submitPartyAllocation("submission-1", "alice", p0)
