@@ -16,11 +16,11 @@ import com.daml.ledger.api.testing.utils.{
 }
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ports.Port
-import com.daml.ledger.api.refinements.ApiTypes.Party
-import org.scalatest.Suite
+import org.scalatest.{BeforeAndAfterEach, Suite}
 
 trait TestFixture
     extends AkkaBeforeAndAfterAll
+    with BeforeAndAfterEach
     with SuiteResource[(AdjustableClock, Server, ServerBinding, ServerBinding)] {
   self: Suite =>
   protected val ledgerId: String = "test-ledger"
@@ -41,7 +41,6 @@ trait TestFixture
             port = Port.Dynamic,
             ledgerId = ledgerId,
             jwtSecret = jwtSecret,
-            parties = Some(Party.subst(Set("Alice", "Bob"))),
             clock = Some(clock)
           ))
         serverBinding <- Resources.authServerBinding(server)
@@ -58,5 +57,11 @@ trait TestFixture
           ))
       } yield { (clock, server, serverBinding, clientBinding) }
     )
+  }
+
+  override protected def afterEach(): Unit = {
+    server.resetAuthorizedParties()
+
+    super.afterEach()
   }
 }

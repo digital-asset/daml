@@ -151,8 +151,6 @@ trait AuthMiddlewareFixture
     with AkkaBeforeAndAfterAll {
   self: Suite =>
 
-  protected def authParties: Option[Set[ApiTypes.Party]]
-
   protected def authService: Option[auth.AuthService] = Some(auth.AuthServiceJWT(authVerifier))
   protected def authToken(payload: AuthServiceJWTPayload): Option[String] = Some {
     val header = """{"alg": "HS256", "typ": "JWT"}"""
@@ -205,7 +203,6 @@ trait AuthMiddlewareFixture
             port = Port.Dynamic,
             ledgerId = ledgerId,
             jwtSecret = authSecret,
-            parties = authParties,
             clock = Some(clock),
           )
           oauthServer = OAuthServer(oauthConfig)

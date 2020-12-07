@@ -17,6 +17,7 @@ import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.auth.oauth2.api.{Response => OAuthResponse}
 import org.scalatest.wordspec.AsyncWordSpec
@@ -199,6 +200,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       }
     }
     "not authorize unauthorized parties" in {
+      server.revokeParty(Party("Eve"))
       val claims = "actAs:Eve"
       val req = HttpRequest(
         uri = middlewareUri

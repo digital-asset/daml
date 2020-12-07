@@ -12,6 +12,7 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import org.scalatest.wordspec.AsyncWordSpec
 import spray.json._
@@ -138,6 +139,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       }
     }
     "deny access to unauthorized parties" in {
+      server.revokeParty(Party("Eve"))
       for {
         error <- expectError(Seq("Alice", "Eve"))
       } yield {

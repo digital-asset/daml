@@ -14,7 +14,6 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.{Clock => Auth0Clock}
 import com.daml.clock.AdjustableClock
 import com.daml.jwt.JwtVerifier
-import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   OwnedResource,
@@ -24,10 +23,11 @@ import com.daml.ledger.api.testing.utils.{
 import com.daml.ledger.resources.ResourceContext
 import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
 import com.daml.ports.Port
-import org.scalatest.Suite
+import org.scalatest.{BeforeAndAfterEach, Suite}
 
 trait TestFixture
     extends AkkaBeforeAndAfterAll
+    with BeforeAndAfterEach
     with SuiteResource[(AdjustableClock, OAuthServer, ServerBinding, ServerBinding)] {
   self: Suite =>
   protected val ledgerId: String = "test-ledger"
@@ -49,7 +49,6 @@ trait TestFixture
             port = Port.Dynamic,
             ledgerId = ledgerId,
             jwtSecret = jwtSecret,
-            parties = Some(ApiTypes.Party.subst(Set("Alice", "Bob"))),
             clock = Some(clock),
           ))
         serverBinding <- Resources.authServerBinding(server)
@@ -76,5 +75,11 @@ trait TestFixture
           ))
       } yield { (clock, server, serverBinding, middlewareBinding) }
     )
+  }
+
+  override protected def afterEach(): Unit = {
+    server.resetAuthorizedParties()
+
+    super.afterEach()
   }
 }

@@ -35,24 +35,21 @@ class Server(config: Config) {
   private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
   val tokenLifetimeSeconds = 24 * 60 * 60
 
-  // None indicates that all parties are authorized, Some that only the given set of parties is authorized.
-  private var authorizedParties: Option[Set[Party]] = config.parties
+  private var unauthorizedParties: Set[Party] = Set()
 
-  // Add the given party to the set of authorized parties,
-  // if authorization of individual parties is enabled.
+  // Remove the given party from the set of unauthorized parties.
   def authorizeParty(party: Party): Unit = {
-    authorizedParties = authorizedParties.map(_ + party)
+    unauthorizedParties = unauthorizedParties - party
   }
 
-  // Remove the given party from the set of authorized parties,
-  // if authorization of individual parties is enabled.
+  // Add the given party to the set of unauthorized parties.
   def revokeParty(party: Party): Unit = {
-    authorizedParties = authorizedParties.map(_ - party)
+    unauthorizedParties = unauthorizedParties + party
   }
 
-  // Reset party authorization to the initially configured state.
+  // Clear the set of unauthorized parties.
   def resetAuthorizedParties(): Unit = {
-    authorizedParties = config.parties
+    unauthorizedParties = Set()
   }
 
   // To keep things as simple as possible, we use a UUID as the authorization code and refresh token
@@ -112,7 +109,7 @@ class Server(config: Config) {
             request =>
               val payload = toPayload(request)
               val parties = Party.subst(payload.readAs ++ payload.actAs).toSet
-              val denied = authorizedParties.map(parties -- _).getOrElse(Nil)
+              val denied = parties.intersect(unauthorizedParties)
               if (denied.isEmpty) {
                 val authorizationCode = UUID.randomUUID()
                 val params =
