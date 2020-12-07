@@ -203,7 +203,7 @@ object CommandsValidator {
       commands: ProtoCommands,
   ): Either[StatusRuntimeException, Submitters[Ref.Party]] = {
     def actAsMustNotBeEmpty(effectiveActAs: Set[Ref.Party]) =
-      Either.cond(effectiveActAs.isEmpty, (), missingField("party or act_as"))
+      Either.cond(effectiveActAs.nonEmpty, (), missingField("party or act_as"))
 
     // Temporary check to reject all multi-party submissions until they are implemented
     // Note: when removing this method, also remove the call to `actAs.head` in validateCommands()
