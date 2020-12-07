@@ -8,6 +8,15 @@ To generate the file locally, you should run the Blackduck scan after performing
 
 1) Run full Bazel build
 ```bazel build //...```
+
+2) Create personal Blackduck token and add to environment variable
+Create a personal Blackduck token by authenticating to the Blackduck site with your DA Google account
+https://digitalasset.blackducksoftware.com/api/current-user/tokens
+
+Click Create New Token and give yourself read and write access, giving a memorable name (<username>-<machine> or similar)
+Copy the contents of this token and define in a local environment variable called BLACKDUCK_HUBDETECT_TOKEN
+```export BLACKDUCK_HUB_DETECT_TOKEN=<token_you_have_just_created>``` 
+
 2) Run Haskell Blackduck scan
 https://github.com/digital-asset/daml/blob/a17b340b47a711b53a1a5eb141c7835a9fb9bbbe/ci/cron/daily-compat.yml#L227-L234
 
