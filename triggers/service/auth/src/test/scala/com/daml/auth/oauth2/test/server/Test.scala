@@ -23,6 +23,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
   import Client.JsonProtocol._
   private def requestToken(
       parties: Seq[String],
+      admin: Boolean,
       applicationId: Option[String]): Future[Either[String, (AuthServiceJWTPayload, String)]] = {
     lazy val clientUri = Uri()
       .withAuthority(clientBinding.localAddress.getHostString, clientBinding.localAddress.getPort)
@@ -31,7 +32,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       method = HttpMethods.POST,
       entity = HttpEntity(
         MediaTypes.`application/json`,
-        Client.AccessParams(parties, applicationId).toJson.compactPrint)
+        Client.AccessParams(parties, admin, applicationId).toJson.compactPrint)
     )
     for {
       resp <- Http().singleRequest(req)
@@ -96,16 +97,18 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
 
   private def expectToken(
       parties: Seq[String],
+      admin: Boolean = false,
       applicationId: Option[String] = None): Future[(AuthServiceJWTPayload, String)] =
-    requestToken(parties, applicationId).flatMap {
+    requestToken(parties, admin, applicationId).flatMap {
       case Left(error) => fail(s"Expected token but got error-code $error")
       case Right(token) => Future(token)
     }
 
   private def expectError(
       parties: Seq[String],
+      admin: Boolean = false,
       applicationId: Option[String] = None): Future[String] =
-    requestToken(parties, applicationId).flatMap {
+    requestToken(parties, admin, applicationId).flatMap {
       case Left(error) => Future(error)
       case Right(_) => fail("Expected an error but got a token")
     }
@@ -146,6 +149,21 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         assert(error == "access_denied")
       }
     }
+    "issue a token with admin access" in {
+      for {
+        (token, _) <- expectToken(Seq(), admin = true)
+      } yield {
+        assert(token.admin)
+      }
+    }
+    "deny admin access if unauthorized" in {
+      server.revokeAdmin()
+      for {
+        error <- expectError(Seq(), admin = true)
+      } yield {
+        assert(error == "access_denied")
+      }
+    }
     "refresh a token" in {
       for {
         (token1, refresh1) <- expectToken(Seq())
@@ -158,14 +176,14 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     }
     "return a token with the requested app id" in {
       for {
-        (token, __) <- expectToken(Seq(), Some("my-app-id"))
+        (token, __) <- expectToken(Seq(), applicationId = Some("my-app-id"))
       } yield {
         assert(token.applicationId == Some("my-app-id"))
       }
     }
     "return a token with no app id if non is requested" in {
       for {
-        (token, __) <- expectToken(Seq(), None)
+        (token, __) <- expectToken(Seq(), applicationId = None)
       } yield {
         assert(token.applicationId == None)
       }
