@@ -40,9 +40,6 @@ private[sandbox] case class InMemoryActiveLedgerState(
       .exists(ac =>
         ac.signatories.exists(forParties.contains) || ac.observers.exists(forParties.contains))
 
-//  def lookupContractByKeyFor(key: GlobalKey, forParty: Party): Option[ContractId] =
-//    keys.get(key).filter(isVisibleForStakeholders(_, forParty))
-
   override def lookupContractByKey(key: GlobalKey): Option[ContractId] =
     keys.get(key)
 
