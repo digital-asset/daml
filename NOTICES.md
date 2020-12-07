@@ -6,6 +6,9 @@ At present this needs to be updated by running the scan manually and checking in
 
 To generate the file locally, you should run the Blackduck scan after performing a full Bazel build on the DAML repo
 
+Full details on running a Blackduck scan can be found @ https://github.com/DACH-NY/security-blackduck/blob/master/README.md
+
+
 1) Run full Bazel build
 ```bazel build //...```
 
