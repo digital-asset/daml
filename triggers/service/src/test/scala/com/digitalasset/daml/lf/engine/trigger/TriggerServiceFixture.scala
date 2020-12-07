@@ -43,8 +43,8 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
-import com.daml.oauth.middleware.{Config => MiddlewareConfig, Server => MiddlewareServer}
-import com.daml.oauth.server.{Config => OAuthConfig, Server => OAuthServer}
+import com.daml.auth.middleware.oauth2.{Config => MiddlewareConfig, Server => MiddlewareServer}
+import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
