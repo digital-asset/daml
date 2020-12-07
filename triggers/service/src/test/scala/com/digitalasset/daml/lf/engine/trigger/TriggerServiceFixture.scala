@@ -233,6 +233,7 @@ trait AuthMiddlewareFixture
 
   override protected def afterEach(): Unit = {
     authServer.resetAuthorizedParties()
+    authServer.resetAdmin()
 
     super.afterEach()
   }

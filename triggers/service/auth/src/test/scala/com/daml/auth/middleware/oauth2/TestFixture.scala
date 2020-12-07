@@ -79,6 +79,7 @@ trait TestFixture
 
   override protected def afterEach(): Unit = {
     server.resetAuthorizedParties()
+    server.resetAdmin()
 
     super.afterEach()
   }
