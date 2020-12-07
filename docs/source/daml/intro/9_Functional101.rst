@@ -30,7 +30,7 @@ The previous chapters of this introduction to DAML have mostly covered the struc
 
 When comparing DAML to Haskell it's worth noting:
 
--   Haskell is a lazy language, which allows you to write things like ``head [1..]``, meaning "take the first element of an infinite list". DAML by contrast is strict. Expressions are fully evaluated, which means it it not possible to work with infinite data structures.
+-   Haskell is a lazy language, which allows you to write things like ``head [1..]``, meaning "take the first element of an infinite list". DAML by contrast is strict. Expressions are fully evaluated, which means it is not possible to work with infinite data structures.
 - DAML has a ``with`` syntax for records, and dot syntax for record field access, neither of which present in Haskell. But DAML supports Haskell's curly brace record notation.
 - DAML has a number of Haskell compiler extensions active by default.
 - DAML doesn't support all features of Haskell's type system. For example, there are no existential types or GADTs.
@@ -499,4 +499,4 @@ Lastly, you'll have noticed that in some cases we used ``mapA_``, not ``mapA``. 
 Next up
 -------
 
-You now know the basics of functions and control flow, both in pure and Action contexts. The Chapter 8 example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the the DAML Standard Library. It provides functions and typeclasses for many common circumstances and in :doc:`10_StdLib`, you'll get an overview of the library and learn how to search and browse it.
+You now know the basics of functions and control flow, both in pure and Action contexts. The Chapter 8 example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the DAML Standard Library. It provides functions and typeclasses for many common circumstances and in :doc:`10_StdLib`, you'll get an overview of the library and learn how to search and browse it.

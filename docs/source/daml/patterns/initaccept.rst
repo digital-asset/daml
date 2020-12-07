@@ -24,7 +24,7 @@ Implementation
 The Initiate and Accept pattern in general involves 2 contracts:
 
 Initiate contract
-  The Initiate contract can be created from a role contract or any other point in the workflow. In this example, initiate contract is the proposal contract  *CoinIssueProposal* the issuer created from from the master contract *CoinMaster*.
+  The Initiate contract can be created from a role contract or any other point in the workflow. In this example, initiate contract is the proposal contract  *CoinIssueProposal* the issuer created from the master contract *CoinMaster*.
 
   .. literalinclude:: daml/CoinIssuance.daml
     :language: daml

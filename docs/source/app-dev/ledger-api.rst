@@ -24,7 +24,7 @@ another language. Every ledger that DAML can run on exposes this same API.
 What's in the Ledger API
 ************************
 
-You can access the Ledger API via via the HTTP JSON API, Java bindings, Scala bindings or gRPC. In
+You can access the Ledger API via the HTTP JSON API, Java bindings, Scala bindings or gRPC. In
 all cases, the Ledger API exposes the same services:
 
 - Submitting commands to the ledger

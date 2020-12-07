@@ -69,7 +69,7 @@ Contention refers to conflicts over access to contracts. DAML guarantees that th
 If we look back at :ref:`execution_model` we'll see there are three places where ledger state is consumed:
 
 1. A command is submitted by some client, probably looking at the state of the ledger to build that command. Maybe the command includes references to ContractIds that the client believes are active.
-2. During interpretation, ledger state is used to to look up active contracts.
+2. During interpretation, ledger state is used to look up active contracts.
 3. During commit, ledger state is again used to look up contracts and validate the transaction by reinterpreting it.
 
 Collisions can occur both between 1 and 2 and between 2 and 3. Only during the commit phase is the complete relevant ledger state at the time of the transaction known, which means the ledger state at commit time is king. As a DAML contract developer, you need to understand the different causes of contention, be able to diagnose the root cause if errors of this type occur, and be able to avoid collisions by designing contracts appropriately.
