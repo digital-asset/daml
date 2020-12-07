@@ -131,6 +131,9 @@ object KVTest {
           State.state(Configuration.decode(v.getConfigurationEntry.getConfiguration).right.get)
       }
 
+  def currentRecordTime: KVTest[Timestamp] =
+    get[KVTestState].map(_.recordTime)
+
   def setRecordTime(rt: Timestamp): KVTest[Unit] =
     modify(_.copy(recordTime = rt))
 

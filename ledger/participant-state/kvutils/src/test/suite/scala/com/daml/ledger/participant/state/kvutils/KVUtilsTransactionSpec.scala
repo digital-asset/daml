@@ -148,6 +148,72 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
         }
       }
 
+    "reject a pre-executed submission indirectly referring to a replaced key" in
+      KVTest.runTestWithSimplePackage(alice, bob, eve) { simplePackage =>
+        val seeds =
+          Stream
+            .from(0)
+            .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
+        for {
+          createTransaction <- runSimpleCommand(alice, seeds.head, simpleCreateCmd(simplePackage))
+          _ <- preExecuteTransaction(
+            submitter = alice,
+            transaction = createTransaction,
+            submissionSeed = seeds.head,
+          )
+
+          recordTime <- currentRecordTime
+          createHolderTransaction <- runSimpleCommand(
+            alice,
+            seeds.head,
+            simplePackage.simpleHolderCreateCmd(simplePackage.mkSimpleHolderTemplateArg(alice)))
+          holderContractId <- preExecuteTransaction(
+            submitter = alice,
+            transaction = createHolderTransaction,
+            submissionSeed = seeds.head,
+          ).map {
+            case (entryId, preExecutionResult) =>
+              val update = KeyValueConsumption
+                .logEntryToUpdate(entryId, preExecutionResult.successfulLogEntry, Some(recordTime))
+                .head
+              update
+                .asInstanceOf[Update.TransactionAccepted]
+                .transaction
+                .nodes
+                .values
+                .head
+                .asInstanceOf[NodeCreate[ContractId, _]]
+                .coid
+          }
+
+          preExecuted <- inParallelKeepingFirst(
+            (1 to 2)
+              .map(i => seeds(i))
+              .map(seed =>
+                for {
+                  exerciseTransaction <- runSimpleCommand(
+                    alice,
+                    seed,
+                    simplePackage.simpleHolderExerciseReplaceHeldByKeyCmd(holderContractId),
+                  )
+                  submission <- prepareTransactionSubmission(
+                    submitter = alice,
+                    transaction = exerciseTransaction,
+                    submissionSeed = seed,
+                  )
+                } yield submission))
+          preExecutionResults <- sequentially(preExecuted.map(preExecute(_).map(_._2)))
+        } yield {
+          val Seq(resultA, resultB) = preExecutionResults
+          resultA.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
+
+          resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.DISPUTED
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getDisputed.getDetails should startWith(
+            "Missing input state for key contract_id: ")
+        }
+      }
+
     "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
       simplePackage =>
         val seed = hash(this.getClass.getName)
