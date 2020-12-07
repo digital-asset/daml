@@ -48,7 +48,7 @@ import ContractIdInput from './ContractIdInput';
 import * as DamlLfValueF from '@da/ui-core/lib/api/DamlLfValue';
 
 
-//tslint:disable:no-use-before-declare
+/* eslint-disable @typescript-eslint/no-use-before-define */
 
 //------------------------------------------------------------------------------
 // Input Types
@@ -226,7 +226,7 @@ const UnitInput = (props: InputProps<DamlLfValueUnit>): JSX.Element => {
         disabled={true}
         placeholder="unit"
         value="unit"
-        onChange={() => { ; }}
+        onChange={() => { return; }}
       />
     );
   } else {
@@ -552,7 +552,7 @@ const BoolInput = (props: InputProps<DamlLfValueBool>): JSX.Element => {
             disabled={disabled}
             name={`${name}.true`}
             checked={value}
-            onChange={(_) => { onChange(DamlLfValueF.bool(true)); }}
+            onChange={() => { onChange(DamlLfValueF.bool(true)); }}
           />
           <ControlIndicator />
           True
@@ -563,7 +563,7 @@ const BoolInput = (props: InputProps<DamlLfValueBool>): JSX.Element => {
             disabled={disabled}
             name={`${name}.false`}
             checked={!value}
-            onChange={(_) => { onChange(DamlLfValueF.bool(false)); }}
+            onChange={() => { onChange(DamlLfValueF.bool(false)); }}
           />
           <ControlIndicator />
           False
@@ -600,7 +600,7 @@ const ListInput = (props: ListInputProps): JSX.Element => {
   const { argument, parameter, level, name, onChange, disabled, contractIdProvider, typeProvider } = props;
   if (matchPrimitiveType(argument, parameter, 'list')) {
     const elements = argument && argument.type === 'list' ? argument.value : [];
-    const elementType = parameter.args[0] || DamlLfTypeF.unit()
+    const elementType = parameter.args[0] || DamlLfTypeF.unit()
     return (
       <NestedForm level={level}>
         {elements.map((k, i) => (
@@ -662,7 +662,7 @@ const MapInput = (props: MapInputProps): JSX.Element => {
   const { argument, parameter, level, onChange, disabled, contractIdProvider, typeProvider } = props;
   if (matchPrimitiveType(argument, parameter, 'textmap')) {
     const elements = argument && argument.type === 'textmap' ? argument.value : [];
-    const elementType = parameter.args[0] || DamlLfTypeF.unit();
+    const elementType = parameter.args[0] || DamlLfTypeF.unit();
     return (
       <NestedForm level={level}>
         {elements.map((entry, i) => (
@@ -742,8 +742,8 @@ const GenMapInput = (props: GenMapInputProps): JSX.Element => {
   const { argument, parameter, level, onChange, disabled, contractIdProvider, typeProvider } = props;
   if (matchPrimitiveType(argument, parameter, 'genmap')) {
     const entries = argument && argument.type === 'genmap' ? argument.value : [];
-    const keyType = parameter.args[0] || DamlLfTypeF.unit();
-    const valueType = parameter.args[1] || DamlLfTypeF.unit();
+    const keyType = parameter.args[0] || DamlLfTypeF.unit();
+    const valueType = parameter.args[1] || DamlLfTypeF.unit();
     return (
       <NestedForm level={level}>
         {entries.map((entry, i) => (
@@ -947,7 +947,7 @@ export interface ContractIdProvider {
 export interface TypeProvider {
   fetchType(
     id: DamlLfIdentifier,
-    onResult: (id: DamlLfIdentifier, result: DamlLfDefDataType | undefined) => void,
+    onResult: (id: DamlLfIdentifier, result: DamlLfDefDataType | undefined) => void,
   ): void;
 }
 
@@ -1140,7 +1140,7 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
       />
     );
   } else if (parameter.type === 'typevar') {
-    return <em>Type variable '{parameter.name}'. If you see this, it means there is a problem with Navigator.</em>;
+    return <em>Type variable &apos;{parameter.name}&apos;. If you see this, it means there is a problem with Navigator.</em>;
   } else {
     throw new NonExhaustiveMatch(parameter);
   }

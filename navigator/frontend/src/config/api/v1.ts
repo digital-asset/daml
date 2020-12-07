@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// tslint:disable no-any
+// eslint-disable  @typescript-eslint/no-explicit-any
 
 // ----------------------------------------------------------------------------
 // Sort and filter
@@ -148,7 +148,7 @@ export type Argument
   | null
   ;
 
-// tslint:disable-next-line no-empty-interface (used to work around circular type definition)
+// eslint-disable-next-line  @typescript-eslint/no-empty-interface
 export interface ListArgument extends Array<Argument> { }
 export interface RecordArgument { [index: string]: Argument }
 /**
@@ -169,7 +169,7 @@ export type Parameter
   | { type: 'unit' }
   | UnsupportedParameter
   | RecordParameter
-  | VariantParameter
+  | VariantParameter
   | ListParameter
   ;
 
@@ -192,7 +192,7 @@ export interface ContractsRowData {
      * or active (if __typename=='Block')
      */
     activeAtOrArchiveTx: {
-        __typename: 'Transaction' | 'Block';
+        __typename: 'Transaction' | 'Block';
         id: string;
     };
     /** Contract argument */

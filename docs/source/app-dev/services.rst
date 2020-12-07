@@ -217,6 +217,15 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 
 .. _ledger-api-testing-services:
 
+Pruning service
+============================
+
+Use the **pruning service** to prune archived contracts and transactions before or at a given offset.
+
+For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.ParticipantPruningService>`.
+
+.. _pruning-service:
+
 Testing services
 ****************
 

@@ -71,23 +71,16 @@ private[kvutils] class TransactionCommitter(
     "validate_contract_keys" -> validateContractKeys,
     "validate_model_conformance" -> validateModelConformance,
     "blind" -> blind,
-    "remove_unnecessary_nodes" -> removeUnnecessaryNodes,
+    "trim_unnecessary_nodes" -> trimUnnecessaryNodes,
     "build_final_log_entry" -> buildFinalLogEntry,
   )
 
-  private def contractIsActiveAndVisibleToSubmitter(
+  private def contractIsActive(
       transactionEntry: DamlTransactionEntrySummary,
       contractState: DamlContractState,
   ): Boolean = {
-    val locallyDisclosedTo = contractState.getLocallyDisclosedToList.asScala
-    val divulgedTo = contractState.getDivulgedToList.asScala
-    val isVisible = locallyDisclosedTo.contains(transactionEntry.submitter) || divulgedTo.contains(
-      transactionEntry.submitter)
-    val isActive = {
-      val activeAt = Option(contractState.getActiveAt).map(parseTimestamp)
-      !contractState.hasArchivedAt && activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
-    }
-    isVisible && isActive
+    val activeAt = Option(contractState.getActiveAt).map(parseTimestamp)
+    !contractState.hasArchivedAt && activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
   }
 
   /** Reject duplicate commands
@@ -218,9 +211,7 @@ private[kvutils] class TransactionCommitter(
           commitContext.collectInputs {
             case (key, Some(value))
                 if value.getContractState.hasContractKey
-                  && contractIsActiveAndVisibleToSubmitter(
-                    transactionEntry,
-                    value.getContractState) =>
+                  && contractIsActive(transactionEntry, value.getContractState) =>
               value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
           }
 
@@ -306,7 +297,7 @@ private[kvutils] class TransactionCommitter(
   /**
     * Removes `Fetch` and `LookupByKey` nodes from the transactionEntry.
     */
-  private[committer] def removeUnnecessaryNodes: Step = (_, transactionEntry) => {
+  private[committer] def trimUnnecessaryNodes: Step = (_, transactionEntry) => {
     val transaction = transactionEntry.submission.getTransaction
     val nodes = transaction.getNodesList.asScala
     val nodesToKeep = nodes.iterator.collect {
@@ -600,7 +591,7 @@ private[kvutils] class TransactionCommitter(
   ): Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]] = {
     val stateKey = contractIdToStateKey(coid)
     for {
-      // Fetch the state of the contract so that activeness and visibility can be checked.
+      // Fetch the state of the contract so that activeness can be checked.
       // There is the possibility that the reinterpretation of the transaction yields a different
       // result in a LookupByKey than the original transaction. This means that the contract state data for the
       // contractId pointed to by that contractKey might not have been preloaded into the input state map.
@@ -608,7 +599,7 @@ private[kvutils] class TransactionCommitter(
       // transaction with the reinterpreted one, and the LookupByKey node will not match.
       // Additionally, all contract keys are checked to uphold causal monotonicity.
       contractState <- commitContext.read(stateKey).map(_.getContractState)
-      if contractIsActiveAndVisibleToSubmitter(transactionEntry, contractState)
+      if contractIsActive(transactionEntry, contractState)
       contract = Conversions.decodeContractInstance(contractState.getContractInstance)
     } yield contract
   }

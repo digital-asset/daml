@@ -26,7 +26,7 @@ const set = (a: Page.State) => toPage(Page.setPage(a));
 
 export const signIn = new Route<{}, Action, State>(
   '/sign-in(/)',
-  ({}) => undefined,
+  () => undefined,
   ({ session }: State) =>
     (session.type === 'required' ? {} : undefined),
 );

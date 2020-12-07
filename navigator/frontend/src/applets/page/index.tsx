@@ -103,7 +103,7 @@ export interface Props {
   toConfig(action: ConfigSource.Action): App.Action;
 }
 
-const Component = ({ configSource, page, user, config, toConfig, toSelf, toWatcher }: Props) => {
+const Component: React.FC<Props> = ({ configSource, page, user, config, toConfig, toSelf, toWatcher }) => {
   switch (page.type) {
     case 'about':
       return (

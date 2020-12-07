@@ -712,7 +712,7 @@ body
     top: 0
     position: absolute
     right: 30px
-    font-size: 24pt
+    font-size: 20pt
     font-weight: $weight-body
     display: flex
     align-items: center
@@ -745,13 +745,13 @@ body
         margin-top: 0
 
         +media($desktop-wide)
-          font-size: 26pt
+          font-size: 20pt
 
         .nice-select
           font-size: 20pt
 
           +media($desktop-wide)
-            font-size: 26pt
+            font-size: 20pt
 
           &:after
             background-size: 20px
@@ -1381,14 +1381,14 @@ body
     .rst-content
 
       .h1-section
-        max-width: 745px
+        max-width: $nav-content-width
 
       .h2-section,
       .h3-section,
       .h4-section,
       .h5-section,
       .h6-section
-        max-width: 745px
+        max-width: $nav-content-width
         margin-top: 50px
 
       .h3-section,
@@ -1483,14 +1483,14 @@ body
       .rst-content
 
         .h1-section
-          max-width: 745px
+          max-width: $nav-content-width
 
         .h2-section,
         .h3-section,
         .h4-section,
         .h5-section,
         .h6-section
-          max-width: 745px
+          max-width: $nav-content-width
           margin-top: 35px
 
         .h3-section,
@@ -1817,7 +1817,7 @@ body
         pointer-events: none
 
     .section
-      max-width: 745px
+      max-width: $nav-content-width
 
     h1, h2, h3, h4, h5, h6
       a, a:visited
@@ -2035,7 +2035,7 @@ div.pdf-download
   z-index: 20000
   float: right
   padding: 150px 0 30px 40px
-  margin-right: calc(100% - 745px)
+  margin-right: calc(100% - $nav-content-width)
 
   +media($mobile)
     display: none
@@ -2060,3 +2060,6 @@ div.pdf-download
   z-index: 20000
   +media($mobile)
     display: none
+
+footer
+  max-width: $nav-content-width

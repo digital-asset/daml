@@ -44,7 +44,7 @@ export interface OwnProps<A extends Action> {
 }
 
 export interface ApolloProps {
-  // tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: ApolloClient<any>;
 }
 
@@ -64,7 +64,7 @@ interface ComponentState {
 // After the fade out time has passed, they can be removed from the oldCommands
 // list as well, to prevent drawing an increasing number of invisible icons.
 function canRemove(cmd: WatchedCommand, now: number) {
-  // tslint:disable-next-line:restrict-plus-operands -- false positive
+  // eslint-disable-next-line @typescript-eslint/restrict-plus-operands
   const maxTime = MAX_COMMAND_AGE + fadeTime;
   return cmd.result && (now - cmd.result.processedAt.getTime()) > maxTime;
 }
@@ -87,7 +87,7 @@ class Component<A extends Action>
     }
   }
 
-  componentWillReceiveProps(nextProps: Props<A>) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props<A>) {
     const nextCommands = nextProps.watcher.commands;
     const commands = this.props.watcher.commands;
     const oldCommands = this.state.oldCommands;

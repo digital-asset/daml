@@ -296,17 +296,17 @@ private[platform] final class LedgerBackedIndexService(
   /** Deduplicate commands */
   override def deduplicateCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
-    ledger.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil)
+    ledger.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil)
 
   override def stopDeduplicatingCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Unit] =
-    ledger.stopDeduplicatingCommand(commandId, submitter)
+    ledger.stopDeduplicatingCommand(commandId, submitters)
 
   /** Participant pruning command */
   override def prune(pruneUpToInclusive: Offset)(

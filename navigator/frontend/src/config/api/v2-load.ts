@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ConfigFunctions } from '../index'
+import { ConfigFunctions } from '../index'
 import { loadExportedFunction } from '../utils';
 import { ConfigFile } from './v1';
 

@@ -47,7 +47,7 @@ const apolloMock = {
   }),
   query: () => mockRejectPromise,
   mutate: () => mockRejectPromise,
-// tslint:disable-next-line:no-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 } as any as ApolloClient<any>
 
 const App = (_: {}): JSX.Element => (

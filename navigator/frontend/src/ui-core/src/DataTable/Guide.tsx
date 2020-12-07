@@ -19,7 +19,7 @@ higher order component from apollo-client.
 interface RowData {
   id: string;
   contracts: number;
-};
+}
 
 // Data, as loaded by apollo/graphql
 interface Data {
@@ -57,7 +57,7 @@ function getData(config: DataTableConfig) {
   }
 }
 
-const columns: DataColumnConfig<RowData, string | number>[] = [
+const columns: DataColumnConfig<RowData, string | number>[] = [
   {
     key: 'id',
     title: 'ID',
@@ -80,7 +80,7 @@ const columns: DataColumnConfig<RowData, string | number>[] = [
   },
 ];
 
-function createTextCell({cellData}: {cellData: string | number}){
+function createTextCell({cellData}: {cellData: string | number}){
   return (<span>{cellData}</span>);
 }
 
@@ -114,7 +114,7 @@ export default class DataTableGuide extends React.Component<{}, State> {
     this.onConfigChange = this.onConfigChange.bind(this);
   }
 
-  render() {
+  render(): JSX.Element {
     return (
       <Section
         title="Data table"
@@ -152,7 +152,7 @@ export default class DataTableGuide extends React.Component<{}, State> {
     );
   }
 
-  onConfigChange(config: DataTableConfig) {
+  onConfigChange(config: DataTableConfig): void {
     this.setState({ config });
   }
 }

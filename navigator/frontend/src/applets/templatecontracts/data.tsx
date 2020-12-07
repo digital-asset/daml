@@ -96,7 +96,7 @@ export function makeParamQueryVariables<
   };
 }
 
-export function dataToRows(data: QueryControls & ContractsByTemplateQuery) {
+export function dataToRows(data: QueryControls & ContractsByTemplateQuery): {contracts: Contract[], totalCount: number} {
   if (data.loading || data.error) {
     return { contracts: [], totalCount: 0 }
   } else if (data.node && data.node.__typename === 'Template') {

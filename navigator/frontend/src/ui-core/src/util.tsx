@@ -10,16 +10,16 @@ import { DamlLfValue } from './api/DamlLfValue';
  * The argument doesnt match the specified type.
  */
 export class TypeError extends Error {
-  constructor(private parameter: {}, private argument?: {} | null) {
+  constructor(private parameter: Record<string, unknown>, private argument?: Record<string, unknown>) {
     super();
     console.error('Argument', argument, 'does not match parameter', parameter);
   }
-  toString() {
+  toString(): string {
     return (
       `Argument ${this.argument} does not match parameter ${this.parameter}`
     );
   }
-  toJSON() {
+  toJSON(): Record<string, unknown> {
     return {
       argument: this.argument,
       parameter: this.parameter,
@@ -33,7 +33,7 @@ export interface TypeErrorElementProps {
   argument: DamlLfValue;
 }
 
-export const TypeErrorElement: React.StatelessComponent<TypeErrorElementProps> = ({argument, parameter}) => {
+export const TypeErrorElement: React.FunctionComponent<TypeErrorElementProps> = ({argument, parameter} : TypeErrorElementProps) => {
   const message = `Argument ${JSON.stringify(argument)} does not match parameter ${JSON.stringify(parameter)}`;
   return (<em>{message}</em>);
 }
@@ -64,12 +64,12 @@ export class NonExhaustiveMatch extends Error {
     super();
     console.error('No match found for ', match);
   }
-  toString() {
+  toString(): string {
     return (
       `No match found for ${this.match}`
     );
   }
-  toJSON() {
+  toJSON(): Record<string, unknown> {
     return {
       match: this.match,
     };
@@ -77,7 +77,7 @@ export class NonExhaustiveMatch extends Error {
 }
 
 // ISO 8601 string to Moment
-export function utcStringToMoment(str: string): Moment.Moment | undefined {
+export function utcStringToMoment(str: string): Moment.Moment | undefined {
   const result = Moment.utc(str);
   if (result.isValid()) {
     return result;

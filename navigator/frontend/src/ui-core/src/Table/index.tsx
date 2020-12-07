@@ -61,7 +61,7 @@ export interface CellRenderParams<C, R> {
   columnIndex: number;
   rowData: R;
   rowIndex: number;
-};
+}
 
 export type CellAlignment
   = 'none'   // Do nothing, output content as is
@@ -218,7 +218,7 @@ const CellPadding = styled.div`
   flex: 1;
 `;
 
-export function align(alignment: CellAlignment, content: JSX.Element) {
+export function align(alignment: CellAlignment, content: JSX.Element): JSX.Element {
   switch (alignment) {
     case 'none': return content;
     case 'left': return content;
@@ -233,11 +233,11 @@ export function createColumns<
   R
 >(props: {
   readonly config: C,
-  readonly columns: ColumnConfig<R, {}>[],
+  readonly columns: ColumnConfig<R, unknown>[],
   onConfigChange?(config: C): void,
-}) {
+}): JSX.Element[] {
   const { columns } = props;
-  return columns.map((col: ColumnConfig<R, {}>, idx: number) => (
+  return columns.map((col: ColumnConfig<R, unknown>, idx: number) => (
     <Column
       key={idx}
       dataKey={col.key}

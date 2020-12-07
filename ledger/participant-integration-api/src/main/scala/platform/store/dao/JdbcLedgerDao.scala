@@ -439,7 +439,7 @@ private class JdbcLedgerDao(
       recordTime: Instant,
       rejectionReason: RejectionReason,
   )(implicit connection: Connection): Unit = {
-    stopDeduplicatingCommandSync(domain.CommandId(info.commandId), info.singleSubmitterOrThrow())
+    stopDeduplicatingCommandSync(domain.CommandId(info.commandId), info.actAs)
     prepareRejectionInsert(info, offset, recordTime, rejectionReason).execute()
     ()
   }
@@ -515,9 +515,9 @@ private class JdbcLedgerDao(
             entry match {
               case tx: LedgerEntry.Transaction =>
                 val submitterInfo =
-                  for (submitter <- tx.submittingParty; appId <- tx.applicationId;
-                    cmdId <- tx.commandId)
-                    yield SubmitterInfo.withSingleSubmitter(submitter, appId, cmdId, Instant.EPOCH)
+                  for (appId <- tx.applicationId;
+                    actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs); cmdId <- tx.commandId)
+                    yield SubmitterInfo(actAs, appId, cmdId, Instant.EPOCH)
                 prepareTransactionInsert(
                   submitterInfo = submitterInfo,
                   workflowId = tx.workflowId,
@@ -531,13 +531,9 @@ private class JdbcLedgerDao(
                 submitterInfo
                   .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
                   .foreach(_.execute())
-              case LedgerEntry.Rejection(recordTime, commandId, applicationId, submitter, reason) =>
+              case LedgerEntry.Rejection(recordTime, commandId, applicationId, actAs, reason) =>
                 val _ = prepareRejectionInsert(
-                  submitterInfo = SubmitterInfo.withSingleSubmitter(
-                    submitter,
-                    applicationId,
-                    commandId,
-                    Instant.EPOCH),
+                  submitterInfo = SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
                   offset = offset,
                   recordTime = recordTime,
                   reason = toParticipantRejection(reason),
@@ -774,17 +770,24 @@ private class JdbcLedgerDao(
 
   private def deduplicationKey(
       commandId: domain.CommandId,
-      submitter: Ref.Party,
-  ): String = commandId.unwrap + "%" + submitter
+      submitters: List[Ref.Party],
+  ): String = {
+    val submitterPart =
+      if (submitters.length == 1)
+        submitters.head
+      else
+        submitters.sorted(Ordering.String).distinct.mkString("%")
+    commandId.unwrap + "%" + submitterPart
+  }
 
   override def deduplicateCommand(
       commandId: domain.CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
     dbDispatcher.executeSql(metrics.daml.index.db.deduplicateCommandDbMetrics) { implicit conn =>
-      val key = deduplicationKey(commandId, submitter)
+      val key = deduplicationKey(commandId, submitters)
       // Insert a new deduplication entry, or update an expired entry
       val updated = SQL(queries.SQL_INSERT_COMMAND)
         .on(
@@ -827,9 +830,11 @@ private class JdbcLedgerDao(
       |where deduplication_key = {deduplicationKey}
     """.stripMargin)
 
-  private[this] def stopDeduplicatingCommandSync(commandId: domain.CommandId, submitter: Party)(
-      implicit conn: Connection): Unit = {
-    val key = deduplicationKey(commandId, submitter)
+  private[this] def stopDeduplicatingCommandSync(
+      commandId: domain.CommandId,
+      submitters: List[Party],
+  )(implicit conn: Connection): Unit = {
+    val key = deduplicationKey(commandId, submitters)
     SQL_DELETE_COMMAND
       .on("deduplicationKey" -> key)
       .execute()
@@ -838,11 +843,11 @@ private class JdbcLedgerDao(
 
   override def stopDeduplicatingCommand(
       commandId: domain.CommandId,
-      submitter: Party,
+      submitters: List[Party],
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.stopDeduplicatingCommandDbMetrics) {
       implicit conn =>
-        stopDeduplicatingCommandSync(commandId, submitter)
+        stopDeduplicatingCommandSync(commandId, submitters)
     }
 
   private val SQL_UPDATE_MOST_RECENT_PRUNING = SQL(
@@ -888,7 +893,7 @@ private class JdbcLedgerDao(
     ContractsReader(dbDispatcher, dbType, metrics, lfValueTranslationCache)(executionContext)
 
   override val completions: CommandCompletionsReader =
-    new CommandCompletionsReader(dbDispatcher, metrics, executionContext)
+    new CommandCompletionsReader(dbDispatcher, dbType, metrics, executionContext)
 
   private val postCommitValidation =
     if (performPostCommitValidation)

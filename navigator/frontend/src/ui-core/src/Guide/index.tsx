@@ -79,7 +79,7 @@ export interface GuideProps {
   className?: string;
 }
 
-export const Guide: React.StatelessComponent<GuideProps> = (props) => (
+export const Guide: React.FC<GuideProps> = (props) => (
   <main className={props.className}>
     <Header>
       <Container>

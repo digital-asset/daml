@@ -33,7 +33,7 @@ object EventsTableH2Database extends EventsTable {
       "node_index" -> "{node_index}",
       "command_id" -> "{command_id}",
       "application_id" -> "{application_id}",
-      "submitter" -> "{submitter}",
+      "submitters" -> "{submitters}",
       "flat_event_witnesses" -> "{flat_event_witnesses}",
       "tree_event_witnesses" -> "{tree_event_witnesses}",
       "create_argument" -> "{create_argument}",
@@ -74,7 +74,7 @@ object EventsTableH2Database extends EventsTable {
         "ledger_effective_time" -> ledgerEffectiveTime,
         "command_id" -> submitterInfo.map(_.commandId),
         "application_id" -> submitterInfo.map(_.applicationId),
-        "submitter" -> submitterInfo.map(_.singleSubmitterOrThrow()),
+        "submitters" -> Party.Array(submitterInfo.map(_.actAs).getOrElse(List.empty): _*),
       )
     for ((nodeId, node) <- events)
       yield
