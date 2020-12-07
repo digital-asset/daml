@@ -9,11 +9,13 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.language.LanguageMajorVersion
 import com.daml.daml_lf_dev.DamlLf1
 import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.JavaConverters._
 
 class DarReaderTest
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with Inside
     with BazelRunfiles

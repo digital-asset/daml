@@ -26,7 +26,8 @@ import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
 class TransactionStreamTerminationIT

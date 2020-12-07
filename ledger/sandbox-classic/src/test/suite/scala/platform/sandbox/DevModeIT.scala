@@ -21,7 +21,8 @@ import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.ports.Port
 import com.google.protobuf
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.util.{Failure, Success}
 

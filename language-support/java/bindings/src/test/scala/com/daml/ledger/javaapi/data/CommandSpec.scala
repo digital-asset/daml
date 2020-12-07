@@ -4,10 +4,11 @@
 package com.daml.ledger.javaapi.data
 
 import com.daml.ledger.javaapi.data.Generators._
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
-class CommandSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
+class CommandSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyChecks {
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSize = 1, sizeRange = 3)

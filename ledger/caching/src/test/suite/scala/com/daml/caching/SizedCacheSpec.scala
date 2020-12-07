@@ -3,10 +3,10 @@
 
 package com.daml.caching
 
-import org.scalatest.WordSpec
+import org.scalatest.wordspec.AnyWordSpec
 
 class SizedCacheSpec
-    extends WordSpec
+    extends AnyWordSpec
     with CacheBehaviorSpecBase
     with CacheCachingSpecBase
     with CacheEvictionSpecBase {

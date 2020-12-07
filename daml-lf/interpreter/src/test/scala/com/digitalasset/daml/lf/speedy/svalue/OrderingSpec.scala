@@ -14,13 +14,14 @@ import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.{cidV0Gen, comparableCoidsGen}
 import com.daml.lf.PureCompiledPackages
 import org.scalacheck.{Arbitrary, Gen}
-import org.scalatest.prop.{
+import org.scalatest.prop.TableFor2
+import org.scalatestplus.scalacheck.{
   Checkers,
-  GeneratorDrivenPropertyChecks,
-  TableDrivenPropertyChecks,
-  TableFor2
+  ScalaCheckDrivenPropertyChecks,
+  ScalaCheckPropertyChecks
 }
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.{Order, Tag}
 import scalaz.syntax.order._
 import scalaz.scalacheck.{ScalazProperties => SzP}
@@ -28,11 +29,11 @@ import scalaz.scalacheck.{ScalazProperties => SzP}
 import scala.language.implicitConversions
 
 class OrderingSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with Checkers
-    with GeneratorDrivenPropertyChecks
-    with TableDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks
+    with ScalaCheckPropertyChecks {
 
   private val pkgId = Ref.PackageId.assertFromString("pkgId")
 

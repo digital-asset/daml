@@ -6,7 +6,7 @@ package com.daml.grpc.adapter.server.rs
 import com.daml.grpc.adapter.TestExecutionSequencerFactory
 import org.reactivestreams.Subscriber
 import org.reactivestreams.tck.{SubscriberBlackboxVerification, TestEnvironment}
-import org.scalatest.testng.TestNGSuiteLike
+import org.scalatestplus.testng.TestNGSuiteLike
 
 class ServerSubscriberBlackboxTest
     extends SubscriberBlackboxVerification[Integer](new TestEnvironment(500, 500, false))

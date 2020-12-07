@@ -3,10 +3,10 @@
 
 package com.daml.ledger.client.binding
 
-import org.scalatest.{WordSpec, Matchers}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class VoidValueRefSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+class VoidValueRefSpec extends AnyWordSpec with Matchers {
   "VoidValueRef subclasses" should {
     sealed abstract class TestVoid extends VoidValueRef
     // NB: *no special companion is required!*

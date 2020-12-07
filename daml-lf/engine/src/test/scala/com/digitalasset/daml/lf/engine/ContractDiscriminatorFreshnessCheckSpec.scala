@@ -10,12 +10,13 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueVersions}
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
 class ContractDiscriminatorFreshnessCheckSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks {
 

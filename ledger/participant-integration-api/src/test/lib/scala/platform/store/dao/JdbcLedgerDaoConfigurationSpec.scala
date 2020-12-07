@@ -7,7 +7,8 @@ import java.time.Instant
 
 import akka.stream.scaladsl.Sink
 import com.daml.platform.store.entries.ConfigurationEntry
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 

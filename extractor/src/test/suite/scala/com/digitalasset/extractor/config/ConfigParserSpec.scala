@@ -5,17 +5,19 @@ package com.daml.extractor.config
 
 import com.daml.extractor.config.Generators._
 import com.daml.extractor.targets.Target
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Inside, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.Inside
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.OneAnd
 import scalaz.Scalaz._
 import scalaz.scalacheck.ScalazArbitrary._
 
 class ConfigParserSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with Inside
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
 
   behavior of ConfigParser.getClass.getSimpleName
 

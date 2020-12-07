@@ -12,7 +12,9 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, Test
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.RecoveringIndexerSpec._
 import com.daml.platform.testing.LogCollector
-import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
+import org.scalatest.BeforeAndAfterEach
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration}

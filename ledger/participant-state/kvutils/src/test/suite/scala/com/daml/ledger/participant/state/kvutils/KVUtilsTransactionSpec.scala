@@ -24,9 +24,10 @@ import com.daml.lf.value.Value.{
   ValueUnit,
   ValueVariant
 }
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class KVUtilsTransactionSpec extends WordSpec with Matchers {
+class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
 
   import KVTest._
 

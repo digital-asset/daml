@@ -3,9 +3,10 @@
 
 package com.daml.lf.data
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class InsertOrdMapTest extends WordSpec with Matchers {
+class InsertOrdMapTest extends AnyWordSpec with Matchers {
   "toSeq" should {
     "preserve order" in {
       (InsertOrdMap.empty + (1 -> "a") + (2 -> "b")).toSeq shouldEqual Seq(1 -> "a", 2 -> "b")

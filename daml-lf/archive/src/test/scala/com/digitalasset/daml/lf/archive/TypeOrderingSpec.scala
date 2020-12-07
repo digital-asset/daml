@@ -5,11 +5,12 @@ package com.daml.lf.archive
 
 import com.daml.daml_lf_dev.DamlLf1
 import com.daml.lf.language.{Ast, TypeOrdering}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.JavaConverters._
 
-class TypeOrderingSpec extends WordSpec with Matchers {
+class TypeOrderingSpec extends AnyWordSpec with Matchers {
 
   "TypeOrdering" should {
 

@@ -5,14 +5,16 @@ package com.daml.ledger.client.binding.encoding
 
 import com.daml.ledger.client.binding.encoding.EncodingUtil.normalize
 import org.apache.commons.text.StringEscapeUtils
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{Assertion, Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.Cord
 
 class ShowUnicodeEscapedStringSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
 
   implicit override val generatorDrivenConfig = PropertyCheckConfiguration(minSuccessful = 10000)
 

@@ -8,13 +8,14 @@ import com.daml.lf.value.Value.{ValueText, ValueInt64}
 import com.daml.navigator.graphql.GraphQLSchema
 import com.daml.navigator.model.{Contract, Template}
 import com.daml.ledger.api.refinements.ApiTypes
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import com.daml.navigator.DamlConstants.singletonRecord
 import com.daml.navigator.model._
 import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
-class ContractFilterSpec extends FlatSpec with Matchers {
+class ContractFilterSpec extends AnyFlatSpec with Matchers {
 
   behavior of "ContractFilter"
 

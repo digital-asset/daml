@@ -10,7 +10,8 @@ import java.security.KeyPairGenerator
 import java.security.interfaces.{RSAPrivateKey, RSAPublicKey}
 
 import com.daml.jwt.domain.DecodedJwt
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.syntax.show._
 
 /** Helper to create a HTTP server that serves a constant response on the "/result" URL */
@@ -39,7 +40,7 @@ private object SimpleHttpServer {
   }
 }
 
-class JwksSpec extends FlatSpec with Matchers {
+class JwksSpec extends AnyFlatSpec with Matchers {
 
   private def generateToken(keyId: String, privateKey: RSAPrivateKey) = {
     val jwtPayload = s"""{"test": "JwksSpec"}"""

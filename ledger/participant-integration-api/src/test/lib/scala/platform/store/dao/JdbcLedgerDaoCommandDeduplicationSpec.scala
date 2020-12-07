@@ -11,7 +11,8 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew
 }
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 private[dao] trait JdbcLedgerDaoCommandDeduplicationSpec {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>

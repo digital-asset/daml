@@ -6,9 +6,10 @@ package com.daml.lf.codegen.backend.java
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 import com.squareup.javapoet.{ClassName, TypeName}
 import javax.lang.model.element.Modifier
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
-final class ObjectMethodsSpec extends FlatSpec with Matchers {
+final class ObjectMethodsSpec extends AnyFlatSpec with Matchers {
 
   val Vector(equalsSpec, hashCodeSpec, toStringSpec) =
     ObjectMethods(ClassName.bestGuess("Test"), IndexedSeq.empty, IndexedSeq.empty)

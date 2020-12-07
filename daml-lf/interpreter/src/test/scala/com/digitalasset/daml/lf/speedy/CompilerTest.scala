@@ -8,9 +8,10 @@ import java.util
 
 import com.daml.lf.data._
 import com.daml.lf.testing.parser.Implicits._
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class CompilerTest extends WordSpec with Matchers {
+class CompilerTest extends AnyWordSpec with Matchers {
 
   import defaultParserParameters.{defaultPackageId => pkgId}
 

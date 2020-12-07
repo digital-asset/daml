@@ -5,9 +5,11 @@ package com.daml.lf.codegen.conf
 
 import java.nio.file.Paths
 
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class ConfSpec extends FlatSpec with Matchers with OptionValues {
+class ConfSpec extends AnyFlatSpec with Matchers with OptionValues {
 
   behavior of "Conf.parse"
 

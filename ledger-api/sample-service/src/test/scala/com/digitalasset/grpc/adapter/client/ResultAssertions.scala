@@ -6,7 +6,8 @@ package com.daml.grpc.adapter.client
 import com.daml.platform.hello.HelloResponse
 import com.google.protobuf.ByteString
 import io.grpc.{Status, StatusRuntimeException}
-import org.scalatest.{Assertion, Matchers}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
 
 import scala.util.Random
 

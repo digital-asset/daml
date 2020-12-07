@@ -17,11 +17,13 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.Ast
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
-import org.scalatest.{Matchers, ParallelTestExecution, WordSpec}
+import org.scalatest.ParallelTestExecution
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.JavaConverters._
 
-class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecution {
+class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestExecution {
 
   import com.daml.lf.testing.parser.Implicits._
 

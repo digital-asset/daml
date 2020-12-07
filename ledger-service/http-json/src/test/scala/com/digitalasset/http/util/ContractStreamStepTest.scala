@@ -6,9 +6,10 @@ package util
 
 import com.daml.scalatest.FlatSpecCheckLaws
 
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.scalacheck.ScalaCheckBinding._
 import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.apply._
@@ -16,10 +17,10 @@ import scalaz.syntax.semigroup._
 import scalaz.{@@, Equal, Tag}
 
 class ContractStreamStepTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with FlatSpecCheckLaws
     with Matchers
-    with GeneratorDrivenPropertyChecks
+    with ScalaCheckDrivenPropertyChecks
     with TableDrivenPropertyChecks {
 
   import ContractStreamStepTest._, ContractStreamStep._

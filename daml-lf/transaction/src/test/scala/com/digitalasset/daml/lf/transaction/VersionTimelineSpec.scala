@@ -13,11 +13,17 @@ import scalaz.{ICons, INil, NonEmptyList}
 import scalaz.std.list._
 import scalaz.syntax.foldable._
 import org.scalacheck.Gen
-import org.scalatest.{Inside, Matchers, WordSpec}
-import org.scalatest.prop.PropertyChecks
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import scalaz.\&/.Both
 
-class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks with Inside {
+class VersionTimelineSpec
+    extends AnyWordSpec
+    with Matchers
+    with ScalaCheckPropertyChecks
+    with Inside {
   import VersionTimeline._
   import VersionTimelineSpec._
 

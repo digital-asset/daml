@@ -14,7 +14,9 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionStreamRespons
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
 import com.daml.platform.store.CompletionFromTransaction
-import org.scalatest.{AsyncFlatSpec, LoneElement, Matchers, OptionValues}
+import org.scalatest.{LoneElement, OptionValues}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 

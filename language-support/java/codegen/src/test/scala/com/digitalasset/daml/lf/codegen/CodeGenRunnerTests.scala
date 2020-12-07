@@ -10,9 +10,10 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.archive.DarReader
 import com.daml.lf.codegen.backend.java.JavaBackend
 import com.daml.lf.codegen.conf.Conf
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
-class CodeGenRunnerTests extends FlatSpec with Matchers with BazelRunfiles {
+class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
 
   behavior of "collectDamlLfInterfaces"
 

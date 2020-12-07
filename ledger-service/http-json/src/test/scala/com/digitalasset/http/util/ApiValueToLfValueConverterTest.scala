@@ -9,17 +9,18 @@ import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.{Value => V}
 import com.daml.platform.participant.util.LfEngineToApi.lfValueToApiValue
 import org.scalacheck.{Arbitrary, Gen}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.Equal
 import scalaz.syntax.bifunctor._
 import scalaz.std.option._
 import scalaz.std.tuple._
 
 class ApiValueToLfValueConverterTest
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
   import ApiValueToLfValueConverterTest._
 
   private[this] implicit val arbCid: Arbitrary[CidSrc] = Arbitrary(

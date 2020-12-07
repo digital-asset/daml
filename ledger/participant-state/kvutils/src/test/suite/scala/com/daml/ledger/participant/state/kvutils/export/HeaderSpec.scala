@@ -6,9 +6,10 @@ package com.daml.ledger.participant.state.kvutils.export
 import java.io.{PipedInputStream, PipedOutputStream}
 
 import com.google.common.io.ByteStreams
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-final class HeaderSpec extends WordSpec with Matchers {
+final class HeaderSpec extends AnyWordSpec with Matchers {
   "header" should {
     "write and verify the version" in {
       val input = new PipedInputStream

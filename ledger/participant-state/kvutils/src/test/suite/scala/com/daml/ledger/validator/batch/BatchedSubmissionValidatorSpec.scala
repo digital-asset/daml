@@ -23,9 +23,10 @@ import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, argThat}
-import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Inside, Matchers}
+import org.mockito.MockitoSugar
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future

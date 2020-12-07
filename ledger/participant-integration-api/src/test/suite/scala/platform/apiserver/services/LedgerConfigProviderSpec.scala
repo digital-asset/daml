@@ -26,7 +26,8 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.LedgerConfigProviderSpec._
 import com.daml.platform.configuration.LedgerConfiguration
 import org.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}

@@ -11,9 +11,10 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, TestHelpers}
 import com.daml.lf.data.Time
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class CommitContextSpec extends WordSpec with Matchers {
+class CommitContextSpec extends AnyWordSpec with Matchers {
   "get" should {
     "check output first" in {
       val context = newInstance(inputs = newDamlStateMap(aKey -> anotherValue))

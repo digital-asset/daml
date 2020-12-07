@@ -7,11 +7,12 @@ import java.io.File
 
 import com.daml.ledger.client.binding.LedgerClientConfigurationError.MalformedTypesafeConfig
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Success
 
-class LedgerClientConfigTest extends WordSpec with Matchers {
+class LedgerClientConfigTest extends AnyWordSpec with Matchers {
 
   "TypeSafePlatformConfig" should {
 

@@ -8,8 +8,9 @@ import akka.stream.ClosedShape
 import akka.stream.scaladsl.{GraphDSL, Keep, RunnableGraph, Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.scalatest.AsyncForAll
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.{\/, -\/, \/-}
 import scalaz.std.list._
 import scalaz.std.scalaFuture._
@@ -20,7 +21,7 @@ import scalaz.syntax.traverse._
 class UnfoldStateSpec
     extends AsyncWordSpec
     with Matchers
-    with GeneratorDrivenPropertyChecks
+    with ScalaCheckDrivenPropertyChecks
     with AsyncForAll
     with AkkaBeforeAndAfterAll {
   import UnfoldState._

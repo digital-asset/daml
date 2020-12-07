@@ -12,16 +12,18 @@ import org.openqa.selenium.{JavascriptExecutor, WebDriver}
 import org.openqa.selenium.remote.DesiredCapabilities
 import org.openqa.selenium.remote.RemoteWebDriver
 import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.concurrent.Eventually
-import org.scalatest.selenium.WebBrowser
 import org.scalatest.time.{Millis, Span}
+import org.scalatestplus.selenium.WebBrowser
 
 import scala.sys.process._
 import scala.util.{Failure, Success, Try}
 
 @WrapWith(classOf[ConfigMapWrapperSuite])
 class BrowserTest(args: Arguments)
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with WebBrowser
     with BeforeAndAfterAll

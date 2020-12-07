@@ -6,10 +6,11 @@ package com.daml.platform.api.checks.ledgerid
 import com.daml.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 class GetLedgerIdentityIT(service: => LedgerIdentityService, expectedLedgerId: String)
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with ScalaFutures {
 

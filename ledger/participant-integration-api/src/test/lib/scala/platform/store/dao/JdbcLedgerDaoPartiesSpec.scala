@@ -9,7 +9,8 @@ import java.util.UUID
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.lf.data.Ref
 import com.daml.platform.store.entries.PartyLedgerEntry
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 private[dao] trait JdbcLedgerDaoPartiesSpec {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>

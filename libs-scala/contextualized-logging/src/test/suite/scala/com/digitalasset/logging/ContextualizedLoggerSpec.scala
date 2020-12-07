@@ -4,14 +4,14 @@
 package com.daml.logging
 
 import org.mockito.ArgumentMatchersSugar
-import org.mockito.Mockito.{times, verify, when}
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
+import org.mockito.MockitoSugar
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.slf4j.event.{EventConstants, Level}
 import org.slf4j.{Logger, Marker}
 
 final class ContextualizedLoggerSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with MockitoSugar
     with ArgumentMatchersSugar {

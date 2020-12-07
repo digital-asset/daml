@@ -12,10 +12,11 @@ import com.daml.ledger.api.v1.ledger_configuration_service.{
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.google.protobuf.duration.Duration
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
 
-sealed trait LedgerConfigurationServiceITBase extends WordSpec with Matchers {
+sealed trait LedgerConfigurationServiceITBase extends AnyWordSpec with Matchers {
   self: SandboxFixture with SuiteResourceManagement =>
 
   "LedgerConfigurationService" when {

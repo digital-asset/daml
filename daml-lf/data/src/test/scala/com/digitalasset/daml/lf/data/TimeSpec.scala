@@ -10,9 +10,10 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.lf.data.Time._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{FreeSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.freespec.AnyFreeSpec
 
-class TimeSpec extends FreeSpec with Matchers with TableDrivenPropertyChecks {
+class TimeSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
   "Date operations" - {
 

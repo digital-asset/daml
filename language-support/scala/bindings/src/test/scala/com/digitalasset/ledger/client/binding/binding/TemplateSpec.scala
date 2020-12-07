@@ -3,13 +3,13 @@
 
 package com.daml.ledger.client.binding
 
-import org.scalatest.{WordSpec, Matchers}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import shapeless.test.illTyped
 
 import com.daml.ledger.client.binding.{Primitive => P}
 
-class TemplateSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+class TemplateSpec extends AnyWordSpec with Matchers {
   import TemplateSpec._
   // avoid importing CNA to test that implicit resolution is working properly
 

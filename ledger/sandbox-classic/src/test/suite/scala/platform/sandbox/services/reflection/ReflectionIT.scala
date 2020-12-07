@@ -11,7 +11,8 @@ import io.grpc.reflection.v1alpha.{
   ServerReflectionRequest,
   ServerReflectionResponse
 }
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future

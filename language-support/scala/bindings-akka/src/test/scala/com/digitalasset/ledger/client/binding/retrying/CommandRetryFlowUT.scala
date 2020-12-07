@@ -17,7 +17,8 @@ import com.github.ghik.silencer.silent
 import com.google.protobuf.duration.{Duration => protoDuration}
 import com.google.rpc.Code
 import com.google.rpc.status.Status
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 

@@ -5,11 +5,11 @@ package com.daml.scalatest
 
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen
-import org.scalatest.WordSpec
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz.{Equal, Show}
 
-class CustomMatcherSpec extends WordSpec with GeneratorDrivenPropertyChecks {
+class CustomMatcherSpec extends AnyWordSpec with ScalaCheckDrivenPropertyChecks {
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 10000)

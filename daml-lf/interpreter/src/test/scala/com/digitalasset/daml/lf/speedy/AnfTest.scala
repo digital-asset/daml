@@ -3,7 +3,9 @@
 
 package com.daml.lf.speedy
 
-import org.scalatest.{Assertion, WordSpec, Matchers}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
@@ -12,7 +14,7 @@ import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Pretty.SExpr._
 import com.daml.lf.data.Ref._
 
-class AnfTest extends WordSpec with Matchers {
+class AnfTest extends AnyWordSpec with Matchers {
 
   "identity: [\\x. x]" should {
     "be transformed to ANF as expected" in {

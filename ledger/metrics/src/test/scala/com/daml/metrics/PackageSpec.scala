@@ -4,7 +4,8 @@
 package com.daml.metrics
 
 import com.codahale.metrics.MetricRegistry
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.{ExecutionContext, Future}
 

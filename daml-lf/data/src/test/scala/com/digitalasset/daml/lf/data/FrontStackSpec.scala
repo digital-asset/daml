@@ -4,16 +4,16 @@
 package com.daml.lf.data
 
 import com.daml.scalatest.{Unnatural, WordSpecCheckLaws}
-import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
 
 class FrontStackSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
-    with GeneratorDrivenPropertyChecks
-    with TableDrivenPropertyChecks
+    with ScalaCheckPropertyChecks
     with WordSpecCheckLaws {
 
   import DataArbitrary._

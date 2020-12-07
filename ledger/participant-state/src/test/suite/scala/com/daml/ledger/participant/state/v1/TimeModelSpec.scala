@@ -5,9 +5,10 @@ package com.daml.ledger.participant.state.v1
 
 import java.time._
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TimeModelSpec extends WordSpec with Matchers {
+class TimeModelSpec extends AnyWordSpec with Matchers {
 
   private val referenceTime = Instant.EPOCH
   private val epsilon = Duration.ofMillis(10L)

@@ -17,6 +17,8 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest._
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 

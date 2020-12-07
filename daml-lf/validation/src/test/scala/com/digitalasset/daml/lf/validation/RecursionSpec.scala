@@ -6,9 +6,10 @@ package com.daml.lf.validation
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class RecursionSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   "Recursion validation should not detect cycles between a module and itself" in {
 

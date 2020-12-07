@@ -12,6 +12,8 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.http.json.SprayJson
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.std.option._
 import scalaz.std.vector._
 import scalaz.syntax.std.option._

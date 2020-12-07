@@ -19,9 +19,10 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.validation.Validation
 import org.scalactic.Equality
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class SpeedyTest extends WordSpec with Matchers {
+class SpeedyTest extends AnyWordSpec with Matchers {
 
   import SpeedyTest._
   import defaultParserParameters.{defaultPackageId => pkgId}

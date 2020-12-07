@@ -9,11 +9,12 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Try
 
-class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   "Serializability checking" should {
 

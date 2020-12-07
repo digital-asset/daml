@@ -6,6 +6,8 @@ package com.daml.http
 import com.daml.http.HttpServiceTestFixture.UseTls
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.\/-
 
 import scala.concurrent.duration._

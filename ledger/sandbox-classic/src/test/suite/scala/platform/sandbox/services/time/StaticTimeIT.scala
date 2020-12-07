@@ -17,13 +17,15 @@ import io.grpc.Status
 import org.awaitility.Awaitility
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Seconds, Span}
-import org.scalatest.{Assertion, Matchers, WordSpec}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
 
 import scala.concurrent.{Await, ExecutionContext}
 
 class StaticTimeIT
-    extends WordSpec
+    extends AnyWordSpec
     with SandboxFixture
     with SuiteResourceManagementAroundAll
     with ScalaFutures

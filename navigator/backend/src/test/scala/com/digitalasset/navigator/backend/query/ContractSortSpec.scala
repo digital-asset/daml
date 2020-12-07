@@ -3,7 +3,8 @@
 
 package com.daml.navigator.query
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import com.daml.lf.data.{Ref => DamlLfRef}
 import com.daml.lf.value.Value.{ValueText, ValueInt64}
 import com.daml.navigator.model._
@@ -13,7 +14,7 @@ import com.daml.navigator.query.SortDirection.{ASCENDING, DESCENDING}
 import com.daml.ledger.api.refinements.ApiTypes
 import scalaz.Tag
 
-class ContractSortSpec extends FlatSpec with Matchers {
+class ContractSortSpec extends AnyFlatSpec with Matchers {
 
   behavior of "ContractSort"
 

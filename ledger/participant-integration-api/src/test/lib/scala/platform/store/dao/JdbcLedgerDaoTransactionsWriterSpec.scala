@@ -5,7 +5,9 @@ package com.daml.platform.store.dao
 
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{BlindingInfo, NodeId}
-import org.scalatest.{AsyncFlatSpec, LoneElement, Matchers}
+import org.scalatest.LoneElement
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>

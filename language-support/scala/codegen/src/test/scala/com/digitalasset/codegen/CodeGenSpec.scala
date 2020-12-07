@@ -9,10 +9,11 @@ import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.iface._
 import com.daml.lf.value.test.ValueGenerators.idGen
 
-import org.scalatest.{WordSpec, Matchers}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
-class CodeGenSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+class CodeGenSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
   import CodeGen.filterTemplatesBy
   import CodeGenSpec._
 

@@ -10,7 +10,8 @@ import java.time.{Instant, LocalDate, ZoneOffset}
 import com.daml.ledger.javaapi.data.{Unit => DamlUnit}
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.lf.data.Numeric
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 import wolpertinger.color.Grey
 import wolpertinger.{Color, Wolpertinger}
 

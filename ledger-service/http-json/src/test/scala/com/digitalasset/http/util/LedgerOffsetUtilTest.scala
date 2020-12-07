@@ -6,15 +6,16 @@ package com.daml.http.util
 import com.daml.scalatest.FlatSpecCheckLaws
 import com.daml.http.Generators
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.scalacheck.ScalazProperties
 
 class LedgerOffsetUtilTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with FlatSpecCheckLaws
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)

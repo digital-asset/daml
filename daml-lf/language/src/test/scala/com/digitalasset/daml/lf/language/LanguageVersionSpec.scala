@@ -5,9 +5,10 @@ package com.daml.lf.language
 
 import com.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class LanguageVersionSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   "LanguageVersion.ordering order as expected" in {
 

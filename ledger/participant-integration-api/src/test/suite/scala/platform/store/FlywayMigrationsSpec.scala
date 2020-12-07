@@ -13,14 +13,14 @@ import org.flywaydb.core.api.configuration.FluentConfiguration
 import org.flywaydb.core.api.migration.JavaMigration
 import org.flywaydb.core.internal.resource.LoadableResource
 import org.flywaydb.core.internal.scanner.{LocationScannerCache, ResourceNameCache, Scanner}
-import org.scalatest.Matchers._
-import org.scalatest.WordSpec
+import org.scalatest.matchers.should.Matchers._
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.JavaConverters._
 
 // SQL MIGRATION AND THEIR DIGEST FILES SHOULD BE CREATED ONLY ONCE AND NEVER CHANGED AGAIN,
 // OTHERWISE MIGRATIONS BREAK ON EXISTING DEPLOYMENTS!
-class FlywayMigrationsSpec extends WordSpec {
+class FlywayMigrationsSpec extends AnyWordSpec {
 
   "Postgres flyway migration files" should {
     "always have a valid SHA-256 digest file accompanied" in {

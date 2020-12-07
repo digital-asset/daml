@@ -18,7 +18,8 @@ import com.daml.platform.hello.{HelloRequest, HelloServiceGrpc}
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResourceContext {
   "a GRPC server" should {

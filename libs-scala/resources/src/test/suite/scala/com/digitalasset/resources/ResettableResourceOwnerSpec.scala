@@ -8,8 +8,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.daml.resources.ResettableResourceOwner.Reset
 import com.daml.resources.{Resource => AbstractResource}
 import org.scalatest.concurrent.AsyncTimeLimitedTests
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.Span
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
 import scala.concurrent.Future

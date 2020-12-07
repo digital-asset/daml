@@ -12,11 +12,12 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlPackageUploadRejectionEntry
 }
 import com.daml.lf.archive.DarReader
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Try
 
-class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
+class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
 
   import KVTest._
   import TestHelpers._

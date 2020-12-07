@@ -6,11 +6,12 @@ package com.daml.extractor.json
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.value.{Value => V}
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import io.circe.parser.parse
 import io.circe.syntax._
 
-class JsonConvertersSpec extends WordSpec with Matchers {
+class JsonConvertersSpec extends AnyWordSpec with Matchers {
   import JsonConverters._
   import Ref.Name.{assertFromString => id}
 

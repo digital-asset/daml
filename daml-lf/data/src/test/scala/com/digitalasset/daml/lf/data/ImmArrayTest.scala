@@ -4,12 +4,13 @@
 package com.daml.lf.data
 
 import com.daml.scalatest.{FlatSpecCheckLaws, Unnatural}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
 import ImmArray.ImmArraySeq
 
-class ImmArrayTest extends FlatSpec with Matchers with FlatSpecCheckLaws {
+class ImmArrayTest extends AnyFlatSpec with Matchers with FlatSpecCheckLaws {
   import DataArbitrary._
 
   behavior of "toString"

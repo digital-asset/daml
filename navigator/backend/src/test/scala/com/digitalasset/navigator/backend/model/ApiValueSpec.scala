@@ -5,13 +5,14 @@ package com.daml.navigator.model
 
 import java.time.{Instant, LocalDate}
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import com.daml.lf.data.{Time => LfTime}
 import com.daml.lf.value.Value.{ValueDate, ValueTimestamp}
 import com.daml.lf.value.json.ApiValueImplicits._
 
-class ApiValueSpec extends WordSpec with Matchers {
+class ApiValueSpec extends AnyWordSpec with Matchers {
 
   "Api values" when {
     "converting Date from ISO and back" should {

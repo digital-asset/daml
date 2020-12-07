@@ -13,7 +13,7 @@ import com.daml.jwt.JwtDecoder
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import org.scalatest.AsyncWordSpec
+import org.scalatest.wordspec.AsyncWordSpec
 import spray.json._
 
 import scala.concurrent.Future

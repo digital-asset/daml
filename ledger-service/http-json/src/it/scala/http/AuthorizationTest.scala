@@ -13,7 +13,9 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.http.util.TestUtil.requiredFile
 import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, Claims}
 import com.daml.ledger.client.LedgerClient
-import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}

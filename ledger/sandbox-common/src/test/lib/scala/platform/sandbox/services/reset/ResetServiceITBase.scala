@@ -61,7 +61,8 @@ import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration}

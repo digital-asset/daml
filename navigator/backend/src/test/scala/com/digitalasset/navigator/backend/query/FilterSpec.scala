@@ -7,14 +7,15 @@ import java.time.Instant
 
 import com.daml.navigator.dotnot.PropertyCursor
 import com.daml.navigator.model._
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import com.daml.navigator.query.filter._
 import com.daml.ledger.api.refinements.ApiTypes
 import scalaz.std.function._
 import scalaz.syntax.arrow._
 import scalaz.syntax.tag._
 
-class FilterSpec extends FlatSpec with Matchers {
+class FilterSpec extends AnyFlatSpec with Matchers {
   import com.daml.navigator.{DamlConstants => C}
 
   val choices = List(

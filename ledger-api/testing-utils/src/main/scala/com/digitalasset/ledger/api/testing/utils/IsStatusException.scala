@@ -5,7 +5,8 @@ package com.daml.ledger.api.testing.utils
 
 import com.daml.grpc.{GrpcException, GrpcStatus}
 import io.grpc.Status
-import org.scalatest.{Assertion, Matchers}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
 
 import scala.util.control.NonFatal
 

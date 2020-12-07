@@ -8,10 +8,11 @@ import java.time.Instant
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.google.protobuf.ByteString
 import org.mockito.Mockito
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{Matchers, WordSpec}
+import org.mockito.MockitoSugar
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-final class InMemorySubmissionAggregatorSpec extends WordSpec with Matchers with MockitoSugar {
+final class InMemorySubmissionAggregatorSpec extends AnyWordSpec with Matchers with MockitoSugar {
   "InMemorySubmissionAggregator" should {
     "aggregate data" in {
       val submissionInfo = SubmissionInfo(

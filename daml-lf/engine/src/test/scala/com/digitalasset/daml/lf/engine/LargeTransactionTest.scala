@@ -18,11 +18,13 @@ import com.daml.lf.value.Value.{NodeId => _, _}
 import com.daml.lf.command._
 import org.scalameter
 import org.scalameter.Quantity
-import org.scalatest.{Assertion, Matchers, WordSpec}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
+class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles {
 
   private def hash(s: String, i: Int) =
     crypto.Hash.hashPrivateKey(s + ":" + i.toString)

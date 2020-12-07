@@ -20,8 +20,10 @@ import com.daml.metrics.Metrics
 import com.google.protobuf.{ByteString, Empty}
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}
-import org.scalatest.mockito.MockitoSugar._
-import org.scalatest.{AsyncWordSpec, Inside, Matchers}
+import org.mockito.MockitoSugar._
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try

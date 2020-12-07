@@ -23,7 +23,10 @@ import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
+
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future

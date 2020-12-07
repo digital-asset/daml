@@ -23,7 +23,9 @@ import com.daml.ledger.client.services.transactions.TransactionClient
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
-import org.scalatest.{Assertion, AsyncWordSpec, Matchers, Suite}
+import org.scalatest.{Assertion, Suite}
+import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 

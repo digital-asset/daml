@@ -15,9 +15,9 @@ import com.daml.lf.transaction.{SubmittedTransaction, Transaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito.when
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.mockito.MockitoSugar
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 class StoreBackedCommandExecutorSpec extends AsyncWordSpec with MockitoSugar with Matchers {
 

@@ -11,6 +11,8 @@ import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.CreatedEvent
 import org.scalatest._
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 
