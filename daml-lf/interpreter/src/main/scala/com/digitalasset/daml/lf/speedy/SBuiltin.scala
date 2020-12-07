@@ -684,18 +684,6 @@ private[lf] object SBuiltin {
   final case object SBGreater extends SBCompare(_ > 0)
   final case object SBGreaterEq extends SBCompare(_ >= 0)
 
-  /** $consMany[n] :: a -> ... -> List a -> List a */
-  final case class SBConsMany(n: Int) extends SBuiltinPure(1 + n) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(n) match {
-        case SList(tail) =>
-          SList(ImmArray(args.subList(0, n).asScala) ++: tail)
-        case x =>
-          crash(s"Cons onto non-list: $x")
-      }
-    }
-  }
-
   /** $cons :: a -> List a -> List a */
   final case object SBCons extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
