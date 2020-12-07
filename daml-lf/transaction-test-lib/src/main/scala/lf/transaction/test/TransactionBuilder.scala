@@ -9,6 +9,7 @@ import com.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.daml.lf.transaction.Node.{GenNode, VersionedNode}
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.value.{ValueVersions, Value => LfValue}
 
 import scala.collection.immutable.HashMap
 
@@ -54,6 +55,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
 
   def build(): Tx.Transaction = ids.synchronized {
     import VersionTimeline.Implicits._
+
     val finalNodes = nodes.transform {
       case (nid, VersionedNode(version, exe: TxExercise)) =>
         VersionedNode[NodeId, ContractId](version, exe.copy(children = children(nid).toImmArray))
@@ -98,10 +100,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
 }
 
 object TransactionBuilder {
-
   type Value = value.Value[ContractId]
   type TxValue = value.Value.VersionedValue[ContractId]
-  type NodeId = transaction.NodeId
   type Node = Node.GenNode[NodeId, ContractId, Value]
   type TxNode = VersionedNode[NodeId, ContractId]
 
@@ -109,21 +109,16 @@ object TransactionBuilder {
   type Exercise = Node.NodeExercises[NodeId, ContractId, Value]
   type Fetch = Node.NodeFetch[ContractId, Value]
   type LookupByKey = Node.NodeLookupByKey[ContractId, Value]
-  type KeyWithMaintainers = transaction.Node.KeyWithMaintainers[Value]
+  type KeyWithMaintainers = Node.KeyWithMaintainers[Value]
 
   type TxExercise = Node.NodeExercises[NodeId, ContractId, TxValue]
-  type TxKeyWithMaintainers = transaction.Node.KeyWithMaintainers[TxValue]
+  type TxKeyWithMaintainers = Node.KeyWithMaintainers[TxValue]
 
-  private val ValueVersions = com.daml.lf.value.ValueVersions
-  private val LfValue = com.daml.lf.value.Value
-
-  private val NodeId = transaction.NodeId
-  private val Create = transaction.Node.NodeCreate
-  private val Exercise = transaction.Node.NodeExercises
-  private val Fetch = transaction.Node.NodeFetch
-  private val LookupByKey = transaction.Node.NodeLookupByKey
-
-  private val KeyWithMaintainers = transaction.Node.KeyWithMaintainers
+  private val Create = Node.NodeCreate
+  private val Exercise = Node.NodeExercises
+  private val Fetch = Node.NodeFetch
+  private val LookupByKey = Node.NodeLookupByKey
+  private val KeyWithMaintainers = Node.KeyWithMaintainers
 
   def apply(): TransactionBuilder =
     TransactionBuilder(TransactionVersions.StableOutputVersions.min)
