@@ -107,12 +107,22 @@ class PreExecutingSubmissionValidator[WriteSet](
     Timed.timedAndTrackedFuture(
       metrics.daml.kvutils.submission.validator.fetchInputs,
       metrics.daml.kvutils.submission.validator.fetchInputsRunning,
-      ledgerStateReader
-        .read(inputKeys)
-        .map { values =>
-          assert(inputKeys.size == values.size)
-          inputKeys.zip(values).toMap
+      for {
+        inputValues <- ledgerStateReader.read(inputKeys)
+
+        nestedInputKeys = inputValues.collect {
+          case (Some(value), _) if value.hasContractKeyState =>
+            val contractId = value.getContractKeyState.getContractId
+            DamlStateKey.newBuilder.setContractId(contractId).build
         }
+        nestedInputValues <- ledgerStateReader.read(nestedInputKeys)
+      } yield {
+        assert(inputKeys.size == inputValues.size)
+        assert(nestedInputKeys.size == nestedInputValues.size)
+        val inputPairs = inputKeys.toIterator zip inputValues.toIterator
+        val nestedInputPairs = nestedInputKeys.toIterator zip nestedInputValues.toIterator
+        (inputPairs ++ nestedInputPairs).toMap
+      }
     )
   }
 
