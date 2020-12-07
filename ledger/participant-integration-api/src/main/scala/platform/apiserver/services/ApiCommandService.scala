@@ -104,7 +104,7 @@ private[apiserver] final class ApiCommandService private (
     // is specified in the command completion request.
     val parties = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
     val submitter = TrackerMap.Key(application = appId, parties = parties)
-    val metricsPrefix = parties.mkString("_")
+    val metricsPrefix = parties.toList.sorted.mkString("_")
     submissionTracker.track(submitter, request) {
       for {
         ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
