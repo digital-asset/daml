@@ -24,6 +24,10 @@ package object logging {
     "parties" -> StructuredArguments.toString(parties.toArray)
   private[services] def party(party: String): (String, String) =
     "parties" -> StructuredArguments.toString(Array(party))
+  private[services] def actAs(parties: Iterable[String]): (String, String) =
+    "actAs" -> StructuredArguments.toString(parties.toArray)
+  private[services] def readAs(parties: Iterable[String]): (String, String) =
+    "readAs" -> StructuredArguments.toString(parties.toArray)
   private[services] def startExclusive(o: LedgerOffset): (String, String) =
     "startExclusive" -> offsetValue(o)
   private[services] def endInclusive(o: Option[LedgerOffset]): (String, String) =

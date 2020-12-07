@@ -9,6 +9,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.value.Value.ContractId
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.lf.data.Ref.Party
 import com.daml.platform.server.api.validation.ErrorFactories._
 import io.grpc.StatusRuntimeException
 
@@ -52,12 +53,17 @@ trait FieldValidations {
   def requirePackageId(s: String): Either[StatusRuntimeException, Ref.PackageId] =
     Ref.PackageId.fromString(s).left.map(invalidArgument)
 
-  def requireParty(s: String, fieldName: String): Either[StatusRuntimeException, Ref.Party] =
-    if (s.isEmpty) Left(missingField(fieldName))
-    else Ref.Party.fromString(s).left.map(invalidField(fieldName, _))
-
   def requireParty(s: String): Either[StatusRuntimeException, Ref.Party] =
     Ref.Party.fromString(s).left.map(invalidArgument)
+
+  def requireParties(parties: Set[String]): Either[StatusRuntimeException, Set[Party]] =
+    parties.foldLeft[Either[StatusRuntimeException, Set[Party]]](Right(Set.empty)) {
+      (acc, partyTxt) =>
+        for {
+          parties <- acc
+          party <- requireParty(partyTxt)
+        } yield parties + party
+    }
 
   def requireLedgerString(
       s: String,

@@ -24,6 +24,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByIdRequest,
   GetTransactionResponse
 }
+import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
 import com.daml.ledger.participant.state.v1.{Configuration => LedgerConfiguration}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -80,6 +81,8 @@ private[apiserver] final class ApiCommandService private (
     withEnrichedLoggingContext(
       logging.commandId(request.getCommands.commandId),
       logging.party(request.getCommands.party),
+      logging.actAs(request.getCommands.actAs),
+      logging.readAs(request.getCommands.readAs),
     ) { implicit loggingContext =>
       if (running) {
         ledgerConfigProvider.latestConfiguration.fold[Future[Completion]](
@@ -97,7 +100,11 @@ private[apiserver] final class ApiCommandService private (
       ledgerConfig: LedgerConfiguration,
   )(implicit loggingContext: LoggingContext): Future[Completion] = {
     val appId = request.getCommands.applicationId
-    val submitter = TrackerMap.Key(application = appId, party = request.getCommands.party)
+    // Note: command completions are returned as long as at least one of the original submitters
+    // is specified in the command completion request.
+    val parties = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
+    val submitter = TrackerMap.Key(application = appId, parties = parties)
+    val metricsPrefix = parties.toList.sorted.mkString("_")
     submissionTracker.track(submitter, request) {
       for {
         ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
@@ -110,7 +117,7 @@ private[apiserver] final class ApiCommandService private (
                 CompletionStreamRequest(
                   configuration.ledgerId.unwrap,
                   appId,
-                  List(submitter.party),
+                  parties.toList,
                   Some(offset)))
               .mapConcat(CommandCompletionSource.toStreamElements),
           ledgerEnd,
@@ -120,17 +127,17 @@ private[apiserver] final class ApiCommandService private (
           if (configuration.limitMaxCommandsInFlight)
             MaxInFlight(
               configuration.maxCommandsInFlight,
-              capacityCounter = metrics.daml.commands.maxInFlightCapacity(submitter.party),
-              lengthCounter = metrics.daml.commands.maxInFlightLength(submitter.party),
+              capacityCounter = metrics.daml.commands.maxInFlightCapacity(metricsPrefix),
+              lengthCounter = metrics.daml.commands.maxInFlightLength(metricsPrefix),
             ).joinMat(tracker)(Keep.right)
           else
             tracker
         TrackerImpl(
           trackingFlow,
           configuration.inputBufferSize,
-          capacityCounter = metrics.daml.commands.inputBufferCapacity(submitter.party),
-          lengthCounter = metrics.daml.commands.inputBufferLength(submitter.party),
-          delayTimer = metrics.daml.commands.inputBufferDelay(submitter.party)
+          capacityCounter = metrics.daml.commands.inputBufferCapacity(metricsPrefix),
+          lengthCounter = metrics.daml.commands.inputBufferLength(metricsPrefix),
+          delayTimer = metrics.daml.commands.inputBufferDelay(metricsPrefix)
         )
       }
     }
@@ -148,10 +155,11 @@ private[apiserver] final class ApiCommandService private (
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] =
     submitAndWaitInternal(request).flatMap { resp =>
+      val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
       val txRequest = GetTransactionByIdRequest(
         request.getCommands.ledgerId,
         resp.transactionId,
-        List(request.getCommands.party))
+        effectiveActAs.toList)
       services
         .getFlatTransactionById(txRequest)
         .map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
@@ -160,10 +168,11 @@ private[apiserver] final class ApiCommandService private (
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] =
     submitAndWaitInternal(request).flatMap { resp =>
+      val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
       val txRequest = GetTransactionByIdRequest(
         request.getCommands.ledgerId,
         resp.transactionId,
-        List(request.getCommands.party))
+        effectiveActAs.toList)
       services
         .getTransactionById(txRequest)
         .map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))

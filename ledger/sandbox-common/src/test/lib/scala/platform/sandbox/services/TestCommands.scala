@@ -62,6 +62,24 @@ trait TestCommands {
       party = party,
     )
 
+  protected def dummyMultiPartyCommands(
+      ledgerId: domain.LedgerId,
+      commandId: String,
+      party: String,
+      actAs: Seq[String],
+      readAs: Seq[String],
+  ): SubmitRequest = {
+    // This method returns a multi-party submission, however the DAML contract uses a single party.
+    // Pick a random party for the DAML contract (it needs to be one of the submitters).
+    val operator = actAs.headOption.getOrElse(party)
+    dummyCommands(ledgerId, commandId, operator)
+      .update(
+        _.commands.party := party,
+        _.commands.actAs := actAs,
+        _.commands.readAs := readAs,
+      )
+  }
+
   protected def createWithOperator(templateId: Identifier, party: String = M.party): Command =
     Command(
       Create(CreateCommand(

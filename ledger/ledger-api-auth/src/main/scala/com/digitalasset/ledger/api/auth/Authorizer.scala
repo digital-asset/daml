@@ -117,6 +117,25 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
       }
     }
 
+  def requireActAndReadClaimsForParties[Req, Res](
+      actAs: Set[String],
+      readAs: Set[String],
+      applicationId: Option[String],
+      call: Req => Future[Res],
+  ): Req => Future[Res] =
+    authorize(call) { claims =>
+      for {
+        _ <- valid(claims)
+        _ <- actAs.foldRight[Either[AuthorizationError, Unit]](Right(()))((p, acc) =>
+          acc.flatMap(_ => claims.canActAs(p)))
+        _ <- readAs.foldRight[Either[AuthorizationError, Unit]](Right(()))((p, acc) =>
+          acc.flatMap(_ => claims.canReadAs(p)))
+        _ <- applicationId.map(claims.validForApplication).getOrElse(Right(()))
+      } yield {
+        ()
+      }
+    }
+
   /** Checks whether the current Claims authorize to read data for all parties mentioned in the given transaction filter */
   def requireReadClaimsForTransactionFilterOnStream[Req, Res](
       filter: Option[TransactionFilter],

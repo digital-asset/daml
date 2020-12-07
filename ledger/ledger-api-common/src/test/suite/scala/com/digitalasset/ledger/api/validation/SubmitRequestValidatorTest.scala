@@ -19,7 +19,7 @@ import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
-import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE}
+import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE, UNIMPLEMENTED}
 import org.scalatest.WordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scalaz.syntax.tag._
@@ -186,8 +186,53 @@ class SubmitRequestValidatorTest
               internal.submittedAt,
               Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
-          """Missing field: party"""
+          """Missing field: party or act_as"""
         )
+      }
+
+      "not allow multiple submitters" in {
+        requestMustFailWith(
+          commandsValidator
+            .validateCommands(
+              api.commands.withParty("alice").addActAs("bob"),
+              internal.ledgerTime,
+              internal.submittedAt,
+              Some(internal.maxDeduplicationTime)),
+          UNIMPLEMENTED,
+          "Multi-party submissions are not supported",
+        )
+      }
+
+      "not allow readAs parties" in {
+        requestMustFailWith(
+          commandsValidator
+            .validateCommands(
+              api.commands.withParty("charlie").addReadAs("bob"),
+              internal.ledgerTime,
+              internal.submittedAt,
+              Some(internal.maxDeduplicationTime)),
+          UNIMPLEMENTED,
+          "Multi-party submissions are not supported",
+        )
+      }
+
+      "tolerate a single submitter specified in the actAs fields" in {
+        commandsValidator
+          .validateCommands(
+            api.commands.withParty("").addActAs(api.submitter),
+            internal.ledgerTime,
+            internal.submittedAt,
+            Some(internal.maxDeduplicationTime)) shouldEqual Right(internal.emptyCommands)
+      }
+
+      "tolerate a single submitter specified in party, actAs, and readAs fields" in {
+        commandsValidator
+          .validateCommands(
+            api.commands.withParty(api.submitter).addActAs(api.submitter).addReadAs(api.submitter),
+            internal.ledgerTime,
+            internal.submittedAt,
+            Some(internal.maxDeduplicationTime)
+          ) shouldEqual Right(internal.emptyCommands)
       }
 
       "advance ledger time if minLedgerTimeAbs is set" in {

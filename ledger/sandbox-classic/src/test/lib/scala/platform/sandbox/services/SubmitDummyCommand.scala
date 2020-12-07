@@ -16,9 +16,6 @@ import scala.concurrent.Future
 
 trait SubmitDummyCommand extends TestCommands { self: ServiceCallWithMainActorAuthTests =>
 
-  protected def issueCommand(): Future[Empty] =
-    submit(Option(toHeader(readWriteToken(mainActor))))
-
   protected def dummySubmitRequest: SubmitRequest =
     SubmitRequest(
       dummyCommands(wrappedLedgerId, s"$serviceCallName-${UUID.randomUUID}", mainActor)
@@ -27,7 +24,5 @@ trait SubmitDummyCommand extends TestCommands { self: ServiceCallWithMainActorAu
 
   protected def submit(token: Option[String]): Future[Empty] =
     stub(CommandSubmissionServiceGrpc.stub(channel), token).submit(dummySubmitRequest)
-
-  protected lazy val command = issueCommand()
 
 }

@@ -75,7 +75,8 @@ data Commands = Commands
     , wid          :: Maybe WorkflowId
     , aid          :: ApplicationId
     , cid          :: CommandId
-    , party        :: Party
+    , actAs        :: [Party]
+    , readAs       :: [Party]
     , dedupTime    :: Maybe LL.Duration
     , coms         :: [Command]
     , minLeTimeAbs :: Maybe Timestamp
