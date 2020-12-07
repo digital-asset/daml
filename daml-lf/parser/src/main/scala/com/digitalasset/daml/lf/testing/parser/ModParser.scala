@@ -50,14 +50,18 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private lazy val definition: Parser[Def] =
     synDefinition | recDefinition | variantDefinition | enumDefinition | valDefinition | templateDefinition
 
-  private def tags(allowed: Set[String]): Parser[Set[String]] =
-    rep(`@` ~> id) ^^ { tags =>
+  private def tags(allowed: Set[Name]): Parser[Set[Name]] = Parser { in =>
+    val parser = rep(`@` ~> id) ^^ { tags =>
       tags.foreach { t =>
         if (!allowed(t))
-          throw ParsingError(s"found tag $t but expected one of ${allowed.toList.mkString(",")}.")
+          throw ParsingError(
+            s"found tag $t but expected one of ${allowed.toList.mkString(",")}.",
+            in.pos)
       }
       tags.toSet
     }
+    parser(in)
+  }
 
   private lazy val binder: Parser[(Name, Type)] =
     id ~ `:` ~ typ ^^ { case id ~ _ ~ typ => id -> typ }
@@ -153,10 +157,10 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
         )
     }
 
-  private val serializableTag = "serializable"
-  private val noPartyLitsTag = "noPartyLiterals"
-  private val isTestTag = "isTest"
-  private val nonConsumingTag = "nonConsuming"
+  private val serializableTag = Name.assertFromString("serializable")
+  private val noPartyLitsTag = Name.assertFromString("noPartyLiterals")
+  private val isTestTag = Name.assertFromString("isTest")
+  private val nonConsumingTag = Name.assertFromString("nonConsuming")
 
   private val dataDefTags = Set(serializableTag)
   private val templateChoiceTags = Set(nonConsumingTag)

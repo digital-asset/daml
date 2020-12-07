@@ -8,15 +8,19 @@ import com.daml.lf.data.Time
 import com.daml.lf.testing.parser.Token._
 
 import scala.util.Try
+import scala.util.matching.Regex
 import scala.util.parsing.combinator.RegexParsers
+import scala.util.parsing.input.Position
 
 private[parser] object Lexer extends RegexParsers {
 
-  protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
+  protected override val whiteSpace: Regex = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
 
-  def lex(s: String): List[Token] = parseAll(phrase(rep(token)), s) match {
-    case Success(l, _) => l
-    case f: NoSuccess => throw LexingError(f.msg)
+  def lex(s: String): List[(Position, Token)] = {
+    parseAll(phrase(rep(positionedToken)), s) match {
+      case Success(l, _) => l
+      case f: NoSuccess => throw LexingError(f.msg)
+    }
   }
 
   val keywords: Map[String, Token] = Map(
@@ -75,6 +79,10 @@ private[parser] object Lexer extends RegexParsers {
       """\d{4}-\d{2}-\d{2}""".r >> toDate |
       """-?\d+\.\d*""".r >> toNumeric |
       """-?\d+""".r >> toNumber
+
+  private val positionedToken: Parser[(Position, Token)] = Parser { in =>
+    token(in).map(in.pos -> _)
+  }
 
   private def toTimestamp(s: String): Parser[Timestamp] =
     (in: Input) =>
