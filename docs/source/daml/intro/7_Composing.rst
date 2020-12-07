@@ -194,15 +194,15 @@ Similar to choices, you can see how the scripts in this project are built up fro
 
 In the above, the ``test_issuance`` script in ``Test.Intro.Asset.Role`` uses the output of the ``setupRoles`` script in the same module.
 
-The same line shows a new kind of pattern matching. Rather than writing ``setupResults <- setupRoles`` and then accessing the components of ``setupResults`` using ``_1``, ``_2``, etc., you can give them names. It's equivalent to writing
+The same line shows a new kind of pattern matching. Rather than writing ``setupResult <- setupRoles`` and then accessing the components of ``setupResult`` using ``_1``, ``_2``, etc., you can give them names. It's equivalent to writing
 
 .. code-block:: daml
 
-  setupResults <- setupRoles
-  case setupResults of
+  setupResult <- setupRoles
+  case setupResult of
     (alice, bob, bank, aha, ahb) -> ...
 
-Just writing ``(alice, bob, bank, aha, ahb) <- setupRoles`` would also be legal, but ``setupResults`` is used in the return value of ``test_issuance`` so it makes sense to give it a name, too. The notation with ``@`` allows you to give both the whole value as well as its constituents names in one go.
+Just writing ``(alice, bob, bank, aha, ahb) <- setupRoles`` would also be legal, but ``setupResult`` is used in the return value of ``test_issuance`` so it makes sense to give it a name, too. The notation with ``@`` allows you to give both the whole value as well as its constituents names in one go.
 
 .. _execution_model:
 
@@ -232,7 +232,8 @@ The first important consequence of the above is that all transactions are commit
 
 That's important in the context of the ``Trade_Settle`` choice shown above. The choice transfers a ``baseAsset`` one way and a ``quoteAsset`` the other way. Thanks to transaction atomicity, there is no chance that either party is left out of pocket.
 
-The second consequence, due to 2., is that the requester of a transaction knows all consequences of their submitted transaction -- there are no surprises in DAML. However, it also means that the requester must have all the information to interpret the transaction.
+The second consequence is that the requester of a transaction knows all consequences of their submitted transaction -- there are no surprises in DAML. However, it also means that the requester must have all the information to interpret the transaction.
+We also refer to this as Principle 2 a bit later on this page.
 
 That's also important in the context of ``Trade``. In order to allow Bob to interpret a transaction that transfers Alice's cash to Bob, Bob needs to know both about Alice's ``Asset`` contract, as well as about some way for ``Alice`` to accept a transfer -- remember, accepting a transfer needs the authority of ``issuer`` in this example.
 
@@ -266,10 +267,10 @@ Privacy
 
 DAML's privacy model is based on two principles:
 
-1. Parties see those actions that they have a stake in.
-2. Every party that sees an action sees its (transitive) consequences.
+Principle 1. Parties see those actions that they have a stake in.
+Principle 2. Every party that sees an action sees its (transitive) consequences.
 
-Item 2. is necessary to ensure that every party can independently verify the validity of every transaction they see.
+Principle 2 is necessary to ensure that every party can independently verify the validity of every transaction they see.
 
 A party has a stake in an action if
 
@@ -292,7 +293,7 @@ Other implementations, in particular those on public blockchains, may have weake
 Divulgence
 ~~~~~~~~~~
 
-Note that principle 2. of the privacy model means that sometimes parties see contracts that they are not signatories or observers on. If you look at the final ledger state of the ``test_trade`` script, for example, you may notice that both Alice and Bob now see both assets, as indicated by the Xs in their respective columns:
+Note that Principle 2 of the privacy model means that sometimes parties see contracts that they are not signatories or observers on. If you look at the final ledger state of the ``test_trade`` script, for example, you may notice that both Alice and Bob now see both assets, as indicated by the Xs in their respective columns:
 
 .. figure:: images/7_Composing/divulgence.png
 
