@@ -224,27 +224,35 @@ private[kvutils] class TransactionCommitter(
               value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
           }
 
-        engine
-          .validate(
-            transactionEntry.submitter,
-            SubmittedTransaction(transactionEntry.transaction),
-            transactionEntry.ledgerEffectiveTime,
-            commitContext.participantId,
-            transactionEntry.submissionTime,
-            transactionEntry.submissionSeed,
-          )
-          .consume(
-            lookupContract(transactionEntry, commitContext),
-            lookupPackage(transactionEntry, commitContext),
-            lookupKey(commitContext, knownKeys),
-          )
-          .fold(
-            err =>
-              reject[DamlTransactionEntrySummary](
-                commitContext.recordTime,
-                buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.msg))),
-            _ => StepContinue[DamlTransactionEntrySummary](transactionEntry)
-          )
+        try {
+          engine
+            .validate(
+              transactionEntry.submitter,
+              SubmittedTransaction(transactionEntry.transaction),
+              transactionEntry.ledgerEffectiveTime,
+              commitContext.participantId,
+              transactionEntry.submissionTime,
+              transactionEntry.submissionSeed,
+            )
+            .consume(
+              lookupContract(transactionEntry, commitContext),
+              lookupPackage(transactionEntry, commitContext),
+              lookupKey(commitContext, knownKeys),
+            )
+            .fold(
+              err =>
+                reject[DamlTransactionEntrySummary](
+                  commitContext.recordTime,
+                  buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.msg))),
+              _ => StepContinue[DamlTransactionEntrySummary](transactionEntry)
+            )
+        } catch {
+          case err: Err.MissingInputState =>
+            logger.warn("Exception during model conformance validation.", err)
+            reject(
+              commitContext.recordTime,
+              buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.getMessage)))
+        }
       })
 
   /** Validate the submission's conformance to the DAML model */
