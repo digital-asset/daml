@@ -30,6 +30,12 @@ private[sandboxnext] object Cli extends SandboxCli {
           + s" You can optionally disable this behavior to bring $Name into line with other ledgers."
       )
     parser
+      .opt[String]("sql-backend-jdbcurl")
+      .optional()
+      .text(
+        s"Deprecated: Use the DAML Driver for PostgreSQL if you need persistence.\nThe JDBC connection URL to a Postgres database containing the username and password as well. If present, $Name will use the database to persist its data.")
+      .action((url, config) => config.copy(jdbcUrl = Some(url)))
+    parser
   }
 
 }
