@@ -14,8 +14,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlSubmissionDedupKey
 }
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.lf.value.ValueOuterClass
-import com.google.protobuf.ByteString
+import com.daml.lf.value.ValueOuterClass.Identifier
+import com.google.protobuf.{ByteString, Empty}
 
 private[validator] object TestHelper {
 
@@ -39,11 +39,12 @@ private[validator] object TestHelper {
       .setParty("a party"),
     DamlStateKey.newBuilder
       .setContractKey(
-        DamlContractKey.newBuilder.setTemplateId(
-          ValueOuterClass.Identifier.newBuilder.addName("a name"))),
-    DamlStateKey.newBuilder.setConfiguration(com.google.protobuf.Empty.getDefaultInstance),
-    DamlStateKey.newBuilder.setSubmissionDedup(
-      DamlSubmissionDedupKey.newBuilder.setSubmissionId("a submission ID"))
+        DamlContractKey.newBuilder
+          .setTemplateId(Identifier.newBuilder.addName("a name"))),
+    DamlStateKey.newBuilder
+      .setConfiguration(Empty.getDefaultInstance),
+    DamlStateKey.newBuilder
+      .setSubmissionDedup(DamlSubmissionDedupKey.newBuilder.setSubmissionId("a submission ID")),
   ).map(_.build)
 
   lazy val anInvalidEnvelope: ByteString = ByteString.copyFromUtf8("invalid data")
