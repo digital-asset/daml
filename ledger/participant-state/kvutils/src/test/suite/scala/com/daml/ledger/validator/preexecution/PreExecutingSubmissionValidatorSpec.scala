@@ -19,13 +19,12 @@ import com.daml.ledger.participant.state.kvutils.{
   TestHelpers
 }
 import com.daml.ledger.participant.state.v1.Configuration
-import com.daml.ledger.validator.TestHelper.{aLogEntry, anInvalidEnvelope}
+import com.daml.ledger.validator.StateKeySerializationStrategy
+import com.daml.ledger.validator.TestHelper._
 import com.daml.ledger.validator.ValidationFailed.ValidationError
 import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidatorSpec._
-import com.daml.ledger.validator.{StateKeySerializationStrategy, TestHelper}
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.value.ValueOuterClass.Identifier
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
@@ -42,10 +41,10 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
   "validate" should {
     "generate correct output in case of success" in {
       val expectedReadSet = Map(
-        TestHelper.allDamlStateKeyTypes.head -> FingerprintPlaceholder
+        allDamlStateKeyTypes.head -> FingerprintPlaceholder
       )
       val actualInputState = Map(
-        TestHelper.allDamlStateKeyTypes.head -> (
+        allDamlStateKeyTypes.head -> (
           (
             Some(DamlStateValue.getDefaultInstance),
             FingerprintPlaceholder))
@@ -79,9 +78,9 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
 
     "return a sorted read set with correct fingerprints" in {
       val expectedReadSet =
-        TestHelper.allDamlStateKeyTypes.map(key => key -> key.toByteString).toMap
+        allDamlStateKeyTypes.map(key => key -> key.toByteString).toMap
       val actualInputState =
-        TestHelper.allDamlStateKeyTypes
+        allDamlStateKeyTypes
           .map(key => key -> ((Some(DamlStateValue.getDefaultInstance), key.toByteString)))
           .toMap
       val instance = createInstance(expectedReadSet = expectedReadSet)
@@ -93,28 +92,19 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
     }
 
     "return a read set when the contract keys are inconsistent" in {
-      val contractKeyStateKey = DamlStateKey.newBuilder
-        .setContractKey(
-          DamlContractKey.newBuilder.setTemplateId(Identifier.newBuilder.addName("id")))
-        .build
-      val contractKeyFingerprint = ByteString.copyFromUtf8("contract key fingerprint")
+      val contractKeyStateKey = makeContractKeyStateKey("id")
+      val contractKeyFingerprint = fingerprint("contract key")
 
       // At the time of pre-execution, the key points to contract A.
-      val contractIdAStateKey =
-        DamlStateKey.newBuilder.setContractId("contract ID A").build
-      val contractIdAStateValue =
-        DamlStateValue.newBuilder.setContractState(DamlContractState.newBuilder).build
-      val contractIdAFingerprint = ByteString.copyFromUtf8("contract ID A fingerprint")
+      val contractIdAStateKey = makeContractIdStateKey("contract ID A")
+      val contractIdAStateValue = makeContractIdStateValue()
+      val contractIdAFingerprint = fingerprint("contract ID A")
 
       // However, at the time of validation, it points to contract B.
-      val contractKeyBStateValue = DamlStateValue.newBuilder
-        .setContractKeyState(DamlContractKeyState.newBuilder.setContractId("contract ID B"))
-        .build
-      val contractIdBStateKey =
-        DamlStateKey.newBuilder.setContractId("contract ID B").build
-      val contractIdBStateValue =
-        DamlStateValue.newBuilder.setContractState(DamlContractState.newBuilder).build
-      val contractIdBFingerprint = ByteString.copyFromUtf8("contract ID B fingerprint")
+      val contractKeyBStateValue = makeContractKeyStateValue("contract ID B")
+      val contractIdBStateKey = makeContractIdStateKey("contract ID B")
+      val contractIdBStateValue = makeContractIdStateValue()
+      val contractIdBFingerprint = fingerprint("contract ID B")
 
       val preExecutedInputKeys = Set(contractKeyStateKey, contractIdAStateKey)
       val expectedReadSet = Map(
@@ -205,7 +195,7 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         instance
           .generateReadSet(
             fetchedInputs = Map.empty,
-            accessedKeys = TestHelper.allDamlStateKeyTypes.toSet
+            accessedKeys = allDamlStateKeyTypes.toSet
           )
       )
     }
@@ -222,8 +212,6 @@ object PreExecutingSubmissionValidatorSpec {
   private val metrics = new Metrics(new MetricRegistry)
 
   private val keySerializationStrategy = StateKeySerializationStrategy.createDefault()
-
-  private val aParticipantId = TestHelpers.mkParticipantId(1)
 
   private def anEnvelope(expectedReadSet: Set[DamlStateKey] = Set.empty): Bytes = {
     val submission = DamlSubmission
