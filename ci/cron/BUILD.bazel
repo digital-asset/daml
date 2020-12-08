@@ -25,6 +25,7 @@ da_haskell_binary(
         "process",
         "regex-tdfa",
         "safe",
+        "safe-exceptions",
         "semver",
         "split",
         "text",
