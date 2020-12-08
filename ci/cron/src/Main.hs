@@ -9,7 +9,7 @@ import System.FilePath.Posix ((</>))
 
 import qualified Control.Concurrent.Async
 import qualified Control.Concurrent.QSem
-import qualified Control.Exception
+import Control.Exception.Safe
 import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
 import qualified Control.Monad.Loops
@@ -113,7 +113,7 @@ build_and_push opts@DocOptions{build} temp versions = do
             putStrLn "Done.")
     where
         restore_sha io =
-            Control.Exception.bracket (init <$> shell "git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD")
+            bracket (init <$> shell "git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD")
                                       (\cur_sha -> shell_ $ "git checkout " <> cur_sha)
                                       (const io)
         push version =
@@ -240,9 +240,13 @@ fetch_gh_versions pred = do
 
 fetch_s3_versions :: DocOptions -> IO Versions
 fetch_s3_versions opts = do
-    dropdown <- fetch "versions.json" False
+    -- On the first run, this will fail so treat it like an empty file.
+    -- We could technically remove the catch later.
+    dropdown <- fetch "versions.json" False `catchIO`
+      (\_ -> pure [])
     -- TODO: read hidden.json after this has run once
-    hidden <- fetch "snapshots.json" True
+    hidden <- fetch "snapshots.json" True `catchIO`
+      (\_ -> pure [])
     return $ versions $ dropdown <> hidden
     where fetch file prerelease = do
               temp <- shell "mktemp"
@@ -317,7 +321,7 @@ download_assets tmp release = do
     manager <- HTTP.newManager TLS.tlsManagerSettings
     tokens <- Control.Concurrent.QSem.newQSem 20
     Control.Concurrent.Async.forConcurrently_ (map uri $ assets release) (\url ->
-        Control.Exception.bracket_
+        bracket_
           (Control.Concurrent.QSem.waitQSem tokens)
           (Control.Concurrent.QSem.signalQSem tokens)
           (do
