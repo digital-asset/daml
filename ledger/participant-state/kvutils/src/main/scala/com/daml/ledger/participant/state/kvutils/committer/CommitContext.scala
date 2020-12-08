@@ -46,7 +46,8 @@ private[kvutils] case class CommitContext(
 
   def preExecute: Boolean = recordTime.isEmpty
 
-  /** Retrieve value from output state, or if not found, from input state. */
+  /** Retrieve value from output state, or if not found, from input state.
+    * Throws an exception if the key is not found in either. */
   def get(key: DamlStateKey): Option[DamlStateValue] =
     outputs.get(key).orElse {
       val value = inputs.getOrElse(key, throw Err.MissingInputState(key))
@@ -54,10 +55,12 @@ private[kvutils] case class CommitContext(
       value
     }
 
-  /** Reads key from input state.  Records the key as being accessed even if it's not available. */
+  /** Reads key from input state.
+    * Throws an exception if the key is not specified in the input state. */
   def read(key: DamlStateKey): Option[DamlStateValue] = {
+    val value = inputs.getOrElse(key, throw Err.MissingInputState(key))
     accessedInputKeys += key
-    inputs.get(key).flatten
+    value
   }
 
   /** Generates a collection from the inputs as determined by a partial function.
