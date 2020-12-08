@@ -26,6 +26,8 @@ private[trigger] final case class ServiceConfig(
     maxInboundMessageSize: Int,
     minRestartInterval: FiniteDuration,
     maxRestartInterval: FiniteDuration,
+    maxHttpEntityUploadSize: Long,
+    httpEntityUploadTimeout: FiniteDuration,
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
     init: Boolean,
@@ -81,6 +83,8 @@ private[trigger] object ServiceConfig {
   val DefaultMaxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
   private val DefaultMinRestartInterval: FiniteDuration = FiniteDuration(5, duration.SECONDS)
   val DefaultMaxRestartInterval: FiniteDuration = FiniteDuration(60, duration.SECONDS)
+  val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxInboundMessageSize.toLong
+  val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[ServiceConfig]("trigger-service") {
@@ -113,7 +117,7 @@ private[trigger] object ServiceConfig {
       .optional()
       .action((t, c) => c.copy(authUri = Some(Uri(t))))
       .text("Auth middleware URI.")
-      // TODO[AH] Expose once the feature is fully implemented.
+      // TODO[AH] Expose once the auth feature is fully implemented.
       .hidden()
 
     opt[Int]("max-inbound-message-size")
@@ -133,6 +137,21 @@ private[trigger] object ServiceConfig {
       .optional()
       .text(
         s"Maximum time interval between restarting a failed trigger. Defaults to ${DefaultMaxRestartInterval.toSeconds} seconds.")
+
+    opt[Long]("max-http-entity-upload-size")
+      .action((x, c) => c.copy(maxHttpEntityUploadSize = x))
+      .optional()
+      .text(s"Optional max HTTP entity upload size. Defaults to ${DefaultMaxHttpEntityUploadSize}.")
+      // TODO[AH] Expose once the auth feature is fully implemented.
+      .hidden()
+
+    opt[Long]("http-entity-upload-timeout")
+      .action((x, c) => c.copy(httpEntityUploadTimeout = FiniteDuration(x, duration.MINUTES)))
+      .optional()
+      .text(
+        s"Optional HTTP entity upload timeout. Defaults to ${DefaultHttpEntityUploadTimeout.toSeconds} seconds.")
+      // TODO[AH] Expose once the auth feature is fully implemented.
+      .hidden()
 
     opt[Unit]('w', "wall-clock-time")
       .action { (_, c) =>
@@ -172,6 +191,8 @@ private[trigger] object ServiceConfig {
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         minRestartInterval = DefaultMinRestartInterval,
         maxRestartInterval = DefaultMaxRestartInterval,
+        maxHttpEntityUploadSize = DefaultMaxHttpEntityUploadSize,
+        httpEntityUploadTimeout = DefaultHttpEntityUploadTimeout,
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
         init = false,
