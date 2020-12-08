@@ -25,11 +25,13 @@ import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidatorSpe
 import com.daml.ledger.validator.{StateKeySerializationStrategy, TestHelper}
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.value.ValueOuterClass.Identifier
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers._
 import org.mockito.MockitoSugar
+import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -44,6 +46,12 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       val expectedReadSet = Map(
         TestHelper.allDamlStateKeyTypes.head -> FingerprintPlaceholder
       )
+      val actualInputState = Map(
+        TestHelper.allDamlStateKeyTypes.head -> (
+          (
+            Some(DamlStateValue.getDefaultInstance),
+            FingerprintPlaceholder))
+      )
       val expectedMinRecordTime = Some(recordTime.toInstant.minusSeconds(123))
       val expectedMaxRecordTime = Some(recordTime.toInstant)
       val expectedSuccessWriteSet = ByteString.copyFromUtf8("success")
@@ -57,7 +65,7 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         expectedOutOfTimeBoundsWriteSet = expectedOutOfTimeBoundsWriteSet,
         expectedInvolvedParticipants = expectedInvolvedParticipants
       )
-      val ledgerStateReader = createLedgerStateReader(expectedReadSet)
+      val ledgerStateReader = createLedgerStateReader(actualInputState)
 
       instance
         .validate(anEnvelope(expectedReadSet.keySet), aParticipantId, ledgerStateReader)
@@ -74,21 +82,58 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
     "return a sorted read set with correct fingerprints" in {
       val expectedReadSet =
         TestHelper.allDamlStateKeyTypes.map(key => key -> key.toByteString).toMap
+      val actualInputState =
+        TestHelper.allDamlStateKeyTypes
+          .map(key => key -> ((Some(DamlStateValue.getDefaultInstance), key.toByteString)))
+          .toMap
       val instance = createInstance(expectedReadSet = expectedReadSet)
-      val ledgerStateReader = createLedgerStateReader(expectedReadSet)
+      val ledgerStateReader = createLedgerStateReader(actualInputState)
 
       instance
         .validate(anEnvelope(expectedReadSet.keySet), aParticipantId, ledgerStateReader)
-        .map { actual =>
-          val expectedSortedReadSet = expectedReadSet
-            .map {
-              case (key, fingerprint) =>
-                keySerializationStrategy.serializeStateKey(key) -> fingerprint
-            }
-            .toSeq
-            .sortBy(_._1.asReadOnlyByteBuffer())
-          actual.readSet shouldBe expectedSortedReadSet
-        }
+        .map(verifyReadSet(_, expectedReadSet))
+    }
+
+    "return a read set when the contract keys are inconsistent" in {
+      val contractKeyStateKey = DamlStateKey.newBuilder
+        .setContractKey(
+          DamlContractKey.newBuilder.setTemplateId(Identifier.newBuilder.addName("id")))
+        .build
+      val contractKeyFingerprint = ByteString.copyFromUtf8("contract key fingerprint")
+
+      // At the time of pre-execution, the key points to contract A.
+      val contractIdAStateKey =
+        DamlStateKey.newBuilder.setContractId("contract ID A").build
+      val contractIdAStateValue =
+        DamlStateValue.newBuilder.setContractState(DamlContractState.newBuilder).build
+      val contractIdAFingerprint = ByteString.copyFromUtf8("contract ID A fingerprint")
+
+      // However, at the time of validation, it points to contract B.
+      val contractKeyBStateValue = DamlStateValue.newBuilder
+        .setContractKeyState(DamlContractKeyState.newBuilder.setContractId("contract ID B"))
+        .build
+      val contractIdBStateKey =
+        DamlStateKey.newBuilder.setContractId("contract ID B").build
+      val contractIdBStateValue =
+        DamlStateValue.newBuilder.setContractState(DamlContractState.newBuilder).build
+      val contractIdBFingerprint = ByteString.copyFromUtf8("contract ID B fingerprint")
+
+      val preExecutedInputKeys = Set(contractKeyStateKey, contractIdAStateKey)
+      val expectedReadSet = Map(
+        contractKeyStateKey -> contractKeyFingerprint,
+        contractIdBStateKey -> contractIdBFingerprint,
+      )
+      val actualInputState = Map(
+        contractKeyStateKey -> ((Some(contractKeyBStateValue), contractKeyFingerprint)),
+        contractIdAStateKey -> ((Some(contractIdAStateValue), contractIdAFingerprint)),
+        contractIdBStateKey -> ((Some(contractIdBStateValue), contractIdBFingerprint)),
+      )
+      val instance = createInstance(expectedReadSet = expectedReadSet)
+      val ledgerStateReader = createLedgerStateReader(actualInputState)
+
+      instance
+        .validate(anEnvelope(preExecutedInputKeys), aParticipantId, ledgerStateReader)
+        .map(verifyReadSet(_, expectedReadSet))
     }
 
     "fail in case a batched submission is input" in {
@@ -142,6 +187,19 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
   }
 
   "generateReadSet" should {
+    "generate a read set" in {
+      val contractIdStateKey = DamlStateKey.newBuilder.setContractId("a contract ID").build
+      val contractIdStateValue =
+        DamlStateValue.newBuilder.setContractState(DamlContractState.newBuilder).build
+      val fingerprint = ByteString.copyFromUtf8("fingerprint")
+      val instance = createInstance()
+
+      instance.generateReadSet(
+        fetchedInputs = Map(contractIdStateKey -> ((Some(contractIdStateValue), fingerprint))),
+        accessedKeys = Set(contractIdStateKey),
+      ) should be(Seq(contractIdStateKey.toByteString -> fingerprint))
+    }
+
     "throw in case an input key is declared in the read set but not fetched as input" in {
       val instance = createInstance()
 
@@ -224,15 +282,22 @@ object PreExecutingSubmissionValidatorSpec {
   }
 
   private def createLedgerStateReader(
-      expectedReadSet: Map[DamlStateKey, Fingerprint],
+      inputState: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)]
   ): DamlLedgerStateReaderWithFingerprints =
-    (keys: Seq[DamlStateKey]) =>
-      Future.successful {
-        keys.map {
-          case key if expectedReadSet.isDefinedAt(key) =>
-            Some(DamlStateValue.getDefaultInstance) -> expectedReadSet(key)
-          case _ =>
-            None -> FingerprintPlaceholder
-        }
-    }
+    (keys: Seq[DamlStateKey]) => Future.successful(keys.map(inputState))
+
+  private def verifyReadSet(
+      output: PreExecutionOutput[Bytes],
+      expectedReadSet: Map[DamlStateKey, Fingerprint],
+  ): Assertion = {
+    import org.scalatest.matchers.should.Matchers._
+    val expectedSortedReadSet = expectedReadSet
+      .map {
+        case (key, fingerprint) =>
+          keySerializationStrategy.serializeStateKey(key) -> fingerprint
+      }
+      .toSeq
+      .sortBy(_._1.asReadOnlyByteBuffer())
+    output.readSet shouldBe expectedSortedReadSet
+  }
 }
