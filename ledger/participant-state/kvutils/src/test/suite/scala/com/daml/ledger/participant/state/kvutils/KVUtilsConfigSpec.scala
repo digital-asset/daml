@@ -158,7 +158,7 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    "update metrics" in KVTest.runTestWithSimplePackage() {
+    "update metrics" in KVTest.runTest {
       for {
         //Submit config twice to force one acceptance and one rejection on duplicate
         _ <- submitConfig({ c =>
