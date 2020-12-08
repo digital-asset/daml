@@ -3,7 +3,7 @@
 
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test")
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
-load("@os_info//:os_info.bzl", "is_windows", "is_linux")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@build_environment//:configuration.bzl", "sdk_version")
 
 da_scala_library(
@@ -165,6 +165,6 @@ genrule(
         """.format(sdk = sdk_version),
     tools = [
         "@sphinx_nix//:bin/sphinx-build",
-        "//bazel_tools/sh:mktgz"
+        "//bazel_tools/sh:mktgz",
     ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
 ) if not is_windows else None
