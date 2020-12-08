@@ -3,16 +3,8 @@
 
 package com.daml.ledger.validator
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlCommandDedupKey,
-  DamlContractKey,
-  DamlLogEntry,
-  DamlLogEntryId,
-  DamlPartyAllocationEntry,
-  DamlStateKey,
-  DamlSubmission,
-  DamlSubmissionDedupKey
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.Fingerprint
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.value.ValueOuterClass.Identifier
 import com.google.protobuf.{ByteString, Empty}
@@ -66,6 +58,26 @@ private[validator] object TestHelper {
       .setParty(party)
     builder.build
   }
+
+  def fingerprint(string: String): Fingerprint =
+    ByteString.copyFromUtf8(string)
+
+  def makeContractIdStateKey(id: String): DamlStateKey =
+    DamlStateKey.newBuilder.setContractId(id).build
+
+  def makeContractIdStateValue(): DamlStateValue =
+    DamlStateValue.newBuilder.setContractState(DamlContractState.newBuilder).build
+
+  def makeContractKeyStateKey(templateId: String): DamlStateKey =
+    DamlStateKey.newBuilder
+      .setContractKey(
+        DamlContractKey.newBuilder.setTemplateId(Identifier.newBuilder.addName(templateId)))
+      .build
+
+  def makeContractKeyStateValue(contractId: String): DamlStateValue =
+    DamlStateValue.newBuilder
+      .setContractKeyState(DamlContractKeyState.newBuilder.setContractId(contractId))
+      .build
 
   def aLogEntryId(): DamlLogEntryId = SubmissionValidator.allocateRandomLogEntryId()
 }
