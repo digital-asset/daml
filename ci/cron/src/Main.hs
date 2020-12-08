@@ -43,9 +43,9 @@ shell_exit_code :: String -> IO (Exit.ExitCode, String, String)
 shell_exit_code cmd = do
     System.readCreateProcessWithExitCode (System.shell cmd) ""
 
-die :: String -> Exit.ExitCode -> String -> String -> IO a
-die cmd (Exit.ExitFailure exit) out err =
-    Exit.die $ unlines ["Subprocess:",
+die :: String -> Int -> String -> String -> IO a
+die cmd exit out err =
+    fail $ unlines ["Subprocess:",
                          cmd,
                         "failed with exit code " <> show exit <> "; output:",
                         "---",
@@ -55,15 +55,9 @@ die cmd (Exit.ExitFailure exit) out err =
                         "---",
                         err,
                         "---"]
-die _ _ _ _ = Exit.die "Type system too weak."
-
 
 shell :: String -> IO String
-shell cmd = do
-    (exit, out, err) <- shell_exit_code cmd
-    if exit == Exit.ExitSuccess
-    then return out
-    else die cmd exit out err
+shell cmd = System.readCreateProcess (System.shell cmd) ""
 
 shell_ :: String -> IO ()
 shell_ cmd = do
@@ -78,9 +72,9 @@ robustly_download_nix_packages = do
             (exit, out, err) <- shell_exit_code cmd
             case (exit, n) of
               (Exit.ExitSuccess, _) -> return ()
-              (_, 0) -> die cmd exit out err
+              (Exit.ExitFailure exit, 0) -> die cmd exit out err
               _ | "unexpected end-of-file" `Data.List.isInfixOf` err -> h (n - 1)
-              _ -> die cmd exit out err
+              (Exit.ExitFailure exit, _) -> die cmd exit out err
 
 add_github_contact_header :: HTTP.Request -> HTTP.Request
 add_github_contact_header req =
