@@ -59,6 +59,8 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 class Server(
+    maxHttpEntityUploadSize: Int,
+    httpEntityUploadTimeout: FiniteDuration,
     authConfig: AuthConfig,
     triggerDao: RunningTriggerDao,
     val logTriggerStatus: (UUID, String) => Unit)(
@@ -274,10 +276,7 @@ class Server(
           // Authorization failed - login and retry on callback request.
           case None =>
             // Ensure that the request is fully uploaded.
-            // TODO[AH] Make these parameters configurable on the CLI
-            val timeout: FiniteDuration = 1.minute
-            val maxBytes: Long = 10 * 1024 * 1024
-            toStrictEntity(timeout, maxBytes).tflatMap { _ =>
+            toStrictEntity(httpEntityUploadTimeout, maxHttpEntityUploadSize.toLong).tflatMap { _ =>
               Directive { inner => ctx =>
                 val requestId = UUID.randomUUID()
                 authCallbacks.update(
@@ -539,6 +538,8 @@ object Server {
   def apply(
       host: String,
       port: Int,
+      maxHttpEntityUploadSize: Int,
+      httpEntityUploadTimeout: FiniteDuration,
       authConfig: AuthConfig,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
@@ -559,11 +560,21 @@ object Server {
     val (dao, server, initializeF): (RunningTriggerDao, Server, Future[Unit]) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
-        val server = new Server(authConfig, dao, logTriggerStatus)
+        val server = new Server(
+          maxHttpEntityUploadSize,
+          httpEntityUploadTimeout,
+          authConfig,
+          dao,
+          logTriggerStatus)
         (dao, server, Future.successful(()))
       case Some(c) =>
         val dao = DbTriggerDao(c)
-        val server = new Server(authConfig, dao, logTriggerStatus)
+        val server = new Server(
+          maxHttpEntityUploadSize,
+          httpEntityUploadTimeout,
+          authConfig,
+          dao,
+          logTriggerStatus)
         val initialize = for {
           _ <- dao.initialize
           packages <- dao.readPackages

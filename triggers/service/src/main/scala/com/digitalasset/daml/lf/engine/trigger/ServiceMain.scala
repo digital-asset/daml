@@ -35,6 +35,8 @@ object ServiceMain {
   def startServer(
       host: String,
       port: Int,
+      maxHttpEntityUploadSize: Int,
+      httpEntityUploadTimeout: FiniteDuration,
       authConfig: AuthConfig,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
@@ -48,6 +50,8 @@ object ServiceMain {
         Server(
           host,
           port,
+          maxHttpEntityUploadSize,
+          httpEntityUploadTimeout,
           authConfig,
           ledgerConfig,
           restartConfig,
@@ -119,6 +123,8 @@ object ServiceMain {
             Server(
               config.address,
               config.httpPort,
+              config.maxHttpEntityUploadSize,
+              config.httpEntityUploadTimeout,
               authConfig,
               ledgerConfig,
               restartConfig,
