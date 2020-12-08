@@ -83,7 +83,7 @@ private[trigger] object ServiceConfig {
   val DefaultMaxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
   private val DefaultMinRestartInterval: FiniteDuration = FiniteDuration(5, duration.SECONDS)
   val DefaultMaxRestartInterval: FiniteDuration = FiniteDuration(60, duration.SECONDS)
-  val DefaultMaxHttpEntityUploadSize: Int = 10485760
+  val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxInboundMessageSize.toLong
   val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
