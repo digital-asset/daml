@@ -4,10 +4,11 @@
 package com.daml.ledger.client.binding.encoding
 import com.daml.ledger.client.binding.encoding.{LfTypeEncodingSpec => t}
 import com.daml.ledger.client.binding.{Primitive => P}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.equal._
 
-class EqualityEncodingSpec extends WordSpec with Matchers {
+class EqualityEncodingSpec extends AnyWordSpec with Matchers {
   val alice = P.Party("Alice")
 
   trait EqualityEncodingBehavior {

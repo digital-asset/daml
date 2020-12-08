@@ -6,9 +6,10 @@ package com.daml.platform.apiserver
 import java.time.{Instant, ZoneOffset, ZonedDateTime}
 
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class SimpleTimeServiceBackendSpec extends WordSpec with Matchers with ScalaFutures {
+class SimpleTimeServiceBackendSpec extends AnyWordSpec with Matchers with ScalaFutures {
   "a simple time service backend" should {
     "return the time it started with" in {
       val timeService = TimeServiceBackend.simple(instantAt(month = 1))

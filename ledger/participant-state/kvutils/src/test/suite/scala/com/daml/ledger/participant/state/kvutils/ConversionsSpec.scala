@@ -22,13 +22,14 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Relation.Relation
 import com.daml.lf.transaction.{BlindingInfo, NodeId}
 import com.daml.lf.value.Value.ContractId
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable.ListSet
 import scala.collection.JavaConverters._
 import scala.collection.immutable.{ListMap, ListSet}
 
-class ConversionsSpec extends WordSpec with Matchers {
+class ConversionsSpec extends AnyWordSpec with Matchers {
   "Conversions" should {
     "correctly and deterministically encode Blindinginfo" in {
       encodeBlindingInfo(wronglySortedBlindingInfo) shouldBe correctlySortedEncodedBlindingInfo

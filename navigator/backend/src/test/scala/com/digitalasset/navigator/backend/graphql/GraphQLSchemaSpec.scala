@@ -3,14 +3,15 @@
 
 package com.daml.navigator.graphql
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import sangria.parser.QueryParser
 import sangria.schema.SchemaChange.DescriptionChange
 import sangria.schema.Schema
 
 import scala.io.Source
 
-class GraphQLSchemaSpec extends WordSpec with Matchers {
+class GraphQLSchemaSpec extends AnyWordSpec with Matchers {
   "The rendered schema" should {
     "match the expected schema definition" in {
       val idl =

@@ -10,6 +10,7 @@ import com.daml.ledger.api.messages.transaction
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import org.scalatest._
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future

@@ -25,12 +25,14 @@ import com.daml.metrics.Metrics
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}
-import org.scalatest.mockito.MockitoSugar._
-import org.scalatest.{Assertion, Matchers, WordSpec}
+import org.mockito.MockitoSugar._
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.Future
 
-class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
+class KeyValueParticipantStateWriterSpec extends AnyWordSpec with Matchers {
   "participant state writer" should {
     "submit a transaction" in {
       val transactionCaptor = captor[Bytes]

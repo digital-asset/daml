@@ -7,9 +7,11 @@ import com.daml.sample.MyMain.{Increment, KeyedNumber, SimpleListExample}
 import com.daml.ledger.api.v1.{commands => rpccmd}
 import com.daml.ledger.client.binding.{Primitive => P}
 
-import org.scalatest.{Inside, Matchers, WordSpec}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class GeneratedCommandsUT extends WordSpec with Matchers with Inside {
+class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
   private val alice = P.Party("Alice")
   private val contract = SimpleListExample(alice, List(42))
 

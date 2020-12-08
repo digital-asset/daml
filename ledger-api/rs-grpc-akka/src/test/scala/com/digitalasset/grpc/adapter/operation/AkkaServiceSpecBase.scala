@@ -11,10 +11,11 @@ import com.daml.grpc.adapter.client.ReferenceClientCompatibilityCheck
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.awaitility.Awaitility._
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 abstract class AkkaServiceSpecBase(override protected val socketAddress: Option[SocketAddress])
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with AkkaBeforeAndAfterAll
     with ScalaFutures

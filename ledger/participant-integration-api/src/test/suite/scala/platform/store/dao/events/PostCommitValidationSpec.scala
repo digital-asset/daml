@@ -11,11 +11,12 @@ import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.participant.state.v1.RejectionReason
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.{Failure, Success, Try}
 
-final class PostCommitValidationSpec extends WordSpec with Matchers {
+final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
   import PostCommitValidation._
   import PostCommitValidationSpec._

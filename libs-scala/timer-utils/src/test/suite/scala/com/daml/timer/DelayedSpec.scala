@@ -5,7 +5,8 @@ package com.daml.timer
 
 import java.time
 
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, DurationInt}

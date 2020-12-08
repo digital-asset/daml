@@ -10,11 +10,13 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, QualifiedName}
 import com.daml.lf.language.Ast
-import org.scalatest.{Inside, Matchers, WordSpec}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
+class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
 
   private def dnfs(args: String*): Ref.DottedName = Ref.DottedName.assertFromSegments(args)
   private val moduleName: Ref.ModuleName = dnfs("Main")

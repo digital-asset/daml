@@ -4,11 +4,12 @@
 package com.daml.lf.language
 
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable.HashMap
 
-class GraphsSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class GraphsSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   import Graphs._
 

@@ -8,9 +8,10 @@ import com.daml.ledger.api.v1.commands.Command.Command.Create
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.trace_context.TraceContext
 import com.daml.ledger.api.v1.value.Identifier
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class CompositeCommandAdapterUT extends WordSpec with Matchers {
+class CompositeCommandAdapterUT extends AnyWordSpec with Matchers {
 
   CompositeCommandAdapter.getClass.getSimpleName should {
 

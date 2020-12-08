@@ -7,9 +7,10 @@ package transaction
 import value.{ValueVersion, ValueVersions}
 import com.daml.lf.language.LanguageVersion
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TransactionVersionSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class TransactionVersionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   "TransactionVersions.assignNodeVersion" should {
 

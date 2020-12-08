@@ -8,9 +8,10 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{LanguageVersion => LV}
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class DependencyVersionSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   private[this] val v1_6 = LV(LV.Major.V1, LV.Minor.Stable("6"))
   private[this] val v1_7 = LV(LV.Major.V1, LV.Minor.Stable("7"))

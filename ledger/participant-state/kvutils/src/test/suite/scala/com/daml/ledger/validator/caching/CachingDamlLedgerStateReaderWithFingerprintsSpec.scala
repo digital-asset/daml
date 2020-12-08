@@ -16,9 +16,10 @@ import com.daml.ledger.participant.state.kvutils.{Fingerprint, FingerprintPlaceh
 import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderWithFingerprints.`Message-Fingerprint Pair Weight`
 import com.daml.ledger.validator.preexecution.DamlLedgerStateReaderWithFingerprints
 import org.mockito.ArgumentMatchers.argThat
-import org.mockito.Mockito.when
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Inside, Matchers}
+import org.mockito.MockitoSugar
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.{ExecutionContext, Future}
 

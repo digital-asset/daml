@@ -14,9 +14,10 @@ import com.daml.lf.speedy.SResult.{SResultFinalValue}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.validation.Validation
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{WordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TailCallTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   val pkg: Package =
     p"""

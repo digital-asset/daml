@@ -13,17 +13,19 @@ import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.lf.value.test.ValueGenerators.transactionVersionGen
 import com.daml.lf.value.{Value, ValueCoder, ValueVersion, ValueVersions}
 import org.scalacheck.{Arbitrary, Gen}
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{Inside, Matchers, WordSpec}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import scala.collection.JavaConverters._
 
 class TransactionCoderSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with Inside
     with EitherAssertions
-    with PropertyChecks {
+    with ScalaCheckPropertyChecks {
 
   import VersionTimeline.Implicits._
 

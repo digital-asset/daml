@@ -19,7 +19,7 @@ import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.auth.oauth2.api.{Response => OAuthResponse}
-import org.scalatest.AsyncWordSpec
+import org.scalatest.wordspec.AsyncWordSpec
 
 class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
   import com.daml.auth.middleware.api.JsonProtocol._

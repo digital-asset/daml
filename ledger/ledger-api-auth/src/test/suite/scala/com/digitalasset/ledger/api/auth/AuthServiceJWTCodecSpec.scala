@@ -4,18 +4,18 @@
 package com.daml.ledger.api.auth
 
 import org.scalacheck.{Arbitrary, Gen}
-import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
 import java.time.Instant
 import scala.util.{Success, Try}
 
 class AuthServiceJWTCodecSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
-    with GeneratorDrivenPropertyChecks
-    with TableDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
 
   /** Serializes a [[AuthServiceJWTPayload]] to JSON, then parses it back to a AuthServiceJWTPayload */
   private def serializeAndParse(value: AuthServiceJWTPayload): Try[AuthServiceJWTPayload] = {

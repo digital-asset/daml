@@ -15,6 +15,8 @@ import java.util.UUID
 
 import akka.http.scaladsl.model.Uri.Query
 import org.scalatest._
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.concurrent.Eventually
 
 import scala.concurrent.Future
@@ -194,7 +196,7 @@ trait AbstractTriggerServiceTest
     } yield assert(result == expected)
 
   def assertTriggerStatus[A](triggerInstance: UUID, pred: Vector[String] => A)(
-      implicit A: CompatAssertion[A]): Future[Assertion] =
+      implicit A: CompatAssertion[A]): Assertion =
     eventually {
       A(pred(getTriggerStatus(triggerInstance).map(_._2)))
     }
@@ -428,7 +430,7 @@ trait AbstractTriggerServiceTest
 
 object AbstractTriggerServiceTest {
   import org.scalactic.Prettifier, org.scalactic.source.Position
-  import Assertions.{assert, assertionsHelper}
+  import Assertions.assert
 
   sealed trait CompatAssertion[-A] {
     def apply(a: A): Assertion

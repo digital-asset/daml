@@ -10,9 +10,9 @@ import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.Builders._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.mockito.MockitoSugar
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 

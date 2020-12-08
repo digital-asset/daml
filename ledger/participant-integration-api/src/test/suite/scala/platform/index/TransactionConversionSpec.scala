@@ -6,9 +6,10 @@ package com.daml.platform.index
 import com.daml.lf.value.Value
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.daml.platform.index.TransactionConversion.removeTransient
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-final class TransactionConversionSpec extends WordSpec with Matchers {
+final class TransactionConversionSpec extends AnyWordSpec with Matchers {
 
   private val contractId1 = Value.ContractId.assertFromString("#contractId")
   private val contractId2 = Value.ContractId.assertFromString("#contractId2")

@@ -3,10 +3,11 @@
 
 package com.daml.lf.data
 
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class StructSpec extends WordSpec with Matchers with PropertyChecks {
+class StructSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks {
 
   private[this] val List(f1, f2, f3) = List("f1", "f2", "f3").map(Ref.Name.assertFromString)
 

@@ -6,12 +6,13 @@ package com.daml.util.akkastreams
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Random
 
 class ExtractSingleMaterializedValueTest
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with ScalaFutures
     with AkkaBeforeAndAfterAll {

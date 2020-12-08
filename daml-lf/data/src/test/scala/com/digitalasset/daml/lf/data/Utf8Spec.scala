@@ -4,13 +4,14 @@
 package com.daml.lf.data
 
 import org.scalacheck.Gen
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.JavaConverters._
 import scala.util.Random
 
-class Utf8Spec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
 
   private def codepointToString(cp: Int): String =
     Character.toChars(cp).mkString

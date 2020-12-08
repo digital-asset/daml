@@ -10,13 +10,14 @@ import com.daml.lf.archive.{Dar, UniversalArchiveReader}
 import com.daml.lf.data.Ref.{DottedName, PackageId}
 import com.daml.daml_lf_dev.DamlLf
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 
 class DamlLfEncoderTest
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
     with BazelRunfiles {

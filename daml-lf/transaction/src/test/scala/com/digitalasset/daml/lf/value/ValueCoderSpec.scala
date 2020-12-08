@@ -10,10 +10,16 @@ import com.daml.lf.value.Value._
 import com.daml.lf.value.ValueCoder.DecodeError
 import com.daml.lf.value.{ValueOuterClass => proto}
 import org.scalacheck.Shrink
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{Assertion, Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with PropertyChecks {
+class ValueCoderSpec
+    extends AnyWordSpec
+    with Matchers
+    with EitherAssertions
+    with ScalaCheckPropertyChecks {
 
   import test.ValueGenerators._
 

@@ -10,11 +10,16 @@ import com.codahale.metrics.Counter
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Minute, Span}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.duration._
 
-class MaxInFlightTest extends WordSpec with Matchers with AkkaBeforeAndAfterAll with ScalaFutures {
+class MaxInFlightTest
+    extends AnyWordSpec
+    with Matchers
+    with AkkaBeforeAndAfterAll
+    with ScalaFutures {
 
   "MaxInFlight" should {
 

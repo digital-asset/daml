@@ -33,7 +33,9 @@ import com.daml.platform.testing.LogCollector
 import com.daml.timer.RetryStrategy
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._
-import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
+import org.scalatest.BeforeAndAfterEach
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.Future

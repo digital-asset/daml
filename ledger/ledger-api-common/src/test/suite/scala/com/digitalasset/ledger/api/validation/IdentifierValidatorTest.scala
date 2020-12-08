@@ -6,7 +6,7 @@ package com.daml.ledger.api.validation
 import com.daml.ledger.api.DomainMocks
 import com.daml.ledger.api.v1.value.Identifier
 import io.grpc.Status.Code.INVALID_ARGUMENT
-import org.scalatest.AsyncWordSpec
+import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.platform.server.api.validation.FieldValidations._
 
 class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils {

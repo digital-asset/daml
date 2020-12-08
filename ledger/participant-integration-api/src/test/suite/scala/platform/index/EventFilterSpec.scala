@@ -10,9 +10,11 @@ import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, OptionValues, WordSpec}
+import org.scalatest.OptionValues
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-final class EventFilterSpec extends WordSpec with Matchers with ScalaFutures with OptionValues {
+final class EventFilterSpec extends AnyWordSpec with Matchers with ScalaFutures with OptionValues {
 
   private val otherPartyWhoSeesEvents = Ref.Party.assertFromString("otherParty")
   private val packageId = "myPackage"

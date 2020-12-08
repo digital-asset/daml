@@ -54,6 +54,7 @@ da_scala_test(
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

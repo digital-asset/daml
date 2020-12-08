@@ -36,5 +36,7 @@ da_scala_test(
         ":parser",
         "//daml-lf/data",
         "//daml-lf/language",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
     ],
 )

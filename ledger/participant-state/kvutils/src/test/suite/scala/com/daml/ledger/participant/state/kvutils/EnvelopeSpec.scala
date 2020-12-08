@@ -5,9 +5,10 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
 import com.google.protobuf.ByteString
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class EnvelopeSpec extends WordSpec with Matchers {
+class EnvelopeSpec extends AnyWordSpec with Matchers {
   "envelope" should {
 
     "be able to enclose and open" in {

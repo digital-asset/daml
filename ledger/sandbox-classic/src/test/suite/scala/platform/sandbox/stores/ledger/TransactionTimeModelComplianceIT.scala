@@ -31,7 +31,9 @@ import com.daml.platform.sandbox.stores.ledger.TransactionTimeModelComplianceIT.
 import com.daml.platform.sandbox.{LedgerResource, MetricsAround}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
-import org.scalatest.{Assertion, AsyncWordSpec, Matchers, OptionValues}
+import org.scalatest.{Assertion, OptionValues}
+import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 

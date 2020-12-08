@@ -8,13 +8,15 @@ import java.util.concurrent.TimeUnit
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import io.reactivex.Observable
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
 
 class ActiveContractClientImplTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with AuthMatchers
     with OptionValues

@@ -7,11 +7,13 @@ import java.io.{ByteArrayInputStream, InputStream}
 import java.nio.charset.Charset
 
 import com.daml.lf.archive.DarManifestReader.DarManifestReaderException
-import org.scalatest.{Inside, Matchers, WordSpec}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.{Failure, Success}
 
-class DarManifestReaderTest extends WordSpec with Matchers with Inside {
+class DarManifestReaderTest extends AnyWordSpec with Matchers with Inside {
 
   private val unicode = Charset.forName("UTF-8")
 

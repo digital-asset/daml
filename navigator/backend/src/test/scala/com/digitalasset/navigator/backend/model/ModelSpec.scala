@@ -3,9 +3,10 @@
 
 package com.daml.navigator.model
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ModelSpec extends WordSpec with Matchers {
+class ModelSpec extends AnyWordSpec with Matchers {
   import com.daml.navigator.{DamlConstants => C}
 
   val templateId = C.ref0

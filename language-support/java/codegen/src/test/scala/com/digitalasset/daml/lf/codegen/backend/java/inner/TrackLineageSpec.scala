@@ -3,10 +3,11 @@
 
 package com.daml.lf.codegen.backend.java.inner
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 import org.slf4j.MDC
 
-final class TrackLineageSpec extends FlatSpec with Matchers {
+final class TrackLineageSpec extends AnyFlatSpec with Matchers {
 
   behavior of "TrackLineage.of"
 

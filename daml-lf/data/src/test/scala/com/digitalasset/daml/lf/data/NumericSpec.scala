@@ -6,15 +6,17 @@ package com.daml.lf.data
 import java.math.BigDecimal
 
 import org.scalatest
+import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import scala.language.implicitConversions
 import scala.math.{BigDecimal => BigDec}
 import scala.util.Random
 
 class NumericSpec
-    extends scalatest.WordSpec
-    with scalatest.Matchers
-    with scalatest.prop.TableDrivenPropertyChecks {
+    extends scalatest.wordspec.AnyWordSpec
+    with Matchers
+    with ScalaCheckPropertyChecks {
 
   private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 

@@ -3,10 +3,11 @@
 package com.daml.platform.store.dao.events
 
 import org.scalacheck.{Arbitrary, Gen}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class EventsRangeSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
+class EventsRangeSpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks {
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)

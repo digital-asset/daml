@@ -10,9 +10,10 @@ import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.{defaultPackageId, defaultLanguageVersion}
 import com.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   "Checker.checkKind" should {
     "reject invalid kinds" in {

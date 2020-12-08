@@ -7,9 +7,10 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPartyAllocationRejectionEntry
 }
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class KVUtilsPartySpec extends WordSpec with Matchers {
+class KVUtilsPartySpec extends AnyWordSpec with Matchers {
   // TESTS:
   // - party allocation rejected if participant id does not match
   // - party allocation rejected with bad party string

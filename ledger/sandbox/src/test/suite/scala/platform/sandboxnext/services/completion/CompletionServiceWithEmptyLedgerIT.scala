@@ -37,7 +37,9 @@ import com.daml.platform.sandboxnext.services.completion.CompletionServiceWithEm
 import com.daml.platform.testing.StreamConsumer
 import com.google.protobuf.ByteString
 import io.grpc.Channel
-import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
+import org.scalatest.Inspectors
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}

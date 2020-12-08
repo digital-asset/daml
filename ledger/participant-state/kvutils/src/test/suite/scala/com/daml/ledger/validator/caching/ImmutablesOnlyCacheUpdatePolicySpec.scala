@@ -5,9 +5,10 @@ package com.daml.ledger.validator.caching
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
 import com.daml.ledger.validator.TestHelper
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ImmutablesOnlyCacheUpdatePolicySpec extends WordSpec with Matchers {
+class ImmutablesOnlyCacheUpdatePolicySpec extends AnyWordSpec with Matchers {
   private val policy = ImmutablesOnlyCacheUpdatePolicy
 
   "cache update policy" should {

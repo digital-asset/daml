@@ -4,7 +4,8 @@
 package com.daml.ledger.rxjava
 
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import org.scalatest.{Assertion, Matchers}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
 
 private[rxjava] trait AuthMatchers { self: Matchers =>
 

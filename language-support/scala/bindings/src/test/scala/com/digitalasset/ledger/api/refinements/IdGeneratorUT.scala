@@ -4,9 +4,10 @@
 package com.daml.ledger.api.refinements
 
 import com.daml.ledger.api.refinements.ApiTypes.{CommandId, CommandIdTag, WorkflowId, WorkflowIdTag}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class IdGeneratorUT extends WordSpec with Matchers {
+class IdGeneratorUT extends AnyWordSpec with Matchers {
 
   "IdGenerator" should {
 

@@ -6,9 +6,11 @@ package com.daml.http
 import domain._
 
 import org.scalatest._
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.OneAnd
 
-final class DomainSpec extends FreeSpec with Matchers {
+final class DomainSpec extends AnyFreeSpec with Matchers {
   private val ledgerId = LedgerId("myledger")
   private val appId = ApplicationId("myAppId")
   private val alice = Party("Alice")

@@ -3,10 +3,11 @@
 
 package com.daml.lf.data
 
-import org.scalatest.prop.{PropertyChecks}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-class SortedLookupListSpec extends WordSpec with Matchers with PropertyChecks {
+class SortedLookupListSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks {
 
   "SortMap.fromImmArray should fails if the input list contians duplicate keys" in {
 

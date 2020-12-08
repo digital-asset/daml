@@ -4,8 +4,10 @@
 package com.daml.http
 
 import org.scalatest._
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 
-final class CliSpec extends FreeSpec with Matchers {
+final class CliSpec extends AnyFreeSpec with Matchers {
 
   private def configParser(
       parameters: Seq[String],

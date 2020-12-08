@@ -41,6 +41,8 @@ import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future

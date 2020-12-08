@@ -20,18 +20,20 @@ import com.daml.scalautil.Statement.discard
 import com.daml.http.domain
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen.{identifier, listOf}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FreeSpec, Inside, Matchers, Succeeded}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.{Inside, Succeeded}
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.{\/, \/-}
 
 class JsonProtocolTest
-    extends FreeSpec
+    extends AnyFreeSpec
     with Matchers
     with Inside
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
 
   import JsonProtocol._
   import spray.json._

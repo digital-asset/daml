@@ -13,11 +13,12 @@ import com.daml.dec.DirectExecutionContext
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 @SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
 class ScenarioLoadingITDivulgence
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with ScalaFutures
     with TestCommands

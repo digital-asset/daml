@@ -3,13 +3,13 @@
 
 package com.daml.ledger.api.tls
 
-import org.scalatest.WordSpec
 import java.security.Security
 
 import org.scalatest.BeforeAndAfterEach
-import org.scalatest.Matchers
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TlsConfigurationTest extends WordSpec with Matchers with BeforeAndAfterEach {
+class TlsConfigurationTest extends AnyWordSpec with Matchers with BeforeAndAfterEach {
 
   var systemProperties: Map[String, Option[String]] = Map.empty
   var ocspSecurityProperty: Option[String] = None

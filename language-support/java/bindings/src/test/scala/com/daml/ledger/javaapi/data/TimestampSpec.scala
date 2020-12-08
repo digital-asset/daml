@@ -6,10 +6,11 @@ package com.daml.ledger.javaapi.data
 import java.time.Instant
 
 import org.scalacheck.Gen
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
-class TimestampSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
+class TimestampSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyChecks {
 
   behavior of "Timestamp"
 

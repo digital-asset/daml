@@ -11,9 +11,10 @@ import com.daml.lf.speedy.SResult.SResultError
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.value.Value.ContractId
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
 

@@ -53,6 +53,7 @@ da_scala_test(
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_mockito_mockito_scala_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
 )

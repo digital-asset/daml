@@ -15,14 +15,14 @@ import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
 import com.daml.ledger.participant.state.v1.{Configuration, TimeModel}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
-import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
+import org.mockito.MockitoSugar
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.{Logger, LoggerFactory}
 
 class CommitterSpec
-    extends WordSpec
+    extends AnyWordSpec
     with TableDrivenPropertyChecks
     with Matchers
     with MockitoSugar {

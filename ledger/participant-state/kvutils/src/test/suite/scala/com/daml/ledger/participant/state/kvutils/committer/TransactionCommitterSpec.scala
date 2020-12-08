@@ -28,13 +28,14 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{Matchers, WordSpec}
+import org.mockito.MockitoSugar
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.Inspectors.forEvery
 
 import scala.collection.JavaConverters._
 
-class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar {
+class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSugar {
   private val metrics = new Metrics(new MetricRegistry)
   private val aDamlTransactionEntry = DamlTransactionEntry.newBuilder
     .setTransaction(Conversions.encodeTransaction(TransactionBuilder.Empty))

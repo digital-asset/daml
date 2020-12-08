@@ -12,13 +12,14 @@ import com.daml.grpc.adapter.client.akka.ClientAdapter
 import com.daml.platform.hello.HelloRequest
 import com.daml.platform.hello.HelloServiceGrpc.HelloServiceStub
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 trait AkkaClientCompatibilityCheck {
-  self: WordSpec with Matchers with ScalaFutures with ResultAssertions =>
+  self: AnyWordSpec with Matchers with ScalaFutures with ResultAssertions =>
 
   implicit protected def system: ActorSystem
 

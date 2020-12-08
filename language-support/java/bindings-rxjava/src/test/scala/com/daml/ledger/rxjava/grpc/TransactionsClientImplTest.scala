@@ -14,14 +14,15 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
 import com.daml.ledger.api.v1.value.Identifier
 import io.reactivex.Observable
 import org.scalacheck.Shrink
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
 import scala.collection.JavaConverters._
 
 final class TransactionsClientImplTest
-    extends FlatSpec
-    with GeneratorDrivenPropertyChecks
+    extends AnyFlatSpec
+    with ScalaCheckDrivenPropertyChecks
     with Matchers
     with AuthMatchers
     with DataLayerHelpers {

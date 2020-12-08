@@ -9,11 +9,17 @@ import com.daml.lf.data.Ref
 import com.daml.lf.iface.{PrimTypeBool, TypePrim}
 import com.squareup.javapoet._
 import javax.lang.model.element.Modifier
-import org.scalatest.{FlatSpec, Matchers, OptionValues, TryValues}
+import org.scalatest.{OptionValues, TryValues}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 
-final class RecordLikeMethodsSpec extends FlatSpec with Matchers with OptionValues with TryValues {
+final class RecordLikeMethodsSpec
+    extends AnyFlatSpec
+    with Matchers
+    with OptionValues
+    with TryValues {
 
   behavior of "RecordMethods.constructor"
 

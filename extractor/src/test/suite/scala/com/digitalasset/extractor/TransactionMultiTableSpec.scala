@@ -15,11 +15,13 @@ import com.daml.testing.postgresql.PostgresAroundAll
 import doobie.implicits._
 import io.circe.syntax._
 import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
 class TransactionMultiTableSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Suite
     with PostgresAroundAll
     with SuiteResourceManagementAroundAll

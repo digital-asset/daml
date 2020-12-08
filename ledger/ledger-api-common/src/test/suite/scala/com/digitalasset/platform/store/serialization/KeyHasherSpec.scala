@@ -11,11 +11,12 @@ import com.daml.lf.data._
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class KeyHasherSpec extends WordSpec with Matchers {
+class KeyHasherSpec extends AnyWordSpec with Matchers {
   private[this] def templateId(module: String, name: String) = Identifier(
     PackageId.assertFromString("package"),
     QualifiedName(

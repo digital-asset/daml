@@ -3,9 +3,11 @@
 
 package com.daml.platform.apiserver.services.tracking
 
-import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpec}
+import org.scalatest.BeforeAndAfterEach
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class SizeCappedMapTest extends WordSpec with BeforeAndAfterEach with Matchers {
+class SizeCappedMapTest extends AnyWordSpec with BeforeAndAfterEach with Matchers {
 
   private var sut: SizeCappedMap[Long, Long] = _
 

@@ -12,7 +12,9 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInst, ValueParty, VersionedValue}
 import com.daml.lf.value.ValueVersion
 import com.daml.platform.store.entries.LedgerEntry
-import org.scalatest.{AsyncFlatSpec, Inside, LoneElement, Matchers}
+import org.scalatest.{Inside, LoneElement}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>

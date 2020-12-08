@@ -8,9 +8,10 @@ import java.util.concurrent.TimeUnit
 import com.daml.ledger.javaapi.data.{Identifier, LedgerOffset, WorkflowEvent}
 import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
 import io.reactivex.Flowable
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
-class LedgerViewFlowableSpec extends FlatSpec with Matchers {
+class LedgerViewFlowableSpec extends AnyFlatSpec with Matchers {
 
   behavior of "LedgerViewFlowable.of"
 

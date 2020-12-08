@@ -5,10 +5,11 @@ package com.daml.codegen
 
 import com.daml.codegen.dependencygraph._
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import dependencygraph.Graph._
 
-class GraphSpec extends FlatSpec with Matchers {
+class GraphSpec extends AnyFlatSpec with Matchers {
 
   private[this] def intNode(
       contentAndId: Int,

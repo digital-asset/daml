@@ -25,7 +25,8 @@ import com.daml.platform.store.IndexMetadata
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.mockito.MockitoSugar
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 

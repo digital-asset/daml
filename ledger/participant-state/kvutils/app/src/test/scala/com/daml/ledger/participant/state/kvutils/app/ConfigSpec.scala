@@ -4,10 +4,12 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import com.daml.ledger.participant.state.v1.ParticipantId
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scopt.OptionParser
 
-final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
+final class ConfigSpec extends AnyFlatSpec with Matchers with OptionValues {
 
   private val dumpIndexMetadataCommand = "dump-index-metadata"
   private val participantOption = "--participant"

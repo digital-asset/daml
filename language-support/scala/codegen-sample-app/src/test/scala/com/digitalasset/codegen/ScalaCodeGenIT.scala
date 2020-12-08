@@ -39,6 +39,8 @@ import com.google.protobuf.empty.Empty
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.time.{Millis, Seconds, Span}
 import scalaz.syntax.tag._
 
@@ -47,7 +49,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 class ScalaCodeGenIT
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with ScalaFutures
     with Inside

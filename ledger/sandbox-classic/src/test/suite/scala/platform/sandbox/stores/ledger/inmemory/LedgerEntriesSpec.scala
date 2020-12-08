@@ -7,7 +7,9 @@ import akka.stream.ThrottleMode
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
+import org.scalatest.Inspectors
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 import scala.concurrent.duration._

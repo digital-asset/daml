@@ -10,11 +10,13 @@ import com.daml.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import io.circe.parser._
-import org.scalatest._
+import org.scalatest.{Inside, Suite}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.Scalaz._
 
 class RecordsAndVariantsSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Suite
     with PostgresAroundAll
     with SuiteResourceManagementAroundAll

@@ -5,10 +5,11 @@ package com.daml.extractor.config
 
 import com.daml.scalatest.FlatSpecCheckLaws
 import com.daml.extractor.config.Generators.arbTemplateConfig
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.scalacheck.ScalazProperties
 
-class TemplateConfigSpec extends FlatSpec with Matchers with FlatSpecCheckLaws {
+class TemplateConfigSpec extends AnyFlatSpec with Matchers with FlatSpecCheckLaws {
 
   behavior of TemplateConfig.getClass.getSimpleName
 

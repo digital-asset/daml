@@ -4,7 +4,7 @@
 package com.daml.grpc.adapter.client.rs
 
 import org.reactivestreams.tck.{PublisherVerification, TestEnvironment}
-import org.scalatest.testng.TestNGSuiteLike
+import org.scalatestplus.testng.TestNGSuiteLike
 
 class ClientPublisherTest
     extends PublisherVerification[Long](new TestEnvironment(500L, 100L, false))

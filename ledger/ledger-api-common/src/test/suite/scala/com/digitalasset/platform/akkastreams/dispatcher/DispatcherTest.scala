@@ -11,12 +11,17 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Milliseconds, Seconds, Span}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
 //TODO: merge/review the tests we have around the Dispatcher!
-class DispatcherTest extends WordSpec with AkkaBeforeAndAfterAll with Matchers with ScalaFutures {
+class DispatcherTest
+    extends AnyWordSpec
+    with AkkaBeforeAndAfterAll
+    with Matchers
+    with ScalaFutures {
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(scaled(Span(10, Seconds)), scaled(Span(250, Milliseconds)))

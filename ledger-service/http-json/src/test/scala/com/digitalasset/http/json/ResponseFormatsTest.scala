@@ -11,8 +11,10 @@ import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import org.scalacheck.Gen
 import org.scalatest.compatible.Assertion
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FreeSpec, Inside, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.Inside
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.syntax.show._
 import scalaz.{Show, \/}
 import spray.json._
@@ -21,10 +23,10 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 class ResponseFormatsTest
-    extends FreeSpec
+    extends AnyFreeSpec
     with Matchers
     with Inside
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
 
   implicit val asys: ActorSystem = ActorSystem(this.getClass.getSimpleName)
   implicit val mat: Materializer = Materializer(asys)

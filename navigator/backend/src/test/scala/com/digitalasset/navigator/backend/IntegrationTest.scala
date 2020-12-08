@@ -17,6 +17,8 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.navigator.config.{Arguments, Config}
 import org.scalatest._
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.timer.RetryStrategy
 

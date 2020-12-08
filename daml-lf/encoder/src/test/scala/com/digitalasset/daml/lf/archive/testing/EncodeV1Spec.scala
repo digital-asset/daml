@@ -13,11 +13,12 @@ import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.{AstRewriter, ParserParameters, parseModules}
 import com.daml.lf.validation.Validation
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   import EncodeV1Spec._
 

@@ -8,7 +8,9 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.timer.RetryStrategySpec._
 import org.scalatest.matchers.{MatchResult, Matcher}
-import org.scalatest.{AsyncWordSpec, Inside, Matchers}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}

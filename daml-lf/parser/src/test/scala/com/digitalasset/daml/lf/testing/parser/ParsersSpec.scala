@@ -10,12 +10,13 @@ import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Implicits._
-import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import scala.language.implicitConversions
 
-class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matchers {
 
   private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 

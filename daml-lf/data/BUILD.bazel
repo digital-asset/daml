@@ -36,6 +36,7 @@ da_scala_test(
         "//daml-lf/data-scalacheck",
         "//libs-scala/scalatest-utils",
         "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
     ],

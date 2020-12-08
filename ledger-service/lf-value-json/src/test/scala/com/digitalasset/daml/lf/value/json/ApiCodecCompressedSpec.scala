@@ -11,8 +11,10 @@ import value.test.TypedValueGenerators.{RNil, genAddend, genTypeAndValue, ValueA
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 import com.daml.ledger.service.MetadataReader
 import org.scalactic.source
-import org.scalatest.{Inside, Matchers, WordSpec}
-import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.{Arbitrary, Gen}
 import shapeless.{Coproduct => HSum}
 import shapeless.record.{Record => HRecord}
@@ -25,10 +27,9 @@ import scala.util.{Success, Try}
 import scala.util.Random.shuffle
 
 class ApiCodecCompressedSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
-    with GeneratorDrivenPropertyChecks
-    with TableDrivenPropertyChecks
+    with ScalaCheckPropertyChecks
     with Inside {
 
   import C.typeLookup

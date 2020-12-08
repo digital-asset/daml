@@ -7,7 +7,7 @@ import com.daml.grpc.adapter.TestExecutionSequencerFactory
 import org.reactivestreams.tck.SubscriberWhiteboxVerification.SubscriberPuppet
 import org.reactivestreams.tck.{SubscriberWhiteboxVerification, TestEnvironment}
 import org.reactivestreams.{Subscriber, Subscription}
-import org.scalatest.testng.TestNGSuiteLike
+import org.scalatestplus.testng.TestNGSuiteLike
 
 // This suite uses Integer instead of Int because if we'd use Int, scala would interpret the `null` element from
 // test required_spec213_onNext_mustThrowNullPointerExceptionWhenParametersAreNull as numerical 0.

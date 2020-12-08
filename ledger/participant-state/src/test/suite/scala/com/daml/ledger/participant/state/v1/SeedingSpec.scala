@@ -3,9 +3,10 @@
 
 package com.daml.ledger.participant.state.v1
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class SeedingSpec extends WordSpec with Matchers {
+class SeedingSpec extends AnyWordSpec with Matchers {
   "StaticRandomSeedService" should {
     "return the same sequence of random numbers across multiple runs" in {
       val gen1 = new SeedService.StaticRandom("one key")

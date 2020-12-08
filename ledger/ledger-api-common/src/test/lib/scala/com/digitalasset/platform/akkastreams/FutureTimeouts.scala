@@ -4,7 +4,8 @@
 package com.daml.platform.akkastreams
 import akka.actor.ActorSystem
 import com.daml.dec.DirectExecutionContext
-import org.scalatest.{Assertion, AsyncWordSpec}
+import org.scalatest.Assertion
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.{Future, Promise, TimeoutException}
 import scala.concurrent.duration.FiniteDuration

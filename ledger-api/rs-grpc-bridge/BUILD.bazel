@@ -56,6 +56,7 @@ da_scala_test(
         "@maven//:org_reactivestreams_reactive_streams_tck",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalatestplus_testng_6_7_2_12",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_testng_testng",
     ],

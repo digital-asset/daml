@@ -5,9 +5,10 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class OffsetBuilderSpec extends WordSpec with Matchers {
+class OffsetBuilderSpec extends AnyWordSpec with Matchers {
 
   "OffsetBuilder" should {
     val zeroBytes = data.Bytes.fromByteArray(Array.fill(16)(0: Byte))

@@ -14,7 +14,8 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.platform.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import io.grpc.{BindableService, ManagedChannel}
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.ledger.client.GrpcChannel
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
