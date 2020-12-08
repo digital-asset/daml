@@ -32,10 +32,9 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     for {
       (_, tx) <- store(singleCreate)
       create = nonTransient(tx).loneElement
-      _ <- store(
-        divulgedContracts = Map((create, someVersionedContractInstance) -> Set(charlie)),
-        blindingInfo = None,
-        offsetAndTx = divulgeAlreadyCommittedContract(id = create, divulgees = Set(charlie)),
+      _ <- storeCommitedContractDivulgence(
+        id = create,
+        divulgees = Set(charlie)
       )
       result <- ledgerDao.lookupActiveOrDivulgedContract(create, Set(charlie))
     } yield {
@@ -92,10 +91,9 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         key = None,
       )
       contractId = nonTransient(tx).loneElement
-      _ <- store(
-        divulgedContracts = Map((contractId, someVersionedContractInstance) -> Set(emma)),
-        blindingInfo = None,
-        offsetAndTx = divulgeAlreadyCommittedContract(id = contractId, divulgees = Set(emma)),
+      _ <- storeCommitedContractDivulgence(
+        id = contractId,
+        divulgees = Set(emma)
       )
       result <- ledgerDao.lookupActiveOrDivulgedContract(contractId, Set(david, emma))
     } yield {
@@ -145,11 +143,9 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         stakeholders = Set(alice, bob, charlie),
         key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
       )
-      contractId = nonTransient(tx).loneElement
-      _ <- store(
-        divulgedContracts = Map((contractId, someVersionedContractInstance) -> Set(emma)),
-        blindingInfo = None,
-        offsetAndTx = divulgeAlreadyCommittedContract(id = contractId, divulgees = Set(emma)),
+      _ <- storeCommitedContractDivulgence(
+        id = nonTransient(tx).loneElement,
+        divulgees = Set(emma)
       )
       key = GlobalKey.assertBuild(someTemplateId, aTextValue)
       result <- ledgerDao.lookupKey(key, Set(david, emma))

@@ -192,7 +192,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     )
   }
 
-  // TODO: `submittingParty: Party` should be changed to Set[Party] when multi-party changes in LedgerEntry are ready
   protected final def createAndStoreContract(
       submittingParties: Set[Party],
       signatories: Set[Party],
@@ -211,6 +210,16 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         },
         actAs = submittingParties.toList
       ))
+
+  protected final def storeCommitedContractDivulgence(
+                                       id: ContractId,
+                                       divulgees: Set[Party],
+                                     ): Future[(Offset, LedgerEntry.Transaction)] =
+  store(
+    divulgedContracts = Map((id, someVersionedContractInstance) -> divulgees),
+    blindingInfo = None,
+    offsetAndTx = divulgeAlreadyCommittedContract(id, divulgees),
+  )
 
   protected def divulgeAlreadyCommittedContract(
       id: ContractId,
