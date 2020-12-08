@@ -47,6 +47,7 @@ class CommitContextSpec extends AnyWordSpec with Matchers {
     "throw in case key cannot be found" in {
       val context = newInstance()
       assertThrows[Err.MissingInputState](context.get(aKey))
+      context.getAccessedInputKeys shouldBe Set.empty
     }
   }
 
@@ -69,6 +70,7 @@ class CommitContextSpec extends AnyWordSpec with Matchers {
     "throw in case key cannot be found" in {
       val context = newInstance()
       assertThrows[Err.MissingInputState](context.read(aKey))
+      context.getAccessedInputKeys shouldBe Set.empty
     }
   }
 
