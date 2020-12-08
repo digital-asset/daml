@@ -58,7 +58,7 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
   override def participantId: ParticipantId = writer.participantId
 
   override def currentHealth(): HealthStatus =
-    if (queueHandle.alive)
+    if (queueHandle.isAlive)
       writer.currentHealth()
     else
       HealthStatus.unhealthy
@@ -88,7 +88,11 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     }
   }
 
-  override def close(): Unit = queueHandle.close()
+  override def close(): Unit = {
+    // Do not wait for the queue to complete; just fire and forget.
+    queueHandle.stop()
+    ()
+  }
 }
 
 object BatchingLedgerWriter {
