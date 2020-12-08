@@ -26,7 +26,7 @@ private[trigger] final case class ServiceConfig(
     maxInboundMessageSize: Int,
     minRestartInterval: FiniteDuration,
     maxRestartInterval: FiniteDuration,
-    maxHttpEntityUploadSize: Int,
+    maxHttpEntityUploadSize: Long,
     httpEntityUploadTimeout: FiniteDuration,
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
@@ -138,7 +138,7 @@ private[trigger] object ServiceConfig {
       .text(
         s"Maximum time interval between restarting a failed trigger. Defaults to ${DefaultMaxRestartInterval.toSeconds} seconds.")
 
-    opt[Int]("max-http-entity-upload-size")
+    opt[Long]("max-http-entity-upload-size")
       .action((x, c) => c.copy(maxHttpEntityUploadSize = x))
       .optional()
       .text(s"Optional max HTTP entity upload size. Defaults to ${DefaultMaxHttpEntityUploadSize}.")

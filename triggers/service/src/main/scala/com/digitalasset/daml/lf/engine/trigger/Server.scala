@@ -59,7 +59,7 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 class Server(
-    maxHttpEntityUploadSize: Int,
+    maxHttpEntityUploadSize: Long,
     httpEntityUploadTimeout: FiniteDuration,
     authConfig: AuthConfig,
     triggerDao: RunningTriggerDao,
@@ -276,7 +276,7 @@ class Server(
           // Authorization failed - login and retry on callback request.
           case None =>
             // Ensure that the request is fully uploaded.
-            toStrictEntity(httpEntityUploadTimeout, maxHttpEntityUploadSize.toLong).tflatMap { _ =>
+            toStrictEntity(httpEntityUploadTimeout, maxHttpEntityUploadSize).tflatMap { _ =>
               Directive { inner => ctx =>
                 val requestId = UUID.randomUUID()
                 authCallbacks.update(
@@ -538,7 +538,7 @@ object Server {
   def apply(
       host: String,
       port: Int,
-      maxHttpEntityUploadSize: Int,
+      maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,
       authConfig: AuthConfig,
       ledgerConfig: LedgerConfig,
