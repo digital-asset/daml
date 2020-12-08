@@ -68,21 +68,6 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     }
   }
 
-  it should "find contract if at least one of requesters is a signatory" in {
-    for {
-      (_, tx) <- createAndStoreContract(
-        submittingParties = Set(alice),
-        signatories = Set(alice, bob),
-        stakeholders = Set(alice, bob),
-        key = None,
-      )
-      contractId = nonTransient(tx).loneElement
-      result <- ledgerDao.lookupActiveOrDivulgedContract(contractId, Set(bob, emma))
-    } yield {
-      result.value shouldBe a[ContractInst[_]]
-    }
-  }
-
   it should "find contract if at least one of requesters is a stakeholder" in {
     for {
       (_, tx) <- createAndStoreContract(
@@ -98,7 +83,27 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     }
   }
 
-  it should "not find keys that are not visible to any of the requesters" in {
+  it should "find contract if at least one of requesters is a divulgee" in {
+    for {
+      (_, tx) <- createAndStoreContract(
+        submittingParties = Set(alice),
+        signatories = Set(alice, bob),
+        stakeholders = Set(alice, bob, charlie),
+        key = None,
+      )
+      contractId = nonTransient(tx).loneElement
+      _ <- store(
+        divulgedContracts = Map((contractId, someVersionedContractInstance) -> Set(emma)),
+        blindingInfo = None,
+        offsetAndTx = divulgeAlreadyCommittedContract(id = contractId, divulgees = Set(emma)),
+      )
+      result <- ledgerDao.lookupActiveOrDivulgedContract(contractId, Set(david, emma))
+    } yield {
+      result.value shouldBe a[ContractInst[_]]
+    }
+  }
+
+  it should "not find keys if none of requesters are stakeholders" in {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
     for {
       (_, _) <- createAndStoreContract(
@@ -111,23 +116,6 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       result <- ledgerDao.lookupKey(key, Set(charlie, emma))
     } yield {
       result shouldBe None
-    }
-  }
-
-  it should "find a key if at least one of requesters is a signatory" in {
-    val aTextValue = ValueText(scala.util.Random.nextString(10))
-    for {
-      (_, tx) <- createAndStoreContract(
-        submittingParties = Set(alice),
-        signatories = Set(alice, bob),
-        stakeholders = Set(alice, bob),
-        key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
-      )
-      contractId = nonTransient(tx).loneElement
-      key = GlobalKey.assertBuild(someTemplateId, aTextValue)
-      result <- ledgerDao.lookupKey(key, Set(emma, bob))
-    } yield {
-      result.value shouldBe contractId
     }
   }
 
@@ -145,6 +133,28 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       result <- ledgerDao.lookupKey(key, Set(emma, charlie))
     } yield {
       result.value shouldBe contractId
+    }
+  }
+
+  it should "not find a key if none of requesters are neither stakeholder nor divulgee" in {
+    val aTextValue = ValueText(scala.util.Random.nextString(10))
+    for {
+      (_, tx) <- createAndStoreContract(
+        submittingParties = Set(alice),
+        signatories = Set(alice, bob),
+        stakeholders = Set(alice, bob, charlie),
+        key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
+      )
+      contractId = nonTransient(tx).loneElement
+      _ <- store(
+        divulgedContracts = Map((contractId, someVersionedContractInstance) -> Set(emma)),
+        blindingInfo = None,
+        offsetAndTx = divulgeAlreadyCommittedContract(id = contractId, divulgees = Set(emma)),
+      )
+      key = GlobalKey.assertBuild(someTemplateId, aTextValue)
+      result <- ledgerDao.lookupKey(key, Set(david, emma))
+    } yield {
+      result shouldBe None
     }
   }
 
