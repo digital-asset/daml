@@ -12,10 +12,10 @@ import com.daml.lf.transaction.GenTransaction.{
   NotWellFormedError,
   OrphanedNode
 }
-import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, VersionedNode}
+import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.test.ValueGenerators.{danglingRefGenNode, transactionVersionGen}
+import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
@@ -133,19 +133,19 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
    */
 
   "isReplayedBy" - {
-    def genTrans(node: VersionedNode[NodeId, ContractId]) = {
+    def genTrans(node: GenNode.WithTxValue[NodeId, ContractId]) = {
       val nid = NodeId(1)
       VersionedTransaction(node.version, HashMap(nid -> node), ImmArray(nid))
     }
 
     def isReplayedBy(
-        n1: VersionedNode[NodeId, ContractId],
-        n2: VersionedNode[NodeId, ContractId],
+        n1: GenNode.WithTxValue[NodeId, ContractId],
+        n2: GenNode.WithTxValue[NodeId, ContractId],
     ) = Transaction.isReplayedBy(genTrans(n1), genTrans(n2))
 
     // the whole-transaction-relevant parts are handled by equalForest testing
     type CidVal[F[_, _]] = F[V.ContractId, V.VersionedValue[V.ContractId]]
-    val genEmptyNode: Gen[VersionedNode[Nothing, V.ContractId]] =
+    val genEmptyNode: Gen[GenNode.WithTxValue[Nothing, V.ContractId]] =
       for {
         entry <- danglingRefGenNode
         node = entry match {
@@ -153,8 +153,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
           case (_, ne: Node.NodeExercises.WithTxValue[_, V.ContractId]) =>
             ne.copy(children = ImmArray.empty)
         }
-        version <- transactionVersionGen
-      } yield VersionedNode(version, node)
+      } yield node
 
     "is reflexive" in forAll(genEmptyNode) { n =>
       isReplayedBy(n, n) shouldBe Right(())
@@ -167,7 +166,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
         if (randomVersion != v) randomVersion else versions.last
       }
       forAll(genEmptyNode, minSuccessful(10)) { n =>
-        val m = n.copy(version = diffVersion(n.version))
+        val m = n.updateVersion(diffVersion(n.version))
         isReplayedBy(n, m) shouldBe 'left
       }
     }
@@ -180,15 +179,14 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
 
     "ignores location" in forAll(genEmptyNode) { n =>
       val withoutLocation = {
-        val VersionedNode(version, node) = n
-        val nodeWithoutLocation = node match {
+        val nodeWithoutLocation = n match {
           case nc: CidVal[Node.NodeCreate] => nc copy (optLocation = None)
           case nf: Node.NodeFetch.WithTxValue[V.ContractId] => nf copy (optLocation = None)
           case ne: Node.NodeExercises.WithTxValue[Nothing, V.ContractId] =>
             ne copy (optLocation = None)
           case nl: CidVal[Node.NodeLookupByKey] => nl copy (optLocation = None)
         }
-        VersionedNode(version, nodeWithoutLocation)
+        nodeWithoutLocation
       }
       isReplayedBy(withoutLocation, n) shouldBe Right(())
       isReplayedBy(n, withoutLocation) shouldBe Right(())
@@ -266,7 +264,8 @@ object TransactionSpec {
       children = children,
       exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
       key = None,
-      byKey = false
+      byKey = false,
+      version = TransactionVersions.minVersion,
     )
 
   val dummyCid = V.ContractId.V1.assertBuild(
@@ -289,6 +288,7 @@ object TransactionSpec {
       signatories = Set.empty,
       stakeholders = Set.empty,
       key = None,
+      version = TransactionVersions.minVersion,
     )
 
   implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)

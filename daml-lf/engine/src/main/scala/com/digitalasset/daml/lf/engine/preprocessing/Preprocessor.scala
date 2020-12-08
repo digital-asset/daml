@@ -143,7 +143,14 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
 
   private def getTemplateId(node: Node.GenNode.WithTxValue[NodeId, _]) =
     node match {
-      case Node.NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
+      case Node.NodeCreate(
+          coid @ _,
+          coinst,
+          optLoc @ _,
+          sigs @ _,
+          stks @ _,
+          key @ _,
+          version @ _) =>
         coinst.template
       case Node.NodeExercises(
           coid @ _,
@@ -160,11 +167,12 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
           exerciseResult @ _,
           key @ _,
           byKey @ _,
+          version @ _,
           ) =>
         templateId
-      case Node.NodeFetch(coid @ _, templateId, _, _, _, _, _, _) =>
+      case Node.NodeFetch(coid @ _, templateId, _, _, _, _, _, _, _) =>
         templateId
-      case Node.NodeLookupByKey(templateId, _, key @ _, _) =>
+      case Node.NodeLookupByKey(templateId, _, key @ _, _, _) =>
         templateId
     }
 

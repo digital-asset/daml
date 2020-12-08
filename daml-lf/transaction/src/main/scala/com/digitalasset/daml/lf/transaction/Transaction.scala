@@ -7,7 +7,7 @@ package transaction
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.ledger.FailedAuthorization
-import com.daml.lf.transaction.Node.VersionedNode
+import com.daml.lf.transaction.Node.GenNode
 import com.daml.lf.value.Value
 import scalaz.Equal
 
@@ -16,7 +16,7 @@ import scala.collection.immutable.HashMap
 
 final case class VersionedTransaction[Nid, +Cid] private[lf] (
     version: TransactionVersion,
-    versionedNodes: Map[Nid, Node.VersionedNode[Nid, Cid]],
+    nodes: Map[Nid, GenNode.WithTxValue[Nid, Cid]],
     override val roots: ImmArray[Nid],
 ) extends HasTxNodes[Nid, Cid, Transaction.Value[Cid]]
     with value.CidContainer[VersionedTransaction[Nid, Cid]]
@@ -26,19 +26,13 @@ final case class VersionedTransaction[Nid, +Cid] private[lf] (
 
   @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] = {
-    val versionNode = Node.VersionedNode.map2(identity[Nid], f)
+    val versionNode = GenNode.map3(identity[Nid], f, Value.VersionedValue.map1(f))
     VersionedTransaction(
       version,
-      versionedNodes = versionedNodes.transform((_, node) => versionNode(node)),
+      nodes = nodes.transform((_, node) => versionNode(node)),
       roots,
     )
   }
-
-  // O(1)
-  override def nodes: Map[Nid, Node.GenNode.WithTxValue[Nid, Cid]] =
-    // Here we use intentionally `mapValues` to get the time/memory complexity of the method constant.
-    // It is fine since the function `_.node` is very cheap.
-    versionedNodes.mapValues(_.node)
 
   // O(1)
   def transaction: GenTransaction[Nid, Cid, Transaction.Value[Cid]] =
@@ -53,7 +47,7 @@ object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
       f2: B1 => B2,
   ): VersionedTransaction[A1, B1] => VersionedTransaction[A2, B2] = {
     case VersionedTransaction(version, versionedNodes, roots) =>
-      val mapNode = Node.VersionedNode.map2(f1, f2)
+      val mapNode = GenNode.map3(f1, f2, Value.VersionedValue.map1(f2))
       VersionedTransaction(
         version,
         versionedNodes.map {
@@ -68,7 +62,7 @@ object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
       f2: B => Unit,
   ): VersionedTransaction[A, B] => Unit = {
     case VersionedTransaction(_, versionedNodes, _) =>
-      val foreachNode = Node.VersionedNode.foreach2(f1, f2)
+      val foreachNode = GenNode.foreach3(f1, f2, Value.VersionedValue.foreach1(f2))
       versionedNodes.foreach {
         case (nid, node) =>
           f1(nid)
@@ -331,7 +325,7 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
 
   final def localContracts[Cid2 >: Cid]: Map[Cid2, Nid] =
     fold(Map.empty[Cid2, Nid]) {
-      case (acc, (nid, create @ Node.NodeCreate(_, _, _, _, _, _))) =>
+      case (acc, (nid, create @ Node.NodeCreate(_, _, _, _, _, _, _))) =>
         acc.updated(create.coid, nid)
       case (acc, _) => acc
     }
@@ -341,11 +335,11 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
     */
   final def inputContracts[Cid2 >: Cid]: Set[Cid2] =
     fold(Set.empty[Cid2]) {
-      case (acc, (_, Node.NodeExercises(coid, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.NodeExercises(coid, _, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
-      case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _, _, _, _))) =>
         acc + coid
-      case (acc, (_, Node.NodeLookupByKey(_, _, _, Some(coid)))) =>
+      case (acc, (_, Node.NodeLookupByKey(_, _, _, Some(coid), _))) =>
         acc + coid
       case (acc, _) => acc
     } -- localContracts.keySet
@@ -478,15 +472,15 @@ object GenTransaction extends value.CidContainer3[GenTransaction] {
     tx.fold(State(Set.empty, Set.empty)) {
         case (state, (_, node)) =>
           node match {
-            case Node.NodeCreate(_, c, _, _, _, Some(key)) =>
+            case Node.NodeCreate(_, c, _, _, _, Some(key), _) =>
               state.created(globalKey(c.template, key.key.value))
-            case Node.NodeExercises(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key), _) =>
+            case Node.NodeExercises(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key), _, _) =>
               state.consumed(globalKey(tmplId, key.key.value))
-            case Node.NodeExercises(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key), _) =>
+            case Node.NodeExercises(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key), _, _) =>
               state.referenced(globalKey(tmplId, key.key.value))
-            case Node.NodeFetch(_, tmplId, _, _, _, _, Some(key), _) =>
+            case Node.NodeFetch(_, tmplId, _, _, _, _, Some(key), _, _) =>
               state.referenced(globalKey(tmplId, key.key.value))
-            case Node.NodeLookupByKey(tmplId, _, key, Some(_)) =>
+            case Node.NodeLookupByKey(tmplId, _, key, Some(_), _) =>
               state.referenced(globalKey(tmplId, key.key.value))
             case _ =>
               state
@@ -598,123 +592,128 @@ object Transaction {
     ): Either[ReplayMismatch[Nid, Cid], Unit] =
       (nids1, nids2) match {
         case (nid1 #:: rest1, nid2 #:: rest2) =>
-          val VersionedNode(version1, node1) = recorded.versionedNodes(nid1)
-          val VersionedNode(version2, node2) = replayed.versionedNodes(nid2)
-          if (version1 != version2)
-            Left(ReplayNodeMismatch(recorded, nid1, replayed, nid2))
-          else
-            (node1, node2) match {
-              case (
-                  Node.NodeCreate(
-                    coid1,
-                    coinst1,
-                    optLocation1 @ _,
-                    signatories1,
-                    stakeholders1,
-                    key1
-                  ),
-                  Node.NodeCreate(
-                    coid2,
-                    coinst2,
-                    optLocation2 @ _,
-                    signatories2,
-                    stakeholders2,
-                    key2
-                  ))
-                  if coid1 === coid2 &&
-                    coinst1 === coinst2 &&
-                    signatories1 == signatories2 &&
-                    stakeholders1 == stakeholders2 &&
-                    key1 === key2 =>
-                loop(rest1, rest2, stack)
-              case (
-                  Node.NodeFetch(
-                    coid1,
-                    templateId1,
-                    optLocation1 @ _,
-                    actingParties1,
-                    signatories1,
-                    stakeholders1,
-                    key1,
-                    byKey1 @ _,
-                  ),
-                  Node.NodeFetch(
-                    coid2,
-                    templateId2,
-                    optLocation2 @ _,
-                    actingParties2,
-                    signatories2,
-                    stakeholders2,
-                    key2,
-                    byKey2 @ _,
-                  ))
-                  if coid1 === coid2 &&
-                    templateId1 == templateId2 &&
-                    (actingParties1.isEmpty || actingParties1 == actingParties2) &&
-                    signatories1 == signatories2 &&
-                    stakeholders1 == stakeholders2 &&
-                    (key1.isEmpty || key1 === key2) =>
-                loop(rest1, rest2, stack)
-              case (
-                  exe1 @ Node.NodeExercises(
-                    targetCoid1,
-                    templateId1,
-                    choiceId1,
-                    optLocation1 @ _,
-                    consuming1,
-                    actingParties1,
-                    chosenValue1,
-                    stakeholders1,
-                    signatories1,
-                    choiceObservers1,
-                    children1 @ _,
-                    exerciseResult1 @ _,
-                    key1,
-                    byKey1 @ _,
-                  ),
-                  exe2 @ Node.NodeExercises(
-                    targetCoid2,
-                    templateId2,
-                    choiceId2,
-                    optLocation2 @ _,
-                    consuming2,
-                    actingParties2,
-                    chosenValue2,
-                    stakeholders2,
-                    signatories2,
-                    choiceObservers2,
-                    children2 @ _,
-                    exerciseResult2 @ _,
-                    key2,
-                    byKey2 @ _,
-                  ))
-                  // results are checked after the children
-                  if targetCoid1 === targetCoid2 &&
-                    templateId1 == templateId2 &&
-                    choiceId1 == choiceId2 &&
-                    consuming1 == consuming2 &&
-                    actingParties1 == actingParties2 &&
-                    chosenValue1 === chosenValue2 &&
-                    stakeholders1 == stakeholders2 &&
-                    signatories1 == signatories2 &&
-                    choiceObservers1 == choiceObservers2 &&
-                    (key1.isEmpty || key1 === key2) =>
-                loop(
-                  children1.iterator.toStream,
-                  children2.iterator.toStream,
-                  (nid1, exe1, rest1, nid2, exe2, rest2) :: stack
+          (recorded.nodes(nid1), replayed.nodes(nid2)) match {
+            case (
+                Node.NodeCreate(
+                  coid1,
+                  coinst1,
+                  optLocation1 @ _,
+                  signatories1,
+                  stakeholders1,
+                  key1,
+                  version1,
+                ),
+                Node.NodeCreate(
+                  coid2,
+                  coinst2,
+                  optLocation2 @ _,
+                  signatories2,
+                  stakeholders2,
+                  key2,
+                  version2,
+                ))
+                if version1 == version2 &&
+                  coid1 === coid2 &&
+                  coinst1 === coinst2 &&
+                  signatories1 == signatories2 &&
+                  stakeholders1 == stakeholders2 &&
+                  key1 === key2 =>
+              loop(rest1, rest2, stack)
+            case (
+                Node.NodeFetch(
+                  coid1,
+                  templateId1,
+                  optLocation1 @ _,
+                  actingParties1,
+                  signatories1,
+                  stakeholders1,
+                  key1,
+                  byKey1 @ _,
+                  version1,
+                ),
+                Node.NodeFetch(
+                  coid2,
+                  templateId2,
+                  optLocation2 @ _,
+                  actingParties2,
+                  signatories2,
+                  stakeholders2,
+                  key2,
+                  byKey2 @ _,
+                  version2,
+                ))
+                if version1 == version2 &&
+                  coid1 === coid2 &&
+                  templateId1 == templateId2 &&
+                  (actingParties1.isEmpty || actingParties1 == actingParties2) &&
+                  signatories1 == signatories2 &&
+                  stakeholders1 == stakeholders2 &&
+                  (key1.isEmpty || key1 === key2) =>
+              loop(rest1, rest2, stack)
+            case (
+                exe1 @ Node.NodeExercises(
+                  targetCoid1,
+                  templateId1,
+                  choiceId1,
+                  optLocation1 @ _,
+                  consuming1,
+                  actingParties1,
+                  chosenValue1,
+                  stakeholders1,
+                  signatories1,
+                  choiceObservers1,
+                  children1 @ _,
+                  exerciseResult1 @ _,
+                  key1,
+                  byKey1 @ _,
+                  version1,
+                ),
+                exe2 @ Node.NodeExercises(
+                  targetCoid2,
+                  templateId2,
+                  choiceId2,
+                  optLocation2 @ _,
+                  consuming2,
+                  actingParties2,
+                  chosenValue2,
+                  stakeholders2,
+                  signatories2,
+                  choiceObservers2,
+                  children2 @ _,
+                  exerciseResult2 @ _,
+                  key2,
+                  byKey2 @ _,
+                  version2,
+                ))
+                // results are checked after the children
+                if version1 == version2 &&
+                  targetCoid1 === targetCoid2 &&
+                  templateId1 == templateId2 &&
+                  choiceId1 == choiceId2 &&
+                  consuming1 == consuming2 &&
+                  actingParties1 == actingParties2 &&
+                  chosenValue1 === chosenValue2 &&
+                  stakeholders1 == stakeholders2 &&
+                  signatories1 == signatories2 &&
+                  choiceObservers1 == choiceObservers2 &&
+                  (key1.isEmpty || key1 === key2) =>
+              loop(
+                children1.iterator.toStream,
+                children2.iterator.toStream,
+                (nid1, exe1, rest1, nid2, exe2, rest2) :: stack
+              )
+            case (
+                Node.NodeLookupByKey(templateId1, optLocation1 @ _, key1, result1, version1),
+                Node.NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2, version2)
                 )
-              case (
-                  Node.NodeLookupByKey(templateId1, optLocation1 @ _, key1, result1),
-                  Node.NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2)
-                  )
-                  if templateId1 == templateId2 &&
-                    key1 === key2 &&
-                    result1 === result2 =>
-                loop(rest1, rest2, stack)
-              case _ =>
-                Left(ReplayNodeMismatch(recorded, nid1, replayed, nid2))
-            }
+                if version1 == version2 &&
+                  templateId1 == templateId2 &&
+                  key1 === key2 &&
+                  result1 === result2 =>
+              loop(rest1, rest2, stack)
+            case _ =>
+              Left(ReplayNodeMismatch(recorded, nid1, replayed, nid2))
+          }
 
         case (Stream.Empty, Stream.Empty) =>
           stack match {

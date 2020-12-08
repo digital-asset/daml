@@ -272,13 +272,18 @@ private[kvutils] class TransactionCommitter(
                 recordedTemplateId,
                 recordedOptLocation @ _,
                 recordedKey,
-                recordedResult),
+                recordedResult,
+                recordedVersion,
+              ),
               Node.NodeLookupByKey(
                 replayedTemplateId,
                 replayedOptLocation @ _,
                 replayedKey,
-                replayedResult))
-              if recordedTemplateId == replayedTemplateId && recordedKey == replayedKey
+                replayedResult,
+                replayedVersion,
+              ))
+              if recordedVersion == replayedVersion &&
+                recordedTemplateId == replayedTemplateId && recordedKey == replayedKey
                 && !resultIsCreatedInTx(recordedTx, recordedResult)
                 && !resultIsCreatedInTx(replayedTx, replayedResult) =>
             RejectionReason.Inconsistent(validationError.msg)

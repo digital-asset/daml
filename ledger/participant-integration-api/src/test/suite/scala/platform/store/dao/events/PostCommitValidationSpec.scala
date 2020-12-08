@@ -115,7 +115,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = TxBuilder.justCommitted(createContract, TxBuilder.fetch(createContract)),
+            transaction = TxBuilder.justCommitted(createContract, txBuilder.fetch(createContract)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -130,7 +130,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = TxBuilder.justCommitted(TxBuilder.fetch(divulgedContract)),
+            transaction = TxBuilder.justCommitted(txBuilder.fetch(divulgedContract)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set(divulgedContract.coid),
           )
@@ -145,7 +145,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = TxBuilder.justCommitted(TxBuilder.fetch(missingCreate)),
+            transaction = TxBuilder.justCommitted(txBuilder.fetch(missingCreate)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -161,7 +161,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val error =
           store.validate(
             transaction = TxBuilder
-              .justCommitted(createContract, TxBuilder.lookupByKey(createContract, found = true)),
+              .justCommitted(createContract, txBuilder.lookupByKey(createContract, found = true)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -177,7 +177,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val error =
           store.validate(
             transaction =
-              TxBuilder.justCommitted(TxBuilder.lookupByKey(missingCreate, found = true)),
+              TxBuilder.justCommitted(txBuilder.lookupByKey(missingCreate, found = true)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -198,7 +198,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val error =
           store.validate(
             transaction =
-              TxBuilder.justCommitted(TxBuilder.lookupByKey(missingContract, found = false)),
+              TxBuilder.justCommitted(txBuilder.lookupByKey(missingContract, found = false)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -276,7 +276,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = TxBuilder.justCommitted(TxBuilder.fetch(committedContract)),
+            transaction = TxBuilder.justCommitted(txBuilder.fetch(committedContract)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
           )
@@ -289,7 +289,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = TxBuilder.justCommitted(TxBuilder.fetch(committedContract)),
+            transaction = TxBuilder.justCommitted(txBuilder.fetch(committedContract)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
             divulged = Set.empty,
           )
@@ -308,7 +308,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val error =
           store.validate(
             transaction =
-              TxBuilder.justCommitted(TxBuilder.lookupByKey(committedContract, found = true)),
+              TxBuilder.justCommitted(txBuilder.lookupByKey(committedContract, found = true)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
           )
@@ -322,7 +322,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val error =
           store.validate(
             transaction =
-              TxBuilder.justCommitted(TxBuilder.lookupByKey(committedContract, found = false)),
+              TxBuilder.justCommitted(txBuilder.lookupByKey(committedContract, found = false)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
           )
@@ -368,7 +368,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = TxBuilder.justCommitted(TxBuilder.fetch(divulgedContract)),
+            transaction = TxBuilder.justCommitted(txBuilder.fetch(divulgedContract)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -402,8 +402,10 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
 object PostCommitValidationSpec {
 
+  val txBuilder = new TxBuilder()
+
   private def genTestCreate(): TxBuilder.Create =
-    TxBuilder.create(
+    txBuilder.create(
       id = s"#${UUID.randomUUID}",
       template = "foo:bar:baz",
       argument = TxBuilder.record("field" -> "value"),
@@ -413,7 +415,7 @@ object PostCommitValidationSpec {
     )
 
   private def genTestExercise(create: TxBuilder.Create): TxBuilder.Exercise =
-    TxBuilder.exercise(
+    txBuilder.exercise(
       contract = create,
       choice = "SomeChoice",
       consuming = true,

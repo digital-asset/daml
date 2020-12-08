@@ -6,14 +6,15 @@ package transaction
 package test
 
 import com.daml.lf.data.{BackStack, ImmArray, Ref}
-import com.daml.lf.transaction.Node.{GenNode, VersionedNode}
+import com.daml.lf.transaction.Node.GenNode
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.value.{ValueVersions, Value => LfValue}
 
 import scala.collection.immutable.HashMap
 
-final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion) {
+final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion = _ =>
+  TransactionVersions.minVersion) {
 
   import TransactionBuilder._
 
@@ -44,7 +45,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   def add(node: Node, parentId: NodeId): NodeId = ids.synchronized {
     lazy val nodeId = newNode(node) // lazy to avoid getting the next id if the method later throws
     nodes(parentId) match {
-      case VersionedNode(_, _: TxExercise) =>
+      case _: TxExercise =>
         children += parentId -> (children(parentId) :+ nodeId)
       case _ =>
         throw new IllegalArgumentException(
@@ -57,9 +58,9 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
     import VersionTimeline.Implicits._
 
     val finalNodes = nodes.transform {
-      case (nid, VersionedNode(version, exe: TxExercise)) =>
-        VersionedNode[NodeId, ContractId](version, exe.copy(children = children(nid).toImmArray))
-      case (_, node @ VersionedNode(_, _: Node.LeafOnlyNode[_, _])) =>
+      case (nid, exe: TxExercise) =>
+        exe.copy(children = children(nid).toImmArray)
+      case (_, node: Node.LeafOnlyNode[ContractId, TxValue]) =>
         node
     }
     val finalRoots = roots.toImmArray
@@ -93,17 +94,100 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
     value.Value.VersionedValue(pkgValVersion(templateId.packageId), _)
 
   private[this] def versionN(node: Node): TxNode =
-    VersionedNode(
-      pkgTxVersion(node.templateId.packageId),
-      GenNode.map3(identity[NodeId], identity[ContractId], versionValue(node.templateId))(node)
+    GenNode.map3(identity[NodeId], identity[ContractId], versionValue(node.templateId))(node)
+
+  def create(
+      id: String,
+      template: String,
+      argument: Value,
+      signatories: Seq[String],
+      observers: Seq[String],
+      key: Option[String],
+  ): Create = {
+    val templateId = Ref.Identifier.assertFromString(template)
+    Create(
+      coid = ContractId.assertFromString(id),
+      coinst = ContractInst(
+        template = templateId,
+        arg = argument,
+        agreementText = "",
+      ),
+      optLocation = None,
+      signatories = signatories.map(Ref.Party.assertFromString).toSet,
+      stakeholders = signatories.union(observers).map(Ref.Party.assertFromString).toSet,
+      key = key.map(keyWithMaintainers(maintainers = signatories, _)),
+      version = pkgTxVersion(templateId.packageId),
     )
+  }
+
+  def exercise(
+      contract: Create,
+      choice: String,
+      consuming: Boolean,
+      actingParties: Set[String],
+      argument: Value,
+      byKey: Boolean = true,
+  ): Exercise =
+    Exercise(
+      choiceObservers = Set.empty, //FIXME #7709: take observers as argument (pref no default value)
+      targetCoid = contract.coid,
+      templateId = contract.coinst.template,
+      choiceId = Ref.ChoiceName.assertFromString(choice),
+      optLocation = None,
+      consuming = consuming,
+      actingParties = actingParties.map(Ref.Party.assertFromString),
+      chosenValue = argument,
+      stakeholders = contract.stakeholders,
+      signatories = contract.signatories,
+      children = ImmArray.empty,
+      exerciseResult = None,
+      key = contract.key,
+      byKey = byKey,
+      version = pkgTxVersion(contract.coinst.template.packageId),
+    )
+
+  def exerciseByKey(
+      contract: Create,
+      choice: String,
+      consuming: Boolean,
+      actingParties: Set[String],
+      argument: Value,
+  ): Exercise =
+    exercise(contract, choice, consuming, actingParties, argument, byKey = true)
+
+  def fetch(contract: Create, byKey: Boolean = true): Fetch =
+    Fetch(
+      coid = contract.coid,
+      templateId = contract.coinst.template,
+      optLocation = None,
+      actingParties = contract.signatories.map(Ref.Party.assertFromString),
+      signatories = contract.signatories,
+      stakeholders = contract.stakeholders,
+      key = contract.key,
+      byKey = byKey,
+      version = pkgTxVersion(contract.coinst.template.packageId),
+    )
+
+  def fetchByKey(contract: Create): Fetch =
+    fetch(contract, byKey = true)
+
+  def lookupByKey(contract: Create, found: Boolean): LookupByKey =
+    LookupByKey(
+      templateId = contract.coinst.template,
+      optLocation = None,
+      key = contract.key.get,
+      result = if (found) Some(contract.coid) else None,
+      version = pkgTxVersion(contract.coinst.template.packageId),
+    )
+
 }
 
 object TransactionBuilder {
+
   type Value = value.Value[ContractId]
   type TxValue = value.Value.VersionedValue[ContractId]
   type Node = Node.GenNode[NodeId, ContractId, Value]
-  type TxNode = VersionedNode[NodeId, ContractId]
+  type TxNode = Node.GenNode.WithTxValue[NodeId, ContractId]
 
   type Create = Node.NodeCreate[ContractId, Value]
   type Exercise = Node.NodeExercises[NodeId, ContractId, Value]
@@ -155,84 +239,6 @@ object TransactionBuilder {
     KeyWithMaintainers(
       key = tuple(maintainers :+ value: _*),
       maintainers = maintainers.map(Ref.Party.assertFromString).toSet,
-    )
-
-  def create(
-      id: String,
-      template: String,
-      argument: Value,
-      signatories: Seq[String],
-      observers: Seq[String],
-      key: Option[String],
-  ): Create =
-    Create(
-      coid = ContractId.assertFromString(id),
-      coinst = ContractInst(
-        template = Ref.Identifier.assertFromString(template),
-        arg = argument,
-        agreementText = "",
-      ),
-      optLocation = None,
-      signatories = signatories.map(Ref.Party.assertFromString).toSet,
-      stakeholders = signatories.union(observers).map(Ref.Party.assertFromString).toSet,
-      key = key.map(keyWithMaintainers(maintainers = signatories, _)),
-    )
-
-  def exercise(
-      contract: Create,
-      choice: String,
-      consuming: Boolean,
-      actingParties: Set[String],
-      argument: Value,
-      byKey: Boolean = true,
-  ): Exercise =
-    Exercise(
-      choiceObservers = Set.empty, //FIXME #7709: take observers as argument (pref no default value)
-      targetCoid = contract.coid,
-      templateId = contract.coinst.template,
-      choiceId = Ref.ChoiceName.assertFromString(choice),
-      optLocation = None,
-      consuming = consuming,
-      actingParties = actingParties.map(Ref.Party.assertFromString),
-      chosenValue = argument,
-      stakeholders = contract.stakeholders,
-      signatories = contract.signatories,
-      children = ImmArray.empty,
-      exerciseResult = None,
-      key = contract.key,
-      byKey = byKey
-    )
-
-  def exerciseByKey(
-      contract: Create,
-      choice: String,
-      consuming: Boolean,
-      actingParties: Set[String],
-      argument: Value,
-  ): Exercise =
-    exercise(contract, choice, consuming, actingParties, argument, byKey = true)
-
-  def fetch(contract: Create, byKey: Boolean = true): Fetch =
-    Fetch(
-      coid = contract.coid,
-      templateId = contract.coinst.template,
-      optLocation = None,
-      actingParties = contract.signatories.map(Ref.Party.assertFromString),
-      signatories = contract.signatories,
-      stakeholders = contract.stakeholders,
-      key = contract.key,
-      byKey = byKey,
-    )
-
-  def fetchByKey(contract: Create): Fetch =
-    fetch(contract, byKey = true)
-
-  def lookupByKey(contract: Create, found: Boolean): LookupByKey =
-    LookupByKey(
-      templateId = contract.coinst.template,
-      optLocation = None,
-      key = contract.key.get,
-      result = if (found) Some(contract.coid) else None
     )
 
   def just(node: Node, nodes: Node*): Tx.Transaction = {

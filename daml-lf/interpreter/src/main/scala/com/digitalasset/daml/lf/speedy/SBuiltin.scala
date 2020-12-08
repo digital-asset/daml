@@ -1266,9 +1266,7 @@ private[lf] object SBuiltin {
           throw SpeedyHungry(SResultScenarioInsertMustFail(committerOld, commitLocationOld))
 
         case SBool(false) =>
-          ptxOld.finish(
-            machine.compiledPackages.packageLanguageVersion,
-          ) match {
+          ptxOld.finish match {
             case PartialTransaction.CompleteTransaction(tx) =>
               // Transaction finished successfully. It might still
               // fail when committed, so tell the scenario runner to
@@ -1289,10 +1287,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger): Unit =
-      onLedger.ptx
-        .finish(
-          machine.compiledPackages.packageLanguageVersion,
-        ) match {
+      onLedger.ptx.finish match {
         case PartialTransaction.CompleteTransaction(tx) =>
           throw SpeedyHungry(
             SResultScenarioCommit(

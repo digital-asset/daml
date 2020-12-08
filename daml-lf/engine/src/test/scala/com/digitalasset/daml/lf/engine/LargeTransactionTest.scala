@@ -95,7 +95,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         cmdReference = "create RangeOfInts",
         seed = hash("testLargeTransactionOneContract:create", txSize))
     val contractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(coid, _, _, _, _, _) => coid
+      case N.NodeCreate(coid, _, _, _, _, _, _) => coid
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListContainerExerciseCmd(rangeOfIntsTemplateId, contractId)
@@ -122,7 +122,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         cmdReference = "create RangeOfInts",
         seed = hash("testLargeTransactionManySmallContracts:create", num))
     val contractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(coid, _, _, _, _, _) => coid
+      case N.NodeCreate(coid, _, _, _, _, _, _) => coid
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListOfIntContainers(rangeOfIntsTemplateId, contractId)
@@ -149,7 +149,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
         cmdReference = "create ListUtil",
         seed = hash("testLargeChoiceArgument:create", size))
     val contractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(coid, _, _, _, _, _) => coid
+      case N.NodeCreate(coid, _, _, _, _, _, _) => coid
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = sizeExerciseCmd(listUtilTemplateId, contractId)(size)
@@ -192,7 +192,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       }
 
     newContracts.count {
-      case N.NodeCreate(_, _, _, _, _, _) => true
+      case N.NodeCreate(_, _, _, _, _, _, _) => true
       case n @ _ => fail(s"Unexpected match: $n")
     } shouldBe expectedNumberOfContracts
   }
@@ -317,7 +317,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     }
 
     createNode match {
-      case N.NodeCreate(_, x: ContractInst[_], _, _, _, _) => x
+      case N.NodeCreate(_, x: ContractInst[_], _, _, _, _, _) => x
       case n @ _ => fail(s"Unexpected match: $n")
     }
   }

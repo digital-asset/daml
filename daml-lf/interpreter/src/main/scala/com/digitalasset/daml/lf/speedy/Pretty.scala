@@ -15,7 +15,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.scenario.ScenarioLedger.TransactionId
 import com.daml.lf.scenario._
-import com.daml.lf.transaction.{NodeId, Transaction => Tx}
+import com.daml.lf.transaction.{NodeId, TransactionVersions, Transaction => Tx}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
@@ -41,6 +41,7 @@ private[lf] object Pretty {
 
   def prettyError(err: SError): Doc = {
     val ptx = PartialTransaction.initial(
+      (_ => TransactionVersions.minVersion),
       submissionTime = Time.Timestamp.MinValue,
       initialSeeds = InitialSeeding.NoSeed
     )

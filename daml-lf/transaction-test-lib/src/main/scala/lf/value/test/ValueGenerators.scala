@@ -8,11 +8,11 @@ package test
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.transaction.Node.{
+  GenNode,
   KeyWithMaintainers,
   NodeCreate,
   NodeExercises,
-  NodeFetch,
-  VersionedNode
+  NodeFetch
 }
 import com.daml.lf.transaction.VersionTimeline.Implicits._
 import com.daml.lf.transaction.{
@@ -284,16 +284,18 @@ object ValueGenerators {
     */
   val malformedCreateNodeGen: Gen[NodeCreate.WithTxValue[Value.ContractId]] = {
     for {
+      version <- transactionVersionGen
       coid <- coidGen
       coinst <- contractInstanceGen
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
-    } yield NodeCreate(coid, coinst, None, signatories, stakeholders, key)
+    } yield NodeCreate(coid, coinst, None, signatories, stakeholders, key, version)
   }
 
   val fetchNodeGen: Gen[NodeFetch.WithTxValue[ContractId]] = {
     for {
+      version <- transactionVersionGen
       coid <- coidGen
       templateId <- idGen
       actingParties <- genNonEmptyParties
@@ -301,13 +303,24 @@ object ValueGenerators {
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
-    } yield NodeFetch(coid, templateId, None, actingParties, signatories, stakeholders, key, byKey)
+    } yield
+      NodeFetch(
+        coid,
+        templateId,
+        None,
+        actingParties,
+        signatories,
+        stakeholders,
+        key,
+        byKey,
+        version)
   }
 
   /** Makes exercise nodes with some random child IDs. */
   val danglingRefExerciseNodeGen
     : Gen[NodeExercises[NodeId, Value.ContractId, Tx.Value[Value.ContractId]]] = {
     for {
+      version <- transactionVersionGen
       targetCoid <- coidGen
       templateId <- idGen
       choiceId <- nameGen
@@ -340,7 +353,8 @@ object ValueGenerators {
         children,
         Some(exerciseResultValue),
         Some(KeyWithMaintainers(key, maintainers)),
-        byKey = byKey,
+        byKey,
+        version,
       )
   }
 
@@ -450,12 +464,12 @@ object ValueGenerators {
       tx <- noDanglingRefGenTransaction
       txVer <- transactionVersionGen
       nodeVersionGen = transactionVersionGen.filter(v => !(txVer precedes v))
-      nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, VersionedNode[NodeId, ContractId]])) {
+      nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, GenNode.WithTxValue[NodeId, ContractId]])) {
         case (acc, (nodeId, node)) =>
           for {
             hashMap <- acc
             version <- nodeVersionGen
-          } yield hashMap.updated(nodeId, VersionedNode(version, node))
+          } yield hashMap.updated(nodeId, node.updateVersion(version))
       }
     } yield VersionedTransaction(txVer, nodes, tx.roots)
 
