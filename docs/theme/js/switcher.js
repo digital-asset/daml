@@ -88,23 +88,16 @@
     }
   
     function nthIndex(str, pat, n){
-      var L= str.length, i= -1;
-      while(n-- && i++<L){
-          i= str.indexOf(pat, i);
-          if (i < 0) break;
-      }
-      return i;
+      var re = new RegExp(pat, "g");
+      var m = null;
+      for(var i = 0; i < n; i++)
+        m = re.exec(str);
+      return m ? re.lastIndex : -1;
     }
   
     function count(str, pat){
-      var L= str.length, i= -1;
-      var n = 0;
-      while(i++<L){
-          i= str.indexOf(pat, i);
-          if (i < 0) break;
-          n++;
-      }
-      return n;
+      var re = new RegExp(pat, "g");
+      return (str.match(re) || []).length;
     }
 
     function versions_root_in_url(url) {
@@ -112,7 +105,7 @@
       if(version == '') {
         var depth_from_root = count(DOCUMENTATION_OPTIONS.URL_ROOT, "../");
         var depth = count(url, "/");
-        var dir = url.substring(0, nthIndex(url, '/', depth - depth_from_root)) + "/";
+        var dir = url.substring(0, nthIndex(url, '/', depth - depth_from_root));
         return dir;
       } else {
         return url.substring(0, url.indexOf(version));
