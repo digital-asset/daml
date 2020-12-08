@@ -7,6 +7,16 @@ load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_test")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
 
+exports_files(
+    [
+        "configs/html/conf.py",
+        "configs/static/pygments_daml_lexer.py",
+        "configs/static/typescript.py",
+        "scripts/check-closing-quotes.sh",
+        "scripts/check-closing-quotes.sh.allow",
+    ],
+)
+
 nodejs_binary(
     name = "grunt",
     data = [
@@ -251,6 +261,7 @@ genrule(
         "//bazel_tools/sh:mktgz",
         "@sass_nix//:bin/sass",
     ],
+    visibility = ["//visibility:public"],
 ) if not is_windows else None
 
 genrule(
