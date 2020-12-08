@@ -30,8 +30,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 
-rules_scala_version = "152715b05547f160a512bae9b3d9e77a4888e243"
-rules_scala_sha256 = "9b117bf591780b5665a8271d83c2530943330f06e2dd99574ca9cf538009d09d"
+rules_scala_version = "67a7ac178a73d1d5ff4c2b0663a8eda6dfcbbc56"
+rules_scala_sha256 = "95054009fd938ac7ef53a20619f94a5408d8ae74eb5b318cd150a3ecb1a6086f"
 
 rules_haskell_version = "130121dac45dc726175fbb15230c02325b6fe73a"
 rules_haskell_sha256 = "423112ebcd17ae609caf6b76c75d5785f58a41a197fb62545d46f89bd66b508c"
@@ -47,6 +47,8 @@ rules_jvm_external_version = "3.3"
 rules_jvm_external_sha256 = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
 rules_go_version = "0.23.6"
 rules_go_sha256 = "8663604808d2738dc615a2c3eb70eba54a9a982089dd09f6ffe5d0e75771bc4f"
+rules_bazel_common_version = "9e3880428c1837db9fb13335ed390b7e33e346a7"
+rules_bazel_common_sha256 = "48a209fed9575c9d108eaf11fb77f7fe6178a90135e4d60cac6f70c2603aa53a"
 
 # Recent davl.
 davl_version = "f2d7480d118f32626533d6a150a8ee7552cc0222"  # 2020-03-23, "Deploy upgrade to SDK 0.13.56-snapshot.20200318",https://github.com/digital-asset/davl/pull/233/commits.
@@ -137,10 +139,6 @@ def daml_deps():
             sha256 = rules_scala_sha256,
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
-                # Upstream PR at https://github.com/bazelbuild/rules_scala/pull/1082
-                # Without this patch, rootpath resolves to the JAR
-                # and not the binary wrapper.
-                "@com_github_digital_asset_daml//bazel_tools:scala-binary-rootpath.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -256,9 +254,9 @@ def daml_deps():
     if "com_github_google_bazel_common" not in native.existing_rules():
         http_archive(
             name = "com_github_google_bazel_common",
-            sha256 = "48a209fed9575c9d108eaf11fb77f7fe6178a90135e4d60cac6f70c2603aa53a",
-            strip_prefix = "bazel-common-9e3880428c1837db9fb13335ed390b7e33e346a7",
-            urls = ["https://github.com/google/bazel-common/archive/9e3880428c1837db9fb13335ed390b7e33e346a7.zip"],
+            sha256 = rules_bazel_common_sha256,
+            strip_prefix = "bazel-common-{}".format(rules_bazel_common_version),
+            urls = ["https://github.com/google/bazel-common/archive/{}.zip".format(rules_bazel_common_version)],
         )
 
     maybe(

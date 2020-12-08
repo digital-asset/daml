@@ -3,9 +3,10 @@
 
 package com.daml.lf.engine
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class EngineInfoTest extends WordSpec with Matchers {
+class EngineInfoTest extends AnyWordSpec with Matchers {
 
   "EngineInfo" should {
 

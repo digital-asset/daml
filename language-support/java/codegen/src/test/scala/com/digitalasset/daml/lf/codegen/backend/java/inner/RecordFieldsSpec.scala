@@ -8,11 +8,12 @@ import com.daml.lf.data.Ref.{DottedName, Identifier, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet.{ClassName, TypeName}
 import javax.lang.model.element.Modifier
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
 import scala.collection.JavaConverters._
 
-final class RecordFieldsSpec extends FlatSpec with Matchers {
+final class RecordFieldsSpec extends AnyFlatSpec with Matchers {
 
   behavior of "RecordFields"
 

@@ -9,7 +9,8 @@ import akka.stream.scaladsl.{Keep, Sink}
 import akka.stream.{OverflowStrategy, QueueOfferResult}
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration.DurationInt

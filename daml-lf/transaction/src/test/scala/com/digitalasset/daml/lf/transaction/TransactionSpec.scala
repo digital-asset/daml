@@ -17,14 +17,15 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.ValueGenerators.{danglingRefGenNode, transactionVersionGen}
 import org.scalacheck.Gen
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FreeSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.freespec.AnyFreeSpec
 
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.util.Random
 
-class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropertyChecks {
+class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks {
   import TransactionSpec._
 
   "isWellFormed" - {

@@ -15,7 +15,9 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalacheck.Arbitrary
 import org.scalatest._
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz._
 import scalaz.scalacheck.ScalazArbitrary._
 import scalaz.std.list._
@@ -26,13 +28,13 @@ import scalaz.syntax.functor._
 import scopt.Read
 
 class MultiPartySpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Suite
     with PostgresAroundAll
     with SuiteResourceManagementAroundAll
     with ExtractorFixtureAroundAll
     with Matchers
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
 
   override protected def darFile = new File(rlocation("extractor/RecordsAndVariants.dar"))
 

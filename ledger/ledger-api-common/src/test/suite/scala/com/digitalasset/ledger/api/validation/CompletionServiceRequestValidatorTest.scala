@@ -12,9 +12,9 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
 import com.daml.ledger.api.v1.trace_context.TraceContext
 import io.grpc.Status.Code._
-import org.scalatest.WordSpec
+import org.scalatest.wordspec.AnyWordSpec
 
-class CompletionServiceRequestValidatorTest extends WordSpec with ValidatorTestUtils {
+class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTestUtils {
 
   private val traceContext = TraceContext(traceIdHigh, traceId, spanId, parentSpanId, sampled)
 

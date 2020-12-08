@@ -13,7 +13,8 @@ import ch.qos.logback.core.OutputStreamAppender
 import ch.qos.logback.core.encoder.Encoder
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import net.logstash.logback.encoder.LogstashEncoder
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration.DurationInt
@@ -26,7 +27,7 @@ private final case class Entry(
     b: Option[String],
     c: Option[String])
 
-final class ContextualizedLoggerIT extends FlatSpec with Matchers {
+final class ContextualizedLoggerIT extends AnyFlatSpec with Matchers {
 
   behavior of "ContextualizedLogger"
 

@@ -9,8 +9,10 @@ import com.daml.lf.value.ValueOuterClass
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Inside, Matchers}
+import org.mockito.MockitoSugar
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with MockitoSugar {
   "detectConflictsAndRecover" should {

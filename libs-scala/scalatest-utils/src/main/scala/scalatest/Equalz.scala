@@ -3,8 +3,9 @@
 
 package com.daml.scalatest
 
-import org.scalatest.Matchers
-import org.scalatest.matchers.{MatcherFactory1, MatchResult, Matcher}
+import org.scalatest.matchers.dsl.{MatcherFactory1}
+import org.scalatest.matchers.{MatchResult, Matcher}
+import org.scalatest.matchers.should.Matchers
 import scala.language.higherKinds
 import scalaz.Equal
 

@@ -9,9 +9,10 @@ import java.nio.file.Path
 import ch.qos.logback.classic.Level
 import com.daml.assistant.config.{ConfigMissing, ConfigParseError, ProjectConfig}
 import com.daml.lf.codegen.conf.CodegenConfigReader.{CodegenDest, Java, Result, Scala}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
-class CodegenConfigReaderSpec extends FlatSpec with Matchers {
+class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
 
   behavior of CodegenConfigReader.getClass.getSimpleName
 

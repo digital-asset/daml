@@ -34,7 +34,9 @@ import com.daml.lf.transaction.TransactionVersions.UnversionedNode
 import com.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{EitherValues, Matchers, WordSpec}
+import org.scalatest.EitherValues
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside._
 import scalaz.std.either._
 import scalaz.syntax.apply._
@@ -49,7 +51,7 @@ import scala.language.implicitConversions
     "org.wartremover.warts.Product"
   ))
 class EngineTest
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
     with EitherValues

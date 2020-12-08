@@ -21,14 +21,16 @@ import com.daml.logging.LoggingContext
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{BeforeAndAfterEach, Matchers, Succeeded, WordSpec}
+import org.scalatest.{BeforeAndAfterEach, Succeeded}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
 class TrackerImplTest
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with BeforeAndAfterEach
     with ScalaFutures

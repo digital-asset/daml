@@ -8,9 +8,10 @@ import com.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   private def defaultVersion = LanguageVersion.defaultV1
 

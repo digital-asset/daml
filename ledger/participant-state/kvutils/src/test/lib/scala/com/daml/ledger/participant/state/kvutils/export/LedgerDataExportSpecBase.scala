@@ -15,9 +15,10 @@ import java.time.Instant
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExportSpecBase._
 import com.daml.ledger.participant.state.v1
 import com.google.protobuf.ByteString
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-abstract class LedgerDataExportSpecBase(name: String) extends WordSpec with Matchers {
+abstract class LedgerDataExportSpecBase(name: String) extends AnyWordSpec with Matchers {
   protected def newExporter(outputStream: OutputStream): LedgerDataExporter
 
   protected def newImporter(inputStream: InputStream): LedgerDataImporter

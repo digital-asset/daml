@@ -11,15 +11,17 @@ import com.daml.http.Generators.{
 import com.daml.http.PackageService.TemplateIdMap
 import com.daml.ledger.api.{v1 => lav1}
 import org.scalacheck.Shrink
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FreeSpec, Inside, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.Inside
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class PackageServiceTest
-    extends FreeSpec
+    extends AnyFreeSpec
     with Matchers
     with Inside
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
 
   import Shrink.shrinkAny
 

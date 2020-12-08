@@ -5,9 +5,9 @@ package com.daml.caching
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import org.scalatest.WordSpec
+import org.scalatest.wordspec.AnyWordSpec
 
-class NoCacheSpec extends WordSpec with CacheBehaviorSpecBase {
+class NoCacheSpec extends AnyWordSpec with CacheBehaviorSpecBase {
   override protected lazy val name: String = "a non-existent cache"
 
   override protected def newCache(): Cache[Integer, String] =

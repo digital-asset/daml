@@ -6,12 +6,13 @@ package com.daml.navigator.model
 import java.time.Instant
 
 import com.daml.ledger.api.refinements.ApiTypes
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Success
 
 @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
-class LedgerSpec extends WordSpec with Matchers {
+class LedgerSpec extends AnyWordSpec with Matchers {
   import com.daml.navigator.{DamlConstants => C}
 
   private val party = ApiTypes.Party("party")

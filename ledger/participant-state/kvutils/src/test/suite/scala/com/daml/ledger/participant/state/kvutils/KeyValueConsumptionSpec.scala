@@ -20,9 +20,10 @@ import com.google.protobuf.Empty
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
 import org.scalatest.prop.Tables.Table
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class KeyValueConsumptionSpec extends WordSpec with Matchers {
+class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
   private val aLogEntryId = DamlLogEntryId.getDefaultInstance
   private val aLogEntryWithoutRecordTime = DamlLogEntry.newBuilder
     .setPackageUploadEntry(DamlPackageUploadEntry.getDefaultInstance)

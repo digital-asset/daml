@@ -9,17 +9,18 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import org.scalacheck.{Gen, Arbitrary}
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.{-\/, \/, \/-}
 
 import scala.concurrent.Future
 
 class FlowUtilTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with ScalaFutures
     with Matchers
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
   import FlowUtil._
 
   implicit val asys: ActorSystem = ActorSystem(this.getClass.getSimpleName)

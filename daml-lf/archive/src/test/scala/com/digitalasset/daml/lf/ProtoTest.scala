@@ -11,11 +11,13 @@ import com.digitalasset.{daml_lf_1_6, daml_lf_1_7, daml_lf_1_8}
 import com.daml.daml_lf_dev
 import com.google.protobuf.CodedInputStream
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Assertion, Matchers, WordSpec}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.JavaConverters._
 
-class ProtoTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   private val darFile = resource(rlocation("daml-lf/archive/DarReaderTest.dar"))
 

@@ -15,10 +15,10 @@ import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.TestHelper.{aLogEntry, aLogEntryId, aParticipantId}
 import com.daml.ledger.validator.preexecution.LogAppenderPreExecutingCommitStrategySpec._
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.{times, verify, when}
 import org.mockito.invocation.InvocationOnMock
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.mockito.MockitoSugar
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 final class LogAppenderPreExecutingCommitStrategySpec
     extends AsyncWordSpec

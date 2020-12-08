@@ -3,11 +3,12 @@
 
 package com.daml.scalatest
 
-import org.scalatest.{WordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.std.anyVal._
 import scalaz.std.option._
 
-class EqualzSpec extends WordSpec with Matchers {
+class EqualzSpec extends AnyWordSpec with Matchers {
   import Equalz._
 
   "equalz" should {

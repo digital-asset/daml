@@ -15,7 +15,9 @@ import com.daml.platform.akkastreams.dispatcher.SubSource.{OneAfterAnother, Rang
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
-import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfter, Matchers}
+import org.scalatest.{Assertion, BeforeAndAfter}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.immutable
 import scala.collection.immutable.TreeMap

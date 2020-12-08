@@ -4,13 +4,14 @@
 package com.daml.navigator
 
 import com.daml.navigator.model.PartyState
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import SessionJsonProtocol.userWriter
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.config.UserConfig
 import spray.json.{JsBoolean, JsObject, JsString}
 
-class SessionJsonProtocolTest extends FlatSpec with Matchers {
+class SessionJsonProtocolTest extends AnyFlatSpec with Matchers {
 
   val userClassName = User.getClass.getSimpleName
   val party = ApiTypes.Party("party")

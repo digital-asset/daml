@@ -30,6 +30,7 @@ da_scala_binary(
         "@maven//:io_circe_circe_parser_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalatestplus_selenium_3_141_2_12",
         "@maven//:org_seleniumhq_selenium_selenium_api",
         "@maven//:org_seleniumhq_selenium_selenium_remote_driver",
         "@maven//:org_slf4j_slf4j_api",

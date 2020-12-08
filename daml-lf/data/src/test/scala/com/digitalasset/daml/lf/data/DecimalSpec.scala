@@ -4,9 +4,10 @@
 package com.daml.lf.data
 
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class DecimalSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class DecimalSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   private def d(s: String) = BigDecimal(s).setScale(Decimal.scale).bigDecimal
 

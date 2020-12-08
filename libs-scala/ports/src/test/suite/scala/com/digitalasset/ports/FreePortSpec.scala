@@ -3,9 +3,10 @@
 
 package com.daml.ports
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class FreePortSpec extends WordSpec with Matchers {
+class FreePortSpec extends AnyWordSpec with Matchers {
   "a free port" should {
     "always be available" in {
       val port = FreePort.find()

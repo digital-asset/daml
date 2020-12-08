@@ -5,9 +5,10 @@ package com.daml.caching
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import org.scalatest.{Matchers, WordSpecLike}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
-trait CacheCachingSpecBase extends CacheSpecBase with WordSpecLike with Matchers {
+trait CacheCachingSpecBase extends CacheSpecBase with AnyWordSpecLike with Matchers {
   name should {
     "compute once, and cache" in {
       val cache = newCache()

@@ -3,12 +3,12 @@
 
 package com.daml.scalatest
 
-import org.scalatest.FlatSpec
-import org.scalatest.prop.Checkers
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatestplus.scalacheck.Checkers
 import org.scalacheck.Properties
 import org.scalactic.{Prettifier, source}
 
-/** Integration of Scalatest [[FlatSpec]] with Scalaz law checkers, or any other
+/** Integration of Scalatest [[AnyFlatSpec]] with Scalaz law checkers, or any other
   * purely Scalacheck-defined tests, for that matter.  Each invocation should go
   * in a separate `behavior of` category, as test names will collide otherwise.
   *
@@ -20,7 +20,7 @@ import org.scalactic.{Prettifier, source}
   *  checkLaws(ScalazProperties.functor.laws[Blah])
   * }}}
   */
-trait FlatSpecCheckLaws extends Checkers { this: FlatSpec =>
+trait FlatSpecCheckLaws extends Checkers { this: AnyFlatSpec =>
 
   /** Like `check(props)` but with '''much better''' test reporting. */
   def checkLaws(props: Properties)(

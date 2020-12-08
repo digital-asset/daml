@@ -13,12 +13,14 @@ import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, Te
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.completion.Completion
 import com.google.rpc.status.Status
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.JavaConverters._
 
 class CommandCompletionClientImplTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with AuthMatchers
     with OptionValues

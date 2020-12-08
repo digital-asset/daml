@@ -11,11 +11,13 @@ import com.daml.extractor.config.{ExtractorConfig, TemplateConfig}
 import com.daml.extractor.services.ExtractorFixtureAroundAll
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
-import org.scalatest.{FlatSpec, Inside, Matchers, Suite}
+import org.scalatest.{Inside, Suite}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.OneAnd
 
 class MultiPartyTemplateSubscriptionSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Suite
     with PostgresAroundAll
     with SuiteResourceManagementAroundAll

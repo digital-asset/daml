@@ -3,7 +3,8 @@
 
 package com.daml.platform.store.dao
 
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 private[dao] trait JdbcLedgerDaoPackagesSpec {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>

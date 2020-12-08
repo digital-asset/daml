@@ -15,11 +15,13 @@ import com.daml.ledger.participant.state.kvutils.tools.integritycheck.LogAppendi
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Version}
 import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
 import com.google.protobuf.{ByteString, Empty}
-import org.scalatest.{Inside, Matchers, WordSpec}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.ExecutionContext
 
-final class LogAppendingCommitStrategySupportSpec extends WordSpec with Matchers with Inside {
+final class LogAppendingCommitStrategySupportSpec extends AnyWordSpec with Matchers with Inside {
   private val support = new LogAppendingCommitStrategySupport()(ExecutionContext.global)
 
   "checking the entries are readable" should {

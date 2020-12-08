@@ -17,8 +17,9 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.mockito.Mockito.when
-import org.scalatest.mockito.MockitoSugar._
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.mockito.MockitoSugar._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 

@@ -22,13 +22,15 @@ import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import io.grpc.Server
 import io.reactivex.Observable
-import org.scalatest.{Assertion, FlatSpec, Matchers, OptionValues}
+import org.scalatest.{Assertion, OptionValues}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
 class DamlLedgerClientTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with AuthMatchers
     with OptionValues

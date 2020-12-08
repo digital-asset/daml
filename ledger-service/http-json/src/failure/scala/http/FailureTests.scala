@@ -17,6 +17,8 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy.model.ToxicDirection
 import org.scalatest._
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.concurrent.Eventually
 import scalaz.\/
 import scalaz.syntax.show._

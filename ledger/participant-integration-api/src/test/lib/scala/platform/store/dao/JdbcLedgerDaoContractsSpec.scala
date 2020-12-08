@@ -7,7 +7,9 @@ import java.time.Instant
 import java.util.UUID
 
 import com.daml.lf.value.Value.ContractId
-import org.scalatest.{AsyncFlatSpec, Inside, LoneElement, Matchers}
+import org.scalatest.{Inside, LoneElement}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>

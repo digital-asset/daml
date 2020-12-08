@@ -18,11 +18,12 @@ import com.daml.navigator.model.{
   PackageRegistry,
   Transaction
 }
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Success
 
-class RowSpec extends WordSpec with Matchers {
+class RowSpec extends AnyWordSpec with Matchers {
   import com.daml.navigator.{DamlConstants => C}
 
   private val registry: PackageRegistry = PackageRegistry().withPackages(List(C.iface))

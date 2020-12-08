@@ -297,6 +297,10 @@ daml_sdk_head(
     if ver != "0.0.0"
 ]
 
+load("@daml//bazel_tools:java.bzl", "java_home_runtime")
+
+java_home_runtime(name = "java_home")
+
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 
 # We base our Maven artifacts on the latest stable release
@@ -325,6 +329,10 @@ maven_install(
 load("@maven//:defs.bzl", "pinned_maven_install")
 
 pinned_maven_install()
+
+load("@io_bazel_rules_scala//:scala_config.bzl", "scala_config")
+
+scala_config("2.12.12")
 
 load(
     "@io_bazel_rules_scala//scala:scala.bzl",

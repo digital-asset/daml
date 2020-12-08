@@ -13,10 +13,12 @@ import org.awaitility.Duration
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
-import org.scalatest.{FutureOutcome, Matchers, fixture}
+import org.scalatest.FutureOutcome
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.FixtureAsyncWordSpec
 
 class SignalDispatcherTest
-    extends fixture.AsyncWordSpec
+    extends FixtureAsyncWordSpec
     with Matchers
     with AkkaBeforeAndAfterAll
     with ScaledTimeSpans

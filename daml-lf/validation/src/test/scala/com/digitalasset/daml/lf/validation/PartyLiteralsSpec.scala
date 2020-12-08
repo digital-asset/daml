@@ -7,9 +7,10 @@ import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class PartyLiteralsSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   import PartyLiterals._
 

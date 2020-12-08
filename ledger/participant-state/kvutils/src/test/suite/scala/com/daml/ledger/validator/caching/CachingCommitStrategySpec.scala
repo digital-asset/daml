@@ -16,9 +16,9 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.CommitStrategy
 import com.daml.ledger.validator.TestHelper._
 import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.mockito.MockitoSugar
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 

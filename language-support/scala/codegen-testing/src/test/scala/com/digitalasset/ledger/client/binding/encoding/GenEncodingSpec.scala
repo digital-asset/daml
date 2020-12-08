@@ -3,11 +3,12 @@
 
 package com.daml.ledger.client.binding.encoding
 import com.daml.ledger.client.binding.{Primitive => P}
-import org.scalatest.{Succeeded, WordSpec}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.Succeeded
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz.Show
 
-class GenEncodingSpec extends WordSpec with GeneratorDrivenPropertyChecks {
+class GenEncodingSpec extends AnyWordSpec with ScalaCheckDrivenPropertyChecks {
   import ShowEncoding.Implicits._
 
   implicit override val generatorDrivenConfig = PropertyCheckConfiguration(minSuccessful = 10000)

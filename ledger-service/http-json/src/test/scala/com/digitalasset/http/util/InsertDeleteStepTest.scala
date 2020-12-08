@@ -5,17 +5,18 @@ package com.daml.http.util
 
 import com.daml.scalatest.FlatSpecCheckLaws
 
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.semigroup._
 import scalaz.{@@, Equal, Tag}
 
 class InsertDeleteStepTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with FlatSpecCheckLaws
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
   import InsertDeleteStepTest._
 
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =

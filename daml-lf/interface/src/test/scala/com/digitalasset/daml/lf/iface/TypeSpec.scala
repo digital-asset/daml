@@ -6,13 +6,14 @@ package com.daml.lf.iface
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.data.BackStack
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.language.{Ast => Pkg, Util => PkgUtil}
 
 import scala.language.implicitConversions
 
-class TypeSpec extends WordSpec with Matchers {
+class TypeSpec extends AnyWordSpec with Matchers {
   implicit def packageId(s: String): PackageId = PackageId.assertFromString(s)
   implicit def qualifiedName(s: String): QualifiedName = QualifiedName.assertFromString(s)
 

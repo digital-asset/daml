@@ -16,7 +16,9 @@ import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandbox.services.TimeModelHelpers.publishATimeModel
 import com.daml.platform.sandboxnext.SandboxNextFixture
-import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
+import org.scalatest.Inspectors
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
 final class ConfigurationServiceWithEmptyLedgerIT

@@ -9,9 +9,10 @@ import com.daml.ledger
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.test.TransactionBuilder
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-final class TransactionIndexingSpec extends WordSpec with Matchers {
+final class TransactionIndexingSpec extends AnyWordSpec with Matchers {
   "TransactionIndexing" should {
     "apply blindingInfo divulgence upon construction" in {
       val aContractId = ContractId.assertFromString("#c0")

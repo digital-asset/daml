@@ -6,7 +6,8 @@ package com.daml.extractor.services
 import java.sql.Timestamp
 
 import org.scalatest._
-import matchers._
+import org.scalatest.matchers.{Matcher, MatchResult}
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 

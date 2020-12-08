@@ -4,11 +4,12 @@
 package com.daml.http
 
 import com.daml.http.Generators.genDuplicateModuleEntityApiIdentifiers
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class GeneratorsTest extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
+class GeneratorsTest extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyChecks {
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 10000)
 

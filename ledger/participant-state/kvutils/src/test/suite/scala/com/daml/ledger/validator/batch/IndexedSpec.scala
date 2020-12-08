@@ -3,8 +3,10 @@
 
 package com.daml.ledger.validator.batch
 
-import org.scalatest.{AsyncWordSpec, Inside, Matchers}
-import org.scalatest.mockito.MockitoSugar
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
+import org.mockito.MockitoSugar
 
 import scala.concurrent.Future
 

@@ -5,8 +5,10 @@ package com.daml.codegen
 package lf
 
 import com.daml.lf.data.Ref
-import org.scalatest.{Inside, Matchers, WordSpec}
-import org.scalatest.prop.PropertyChecks
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.Gen
 import org.scalacheck.Arbitrary.arbitrary
 import scalaz._
@@ -15,7 +17,7 @@ import scalaz.syntax.foldable1._
 import scalaz.syntax.monad._
 import scalaz.syntax.std.map._
 
-class LFUtilSpec extends WordSpec with Matchers with Inside with PropertyChecks {
+class LFUtilSpec extends AnyWordSpec with Matchers with Inside with ScalaCheckPropertyChecks {
   import LFUtilSpec._
 
   "escapeReservedName" should {
@@ -40,7 +42,7 @@ class LFUtilSpec extends WordSpec with Matchers with Inside with PropertyChecks 
     // right-hand behavior is guaranteed by FP and the return type
   }
 
-  private[this] val tupleNestingSamples = PropertyChecks.Table(
+  private[this] val tupleNestingSamples = Table(
     ("root", "subtrees", "flat", "nested"),
     (5, 5, NonEmptyList(1, 2, 3, 4, 5, 6, 7), "(1, 2, 3, 4, (5, 6, 7))"),
     (4, 3, NonEmptyList(1, 2, 3, 4, 5, 6, 7), "(1, 2, (3, 4), (5, 6, 7))"),

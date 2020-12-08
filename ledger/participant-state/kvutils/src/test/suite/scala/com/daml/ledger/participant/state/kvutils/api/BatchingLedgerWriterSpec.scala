@@ -16,8 +16,9 @@ import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}
 import org.mockito.{ArgumentCaptor, ArgumentMatchers}
 import org.scalatest.concurrent.Eventually
-import org.scalatest.mockito.MockitoSugar._
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.mockito.MockitoSugar._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}

@@ -7,9 +7,10 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TypeSubstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class TypeSubstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   "A TypeSubst" should {
     "should be idempotent on terms that do not contain variable from its domain." in {

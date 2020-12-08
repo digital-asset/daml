@@ -12,10 +12,11 @@ import com.daml.ledger.validator.TestHelper.aParticipantId
 import com.daml.ledger.validator.{CommitStrategy, DamlLedgerStateReader, LedgerStateOperations}
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers.{any, anyString}
-import org.mockito.Mockito.when
-import org.mockito.stubbing.OngoingStubbing
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.mockito.MockitoSugar
+import org.mockito.stubbing.ScalaFirstStubbing
+// import org.mockito.stubbing.OngoingStubbing
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -62,7 +63,7 @@ class BatchedValidatingCommitterSpec
   }
 
   private def whenValidateAndCommit(
-      mockValidator: BatchedSubmissionValidator[Unit]): OngoingStubbing[Future[Unit]] =
+      mockValidator: BatchedSubmissionValidator[Unit]): ScalaFirstStubbing[Future[Unit]] =
     when(
       mockValidator.validateAndCommit(
         any[ByteString](),

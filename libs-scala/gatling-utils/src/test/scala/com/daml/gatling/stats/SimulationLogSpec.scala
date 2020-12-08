@@ -10,11 +10,12 @@ import scalaz.Scalaz._
 
 import scala.util.Random
 import com.daml.gatling.stats.util.ReadFileSyntax._
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEquals {
+class SimulationLogSpec extends AnyFlatSpec with Matchers with TypeCheckedTripleEquals {
   import SimulationLog._
 
   behavior of "SimulationLog"

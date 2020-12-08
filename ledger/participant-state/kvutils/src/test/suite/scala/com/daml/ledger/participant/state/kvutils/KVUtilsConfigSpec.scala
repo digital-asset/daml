@@ -10,9 +10,10 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class KVUtilsConfigSpec extends WordSpec with Matchers {
+class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
   import KVTest._
   import TestHelpers._
 

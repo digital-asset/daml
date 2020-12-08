@@ -16,17 +16,19 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.DottedName
 import com.daml.daml_lf_dev.DamlLf1
 import com.daml.lf.transaction.VersionTimeline
-import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Inside, Matchers, OptionValues, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import org.scalatest.{Inside, OptionValues}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.JavaConverters._
 
 class DecodeV1Spec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with Inside
     with OptionValues
-    with TableDrivenPropertyChecks {
+    with ScalaCheckPropertyChecks {
 
   "The entries of primTypeInfos correspond to Protobuf DamlLf1.PrimType" in {
 

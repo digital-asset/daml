@@ -16,9 +16,9 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.api.v1.value.Identifier
 import io.grpc.Status.Code._
-import org.scalatest.WordSpec
+import org.scalatest.wordspec.AnyWordSpec
 
-class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTestUtils {
+class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTestUtils {
 
   private val traceContext = TraceContext(traceIdHigh, traceId, spanId, parentSpanId, sampled)
 

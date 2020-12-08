@@ -33,6 +33,8 @@ import com.daml.ledger.service.MetadataReader
 import com.daml.platform.participant.util.LfEngineToApi
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.std.list._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.bitraverse._

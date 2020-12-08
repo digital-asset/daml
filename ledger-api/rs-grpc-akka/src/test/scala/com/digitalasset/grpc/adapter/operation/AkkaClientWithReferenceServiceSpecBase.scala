@@ -11,13 +11,15 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.platform.hello.HelloRequest
 import io.grpc.StatusRuntimeException
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import java.net.SocketAddress
 
 abstract class AkkaClientWithReferenceServiceSpecBase(
     override protected val socketAddress: Option[SocketAddress])
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with BeforeAndAfterAll
     with AkkaBeforeAndAfterAll

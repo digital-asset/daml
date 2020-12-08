@@ -9,7 +9,8 @@ import com.daml.ledger.rxjava.components.helpers.{
   CreatedContractContext,
   TemplateUtils
 }
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 import templateutils.{TemplateA, TemplateB, TemplateC}
 
 class TestContext extends CreatedContractContext {
@@ -17,7 +18,7 @@ class TestContext extends CreatedContractContext {
   def getWorkflowId(): String = ???
 }
 
-class ContractTransformationTest extends FlatSpec with Matchers {
+class ContractTransformationTest extends AnyFlatSpec with Matchers {
 
   private def createCreatedContract(identifier: Identifier, argument: String): CreatedContract = {
     val arguments = new Record(

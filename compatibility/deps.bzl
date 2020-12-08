@@ -32,6 +32,8 @@ load(
     "@daml//:deps.bzl",
     "buildifier_sha256",
     "buildifier_version",
+    "rules_bazel_common_sha256",
+    "rules_bazel_common_version",
     "rules_haskell_sha256",
     "rules_haskell_version",
     "rules_jvm_external_sha256",
@@ -123,6 +125,14 @@ def daml_deps():
                 "@daml//bazel_tools:scala-escape-jvmflags.patch",
             ],
             patch_args = ["-p1"],
+        )
+
+    if "com_github_google_bazel_common" not in native.existing_rules():
+        http_archive(
+            name = "com_github_google_bazel_common",
+            sha256 = rules_bazel_common_sha256,
+            strip_prefix = "bazel-common-{}".format(rules_bazel_common_version),
+            urls = ["https://github.com/google/bazel-common/archive/{}.zip".format(rules_bazel_common_version)],
         )
 
     # The tests for the `platform-version` field need a proper assistant installation with

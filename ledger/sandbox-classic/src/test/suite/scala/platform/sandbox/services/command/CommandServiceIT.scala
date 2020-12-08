@@ -23,7 +23,9 @@ import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.daml.platform.services.time.TimeProviderType
 import com.google.protobuf.duration.{Duration => ProtoDuration}
-import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
+import org.scalatest.Inspectors
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
 class CommandServiceIT

@@ -9,11 +9,11 @@ import com.daml.ledger.api.v1.{value => api}
 import com.daml.ledger.api.validation.{ValidatorTestUtils, ValueValidator}
 import com.daml.platform.participant.util.LfEngineToApi
 import com.google.protobuf.empty.Empty
-import org.scalatest.WordSpec
+import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1}
 
 class ValueConversionRoundTripTest
-    extends WordSpec
+    extends AnyWordSpec
     with ValidatorTestUtils
     with TableDrivenPropertyChecks {
 

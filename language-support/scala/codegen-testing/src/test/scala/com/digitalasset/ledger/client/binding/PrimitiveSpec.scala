@@ -6,13 +6,14 @@ package com.daml.ledger.client.binding
 import java.time.{Instant, LocalDate}
 
 import org.scalacheck.Gen
-import org.scalatest.{WordSpec, Matchers}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import shapeless.test.illTyped
 
 import com.daml.ledger.client.binding.{Primitive => P}
 
-class PrimitiveSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+class PrimitiveSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
   import PrimitiveSpec._
 
   "Primitive types" when {

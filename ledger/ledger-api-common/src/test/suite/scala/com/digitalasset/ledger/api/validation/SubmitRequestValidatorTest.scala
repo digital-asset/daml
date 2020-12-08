@@ -20,11 +20,11 @@ import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional =>
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE, UNIMPLEMENTED}
-import org.scalatest.WordSpec
+import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scalaz.syntax.tag._
 class SubmitRequestValidatorTest
-    extends WordSpec
+    extends AnyWordSpec
     with ValidatorTestUtils
     with TableDrivenPropertyChecks {
 

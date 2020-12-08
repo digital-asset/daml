@@ -27,7 +27,8 @@ import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, Channel, Server, ServerInterceptor, ServerServiceDefinition}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Second, Span}
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}

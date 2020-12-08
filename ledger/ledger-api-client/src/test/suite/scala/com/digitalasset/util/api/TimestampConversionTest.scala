@@ -7,9 +7,10 @@ import java.time.Clock
 
 import com.daml.api.util.TimestampConversion
 import com.google.protobuf.timestamp.Timestamp
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TimestampConversionTest extends WordSpec with Matchers {
+class TimestampConversionTest extends AnyWordSpec with Matchers {
 
   private val instant = Clock.systemUTC().instant()
   private val timestamp = Timestamp(instant.getEpochSecond, instant.getNano)

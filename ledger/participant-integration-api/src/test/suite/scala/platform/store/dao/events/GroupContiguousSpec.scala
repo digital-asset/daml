@@ -6,13 +6,14 @@ package com.daml.platform.store.dao.events
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 final class GroupContiguousSpec
     extends AsyncFlatSpec
     with Matchers
-    with PropertyChecks
+    with ScalaCheckPropertyChecks
     with ScalaFutures
     with AkkaBeforeAndAfterAll {
 

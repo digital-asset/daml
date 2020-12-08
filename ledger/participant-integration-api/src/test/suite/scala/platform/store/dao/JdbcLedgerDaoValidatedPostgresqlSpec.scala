@@ -3,7 +3,8 @@
 
 package com.daml.platform.store.dao
 
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 // Aggregate all specs in a single run to not start a new database fixture for each one
 final class JdbcLedgerDaoValidatedPostgresqlSpec

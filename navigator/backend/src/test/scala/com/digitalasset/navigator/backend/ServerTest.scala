@@ -25,7 +25,9 @@ import com.daml.navigator.store.Store.{
 import com.daml.navigator.time.TimeProviderType.Static
 import com.daml.navigator.time.TimeProviderWithType
 import com.typesafe.scalalogging.LazyLogging
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.syntax.tag._
 import spray.json._
 
@@ -33,7 +35,7 @@ import scala.concurrent.Future
 import scala.util.Success
 
 class ServerTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with ScalatestRouteTest
     with LazyLogging

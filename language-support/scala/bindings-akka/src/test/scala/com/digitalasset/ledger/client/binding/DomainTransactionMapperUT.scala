@@ -15,11 +15,12 @@ import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import com.daml.ledger.client.testing.AkkaTest
 import com.google.protobuf.timestamp.Timestamp
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable
 
-class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
+class DomainTransactionMapperUT extends AnyWordSpec with Matchers with AkkaTest {
   private val mockContract =
     Contract(Primitive.ContractId("contractId"), MockTemplate(), None, Seq.empty, Seq.empty, None)
   private val transactionMapper = new DomainTransactionMapper(_ => Right(mockContract))

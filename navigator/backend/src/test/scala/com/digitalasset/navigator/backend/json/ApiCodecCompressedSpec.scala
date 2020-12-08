@@ -4,11 +4,12 @@
 package com.daml.navigator.json
 
 import com.daml.navigator.model
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.{Success, Try}
 
-class ApiCodecCompressedSpec extends WordSpec with Matchers {
+class ApiCodecCompressedSpec extends AnyWordSpec with Matchers {
   import com.daml.navigator.{DamlConstants => C}
 
   /** Serializes the API value to JSON, then parses it back to an API value */

@@ -8,12 +8,14 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers._
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.ExecutionContext
 
 final class TimeClientImplTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with AuthMatchers
     with OptionValues
