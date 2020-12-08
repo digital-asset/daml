@@ -101,7 +101,6 @@ message Transaction {
 
   // The collection of events.
   // Only contains ``CreatedEvent`` or ``ArchivedEvent``.
-  // Omits events on transient contracts, i.e., contracts that were both created and archived in this transaction.
   // Required
   repeated Event events = 5;
 
