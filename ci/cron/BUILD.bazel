@@ -24,6 +24,7 @@ da_haskell_binary(
         "optparse-applicative",
         "process",
         "regex-tdfa",
+        "safe",
         "semver",
         "split",
         "text",
