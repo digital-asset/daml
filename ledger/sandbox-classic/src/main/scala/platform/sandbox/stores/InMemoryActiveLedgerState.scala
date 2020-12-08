@@ -29,9 +29,7 @@ private[sandbox] case class InMemoryActiveLedgerState(
   def isVisibleForDivulgees(contractId: ContractId, forParties: Set[Party]): Boolean =
     activeContracts
       .get(contractId)
-      .exists(ac =>
-        forParties.exists(p => ac.witnesses.contains(p) || ac.divulgences.contains(p))
-      )
+      .exists(ac => forParties.exists(p => ac.witnesses.contains(p) || ac.divulgences.contains(p)))
 
   def isVisibleForStakeholders(contractId: ContractId, forParties: Set[Party]): Boolean =
     activeContracts

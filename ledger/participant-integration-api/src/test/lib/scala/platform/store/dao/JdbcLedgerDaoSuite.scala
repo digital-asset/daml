@@ -212,14 +212,14 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       ))
 
   protected final def storeCommitedContractDivulgence(
-                                       id: ContractId,
-                                       divulgees: Set[Party],
-                                     ): Future[(Offset, LedgerEntry.Transaction)] =
-  store(
-    divulgedContracts = Map((id, someVersionedContractInstance) -> divulgees),
-    blindingInfo = None,
-    offsetAndTx = divulgeAlreadyCommittedContract(id, divulgees),
-  )
+      id: ContractId,
+      divulgees: Set[Party],
+  ): Future[(Offset, LedgerEntry.Transaction)] =
+    store(
+      divulgedContracts = Map((id, someVersionedContractInstance) -> divulgees),
+      blindingInfo = None,
+      offsetAndTx = divulgeAlreadyCommittedContract(id, divulgees),
+    )
 
   protected def divulgeAlreadyCommittedContract(
       id: ContractId,

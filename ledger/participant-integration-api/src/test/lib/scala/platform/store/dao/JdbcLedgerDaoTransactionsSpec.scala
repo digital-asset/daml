@@ -118,8 +118,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
     val actAs = List(alice, bob, david) // David is submitter but not signatory
     for {
-      (_, tx) <- store(
-        singleCreateP(createCustom(_, signatories, stakeholders), actAs))
+      (_, tx) <- store(singleCreateP(createCustom(_, signatories, stakeholders), actAs))
       // Response 1: querying as all submitters
       result1 <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.transactionId, Set(alice, bob, david))
@@ -141,8 +140,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
     val actAs = List(alice, bob, david) // David is submitter but not signatory
     for {
-      (_, tx) <- store(
-        singleCreateP(createCustom(_, signatories, stakeholders), actAs))
+      (_, tx) <- store(singleCreateP(createCustom(_, signatories, stakeholders), actAs))
       result <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.transactionId, Set(charlie))
     } yield {
