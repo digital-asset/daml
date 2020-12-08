@@ -141,8 +141,7 @@ private[trigger] object ServiceConfig {
     opt[Int]("max-http-entity-upload-size")
       .action((x, c) => c.copy(maxHttpEntityUploadSize = x))
       .optional()
-      .text(
-        s"Optional max HTTP entity upload size. Defaults to ${DefaultMaxHttpEntityUploadSize}. HTTP uploads cannot be streamed but must be fully uploaded when a request is deferred until after a login flow with the auth middleware completed.")
+      .text(s"Optional max HTTP entity upload size. Defaults to ${DefaultMaxHttpEntityUploadSize}.")
       // TODO[AH] Expose once the auth feature is fully implemented.
       .hidden()
 
@@ -150,7 +149,7 @@ private[trigger] object ServiceConfig {
       .action((x, c) => c.copy(httpEntityUploadTimeout = FiniteDuration(x, duration.MINUTES)))
       .optional()
       .text(
-        s"Optional HTTP entity upload timeout. Defaults to ${DefaultHttpEntityUploadTimeout.toSeconds} seconds. HTTP uploads cannot be streamed but must be fully uploaded when a request is deferred until after a login flow with the auth middleware completed.")
+        s"Optional HTTP entity upload timeout. Defaults to ${DefaultHttpEntityUploadTimeout.toSeconds} seconds.")
       // TODO[AH] Expose once the auth feature is fully implemented.
       .hidden()
 
