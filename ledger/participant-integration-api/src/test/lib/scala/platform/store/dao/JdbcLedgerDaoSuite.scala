@@ -176,37 +176,16 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       case (set, _) =>
         set
     }
-  
-  protected final def singleCreateP(
-      create: ContractId => NodeCreate[ContractId, Value[ContractId]],
-      submittingParty: Party = alice,
-  ): (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = TransactionBuilder()
-    val cid = txBuilder.newCid
-    val creation = create(cid)
-    val eid = txBuilder.add(creation)
-    val offset = nextOffset()
-    val id = offset.toLong
-    val let = Instant.now
-    offset -> LedgerEntry.Transaction(
-      commandId = Some(s"commandId$id"),
-      transactionId = s"trId$id",
-      applicationId = Some("appID1"),
-      actAs = List(submittingParty),
-      workflowId = Some("workflowId"),
-      ledgerEffectiveTime = let,
-      recordedAt = let,
-      transaction = txBuilder.buildCommitted(),
-      explicitDisclosure = Map(eid -> (creation.signatories union creation.stakeholders))
-    )
-  }
 
   protected final def singleCreate: (Offset, LedgerEntry.Transaction) =
     singleCreateP(create(_))
 
-  protected final def multiPartySingleCreateP(
+  protected final def multiPartySingleCreate: (Offset, LedgerEntry.Transaction) =
+    singleCreateP(create(_, Set(alice, bob)), List(alice, bob))
+
+  protected final def singleCreateP(
       create: ContractId => NodeCreate[ContractId, Value[ContractId]],
-      actAs: List[Party],
+      actAs: List[Party] = List(alice),
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
     val cid = txBuilder.newCid
@@ -228,12 +207,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     )
   }
 
-  protected final def multiPartySingleCreate: (Offset, LedgerEntry.Transaction) =
-    multiPartySingleCreateP(create(_, Set(alice, bob)), List(alice, bob))
-
   // TODO: `submittingParty: Party` should be changed to Set[Party] when multi-party changes in LedgerEntry are ready
   protected final def createAndStoreContract(
-      submittingParty: Party,
+      submittingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Value[ContractId]]]
@@ -248,7 +224,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
             key = key,
           )
         },
-        submittingParty = submittingParty
+        actAs = submittingParties.toList
       ))
 
   protected def divulgeAlreadyCommittedContract(

@@ -56,7 +56,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   it should "not find contracts that are not visible to any of the requesters" in {
     for {
       (_, tx) <- createAndStoreContract(
-        submittingParty = alice,
+        submittingParties = Set(alice),
         signatories = Set(alice, bob),
         stakeholders = Set(alice, bob),
         key = None,
@@ -71,7 +71,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   it should "find contract if at least one of requesters is a signatory" in {
     for {
       (_, tx) <- createAndStoreContract(
-        submittingParty = alice, // TODO: make this a set of parties
+        submittingParties = Set(alice),
         signatories = Set(alice, bob),
         stakeholders = Set(alice, bob),
         key = None,
@@ -86,7 +86,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   it should "find contract if at least one of requesters is a stakeholder" in {
     for {
       (_, tx) <- createAndStoreContract(
-        submittingParty = alice, // TODO: make this a set of parties
+        submittingParties = Set(alice),
         signatories = Set(alice, bob),
         stakeholders = Set(alice, bob, charlie),
         key = None,
@@ -102,7 +102,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     val aTextValue = ValueText(scala.util.Random.nextString(10))
     for {
       (_, _) <- createAndStoreContract(
-        submittingParty = alice,
+        submittingParties = Set(alice),
         signatories = Set(alice, bob),
         stakeholders = Set(alice, bob),
         key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
@@ -118,7 +118,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     val aTextValue = ValueText(scala.util.Random.nextString(10))
     for {
       (_, tx) <- createAndStoreContract(
-        submittingParty = alice,
+        submittingParties = Set(alice),
         signatories = Set(alice, bob),
         stakeholders = Set(alice, bob),
         key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
@@ -135,7 +135,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     val aTextValue = ValueText(scala.util.Random.nextString(10))
     for {
       (_, tx) <- createAndStoreContract(
-        submittingParty = alice,
+        submittingParties = Set(alice),
         signatories = Set(alice, bob),
         stakeholders = Set(alice, bob, charlie),
         key = Some(KeyWithMaintainers(aTextValue, Set(alice, bob))),
