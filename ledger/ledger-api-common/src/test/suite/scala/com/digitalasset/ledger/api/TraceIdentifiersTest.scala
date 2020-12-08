@@ -5,10 +5,10 @@ package com.daml.ledger.api
 
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.metrics.SpanAttribute
-import org.scalatest.WordSpec
-import org.scalatest.Matchers._
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers._
 
-class TraceIdentifiersTest extends WordSpec {
+class TraceIdentifiersTest extends AnyWordSpec {
   val expected = Map(
     (SpanAttribute.TransactionId.key, "transaction-id"),
     (SpanAttribute.CommandId.key, "command-id"),
