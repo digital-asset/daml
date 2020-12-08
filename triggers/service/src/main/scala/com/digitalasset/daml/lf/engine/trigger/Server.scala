@@ -600,13 +600,26 @@ object Server {
     }
 
     def restartTrigger(req: RestartTrigger): Unit = {
-      val _ = spawnTrigger(req.trigger, req.runningTrigger, req.compiledPackages)
+      // If the trigger is still running we need to shut it down first
+      // and wait for it to terminate before we can spawn it again.
+      // Otherwise, akka will raise an error due to a non-unique actor name.
+      getRunnerRef(req.runningTrigger.triggerInstance) match {
+        case Some(runner) =>
+          ctx.watchWith(runner, req)
+          ctx.stop(runner)
+        case None =>
+          discard(spawnTrigger(req.trigger, req.runningTrigger, req.compiledPackages))
+      }
+    }
+
+    def getRunnerRef(triggerInstance: UUID): Option[ActorRef[TriggerRunner.Message]] = {
+      ctx
+        .child(triggerRunnerName(triggerInstance))
+        .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
     }
 
     def getRunner(req: GetRunner) = {
-      req.replyTo ! ctx
-        .child(triggerRunnerName(req.uuid))
-        .asInstanceOf[Option[ActorRef[TriggerRunner.Message]]]
+      req.replyTo ! getRunnerRef(req.uuid)
     }
 
     def refreshAccessToken(triggerInstance: UUID): Future[RunningTrigger] = {
