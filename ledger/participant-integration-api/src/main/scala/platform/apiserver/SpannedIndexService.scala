@@ -174,7 +174,7 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
 
   override def deduplicateCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitter: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[v2.CommandDeduplicationResult] =
@@ -182,7 +182,7 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
 
   override def stopDeduplicatingCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitter: List[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     delegate.stopDeduplicatingCommand(commandId, submitter)
 
