@@ -50,7 +50,6 @@ da_scala_test(
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_mockito_mockito_scala_2_12",

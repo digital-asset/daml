@@ -10,16 +10,21 @@ import com.daml.ledger.participant.state.v1.{Offset, RejectionReason, Update}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class StateUpdates(
+trait StateUpdateComparison {
+  def compare(): Future[Unit]
+}
+
+final class ReadServiceStateUpdateComparison(
     expectedReadService: ReplayingReadService,
     actualReadService: ReplayingReadService,
-) {
-  import StateUpdates._
+)(
+    implicit materializer: Materializer,
+    executionContext: ExecutionContext,
+) extends StateUpdateComparison {
 
-  def compare()(
-      implicit materializer: Materializer,
-      executionContext: ExecutionContext,
-  ): Future[Unit] = {
+  import ReadServiceStateUpdateComparison._
+
+  def compare(): Future[Unit] = {
     println("Comparing expected and actual state updates.".white)
     if (expectedReadService.updateCount() != actualReadService.updateCount()) {
       Future.failed(new ComparisonFailureException(
@@ -47,7 +52,7 @@ final class StateUpdates(
   }
 }
 
-object StateUpdates {
+object ReadServiceStateUpdateComparison {
   private def compareOffsets(expected: Offset, actual: Offset): Future[Unit] =
     if (expected != actual) {
       Future.failed(new ComparisonFailureException(s"Expected offset $expected but got $actual."))
