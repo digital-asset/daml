@@ -106,8 +106,10 @@ object InMemoryLedgerReaderWriter {
         // We need to generate batched submissions for the validator in order to improve throughput.
         // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
         // in-memory committer.
-        ledgerWriter = newLoggingContext { implicit loggingContext =>
-          BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
+        ledgerWriter <- newLoggingContext { implicit loggingContext =>
+          ResourceOwner
+            .forCloseable(() => BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter))
+            .acquire()
         }
       } yield createKeyValueLedger(readerWriter, ledgerWriter)
   }

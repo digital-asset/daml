@@ -40,13 +40,13 @@ class BatchingQueueSpec
         throw new RuntimeException("kill the queue")
       }
 
-      queue.alive should be(true)
+      queue.state should be(RunningBatchingQueueState.Alive)
       for {
         res <- queue.offer(correlatedSubmission)
       } yield {
         res should be(SubmissionResult.Acknowledged)
         eventually {
-          queue.alive should be(false)
+          queue.state should be(RunningBatchingQueueState.Failed)
         }
       }
     }
@@ -61,10 +61,10 @@ class BatchingQueueSpec
       ).run { _ =>
         Future.unit
       }
-      queue.alive should be(true)
-      queue.close()
-      eventually {
-        queue.alive should be(false)
+      queue.state should be(RunningBatchingQueueState.Alive)
+      val wait = queue.stop()
+      wait.map { _ =>
+        queue.state should be(RunningBatchingQueueState.Complete)
       }
     }
 
@@ -115,7 +115,7 @@ class BatchingQueueSpec
         res1 should be(SubmissionResult.Acknowledged)
         res2 should be(SubmissionResult.Acknowledged)
         batches should contain only (Seq(correlatedSubmission1), Seq(correlatedSubmission2))
-        queue.alive should be(true)
+        queue.state should be(RunningBatchingQueueState.Alive)
       }
     }
 
@@ -187,7 +187,7 @@ class BatchingQueueSpec
         res1 should be(SubmissionResult.Acknowledged)
         res2 should be(SubmissionResult.Acknowledged)
         batches.reverse should contain only (Seq(correlatedSubmission1), Seq(correlatedSubmission2))
-        queue.alive should be(true)
+        queue.state should be(RunningBatchingQueueState.Alive)
       }
     }
   }
