@@ -33,6 +33,8 @@ private[dao] sealed abstract class ContractsReader(
 
   import ContractsReader._
 
+  protected val sqlFunctions: SqlFunctions
+
   private val contractRowParser: RowParser[(String, InputStream)] =
     str("template_id") ~ binaryStream("create_argument") map SqlParser.flatten
 
@@ -41,8 +43,6 @@ private[dao] sealed abstract class ContractsReader(
 
   private val translation: LfValueTranslation =
     new LfValueTranslation(lfValueTranslationCache)
-
-  protected def lookupContractKeyQuery(readers: Set[Party], key: Key): SimpleSql[Row]
 
   /** Lookup of a contract in the case the contract value is not already known */
   private def lookupActiveContractAndLoadArgument(
@@ -107,6 +107,12 @@ private[dao] sealed abstract class ContractsReader(
       lookupContractKeyQuery(readers, key).as(contractId("contract_id").singleOpt)
     }
 
+  private def lookupContractKeyQuery(readers: Set[Party], key: Key): SimpleSql[Row] = {
+    val stakeholdersWhere =
+      sqlFunctions.arrayIntersectionWhereClause("create_stakeholders", readers)
+    SQL"select participant_contracts.contract_id from #$contractsTable where #$stakeholdersWhere and contract_witness in ($readers) and create_key_hash = ${key.hash} limit 1"
+  }
+
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(
       implicit loggingContext: LoggingContext,
   ): Future[Option[Instant]] =
@@ -140,14 +146,9 @@ private[dao] object ContractsReader {
       lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit ec: ExecutionContext)
       extends ContractsReader(table, dispatcher, metrics, lfValueTranslationCache) {
-    override protected def lookupContractKeyQuery(
-        readers: Set[Party],
-        key: Key,
-    ): SimpleSql[Row] = {
-      val stakeholdersWhere =
-        PostgresSqlFunctions.arrayIntersectionWhereClause("create_stakeholders", readers)
-      SQL"select participant_contracts.contract_id from #$contractsTable where #$stakeholdersWhere and contract_witness in ($readers) and create_key_hash = ${key.hash} limit 1"
-    }
+
+    override protected val sqlFunctions: SqlFunctions = PostgresSqlFunctions
+
   }
 
   private final class H2Database(
@@ -157,14 +158,9 @@ private[dao] object ContractsReader {
       lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit ec: ExecutionContext)
       extends ContractsReader(table, dispatcher, metrics, lfValueTranslationCache) {
-    override protected def lookupContractKeyQuery(
-        readers: Set[Party],
-        key: Key,
-    ): SimpleSql[Row] = {
-      val stakeholdersWhere =
-        H2SqlFunctions.arrayIntersectionWhereClause("create_stakeholders", readers)
-      SQL"select participant_contracts.contract_id from #$contractsTable where #$stakeholdersWhere and contract_witness in ($readers) and create_key_hash = ${key.hash} limit 1"
-    }
+
+    override protected val sqlFunctions: SqlFunctions = H2SqlFunctions
+
   }
 
   private val contractsTable = "participant_contracts natural join participant_contract_witnesses"
