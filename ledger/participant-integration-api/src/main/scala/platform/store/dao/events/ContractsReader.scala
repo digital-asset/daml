@@ -23,17 +23,16 @@ import scala.concurrent.{ExecutionContext, Future}
 /**
   * @see [[ContractsTable]]
   */
-private[dao] sealed abstract class ContractsReader(
+private[dao] sealed class ContractsReader(
     val committedContracts: PostCommitValidationData,
     dispatcher: DbDispatcher,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslation.Cache,
+    sqlFunctions: SqlFunctions,
 )(implicit ec: ExecutionContext)
     extends ContractStore {
 
   import ContractsReader._
-
-  protected val sqlFunctions: SqlFunctions
 
   private val contractRowParser: RowParser[(String, InputStream)] =
     str("template_id") ~ binaryStream("create_argument") map SqlParser.flatten
@@ -132,35 +131,17 @@ private[dao] object ContractsReader {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit ec: ExecutionContext): ContractsReader = {
-    val table = ContractsTable(dbType)
-    dbType match {
-      case DbType.Postgres => new Postgresql(table, dispatcher, metrics, lfValueTranslationCache)
-      case DbType.H2Database => new H2Database(table, dispatcher, metrics, lfValueTranslationCache)
+    def sqlFunctions = dbType match {
+      case DbType.Postgres => PostgresSqlFunctions
+      case DbType.H2Database => H2SqlFunctions
     }
-  }
-
-  private final class Postgresql(
-      table: ContractsTable,
-      dispatcher: DbDispatcher,
-      metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
-  )(implicit ec: ExecutionContext)
-      extends ContractsReader(table, dispatcher, metrics, lfValueTranslationCache) {
-
-    override protected val sqlFunctions: SqlFunctions = PostgresSqlFunctions
-
-  }
-
-  private final class H2Database(
-      table: ContractsTable,
-      dispatcher: DbDispatcher,
-      metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
-  )(implicit ec: ExecutionContext)
-      extends ContractsReader(table, dispatcher, metrics, lfValueTranslationCache) {
-
-    override protected val sqlFunctions: SqlFunctions = H2SqlFunctions
-
+    new ContractsReader(
+      committedContracts = ContractsTable(dbType),
+      dispatcher = dispatcher,
+      metrics = metrics,
+      lfValueTranslationCache = lfValueTranslationCache,
+      sqlFunctions = sqlFunctions
+    )
   }
 
   private val contractsTable = "participant_contracts natural join participant_contract_witnesses"
