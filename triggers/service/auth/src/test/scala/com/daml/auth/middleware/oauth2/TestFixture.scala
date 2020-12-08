@@ -14,7 +14,6 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.{Clock => Auth0Clock}
 import com.daml.clock.AdjustableClock
 import com.daml.jwt.JwtVerifier
-import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   OwnedResource,
@@ -22,34 +21,43 @@ import com.daml.ledger.api.testing.utils.{
   SuiteResource
 }
 import com.daml.ledger.resources.ResourceContext
-import com.daml.auth.oauth2.test.server.{Config => OAuthConfig}
+import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
 import com.daml.ports.Port
-import org.scalatest.Suite
+import org.scalatest.{BeforeAndAfterEach, Suite}
 
 trait TestFixture
     extends AkkaBeforeAndAfterAll
-    with SuiteResource[(AdjustableClock, ServerBinding, ServerBinding)] {
+    with BeforeAndAfterEach
+    with SuiteResource[(AdjustableClock, OAuthServer, ServerBinding, ServerBinding)] {
   self: Suite =>
   protected val ledgerId: String = "test-ledger"
   protected val jwtSecret: String = "secret"
+  lazy protected val clock: AdjustableClock = suiteResource.value._1
+  lazy protected val server: OAuthServer = suiteResource.value._2
+  lazy protected val serverBinding: ServerBinding = suiteResource.value._3
+  lazy protected val middlewareBinding: ServerBinding = suiteResource.value._4
   override protected lazy val suiteResource
-    : Resource[(AdjustableClock, ServerBinding, ServerBinding)] = {
+    : Resource[(AdjustableClock, OAuthServer, ServerBinding, ServerBinding)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[ResourceContext, (AdjustableClock, ServerBinding, ServerBinding)](
+    new OwnedResource[
+      ResourceContext,
+      (AdjustableClock, OAuthServer, ServerBinding, ServerBinding)](
       for {
         clock <- Resources.clock(Instant.now(), ZoneId.systemDefault())
-        server <- Resources.authServer(
+        server = OAuthServer(
           OAuthConfig(
             port = Port.Dynamic,
             ledgerId = ledgerId,
             jwtSecret = jwtSecret,
-            parties = Some(ApiTypes.Party.subst(Set("Alice", "Bob"))),
             clock = Some(clock),
           ))
+        serverBinding <- Resources.authServerBinding(server)
         serverUri = Uri()
           .withScheme("http")
-          .withAuthority(server.localAddress.getHostString, server.localAddress.getPort)
-        client <- Resources.authMiddleware(
+          .withAuthority(
+            serverBinding.localAddress.getHostString,
+            serverBinding.localAddress.getPort)
+        middlewareBinding <- Resources.authMiddlewareBinding(
           Config(
             port = Port.Dynamic,
             oauthAuth = serverUri.withPath(Uri.Path./("authorize")),
@@ -65,7 +73,14 @@ trait TestFixture
                 })
             )
           ))
-      } yield { (clock, server, client) }
+      } yield { (clock, server, serverBinding, middlewareBinding) }
     )
+  }
+
+  override protected def afterEach(): Unit = {
+    server.resetAuthorizedParties()
+    server.resetAdmin()
+
+    super.afterEach()
   }
 }

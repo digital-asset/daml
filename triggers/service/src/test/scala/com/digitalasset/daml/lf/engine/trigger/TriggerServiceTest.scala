@@ -516,12 +516,11 @@ trait AbstractTriggerServiceTestAuthMiddleware
     extends AbstractTriggerServiceTest
     with AuthMiddlewareFixture {
 
-  override protected val authParties = Some(Set(alice, aliceAcs, aliceExp, bob))
-
   behavior of "authenticated service"
 
   it should "forbid a non-authorized party to start a trigger" in withTriggerService(List(dar)) {
     uri: Uri =>
+      authServer.revokeParty(eve)
       for {
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", eve)
         _ <- resp.status shouldBe StatusCodes.Forbidden
@@ -530,6 +529,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
 
   it should "forbid a non-authorized party to list triggers" in withTriggerService(Nil) {
     uri: Uri =>
+      authServer.revokeParty(eve)
       for {
         resp <- listTriggers(uri, eve)
         _ <- resp.status shouldBe StatusCodes.Forbidden

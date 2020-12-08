@@ -9,7 +9,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import com.daml.clock.AdjustableClock
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
+import com.daml.auth.oauth2.test.server.{Server => OAuthServer}
 
 import scala.concurrent.Future
 
@@ -21,12 +21,14 @@ object Resources {
           Future(()))
       }
     }
-  def authServer(config: OAuthConfig)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
+  def authServerBinding(server: OAuthServer)(
+      implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
-        Resource(OAuthServer(config).start())(_.unbind().map(_ => ()))
+        Resource(server.start())(_.unbind().map(_ => ()))
     }
-  def authMiddleware(config: Config)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
+  def authMiddlewareBinding(config: Config)(
+      implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
         Resource(Server.start(config))(_.unbind().map(_ => ()))

@@ -17,6 +17,7 @@ import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.auth.oauth2.api.{Response => OAuthResponse}
 import org.scalatest.wordspec.AsyncWordSpec
@@ -24,10 +25,11 @@ import org.scalatest.wordspec.AsyncWordSpec
 class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
   import com.daml.auth.middleware.api.JsonProtocol._
   lazy private val middlewareUri = {
-    lazy val middlewareBinding = suiteResource.value._3.localAddress
     Uri()
       .withScheme("http")
-      .withAuthority(middlewareBinding.getHostString, middlewareBinding.getPort)
+      .withAuthority(
+        middlewareBinding.localAddress.getHostString,
+        middlewareBinding.localAddress.getPort)
   }
   private def makeToken(
       claims: Request.Claims,
@@ -38,7 +40,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       ledgerId = Some("test-ledger"),
       applicationId = Some("test-application"),
       participantId = None,
-      exp = expiresIn.map(in => suiteResource.value._1.instant.plus(in)),
+      exp = expiresIn.map(in => clock.instant.plus(in)),
       admin = claims.admin,
       actAs = claims.actAs.map(ApiTypes.Party.unwrap(_)),
       readAs = claims.readAs.map(ApiTypes.Party.unwrap(_))
@@ -150,7 +152,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     "return unauthorized on an expired token" in {
       val claims = Request.Claims(actAs = List(ApiTypes.Party("Alice")))
       val token = makeToken(claims, expiresIn = Some(Duration.ZERO))
-      val _ = suiteResource.value._1.fastForward(Duration.ofSeconds(1))
+      val _ = clock.fastForward(Duration.ofSeconds(1))
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
       val req = HttpRequest(
         uri = middlewareUri
@@ -198,7 +200,40 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       }
     }
     "not authorize unauthorized parties" in {
+      server.revokeParty(Party("Eve"))
       val claims = "actAs:Eve"
+      val req = HttpRequest(
+        uri = middlewareUri
+          .withPath(Path./("login"))
+          .withQuery(Query(("redirect_uri", "http://CALLBACK"), ("claims", claims))))
+      for {
+        resp <- Http().singleRequest(req)
+        // Redirect to /authorize on authorization server
+        resp <- {
+          assert(resp.status == StatusCodes.Found)
+          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          Http().singleRequest(req)
+        }
+        // Redirect to /cb on middleware
+        resp <- {
+          assert(resp.status == StatusCodes.Found)
+          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          Http().singleRequest(req)
+        }
+      } yield {
+        // Redirect to CALLBACK
+        assert(resp.status == StatusCodes.Found)
+        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == Uri("http://CALLBACK"))
+        // with error parameter set
+        assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
+        // Without token in cookie
+        val cookie = resp.header[`Set-Cookie`]
+        assert(cookie == None)
+      }
+    }
+    "not authorize disallowed admin claims" in {
+      server.revokeAdmin()
+      val claims = "admin"
       val req = HttpRequest(
         uri = middlewareUri
           .withPath(Path./("login"))
@@ -257,7 +292,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
           (token.accessToken, token.refreshToken.get)
         }
         // Advance time
-        _ = suiteResource.value._1.fastForward(Duration.ofSeconds(1))
+        _ = clock.fastForward(Duration.ofSeconds(1))
         // Request /refresh
         refreshEntity <- Marshal(Request.Refresh(refreshToken)).to[RequestEntity]
         refreshReq = HttpRequest(

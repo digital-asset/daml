@@ -35,24 +35,35 @@ class Server(config: Config) {
   private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
   val tokenLifetimeSeconds = 24 * 60 * 60
 
-  // None indicates that all parties are authorized, Some that only the given set of parties is authorized.
-  private var authorizedParties: Option[Set[Party]] = config.parties
+  private var unauthorizedParties: Set[Party] = Set()
 
-  // Add the given party to the set of authorized parties,
-  // if authorization of individual parties is enabled.
+  // Remove the given party from the set of unauthorized parties.
   def authorizeParty(party: Party): Unit = {
-    authorizedParties = authorizedParties.map(_ + party)
+    unauthorizedParties = unauthorizedParties - party
   }
 
-  // Remove the given party from the set of authorized parties,
-  // if authorization of individual parties is enabled.
+  // Add the given party to the set of unauthorized parties.
   def revokeParty(party: Party): Unit = {
-    authorizedParties = authorizedParties.map(_ - party)
+    unauthorizedParties = unauthorizedParties + party
   }
 
-  // Reset party authorization to the initially configured state.
+  // Clear the set of unauthorized parties.
   def resetAuthorizedParties(): Unit = {
-    authorizedParties = config.parties
+    unauthorizedParties = Set()
+  }
+
+  private var allowAdmin = true
+
+  def authorizeAdmin(): Unit = {
+    allowAdmin = true
+  }
+
+  def revokeAdmin(): Unit = {
+    allowAdmin = false
+  }
+
+  def resetAdmin(): Unit = {
+    allowAdmin = true
   }
 
   // To keep things as simple as possible, we use a UUID as the authorization code and refresh token
@@ -70,10 +81,12 @@ class Server(config: Config) {
   private def toPayload(req: Request.Authorize): AuthServiceJWTPayload = {
     var actAs: Seq[String] = Seq()
     var readAs: Seq[String] = Seq()
+    var admin: Boolean = false
     var applicationId: Option[String] = None
     req.scope.foreach(_.split(" ").foreach {
       case s if s.startsWith("actAs:") => actAs ++= Seq(s.stripPrefix("actAs:"))
       case s if s.startsWith("readAs:") => readAs ++= Seq(s.stripPrefix("readAs:"))
+      case s if s == "admin" => admin = true
       // Given that this is only for testing,
       // we don’t guard against multiple application id claims.
       case s if s.startsWith("applicationId:") =>
@@ -88,10 +101,23 @@ class Server(config: Config) {
       // Expiry is set when the token is retrieved
       exp = None,
       // no admin claim for now.
-      admin = false,
+      admin = admin,
       actAs = actAs.toList,
       readAs = readAs.toList,
     )
+  }
+  // Whether the current configuration of unauthorized parties and admin rights allows to grant the given token payload.
+  private def authorize(payload: AuthServiceJWTPayload): Either[String, Unit] = {
+    val parties = Party.subst(payload.readAs ++ payload.actAs).toSet
+    val deniedParties = parties.intersect(unauthorizedParties)
+    val deniedAdmin: Boolean = payload.admin && !allowAdmin
+    if (deniedParties.nonEmpty) {
+      Left(s"Access to parties ${deniedParties.mkString(" ")} denied")
+    } else if (deniedAdmin) {
+      Left("Admin access denied")
+    } else {
+      Right(())
+    }
   }
 
   import Request.Token.unmarshalHttpEntity
@@ -111,28 +137,27 @@ class Server(config: Config) {
           .as[Request.Authorize](Request.Authorize) {
             request =>
               val payload = toPayload(request)
-              val parties = Party.subst(payload.readAs ++ payload.actAs).toSet
-              val denied = authorizedParties.map(parties -- _).getOrElse(Nil)
-              if (denied.isEmpty) {
-                val authorizationCode = UUID.randomUUID()
-                val params =
-                  Response
-                    .Authorize(code = authorizationCode.toString, state = request.state)
-                    .toQuery
-                requests += (authorizationCode -> payload)
-                // We skip any actual consent screen since this is only intended for testing and
-                // this is outside of the scope of the trigger service anyway.
-                redirect(request.redirectUri.withQuery(params), StatusCodes.Found)
-              } else {
-                val params =
-                  Response
-                    .Error(
-                      error = "access_denied",
-                      errorDescription = Some(s"Access to parties ${denied.mkString(" ")} denied"),
-                      errorUri = None,
-                      state = request.state)
-                    .toQuery
-                redirect(request.redirectUri.withQuery(params), StatusCodes.Found)
+              authorize(payload) match {
+                case Left(msg) =>
+                  val params =
+                    Response
+                      .Error(
+                        error = "access_denied",
+                        errorDescription = Some(msg),
+                        errorUri = None,
+                        state = request.state)
+                      .toQuery
+                  redirect(request.redirectUri.withQuery(params), StatusCodes.Found)
+                case Right(()) =>
+                  val authorizationCode = UUID.randomUUID()
+                  val params =
+                    Response
+                      .Authorize(code = authorizationCode.toString, state = request.state)
+                      .toQuery
+                  requests += (authorizationCode -> payload)
+                  // We skip any actual consent screen since this is only intended for testing and
+                  // this is outside of the scope of the trigger service anyway.
+                  redirect(request.redirectUri.withQuery(params), StatusCodes.Found)
               }
           }
       }

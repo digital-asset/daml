@@ -32,7 +32,7 @@ object Client {
   )
 
   object JsonProtocol extends DefaultJsonProtocol {
-    implicit val accessParamsFormat: RootJsonFormat[AccessParams] = jsonFormat2(AccessParams)
+    implicit val accessParamsFormat: RootJsonFormat[AccessParams] = jsonFormat3(AccessParams)
     implicit val refreshParamsFormat: RootJsonFormat[RefreshParams] = jsonFormat1(RefreshParams)
     implicit object ResponseJsonFormat extends RootJsonFormat[Response] {
       implicit private val accessFormat: RootJsonFormat[AccessResponse] = jsonFormat2(
@@ -52,7 +52,7 @@ object Client {
     }
   }
 
-  case class AccessParams(parties: Seq[String], applicationId: Option[String])
+  case class AccessParams(parties: Seq[String], admin: Boolean, applicationId: Option[String])
   case class RefreshParams(refreshToken: String)
   sealed trait Response
   final case class AccessResponse(token: String, refresh: String) extends Response
@@ -76,6 +76,7 @@ object Client {
                   val redirectUri = toRedirectUri(request.uri)
                   val scope =
                     (params.parties.map(p => "actAs:" + p) ++
+                      (if (params.admin) List("admin") else Nil) ++
                       params.applicationId.toList.map(id => "applicationId:" + id)).mkString(" ")
                   val authParams = Request.Authorize(
                     responseType = "code",
