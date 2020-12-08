@@ -209,7 +209,7 @@ object Node {
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Val]],
-      // keep version the last field of the class
+      // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyNode[Cid, Val]
       with NodeInfo.Create {
@@ -233,7 +233,7 @@ object Node {
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Val]],
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
-      // keep version the last field of the class
+      // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyNode[Cid, Val]
       with NodeInfo.Fetch {
@@ -264,7 +264,7 @@ object Node {
       exerciseResult: Option[Val],
       key: Option[KeyWithMaintainers[Val]],
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
-      // keep version the last field of the class
+      // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends GenNode[Nid, Cid, Val]
       with NodeInfo.Exercise {
@@ -272,7 +272,8 @@ object Node {
     private[daml] def controllers: actingParties.type = actingParties
 
     override private[lf] def updateVersion(
-        version: TransactionVersion): NodeExercises[Nid, Cid, Val] =
+        version: TransactionVersion,
+    ): NodeExercises[Nid, Cid, Val] =
       copy(version = version)
   }
 
@@ -283,7 +284,7 @@ object Node {
       optLocation: Option[Location],
       key: KeyWithMaintainers[Val],
       result: Option[Cid],
-      // keep version the last field of the class
+      // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyNode[Cid, Val]
       with NodeInfo.LookupByKey {

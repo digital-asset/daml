@@ -1481,7 +1481,7 @@ class EngineTest
         stakeholders = Set.empty,
         key = None,
         byKey = false,
-        version = TxVersions.default,
+        version = TxVersions.minVersion,
       )
 
       val let = Time.Timestamp.now()

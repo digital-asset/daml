@@ -176,7 +176,7 @@ class TransactionCoderSpec
       }
 
     "succeed with encoding under later version if succeeded under earlier version" in {
-      def ignoreNodeVersions[Nid, Cid](tx: GenTransaction.WithTxValue[Nid, Cid]) = {
+      def overrideNodeVersions[Nid, Cid](tx: GenTransaction.WithTxValue[Nid, Cid]) = {
         tx.copy(nodes = tx.nodes.transform((_, node) =>
           node.updateVersion(TransactionVersions.minVersion)))
       }
@@ -215,10 +215,10 @@ class TransactionCoderSpec
                       )),
                   ) {
                     case (Right(decWithMin), Right(decWithMax)) =>
-                      ignoreNodeVersions(decWithMin.transaction) shouldBe
-                        ignoreNodeVersions(minimalistTx(txvMin, tx))
-                      ignoreNodeVersions(decWithMin.transaction) shouldBe
-                        ignoreNodeVersions(minimalistTx(txvMin, decWithMax.transaction))
+                      overrideNodeVersions(decWithMin.transaction) shouldBe
+                        overrideNodeVersions(minimalistTx(txvMin, tx))
+                      overrideNodeVersions(decWithMin.transaction) shouldBe
+                        overrideNodeVersions(minimalistTx(txvMin, decWithMax.transaction))
                   }
               }
             }
