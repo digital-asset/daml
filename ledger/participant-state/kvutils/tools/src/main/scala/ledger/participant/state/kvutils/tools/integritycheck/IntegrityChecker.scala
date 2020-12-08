@@ -71,7 +71,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
     )
     val expectedReadServiceFactory = commitStrategySupport.newReadServiceFactory()
     val actualReadServiceFactory = commitStrategySupport.newReadServiceFactory()
-    val stateUpdates = new StateUpdates(
+    val stateUpdates = new ReadServiceStateUpdateComparison(
       expectedReadServiceFactory.createReadService,
       actualReadServiceFactory.createReadService,
     )
@@ -96,7 +96,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
       submissionValidator: BatchedSubmissionValidator[LogResult],
       expectedReadServiceFactory: ReplayingReadServiceFactory,
       actualReadServiceFactory: ReplayingReadServiceFactory,
-      stateUpdates: StateUpdates,
+      stateUpdates: StateUpdateComparison,
       metrics: Metrics,
   )(
       implicit executionContext: ExecutionContext,
@@ -124,10 +124,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
 
   private[integritycheck] def compareStateUpdates(
       config: Config,
-      stateUpdates: StateUpdates,
-  )(
-      implicit executionContext: ExecutionContext,
-      materializer: Materializer,
+      stateUpdates: StateUpdateComparison,
   ): Future[Unit] =
     if (!config.indexOnly)
       stateUpdates.compare()

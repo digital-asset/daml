@@ -5,8 +5,6 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.nio.file.Paths
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.Builders._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import org.mockito.ArgumentMatchers._
@@ -92,7 +90,7 @@ final class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with Mockit
 
   "compareStateUpdates" should {
     "call compare if not in index-only mode" in {
-      val mockStateUpdates = mock[StateUpdates]
+      val mockStateUpdates = mock[StateUpdateComparison]
       when(mockStateUpdates.compare()).thenReturn(Future.unit)
       val config = Config.ParseInput.copy(indexOnly = false)
       val instance = createMockIntegrityChecker()
@@ -106,7 +104,7 @@ final class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with Mockit
     }
 
     "skip compare if in index-only mode" in {
-      val mockStateUpdates = mock[StateUpdates]
+      val mockStateUpdates = mock[StateUpdateComparison]
       when(mockStateUpdates.compare()).thenReturn(Future.unit)
       val config = Config.ParseInput.copy(indexOnly = true)
       val instance = createMockIntegrityChecker()
@@ -143,7 +141,4 @@ final class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with Mockit
 
   private def countOccurrences(input: String, pattern: String): Int =
     input.sliding(pattern.length).count(_ == pattern)
-
-  private lazy val actorSystem: ActorSystem = ActorSystem("IntegrityCheckerSpec")
-  private lazy implicit val materializer: Materializer = Materializer(actorSystem)
 }
