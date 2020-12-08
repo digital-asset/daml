@@ -373,7 +373,7 @@ tokenFor parties ledgerId =
 
 runLedgerReset :: LedgerFlags -> IO ()
 runLedgerReset flags = do
-  putStrLn $ "Resetting ledger."
+  putStrLn "Resetting ledger."
   args <- getDefaultArgs flags
   reset args
 
@@ -387,10 +387,11 @@ reset args =
           ledgerId <- L.getLedgerIdentity
           L.setToken (tokenFor parties ledgerId) $ do
             activeContracts <-
-              (L.getActiveContracts
-                 ledgerId
-                 (TransactionFilter $ Map.fromList [(L.unParty p, Just $ Filters Nothing) | p <- parties])
-                 (L.Verbosity False))
+              L.getActiveContracts
+                ledgerId
+                (TransactionFilter $
+                 Map.fromList [(L.unParty p, Just $ Filters Nothing) | p <- parties])
+                (L.Verbosity False)
             let cmds =
                   L.Commands
                     { coms =
