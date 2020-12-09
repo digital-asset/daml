@@ -7,7 +7,6 @@ import com.daml.caching.WeightedCache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, seqOf}
-import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
 import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderSpec._
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -24,19 +23,6 @@ class CachingDamlLedgerStateReaderSpec
     with MockitoSugar
     with ArgumentMatchersSugar {
   "read" should {
-    "record read keys" in {
-      val mockReader = mock[DamlLedgerStateReader]
-      when(mockReader.read(seqOf(size = 1))(anyExecutionContext))
-        .thenReturn(Future.successful(Seq(Some(aDamlStateValue))))
-      val instance = newInstance(mockReader, shouldCache = false)
-
-      instance.read(Seq(aDamlStateKey)).map { actual =>
-        actual should have size 1
-        instance.getReadSet should be(
-          Set(keySerializationStrategy.serializeStateKey(aDamlStateKey)))
-      }
-    }
-
     "update cache upon read if policy allows" in {
       val mockReader = mock[DamlLedgerStateReader]
       when(mockReader.read(seqOf(size = 1))(anyExecutionContext))
@@ -77,8 +63,6 @@ class CachingDamlLedgerStateReaderSpec
 }
 
 object CachingDamlLedgerStateReaderSpec {
-  private val keySerializationStrategy = DefaultStateKeySerializationStrategy
-
   private lazy val aDamlStateKey = DamlStateKey.newBuilder
     .setContractId("aContractId")
     .build
@@ -90,10 +74,6 @@ object CachingDamlLedgerStateReaderSpec {
       shouldCache: Boolean,
   ): CachingDamlLedgerStateReader = {
     val cache = WeightedCache.from[DamlStateKey, DamlStateValue](WeightedCache.Configuration(1024))
-    new CachingDamlLedgerStateReader(
-      cache,
-      _ => shouldCache,
-      keySerializationStrategy,
-      damlLedgerStateReader)
+    new CachingDamlLedgerStateReader(cache, _ => shouldCache, damlLedgerStateReader)
   }
 }

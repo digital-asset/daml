@@ -87,12 +87,12 @@ class BatchedValidatingCommitter[LogResult](
       BatchedSubmissionValidatorFactory
         .readerAndCommitStrategyFrom(ledgerStateOperations, keySerializationStrategy)
     } else {
-      BatchedSubmissionValidatorFactory
-        .cachingReaderAndCommitStrategyFrom(
-          ledgerStateOperations,
-          stateValueCache,
-          cacheUpdatePolicy,
-          keySerializationStrategy)
+      BatchedSubmissionValidatorFactory.cachingReaderAndCommitStrategyFrom(
+        ledgerStateOperations,
+        stateValueCache,
+        cacheUpdatePolicy,
+        keySerializationStrategy,
+      )
     }
 }
 
