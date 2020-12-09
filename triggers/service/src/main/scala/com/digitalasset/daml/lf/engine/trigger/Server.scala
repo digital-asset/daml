@@ -54,6 +54,7 @@ import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import scala.collection.concurrent.TrieMap
+import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
@@ -112,32 +113,18 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
     // Attempt to obtain the access token from the middleware's /auth endpoint.
     // Forwards the current request's cookies.
     // Fails if the response is not OK or Unauthorized.
-    def auth: Directive1[Option[Authorization]] = {
-      val uri = config.authMiddlewareUri
-        .withPath(Path./("auth"))
-        .withQuery(AuthRequest.Auth(claims).toQuery)
-      import AuthJsonProtocol._
+    def auth: Directive1[Option[Authorization]] =
       extract(_.request.headers[headers.Cookie]).flatMap { cookies =>
-        onSuccess(Http().singleRequest(HttpRequest(uri = uri, headers = cookies))).flatMap {
-          case HttpResponse(StatusCodes.OK, _, entity, _) =>
-            onSuccess(Unmarshal(entity).to[AuthResponse.Authorize]).map { auth =>
-              Some(Authorization(
-                AccessToken(auth.accessToken),
-                RefreshToken.subst(auth.refreshToken))): Option[Authorization]
-            }
-          case HttpResponse(StatusCodes.Unauthorized, _, _, _) =>
-            provide(None)
-          case resp @ HttpResponse(code, _, _, _) =>
-            onSuccess(Unmarshal(resp).to[String]).flatMap { msg =>
-              logger.error(s"Failed to authorize with middleware ($code): $msg")
-              complete(
-                errorResponse(
-                  StatusCodes.InternalServerError,
-                  "Failed to authorize with middleware"))
-            }
+        onComplete(requestAuth(claims, cookies)).flatMap {
+          case Success(result) => provide(result)
+          case Failure(ex) =>
+            logger.error(ex.getMessage)
+            complete(
+              errorResponse(
+                StatusCodes.InternalServerError,
+                "Failed to authorize with auth middleware"))
         }
       }
-    }
     auth.flatMap {
       // Authorization successful - pass token to continuation
       case Some(authorization) => provide(authorization)
@@ -174,6 +161,43 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
         }
     }
   }
+
+  /**
+    * Request authentication/authorization on the auth middleware's auth endpoint.
+    *
+    * @return `None` if the request was denied otherwise `Some` access and optionally refresh token.
+    */
+  def requestAuth(claims: AuthRequest.Claims, cookies: immutable.Seq[headers.Cookie])(
+      implicit ec: ExecutionContext,
+      system: ActorSystem): Future[Option[AuthClient.Authorization]] =
+    for {
+      response <- Http().singleRequest(
+        HttpRequest(
+          method = HttpMethods.GET,
+          uri = config.authMiddlewareUri
+            .withPath(Path./("auth"))
+            .withQuery(AuthRequest.Auth(claims).toQuery),
+          headers = cookies,
+        ))
+      authorize <- response.status match {
+        case StatusCodes.OK =>
+          import AuthJsonProtocol._
+          Unmarshal(response.entity).to[AuthResponse.Authorize].map { auth =>
+            Some(
+              AuthClient.Authorization(
+                accessToken = AccessToken(auth.accessToken),
+                refreshToken = RefreshToken.subst(auth.refreshToken),
+              ))
+          }
+        case StatusCodes.Unauthorized =>
+          Future.successful(None)
+        case status =>
+          Unmarshal(response).to[String].flatMap { msg =>
+            Future.failed(
+              new RuntimeException(s"Failed to authorize with middleware ($status): $msg"))
+          }
+      }
+    } yield authorize
 
   /**
     * Request a token refresh on the auth middleware's refresh endpoint.
