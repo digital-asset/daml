@@ -28,8 +28,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
-import org.mockito.ArgumentMatchers._
-import org.mockito.MockitoSugar
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -206,6 +205,7 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
 
 object PreExecutingSubmissionValidatorSpec {
 
+  import ArgumentMatchersSugar._
   import MockitoSugar._
 
   private val recordTime = Timestamp.now()

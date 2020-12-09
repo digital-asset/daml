@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
 import com.daml.ledger.validator.SubmissionValidatorSpec._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
@@ -18,9 +19,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
 import com.google.protobuf.{ByteString, Empty}
-import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito.{times, verify, when}
-import org.mockito.MockitoSugar._
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -28,11 +27,16 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
+class SubmissionValidatorSpec
+    extends AsyncWordSpec
+    with Matchers
+    with Inside
+    with MockitoSugar
+    with ArgumentMatchersSugar {
   "validate" should {
     "return success in case of no errors during processing of submission" in {
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
-      when(mockStateOperations.readState(any[Seq[Bytes]]())(any[ExecutionContext]()))
+      when(mockStateOperations.readState(any[Iterable[Key]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val instance = SubmissionValidator.create(
         new FakeStateAccess(mockStateOperations),
@@ -49,7 +53,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
 
     "signal missing input in case state cannot be retrieved" in {
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
-      when(mockStateOperations.readState(any[Seq[Bytes]]())(any[ExecutionContext]()))
+      when(mockStateOperations.readState(any[Iterable[Key]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(None)))
       val instance = SubmissionValidator.create(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
@@ -86,7 +90,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
 
     "return invalid submission in case exception is thrown during processing of submission" in {
       val mockStateOperations = mock[BatchingLedgerStateOperations[Unit]]
-      when(mockStateOperations.readState(any[Seq[Bytes]]())(any[ExecutionContext]()))
+      when(mockStateOperations.readState(any[Iterable[Key]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
 
       val failingProcessSubmission: SubmissionValidator.ProcessSubmission =
@@ -112,13 +116,13 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
     "write marshalled log entry to ledger" in {
       val mockStateOperations = mock[LedgerStateOperations[Int]]
       val expectedLogResult: Int = 3
-      when(mockStateOperations.readState(any[Seq[Bytes]]())(any[ExecutionContext]()))
+      when(mockStateOperations.readState(any[Iterable[Key]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val logEntryValueCaptor = captor[Bytes]
       val logEntryIdCaptor = captor[Bytes]
       when(
         mockStateOperations.appendToLog(logEntryIdCaptor.capture(), logEntryValueCaptor.capture())(
-          any[ExecutionContext]()))
+          anyExecutionContext))
         .thenReturn(Future.successful(expectedLogResult))
       val expectedLogEntryId = aLogEntryId()
       val mockLogEntryIdGenerator = mockFunctionReturning(expectedLogEntryId)
@@ -140,7 +144,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
               actualLogResult should be(expectedLogResult)
               verify(mockLogEntryIdGenerator, times(1)).apply()
               verify(mockStateOperations, times(0))
-                .writeState(any[RawKeyValuePairs]())(any[ExecutionContext]())
+                .writeState(any[Iterable[(Key, Value)]])(anyExecutionContext)
               logEntryValueCaptor.getAllValues should have size 1
               logEntryIdCaptor.getAllValues should have size 1
               logEntryIdCaptor.getValue should be(expectedLogEntryId.toByteString)
@@ -152,16 +156,13 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
     "write marshalled key-value pairs to ledger" in {
       val mockStateOperations = mock[LedgerStateOperations[Int]]
       val expectedLogResult: Int = 7
-      when(mockStateOperations.readState(any[Seq[Bytes]]())(any[ExecutionContext]()))
+      when(mockStateOperations.readState(any[Iterable[Key]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val writtenKeyValuesCaptor = captor[RawKeyValuePairs]
-      when(
-        mockStateOperations.writeState(writtenKeyValuesCaptor.capture())(any[ExecutionContext]()))
+      when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture())(anyExecutionContext))
         .thenReturn(Future.unit)
       val logEntryCaptor = captor[Bytes]
-      when(
-        mockStateOperations.appendToLog(any[Bytes](), logEntryCaptor.capture())(
-          any[ExecutionContext]()))
+      when(mockStateOperations.appendToLog(any[Key], logEntryCaptor.capture())(anyExecutionContext))
         .thenReturn(Future.successful(expectedLogResult))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
@@ -190,16 +191,13 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
     "support batch with single submission" in {
       val mockStateOperations = mock[LedgerStateOperations[Int]]
       val expectedLogResult: Int = 7
-      when(mockStateOperations.readState(any[Seq[Bytes]]())(any[ExecutionContext]()))
+      when(mockStateOperations.readState(any[Iterable[Key]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val writtenKeyValuesCaptor = captor[RawKeyValuePairs]
-      when(
-        mockStateOperations.writeState(writtenKeyValuesCaptor.capture())(any[ExecutionContext]()))
+      when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture())(anyExecutionContext))
         .thenReturn(Future.unit)
       val logEntryCaptor = captor[Bytes]
-      when(
-        mockStateOperations.appendToLog(any[Bytes](), logEntryCaptor.capture())(
-          any[ExecutionContext]()))
+      when(mockStateOperations.appendToLog(any[Key], logEntryCaptor.capture())(anyExecutionContext))
         .thenReturn(Future.successful(expectedLogResult))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
@@ -266,11 +264,11 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
 
     "return invalid submission if state cannot be written" in {
       val mockStateOperations = mock[LedgerStateOperations[Int]]
-      when(mockStateOperations.writeState(any[RawKeyValuePairs]())(any[ExecutionContext]()))
+      when(mockStateOperations.writeState(any[Iterable[(Key, Value)]])(anyExecutionContext))
         .thenThrow(new IllegalArgumentException("Write error"))
-      when(mockStateOperations.readState(any[Seq[Bytes]]())(any[ExecutionContext]()))
+      when(mockStateOperations.readState(any[Iterable[Bytes]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
-      when(mockStateOperations.appendToLog(any[Bytes](), any[Bytes]())(any[ExecutionContext]()))
+      when(mockStateOperations.appendToLog(any[Key], any[Value])(anyExecutionContext))
         .thenReturn(Future.successful(99))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
@@ -293,6 +291,11 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
 }
 
 object SubmissionValidatorSpec {
+
+  import ArgumentMatchersSugar._
+  import MockitoSugar._
+
+  private def anyExecutionContext = any[ExecutionContext]
 
   private def aLogEntry(): DamlLogEntry =
     DamlLogEntry
@@ -331,7 +334,7 @@ object SubmissionValidatorSpec {
 
   private def mockFunctionReturning[A](returnValue: A): () => A = {
     val mockFunction = mock[() => A]
-    when(mockFunction.apply).thenReturn(returnValue)
+    when(mockFunction.apply()).thenReturn(returnValue)
     mockFunction
   }
 
@@ -342,5 +345,4 @@ object SubmissionValidatorSpec {
     )(implicit executionContext: ExecutionContext): Future[T] =
       body(mockStateOperations)
   }
-
 }

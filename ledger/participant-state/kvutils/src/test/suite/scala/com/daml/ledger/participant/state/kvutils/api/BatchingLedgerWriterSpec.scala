@@ -7,15 +7,12 @@ import akka.stream.Materializer
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
-import com.daml.ledger.participant.state.kvutils.{Envelope, MockitoHelpers}
+import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, MockitoHelpers}
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.participant.state.{kvutils, v1}
 import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
-import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito.{times, verify, when}
-import org.mockito.MockitoSugar._
-import org.mockito.{ArgumentCaptor, ArgumentMatchers}
+import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -27,7 +24,9 @@ class BatchingLedgerWriterSpec
     extends AsyncWordSpec
     with AkkaBeforeAndAfterAll
     with Eventually
-    with Matchers {
+    with Matchers
+    with MockitoSugar
+    with ArgumentMatchersSugar {
 
   import BatchingLedgerWriterSpec._
 
@@ -40,8 +39,7 @@ class BatchingLedgerWriterSpec
       val handle = mock[RunningBatchingQueueHandle]
       when(handle.state).thenReturn(RunningBatchingQueueState.Closing)
       val queue = mock[BatchingQueue]
-      when(queue.run(any[BatchingQueue.CommitBatchFunction]())(any[Materializer]))
-        .thenReturn(handle)
+      when(queue.run(any[BatchingQueue.CommitBatchFunction])(any[Materializer])).thenReturn(handle)
       val writer = mock[LedgerWriter]
       val batchingWriter =
         LoggingContext.newLoggingContext { implicit ctx =>
@@ -63,10 +61,9 @@ class BatchingLedgerWriterSpec
         submissionResult <- batchingWriter.commit(aCorrelationId, aSubmission, someCommitMetadata)
       } yield {
         verify(mockWriter).commit(
-          anyString(),
-          ArgumentMatchers.eq(expectedBatch),
-          ArgumentMatchers.argThat((metadata: CommitMetadata) =>
-            metadata.estimatedInterpretationCost.isEmpty)
+          any[String],
+          eqTo(expectedBatch),
+          argThat((metadata: CommitMetadata) => metadata.estimatedInterpretationCost.isEmpty),
         )
         submissionResult should be(SubmissionResult.Acknowledged)
       }
@@ -84,8 +81,7 @@ class BatchingLedgerWriterSpec
         result2 <- batchingWriter.commit("test2", aSubmission, someCommitMetadata)
         result3 <- batchingWriter.commit("test3", aSubmission, someCommitMetadata)
       } yield {
-        verify(mockWriter, times(3))
-          .commit(anyString(), any[kvutils.Bytes], any[CommitMetadata])
+        verify(mockWriter, times(3)).commit(any[String], any[Bytes], any[CommitMetadata])
         all(Seq(result1, result2, result3)) should be(SubmissionResult.Acknowledged)
         batchingWriter.currentHealth should be(HealthStatus.healthy)
       }
@@ -95,7 +91,7 @@ class BatchingLedgerWriterSpec
 
 }
 
-object BatchingLedgerWriterSpec {
+object BatchingLedgerWriterSpec extends MockitoSugar with ArgumentMatchersSugar {
   private val aCorrelationId = "aCorrelationId"
   private val aSubmission = ByteString.copyFromUtf8("a submission")
 
@@ -119,11 +115,7 @@ object BatchingLedgerWriterSpec {
 
   private def createMockWriter(captor: Option[ArgumentCaptor[kvutils.Bytes]]): LedgerWriter = {
     val writer = mock[LedgerWriter]
-    when(
-      writer.commit(
-        anyString(),
-        captor.map(_.capture()).getOrElse(any[kvutils.Bytes]),
-        any[CommitMetadata]))
+    when(writer.commit(any[String], captor.map(_.capture()).getOrElse(any), any[CommitMetadata]))
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     when(writer.currentHealth()).thenReturn(HealthStatus.healthy)
