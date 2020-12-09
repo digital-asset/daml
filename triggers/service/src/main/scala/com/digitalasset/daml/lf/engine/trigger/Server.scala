@@ -85,15 +85,15 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
       callbacks.remove(requestId) match {
         case None => complete(StatusCodes.NotFound)
         case Some(callback) =>
-          concat(
-            parameters('error, 'error_description ?) { (error, errorDescription) =>
+          AuthResponse.Login.callbackParameters {
+            case AuthResponse.LoginError(error, errorDescription) =>
               complete(
                 errorResponse(
                   StatusCodes.Forbidden,
                   s"Failed to authenticate: $error${errorDescription.fold("")(": " + _)}"))
-            },
-            callback
-          )
+            case AuthResponse.LoginSuccess =>
+              callback
+          }
       }
     }
 

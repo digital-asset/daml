@@ -5,6 +5,8 @@ package com.daml.auth.middleware.api
 
 import akka.http.scaladsl.marshalling.Marshaller
 import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.server.Directive1
+import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import spray.json.{
@@ -19,6 +21,7 @@ import spray.json.{
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent._
 import scala.util.Try
+import scala.language.postfixOps
 
 object Request {
 
@@ -112,6 +115,17 @@ object Request {
 object Response {
 
   case class Authorize(accessToken: String, refreshToken: Option[String])
+
+  sealed abstract class Login
+  final case class LoginError(error: String, errorDescription: Option[String]) extends Login
+  object LoginSuccess extends Login
+
+  object Login {
+    val callbackParameters: Directive1[Login] =
+      parameters('error, 'error_description ?)
+        .as[LoginError](LoginError)
+        .or(provide(LoginSuccess))
+  }
 
 }
 
