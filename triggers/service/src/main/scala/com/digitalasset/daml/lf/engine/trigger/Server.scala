@@ -119,25 +119,22 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
         val timeout = config.httpEntityUploadTimeout
         val maxBytes = config.maxHttpEntityUploadSize
         toStrictEntity(timeout, maxBytes).tflatMap { _ =>
-          Directive { inner => ctx =>
-            val requestId = UUID.randomUUID()
-            callbacks.update(
-              requestId, {
+          extractRequestContext.flatMap { ctx =>
+            Directive { inner =>
+              val callback: Route =
                 auth(claims)(ec, system) {
-                  case None => {
+                  case None =>
                     // Authorization failed after login - respond with 401
                     // TODO[AH] Add WWW-Authenticate header
                     complete(errorResponse(StatusCodes.Unauthorized))
-                  }
                   case Some(authorization) =>
                     // Authorization successful after login - use old request context and pass token to continuation.
                     mapRequestContext(_ => ctx) {
                       inner(Tuple1(authorization))
                     }
                 }
-              }
-            )
-            ctx.redirect(loginUri(claims, Some(requestId)), StatusCodes.Found)
+              login(claims, callback)
+            }
           }
         }
     }
@@ -164,6 +161,17 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
               "Failed to authorize with auth middleware"))
       }
     }
+
+  /**
+    * Redirect the client to login with the auth middleware.
+    *
+    * @param callback Will be stored and executed once the login flow completed.
+    */
+  def login(claims: AuthRequest.Claims, callback: Route): Route = {
+    val requestId = UUID.randomUUID()
+    callbacks.update(requestId, callback)
+    redirect(loginUri(claims, Some(requestId)), StatusCodes.Found)
+  }
 
   /**
     * Request authentication/authorization on the auth middleware's auth endpoint.
