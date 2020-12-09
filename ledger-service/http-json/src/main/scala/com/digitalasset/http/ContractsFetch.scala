@@ -73,18 +73,19 @@ private class ContractsFetch(
   )(
       implicit ec: ExecutionContext,
       mat: Materializer,
-  ): ConnectionIO[List[BeginBookmark[domain.Offset]]] = {
-    import cats.instances.list._, cats.syntax.traverse._, doobie.implicits._, doobie.free.{
-      connection => fc,
-    }
+  ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] = {
+    import cats.instances.list._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps},
+    cats.syntax.functor._, doobie.implicits._, doobie.free.{connection => fc,}
     // we can fetch for all templateIds on a single acsFollowingAndBoundary
     // by comparing begin offsets; however this is trickier so we don't do it
     // right now -- Stephen / Leo
     connectionIOFuture(getTermination(jwt)) flatMap {
       _ cata (absEnd =>
-        templateIds.traverse {
-          fetchAndPersist(jwt, parties, absEnd, _)
-      }, fc.pure(templateIds map (_ => LedgerBegin)))
+        templateIds
+          .traverse_ {
+            fetchAndPersist(jwt, parties, absEnd, _)
+          }
+          .as(AbsoluteBookmark(absEnd)), fc.pure(LedgerBegin))
     }
 
   }

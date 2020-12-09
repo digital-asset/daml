@@ -265,8 +265,7 @@ object Queries {
       queries: Seq[(SurrogateTpId, Fragment)])(
       implicit log: LogHandler,
       gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]])
-    : Seq[Query0[DBContract[Int, JsValue, JsValue, Vector[String]]]] = {
+      pvs: Put[Vector[String]]): Seq[Query0[DBContract[Int, JsValue, JsValue, Vector[String]]]] = {
     val partyVector = parties.toVector
     type Ix = Int
     uniqueSets(queries.zipWithIndex map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
