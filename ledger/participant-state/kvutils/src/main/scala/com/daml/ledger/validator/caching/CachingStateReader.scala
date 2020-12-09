@@ -16,8 +16,8 @@ import scala.concurrent.{ExecutionContext, Future}
 final class CachingStateReader[Key, Value](
     val cache: Cache[Key, Value],
     shouldCache: Key => Boolean,
-    delegate: StateReader[Key, Value],
-) extends StateReader[Key, Value] {
+    delegate: StateReader[Key, Option[Value]],
+) extends StateReader[Key, Option[Value]] {
   override def read(
       keys: Seq[Key]
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] = {
@@ -50,8 +50,8 @@ object CachingStateReader {
   def apply[Key, Value](
       cache: Cache[Key, Value],
       cachingPolicy: CacheUpdatePolicy[Key],
-      ledgerStateReader: StateReader[Key, Value],
-  ): StateReader[Key, Value] =
+      ledgerStateReader: StateReader[Key, Option[Value]],
+  ): StateReader[Key, Option[Value]] =
     new CachingStateReader(
       cache,
       cachingPolicy.shouldCacheOnRead,

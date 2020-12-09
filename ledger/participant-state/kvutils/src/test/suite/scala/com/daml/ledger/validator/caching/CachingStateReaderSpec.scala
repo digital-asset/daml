@@ -83,10 +83,10 @@ object CachingStateReaderSpec {
     override def weigh(value: TestValue): Size = value.value
   }
 
-  type TestStateReader = StateReader[TestKey, TestValue]
+  type TestStateReader = StateReader[TestKey, Option[TestValue]]
 
   private def newInstance(
-      reader: StateReader[TestKey, TestValue],
+      reader: TestStateReader,
       shouldCache: Boolean,
   ): CachingStateReader[TestKey, TestValue] = {
     val cache = WeightedCache.from[TestKey, TestValue](WeightedCache.Configuration(1024))
