@@ -501,13 +501,14 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
             case PartialTransaction.CompleteTransaction(tx) =>
               val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
                 tx.nodes(n) match {
-                  case create: NodeCreate.WithTxValue[ContractId] =>
+                  case create: NodeCreate[ContractId] =>
                     ScriptLedgerClient.CreateResult(create.coid)
-                  case exercise: NodeExercises.WithTxValue[_, ContractId] =>
+                  case exercise: NodeExercises[_, ContractId] =>
                     ScriptLedgerClient.ExerciseResult(
                       exercise.templateId,
                       exercise.choiceId,
-                      exercise.exerciseResult.get.value)
+                      exercise.exerciseResult.get,
+                    )
                   case n =>
                     // Root nodes can only be creates and exercises.
                     throw new RuntimeException(s"Unexpected node: $n")

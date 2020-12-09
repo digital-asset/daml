@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.daml.lf.data.{FrontStack, FrontStackCons}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.{NodeId, Transaction => Tx}
-import com.daml.lf.value.Value.{NodeId => _, _}
+import com.daml.lf.value.Value.{ContractInst, ContractId, VersionedValue}
 
 import scala.annotation.tailrec
 
@@ -37,12 +37,12 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
         case FrontStackCons(nodeId, nodeIds) =>
           val node = tx.nodes(nodeId)
           node match {
-            case nc: NodeCreate.WithTxValue[ContractId] =>
-              pcs.put(nc.coid, nc.coinst)
+            case nc: NodeCreate[ContractId] =>
+              pcs.put(nc.coid, nc.versionedCoinst)
               go(nodeIds)
-            case ne: NodeExercises.WithTxValue[NodeId, ContractId] =>
+            case ne: NodeExercises[NodeId, ContractId] =>
               go(ne.children ++: nodeIds)
-            case _: NodeLookupByKey[_, _] | _: NodeFetch[_, _] =>
+            case _: NodeLookupByKey[_] | _: NodeFetch[_] =>
               go(nodeIds)
           }
       }

@@ -141,7 +141,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       unsafePreprocessCommands(cmds)
     }
 
-  private def getTemplateId(node: Node.GenNode.WithTxValue[NodeId, _]) =
+  private def getTemplateId(node: Node.GenNode[NodeId, _]) =
     node match {
       case Node.NodeCreate(
           coid @ _,
@@ -177,7 +177,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     }
 
   def translateNode[Cid <: Value.ContractId](
-      node: Node.GenNode.WithTxValue[NodeId, Cid],
+      node: Node.GenNode[NodeId, Cid],
   ): Result[(speedy.Command, Set[Value.ContractId])] =
     safelyRun(getDependencies(List.empty, List(getTemplateId(node)))) {
       val (cmd, (globalCids, _)) = unsafeTranslateNode((Set.empty, Set.empty), node)
@@ -185,7 +185,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     }
 
   def translateTransactionRoots[Cid <: Value.ContractId](
-      tx: GenTransaction.WithTxValue[NodeId, Cid],
+      tx: GenTransaction[NodeId, Cid],
   ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
     safelyRun(
       getDependencies(List.empty, tx.roots.toList.map(id => getTemplateId(tx.nodes(id))))

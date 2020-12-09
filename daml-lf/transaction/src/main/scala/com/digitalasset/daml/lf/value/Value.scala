@@ -306,6 +306,7 @@ object Value extends CidContainer1[Value] {
   }
 
   object ContractInst extends CidContainer1[ContractInst] {
+
     implicit def equalInstance[Val: Equal]: Equal[ContractInst[Val]] =
       ScalazEqual.withNatural(Equal[Val].equalIsNatural) { (a, b) =>
         import a._

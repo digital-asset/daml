@@ -59,7 +59,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
           createArgument = serialized.createArgumentsByContract(create.coid),
           ledgerEffectiveTime = Some(tx.ledgerEffectiveTime),
           stakeholders = create.stakeholders,
-          key = create.key.map(convert(create.templateId, _))
+          key = create.versionedKey.map(convert(create.templateId, _))
         )
     val divulgedInserts =
       for {

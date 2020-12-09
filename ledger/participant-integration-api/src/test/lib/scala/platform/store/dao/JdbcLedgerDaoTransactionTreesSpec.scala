@@ -58,7 +58,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
-          val (nodeId, createNode: NodeCreate.WithTxValue[ContractId]) =
+          val (nodeId, createNode: NodeCreate[ContractId]) =
             tx.transaction.nodes.head
           transaction.commandId shouldBe tx.commandId.get
           transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -90,7 +90,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
-          val (nodeId, exerciseNode: NodeExercises.WithTxValue[NodeId, ContractId]) =
+          val (nodeId, exerciseNode: NodeExercises[NodeId, ContractId]) =
             exercise.transaction.nodes.head
           transaction.commandId shouldBe exercise.commandId.get
           transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -124,12 +124,12 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         case Some(transaction) =>
           val (createNodeId, createNode) =
             tx.transaction.nodes.collectFirst {
-              case (nodeId, node: NodeCreate.WithTxValue[ContractId]) =>
+              case (nodeId, node: NodeCreate[ContractId]) =>
                 nodeId -> node
             }.get
           val (exerciseNodeId, exerciseNode) =
             tx.transaction.nodes.collectFirst {
-              case (nodeId, node: NodeExercises.WithTxValue[NodeId, ContractId]) =>
+              case (nodeId, node: NodeExercises[NodeId, ContractId]) =>
                 nodeId -> node
             }.get
 

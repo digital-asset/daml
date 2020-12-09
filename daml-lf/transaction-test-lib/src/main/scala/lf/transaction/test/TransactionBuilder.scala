@@ -6,7 +6,6 @@ package transaction
 package test
 
 import com.daml.lf.data.{BackStack, ImmArray, Ref}
-import com.daml.lf.transaction.Node.GenNode
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.value.{ValueVersions, Value => LfValue}
@@ -31,8 +30,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   private[this] var roots = BackStack.empty[NodeId]
 
   private[this] def newNode(node: Node): NodeId = {
-    lazy val nodeId = ids.next() // lazy to avoid getting the next id if the method later throws
-    nodes += (nodeId -> versionN(node))
+    val nodeId = ids.next()
+    nodes += (nodeId -> node)
     nodeId
   }
 
@@ -60,7 +59,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
     val finalNodes = nodes.transform {
       case (nid, exe: TxExercise) =>
         exe.copy(children = children(nid).toImmArray)
-      case (_, node: Node.LeafOnlyNode[ContractId, TxValue]) =>
+      case (_, node: Node.LeafOnlyNode[ContractId]) =>
         node
     }
     val finalRoots = roots.toImmArray
@@ -92,9 +91,6 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
 
   private[this] def versionValue(templateId: Ref.TypeConName): Value => TxValue =
     value.Value.VersionedValue(pkgValVersion(templateId.packageId), _)
-
-  private[this] def versionN(node: Node): TxNode =
-    GenNode.map3(identity[NodeId], identity[ContractId], versionValue(node.templateId))(node)
 
   def create(
       id: String,
@@ -186,16 +182,16 @@ object TransactionBuilder {
 
   type Value = value.Value[ContractId]
   type TxValue = value.Value.VersionedValue[ContractId]
-  type Node = Node.GenNode[NodeId, ContractId, Value]
-  type TxNode = Node.GenNode.WithTxValue[NodeId, ContractId]
+  type Node = Node.GenNode[NodeId, ContractId]
+  type TxNode = Node.GenNode[NodeId, ContractId]
 
-  type Create = Node.NodeCreate[ContractId, Value]
-  type Exercise = Node.NodeExercises[NodeId, ContractId, Value]
-  type Fetch = Node.NodeFetch[ContractId, Value]
-  type LookupByKey = Node.NodeLookupByKey[ContractId, Value]
+  type Create = Node.NodeCreate[ContractId]
+  type Exercise = Node.NodeExercises[NodeId, ContractId]
+  type Fetch = Node.NodeFetch[ContractId]
+  type LookupByKey = Node.NodeLookupByKey[ContractId]
   type KeyWithMaintainers = Node.KeyWithMaintainers[Value]
 
-  type TxExercise = Node.NodeExercises[NodeId, ContractId, TxValue]
+  type TxExercise = Node.NodeExercises[NodeId, ContractId]
   type TxKeyWithMaintainers = Node.KeyWithMaintainers[TxValue]
 
   private val Create = Node.NodeCreate

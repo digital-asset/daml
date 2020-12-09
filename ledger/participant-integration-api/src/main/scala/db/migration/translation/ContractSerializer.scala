@@ -33,7 +33,7 @@ private[migration] object ContractSerializer extends ContractSerializer {
     : Either[ValueCoder.DecodeError, ContractInst[VersionedValue[ContractId]]] =
     ValueSerializer.handleDeprecatedValueVersions(
       TransactionCoder
-        .decodeContractInstance[ContractId](
+        .decodeVersionedContractInstance[ContractId](
           ValueCoder.CidDecoder,
           TransactionOuterClass.ContractInstance.parseFrom(
             Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT))

@@ -56,7 +56,7 @@ object ScenarioLedger {
     * transaction node in the node identifier, where here the identifier
     * is an eventId.
     */
-  type Node = GenNode.WithTxValue[NodeId, ContractId]
+  type Node = GenNode[NodeId, ContractId]
 
   /** A transaction as it is committed to the ledger.
     *
@@ -204,7 +204,7 @@ object ScenarioLedger {
 
   final case class LookupOk(
       coid: ContractId,
-      coinst: ContractInst[Tx.Value[ContractId]],
+      coinst: ContractInst[Value.VersionedValue[ContractId]],
       stakeholders: Set[Party],
   ) extends LookupResult
   final case class LookupContractNotFound(coid: ContractId) extends LookupResult
@@ -435,7 +435,7 @@ object ScenarioLedger {
                   val idsToProcess = (mbParentId -> restOfNodeIds) :: restENPs
 
                   node match {
-                    case nc: NodeCreate.WithTxValue[ContractId] =>
+                    case nc: NodeCreate[ContractId] =>
                       val newCache1 =
                         newCache
                           .markAsActive(nc.coid)
@@ -446,7 +446,7 @@ object ScenarioLedger {
                           val gk = GlobalKey(
                             nc.coinst.template,
                             // FIXME: we probably should never crash here !
-                            assertNoContractId(keyWithMaintainers.key.value),
+                            assertNoContractId(keyWithMaintainers.key),
                           )
                           newCache1.activeKeys.get(gk) match {
                             case None => Right(newCache1.addKey(gk, nc.coid))
@@ -462,7 +462,7 @@ object ScenarioLedger {
 
                       processNodes(Right(newCacheP), idsToProcess)
 
-                    case ex: NodeExercises.WithTxValue[NodeId, ContractId] =>
+                    case ex: NodeExercises[NodeId, ContractId] =>
                       val newCache0 =
                         newCache.updateLedgerNodeInfo(ex.targetCoid)(
                           info =>
@@ -476,7 +476,7 @@ object ScenarioLedger {
                           val nc = newCache0_1
                             .nodeInfoByCoid(ex.targetCoid)
                             .node
-                            .asInstanceOf[NodeCreate[ContractId, Tx.Value[ContractId]]]
+                            .asInstanceOf[NodeCreate[ContractId]]
                           nc.key match {
                             case None => newCache0_1
                             case Some(keyWithMaintainers) =>
@@ -484,7 +484,7 @@ object ScenarioLedger {
                                 GlobalKey(
                                   ex.templateId,
                                   // FIXME: we probably should'nt crash here !
-                                  assertNoContractId(keyWithMaintainers.key.value),
+                                  assertNoContractId(keyWithMaintainers.key),
                                 ),
                               )
                           }
@@ -495,7 +495,7 @@ object ScenarioLedger {
                         (Some(nodeId) -> ex.children.toList) :: idsToProcess,
                       )
 
-                    case nlkup: NodeLookupByKey.WithTxValue[ContractId] =>
+                    case nlkup: NodeLookupByKey[ContractId] =>
                       nlkup.result match {
                         case None =>
                           processNodes(Right(newCache), idsToProcess)
@@ -611,7 +611,7 @@ case class ScenarioLedger(
       case None => LookupContractNotFound(coid)
       case Some(info) =>
         info.node match {
-          case create: NodeCreate.WithTxValue[ContractId] =>
+          case create: NodeCreate[ContractId] =>
             if (info.effectiveAt.compareTo(effectiveAt) > 0)
               LookupContractNotEffective(coid, create.coinst.template, info.effectiveAt)
             else if (info.consumedBy.nonEmpty)
@@ -628,9 +628,9 @@ case class ScenarioLedger(
                 create.stakeholders,
               )
             else
-              LookupOk(coid, create.coinst, create.stakeholders)
+              LookupOk(coid, create.versionedCoinst, create.stakeholders)
 
-          case _: NodeExercises[_, _, _] | _: NodeFetch[_, _] | _: NodeLookupByKey[_, _] =>
+          case _: NodeExercises[_, _] | _: NodeFetch[_] | _: NodeLookupByKey[_] =>
             LookupContractNotFound(coid)
         }
     }

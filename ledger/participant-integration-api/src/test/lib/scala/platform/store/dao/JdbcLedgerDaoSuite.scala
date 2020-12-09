@@ -110,7 +110,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final def create(
       absCid: ContractId,
       signatories: Set[Party] = Set(alice, bob),
-  ): NodeCreate[ContractId, Value[ContractId]] =
+  ): NodeCreate[ContractId] =
     createNode(absCid, signatories, signatories, None)
 
   protected final def createNode(
@@ -118,7 +118,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Value[ContractId]]] = None,
-  ): NodeCreate[ContractId, Value[ContractId]] =
+  ): NodeCreate[ContractId] =
     NodeCreate(
       coid = absCid,
       coinst = someContractInstance,
@@ -131,7 +131,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   private def exercise(
       targetCid: ContractId,
-  ): NodeExercises[NodeId, ContractId, Value[ContractId]] =
+  ): NodeExercises[NodeId, ContractId] =
     NodeExercises(
       targetCoid = targetCid,
       templateId = someTemplateId,
@@ -153,10 +153,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   // All non-transient contracts created in a transaction
   protected def nonTransient(tx: LedgerEntry.Transaction): Set[ContractId] =
     tx.transaction.fold(Set.empty[ContractId]) {
-      case (set, (_, create: NodeCreate.WithTxValue[ContractId])) =>
+      case (set, (_, create: NodeCreate[ContractId])) =>
         set + create.coid
-      case (set, (_, exercise: Node.NodeExercises.WithTxValue[NodeId, ContractId]))
-          if exercise.consuming =>
+      case (set, (_, exercise: Node.NodeExercises[NodeId, ContractId])) if exercise.consuming =>
         set - exercise.targetCoid
       case (set, _) =>
         set
@@ -169,7 +168,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     singleCreate(create(_, Set(alice, bob)), List(alice, bob))
 
   protected final def singleCreate(
-      create: ContractId => NodeCreate[ContractId, Value[ContractId]],
+      create: ContractId => NodeCreate[ContractId],
       actAs: List[Party] = List(alice),
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()

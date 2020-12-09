@@ -262,17 +262,24 @@ object ValueGenerators {
   @deprecated("use genNonEmptyParties instead", since = "100.11.17")
   private[lf] def genParties = genNonEmptyParties
 
-  val contractInstanceGen: Gen[ContractInst[Tx.Value[Value.ContractId]]] = {
+  val contractInstanceGen: Gen[ContractInst[Value[Value.ContractId]]] = {
+    for {
+      template <- idGen
+      arg <- valueGen
+      agreement <- Arbitrary.arbitrary[String]
+    } yield ContractInst(template, arg, agreement)
+  }
+
+  val versionedContractInstanceGen: Gen[ContractInst[Value.VersionedValue[Value.ContractId]]] =
     for {
       template <- idGen
       arg <- versionedValueGen
       agreement <- Arbitrary.arbitrary[String]
     } yield ContractInst(template, arg, agreement)
-  }
 
-  val keyWithMaintainersGen: Gen[KeyWithMaintainers[Tx.Value[Value.ContractId]]] = {
+  val keyWithMaintainersGen: Gen[KeyWithMaintainers[Value[Value.ContractId]]] = {
     for {
-      key <- versionedValueGen
+      key <- valueGen
       maintainers <- genNonEmptyParties
     } yield KeyWithMaintainers(key, maintainers)
   }
@@ -282,7 +289,7 @@ object ValueGenerators {
     * 1. stakeholders may not be a superset of signatories
     * 2. key's maintainers may not be a subset of signatories
     */
-  val malformedCreateNodeGen: Gen[NodeCreate.WithTxValue[Value.ContractId]] = {
+  val malformedCreateNodeGen: Gen[NodeCreate[Value.ContractId]] = {
     for {
       version <- transactionVersionGen
       coid <- coidGen
@@ -293,7 +300,7 @@ object ValueGenerators {
     } yield NodeCreate(coid, coinst, None, signatories, stakeholders, key, version)
   }
 
-  val fetchNodeGen: Gen[NodeFetch.WithTxValue[ContractId]] = {
+  val fetchNodeGen: Gen[NodeFetch[ContractId]] = {
     for {
       version <- transactionVersionGen
       coid <- coidGen
@@ -317,8 +324,7 @@ object ValueGenerators {
   }
 
   /** Makes exercise nodes with some random child IDs. */
-  val danglingRefExerciseNodeGen
-    : Gen[NodeExercises[NodeId, Value.ContractId, Tx.Value[Value.ContractId]]] = {
+  val danglingRefExerciseNodeGen: Gen[NodeExercises[NodeId, Value.ContractId]] = {
     for {
       version <- transactionVersionGen
       targetCoid <- coidGen
@@ -326,7 +332,7 @@ object ValueGenerators {
       choiceId <- nameGen
       consume <- Gen.oneOf(true, false)
       actingParties <- genNonEmptyParties
-      chosenValue <- versionedValueGen
+      chosenValue <- valueGen
       stakeholders <- genNonEmptyParties
       signatories <- genNonEmptyParties
       choiceObservers <- genMaybeEmptyParties
@@ -334,8 +340,8 @@ object ValueGenerators {
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
         .map(ImmArray(_))
-      exerciseResultValue <- versionedValueGen
-      key <- versionedValueGen
+      exerciseResultValue <- valueGen
+      key <- valueGen
       maintainers <- genNonEmptyParties
       byKey <- Gen.oneOf(true, false)
     } yield
@@ -388,7 +394,7 @@ object ValueGenerators {
     *
     * This list is complete as of transaction version 5. -SC
     */
-  val malformedGenTransaction: Gen[GenTransaction.WithTxValue[NodeId, ContractId]] = {
+  val malformedGenTransaction: Gen[GenTransaction[NodeId, ContractId]] = {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
       roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId(_)))
@@ -406,7 +412,7 @@ object ValueGenerators {
    *
    */
 
-  val noDanglingRefGenTransaction: Gen[GenTransaction.WithTxValue[NodeId, ContractId]] = {
+  val noDanglingRefGenTransaction: Gen[GenTransaction[NodeId, ContractId]] = {
 
     def nonDanglingRefNodeGen(
         maxDepth: Int,
@@ -423,7 +429,7 @@ object ValueGenerators {
             2 -> fetchNodeGen
           )
           nodeWithChildren <- node match {
-            case node: NodeExercises.WithTxValue[NodeId, Value.ContractId] =>
+            case node: NodeExercises[NodeId, Value.ContractId] =>
               for {
                 depth <- Gen.choose(0, maxDepth - 1)
                 nodeWithChildren <- nonDanglingRefNodeGen(depth, nodeId)
@@ -464,7 +470,7 @@ object ValueGenerators {
       tx <- noDanglingRefGenTransaction
       txVer <- transactionVersionGen
       nodeVersionGen = transactionVersionGen.filter(v => !(txVer precedes v))
-      nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, GenNode.WithTxValue[NodeId, ContractId]])) {
+      nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, GenNode[NodeId, ContractId]])) {
         case (acc, (nodeId, node)) =>
           for {
             hashMap <- acc
