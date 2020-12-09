@@ -53,7 +53,7 @@ class BatchedValidatingCommitter[LogResult](
     keySerializationStrategy: StateKeySerializationStrategy,
     validator: BatchedSubmissionValidator[LogResult],
     stateValueCache: Cache[DamlStateKey, DamlStateValue],
-    cacheUpdatePolicy: CacheUpdatePolicy
+    cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
 )(implicit materializer: Materializer) {
 
   def commit(
@@ -104,7 +104,8 @@ object BatchedValidatingCommitter {
       DefaultStateKeySerializationStrategy,
       validator,
       Cache.none,
-      ImmutablesOnlyCacheUpdatePolicy)
+      ImmutablesOnlyCacheUpdatePolicy,
+    )
 
   def apply[LogResult](
       now: () => Instant,
@@ -116,5 +117,6 @@ object BatchedValidatingCommitter {
       DefaultStateKeySerializationStrategy,
       validator,
       stateValueCache,
-      ImmutablesOnlyCacheUpdatePolicy)
+      ImmutablesOnlyCacheUpdatePolicy,
+    )
 }

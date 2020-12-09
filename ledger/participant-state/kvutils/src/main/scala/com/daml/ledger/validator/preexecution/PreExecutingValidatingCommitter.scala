@@ -43,7 +43,7 @@ class PreExecutingValidatingCommitter[LogResult](
     valueToFingerprint: Option[Value] => Fingerprint,
     postExecutionFinalizer: PostExecutionFinalizer[LogResult],
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
-    cacheUpdatePolicy: CacheUpdatePolicy,
+    cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
 ) {
 
   private val logger = ContextualizedLogger.get(getClass)

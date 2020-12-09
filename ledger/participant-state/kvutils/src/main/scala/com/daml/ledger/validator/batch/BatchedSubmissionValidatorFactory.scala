@@ -9,7 +9,7 @@ import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.caching.{
   CacheUpdatePolicy,
   CachingCommitStrategy,
-  CachingDamlLedgerStateReader
+  CachingStateReader
 }
 import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
 import com.daml.ledger.validator.{
@@ -61,11 +61,11 @@ object BatchedSubmissionValidatorFactory {
   def cachingReaderAndCommitStrategyFrom[LogResult](
       ledgerStateOperations: LedgerStateOperations[LogResult],
       stateCache: Cache[DamlStateKey, DamlStateValue],
-      cacheUpdatePolicy: CacheUpdatePolicy,
+      cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
       keySerializationStrategy: StateKeySerializationStrategy = DefaultStateKeySerializationStrategy,
   )(implicit executionContext: ExecutionContext)
     : (DamlLedgerStateReader, CommitStrategy[LogResult]) = {
-    val ledgerStateReader = CachingDamlLedgerStateReader(
+    val ledgerStateReader = CachingStateReader(
       stateCache,
       cacheUpdatePolicy,
       DamlLedgerStateReader.from(

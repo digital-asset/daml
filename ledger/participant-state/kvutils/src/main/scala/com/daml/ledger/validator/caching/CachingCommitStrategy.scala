@@ -8,7 +8,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.caching.CachingDamlLedgerStateReader.StateCache
 import com.daml.ledger.validator.{
   CommitStrategy,
   LedgerStateOperations,
@@ -53,8 +52,8 @@ final class CachingCommitStrategy[Result](
 
 object CachingCommitStrategy {
   def apply[LogResult](
-      stateCache: StateCache,
-      cacheUpdatePolicy: CacheUpdatePolicy,
+      stateCache: Cache[DamlStateKey, DamlStateValue],
+      cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
       ledgerStateOperations: LedgerStateOperations[LogResult],
       keySerializationStrategy: StateKeySerializationStrategy,
   )(implicit executionContext: ExecutionContext): CachingCommitStrategy[LogResult] =

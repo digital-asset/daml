@@ -68,7 +68,7 @@ object CachingDamlLedgerStateReaderWithFingerprints {
 
   def apply(
       cache: StateCacheWithFingerprints,
-      cachingPolicy: CacheUpdatePolicy,
+      cachingPolicy: CacheUpdatePolicy[DamlStateKey],
       ledgerStateReaderWithFingerprints: LedgerStateReaderWithFingerprints,
       keySerializationStrategy: StateKeySerializationStrategy)(
       implicit executionContext: ExecutionContext): CachingDamlLedgerStateReaderWithFingerprints =

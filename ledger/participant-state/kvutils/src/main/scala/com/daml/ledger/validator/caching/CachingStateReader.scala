@@ -4,9 +4,7 @@
 package com.daml.ledger.validator.caching
 
 import com.daml.caching.Cache
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.validator.caching.CachingDamlLedgerStateReader.StateCache
-import com.daml.ledger.validator.reading.DamlLedgerStateReader
+import com.daml.ledger.validator.reading.StateReader
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -15,14 +13,14 @@ import scala.concurrent.{ExecutionContext, Future}
   * This is crucial for caching access to large frequently accessed state, for example
   * package state values (which are too expensive to deserialize from bytes every time).
   */
-final class CachingDamlLedgerStateReader(
-    val cache: StateCache,
-    shouldCache: DamlStateKey => Boolean,
-    delegate: DamlLedgerStateReader,
-) extends DamlLedgerStateReader {
+final class CachingStateReader[Key, Value](
+    val cache: Cache[Key, Value],
+    shouldCache: Key => Boolean,
+    delegate: StateReader[Key, Value],
+) extends StateReader[Key, Value] {
   override def read(
-      keys: Seq[DamlStateKey]
-  )(implicit executionContext: ExecutionContext): Future[Seq[Option[DamlStateValue]]] = {
+      keys: Seq[Key]
+  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] = {
     @SuppressWarnings(Array("org.wartremover.warts.Any")) // Required to make `.view` work.
     val cachedValues = keys.view
       .map(key => key -> cache.getIfPresent(key))
@@ -48,16 +46,13 @@ final class CachingDamlLedgerStateReader(
   }
 }
 
-object CachingDamlLedgerStateReader {
-
-  type StateCache = Cache[DamlStateKey, DamlStateValue]
-
-  def apply(
-      cache: StateCache,
-      cachingPolicy: CacheUpdatePolicy,
-      ledgerStateReader: DamlLedgerStateReader,
-  ): CachingDamlLedgerStateReader =
-    new CachingDamlLedgerStateReader(
+object CachingStateReader {
+  def apply[Key, Value](
+      cache: Cache[Key, Value],
+      cachingPolicy: CacheUpdatePolicy[Key],
+      ledgerStateReader: StateReader[Key, Value],
+  ): StateReader[Key, Value] =
+    new CachingStateReader(
       cache,
       cachingPolicy.shouldCacheOnRead,
       ledgerStateReader,

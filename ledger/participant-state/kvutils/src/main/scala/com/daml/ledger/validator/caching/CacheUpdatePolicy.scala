@@ -3,10 +3,8 @@
 
 package com.daml.ledger.validator.caching
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
+trait CacheUpdatePolicy[-Key] {
+  def shouldCacheOnWrite(key: Key): Boolean
 
-trait CacheUpdatePolicy {
-  def shouldCacheOnWrite(key: DamlStateKey): Boolean
-
-  def shouldCacheOnRead(key: DamlStateKey): Boolean
+  def shouldCacheOnRead(key: Key): Boolean
 }
