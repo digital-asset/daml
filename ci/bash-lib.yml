@@ -22,6 +22,28 @@ steps:
             echo "Authorization: basic $(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev | tr -d '\n' | base64 -w0)"
         fi
     }
+    open_pr() {
+      local branch title
+      branch="$1"
+      title="$2"
+      git branch -D $branch || true
+      git checkout -b $branch
+      git -c user.name="Azure Pipelines DAML Build" \
+          -c user.email="support@digitalasset.com" \
+          commit \
+          -m "$(printf "$title\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
+      git push origin $branch:$branch
+      jq -n --arg title "$title" \
+            --arg branch "$branch" \
+            '{"title": "$title", "head": "$branch", "base": "master"}' \
+        | curl -H "Content-Type: application/json" \
+               -H "$(get_gh_auth_header)" \
+               --fail \
+               --include \
+               --location \
+               -d @- \
+               https://api.github.com/repos/digital-asset/daml/pulls
+    }
     user_slack_handle() {
         local email sha
         sha=$1
