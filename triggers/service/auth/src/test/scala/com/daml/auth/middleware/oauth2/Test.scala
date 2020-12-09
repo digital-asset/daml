@@ -13,6 +13,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Cookie, Location, `Set-Cookie`}
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.auth.middleware.api.{Request, Response}
+import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
@@ -289,7 +290,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         (token1, refreshToken) = {
           val cookie = resp.header[`Set-Cookie`].get.cookie
           val token = OAuthResponse.Token.fromCookieValue(cookie.value).get
-          (token.accessToken, token.refreshToken.get)
+          (AccessToken(token.accessToken), RefreshToken(token.refreshToken.get))
         }
         // Advance time
         _ = clock.fastForward(Duration.ofSeconds(1))
@@ -314,7 +315,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     }
     "fail on an invalid refresh token" in {
       for {
-        refreshEntity <- Marshal(Request.Refresh("made-up-token")).to[RequestEntity]
+        refreshEntity <- Marshal(Request.Refresh(RefreshToken("made-up-token"))).to[RequestEntity]
         refreshReq = HttpRequest(
           method = HttpMethods.POST,
           uri = middlewareUri.withPath(Path./("refresh")),

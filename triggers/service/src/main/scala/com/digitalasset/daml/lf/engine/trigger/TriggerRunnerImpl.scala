@@ -25,7 +25,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import TriggerRunner.{QueryingACS, Running, TriggerStatus}
-import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
+import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 
 object TriggerRunnerImpl {
 

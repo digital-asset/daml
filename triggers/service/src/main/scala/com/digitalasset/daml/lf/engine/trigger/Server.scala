@@ -37,10 +37,10 @@ import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine._
 import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
-import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
 import com.daml.lf.engine.trigger.TriggerRunner._
 import com.daml.lf.engine.trigger.dao._
 import com.daml.auth.middleware.api.Request.Claims
+import com.daml.auth.middleware.api.Tagged.RefreshToken
 import com.daml.auth.middleware.api.{
   JsonProtocol => AuthJsonProtocol,
   Request => AuthRequest,
@@ -66,16 +66,13 @@ case class AuthClientConfig(
     httpEntityUploadTimeout: FiniteDuration,
 )
 object AuthClient {
-  case class Authorization(accessToken: AccessToken, refreshToken: Option[RefreshToken])
   sealed trait AuthorizeResult
-  final case class Authorized(authorization: Authorization) extends AuthorizeResult
+  final case class Authorized(authorization: AuthResponse.Authorize) extends AuthorizeResult
   object Unauthorized extends AuthorizeResult
   final case class LoginFailed(loginError: AuthResponse.LoginError) extends AuthorizeResult
   def apply(config: AuthClientConfig): AuthClient = new AuthClient(config)
 }
 class AuthClient(config: AuthClientConfig) extends StrictLogging {
-  import AuthClient.Authorization
-
   // TODO[AH] Make sure this is bounded in size.
   private val callbacks: TrieMap[UUID, AuthResponse.Login => Route] = TrieMap()
 
@@ -146,7 +143,7 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
     */
   def auth(claims: AuthRequest.Claims)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[Authorization]] =
+      system: ActorSystem): Directive1[Option[AuthResponse.Authorize]] =
     extract(_.request.headers[headers.Cookie]).flatMap { cookies =>
       onComplete(requestAuth(claims, cookies)).flatMap {
         case Success(result) => provide(result)
@@ -177,7 +174,7 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
     */
   def requestAuth(claims: AuthRequest.Claims, cookies: immutable.Seq[headers.Cookie])(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Future[Option[AuthClient.Authorization]] =
+      system: ActorSystem): Future[Option[AuthResponse.Authorize]] =
     for {
       response <- Http().singleRequest(
         HttpRequest(
@@ -188,13 +185,7 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
       authorize <- response.status match {
         case StatusCodes.OK =>
           import AuthJsonProtocol._
-          Unmarshal(response.entity).to[AuthResponse.Authorize].map { auth =>
-            Some(
-              AuthClient.Authorization(
-                accessToken = AccessToken(auth.accessToken),
-                refreshToken = RefreshToken.subst(auth.refreshToken),
-              ))
-          }
+          Unmarshal(response.entity).to[AuthResponse.Authorize].map(Some(_))
         case StatusCodes.Unauthorized =>
           Future.successful(None)
         case status =>
@@ -210,11 +201,11 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
     */
   def requestRefresh(refreshToken: RefreshToken)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Future[AuthClient.Authorization] =
+      system: ActorSystem): Future[AuthResponse.Authorize] =
     for {
       requestEntity <- {
         import AuthJsonProtocol._
-        Marshal(AuthRequest.Refresh(RefreshToken.unwrap(refreshToken)))
+        Marshal(AuthRequest.Refresh(refreshToken))
           .to[RequestEntity]
       }
       response <- Http().singleRequest(
@@ -232,11 +223,7 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
             Future.failed(new RuntimeException(s"Failed to refresh token ($status): $msg"))
           }
       }
-    } yield
-      Authorization(
-        accessToken = AccessToken(authorize.accessToken),
-        refreshToken = RefreshToken.subst(authorize.refreshToken),
-      )
+    } yield authorize
 
   private def authUri(claims: AuthRequest.Claims): Uri =
     config.authMiddlewareUri
@@ -341,7 +328,7 @@ class Server(
   // Note that this does not yet start the trigger.
   private def addNewTrigger(
       config: TriggerConfig,
-      auth: Option[AuthClient.Authorization],
+      auth: Option[AuthResponse.Authorize],
   )(implicit ec: ExecutionContext): Future[Either[String, (Trigger, RunningTrigger)]] = {
     val runningTrigger =
       RunningTrigger(
@@ -418,7 +405,7 @@ class Server(
   // If no auth middleware is configured, then the request will proceed without attempting authorization.
   private def authorize(claims: AuthRequest.Claims)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[AuthClient.Authorization]] =
+      system: ActorSystem): Directive1[Option[AuthResponse.Authorize]] =
     authClient match {
       case None => provide(None)
       case Some(client) =>
@@ -441,7 +428,7 @@ class Server(
   // If the trigger does not exist, then the request will also proceed without attempting authorization.
   private def authorizeForTrigger(uuid: UUID, readOnly: Boolean = false)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[AuthClient.Authorization]] =
+      system: ActorSystem): Directive1[Option[AuthResponse.Authorize]] =
     authClient match {
       case None => provide(None)
       case Some(_) =>

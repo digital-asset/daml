@@ -23,7 +23,7 @@ import doobie.{Fragment, Put, Transactor}
 import scalaz.Tag
 import java.io.{Closeable, IOException}
 
-import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
+import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import javax.sql.DataSource
 
 import scala.concurrent.{ExecutionContext, Future}
