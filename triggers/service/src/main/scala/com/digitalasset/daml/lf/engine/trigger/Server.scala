@@ -73,7 +73,7 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
   import AuthClient.Authorization
 
   // TODO[AH] Make sure this is bounded in size.
-  private val callbacks: TrieMap[UUID, Route] = TrieMap()
+  private val callbacks: TrieMap[UUID, AuthResponse.Login => Route] = TrieMap()
 
   /**
     * Handler for the callback in a login flow.
@@ -85,15 +85,7 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
       callbacks.remove(requestId) match {
         case None => complete(StatusCodes.NotFound)
         case Some(callback) =>
-          AuthResponse.Login.callbackParameters {
-            case AuthResponse.LoginError(error, errorDescription) =>
-              complete(
-                errorResponse(
-                  StatusCodes.Forbidden,
-                  s"Failed to authenticate: $error${errorDescription.fold("")(": " + _)}"))
-            case AuthResponse.LoginSuccess =>
-              callback
-          }
+          AuthResponse.Login.callbackParameters { callback }
       }
     }
 
@@ -121,18 +113,25 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
         toStrictEntity(timeout, maxBytes).tflatMap { _ =>
           extractRequestContext.flatMap { ctx =>
             Directive { inner =>
-              val callback: Route =
-                auth(claims)(ec, system) {
-                  case None =>
-                    // Authorization failed after login - respond with 401
-                    // TODO[AH] Add WWW-Authenticate header
-                    complete(errorResponse(StatusCodes.Unauthorized))
-                  case Some(authorization) =>
-                    // Authorization successful after login - use old request context and pass token to continuation.
-                    mapRequestContext(_ => ctx) {
-                      inner(Tuple1(authorization))
-                    }
-                }
+              val callback: AuthResponse.Login => Route = {
+                case AuthResponse.LoginSuccess =>
+                  auth(claims)(ec, system) {
+                    case None =>
+                      // Authorization failed after login - respond with 401
+                      // TODO[AH] Add WWW-Authenticate header
+                      complete(errorResponse(StatusCodes.Unauthorized))
+                    case Some(authorization) =>
+                      // Authorization successful after login - use old request context and pass token to continuation.
+                      mapRequestContext(_ => ctx) {
+                        inner(Tuple1(authorization))
+                      }
+                  }
+                case AuthResponse.LoginError(error, errorDescription) =>
+                  complete(
+                    errorResponse(
+                      StatusCodes.Forbidden,
+                      s"Failed to authenticate: $error${errorDescription.fold("")(": " + _)}"))
+              }
               login(claims, callback)
             }
           }
@@ -167,7 +166,7 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
     *
     * @param callback Will be stored and executed once the login flow completed.
     */
-  def login(claims: AuthRequest.Claims, callback: Route): Route = {
+  def login(claims: AuthRequest.Claims, callback: AuthResponse.Login => Route): Route = {
     val requestId = UUID.randomUUID()
     callbacks.update(requestId, callback)
     redirect(loginUri(claims, Some(requestId)), StatusCodes.Found)
