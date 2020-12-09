@@ -67,6 +67,10 @@ case class AuthClientConfig(
 )
 object AuthClient {
   case class Authorization(accessToken: AccessToken, refreshToken: Option[RefreshToken])
+  sealed trait AuthorizeResult
+  final case class Authorized(authorization: Authorization) extends AuthorizeResult
+  object Unauthorized extends AuthorizeResult
+  final case class LoginFailed(loginError: AuthResponse.LoginError) extends AuthorizeResult
   def apply(config: AuthClientConfig): AuthClient = new AuthClient(config)
 }
 class AuthClient(config: AuthClientConfig) extends StrictLogging {
@@ -101,10 +105,10 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
     */
   def authorize(claims: AuthRequest.Claims)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Authorization] = {
+      system: ActorSystem): Directive1[AuthClient.AuthorizeResult] = {
     auth(claims)(ec, system).flatMap {
       // Authorization successful - pass token to continuation
-      case Some(authorization) => provide(authorization)
+      case Some(authorization) => provide(AuthClient.Authorized(authorization))
       // Authorization failed - login and retry on callback request.
       case None =>
         // Ensure that the request is fully uploaded.
@@ -113,24 +117,18 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
         toStrictEntity(timeout, maxBytes).tflatMap { _ =>
           extractRequestContext.flatMap { ctx =>
             Directive { inner =>
+              def continue(result: AuthClient.AuthorizeResult) =
+                mapRequestContext(_ => ctx) {
+                  inner(Tuple1(result))
+                }
               val callback: AuthResponse.Login => Route = {
                 case AuthResponse.LoginSuccess =>
                   auth(claims)(ec, system) {
-                    case None =>
-                      // Authorization failed after login - respond with 401
-                      // TODO[AH] Add WWW-Authenticate header
-                      complete(errorResponse(StatusCodes.Unauthorized))
-                    case Some(authorization) =>
-                      // Authorization successful after login - use old request context and pass token to continuation.
-                      mapRequestContext(_ => ctx) {
-                        inner(Tuple1(authorization))
-                      }
+                    case None => continue(AuthClient.Unauthorized)
+                    case Some(authorization) => continue(AuthClient.Authorized(authorization))
                   }
-                case AuthResponse.LoginError(error, errorDescription) =>
-                  complete(
-                    errorResponse(
-                      StatusCodes.Forbidden,
-                      s"Failed to authenticate: $error${errorDescription.fold("")(": " + _)}"))
+                case loginError: AuthResponse.LoginError =>
+                  continue(AuthClient.LoginFailed(loginError))
               }
               login(claims, callback)
             }
@@ -423,7 +421,19 @@ class Server(
       system: ActorSystem): Directive1[Option[AuthClient.Authorization]] =
     authClient match {
       case None => provide(None)
-      case Some(client) => client.authorize(claims).map(Some(_): Option[AuthClient.Authorization])
+      case Some(client) =>
+        client.authorize(claims).flatMap {
+          case AuthClient.Authorized(authorization) => provide(Some(authorization))
+          case AuthClient.Unauthorized =>
+            // Authorization failed after login - respond with 401
+            // TODO[AH] Add WWW-Authenticate header
+            complete(errorResponse(StatusCodes.Unauthorized))
+          case AuthClient.LoginFailed(AuthResponse.LoginError(error, errorDescription)) =>
+            complete(
+              errorResponse(
+                StatusCodes.Forbidden,
+                s"Failed to authenticate: $error${errorDescription.fold("")(": " + _)}"))
+        }
     }
 
   // This directive requires authorization for the party of the given running trigger via the auth middleware, if configured.
@@ -434,14 +444,14 @@ class Server(
       system: ActorSystem): Directive1[Option[AuthClient.Authorization]] =
     authClient match {
       case None => provide(None)
-      case Some(client) =>
+      case Some(_) =>
         onComplete(triggerDao.getRunningTrigger(uuid)).flatMap {
           case Failure(e) => complete(errorResponse(StatusCodes.InternalServerError, e.description))
           case Success(None) => provide(None)
           case Success(Some(trigger)) =>
             val parties = List(trigger.triggerParty)
             val claims = if (readOnly) Claims(readAs = parties) else Claims(actAs = parties)
-            client.authorize(claims).map(Some(_): Option[AuthClient.Authorization])
+            authorize(claims)
         }
     }
 
