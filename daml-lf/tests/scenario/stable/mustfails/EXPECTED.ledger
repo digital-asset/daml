@@ -7,80 +7,80 @@ mustFailAt 'Alice' [Test:96]
 
 mustFailAt 'Alice' [Test:100]
 
-TX #4 1970-01-01T00:00:00Z [Test:108]
-#4:0
+TX #4 1970-01-01T00:00:00Z [Test:108] version: 10
+#4:0 version: 10
 │   known to (since): Alice (#4), Bob (#4)
 └─> create Test:X@XXXXXXXX
-    with: { p = 'Alice', p2 = 'Bob' } value-version: 6
+    with: { p = 'Alice', p2 = 'Bob' }
 
 pass -100000000
 
 mustFailAt 'Bob' [Test:110]
 
-TX #7 1969-12-31T23:58:20Z [Test:115]
-#7:0
+TX #7 1969-12-31T23:58:20Z [Test:115] version: 10
+#7:0 version: 10
 │   known to (since): Alice (#7)
 └─> create Test:TwoParties@XXXXXXXX
-    with: { p = 'Alice', p2 = 'Alice' } value-version: 6
+    with: { p = 'Alice', p2 = 'Alice' }
 
 mustFailAt 'Bob' [Test:116]
 
 mustFailAt 'Alice' [Test:123]
 
-TX #10 1969-12-31T23:58:20Z [Test:128]
-#10:0
+TX #10 1969-12-31T23:58:20Z [Test:128] version: 10
+#10:0 version: 10
 │   archived by #11:0
 │   referenced by #11:0
 │   known to (since): Alice (#10), Bob (#10)
 └─> create Test:ToTwoParties@XXXXXXXX
-    with: { p = 'Alice', p2 = 'Bob' } value-version: 6
+    with: { p = 'Alice', p2 = 'Bob' }
 
-TX #11 1969-12-31T23:58:20Z [Test:129]
-#11:0
+TX #11 1969-12-31T23:58:20Z [Test:129] version: 10
+#11:0 version: 10
 │   known to (since): Alice (#11), Bob (#11)
 └─> Bob exercises Convert:Test:ToTwoParties@XXXXXXXX on 00059653cdb8e866d69fac4d5bd0f62bbdaba4c36b01c438b86351fbdbf2cab8b0
-    with {  } value-version: 6
+    with {  }
     children:
-    #11:1
+    #11:1 version: 10
     │   known to (since): Alice (#11), Bob (#11)
     └─> create Test:TwoParties@XXXXXXXX
-        with: { p = 'Alice', p2 = 'Bob' } value-version: 6
+        with: { p = 'Alice', p2 = 'Bob' }
 
 mustFailAt 'Bob' [Test:130]
 
-TX #13 1969-12-31T23:58:20Z [Test:134]
-#13:0
+TX #13 1969-12-31T23:58:20Z [Test:134] version: 10
+#13:0 version: 10
 │   known to (since): Alice (#13)
 └─> create Test:NoCtrls@XXXXXXXX
-    with: { p = 'Alice', xs = [] } value-version: 6
+    with: { p = 'Alice', xs = [] }
 
 mustFailAt 'Alice' [Test:135]
 
 mustFailAt 'Alice' [Test:139]
 
-TX #16 1969-12-31T23:58:20Z [Test:144]
-#16:0
+TX #16 1969-12-31T23:58:20Z [Test:144] version: 10
+#16:0 version: 10
 │   known to (since): Alice (#16), Bob (#16)
 └─> create Test:X@XXXXXXXX
-    with: { p = 'Alice', p2 = 'Bob' } value-version: 6
+    with: { p = 'Alice', p2 = 'Bob' }
 
 mustFailAt 'Alice' [Test:145]
 
-TX #18 1969-12-31T23:58:20Z [Test:151]
-#18:0
+TX #18 1969-12-31T23:58:20Z [Test:151] version: 10
+#18:0 version: 10
 │   known to (since): Alice (#18)
 └─> create Test:Recursive@XXXXXXXX
-    with: { p = 'Alice' } value-version: 6
+    with: { p = 'Alice' }
 
 mustFailAt 'Alice' [Test:154]
 
 mustFailAt 'Alice' [Test:340]
 
-TX #21 1969-12-31T23:58:20Z [Test:345]
-#21:0
+TX #21 1969-12-31T23:58:20Z [Test:345] version: 10
+#21:0 version: 10
 │   known to (since): Alice (#21)
 └─> create Test:NestingLimitExercise@XXXXXXXX
-    with: { p = 'Alice' } value-version: 6
+    with: { p = 'Alice' }
 
 mustFailAt 'Alice' [Test:346]
 
