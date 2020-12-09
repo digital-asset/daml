@@ -110,22 +110,7 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
   def authorize(claims: AuthRequest.Claims)(
       implicit ec: ExecutionContext,
       system: ActorSystem): Directive1[Authorization] = {
-    // Attempt to obtain the access token from the middleware's /auth endpoint.
-    // Forwards the current request's cookies.
-    // Fails if the response is not OK or Unauthorized.
-    def auth: Directive1[Option[Authorization]] =
-      extract(_.request.headers[headers.Cookie]).flatMap { cookies =>
-        onComplete(requestAuth(claims, cookies)).flatMap {
-          case Success(result) => provide(result)
-          case Failure(ex) =>
-            logger.error(ex.getMessage)
-            complete(
-              errorResponse(
-                StatusCodes.InternalServerError,
-                "Failed to authorize with auth middleware"))
-        }
-      }
-    auth.flatMap {
+    auth(claims)(ec, system).flatMap {
       // Authorization successful - pass token to continuation
       case Some(authorization) => provide(authorization)
       // Authorization failed - login and retry on callback request.
@@ -138,7 +123,7 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
             val requestId = UUID.randomUUID()
             callbacks.update(
               requestId, {
-                auth {
+                auth(claims)(ec, system) {
                   case None => {
                     // Authorization failed after login - respond with 401
                     // TODO[AH] Add WWW-Authenticate header
@@ -157,6 +142,28 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
         }
     }
   }
+
+  /**
+    * This directive attempts to obtain an access token from the middleware's auth endpoint for the given claims.
+    *
+    * Forwards the current request's cookies. Completes with 500 on an unexpected response from the auth middleware.
+    *
+    * @return `None` if the request was denied otherwise `Some` access and optionally refresh token.
+    */
+  def auth(claims: AuthRequest.Claims)(
+      implicit ec: ExecutionContext,
+      system: ActorSystem): Directive1[Option[Authorization]] =
+    extract(_.request.headers[headers.Cookie]).flatMap { cookies =>
+      onComplete(requestAuth(claims, cookies)).flatMap {
+        case Success(result) => provide(result)
+        case Failure(ex) =>
+          logger.error(ex.getMessage)
+          complete(
+            errorResponse(
+              StatusCodes.InternalServerError,
+              "Failed to authorize with auth middleware"))
+      }
+    }
 
   /**
     * Request authentication/authorization on the auth middleware's auth endpoint.
