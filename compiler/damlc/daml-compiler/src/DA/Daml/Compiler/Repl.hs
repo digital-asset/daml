@@ -62,7 +62,7 @@ import Language.Haskell.LSP.Messages
 import Lexer (ParseResult(..))
 import Module (unitIdString)
 import OccName (OccSet, occName, elemOccSet, mkOccSet, mkVarOcc)
-import Outputable (ppr, showSDoc, showSDocForUser)
+import Outputable (parens, ppr, showSDoc, showSDocForUser)
 import qualified Outputable
 import RdrName (mkRdrUnqual)
 import SrcLoc (unLoc)
@@ -603,7 +603,7 @@ data ModuleRenderings
           -- reason to run them.
         , pureArbitraryExpr :: String
           -- ^ e :: a for some a that may not be an instance of Show.
-        }
+        } deriving Show
 
 moduleImports
     :: DynFlags
@@ -638,43 +638,54 @@ renderModule dflags printUnqualified imports line binds stmt = case stmt of
     BindStatement pat expr ->
         BindingRendering $ unlines $
             moduleHeader dflags imports line <>
-            [ exprTy "Script _"
-            , exprLhs
-            , showSDoc' $ Outputable.nest 2 $ ppr (scriptStmt (Just pat) expr returnAp)
+            [showSDoc' . Outputable.vcat $
+              [ exprTy "Script _"
+              , exprLhs
+              , Outputable.nest 2 $ ppr (scriptStmt (Just pat) expr returnAp)
+              ]
             ]
     BodyStatement expr ->
         BodyRenderings
           { unitScript = unlines $
               moduleHeader dflags imports line <>
-              [ exprTy "Script ()"
-              , exprLhs
-              , showSDoc' $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
+              [showSDoc' . Outputable.vcat $
+                [ exprTy "Script ()"
+                , exprLhs
+                , Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
+                ]
               ]
           , printableScript = unlines $
               moduleHeader dflags imports line <>
-              [ exprTy "Script Text"
-              , exprLhs
-              , showSDoc' $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnShowAp)
+              [showSDoc' . Outputable.vcat $
+                [ exprTy "Script Text"
+                , exprLhs
+                , Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnShowAp)
+                ]
               ]
           , arbitraryScript = unlines $
               moduleHeader dflags imports line <>
-              [ exprTy "Script _"
-              , exprLhs
-              , showSDoc' $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
+              [showSDoc' . Outputable.vcat $
+                [ exprTy "Script _"
+                , exprLhs
+                , Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
+                ]
               ]
           , purePrintableExpr = unlines $
               moduleHeader dflags imports line <>
-              [ exprTy "Script Text"
-              , exprLhs
-              , showSDoc' $ Outputable.nest 2 $ ppr $
-                returnShowAp expr
+              [showSDoc' . Outputable.vcat $
+                [ exprTy "Script Text"
+                , exprLhs
+                , Outputable.nest 2 $ ppr $
+                  returnShowAp expr
+                ]
               ]
           , pureArbitraryExpr = unlines $
               moduleHeader dflags imports line <>
-              [ exprTy "Script _"
-              , exprLhs
-              , showSDoc' $ Outputable.nest 2 $ ppr $
-                returnAp $ noLoc $ HsPar noExt expr
+              [showSDoc' . Outputable.vcat $
+                [ exprTy "Script _"
+                , exprLhs
+                , Outputable.nest 2 $ ppr (returnAp $ noLoc $ HsPar noExt expr)
+                ]
               ]
           }
     LetStatement binding ->
@@ -683,8 +694,8 @@ renderModule dflags printUnqualified imports line binds stmt = case stmt of
                 PatBinding pat _ -> toTupleExpr pat
         in BindingRendering $ unlines $
           moduleHeader dflags imports line <>
-          [ exprTy "Script _"
-          , exprLhs
+          [ showSDoc' $ exprTy "Script _"
+          , showSDoc' exprLhs
           , showSDoc' $ Outputable.nest 2 $ ppr $ HsDo noExt DoExpr $ noLoc
               [ noLoc $ LetStmt noExt $ toLocalBinds binding
               , noLoc $ LastStmt noExt (returnAp retExpr) False noSyntaxExpr
@@ -692,8 +703,8 @@ renderModule dflags printUnqualified imports line binds stmt = case stmt of
           ]
   where
         showSDoc' = showSDocForUser dflags printUnqualified
-        renderPat pat = showSDoc' (ppr pat)
-        renderTy ty = "(" <> showSDoc' (ppr ty) <> ") -> "
+        renderPat pat = ppr pat
+        renderTy ty = parens (ppr ty) <> " -> "
         -- build a script statement using the given wrapper (either `return` or `show`)
         -- to wrap the final result.
         scriptStmt mbPat expr wrapper =
@@ -711,11 +722,22 @@ renderModule dflags printUnqualified imports line binds stmt = case stmt of
             noLoc $ HsApp noExt showExpr $
             noLoc $ HsPar noExt x
         showExpr = noLoc $ HsVar noExt (noLoc $ mkRdrUnqual $ mkVarOcc "show")
-        exprLhs = "expr " <> unwords (map (renderPat . fst) binds) <> " = "
-        exprTy res = "expr : " <> concatMap (renderTy . snd) binds <> res
+        exprLhs = "expr " <> Outputable.hsep (map (renderPat . fst) binds) <> " = "
+        exprTy :: Outputable.SDoc -> Outputable.SDoc
+        exprTy res =
+            "expr : " <>
+            Outputable.hcat (map (renderTy . snd) binds) <>
+            res
 
 instance Applicative m => Apply (Repl.HaskelineT m) where
     liftF2 = liftA2
 
 instance Monad m => Bind (Repl.HaskelineT m) where
     (>>-) = (>>=)
+
+
+instance Semigroup Outputable.SDoc where
+    (<>) = (Outputable.<>)
+
+instance Monoid Outputable.SDoc where
+    mempty = ""
