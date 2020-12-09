@@ -30,6 +30,7 @@ service TransactionService {
   rpc GetTransactions (GetTransactionsRequest) returns (stream GetTransactionsResponse);
 
   // Read the ledger's complete transaction tree stream for a set of parties.
+  // The stream can be filtered only by parties, but not templates (template filter must be empty).
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
