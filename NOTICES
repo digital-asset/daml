@@ -8,7 +8,7 @@ Distribution: EXTERNAL
 
 Components: 
 
-this line has been changed to test the change detection step
+@apollo/client 3.3.3 : MIT License
 @babel/code-frame 7.10.4 : MIT License
 @babel/generator 7.12.5 : MIT License
 @babel/helper-annotate-as-pure 7.10.4 : MIT License
@@ -52,10 +52,15 @@ Apache Commons Exec 1.3 : Apache License 2.0
 Apache Commons Lang 3.9 : Apache License 2.0
 Apache Commons Logging 1.2 : Apache License 2.0
 Apache Commons Math 3.2 : Apache License 2.0
+Apache Commons Net 3.6 : Apache License 2.0
 Apache Commons Pool 2.6.0 : Apache License 2.0
 Apache Commons Text 1.4 : Apache License 2.0
-Apache HttpClient 4.5.3 : Apache License 2.0
-Apache HttpComponents Core 4.4.6 : Apache License 2.0
+Apache HttpClient rel/v4.5.12 : Apache License 2.0
+Apache HttpComponents Core 4.4.13 : Apache License 2.0
+Apache HttpMime 4.5.12 : Apache License 2.0
+Apache XML Commons 1.4.01 : Apache License 2.0
+Apache Xalan (Java) 2.7.2 : Apache License 2.0
+Apache Xerces2 J 2.12.0 : Apache License 2.0
 Async 0.9.2 : MIT License
 Async 1.5.2 : MIT License
 Async 2.6.3 : MIT License
@@ -65,7 +70,7 @@ BSON 3.6.0 : Apache License 2.0
 BasicAuth 2.0.1 : MIT License
 BeanShell 2.0b4 : GNU Lesser General Public License v2.1 or later
 Buffer 5.2.1 : MIT License
-Byte Buddy byte-buddy-1.9.7 : Apache License 2.0
+Byte Buddy byte-buddy-1.10.18 : Apache License 2.0
 CSSselect 1.2.0 : BSD 3-clause "New" or "Revised" License
 Caffeine cache 2.8.0 : Apache License 2.0
 Cats Free 2.1.1 : MIT License
@@ -103,6 +108,10 @@ H2 Database Engine version-1.4.200 : (Mozilla Public License 2.0 OR Eclipse Publ
 Hamcrest 1.3 : BSD 3-clause "New" or "Revised" License
 HdrHistogram HdrHistogram-2.1.11 : (BSD 2-clause "Simplified" License AND Creative Commons Public Domain Dedication and Certification)
 HikariCP 3.2.0 : Apache License 2.0
+HtmlUnit 2.39.0 : Apache License 2.0
+HtmlUnit CSS Parser 1.5.0 : Apache License 2.0
+HtmlUnit Core JS 2.39.0 : Mozilla Public License 2.0
+HtmlUnit NekoHtml 2.39.0 : Apache License 2.0
 J2ObjC Annotations 1.3 : Apache License 2.0
 JCommander Library 1.12 : Apache License 2.0
 JLine 3.7.1 : BSD 3-clause "New" or "Revised" License
@@ -119,14 +128,15 @@ Java JWT 3.10.3 : MIT License
 Java Servlet API 3.1.0 : (Common Development and Distribution License 1.1 OR Sun GPL With Classpath Exception v2.0)
 JavaBeans Activation Framework 1.2.0 : (GNU General Public License v2.0 w/Classpath exception OR Common Development and Distribution License 1.1)
 JavaPoet 1.11.1 : Apache License 2.0
-Jetty :: Asynchronous HTTP Client 9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
+Jetty :: Asynchronous HTTP Client 9.4.27.v20200227 : (Apache License 2.0 AND Eclipse Public License 1.0)
 Jetty :: Servlet Handling 9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
-Jetty :: Websocket :: API 9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
-Jetty :: Websocket :: Client 9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
-Jetty :: Websocket :: Common 9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
+Jetty :: Websocket :: API 9.4.27.v20200227 : (Apache License 2.0 AND Eclipse Public License 1.0)
+Jetty :: Websocket :: Client 9.4.27.v20200227 : (Apache License 2.0 AND Eclipse Public License 1.0)
+Jetty :: Websocket :: Common 9.4.27.v20200227 : (Apache License 2.0 AND Eclipse Public License 1.0)
 Jetty :: Websocket :: Server 9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
 Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
 Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429 : (Apache License 2.0 AND Eclipse Public License 1.0)
+Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227 : (Apache License 2.0 AND Eclipse Public License 1.0)
 Joda Convert 1.8.1 : Apache License 2.0
 Joda Time 2.9.7 : Apache License 2.0
 Jodd Core 5.0.13 : BSD 2-clause "Simplified" License
@@ -140,7 +150,7 @@ Logback 1.2.3 : (GNU Lesser General Public License v2.1 or later OR Eclipse Publ
 Logback Classic Module 1.2.3 : (GNU Lesser General Public License v2.1 or later OR Eclipse Public License 1.0)
 Metrics Core 4.1.2 : Apache License 2.0
 Metrics Integration with JMX 4.1.2 : Apache License 2.0
-Mockito 2.24.0 : MIT License
+Mockito v3.6.28 : MIT License
 Modernizr v3.11.4 : MIT License
 Moment JavaScript Date Library 2.29.1 : MIT License
 Mongo Java Driver 3.6.0 : Apache License 2.0
@@ -150,8 +160,8 @@ Netty Project 4.1.42.Final : Apache License 2.0
 Netty Project 4.1.48.Final : Apache License 2.0
 Netty/TomcatNative [BoringSSL - Static] 2.0.30.Final : Apache License 2.0
 Netty/Transport/Native/Unix/Common 4.1.42.Final : Apache License 2.0
-OkHttp 3.9.1 : Apache License 2.0
-OkIO 1.13.0 : Apache License 2.0
+OkHttp 3.11.0 : Apache License 2.0
+OkIO 1.14.0 : Apache License 2.0
 PCollections 2.1.3 : MIT License
 ParaNamer Core 2.8 : BSD 3-clause "New" or "Revised" License
 Pebble 3.1.0 : BSD 3-clause "New" or "Revised" License
@@ -172,13 +182,14 @@ RequireJS 2.3.6 : MIT License
 SLF4J API Module 1.7.26 : MIT License
 Saxon XSLT and XQuery Processor 9.9.1-5 : Mozilla Public License 2.0
 Selenium 3.12.0 : Apache License 2.0
+Selenium 3.141.59 : Apache License 2.0
 Silencer 1.7.1 : Apache License 2.0
 SnakeYAML 1.24 : Apache License 2.0
 StringTemplate 0.2.1 : MIT License
 Strip ANSI 3.0.1 : MIT License
 Strip ANSI 6.0.0 : MIT License
 Styled Components v5.2.1 : MIT License
-TestNG 5.14.10 : Apache License 2.0
+TestNG 6.7 : Apache License 2.0
 Toxiproxy Java Client 2.1.3 : Apache License 2.0
 Twitter Bower 1.8.8 : MIT License
 TypeScript 3.7.4 : Apache License 2.0
@@ -188,6 +199,7 @@ Visionmedia Debug 2.6.9 : MIT License
 Visionmedia Debug 3.2.6 : MIT License
 Visionmedia Debug 4.3.1 : MIT License
 Watchify 3.11.1 : MIT License
+Xalan Java Serializer 2.7.2 : Apache License 2.0
 Xerial SQLite JDBC 3.30.1 : Apache License 2.0
 Zipkin 1.31.3 : Apache License 2.0
 Zipkin Reporter: Core 1.0.4 : Apache License 2.0
@@ -261,7 +273,7 @@ browserify/resolve v1.17.0 : MIT License
 buffer-from 1.1.1 : MIT License
 buffer-xor 1.0.3 : MIT License
 builtin-status-codes 3.0.0 : MIT License
-byte-buddy-agent 1.9.7 : Apache License 2.0
+byte-buddy-agent 1.10.18 : Apache License 2.0
 bytes 1.0.0 : MIT License
 bytes 3.1.0 : MIT License
 cache-base 1.0.1 : MIT License
@@ -427,7 +439,7 @@ gatling-jms 3.3.1 : Apache License 2.0
 gatling-netty-util 3.3.1 : Apache License 2.0
 gatling-redis 3.3.1 : Apache License 2.0
 generic 0.10.0 : Apache License 2.0
-generics-resolver 3.0.0 : MIT License
+generics-resolver 3.0.3 : MIT License
 get-assigned-identifiers 1.2.0 : Apache License 2.0
 get-caller-file 2.0.5 : ISC License
 get-intrinsic 1.0.1 : MIT License
@@ -478,6 +490,7 @@ html-to-react 1.4.5 : MIT License
 htmlescape 1.1.1 : MIT License
 htmlparser2 v3.10.1 : MIT License
 htmlparser2 v5.0.1 : MIT License
+htmlunit-driver 2.39.0 : Apache License 2.0
 http-errors 1.6.3 : MIT License
 http-errors 1.7.2 : MIT License
 http-errors 1.7.3 : MIT License
@@ -632,7 +645,7 @@ minimatch 3.0.4 : ISC License
 minimist 1.2.5 : MIT License
 mixin-deep 1.3.2 : MIT License
 mkdirp-classic 0.5.3 : MIT License
-mockito-scala 1.1.2 : MIT License
+mockito-scala 1.16.3 : MIT License
 module-deps v6.2.2 : MIT License
 mongo-scala-bson 2.2.0 : Apache License 2.0
 mongo-scala-driver 2.2.0 : Apache License 2.0
@@ -706,12 +719,13 @@ object.entries 1.1.3 : MIT License
 object.map 1.0.1 : MIT License
 object.pick 1.3.0 : MIT License
 object.values 1.1.2 : MIT License
-objenesis 2.6 : Apache License 2.0
+objenesis 3.1 : Apache License 2.0
 on-finished 2.3.0 : MIT License
 on-headers 1.0.2 : MIT License
 opn v5.5.0 : MIT License
 optimism 0.13.1 : MIT License
 org.apiguardian:apiguardian-api 1.0.0 : Apache License 2.0
+org.brotli:dec 0.1.2 : MIT License
 org.junit.jupiter:junit-jupiter-api 5.0.0 : Eclipse Public License 1.0
 org.junit.jupiter:junit-jupiter-engine 5.0.0 : Eclipse Public License 1.0
 org.junit.platform:junit-platform-commons 1.0.0 : Eclipse Public License 1.0
@@ -837,6 +851,7 @@ scala-logging 3.9.2 : Apache License 2.0
 scala-parser-combinators 1.0.4 : BSD 3-clause "New" or "Revised" License
 scala-xml 1.2.0 : Apache License 2.0
 scalacheck 1.14.0 : BSD 3-clause "New" or "Revised" License
+scalacheck-1.14 3.1.4.0 : Apache License 2.0
 scalameter 0.10.1 : BSD 3-clause "New" or "Revised" License
 scalameter-core 0.10.1 : BSD 3-clause "New" or "Revised" License
 scalapb-runtime 0.9.0 : Apache License 2.0
@@ -850,6 +865,9 @@ scheduler 0.20.1 : MIT License
 scodec-bits 1.1.16 : BSD 3-clause "New" or "Revised" License
 scopt 3.7.1 : MIT License
 section-iterator 2.0.0 : MIT License
+selenium-3.141 3.1.3.0 : Apache License 2.0
+selenium-edge-driver 3.12.0 : Apache License 2.0
+selenium-opera-driver 3.12.0 : Apache License 2.0
 senchalabs / connect 3.7.0 : MIT License
 send 0.17.1 : MIT License
 serve-index 1.9.1 : MIT License
@@ -912,6 +930,7 @@ symbol-observable 1.2.0 : MIT License
 symbol-observable 2.0.3 : MIT License
 t-digest 3.1 : Apache License 2.0
 test-interface 1.0 : BSD 3-clause "New" or "Revised" License
+testng-6.7 3.1.4.0 : Apache License 2.0
 through 2.3.8 : MIT License
 through2 2.0.5 : MIT License
 timers-browserify 1.4.2 : (MIT License AND libxml2 License)
@@ -991,7 +1010,7 @@ zen-observable 0.8.15 : MIT License
 Licenses: 
 
 Apache License 2.0
-(Apache Commons Codec 1.14, Apache Commons Exec 1.3, Apache Commons Lang 3.9, Apache Commons Logging 1.2, Apache Commons Math 3.2, Apache Commons Pool 2.6.0, Apache Commons Text 1.4, Apache HttpClient 4.5.3, Apache HttpComponents Core 4.4.6, Awaitility 3.1.6, BSON 3.6.0, Byte Buddy byte-buddy-1.9.7, Caffeine cache 2.8.0, Commons IO 2.5, FindBugs jsr305 3.0.2, Google Android Annotations Library 4.1.1.4, Graphite Integration for Metrics 4.1.2, Guava InternalFutureFailureAccess and InternalFutures 1.0.1, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, Guava: Google Core Libraries for Java 29.0-jre, HikariCP 3.2.0, J2ObjC Annotations 1.3, JCommander Library 1.12, JSONStream 0.10.0, JSONStream 1.3.5, JVM Integration for Metrics 4.1.2, Jackson module: Paranamer 2.8.5, JavaPoet 1.11.1, Jetty :: Asynchronous HTTP Client 9.4.18.v20190429, Jetty :: Servlet Handling 9.4.18.v20190429, Jetty :: Websocket :: API 9.4.18.v20190429, Jetty :: Websocket :: Client 9.4.18.v20190429, Jetty :: Websocket :: Common 9.4.18.v20190429, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Joda Convert 1.8.1, Joda Time 2.9.7, Metrics Core 4.1.2, Metrics Integration with JMX 4.1.2, Mongo Java Driver 3.6.0, MongoDB Asynchronous Driver 3.6.0, Netty Project 4.1.42.Final, Netty Project 4.1.48.Final, Netty/TomcatNative [BoringSSL - Static] 2.0.30.Final, Netty/Transport/Native/Unix/Common 4.1.42.Final, OkHttp 3.9.1, OkIO 1.13.0, RabbitMQ amqp-client 5.5.3, RedisClient 3.10, Selenium 3.12.0, Silencer 1.7.1, SnakeYAML 1.24, TestNG 5.14.10, Toxiproxy Java Client 2.1.3, TypeScript 3.7.4, Xerial SQLite JDBC 3.30.1, Zipkin 1.31.3, Zipkin Reporter: Core 1.0.4, acorn-node 1.8.2, akka-actor 2.6.10, akka-actor-typed 2.6.10, akka-http 10.2.1, akka-http-core 10.2.1, akka-http-spray-json 10.2.1, akka-http-testkit 10.2.1, akka-parsing 10.2.1, akka-protobuf-v3 2.6.10, akka-slf4j 2.6.10, akka-stream 2.6.10, akka-stream-testkit 2.6.10, akka-testkit 2.6.10, anorm 2.5.3, anorm-tokenizer 2.5.3, atob 2.1.2, boopickle 1.3.1, brave 4.6.0, byte-buddy-agent 1.9.7, cats-effect 2.1.4, circe-yaml 0.10.0, com.google.api.grpc:proto-google-common-protos 1.17.0, compilerPlugin 0.9.0, config - com.typesafe:config 1.4.0, core 0.10.0, core 2.3.2, dash-ast 1.0.0, diff 2.0.1, diffson-core 3.1.1, diffson-spray-json 3.1.1, doctrine v3.0.0, error-prone annotations 2.3.4, flyway-core 6.5.0, gatling-app 3.3.1, gatling-charts 3.3.1, gatling-commons 3.3.1, gatling-core 3.3.1, gatling-graphite 3.3.1, gatling-http 3.3.1, gatling-http-client 3.3.1, gatling-jdbc 3.3.1, gatling-jms 3.3.1, gatling-netty-util 3.3.1, gatling-redis 3.3.1, generic 0.10.0, get-assigned-identifiers 1.2.0, google-gson 2.8.2, io.grpc:grpc-api 1.29.0, io.grpc:grpc-context 1.29.0, io.grpc:grpc-core 1.29.0, io.grpc:grpc-netty 1.29.0, io.grpc:grpc-protobuf 1.29.0, io.grpc:grpc-protobuf-lite 1.29.0, io.grpc:grpc-services 1.29.0, io.grpc:grpc-stub 1.29.0, jackson-annotations jackson-annotations-2.12.0, jackson-core 2.12.0, jackson-databind 2.12.0, jackson-module-scala 2.8.5, jawn 0.10.0, jsonpath 0.7.0, lenses 0.9.0, logstash-logback-encoder logstash-logback-encoder-6.3, macro-compat 1.1.1, macro-visit 0.1.1, mongo-scala-bson 2.2.0, mongo-scala-driver 2.2.0, numbers 0.10.0, objenesis 2.6, org.apiguardian:apiguardian-api 1.0.0, org.opentest4j:opentest4j 1.0.0, paiges-core 0.2.1, parboiled 2.1.4, parser 0.10.0, perfmark:perfmark-api 0.19.0, protoc-bridge 0.7.8, quicklens 1.4.12, rxjava 2.2.1, sangria 1.4.2, sangria-marshalling-api 1.0.4, sangria-streaming-api 1.0.0, scala-collection-compat 2.1.6, scala-extensions 0.5.3, scala-logging 3.9.2, scala-xml 1.2.0, scalapb-runtime 0.9.0, scalapb-runtime-grpc 0.9.0, shasum-object 1.0.0, spark-java 2.9.1, spdx-correct.js v3.1.1, spray JSON v1.3.5, ssl-config-core 0.4.2, t-digest 3.1, unbescape 1.1.6.RELEASE, undeclared-identifiers 1.1.3, uuidjs 4.2.6, validate-npm-package-license 3.0.4, wartremover 2.4.10, websocket-driver-node 0.7.4, websocket-extensions 0.1.4)
+(Apache Commons Codec 1.14, Apache Commons Exec 1.3, Apache Commons Lang 3.9, Apache Commons Logging 1.2, Apache Commons Math 3.2, Apache Commons Net 3.6, Apache Commons Pool 2.6.0, Apache Commons Text 1.4, Apache HttpClient rel/v4.5.12, Apache HttpComponents Core 4.4.13, Apache HttpMime 4.5.12, Apache XML Commons 1.4.01, Apache Xalan (Java) 2.7.2, Apache Xerces2 J 2.12.0, Awaitility 3.1.6, BSON 3.6.0, Byte Buddy byte-buddy-1.10.18, Caffeine cache 2.8.0, Commons IO 2.5, FindBugs jsr305 3.0.2, Google Android Annotations Library 4.1.1.4, Graphite Integration for Metrics 4.1.2, Guava InternalFutureFailureAccess and InternalFutures 1.0.1, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, Guava: Google Core Libraries for Java 29.0-jre, HikariCP 3.2.0, HtmlUnit 2.39.0, HtmlUnit CSS Parser 1.5.0, HtmlUnit NekoHtml 2.39.0, J2ObjC Annotations 1.3, JCommander Library 1.12, JSONStream 0.10.0, JSONStream 1.3.5, JVM Integration for Metrics 4.1.2, Jackson module: Paranamer 2.8.5, JavaPoet 1.11.1, Jetty :: Asynchronous HTTP Client 9.4.27.v20200227, Jetty :: Servlet Handling 9.4.18.v20190429, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, Joda Convert 1.8.1, Joda Time 2.9.7, Metrics Core 4.1.2, Metrics Integration with JMX 4.1.2, Mongo Java Driver 3.6.0, MongoDB Asynchronous Driver 3.6.0, Netty Project 4.1.42.Final, Netty Project 4.1.48.Final, Netty/TomcatNative [BoringSSL - Static] 2.0.30.Final, Netty/Transport/Native/Unix/Common 4.1.42.Final, OkHttp 3.11.0, OkIO 1.14.0, RabbitMQ amqp-client 5.5.3, RedisClient 3.10, Selenium 3.12.0, Selenium 3.141.59, Silencer 1.7.1, SnakeYAML 1.24, TestNG 6.7, Toxiproxy Java Client 2.1.3, TypeScript 3.7.4, Xalan Java Serializer 2.7.2, Xerial SQLite JDBC 3.30.1, Zipkin 1.31.3, Zipkin Reporter: Core 1.0.4, acorn-node 1.8.2, akka-actor 2.6.10, akka-actor-typed 2.6.10, akka-http 10.2.1, akka-http-core 10.2.1, akka-http-spray-json 10.2.1, akka-http-testkit 10.2.1, akka-parsing 10.2.1, akka-protobuf-v3 2.6.10, akka-slf4j 2.6.10, akka-stream 2.6.10, akka-stream-testkit 2.6.10, akka-testkit 2.6.10, anorm 2.5.3, anorm-tokenizer 2.5.3, atob 2.1.2, boopickle 1.3.1, brave 4.6.0, byte-buddy-agent 1.10.18, cats-effect 2.1.4, circe-yaml 0.10.0, com.google.api.grpc:proto-google-common-protos 1.17.0, compilerPlugin 0.9.0, config - com.typesafe:config 1.4.0, core 0.10.0, core 2.3.2, dash-ast 1.0.0, diff 2.0.1, diffson-core 3.1.1, diffson-spray-json 3.1.1, doctrine v3.0.0, error-prone annotations 2.3.4, flyway-core 6.5.0, gatling-app 3.3.1, gatling-charts 3.3.1, gatling-commons 3.3.1, gatling-core 3.3.1, gatling-graphite 3.3.1, gatling-http 3.3.1, gatling-http-client 3.3.1, gatling-jdbc 3.3.1, gatling-jms 3.3.1, gatling-netty-util 3.3.1, gatling-redis 3.3.1, generic 0.10.0, get-assigned-identifiers 1.2.0, google-gson 2.8.2, htmlunit-driver 2.39.0, io.grpc:grpc-api 1.29.0, io.grpc:grpc-context 1.29.0, io.grpc:grpc-core 1.29.0, io.grpc:grpc-netty 1.29.0, io.grpc:grpc-protobuf 1.29.0, io.grpc:grpc-protobuf-lite 1.29.0, io.grpc:grpc-services 1.29.0, io.grpc:grpc-stub 1.29.0, jackson-annotations jackson-annotations-2.12.0, jackson-core 2.12.0, jackson-databind 2.12.0, jackson-module-scala 2.8.5, jawn 0.10.0, jsonpath 0.7.0, lenses 0.9.0, logstash-logback-encoder logstash-logback-encoder-6.3, macro-compat 1.1.1, macro-visit 0.1.1, mongo-scala-bson 2.2.0, mongo-scala-driver 2.2.0, numbers 0.10.0, objenesis 3.1, org.apiguardian:apiguardian-api 1.0.0, org.opentest4j:opentest4j 1.0.0, paiges-core 0.2.1, parboiled 2.1.4, parser 0.10.0, perfmark:perfmark-api 0.19.0, protoc-bridge 0.7.8, quicklens 1.4.12, rxjava 2.2.1, sangria 1.4.2, sangria-marshalling-api 1.0.4, sangria-streaming-api 1.0.0, scala-collection-compat 2.1.6, scala-extensions 0.5.3, scala-logging 3.9.2, scala-xml 1.2.0, scalacheck-1.14 3.1.4.0, scalapb-runtime 0.9.0, scalapb-runtime-grpc 0.9.0, selenium-3.141 3.1.3.0, selenium-edge-driver 3.12.0, selenium-opera-driver 3.12.0, shasum-object 1.0.0, spark-java 2.9.1, spdx-correct.js v3.1.1, spray JSON v1.3.5, ssl-config-core 0.4.2, t-digest 3.1, testng-6.7 3.1.4.0, unbescape 1.1.6.RELEASE, undeclared-identifiers 1.1.3, uuidjs 4.2.6, validate-npm-package-license 3.0.4, wartremover 2.4.10, websocket-driver-node 0.7.4, websocket-extensions 0.1.4)
 
 Apache License
 Version 2.0, January 2004
@@ -2809,7 +2828,7 @@ TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
 ---
 
 Eclipse Public License 1.0
-(H2 Database Engine version-1.4.200, JUnit 4.12, Jetty :: Asynchronous HTTP Client 9.4.18.v20190429, Jetty :: Servlet Handling 9.4.18.v20190429, Jetty :: Websocket :: API 9.4.18.v20190429, Jetty :: Websocket :: Client 9.4.18.v20190429, Jetty :: Websocket :: Common 9.4.18.v20190429, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Logback 1.2.3, Logback Classic Module 1.2.3, org.junit.jupiter:junit-jupiter-api 5.0.0, org.junit.jupiter:junit-jupiter-engine 5.0.0, org.junit.platform:junit-platform-commons 1.0.0, org.junit.platform:junit-platform-engine 1.0.0, org.junit.platform:junit-platform-launcher 1.0.0, org.junit.platform:junit-platform-runner 1.0.0, org.junit.platform:junit-platform-suite-api 1.0.0)
+(H2 Database Engine version-1.4.200, JUnit 4.12, Jetty :: Asynchronous HTTP Client 9.4.27.v20200227, Jetty :: Servlet Handling 9.4.18.v20190429, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, Logback 1.2.3, Logback Classic Module 1.2.3, org.junit.jupiter:junit-jupiter-api 5.0.0, org.junit.jupiter:junit-jupiter-engine 5.0.0, org.junit.platform:junit-platform-commons 1.0.0, org.junit.platform:junit-platform-engine 1.0.0, org.junit.platform:junit-platform-launcher 1.0.0, org.junit.platform:junit-platform-runner 1.0.0, org.junit.platform:junit-platform-suite-api 1.0.0)
 
 Eclipse Public License - v 1.0
 ==============================
@@ -8781,33 +8800,6 @@ Permission is hereby granted, free of charge, to any person obtaining
 ---
 
 MIT License
-(Mockito 2.24.0)
-
-The MIT License
-
-Copyright (c) 2007 Mockito contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE
-
----
-
-MIT License
 (JSONStream 0.10.0, JSONStream 1.3.5, through 2.3.8)
 
 The MIT License
@@ -9066,7 +9058,7 @@ OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(@apollo/client 3.3.3, @babel/code-frame 7.10.4, @babel/generator 7.12.5, @babel/helper-annotate-as-pure 7.10.4, @babel/helper-function-name 7.10.4, @babel/helper-get-function-arity 7.10.4, @babel/helper-module-imports 7.12.5, @babel/helper-split-export-declaration 7.11.0, @babel/helper-validator-identifier 7.10.4, @babel/highlight 7.10.4, @babel/parser 7.12.7, @babel/runtime 7.12.5, @babel/template 7.12.7, @babel/traverse 7.12.9, @babel/types 7.12.7, @emotion/unitless 0.7.5, @graphql-typed-document-node/core 3.1.0, @popperjs/core 2.5.4, @types/node 14.0.13, @types/node 14.14.10, @types/react 16.14.2, @types/tmp 0.0.29, @types/warning 3.0.0, @types/zen-observable 0.8.1, @wry/equality 0.3.0, Acorn 7.3.1, Animal Sniffer Annotations 1.18, Cats Free 2.1.1, Cats core 2.1.1, Cats kernel 2.1.1, Cats macros 2.1.1, Checker Qual 3.5.0, Enzyme 1.0.4, Lodash 4.17.20, Modernizr v3.11.4, Moment JavaScript Date Library 2.29.1, PCollections 2.1.3, React from Facebook 17.0.1, React-Redux v7.2.2, SLF4J API Module 1.7.26, Styled Components v5.2.1, Visionmedia Debug 4.3.1, ansi-styles v4.3.0, array.prototype.flat 1.2.4, babel-plugin-styled-components 1.12.0, babel-plugin-syntax-jsx 6.18.0, backo2 1.0.2, browserify-cache-api 3.0.1, browserify-incremental 3.1.1, call-bind 1.0.0, clsx 1.1.1, color-string 1.5.4, crypto-browserify/pbkdf2 v3.1.1, csstype 3.0.5, dom-helpers 5.2.0, dom-serializer 1.1.0, doobie-core 0.9.2, doobie-free 0.9.2, doobie-postgres 0.9.2, elliptic v6.5.3, error v7.2.1, es-abstract 1.17.7, es-abstract 1.18.0-next.1, es-get-iterator 1.1.1, fansi 0.2.5, fast-uuid 0.1, fastparse 2.1.3, fp-ts 2.6.5, fs2-core 2.4.2, fs2-io 2.4.2, function.prototype.name 1.1.3, generics-resolver 3.0.0, get-intrinsic 1.0.1, graphql 15.4.0, graphql-tag 2.11.0, grunt-legacy-log-utils 2.0.1, grunt-open v0.2.4, harthur/color 3.1.3, html-to-react 1.4.5, htmlparser2 v5.0.1, is-bigint 1.0.1, is-buffer v2.0.5, is-callable 1.2.2, is-regex 1.1.1, jwks-rsa 0.11.0, kind-projector 0.9.3, lightning-csv 8.0.3, ljharb/object.assign 4.1.2, macros 0.16.2, mdast-util-from-markdown 0.8.1, micromark 2.10.1, mockito-scala 1.1.2, nearley 2.19.9, node-deep-equal v2.0.5, node-fetch v2.6.1, node-xml2js 0.4.23, object-inspect v1.9.0, object-is 1.1.4, object.entries 1.1.3, object.values 1.1.2, optimism 0.13.1, parse5 3.0.3, parser 0.13.0, path-platform 0.11.15, pprint 0.5.3, ramda v0.27.1, react-autosuggest v10.0.4, react-markdown 5.0.3, react-overlays 4.1.1, react-themeable 1.1.0, react-virtualized v9.22.2, regenerator-runtime 0.13.7, scheduler 0.20.1, scopt 3.7.1, sfm-util 8.0.3, side-channel 1.0.3, sourcecode 0.2.1, string.prototype.trim 1.2.3, string.prototype.trimend 1.0.3, string.prototype.trimstart 1.0.3, subscriptions-transport-ws 0.9.18, symbol-observable 2.0.3, ts-invariant 0.5.1, typescript-collections 1.3.3, uncontrollable 7.1.1, unified 9.2.0, unist-util-is 4.0.4, unist-util-visit 2.0.3, unist-util-visit-parents 3.1.1, vfile 4.2.0, whatwg-fetch 3.5.0, yargs 15.4.1)
+(@apollo/client 3.3.3, @babel/code-frame 7.10.4, @babel/generator 7.12.5, @babel/helper-annotate-as-pure 7.10.4, @babel/helper-function-name 7.10.4, @babel/helper-get-function-arity 7.10.4, @babel/helper-module-imports 7.12.5, @babel/helper-split-export-declaration 7.11.0, @babel/helper-validator-identifier 7.10.4, @babel/highlight 7.10.4, @babel/parser 7.12.7, @babel/runtime 7.12.5, @babel/template 7.12.7, @babel/traverse 7.12.9, @babel/types 7.12.7, @emotion/unitless 0.7.5, @graphql-typed-document-node/core 3.1.0, @popperjs/core 2.5.4, @types/node 14.0.13, @types/node 14.14.10, @types/react 16.14.2, @types/tmp 0.0.29, @types/warning 3.0.0, @types/zen-observable 0.8.1, @wry/equality 0.3.0, Acorn 7.3.1, Animal Sniffer Annotations 1.18, Cats Free 2.1.1, Cats core 2.1.1, Cats kernel 2.1.1, Cats macros 2.1.1, Checker Qual 3.5.0, Enzyme 1.0.4, Lodash 4.17.20, Mockito v3.6.28, Modernizr v3.11.4, Moment JavaScript Date Library 2.29.1, PCollections 2.1.3, React from Facebook 17.0.1, React-Redux v7.2.2, SLF4J API Module 1.7.26, Styled Components v5.2.1, Visionmedia Debug 4.3.1, ansi-styles v4.3.0, array.prototype.flat 1.2.4, babel-plugin-styled-components 1.12.0, babel-plugin-syntax-jsx 6.18.0, backo2 1.0.2, browserify-cache-api 3.0.1, browserify-incremental 3.1.1, call-bind 1.0.0, clsx 1.1.1, color-string 1.5.4, crypto-browserify/pbkdf2 v3.1.1, csstype 3.0.5, dom-helpers 5.2.0, dom-serializer 1.1.0, doobie-core 0.9.2, doobie-free 0.9.2, doobie-postgres 0.9.2, elliptic v6.5.3, error v7.2.1, es-abstract 1.17.7, es-abstract 1.18.0-next.1, es-get-iterator 1.1.1, fansi 0.2.5, fast-uuid 0.1, fastparse 2.1.3, fp-ts 2.6.5, fs2-core 2.4.2, fs2-io 2.4.2, function.prototype.name 1.1.3, generics-resolver 3.0.3, get-intrinsic 1.0.1, graphql 15.4.0, graphql-tag 2.11.0, grunt-legacy-log-utils 2.0.1, grunt-open v0.2.4, harthur/color 3.1.3, html-to-react 1.4.5, htmlparser2 v5.0.1, is-bigint 1.0.1, is-buffer v2.0.5, is-callable 1.2.2, is-regex 1.1.1, jwks-rsa 0.11.0, kind-projector 0.9.3, lightning-csv 8.0.3, ljharb/object.assign 4.1.2, macros 0.16.2, mdast-util-from-markdown 0.8.1, micromark 2.10.1, mockito-scala 1.16.3, nearley 2.19.9, node-deep-equal v2.0.5, node-fetch v2.6.1, node-xml2js 0.4.23, object-inspect v1.9.0, object-is 1.1.4, object.entries 1.1.3, object.values 1.1.2, optimism 0.13.1, org.brotli:dec 0.1.2, parse5 3.0.3, parser 0.13.0, path-platform 0.11.15, pprint 0.5.3, ramda v0.27.1, react-autosuggest v10.0.4, react-markdown 5.0.3, react-overlays 4.1.1, react-themeable 1.1.0, react-virtualized v9.22.2, regenerator-runtime 0.13.7, scheduler 0.20.1, scopt 3.7.1, sfm-util 8.0.3, side-channel 1.0.3, sourcecode 0.2.1, string.prototype.trim 1.2.3, string.prototype.trimend 1.0.3, string.prototype.trimstart 1.0.3, subscriptions-transport-ws 0.9.18, symbol-observable 2.0.3, ts-invariant 0.5.1, typescript-collections 1.3.3, uncontrollable 7.1.1, unified 9.2.0, unist-util-is 4.0.4, unist-util-visit 2.0.3, unist-util-visit-parents 3.1.1, vfile 4.2.0, whatwg-fetch 3.5.0, yargs 15.4.1)
 
 The MIT License
 ===============
@@ -13538,7 +13530,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 Mozilla Public License 2.0
-(H2 Database Engine version-1.4.200, Saxon XSLT and XQuery Processor 9.9.1-5, pureconfig 0.8.0, pureconfig-macros 0.8.0)
+(H2 Database Engine version-1.4.200, HtmlUnit Core JS 2.39.0, Saxon XSLT and XQuery Processor 9.9.1-5, pureconfig 0.8.0, pureconfig-macros 0.8.0)
 
 Mozilla Public License
 Version 2.0
