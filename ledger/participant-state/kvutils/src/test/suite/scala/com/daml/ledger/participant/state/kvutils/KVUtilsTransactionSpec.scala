@@ -26,10 +26,11 @@ import com.daml.lf.value.Value.{
   ValueUnit,
   ValueVariant
 }
+import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
+class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   import KVTest._
 
@@ -180,10 +181,12 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
             )
             (entryId, preExecutionResult) = holderContractId
           } yield {
-            val update = KeyValueConsumption
-              .logEntryToUpdate(entryId, preExecutionResult.successfulLogEntry, Some(recordTime))
-              .head
-            contractIdOfCreateTransaction(update)
+            contractIdOfCreateTransaction(
+              KeyValueConsumption.logEntryToUpdate(
+                entryId,
+                preExecutionResult.successfulLogEntry,
+                Some(recordTime),
+              ))
           }
 
         def preExecuteExerciseReplaceHeldByKey(holderContractId: ContractId)(
@@ -258,8 +261,8 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
           transaction = transaction1,
           submissionSeed = seeds.head)
         (entryId, logEntry) = result
-        update = KeyValueConsumption.logEntryToUpdate(entryId, logEntry).head
-        contractId = contractIdOfCreateTransaction(update)
+        contractId = contractIdOfCreateTransaction(
+          KeyValueConsumption.logEntryToUpdate(entryId, logEntry))
 
         transaction2 <- runSimpleCommand(
           alice,
@@ -467,25 +470,21 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
 
         // Process into updates and verify
         val updates = KeyValueConsumption.logEntryToUpdate(entryId, strippedEntry.build)
-        updates should have length 1
-        updates.head should be(a[Update.TransactionAccepted])
-        val txAccepted = updates.head.asInstanceOf[Update.TransactionAccepted]
-        txAccepted.optSubmitterInfo should be(None)
+        inside(updates) {
+          case Seq(txAccepted: Update.TransactionAccepted) =>
+            txAccepted.optSubmitterInfo should be(None)
+        }
       }
     }
   }
 
-  private def contractIdOfCreateTransaction(update: Update): ContractId =
-    update match {
-      case update: Update.TransactionAccepted =>
-        update.transaction.nodes.values.head match {
-          case create: NodeCreate[ContractId, _] =>
+  private def contractIdOfCreateTransaction(updates: Seq[Update]): ContractId =
+    inside(updates) {
+      case Seq(update: Update.TransactionAccepted) =>
+        inside(update.transaction.nodes.values.toSeq) {
+          case Seq(create: NodeCreate[ContractId, _]) =>
             create.coid
-          case _ =>
-            throw new IllegalArgumentException("Transaction did not start with a create node.")
         }
-      case _ =>
-        throw new IllegalArgumentException("Update was not an accepted transaction.")
     }
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
