@@ -33,8 +33,8 @@ import com.daml.util.ExceptionOps._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.{v1 => lav1}
-import doobie.free.connection
-import doobie.free.connection.ConnectionIO
+import doobie.free.{connection => fconn}
+import fconn.ConnectionIO
 import doobie.postgres.sqlstate.{class23 => postgres_class23}
 import scalaz.OneAnd._
 import scalaz.std.set._
@@ -75,7 +75,7 @@ private class ContractsFetch(
       mat: Materializer,
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] = {
     import cats.instances.list._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps},
-    cats.syntax.functor._, doobie.implicits._, doobie.free.{connection => fc,}
+    cats.syntax.functor._, doobie.implicits._
     // we can fetch for all templateIds on a single acsFollowingAndBoundary
     // by comparing begin offsets; however this is trickier so we don't do it
     // right now -- Stephen / Leo
@@ -85,7 +85,7 @@ private class ContractsFetch(
           .traverse_ {
             fetchAndPersist(jwt, parties, absEnd, _)
           }
-          .as(AbsoluteBookmark(absEnd)), fc.pure(LedgerBegin))
+          .as(AbsoluteBookmark(absEnd)), fconn.pure(LedgerBegin))
     }
 
   }
@@ -107,10 +107,10 @@ private class ContractsFetch(
       contractsIo_(jwt, parties, absEnd, templateId).exceptSql {
         case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
           logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
-          connection.rollback flatMap (_ => loop(maxAttempts - 1))
+          fconn.rollback flatMap (_ => loop(maxAttempts - 1))
         case e @ _ =>
           logger.error(s"contractsIo3 exception: ${e.description}, state: ${e.getSQLState}")
-          connection.raiseError(e)
+          fconn.raiseError(e)
       }
     }
 
@@ -230,7 +230,7 @@ private class ContractsFetch(
             .updateOffset(parties, templateId, newOffset, offsets)
             .map(_ => AbsoluteBookmark(newOffset))
         case LedgerBegin =>
-          connection.pure(LedgerBegin)
+          fconn.pure(LedgerBegin)
       }
     } yield offsetOrError
   }
@@ -431,7 +431,7 @@ private[http] object ContractsFetch {
   private def connectionIOFuture[A](
       fa: Future[A],
   )(implicit ec: ExecutionContext): doobie.ConnectionIO[A] =
-    doobie.free.connection.async[A](k => fa.onComplete(ta => k(ta.toEither)))
+    fconn.async[A](k => fa.onComplete(ta => k(ta.toEither)))
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def insertAndDelete(
