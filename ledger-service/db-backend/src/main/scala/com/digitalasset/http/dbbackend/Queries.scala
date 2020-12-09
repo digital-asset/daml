@@ -251,6 +251,54 @@ object Queries {
     }
   }
 
+  /** Make the smallest number of queries from `queries` that still indicates
+    * which query or queries produced each contract.
+    *
+    * A contract cannot be produced more than once from a given resulting query,
+    * but may be produced more than once from different queries.  In each case, the
+    * `templateId` of the resulting [[DBContract]] is actually the 0-based index
+    * into the `queries` argument that produced the contract.
+    */
+  @silent(" gvs .* never used")
+  private[http] def selectContractsMultiTemplate(
+      parties: OneAnd[Set, String],
+      queries: Seq[(SurrogateTpId, Fragment)])(
+      implicit log: LogHandler,
+      gvs: Get[Vector[String]],
+      pvs: Put[Vector[String]])
+    : Seq[Query0[DBContract[Int, JsValue, JsValue, Vector[String]]]] = {
+    val partyVector = parties.toVector
+    type Ix = Int
+    uniqueSets(queries.zipWithIndex map { case ((tpid, pred), ix) => (tpid, (pred, ix)) }).map {
+      preds: Map[SurrogateTpId, (Fragment, Ix)] =>
+        val predHd +: predTl = preds.toVector
+        val assocedPreds = OneAnd(predHd, predTl).map {
+          case (tpid, (predicate, _)) =>
+            sql"(tpid = $tpid AND (" ++ predicate ++ sql"))"
+        }
+        val unionPred = concatFragment(intersperse(assocedPreds, sql" OR "))
+        val q = sql"""SELECT contract_id, tpid, key, payload, signatories, observers, agreement_text
+                      FROM contract AS c
+                      WHERE (signatories && $partyVector::text[] OR observers && $partyVector::text[])
+                       AND (""" ++ unionPred ++ sql")"
+        q.query[(String, SurrogateTpId, JsValue, JsValue, Vector[String], Vector[String], String)]
+          .map {
+            case (cid, tpid, key, payload, signatories, observers, agreement) =>
+              DBContract(
+                contractId = cid,
+                templateId = preds(tpid)._2,
+                key = key,
+                payload = payload,
+                signatories = signatories,
+                observers = observers,
+                agreementText = agreement)
+          }
+    }
+  }
+
+  private[this] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
+    oaa.copy(tail = oaa.tail.flatMap(Vector(a, _)))
+
   // Like groupBy but split into n maps where n is the longest list under groupBy.
   // Invariant: every element of the result is non-empty
   private[dbbackend] def uniqueSets[A, B](iter: Iterable[(A, B)]): Seq[Map[A, B]] =
