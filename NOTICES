@@ -8,7 +8,7 @@ Distribution: EXTERNAL
 
 Components: 
 
-@apollo/client 3.3.3 : MIT License
+this line has been changed to test the change detection step
 @babel/code-frame 7.10.4 : MIT License
 @babel/generator 7.12.5 : MIT License
 @babel/helper-annotate-as-pure 7.10.4 : MIT License
