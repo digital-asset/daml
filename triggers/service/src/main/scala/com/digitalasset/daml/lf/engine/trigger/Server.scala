@@ -16,13 +16,12 @@ import akka.actor.typed.{ActorRef, Behavior, Scheduler}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.{Directive, Directive1, Route}
+import akka.http.scaladsl.server.{Directive1, Route}
 import akka.http.scaladsl.settings.ServerSettings
-import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
+import akka.http.scaladsl.unmarshalling.Unmarshaller
 import akka.pattern.StatusReply
 import akka.stream.Materializer
 import akka.util.{ByteString, Timeout}
@@ -40,9 +39,8 @@ import com.daml.lf.engine.trigger.Response._
 import com.daml.lf.engine.trigger.TriggerRunner._
 import com.daml.lf.engine.trigger.dao._
 import com.daml.auth.middleware.api.Request.Claims
-import com.daml.auth.middleware.api.Tagged.RefreshToken
 import com.daml.auth.middleware.api.{
-  JsonProtocol => AuthJsonProtocol,
+  Client => AuthClient,
   Request => AuthRequest,
   Response => AuthResponse
 }
@@ -53,191 +51,9 @@ import scalaz.Tag
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
-import scala.collection.concurrent.TrieMap
-import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
-
-case class AuthClientConfig(
-    authMiddlewareUri: Uri,
-    callbackUri: Uri,
-    maxHttpEntityUploadSize: Long,
-    httpEntityUploadTimeout: FiniteDuration,
-)
-object AuthClient {
-  sealed trait AuthorizeResult
-  final case class Authorized(authorization: AuthResponse.Authorize) extends AuthorizeResult
-  object Unauthorized extends AuthorizeResult
-  final case class LoginFailed(loginError: AuthResponse.LoginError) extends AuthorizeResult
-  def apply(config: AuthClientConfig): AuthClient = new AuthClient(config)
-}
-class AuthClient(config: AuthClientConfig) extends StrictLogging {
-  // TODO[AH] Make sure this is bounded in size.
-  private val callbacks: TrieMap[UUID, AuthResponse.Login => Route] = TrieMap()
-
-  /**
-    * Handler for the callback in a login flow.
-    *
-    * Note, a GET request on the `callbackUri` must map to this route.
-    */
-  val callbackHandler: Route =
-    parameters('state.as[UUID]) { requestId =>
-      callbacks.remove(requestId) match {
-        case None => complete(StatusCodes.NotFound)
-        case Some(callback) =>
-          AuthResponse.Login.callbackParameters { callback }
-      }
-    }
-
-  /**
-    * This directive requires authorization for the given claims via the auth middleware.
-    *
-    * Authorization follows the steps defined in `triggers/service/authentication.md`.
-    * First asking for a token on the `/auth` endpoint and redirecting to `/login` if none was returned.
-    * If a login is required then this will store the current continuation
-    * to proceed once the login flow completed and authentication succeeded.
-    *
-    * A route for the [[callbackHandler]] must be configured.
-    */
-  def authorize(claims: AuthRequest.Claims)(
-      implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[AuthClient.AuthorizeResult] = {
-    auth(claims)(ec, system).flatMap {
-      // Authorization successful - pass token to continuation
-      case Some(authorization) => provide(AuthClient.Authorized(authorization))
-      // Authorization failed - login and retry on callback request.
-      case None =>
-        // Ensure that the request is fully uploaded.
-        val timeout = config.httpEntityUploadTimeout
-        val maxBytes = config.maxHttpEntityUploadSize
-        toStrictEntity(timeout, maxBytes).tflatMap { _ =>
-          extractRequestContext.flatMap { ctx =>
-            Directive { inner =>
-              def continue(result: AuthClient.AuthorizeResult) =
-                mapRequestContext(_ => ctx) {
-                  inner(Tuple1(result))
-                }
-              val callback: AuthResponse.Login => Route = {
-                case AuthResponse.LoginSuccess =>
-                  auth(claims)(ec, system) {
-                    case None => continue(AuthClient.Unauthorized)
-                    case Some(authorization) => continue(AuthClient.Authorized(authorization))
-                  }
-                case loginError: AuthResponse.LoginError =>
-                  continue(AuthClient.LoginFailed(loginError))
-              }
-              login(claims, callback)
-            }
-          }
-        }
-    }
-  }
-
-  /**
-    * This directive attempts to obtain an access token from the middleware's auth endpoint for the given claims.
-    *
-    * Forwards the current request's cookies. Completes with 500 on an unexpected response from the auth middleware.
-    *
-    * @return `None` if the request was denied otherwise `Some` access and optionally refresh token.
-    */
-  def auth(claims: AuthRequest.Claims)(
-      implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[AuthResponse.Authorize]] =
-    extract(_.request.headers[headers.Cookie]).flatMap { cookies =>
-      onComplete(requestAuth(claims, cookies)).flatMap {
-        case Success(result) => provide(result)
-        case Failure(ex) =>
-          logger.error(ex.getMessage)
-          complete(
-            errorResponse(
-              StatusCodes.InternalServerError,
-              "Failed to authorize with auth middleware"))
-      }
-    }
-
-  /**
-    * Redirect the client to login with the auth middleware.
-    *
-    * @param callback Will be stored and executed once the login flow completed.
-    */
-  def login(claims: AuthRequest.Claims, callback: AuthResponse.Login => Route): Route = {
-    val requestId = UUID.randomUUID()
-    callbacks.update(requestId, callback)
-    redirect(loginUri(claims, Some(requestId)), StatusCodes.Found)
-  }
-
-  /**
-    * Request authentication/authorization on the auth middleware's auth endpoint.
-    *
-    * @return `None` if the request was denied otherwise `Some` access and optionally refresh token.
-    */
-  def requestAuth(claims: AuthRequest.Claims, cookies: immutable.Seq[headers.Cookie])(
-      implicit ec: ExecutionContext,
-      system: ActorSystem): Future[Option[AuthResponse.Authorize]] =
-    for {
-      response <- Http().singleRequest(
-        HttpRequest(
-          method = HttpMethods.GET,
-          uri = authUri(claims),
-          headers = cookies,
-        ))
-      authorize <- response.status match {
-        case StatusCodes.OK =>
-          import AuthJsonProtocol._
-          Unmarshal(response.entity).to[AuthResponse.Authorize].map(Some(_))
-        case StatusCodes.Unauthorized =>
-          Future.successful(None)
-        case status =>
-          Unmarshal(response).to[String].flatMap { msg =>
-            Future.failed(
-              new RuntimeException(s"Failed to authorize with middleware ($status): $msg"))
-          }
-      }
-    } yield authorize
-
-  /**
-    * Request a token refresh on the auth middleware's refresh endpoint.
-    */
-  def requestRefresh(refreshToken: RefreshToken)(
-      implicit ec: ExecutionContext,
-      system: ActorSystem): Future[AuthResponse.Authorize] =
-    for {
-      requestEntity <- {
-        import AuthJsonProtocol._
-        Marshal(AuthRequest.Refresh(refreshToken))
-          .to[RequestEntity]
-      }
-      response <- Http().singleRequest(
-        HttpRequest(
-          method = HttpMethods.POST,
-          uri = refreshUri,
-          entity = requestEntity,
-        ))
-      authorize <- response.status match {
-        case StatusCodes.OK =>
-          import AuthJsonProtocol._
-          Unmarshal(response.entity).to[AuthResponse.Authorize]
-        case status =>
-          Unmarshal(response).to[String].flatMap { msg =>
-            Future.failed(new RuntimeException(s"Failed to refresh token ($status): $msg"))
-          }
-      }
-    } yield authorize
-
-  private def authUri(claims: AuthRequest.Claims): Uri =
-    config.authMiddlewareUri
-      .withPath(Path./("auth"))
-      .withQuery(AuthRequest.Auth(claims).toQuery)
-
-  private def loginUri(claims: AuthRequest.Claims, requestId: Option[UUID]): Uri =
-    config.authMiddlewareUri
-      .withPath(Path./("login"))
-      .withQuery(AuthRequest.Login(config.callbackUri, claims, requestId.map(_.toString)).toQuery)
-
-  private val refreshUri: Uri = config.authMiddlewareUri
-    .withPath(Path./("refresh"))
-}
 
 class Server(
     authClient: Option[AuthClient],
@@ -657,7 +473,7 @@ object Server {
       case NoAuth => None
       case AuthMiddleware(uri) =>
         Some(
-          AuthClient(AuthClientConfig(
+          AuthClient(AuthClient.Config(
             authMiddlewareUri = uri,
             // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
             callbackUri = Uri().withScheme("http").withAuthority(host, port).withPath(Path./("cb")),
