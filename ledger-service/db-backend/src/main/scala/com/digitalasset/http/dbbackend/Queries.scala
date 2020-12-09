@@ -11,7 +11,9 @@ import doobie.implicits._
 import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
+import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
+import scalaz.std.stream.unfold
 import scalaz.std.AllInstances._
 import spray.json._
 import cats.instances.list._
@@ -248,6 +250,21 @@ object Queries {
           agreementText = agreement)
     }
   }
+
+  // Like groupBy but split into n maps where n is the longest list under groupBy.
+  // Invariant: every element of the result is non-empty
+  private[dbbackend] def uniqueSets[A, B](iter: Iterable[(A, B)]): Seq[Map[A, B]] =
+    unfold(iter.groupBy(_._1).transform((_, i) => i.toList): Map[A, List[(_, B)]]) { m =>
+      // invariant: every value of m is non-empty
+      m.nonEmpty option {
+        val hd = m transform { (_, abs) =>
+          val (_, b) +: _ = abs
+          b
+        }
+        val tl = m collect { case (a, _ +: (tl @ (_ +: _))) => (a, tl) }
+        (hd, tl)
+      }
+    }
 
   private[http] def fetchById(
       parties: OneAnd[Set, String],
