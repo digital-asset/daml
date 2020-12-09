@@ -220,7 +220,8 @@ private[lf] object Pretty {
       case ScenarioLedger.Commit(txId, rtx, optLoc) =>
         val children =
           intercalate(line + line, rtx.transaction.roots.toList.map(prettyEventInfo(l, txId)))
-        text("TX") & char('#') + str(txId.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) /
+        text("TX") & char('#') + str(txId.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) & text(
+          "version:") & str(rtx.transaction.version.protoValue) /
           children
       case ScenarioLedger.PassTime(dt) =>
         "pass" &: str(dt)
@@ -234,7 +235,7 @@ private[lf] object Pretty {
 
   def prettyVersionedKeyWithMaintainers(key: KeyWithMaintainers[Tx.Value[ContractId]]): Doc =
     // the maintainers are induced from the key -- so don't clutter
-    prettyVersionedValue(false)(key.key)
+    prettyValue(false)(key.key.value)
 
   def prettyEventInfo(l: ScenarioLedger, txId: TransactionId)(nodeId: NodeId): Doc = {
     def arrowRight(d: Doc) = text("└─>") & d
@@ -263,7 +264,7 @@ private[lf] object Pretty {
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /
-          (text("    ") + text("with") & prettyVersionedValue(false)(ex.chosenValue) / children)
+          (text("    ") + text("with") & prettyValue(false)(ex.chosenValue.value) / children)
             .nested(4)
       case lbk: NodeLookupByKey[ContractId, Tx.Value[ContractId]] =>
         text("lookup by key") & prettyIdentifier(lbk.templateId) /
@@ -308,7 +309,7 @@ private[lf] object Pretty {
         case None => text("")
         case Some(nid) => meta("archived by" &: prettyEventId(nid))
       }
-    prettyEventId(eventId) / stack(
+    prettyEventId(eventId) & text("version:") & str(ni.node.version.protoValue) / stack(
       Seq(ppArchivedBy, ppReferencedBy, ppDisclosedTo, arrowRight(ppNode))
         .filter(_.nonEmpty),
     )
@@ -323,7 +324,7 @@ private[lf] object Pretty {
 
   def prettyVersionedContractInst(coinst: ContractInst[Tx.Value[ContractId]]): Doc =
     (prettyIdentifier(coinst.template) / text("with:") &
-      prettyVersionedValue(false)(coinst.arg)).nested(4)
+      prettyValue(false)(coinst.arg.value)).nested(4)
 
   def prettyTypeConName(tycon: TypeConName): Doc =
     text(tycon.qualifiedName.toString) + char('@') + prettyPackageId(tycon.packageId)
@@ -346,7 +347,7 @@ private[lf] object Pretty {
     text(id.qualifiedName.toString) + char('@') + prettyPackageId(id.packageId)
 
   def prettyVersionedValue(verbose: Boolean)(v: Tx.Value[ContractId]): Doc =
-    prettyValue(verbose)(v.value) & text("value-version: ") + text(v.version.protoValue)
+    prettyValue(verbose)(v.value)
 
   // Pretty print a value. If verbose then the top-level value is printed with type constructor
   // if possible.
