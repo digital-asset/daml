@@ -152,11 +152,7 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
                 }
               }
             )
-            val uri = config.authMiddlewareUri
-              .withPath(Path./("login"))
-              .withQuery(
-                AuthRequest.Login(config.callbackUri, claims, Some(requestId.toString)).toQuery)
-            ctx.redirect(uri, StatusCodes.Found)
+            ctx.redirect(loginUri(claims, Some(requestId)), StatusCodes.Found)
           }
         }
     }
@@ -174,9 +170,7 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
       response <- Http().singleRequest(
         HttpRequest(
           method = HttpMethods.GET,
-          uri = config.authMiddlewareUri
-            .withPath(Path./("auth"))
-            .withQuery(AuthRequest.Auth(claims).toQuery),
+          uri = authUri(claims),
           headers = cookies,
         ))
       authorize <- response.status match {
@@ -214,8 +208,7 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
       response <- Http().singleRequest(
         HttpRequest(
           method = HttpMethods.POST,
-          uri = config.authMiddlewareUri
-            .withPath(Path./("refresh")),
+          uri = refreshUri,
           entity = requestEntity,
         ))
       authorize <- response.status match {
@@ -232,6 +225,19 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
         accessToken = AccessToken(authorize.accessToken),
         refreshToken = RefreshToken.subst(authorize.refreshToken),
       )
+
+  private def authUri(claims: AuthRequest.Claims): Uri =
+    config.authMiddlewareUri
+      .withPath(Path./("auth"))
+      .withQuery(AuthRequest.Auth(claims).toQuery)
+
+  private def loginUri(claims: AuthRequest.Claims, requestId: Option[UUID]): Uri =
+    config.authMiddlewareUri
+      .withPath(Path./("login"))
+      .withQuery(AuthRequest.Login(config.callbackUri, claims, requestId.map(_.toString)).toQuery)
+
+  private val refreshUri: Uri = config.authMiddlewareUri
+    .withPath(Path./("refresh"))
 }
 
 class Server(
