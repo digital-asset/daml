@@ -9,14 +9,16 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.validator.ArgumentMatchers.anyExecutionContext
 import com.daml.ledger.validator.LedgerStateOperations.Key
 import com.daml.ledger.validator.RawToDamlLedgerStateReaderAdapterSpec._
 import com.daml.ledger.validator.TestHelper.{anInvalidEnvelope, makePartySubmission}
+import com.daml.ledger.validator.reading.LedgerStateReader
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 class RawToDamlLedgerStateReaderAdapterSpec
     extends AsyncWordSpec
@@ -35,7 +37,7 @@ class RawToDamlLedgerStateReaderAdapterSpec
       val instance =
         new RawToDamlLedgerStateReaderAdapter(mockReader, DefaultStateKeySerializationStrategy)
 
-      instance.readState(Seq(aDamlStateKey())).map { actual =>
+      instance.read(Seq(aDamlStateKey())).map { actual =>
         verify(mockReader, times(1)).read(Seq(expectedKey))
         actual shouldBe Seq(Some(expectedValue))
       }
@@ -48,7 +50,7 @@ class RawToDamlLedgerStateReaderAdapterSpec
       val instance =
         new RawToDamlLedgerStateReaderAdapter(mockReader, DefaultStateKeySerializationStrategy)
 
-      instance.readState(Seq(aDamlStateKey())).failed.map { actual =>
+      instance.read(Seq(aDamlStateKey())).failed.map { actual =>
         actual shouldBe a[RuntimeException]
         actual.getLocalizedMessage should include("Opening enveloped")
       }
@@ -62,7 +64,7 @@ class RawToDamlLedgerStateReaderAdapterSpec
       val instance =
         new RawToDamlLedgerStateReaderAdapter(mockReader, DefaultStateKeySerializationStrategy)
 
-      instance.readState(Seq(aDamlStateKey())).failed.map { actual =>
+      instance.read(Seq(aDamlStateKey())).failed.map { actual =>
         actual shouldBe a[RuntimeException]
         actual.getLocalizedMessage should include("Opening enveloped")
       }
@@ -71,11 +73,6 @@ class RawToDamlLedgerStateReaderAdapterSpec
 }
 
 object RawToDamlLedgerStateReaderAdapterSpec {
-
-  import ArgumentMatchersSugar._
-
-  private def anyExecutionContext = any[ExecutionContext]
-
   private def aDamlStateKey(): DamlStateKey =
     DamlStateKey.newBuilder
       .setContractId("aContractId")

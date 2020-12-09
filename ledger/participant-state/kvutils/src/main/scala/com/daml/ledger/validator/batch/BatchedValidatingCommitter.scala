@@ -10,8 +10,9 @@ import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.ledger.validator.caching.{CacheUpdatePolicy, ImmutablesOnlyCacheUpdatePolicy}
 import com.daml.ledger.validator._
+import com.daml.ledger.validator.caching.{CacheUpdatePolicy, ImmutablesOnlyCacheUpdatePolicy}
+import com.daml.ledger.validator.reading.DamlLedgerStateReader
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
