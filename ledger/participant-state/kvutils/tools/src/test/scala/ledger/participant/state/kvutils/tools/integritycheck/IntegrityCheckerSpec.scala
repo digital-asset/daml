@@ -7,14 +7,17 @@ import java.nio.file.Paths
 
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.Builders._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import org.mockito.ArgumentMatchers._
-import org.mockito.MockitoSugar
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-final class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with MockitoSugar {
+final class IntegrityCheckerSpec
+    extends AsyncWordSpec
+    with Matchers
+    with MockitoSugar
+    with ArgumentMatchersSugar {
   "compareSameSizeWriteSets" should {
     "return None in case strategy cannot explain difference" in {
       val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
