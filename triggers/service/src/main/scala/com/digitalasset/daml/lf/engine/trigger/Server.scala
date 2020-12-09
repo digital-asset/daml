@@ -174,6 +174,40 @@ class AuthClient(config: AuthClientConfig) extends StrictLogging {
         }
     }
   }
+
+  /**
+    * Request a token refresh on the auth middleware's refresh endpoint.
+    */
+  def requestRefresh(refreshToken: RefreshToken)(
+      implicit ec: ExecutionContext,
+      system: ActorSystem): Future[AuthClient.Authorization] =
+    for {
+      requestEntity <- {
+        import AuthJsonProtocol._
+        Marshal(AuthRequest.Refresh(RefreshToken.unwrap(refreshToken)))
+          .to[RequestEntity]
+      }
+      response <- Http().singleRequest(
+        HttpRequest(
+          method = HttpMethods.POST,
+          uri = config.authMiddlewareUri
+            .withPath(Path./("refresh")),
+          entity = requestEntity,
+        ))
+      authorize <- response.status match {
+        case StatusCodes.OK =>
+          import AuthJsonProtocol._
+          Unmarshal(response.entity).to[AuthResponse.Authorize]
+        case status =>
+          Unmarshal(response).to[String].flatMap { msg =>
+            Future.failed(new RuntimeException(s"Failed to refresh token ($status): $msg"))
+          }
+      }
+    } yield
+      Authorization(
+        accessToken = AccessToken(authorize.accessToken),
+        refreshToken = RefreshToken.subst(authorize.refreshToken),
+      )
 }
 
 class Server(
@@ -680,40 +714,20 @@ object Server {
           .getRunningTrigger(triggerInstance)
           .flatMap(getOrFail(_, new RuntimeException(s"Unknown trigger $triggerInstance")))
         // Request a token refresh
-        authUri <- getOrFail(authConfig match {
-          case AuthMiddleware(uri) => Some(uri)
-          case _ => None
-        }, new RuntimeException("Cannot refresh token without authorization service"))
+        client <- getOrFail(
+          authClient,
+          new RuntimeException("Cannot refresh token without authorization service"))
         refreshToken <- getOrFail(
           runningTrigger.triggerRefreshToken,
           new RuntimeException(s"No refresh token for $triggerInstance"))
-        requestEntity <- {
-          import AuthJsonProtocol._
-          Marshal(AuthRequest.Refresh(RefreshToken.unwrap(refreshToken)))
-            .to[RequestEntity]
-        }
-        response <- Http().singleRequest(
-          HttpRequest(
-            method = HttpMethods.POST,
-            uri = authUri.withPath(Path./("refresh")),
-            entity = requestEntity,
-          ))
-        authorize <- response.status match {
-          case StatusCodes.OK =>
-            import AuthJsonProtocol._
-            Unmarshal(response.entity).to[AuthResponse.Authorize]
-          case status =>
-            Unmarshal(response).to[String].flatMap { msg =>
-              Future.failed(new RuntimeException(s"Failed to refresh token ($status): $msg"))
-            }
-        }
+        authorization <- client.requestRefresh(refreshToken)
         // Update the tokens in the trigger db
-        accessToken = AccessToken(authorize.accessToken)
-        refreshToken = RefreshToken.subst(authorize.refreshToken)
-        _ <- dao.updateRunningTriggerToken(triggerInstance, accessToken, refreshToken)
+        newAccessToken = authorization.accessToken
+        newRefreshToken = authorization.refreshToken
+        _ <- dao.updateRunningTriggerToken(triggerInstance, newAccessToken, newRefreshToken)
       } yield
         runningTrigger
-          .copy(triggerAccessToken = Some(accessToken), triggerRefreshToken = refreshToken)
+          .copy(triggerAccessToken = Some(newAccessToken), triggerRefreshToken = newRefreshToken)
     }
 
     // The server running state.
