@@ -20,6 +20,7 @@ module DA.Daml.Helper.Util
   , getLogbackArg
   , waitForConnectionOnPort
   , waitForHttpServer
+  , tokenFor
   ) where
 
 import Control.Exception.Safe
@@ -33,15 +34,21 @@ import qualified Network.HTTP.Types as HTTP
 import Network.Socket
 import System.Directory
 import System.FilePath
+import System.IO
+import System.Info.Extra
 import System.Process (showCommandForUser, terminateProcess)
 import System.Process.Typed
-import System.Info.Extra
-import System.IO
+import qualified Web.JWT as JWT
+import qualified Data.Aeson as A
+import qualified Data.HashMap.Strict as HashMap
+import qualified Data.Map as Map
+import qualified Data.Text.Lazy as TL
 
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util hiding (fromMaybeM)
+import qualified DA.Ledger as L
 
 findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
 findDamlProjectRoot = findAscendantWithFile projectConfigName
@@ -197,3 +204,21 @@ waitForHttpServer sleep url headers = do
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)
 
+tokenFor :: [T.Text] -> T.Text -> T.Text
+tokenFor parties ledgerId =
+  JWT.encodeSigned
+    (JWT.HMACSecret "secret")
+    mempty
+    mempty
+      { JWT.unregisteredClaims =
+          JWT.ClaimsMap $
+          Map.fromList
+            [ ( "https://daml.com/ledger-api"
+              , A.Object $
+                HashMap.fromList
+                  [ ("actAs", A.toJSON parties)
+                  , ("readAs", A.toJSON parties)
+                  , ("ledgerId", A.String ledgerId)
+                  ])
+            ]
+      }

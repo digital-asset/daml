@@ -31,12 +31,11 @@ import System.Info.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import qualified Web.JWT as JWT
 
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.FreePort (getFreePort, socketHints)
 import DA.Daml.Assistant.IntegrationTestUtils
-import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer)
+import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer, tokenFor)
 -- import DA.PortFile
 import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent)
@@ -64,23 +63,7 @@ main = do
         ] $ defaultMain (tests tmpDir))
 
 hardcodedToken :: T.Text
-hardcodedToken =
-    JWT.encodeSigned
-        (JWT.HMACSecret "secret")
-        mempty
-        mempty
-            { JWT.unregisteredClaims =
-                  JWT.ClaimsMap $
-                  Map.fromList
-                      [ ( "https://daml.com/ledger-api"
-                        , Aeson.Object $
-                          HashMap.fromList
-                              [ ("actAs", Aeson.toJSON ["Alice" :: T.Text])
-                              , ("ledgerId", "MyLedger")
-                              , ("applicationId", "foobar")
-                              ])
-                      ]
-            }
+hardcodedToken = tokenFor ["Alice"] "MyLedger"
 
 authorizationHeaders :: RequestHeaders
 authorizationHeaders = [("Authorization", "Bearer " <> T.encodeUtf8 hardcodedToken)]

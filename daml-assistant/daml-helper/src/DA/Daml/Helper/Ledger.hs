@@ -32,7 +32,6 @@ import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
 import Data.Map.Strict (Map)
-import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Data.String (IsString, fromString)
@@ -50,7 +49,6 @@ import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Process.Typed
-import qualified Web.JWT as JWT
 
 import Com.Daml.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
 import DA.Daml.Compiler.Dar (createArchive, createDarFile)
@@ -61,7 +59,6 @@ import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 import DA.Daml.Package.Config (PackageSdkVersion(..))
 import DA.Daml.Project.Util (fromMaybeM)
 import qualified DA.Ledger as L
-import DA.Ledger (Party(..), PartyDetails(..))
 import qualified SdkVersion
 
 data LedgerApi
@@ -227,11 +224,11 @@ runLedgerListParties flags (JsonFlag json) = do
     if json then do
         TL.putStrLn . encodeToLazyText . A.toJSON $
             [ A.object
-                [ "party" .= TL.toStrict (unParty party)
+                [ "party" .= TL.toStrict (L.unParty party)
                 , "display_name" .= TL.toStrict displayName
                 , "is_local" .= isLocal
                 ]
-            | PartyDetails {..} <- xs
+            | L.PartyDetails {..} <- xs
             ]
     else if null xs then
         putStrLn "no parties are known"
@@ -324,23 +321,23 @@ downloadPackage args pid = do
     convPid :: LF.PackageId -> L.PackageId
     convPid (LF.PackageId text) = L.PackageId $ TL.fromStrict text
 
-listParties :: LedgerArgs -> IO [PartyDetails]
+listParties :: LedgerArgs -> IO [L.PartyDetails]
 listParties args =
   case api args of
     Grpc -> runWithLedgerArgs args L.listKnownParties
     HttpJson -> httpJsonRequest args "GET" "/v1/parties" id
 
-lookupParty :: LedgerArgs -> String -> IO (Maybe Party)
+lookupParty :: LedgerArgs -> String -> IO (Maybe L.Party)
 lookupParty args name = do
     xs <- listParties args
     let text = TL.pack name
-    let pred PartyDetails{displayName,party} = if text == displayName then Just party else Nothing
+    let pred L.PartyDetails{displayName,party} = if text == displayName then Just party else Nothing
     return $ firstJust pred xs
 
-allocateParty :: LedgerArgs -> String -> IO Party
+allocateParty :: LedgerArgs -> String -> IO L.Party
 allocateParty args name = do
   let text = TL.pack name
-  PartyDetails {party} <-
+  L.PartyDetails {party} <-
     case api args of
       Grpc ->
         runWithLedgerArgs args $
@@ -349,27 +346,6 @@ allocateParty args name = do
         httpJsonRequest args "POST" "/v1/parties/allocate" $
         setRequestBodyJSON $ AllocatePartyRequest {identifierHint = text, displayName = text}
   return party
-
-tokenFor :: [L.Party] -> L.LedgerId -> L.Token
-tokenFor parties ledgerId =
-  L.Token $
-  T.unpack $
-  JWT.encodeSigned
-    (JWT.HMACSecret "secret")
-    mempty
-    mempty
-      { JWT.unregisteredClaims =
-          JWT.ClaimsMap $
-          Map.fromList
-            [ ( "https://daml.com/ledger-api"
-              , A.Object $
-                HashMap.fromList
-                  [ ("actAs", A.toJSON $ map (TL.toStrict . L.unParty) parties)
-                  , ("readAs", A.toJSON $ map (TL.toStrict . L.unParty) parties)
-                  , ("ledgerId", A.String $ TL.toStrict $ L.unLedgerId ledgerId)
-                  ])
-            ]
-      }
 
 runLedgerReset :: LedgerFlags -> IO ()
 runLedgerReset flags = do
@@ -385,7 +361,12 @@ reset args =
         parties <- map L.party <$> L.listKnownParties
         unless (null parties) $ do
           ledgerId <- L.getLedgerIdentity
-          L.setToken (tokenFor parties ledgerId) $ do
+          L.setToken
+            (L.Token $
+             T.unpack $
+             tokenFor
+               [TL.toStrict $ L.unParty p | p <- parties]
+               (TL.toStrict $ L.unLedgerId ledgerId)) $ do
             activeContracts <-
               L.getActiveContracts
                 ledgerId
@@ -447,20 +428,20 @@ runLedgerNavigator flags remainingArguments = do
             exitWith exitCode
 
   where
-    navigatorConfig :: [PartyDetails] -> T.Text
+    navigatorConfig :: [L.PartyDetails] -> T.Text
     navigatorConfig partyDetails = T.unlines . concat $
         [ ["users", "  {"]
         , [ T.concat
             [ "    "
             , T.pack . show $
                 if TL.null displayName
-                    then unParty party
+                    then L.unParty party
                     else displayName
             , " { party = "
-            , T.pack (show (unParty party))
+            , T.pack (show (L.unParty party))
             , " }"
             ]
-          | PartyDetails{..} <- partyDetails
+          | L.PartyDetails{..} <- partyDetails
           ]
         , ["  }"]
         ]
