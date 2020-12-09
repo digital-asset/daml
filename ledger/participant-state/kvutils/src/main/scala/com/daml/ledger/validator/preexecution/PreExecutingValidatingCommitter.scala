@@ -14,7 +14,11 @@ import com.daml.ledger.validator.caching.{
   CacheUpdatePolicy,
   CachingDamlLedgerStateReaderWithFingerprints
 }
-import com.daml.ledger.validator.{LedgerStateAccess, StateKeySerializationStrategy}
+import com.daml.ledger.validator.{
+  LedgerStateAccess,
+  LedgerStateOperationsReader,
+  StateKeySerializationStrategy
+}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.timer.RetryStrategy
 
@@ -68,9 +72,8 @@ class PreExecutingValidatingCommitter[LogResult](
               CachingDamlLedgerStateReaderWithFingerprints(
                 stateValueCache,
                 cacheUpdatePolicy,
-                new LedgerStateReaderWithFingerprintsFromValues(
-                  ledgerStateOperations,
-                  valueToFingerprint),
+                new LedgerStateOperationsReader(ledgerStateOperations)
+                  .mapValues(value => value -> valueToFingerprint(value)),
                 keySerializationStrategy,
               )
             )
