@@ -59,6 +59,8 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 class Server(
+    maxHttpEntityUploadSize: Long,
+    httpEntityUploadTimeout: FiniteDuration,
     authConfig: AuthConfig,
     triggerDao: RunningTriggerDao,
     val logTriggerStatus: (UUID, String) => Unit)(
@@ -268,40 +270,43 @@ class Server(
             }
           }
         }
-        Directive { inner =>
-          auth {
-            // Authorization successful - pass token to continuation
-            case Some(authorization) => inner(Tuple1(Some(authorization)))
-            // Authorization failed - login and retry on callback request.
-            case None => { ctx =>
-              val requestId = UUID.randomUUID()
-              authCallbacks.update(
-                requestId, {
-                  auth {
-                    case None => {
-                      // Authorization failed after login - respond with 401
-                      // TODO[AH] Add WWW-Authenticate header
-                      complete(errorResponse(StatusCodes.Unauthorized))
-                    }
-                    case Some(authorization) =>
-                      // Authorization successful after login - use old request context and pass token to continuation.
-                      mapRequestContext(_ => ctx) {
-                        inner(Tuple1(Some(authorization)))
+        auth.flatMap {
+          // Authorization successful - pass token to continuation
+          case Some(authorization) => provide(Some(authorization))
+          // Authorization failed - login and retry on callback request.
+          case None =>
+            // Ensure that the request is fully uploaded.
+            toStrictEntity(httpEntityUploadTimeout, maxHttpEntityUploadSize).tflatMap { _ =>
+              Directive { inner => ctx =>
+                val requestId = UUID.randomUUID()
+                authCallbacks.update(
+                  requestId, {
+                    auth {
+                      case None => {
+                        // Authorization failed after login - respond with 401
+                        // TODO[AH] Add WWW-Authenticate header
+                        complete(errorResponse(StatusCodes.Unauthorized))
                       }
+                      case Some(authorization) =>
+                        // Authorization successful after login - use old request context and pass token to continuation.
+                        mapRequestContext(_ => ctx) {
+                          inner(Tuple1(Some(authorization)))
+                        }
+                    }
                   }
-                }
-              )
-              // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
-              val callbackUri = Uri()
-                .withScheme(ctx.request.uri.scheme)
-                .withAuthority(ctx.request.uri.authority)
-                .withPath(Path./("cb"))
-              val uri = authUri
-                .withPath(Path./("login"))
-                .withQuery(AuthRequest.Login(callbackUri, claims, Some(requestId.toString)).toQuery)
-              ctx.redirect(uri, StatusCodes.Found)
+                )
+                // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
+                val callbackUri = Uri()
+                  .withScheme(ctx.request.uri.scheme)
+                  .withAuthority(ctx.request.uri.authority)
+                  .withPath(Path./("cb"))
+                val uri = authUri
+                  .withPath(Path./("login"))
+                  .withQuery(
+                    AuthRequest.Login(callbackUri, claims, Some(requestId.toString)).toQuery)
+                ctx.redirect(uri, StatusCodes.Found)
+              }
             }
-          }
         }
     }
 
@@ -432,27 +437,32 @@ class Server(
       // upload a DAR as a multi-part form request with a single field called
       // "dar".
       post {
-        fileUpload("dar") {
-          case (_, byteSource) =>
-            val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
-            onSuccess(byteStringF) {
-              byteString =>
-                val inputStream = new ByteArrayInputStream(byteString.toArray)
-                DarReader()
-                  .readArchive("package-upload", new ZipInputStream(inputStream)) match {
-                  case Failure(err) =>
-                    complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
-                  case Success(dar) =>
-                    onComplete(addDar(dar)) {
-                      case Failure(err: ParseError) =>
-                        complete(errorResponse(StatusCodes.UnprocessableEntity, err.description))
-                      case Failure(exception) =>
-                        complete(
-                          errorResponse(StatusCodes.InternalServerError, exception.description))
-                      case Success(()) =>
-                        val mainPackageId =
-                          JsObject(("mainPackageId", dar.main._1.name.toJson))
-                        complete(successResponse(mainPackageId))
+        val claims = Claims(admin = true)
+        authorize(claims)(ec, system) {
+          _ =>
+            fileUpload("dar") {
+              case (_, byteSource) =>
+                val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
+                onSuccess(byteStringF) {
+                  byteString =>
+                    val inputStream = new ByteArrayInputStream(byteString.toArray)
+                    DarReader()
+                      .readArchive("package-upload", new ZipInputStream(inputStream)) match {
+                      case Failure(err) =>
+                        complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
+                      case Success(dar) =>
+                        onComplete(addDar(dar)) {
+                          case Failure(err: ParseError) =>
+                            complete(
+                              errorResponse(StatusCodes.UnprocessableEntity, err.description))
+                          case Failure(exception) =>
+                            complete(
+                              errorResponse(StatusCodes.InternalServerError, exception.description))
+                          case Success(()) =>
+                            val mainPackageId =
+                              JsObject(("mainPackageId", dar.main._1.name.toJson))
+                            complete(successResponse(mainPackageId))
+                        }
                     }
                 }
             }
@@ -528,6 +538,8 @@ object Server {
   def apply(
       host: String,
       port: Int,
+      maxHttpEntityUploadSize: Long,
+      httpEntityUploadTimeout: FiniteDuration,
       authConfig: AuthConfig,
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
@@ -548,11 +560,21 @@ object Server {
     val (dao, server, initializeF): (RunningTriggerDao, Server, Future[Unit]) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
-        val server = new Server(authConfig, dao, logTriggerStatus)
+        val server = new Server(
+          maxHttpEntityUploadSize,
+          httpEntityUploadTimeout,
+          authConfig,
+          dao,
+          logTriggerStatus)
         (dao, server, Future.successful(()))
       case Some(c) =>
         val dao = DbTriggerDao(c)
-        val server = new Server(authConfig, dao, logTriggerStatus)
+        val server = new Server(
+          maxHttpEntityUploadSize,
+          httpEntityUploadTimeout,
+          authConfig,
+          dao,
+          logTriggerStatus)
         val initialize = for {
           _ <- dao.initialize
           packages <- dao.readPackages

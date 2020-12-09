@@ -814,8 +814,8 @@ yarn_install(
         "eslint/index.bzl": "def eslint_test(*args, **kwargs):\n    pass",
         "jest-cli/BUILD.bazel": 'exports_files(["index.bzl"])',
         "jest-cli/index.bzl": "def jest_test(*args, **kwargs):\n    pass",
-        "typescript/BUILD.bazel": 'exports_files(["index.bzl"])',
-        "typescript/index.bzl": "def tsc(*args, **kwargs):\n    pass",
+        "@bazel/typescript/BUILD.bazel": 'exports_files(["index.bzl"])',
+        "@bazel/typescript/index.bzl": "def ts_project(*args, **kwargs):\n    pass",
     },
 )
 

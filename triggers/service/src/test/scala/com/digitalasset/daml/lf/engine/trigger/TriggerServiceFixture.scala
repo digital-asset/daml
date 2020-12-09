@@ -458,6 +458,8 @@ trait TriggerServiceFixture
               r <- ServiceMain.startServer(
                 host.getHostName,
                 lock.port.value,
+                ServiceConfig.DefaultMaxHttpEntityUploadSize,
+                ServiceConfig.DefaultHttpEntityUploadTimeout,
                 authConfig,
                 ledgerConfig,
                 restartConfig,

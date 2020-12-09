@@ -142,7 +142,7 @@ trait AbstractTriggerServiceTest
       uri = uri.withPath(Uri.Path(s"/v1/packages")),
       entity = multipartForm.toEntity
     )
-    Http().singleRequest(req)
+    httpRequestFollow(req)
   }
 
   def responseBodyToString(resp: HttpResponse): Future[String] = {
@@ -562,6 +562,14 @@ trait AbstractTriggerServiceTestAuthMiddleware
         resp <- stopTrigger(uri, triggerId, alice)
         _ <- resp.status shouldBe StatusCodes.Forbidden
       } yield succeed
+  }
+
+  it should "forbid a non-authorized user to upload a DAR" in withTriggerService(Nil) { uri: Uri =>
+    authServer.revokeAdmin()
+    for {
+      resp <- uploadDar(uri, darPath) // same dar as in initialization
+      _ <- resp.status shouldBe StatusCodes.Forbidden
+    } yield succeed
   }
 
   it should "request a fresh token after expiry on user request" in withTriggerService(Nil) {
