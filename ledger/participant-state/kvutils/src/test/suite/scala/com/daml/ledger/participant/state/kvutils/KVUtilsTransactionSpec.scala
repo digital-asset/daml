@@ -5,12 +5,14 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
+  DamlSubmission,
   DamlTransactionRejectionEntry
 }
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.v1.Update
 import com.daml.lf.command.Command
 import com.daml.lf.crypto
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{FrontStack, SortedLookupList}
 import com.daml.lf.transaction.Node.NodeCreate
 import com.daml.lf.value.Value
@@ -24,10 +26,11 @@ import com.daml.lf.value.Value.{
   ValueUnit,
   ValueVariant
 }
+import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
+class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   import KVTest._
 
@@ -106,6 +109,125 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
         }
     }
 
+    "reject a pre-executed submission referring to a replaced key" in
+      KVTest.runTestWithSimplePackage(alice, bob, eve) { simplePackage =>
+        def createSimpleContract(seed: Hash): KVTest[Unit] =
+          for {
+            createTransaction <- runSimpleCommand(alice, seed, simpleCreateCmd(simplePackage))
+            _ <- preExecuteTransaction(
+              submitter = alice,
+              transaction = createTransaction,
+              submissionSeed = seed,
+            )
+          } yield ()
+
+        def preExecuteExerciseReplaceByKey(seed: Hash): KVTest[DamlSubmission] =
+          for {
+            exerciseTransaction <- runSimpleCommand(
+              alice,
+              seed,
+              simplePackage.simpleExerciseReplaceByKeyCmd(alice),
+            )
+            submission <- prepareTransactionSubmission(
+              submitter = alice,
+              transaction = exerciseTransaction,
+              submissionSeed = seed,
+            )
+          } yield submission
+
+        val seeds =
+          Stream
+            .from(0)
+            .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
+
+        for {
+          _ <- createSimpleContract(seeds.head)
+          preExecuted <- inParallelReadOnly(seeds.slice(1, 3).map(preExecuteExerciseReplaceByKey))
+          preExecutionResults <- sequentially(preExecuted.map(preExecute(_).map(_._2)))
+        } yield {
+          val Seq(resultA, resultB) = preExecutionResults
+          resultA.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
+
+          resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.DISPUTED
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getDisputed.getDetails should startWith(
+            "dependency error: couldn't find contract ")
+        }
+      }
+
+    "reject a pre-executed submission indirectly referring to a replaced key" in
+      KVTest.runTestWithSimplePackage(alice, bob, eve) { simplePackage =>
+        def createSimpleContract(seed: Hash): KVTest[Unit] =
+          for {
+            createTransaction <- runSimpleCommand(alice, seed, simpleCreateCmd(simplePackage))
+            _ <- preExecuteTransaction(
+              submitter = alice,
+              transaction = createTransaction,
+              submissionSeed = seed,
+            )
+          } yield ()
+
+        def createSimpleHolderContract(seed: Hash): KVTest[ContractId] =
+          for {
+            recordTime <- currentRecordTime
+            createHolderTransaction <- runSimpleCommand(
+              alice,
+              seed,
+              simplePackage.simpleHolderCreateCmd(simplePackage.mkSimpleHolderTemplateArg(alice)))
+            holderContractId <- preExecuteTransaction(
+              submitter = alice,
+              transaction = createHolderTransaction,
+              submissionSeed = seed,
+            )
+            (entryId, preExecutionResult) = holderContractId
+          } yield {
+            contractIdOfCreateTransaction(
+              KeyValueConsumption.logEntryToUpdate(
+                entryId,
+                preExecutionResult.successfulLogEntry,
+                Some(recordTime),
+              ))
+          }
+
+        def preExecuteExerciseReplaceHeldByKey(holderContractId: ContractId)(
+            seed: Hash): KVTest[DamlSubmission] =
+          for {
+            exerciseTransaction <- runSimpleCommand(
+              alice,
+              seed,
+              simplePackage.simpleHolderExerciseReplaceHeldByKeyCmd(holderContractId),
+            )
+            submission <- prepareTransactionSubmission(
+              submitter = alice,
+              transaction = exerciseTransaction,
+              submissionSeed = seed,
+            )
+          } yield submission
+
+        val seeds =
+          Stream
+            .from(0)
+            .map(i => crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString))
+
+        for {
+          _ <- createSimpleContract(seeds.head)
+          holderContractId <- createSimpleHolderContract(seeds(1))
+          preExecuted <- inParallelReadOnly(
+            seeds
+              .slice(1, 3)
+              .map(preExecuteExerciseReplaceHeldByKey(holderContractId)))
+          preExecutionResults <- sequentially(preExecuted.map(preExecute(_).map(_._2)))
+        } yield {
+          val Seq(resultA, resultB) = preExecutionResults
+          resultA.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
+
+          resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.DISPUTED
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getDisputed.getDetails should startWith(
+            "Missing input state for key contract_id: ")
+        }
+      }
+
     "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
       simplePackage =>
         val seed = hash(this.getClass.getName)
@@ -139,15 +261,8 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
           transaction = transaction1,
           submissionSeed = seeds.head)
         (entryId, logEntry) = result
-        update = KeyValueConsumption.logEntryToUpdate(entryId, logEntry).head
-        contractId = update
-          .asInstanceOf[Update.TransactionAccepted]
-          .transaction
-          .nodes
-          .values
-          .head
-          .asInstanceOf[NodeCreate[ContractId, _]]
-          .coid
+        contractId = contractIdOfCreateTransaction(
+          KeyValueConsumption.logEntryToUpdate(entryId, logEntry))
 
         transaction2 <- runSimpleCommand(
           alice,
@@ -355,13 +470,22 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
 
         // Process into updates and verify
         val updates = KeyValueConsumption.logEntryToUpdate(entryId, strippedEntry.build)
-        updates should have length 1
-        updates.head should be(a[Update.TransactionAccepted])
-        val txAccepted = updates.head.asInstanceOf[Update.TransactionAccepted]
-        txAccepted.optSubmitterInfo should be(None)
+        inside(updates) {
+          case Seq(txAccepted: Update.TransactionAccepted) =>
+            txAccepted.optSubmitterInfo should be(None)
+        }
       }
     }
   }
+
+  private def contractIdOfCreateTransaction(updates: Seq[Update]): ContractId =
+    inside(updates) {
+      case Seq(update: Update.TransactionAccepted) =>
+        inside(update.transaction.nodes.values.toSeq) {
+          case Seq(create: NodeCreate[ContractId, _]) =>
+            create.coid
+        }
+    }
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
 }
