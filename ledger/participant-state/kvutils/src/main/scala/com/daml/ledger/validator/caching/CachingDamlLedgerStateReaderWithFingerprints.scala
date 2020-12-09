@@ -24,9 +24,11 @@ import scala.concurrent.{ExecutionContext, Future}
 class CachingDamlLedgerStateReaderWithFingerprints(
     val cache: StateCacheWithFingerprints,
     shouldCache: DamlStateKey => Boolean,
-    delegate: DamlLedgerStateReaderWithFingerprints)(implicit executionContext: ExecutionContext)
-    extends DamlLedgerStateReaderWithFingerprints {
-  override def read(keys: Seq[DamlKvutils.DamlStateKey])
+    delegate: DamlLedgerStateReaderWithFingerprints,
+) extends DamlLedgerStateReaderWithFingerprints {
+  override def read(
+      keys: Seq[DamlKvutils.DamlStateKey]
+  )(implicit executionContext: ExecutionContext)
     : Future[Seq[(Option[DamlKvutils.DamlStateValue], Fingerprint)]] = {
     @SuppressWarnings(Array("org.wartremover.warts.Any")) // Required to make `.view` work.
     val cachedValues: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)] = keys.view
@@ -70,8 +72,8 @@ object CachingDamlLedgerStateReaderWithFingerprints {
       cache: StateCacheWithFingerprints,
       cachingPolicy: CacheUpdatePolicy[DamlStateKey],
       ledgerStateReaderWithFingerprints: LedgerStateReaderWithFingerprints,
-      keySerializationStrategy: StateKeySerializationStrategy)(
-      implicit executionContext: ExecutionContext): CachingDamlLedgerStateReaderWithFingerprints =
+      keySerializationStrategy: StateKeySerializationStrategy,
+  ): CachingDamlLedgerStateReaderWithFingerprints =
     new CachingDamlLedgerStateReaderWithFingerprints(
       cache,
       cachingPolicy.shouldCacheOnRead,

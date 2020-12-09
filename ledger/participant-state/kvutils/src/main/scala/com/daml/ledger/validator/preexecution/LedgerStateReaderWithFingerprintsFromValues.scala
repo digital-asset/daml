@@ -8,24 +8,14 @@ import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
-  * A ledger state reader that also generates value fingerprints based on their value.
-  *
-  * It is useful to implement pre-execution for ledgers providing [[LedgerStateOperations]],
-  * i.e. that don't directly provide fingerprints along with read values.
-  *
-  * @param ledgerStateOperations The operations that can access actual ledger storage as part of a transaction.
-  *                              Only reads will be used.
-  * @param valueToFingerprint The logic producing a [[Fingerprint]] given a value.
-  * @param executionContext The execution context for [[ledgerStateOperations]].
-  * @tparam LogResult Type of the offset used for a log entry by [[ledgerStateOperations]].
-  */
 class LedgerStateReaderWithFingerprintsFromValues[LogResult](
     ledgerStateOperations: LedgerStateOperations[LogResult],
-    valueToFingerprint: Option[Value] => Fingerprint)(implicit executionContext: ExecutionContext)
-    extends LedgerStateReaderWithFingerprints {
+    valueToFingerprint: Option[Value] => Fingerprint,
+) extends LedgerStateReaderWithFingerprints {
 
-  override def read(keys: Seq[Key]): Future[Seq[(Option[Value], Fingerprint)]] =
+  override def read(
+      keys: Seq[Key]
+  )(implicit executionContext: ExecutionContext): Future[Seq[(Option[Value], Fingerprint)]] =
     for {
       readResult <- ledgerStateOperations.readState(keys)
     } yield readResult.map(maybeValue => maybeValue -> valueToFingerprint(maybeValue))
