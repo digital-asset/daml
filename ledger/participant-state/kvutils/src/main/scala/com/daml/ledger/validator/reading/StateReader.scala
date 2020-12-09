@@ -23,6 +23,21 @@ trait StateReader[Key, Value] {
   def read(keys: Seq[Key])(implicit executionContext: ExecutionContext): Future[Seq[Value]]
 
   /**
+    * Create a new StateReader that transforms the keys before reading.
+    *
+    * @param f the transformation function
+    * @tparam NewKey the type of the keys
+    * @return a `StateReader[NewKey, Value]`
+    */
+  def comapKeys[NewKey](f: NewKey => Key): StateReader[NewKey, Value] =
+    new StateReader[NewKey, Value] {
+      override def read(
+          keys: Seq[NewKey]
+      )(implicit executionContext: ExecutionContext): Future[Seq[Value]] =
+        self.read(keys.map(f))
+    }
+
+  /**
     * Create a new StateReader that transforms the values upon reading.
     *
     * @param f the transformation function

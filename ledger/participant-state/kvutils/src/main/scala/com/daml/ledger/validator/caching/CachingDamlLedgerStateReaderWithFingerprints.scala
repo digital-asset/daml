@@ -6,12 +6,12 @@ package com.daml.ledger.validator.caching
 import com.daml.caching.{Cache, Weight}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Fingerprint}
+import com.daml.ledger.validator.RawToDamlLedgerStateReaderAdapter.deserializeDamlStateValue
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderWithFingerprints.StateCacheWithFingerprints
 import com.daml.ledger.validator.preexecution.{
   DamlLedgerStateReaderWithFingerprints,
-  LedgerStateReaderWithFingerprints,
-  RawToDamlLedgerStateReaderWithFingerprintsAdapter
+  LedgerStateReaderWithFingerprints
 }
 import com.google.protobuf.MessageLite
 
@@ -77,8 +77,11 @@ object CachingDamlLedgerStateReaderWithFingerprints {
     new CachingDamlLedgerStateReaderWithFingerprints(
       cache,
       cachingPolicy.shouldCacheOnRead,
-      new RawToDamlLedgerStateReaderWithFingerprintsAdapter(
-        ledgerStateReaderWithFingerprints,
-        keySerializationStrategy)
+      ledgerStateReaderWithFingerprints
+        .comapKeys(keySerializationStrategy.serializeStateKey)
+        .mapValues {
+          case (valueMaybe, fingerprint) =>
+            valueMaybe.map(deserializeDamlStateValue) -> fingerprint
+        }
     )
 }
