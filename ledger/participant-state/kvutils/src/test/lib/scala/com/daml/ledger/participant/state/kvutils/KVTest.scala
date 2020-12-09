@@ -18,9 +18,9 @@ import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Transaction
 import com.daml.metrics.Metrics
-import scalaz.State
 import scalaz.std.list._
 import scalaz.syntax.traverse._
+import scalaz.{Reader, State}
 
 import scala.collection.JavaConverters._
 
@@ -42,6 +42,10 @@ object KVTest {
   import scalaz.State._
 
   type KVTest[A] = State[KVTestState, A]
+
+  // This returns `State`, not `Reader`, to avoid having to convert between them.
+  def KVReader[A](f: KVTestState => A): KVTest[A] =
+    Reader(f).state
 
   private[this] val MinMaxRecordTimeDelta: Duration = Duration.ofSeconds(1)
   private[this] val DefaultAdditionalContractDataType: String = "Party"
@@ -68,12 +72,10 @@ object KVTest {
   def sequentially[A](operations: Seq[KVTest[A]]): KVTest[List[A]] =
     operations.toList.sequence
 
-  def inParallelKeepingFirst[A](operations: Seq[KVTest[A]]): KVTest[Seq[A]] =
-    for {
-      state <- get[KVTestState]
-      results = operations.map(_.run(state))
-      _ <- put(results.head._1)
-    } yield results.map(_._2)
+  def inParallelReadOnly[A](operations: Seq[KVTest[A]]): KVTest[Seq[A]] =
+    KVReader { state =>
+      operations.map(_.eval(state))
+    }
 
   def runTest[A](test: KVTest[A]): A =
     test.eval(initialTestState)
@@ -171,34 +173,33 @@ object KVTest {
       submissionSeed: crypto.Hash,
       command: Command,
   ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
-    for {
-      s <- get[KVTestState]
-      (tx, meta) = s.engine
+    KVReader { state =>
+      state.engine
         .submit(
           cmds = Commands(
             submitters = Set(submitter),
             commands = ImmArray(command),
-            ledgerEffectiveTime = s.recordTime,
+            ledgerEffectiveTime = state.recordTime,
             commandsReference = "cmds-ref",
           ),
-          participantId = s.participantId,
+          participantId = state.participantId,
           submissionSeed = submissionSeed,
         )
         .consume(
           pcs = contractId =>
-            s.damlState
+            state.damlState
               .get(Conversions.contractIdToStateKey(contractId))
               .map { v =>
                 Conversions.decodeContractInstance(v.getContractState.getContractInstance)
             },
-          packages = s.uploadedPackages.get,
+          packages = state.uploadedPackages.get,
           keys = globalKey =>
-            s.damlState
+            state.damlState
               .get(Conversions.globalKeyToStateKey(globalKey.globalKey))
               .map(value => Conversions.decodeContractId(value.getContractKeyState.getContractId)),
         )
         .fold(error => throw new RuntimeException(error.detailMsg), identity)
-    } yield tx -> meta
+    }
 
   def runSimpleCommand(
       submitter: Party,
@@ -248,30 +249,27 @@ object KVTest {
       letDelta: Duration = Duration.ZERO,
       commandId: CommandId = randomLedgerString,
       deduplicationTime: Duration = Duration.ofDays(1),
-  ): KVTest[DamlSubmission] = {
+  ): KVTest[DamlSubmission] = KVReader { testState =>
     val (tx, txMetaData) = transaction
-    for {
-      testState <- get[KVTestState]
-      submitterInfo = createSubmitterInfo(
-        submitter,
-        commandId,
-        deduplicationTime,
-        testState.recordTime,
-      )
-    } yield
-      testState.keyValueSubmission.transactionToSubmission(
-        submitterInfo = submitterInfo,
-        meta = TransactionMeta(
-          ledgerEffectiveTime = testState.recordTime.addMicros(letDelta.toNanos / 1000),
-          workflowId = None,
-          submissionTime = txMetaData.submissionTime,
-          submissionSeed = submissionSeed,
-          optUsedPackages = Some(txMetaData.usedPackages),
-          optNodeSeeds = None,
-          optByKeyNodes = None,
-        ),
-        tx = tx
-      )
+    val submitterInfo = createSubmitterInfo(
+      submitter,
+      commandId,
+      deduplicationTime,
+      testState.recordTime,
+    )
+    testState.keyValueSubmission.transactionToSubmission(
+      submitterInfo = submitterInfo,
+      meta = TransactionMeta(
+        ledgerEffectiveTime = testState.recordTime.addMicros(letDelta.toNanos / 1000),
+        workflowId = None,
+        submissionTime = txMetaData.submissionTime,
+        submissionSeed = submissionSeed,
+        optUsedPackages = Some(txMetaData.usedPackages),
+        optNodeSeeds = None,
+        optByKeyNodes = None,
+      ),
+      tx = tx
+    )
   }
 
   def submitConfig(
@@ -397,13 +395,11 @@ object KVTest {
 
   private[this] def createInputState(
       inputKeys: Seq[DamlStateKey],
-  ): KVTest[Map[DamlStateKey, Option[DamlStateValue]]] =
-    for {
-      state <- get[KVTestState]
-    } yield
-      inputKeys.view
-        .map(key => key -> state.damlState.get(key))
-        .toMap
+  ): KVTest[Map[DamlStateKey, Option[DamlStateValue]]] = KVReader { state =>
+    inputKeys.view
+      .map(key => key -> state.damlState.get(key))
+      .toMap
+  }
 
   private def createSubmitterInfo(
       submitter: Party,
@@ -456,5 +452,6 @@ object KVTest {
       participantId = testState.participantId
     )
 
-  private[this] def recordTimeFromTimeUpdateLogEntry = Some(Timestamp.now())
+  private[this] def recordTimeFromTimeUpdateLogEntry: Option[Timestamp] =
+    Some(Timestamp.now())
 }

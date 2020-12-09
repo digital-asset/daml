@@ -120,7 +120,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
             submissionSeed = seeds.head,
           )
 
-          preExecuted <- inParallelKeepingFirst(
+          preExecuted <- inParallelReadOnly(
             (1 to 2)
               .map(i => seeds(i))
               .map(seed =>
@@ -186,7 +186,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers {
                 .coid
           }
 
-          preExecuted <- inParallelKeepingFirst(
+          preExecuted <- inParallelReadOnly(
             (1 to 2)
               .map(i => seeds(i))
               .map(seed =>
