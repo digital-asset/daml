@@ -19,6 +19,8 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 service TransactionService {
 
   // Read the ledger's filtered transaction stream for a set of parties.
+  // Lists only creates and archives, but not other events.
+  // Omits all events on transient contracts, i.e., contracts that were both created and archived in the same transaction.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
@@ -28,6 +30,7 @@ service TransactionService {
   rpc GetTransactions (GetTransactionsRequest) returns (stream GetTransactionsResponse);
 
   // Read the ledger's complete transaction tree stream for a set of parties.
+  // The stream can be filtered only by parties, but not templates (template filter must be empty).
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
@@ -98,6 +101,7 @@ message GetTransactionsRequest {
   LedgerOffset end = 3;
 
   // Requesting parties with template filters.
+  // Template filters must be empty for GetTransactionTrees requests.
   // Required
   TransactionFilter filter = 4;
 
