@@ -204,6 +204,7 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
+        persistCredentials: true
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - bash: ci/configure-bazel.sh
@@ -211,15 +212,15 @@ jobs:
         env:
           IS_FORK: $(System.PullRequest.IsFork)
           # to upload to the bazel cache
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)        
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - bash: |
           set -euo pipefail
           eval "$(dev-env/bin/dade assist)"
           export LC_ALL=en_US.UTF-8
-          
+
           bazel build //...
           # Make sure that Bazel query works
-          bazel query 'deps(//...)'
+          bazel query 'deps(//...)' >/dev/null
         displayName: 'Build'
       - bash: |
           set -euo pipefail
@@ -258,4 +259,20 @@ jobs:
         displayName: 'Blackduck Scan'
         env:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          source $(bash_lib)
+
+          tr -d '\015' <*_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml >NOTICES
+          if git diff --exit-code -- NOTICES; then
+              echo "NOTICES file already up-to-date."
+          else
+              git add NOTICES
+              open_pr "notices-update-$(Build.BuildId)" "update NOTICES file"
+          fi
+        displayName: notices
       - template: ../daily_tell_slack.yml
