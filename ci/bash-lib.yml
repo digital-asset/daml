@@ -35,10 +35,10 @@ steps:
       git push origin $branch:$branch
       jq -n --arg title "$title" \
             --arg branch "$branch" \
-            '{"title": "$title", "head": "$branch", "base": "master"}'
+            '{"title": $title, "head": $branch, "base": "master"}'
       jq -n --arg title "$title" \
             --arg branch "$branch" \
-            '{"title": "$title", "head": "$branch", "base": "master"}' \
+            '{"title": $title, "head": $branch, "base": "master"}' \
         | curl -H "Content-Type: application/json" \
                -H "$(get_gh_auth_header)" \
                -vvvvvv \
