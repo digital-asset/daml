@@ -6,7 +6,6 @@ package com.daml.auth.middleware.oauth2
 import java.time.Duration
 
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.Uri.{Path, Query}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Cookie, Location, `Set-Cookie`}
 import com.daml.auth.middleware.api.{Client, Request}
@@ -23,13 +22,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.util.{Failure, Success}
 
 class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
-  lazy private val middlewareUri = {
-    Uri()
-      .withScheme("http")
-      .withAuthority(
-        middlewareBinding.localAddress.getHostString,
-        middlewareBinding.localAddress.getPort)
-  }
   private def makeToken(
       claims: Request.Claims,
       secret: String = "secret",
@@ -127,11 +119,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
   }
   "the /login endpoint" should {
     "redirect and set cookie" in {
-      val claims = "actAs:Alice"
-      val req = HttpRequest(
-        uri = middlewareUri
-          .withPath(Path./("login"))
-          .withQuery(Query(("redirect_uri", "http://CALLBACK"), ("claims", claims))))
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val req = HttpRequest(uri = middlewareClient.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
@@ -149,7 +138,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       } yield {
         // Redirect to CALLBACK
         assert(resp.status == StatusCodes.Found)
-        assert(resp.header[Location].get.uri == Uri("http://CALLBACK"))
+        assert(resp.header[Location].get.uri == Uri("http://localhost/CALLBACK"))
         // Store token in cookie
         val cookie = resp.header[`Set-Cookie`].get.cookie
         assert(cookie.name == "daml-ledger-token")
@@ -159,11 +148,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     }
     "not authorize unauthorized parties" in {
       server.revokeParty(Party("Eve"))
-      val claims = "actAs:Eve"
-      val req = HttpRequest(
-        uri = middlewareUri
-          .withPath(Path./("login"))
-          .withQuery(Query(("redirect_uri", "http://CALLBACK"), ("claims", claims))))
+      val claims = Request.Claims(actAs = List(Party("Eve")))
+      val req = HttpRequest(uri = middlewareClient.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
@@ -181,7 +167,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       } yield {
         // Redirect to CALLBACK
         assert(resp.status == StatusCodes.Found)
-        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == Uri("http://CALLBACK"))
+        assert(
+          resp.header[Location].get.uri.withQuery(Uri.Query()) == Uri("http://localhost/CALLBACK"))
         // with error parameter set
         assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
         // Without token in cookie
@@ -210,7 +197,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       } yield {
         // Redirect to CALLBACK
         assert(resp.status == StatusCodes.Found)
-        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == Uri("http://CALLBACK"))
+        assert(
+          resp.header[Location].get.uri.withQuery(Uri.Query()) == Uri("http://localhost/CALLBACK"))
         // with error parameter set
         assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
         // Without token in cookie

@@ -47,7 +47,7 @@ trait TestFixture
         .withAuthority(
           middlewareBinding.localAddress.getHostName,
           middlewareBinding.localAddress.getPort),
-      callbackUri = Uri("http://CALLBACK"),
+      callbackUri = Uri("http://localhost/CALLBACK"),
       maxHttpEntityUploadSize = 4194304,
       httpEntityUploadTimeout = FiniteDuration(1, duration.MINUTES)
     ))
