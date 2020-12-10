@@ -583,6 +583,8 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
             initPackageDb opts initPkgDb
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
                 putStrLn $ "Compiling " <> T.unpack (LF.unPackageName pName) <> " to a DAR."
+                let warnings = checkPkgConfig pkgConfig
+                unless (null warnings) $ putStrLn $ unlines warnings
                 loggerH <- getLogger opts "package"
                 withDamlIdeState
                     opts

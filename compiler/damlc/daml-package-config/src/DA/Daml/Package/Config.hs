@@ -10,6 +10,7 @@ module DA.Daml.Package.Config
     , parseProjectConfig
     , overrideSdkVersion
     , withPackageConfig
+    , checkPkgConfig
     ) where
 
 import qualified DA.Daml.LF.Ast as LF
@@ -28,6 +29,7 @@ import qualified Data.Text as T
 import qualified Data.Yaml as Y
 import qualified Module as Ghc
 import System.IO (hPutStrLn, stderr)
+import Text.Regex.TDFA
 
 -- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields
@@ -65,6 +67,16 @@ parseProjectConfig project = do
     pModulePrefixes <- fromMaybe Map.empty <$> queryProjectConfig ["module-prefixes"] project
     pSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
     Right PackageConfigFields {..}
+
+checkPkgConfig :: PackageConfigFields -> [String]
+checkPkgConfig PackageConfigFields {pName, pVersion} =
+  [ "WARNING: Package names should have the format ^[a-zA-Z]([a-zA-Z\\-])*$. You may be able to compile packages with different formats, but you will not be able to use them as dependencies in other projects. Unsupported package names may start causing compilation errors without warning."
+  | not $ (LF.unPackageName pName) =~ ("^[a-zA-Z]([a-zA-Z\\-])*$" :: T.Text)
+  ] ++
+  [ "WARNING: Package versions should have the format ^[0-9](\\.[0-9])*$. You may be able to compile packages with different formats, but you will not be able to use them as dependencies in other projects. Unsupported package versions may start causing compilation errors without warning."
+  | Just version <- [pVersion]
+  , not $ (LF.unPackageVersion version) =~ ("^[0-9](\\.[0-9])*$" :: T.Text)
+  ]
 
 overrideSdkVersion :: PackageConfigFields -> IO PackageConfigFields
 overrideSdkVersion pkgConfig = do
