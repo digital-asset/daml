@@ -73,7 +73,7 @@ private[dao] sealed class ContractsReader(
     dispatcher
       .executeSql(metrics.daml.index.db.lookupActiveContractWithCachedArgumentDbMetrics) {
         implicit connection =>
-          SQL"select participant_contracts.contract_id, template_id from #$contractsTable where contract_witness in ($readers) and participant_contracts.contract_id = $contractId"
+          SQL"select participant_contracts.contract_id, template_id from #$contractsTable where contract_witness in ($readers) and participant_contracts.contract_id = $contractId limit 1"
             .as(contractWithoutValueRowParser.singleOpt)
       }
       .map(
