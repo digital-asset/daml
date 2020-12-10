@@ -8,7 +8,7 @@
 
 -- | Useful references:
 --
--- * DAML-LF AST: https://github.com/DACH-NY/da/blob/master/compiler/daml-lf-ast/src/DA/Daml/LF/Ast/Base.hs
+-- * DAML-LF AST: https://github.com/digital-asset/daml/blob/master/compiler/daml-lf-ast/src/DA/Daml/LF/Ast/Base.hs
 -- * GHC Syntax: https://hackage.haskell.org/package/ghc-8.4.1/docs/CoreSyn.html#t:Expr
 --
 -- The conversion works element by element, in a fairly direct way, apart from the exceptions
