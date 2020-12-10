@@ -24,5 +24,4 @@ package object ledger {
 
   val TransactionId: LedgerString.type = LedgerString
   type TransactionId = LedgerString
-
 }
