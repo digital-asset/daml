@@ -4,7 +4,7 @@
 package com.daml.ledger.validator.caching
 
 import com.daml.caching.Cache.Size
-import com.daml.caching.{Weight, WeightedCache}
+import com.daml.caching.{Cache, Weight, WeightedCache}
 import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, seqOf}
 import com.daml.ledger.validator.caching.CachingStateReaderSpec._
 import com.daml.ledger.validator.reading.StateReader
@@ -26,10 +26,10 @@ class CachingStateReaderSpec
       val mockReader = mock[TestStateReader]
       when(mockReader.read(seqOf(size = 1))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(TestValue.random()))))
-      val instance = newInstance(mockReader, shouldCache = true)
+      val (cache, instance) = newInstance(mockReader, shouldCacheOnRead = true)
 
       instance.read(Seq(TestKey(1))).map { _ =>
-        instance.cache.getIfPresent(TestKey(1)) shouldBe defined
+        cache.getIfPresent(TestKey(1)) shouldBe defined
       }
     }
 
@@ -37,10 +37,10 @@ class CachingStateReaderSpec
       val mockReader = mock[TestStateReader]
       when(mockReader.read(seqOf(size = 1))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(TestValue.random()))))
-      val instance = newInstance(mockReader, shouldCache = false)
+      val (cache, instance) = newInstance(mockReader, shouldCacheOnRead = false)
 
       instance.read(Seq(TestKey(2))).map { _ =>
-        instance.cache.getIfPresent(TestKey(2)) should not be defined
+        cache.getIfPresent(TestKey(2)) should not be defined
       }
     }
 
@@ -48,7 +48,7 @@ class CachingStateReaderSpec
       val mockReader = mock[TestStateReader]
       when(mockReader.read(seqOf(size = 1))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(TestValue(7)))))
-      val instance = newInstance(mockReader, shouldCache = true)
+      val (_, instance) = newInstance(mockReader, shouldCacheOnRead = true)
 
       for {
         originalReadState <- instance.read(Seq(TestKey(3)))
@@ -87,9 +87,20 @@ object CachingStateReaderSpec {
 
   private def newInstance(
       reader: TestStateReader,
-      shouldCache: Boolean,
-  ): CachingStateReader[TestKey, TestValue] = {
+      shouldCacheOnRead: Boolean,
+  ): (Cache[TestKey, TestValue], StateReader[TestKey, Option[TestValue]]) = {
     val cache = WeightedCache.from[TestKey, TestValue](WeightedCache.Configuration(1024))
-    new CachingStateReader(cache, _ => shouldCache, reader)
+    val updatePolicy = new TestCacheUpdatePolicy[TestKey](shouldCacheOnRead)
+    (cache, CachingStateReader(cache, updatePolicy, reader))
   }
+
+  private final class TestCacheUpdatePolicy[Key](shouldCacheOnRead: Boolean)
+      extends CacheUpdatePolicy[Key] {
+    override def shouldCacheOnRead(key: Key): Boolean =
+      shouldCacheOnRead
+
+    override def shouldCacheOnWrite(key: Key): Boolean =
+      throw new RuntimeException("`shouldCacheOnWrite` should never be called by the cache.")
+  }
+
 }
