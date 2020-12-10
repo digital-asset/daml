@@ -66,7 +66,7 @@ DAML-LF has three kinds of data declarations:
 
 :ref:`Data type declarations in DAML <daml-ref-data-constructors>` (starting with the ``data`` keyword) are translated to record, variant or enum types. It’s sometimes not obvious what they will be translated to, so this section lists many examples of data types in DAML and their translations in DAML-LF.
 
-.. In the tables below, the left column uses DAML 1.2 syntax and the right column uses the notation from the `DAML-LF specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>`_.
+.. In the tables below, the left column uses DAML 1.2 syntax and the right column uses the notation from the `DAML-LF specification <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>`_.
 
 Record declarations
 ===================

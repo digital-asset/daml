@@ -15,7 +15,7 @@ The DAML integration kit is currently an :doc:`Early Access Feature in Labs stat
 A DAML Ledger is a server serving the
 :doc:`Ledger API </app-dev/grpc/index>` as per the semantics defined in
 the :doc:`/concepts/ledger-model/index` and the
-`DAML-LF specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>`_.
+`DAML-LF specification <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>`_.
 
 The DAML integration kit helps third-party ledger developers to
 implement a DAML Ledger on top of their distributed ledger or database of
@@ -236,25 +236,25 @@ As explained in :ref:`integration-kit_writing_code`,
 this section is best read jointly with the code in
 `digital-asset/daml-on-x-example <https://github.com/digital-asset/daml-on-x-example>`__.
 
-``participant-state.jar`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/src/main/scala/com/daml/ledger/participant/state/v1/package.scala>`__)
+``participant-state.jar`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/participant-state/src/main/scala/com/daml/ledger/participant/state/v1/package.scala>`__)
   Contains interfaces abstracting over the state of
   a participant node relevant for a DAML Ledger API server.
 
   These are the
   interfaces whose implementation is specific to a particular `X` ledger. These
   interfaces are optimized for ease of implementation.
-``participant-state-kvutils.jar`` (`source code <https://github.com/digital-asset/daml/tree/master/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils>`__)
+``participant-state-kvutils.jar`` (`source code <https://github.com/digital-asset/daml/tree/main/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils>`__)
   These utilities provide methods to succintly implement interfaces from
   ``participant-state.jar`` on top of a key-value state storage.
 
   See documentation in
-  `package.scala <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils/package.scala>`__
+  `package.scala <https://github.com/digital-asset/daml/blob/main/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils/package.scala>`__
 
-``ledger-api-server.jar`` (`source code for API server <https://github.com/digital-asset/daml/blob/master/ledger/participant-integration-api/src/main/scala/platform/apiserver/StandaloneApiServer.scala>`__, `source code for indexer <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/daml/platform/indexer/StandaloneIndexerServer.scala>`__)
+``ledger-api-server.jar`` (`source code for API server <https://github.com/digital-asset/daml/blob/main/ledger/participant-integration-api/src/main/scala/platform/apiserver/StandaloneApiServer.scala>`__, `source code for indexer <https://github.com/digital-asset/daml/blob/main/ledger/sandbox/src/main/scala/com/daml/platform/indexer/StandaloneIndexerServer.scala>`__)
   Contains code that implements a DAML Ledger API server and the SQL-backed indexer
   given implementations of the interfaces in ``participant-state.jar``.
 
-``daml-engine.jar`` (`source code <https://github.com/digital-asset/daml/blob/master/daml-lf/engine/src/main/scala/com/digitalasset/daml/lf/engine/Engine.scala>`__)
+``daml-engine.jar`` (`source code <https://github.com/digital-asset/daml/blob/main/daml-lf/engine/src/main/scala/com/digitalasset/daml/lf/engine/Engine.scala>`__)
   Contains code for serializing and deserializing DAML
   transactions and for validating them.
 
@@ -298,10 +298,10 @@ of their qualified names where unambiguous):
   creates the contained instances and wires them up to provide the Ledger API
   backed by the ``<X> services``. You need to implement this for your DAML on
   `X` ledger.
-``WriteService`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/src/main/scala/com/daml/ledger/participant/state/v1/WriteService.scala>`_)
+``WriteService`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/participant-state/src/main/scala/com/daml/ledger/participant/state/v1/WriteService.scala>`_)
   is an interface abstracting over the mechanism to submit
   DAML transactions to the underlying `X` ledger via a participant node.
-``ReadService`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/src/main/scala/com/daml/ledger/participant/state/v1/ReadService.scala>`__)
+``ReadService`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/participant-state/src/main/scala/com/daml/ledger/participant/state/v1/ReadService.scala>`__)
   is an interface abstracting over the ability to subscribe to
   changes of the `X` ledger visible to a particular participant node.
   The changes are exposed as a stream that is resumable from any particular
@@ -313,10 +313,10 @@ of their qualified names where unambiguous):
   is a class implementing the ``ReadService`` and the
   ``WriteService`` on top of the ``<X> services``. You need to implement this
   for your DAML on `X` ledger.
-``StandaloneIndexerServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-integration-api/src/main/scala/platform/indexer/StandaloneIndexerServer.scala>`__)
+``StandaloneIndexerServer`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/participant-integration-api/src/main/scala/platform/indexer/StandaloneIndexerServer.scala>`__)
   is a standalone service that subscribe to ledger changes using ``ReadService`` and inserts
   the data into a SQL backend ("index") for the purpose of serving the data over the Ledger API.
-``StandaloneIndexServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-integration-api/src/main/scala/platform/apiserver/StandaloneApiServer.scala>`__)
+``StandaloneIndexServer`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/participant-integration-api/src/main/scala/platform/apiserver/StandaloneApiServer.scala>`__)
   is a class containing all the code to implement the
   Ledger API on top of an ledger backend. It serves the data from a SQL database populated by the ``StandaloneIndexerServer``.
 
@@ -344,20 +344,20 @@ Authorization
 To implement authorization on your ledger,
 do the following modifications to your code:
 
-- Implement the ``com.daml.ledger.api.auth.AuthService`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthService.scala>`__) interface.
+- Implement the ``com.daml.ledger.api.auth.AuthService`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthService.scala>`__) interface.
   An AuthService receives all HTTP headers attached to a gRPC ledger API request
-  and returns a set of ``Claims`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/Claims.scala>`__), which describe the authorization of the request.
-- Instantiate a ``com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/interceptor/AuthorizationInterceptor.scala>`__),
+  and returns a set of ``Claims`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/Claims.scala>`__), which describe the authorization of the request.
+- Instantiate a ``com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/interceptor/AuthorizationInterceptor.scala>`__),
   and pass it an instance of your AuthService implementation.
   This interceptor will be responsible for storing the decoded Claims in a place where ledger API services can access them.
-- When starting the ``com.daml.platform.apiserver.LedgerApiServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-integration-api/src/main/scala/platform/apiserver/LedgerApiServer.scala>`__),
+- When starting the ``com.daml.platform.apiserver.LedgerApiServer`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/participant-integration-api/src/main/scala/platform/apiserver/LedgerApiServer.scala>`__),
   add the above AuthorizationInterceptor to the list of interceptors (see ``interceptors`` parameter of ``LedgerApiServer.create``).
 
 For reference, you can have a look at how authorization is implemented in the sandbox:
 
-- The ``com.daml.ledger.api.auth.AuthServiceJWT`` class (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWT.scala>`__)
+- The ``com.daml.ledger.api.auth.AuthServiceJWT`` class (`source code <https://github.com/digital-asset/daml/blob/main/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWT.scala>`__)
   reads a `JWT <https://jwt.io/>`__ token from HTTP headers.
-- The ``com.daml.ledger.api.auth.AuthServiceJWTPayload`` class (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWTPayload.scala>`__)
+- The ``com.daml.ledger.api.auth.AuthServiceJWTPayload`` class (`source code <https://github.com/digital-asset/daml/blob/main/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWTPayload.scala>`__)
   defines the format of the token payload.
 - The token signature algorithm and the corresponding public key is specified as a sandbox command line parameter.
 

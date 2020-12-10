@@ -37,7 +37,7 @@ Getting started
 ===============
 
 If this is your first experience with the Scala bindings library, we recommend that you start by looking at the
-`quickstart-scala example <https://github.com/digital-asset/daml/tree/master/language-support/scala/examples/quickstart-scala>`_.
+`quickstart-scala example <https://github.com/digital-asset/daml/tree/main/language-support/scala/examples/quickstart-scala>`_.
 
 To use the Scala bindings, set up the following dependencies in your project:
 
@@ -94,7 +94,7 @@ Example code
 In this section we will demonstrate how to use the Scala bindings library.
 
 This section refers to the IOU DAML example from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>` and
-`quickstart-scala example <https://github.com/digital-asset/daml/tree/master/language-support/scala/examples/quickstart-scala>`_ that we already mentioned above.
+`quickstart-scala example <https://github.com/digital-asset/daml/tree/main/language-support/scala/examples/quickstart-scala>`_ that we already mentioned above.
 
 Please keep in mind that **quickstart-scala example** compiles with ``-Xsource:2.13`` **scalac** option, this is to activate the fix for a Scala bug that forced users to add extra imports for implicits that should not be needed.
 
@@ -125,7 +125,7 @@ To send a :ref:`com.daml.ledger.api.v1.CreateCommand` (keep in mind the followin
    :start-after: // <doc-ref:submit-iou-create-command>
    :end-before: // </doc-ref:submit-iou-create-command>
 
-For more details on how to submit a command, please refer to the implementation of `com.daml.quickstart.iou.ClientUtil#submitCommand <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/ClientUtil.scala>`_.
+For more details on how to submit a command, please refer to the implementation of `com.daml.quickstart.iou.ClientUtil#submitCommand <https://github.com/digital-asset/daml/blob/main/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/ClientUtil.scala>`_.
 
 Receive a transaction, exercise a choice and send an ExerciseCommand
 ---------------------------------------------------------------------
@@ -148,7 +148,7 @@ To exercise ``IouTransfer_Accept`` choice on the ``IouTransfer`` contract that y
    :start-after: // <doc-ref:submit-iou-transfer-accept-exercise-command>
    :end-before: // </doc-ref:submit-iou-transfer-accept-exercise-command>
 
-Fore more details on how to subscribe to receive events for a particular party, please refer to the implementation of `com.daml.quickstart.iou.IouMain#newOwnerAcceptsAllTransfers <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala>`_.
+Fore more details on how to subscribe to receive events for a particular party, please refer to the implementation of `com.daml.quickstart.iou.IouMain#newOwnerAcceptsAllTransfers <https://github.com/digital-asset/daml/blob/main/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala>`_.
 
 .. _scala-bindings-authorization:
 

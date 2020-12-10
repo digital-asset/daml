@@ -9,7 +9,7 @@ schedules:
   displayName: weekly snapshot
   branches:
     include:
-    - master
+    - main
   always: true
 
 jobs:
@@ -56,7 +56,7 @@ jobs:
                          --arg branch "$branch" \
                          --arg title "$title" \
                          --arg body "$(printf "$body")" \
-                         '{"title": $title, "head": $branch, "base": "master", "body": $body}' \
+                         '{"title": $title, "head": $branch, "base": "main", "body": $body}' \
                     | curl -H "Content-Type: application/json" \
                            -H "$AUTH" \
                            --silent \

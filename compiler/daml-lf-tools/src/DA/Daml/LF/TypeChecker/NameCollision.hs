@@ -95,7 +95,7 @@ nameCollisionForbidden a b = not (nameCollisionPermitted a b)
 -- constructed lower case in order to have case-insensitivity.
 --
 -- This corresponds to the following section of the LF spec:
--- https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst#fully-resolved-name
+-- https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst#fully-resolved-name
 newtype FRName = FRName [T.Text]
     deriving (Eq, Ord)
 

@@ -259,6 +259,6 @@ may take some time if the required artifacts are not built or cached already.
 
 ## Further reading:
 
-- ["Bazel User Guide"](https://github.com/digital-asset/daml/blob/master/BAZEL.md) (DAML specific)
+- ["Bazel User Guide"](https://github.com/digital-asset/daml/blob/main/BAZEL.md) (DAML specific)
 - ["A Users's Guide to Bazel"](https://docs.bazel.build/versions/master/guide.html) (official documentation)
 - [`rules_haskell` documentation](https://api.haskell.build/index.html) (core Haskell rules, Haddock support, Linting, Defining toolchains, Support for protocol buffers, Interop with `cc_*` rules, Workspace rules)

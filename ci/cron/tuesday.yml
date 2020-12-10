@@ -9,7 +9,7 @@ schedules:
   displayName: Tuesday
   branches:
     include:
-    - master
+    - main
   always: true
 
 jobs:
@@ -30,4 +30,4 @@ jobs:
 
       RELEASE_MANAGER=$(head -1 release/rotation | awk '{print $1}')
 
-      tell_slack "Hi <@$RELEASE_MANAGER>! According to the <https://github.com/digital-asset/daml/blob/master/release/rotation|rotation>, you are in charge of the release tomorrow. Please make sure you plan accordingly, or find a replacement."
+      tell_slack "Hi <@$RELEASE_MANAGER>! According to the <https://github.com/digital-asset/daml/blob/main/release/rotation|rotation>, you are in charge of the release tomorrow. Please make sure you plan accordingly, or find a replacement."

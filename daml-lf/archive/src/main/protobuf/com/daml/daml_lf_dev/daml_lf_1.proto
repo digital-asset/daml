@@ -3,7 +3,7 @@
 
 // .proto representation of the first version of the DAML-LF language,
 // as specified by
-// <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>.
+// <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>.
 //
 // A few notes:
 //

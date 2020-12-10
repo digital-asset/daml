@@ -20,7 +20,7 @@ supported by the DAML-LF archive. Currently we have two major versions:
 
 * `DAML-LF-0`, which is the deprecated legacy DAML core;
 * `DAML-LF-1`, which is the first version of DAML-LF as specified by
-    <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>.
+    <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>.
 
 ## Snapshot versions
 

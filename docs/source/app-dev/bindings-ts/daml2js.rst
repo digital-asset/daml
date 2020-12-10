@@ -8,7 +8,7 @@ The command ``daml codegen js`` generates JavaScript (and TypeScript) that can b
 
 Inputs to the command are DAR files. Outputs are JavaScript packages with TypeScript typings containing metadata and types for all DAML packages included in the DAR files.
 
-The generated packages use the library `@daml/types <https://github.com/digital-asset/daml/tree/master/language-support/ts/daml-types>`_.
+The generated packages use the library `@daml/types <https://github.com/digital-asset/daml/tree/main/language-support/ts/daml-types>`_.
 
 Usage
 -----
@@ -257,7 +257,7 @@ Each template results in the generation of a companion object. Here, is a schema
 
 The exact details of these companion objects are not important - think of them as representing "metadata".
 
-What **is** important is the use of the companion objects when creating contracts and exercising choices using the `@daml/ledger <https://github.com/digital-asset/daml/tree/master/language-support/ts/daml-ledger>`_ package. The following code snippet demonstrates their usage.
+What **is** important is the use of the companion objects when creating contracts and exercising choices using the `@daml/ledger <https://github.com/digital-asset/daml/tree/main/language-support/ts/daml-ledger>`_ package. The following code snippet demonstrates their usage.
 
 .. code-block:: typescript
    :linenos:

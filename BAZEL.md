@@ -240,14 +240,14 @@ additional_languages:
 
 Click "Next" once you are ready. You will be able to modify the project view
 file whenever you like, so don't worry too much.
- 
-The first import of the project might fail due to a resolution error of the 
+
+The first import of the project might fail due to a resolution error of the
 `bazel` binary. In order to solve this, configure the Bazel plugin settings
-with the location of the `bazel` binary, 
-by setting _Preferences_ → _Bazel Settings_ → _Bazel binary location_ 
+with the location of the `bazel` binary,
+by setting _Preferences_ → _Bazel Settings_ → _Bazel binary location_
 to `./dev-env/bin/bazel`.
 
-Now, re-trigger a sync of the workspace (IntelliJ Action: 
+Now, re-trigger a sync of the workspace (IntelliJ Action:
 _Sync project with BUILD files_). This process will take a while.
 
 [intellij_project_view]: https://ij.bazel.build/docs/project-views.html
@@ -328,8 +328,8 @@ or "OK" to add the run configuration.
 #### Attaching sources to scala library
 
 If you do not have the Scala library sources linked (you only see the decompiled
- sources), you can attach it manually by selecting the `Choose sources...` 
- button on the yellow bar at the top, and selecting `scala-library...-src.jar`. 
+ sources), you can attach it manually by selecting the `Choose sources...`
+ button on the yellow bar at the top, and selecting `scala-library...-src.jar`.
 
 ### Known Issues
 
@@ -753,7 +753,7 @@ More comprehensive documentation on the `bazel` command can be found
 If your work goes beyond simply adding targets to existing
 `BUILD.bazel` files and involves things like defining toolchains and
 external dependencies, then [this
-document](https://github.com/digital-asset/daml/blob/master/BAZEL-haskell.md)
+document](https://github.com/digital-asset/daml/blob/main/BAZEL-haskell.md)
 is for you!
 
 ## Scala in Bazel

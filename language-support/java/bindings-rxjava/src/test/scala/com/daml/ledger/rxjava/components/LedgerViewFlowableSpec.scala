@@ -31,7 +31,7 @@ class LedgerViewFlowableSpec extends AnyFlatSpec with Matchers {
       // the emitted element with a proper failure.
       // The test should also never be result in a false negative, which
       // means that even is the element is emitted after the timeout, the
-      // test would still be green and cause no red masters.
+      // test would still be green and cause no red mains.
       ledgerViewFlowable
         .timeout(10, TimeUnit.MILLISECONDS)
         .blockingFirst()

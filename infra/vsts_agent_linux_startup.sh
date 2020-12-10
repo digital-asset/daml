@@ -163,7 +163,7 @@ NIX_CONF
 
 systemctl restart nix-daemon
 
-# Warm up local caches by building dev-env and current daml master
+# Warm up local caches by building dev-env and current daml main
 # This is allowed to fail, as we still want to have CI machines
 # around, even when their caches are only warmed up halfway
 su --login vsts <<'CACHE_WARMUP'

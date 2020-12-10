@@ -31,7 +31,7 @@ DAML Networks
 DAML Drivers
 ............
 
-At the bottom of every DAML Application is a DAML network, a distributed, or possibly centralized persistence infrastructure together with DAML drivers. DAML drivers enable the persistence infrastructure to act as a consensus, messaging, and in some cases persistence layer for DAML Applications. Most DAML drivers will have a public API, but there are no *uniform* public APIs on DAML drivers. This does not harm application portability since applications only interact with DAML networks through the Participant Node. A good example of a public API of a DAML driver is the command line interface of `DAML for Postgres <https://github.com/digital-asset/daml/blob/master/ledger/daml-on-sql/README.rst>`_. It's a public interface, but specific to the Postgres driver.
+At the bottom of every DAML Application is a DAML network, a distributed, or possibly centralized persistence infrastructure together with DAML drivers. DAML drivers enable the persistence infrastructure to act as a consensus, messaging, and in some cases persistence layer for DAML Applications. Most DAML drivers will have a public API, but there are no *uniform* public APIs on DAML drivers. This does not harm application portability since applications only interact with DAML networks through the Participant Node. A good example of a public API of a DAML driver is the command line interface of `DAML for Postgres <https://github.com/digital-asset/daml/blob/main/ledger/daml-on-sql/README.rst>`_. It's a public interface, but specific to the Postgres driver.
 
 Integration Components
 ......................

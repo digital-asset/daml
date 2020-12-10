@@ -4,7 +4,7 @@
 # Do not run on PRs
 pr: none
 
-# Do not run on merge to master
+# Do not run on merge to main
 trigger: none
 
 # Do run on a schedule (daily)
@@ -19,7 +19,7 @@ schedules:
   displayName: daily checks and reporting
   branches:
     include:
-    - master
+    - main
   always: true
 
 jobs:
