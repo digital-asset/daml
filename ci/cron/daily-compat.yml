@@ -238,8 +238,8 @@ jobs:
           --detect.bazel.target=//... \
           --detect.bazel.dependency.type=haskell_cabal_library \
           --detect.notices.report=true \
-          --detect.report.timeout=1500 \
-          --detect.code.location.prefix=haskell_cabal_library"
+          --detect.code.location.prefix=haskell_cabal_library \
+          --detect.report.timeout=1500
         displayName: 'Blackduck Haskell Scan'
         env:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)        
@@ -262,7 +262,7 @@ jobs:
           --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
           --detect.notices.report=true \
           --detect.cleanup.bdio.files=true \
-          --detect.code.location.prefix=maven_install" \
+          --detect.code.location.prefix=maven_install \
           --detect.report.timeout=4500
         displayName: 'Blackduck Scan'
         env:
