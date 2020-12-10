@@ -23,6 +23,7 @@ import com.daml.auth.middleware.api.{Request, Response}
 import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
+import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -116,7 +117,9 @@ object Server extends StrictLogging {
                 tokenProvidesClaims(token.accessToken, auth.claims) =>
             complete(
               Response
-                .Authorize(accessToken = token.accessToken, refreshToken = token.refreshToken))
+                .Authorize(
+                  accessToken = AccessToken(token.accessToken),
+                  refreshToken = RefreshToken.subst(token.refreshToken)))
           // TODO[AH] Include a `WWW-Authenticate` header.
           case _ => complete(StatusCodes.Unauthorized)
         }
@@ -219,7 +222,7 @@ object Server extends StrictLogging {
     entity(as[Request.Refresh]) { refresh =>
       val body = OAuthRequest.Refresh(
         grantType = "refresh_token",
-        refreshToken = refresh.refreshToken,
+        refreshToken = RefreshToken.unwrap(refresh.refreshToken),
         clientId = config.clientId,
         clientSecret = config.clientSecret)
       import com.daml.auth.oauth2.api.Request.Refresh.marshalRequestEntity
@@ -234,7 +237,9 @@ object Server extends StrictLogging {
           // Return access and refresh token on success.
           case StatusCodes.OK =>
             val authResponse = Unmarshal(resp).to[OAuthResponse.Token].map { token =>
-              Response.Authorize(accessToken = token.accessToken, refreshToken = token.refreshToken)
+              Response.Authorize(
+                accessToken = AccessToken(token.accessToken),
+                refreshToken = RefreshToken.subst(token.refreshToken))
             }
             complete(authResponse)
           // Forward client errors.

@@ -6,13 +6,10 @@ package com.daml.auth.middleware.oauth2
 import java.time.Duration
 
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.marshalling.Marshal
-import akka.http.scaladsl.model.Uri.{Path, Query}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Cookie, Location, `Set-Cookie`}
-import akka.http.scaladsl.unmarshalling.Unmarshal
-import com.daml.auth.middleware.api.{Request, Response}
+import com.daml.auth.middleware.api.{Client, Request}
+import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.jwt.JwtSigner
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
@@ -22,15 +19,9 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.auth.oauth2.api.{Response => OAuthResponse}
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.util.{Failure, Success}
+
 class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAroundAll {
-  import com.daml.auth.middleware.api.JsonProtocol._
-  lazy private val middlewareUri = {
-    Uri()
-      .withScheme("http")
-      .withAuthority(
-        middlewareBinding.localAddress.getHostString,
-        middlewareBinding.localAddress.getPort)
-  }
   private def makeToken(
       claims: Request.Claims,
       secret: String = "secret",
@@ -60,93 +51,58 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
   }
   "the /auth endpoint" should {
     "return unauthorized without cookie" in {
-      val claims = "actAs:Alice"
-      val req = HttpRequest(
-        uri = middlewareUri
-          .withPath(Path./("auth"))
-          .withQuery(Query(("claims", claims))))
+      val claims = Request.Claims(actAs = List(Party("Alice")))
       for {
-        resp <- Http().singleRequest(req)
+        result <- middlewareClient.requestAuth(claims, Nil)
       } yield {
-        assert(resp.status == StatusCodes.Unauthorized)
+        assert(result == None)
       }
     }
     "return the token from a cookie" in {
-      val claims = Request.Claims(actAs = List(ApiTypes.Party("Alice")))
+      val claims = Request.Claims(actAs = List(Party("Alice")))
       val token = makeToken(claims)
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
-      val req = HttpRequest(
-        uri = middlewareUri
-          .withPath(Path./("auth"))
-          .withQuery(Query(("claims", claims.toQueryString()))),
-        headers = List(cookieHeader))
       for {
-        resp <- Http().singleRequest(req)
-        auth <- {
-          assert(resp.status == StatusCodes.OK)
-          Unmarshal(resp).to[Response.Authorize]
-        }
+        result <- middlewareClient.requestAuth(claims, List(cookieHeader))
+        auth = result.get
       } yield {
         assert(auth.accessToken == token.accessToken)
         assert(auth.refreshToken == token.refreshToken)
       }
     }
     "return unauthorized on insufficient party claims" in {
-      val token = makeToken(Request.Claims(actAs = List(ApiTypes.Party("Alice"))))
+      val claims = Request.Claims(actAs = List(Party("Bob")))
+      val token = makeToken(Request.Claims(actAs = List(Party("Alice"))))
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
-      val req = HttpRequest(
-        uri = middlewareUri
-          .withPath(Path./("auth"))
-          .withQuery(
-            Query(("claims", Request.Claims(actAs = List(ApiTypes.Party("Bob"))).toQueryString))),
-        headers = List(cookieHeader)
-      )
       for {
-        resp <- Http().singleRequest(req)
+        result <- middlewareClient.requestAuth(claims, List(cookieHeader))
       } yield {
-        assert(resp.status == StatusCodes.Unauthorized)
+        assert(result == None)
       }
     }
     "return unauthorized on insufficient app id claims" in {
+      val claims = Request.Claims(
+        actAs = List(ApiTypes.Party("Alice")),
+        applicationId = Some(ApiTypes.ApplicationId("other-id")))
       val token = makeToken(
         Request.Claims(
           actAs = List(ApiTypes.Party("Alice")),
           applicationId = Some(ApiTypes.ApplicationId("my-app-id"))))
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
-      val req = HttpRequest(
-        uri = middlewareUri
-          .withPath(Path./("auth"))
-          .withQuery(
-            Query(
-              (
-                "claims",
-                Request
-                  .Claims(
-                    actAs = List(ApiTypes.Party("Alice")),
-                    applicationId = Some(ApiTypes.ApplicationId("other-id")))
-                  .toQueryString))),
-        headers = List(cookieHeader)
-      )
       for {
-        resp <- Http().singleRequest(req)
+        result <- middlewareClient.requestAuth(claims, List(cookieHeader))
       } yield {
-        assert(resp.status == StatusCodes.Unauthorized)
+        assert(result == None)
       }
     }
     "return unauthorized on an invalid token" in {
       val claims = Request.Claims(actAs = List(ApiTypes.Party("Alice")))
       val token = makeToken(claims, "wrong-secret")
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
-      val req = HttpRequest(
-        uri = middlewareUri
-          .withPath(Path./("auth"))
-          .withQuery(Query(("claims", claims.toQueryString))),
-        headers = List(cookieHeader)
-      )
       for {
-        resp <- Http().singleRequest(req)
+        result <- middlewareClient.requestAuth(claims, List(cookieHeader))
       } yield {
-        assert(resp.status == StatusCodes.Unauthorized)
+        assert(result == None)
       }
     }
     "return unauthorized on an expired token" in {
@@ -154,26 +110,17 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       val token = makeToken(claims, expiresIn = Some(Duration.ZERO))
       val _ = clock.fastForward(Duration.ofSeconds(1))
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
-      val req = HttpRequest(
-        uri = middlewareUri
-          .withPath(Path./("auth"))
-          .withQuery(Query(("claims", claims.toQueryString))),
-        headers = List(cookieHeader)
-      )
       for {
-        resp <- Http().singleRequest(req)
+        result <- middlewareClient.requestAuth(claims, List(cookieHeader))
       } yield {
-        assert(resp.status == StatusCodes.Unauthorized)
+        assert(result == None)
       }
     }
   }
   "the /login endpoint" should {
     "redirect and set cookie" in {
-      val claims = "actAs:Alice"
-      val req = HttpRequest(
-        uri = middlewareUri
-          .withPath(Path./("login"))
-          .withQuery(Query(("redirect_uri", "http://CALLBACK"), ("claims", claims))))
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val req = HttpRequest(uri = middlewareClient.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
@@ -191,7 +138,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       } yield {
         // Redirect to CALLBACK
         assert(resp.status == StatusCodes.Found)
-        assert(resp.header[Location].get.uri == Uri("http://CALLBACK"))
+        assert(resp.header[Location].get.uri == Uri("http://localhost/CALLBACK"))
         // Store token in cookie
         val cookie = resp.header[`Set-Cookie`].get.cookie
         assert(cookie.name == "daml-ledger-token")
@@ -201,11 +148,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     }
     "not authorize unauthorized parties" in {
       server.revokeParty(Party("Eve"))
-      val claims = "actAs:Eve"
-      val req = HttpRequest(
-        uri = middlewareUri
-          .withPath(Path./("login"))
-          .withQuery(Query(("redirect_uri", "http://CALLBACK"), ("claims", claims))))
+      val claims = Request.Claims(actAs = List(Party("Eve")))
+      val req = HttpRequest(uri = middlewareClient.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
@@ -223,7 +167,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       } yield {
         // Redirect to CALLBACK
         assert(resp.status == StatusCodes.Found)
-        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == Uri("http://CALLBACK"))
+        assert(
+          resp.header[Location].get.uri.withQuery(Uri.Query()) == Uri("http://localhost/CALLBACK"))
         // with error parameter set
         assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
         // Without token in cookie
@@ -233,11 +178,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     }
     "not authorize disallowed admin claims" in {
       server.revokeAdmin()
-      val claims = "admin"
-      val req = HttpRequest(
-        uri = middlewareUri
-          .withPath(Path./("login"))
-          .withQuery(Query(("redirect_uri", "http://CALLBACK"), ("claims", claims))))
+      val claims = Request.Claims(admin = true)
+      val req = HttpRequest(uri = middlewareClient.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(req)
         // Redirect to /authorize on authorization server
@@ -255,7 +197,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       } yield {
         // Redirect to CALLBACK
         assert(resp.status == StatusCodes.Found)
-        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == Uri("http://CALLBACK"))
+        assert(
+          resp.header[Location].get.uri.withQuery(Uri.Query()) == Uri("http://localhost/CALLBACK"))
         // with error parameter set
         assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
         // Without token in cookie
@@ -266,11 +209,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
   }
   "the /refresh endpoint" should {
     "return a new access token" in {
-      val claims = "actAs:Alice"
-      val loginReq = HttpRequest(
-        uri = middlewareUri
-          .withPath(Path./("login"))
-          .withQuery(Query(("redirect_uri", "http://CALLBACK"), ("claims", claims))))
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val loginReq = HttpRequest(uri = middlewareClient.loginUri(claims, None))
       for {
         resp <- Http().singleRequest(loginReq)
         // Redirect to /authorize on authorization server
@@ -289,22 +229,12 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         (token1, refreshToken) = {
           val cookie = resp.header[`Set-Cookie`].get.cookie
           val token = OAuthResponse.Token.fromCookieValue(cookie.value).get
-          (token.accessToken, token.refreshToken.get)
+          (AccessToken(token.accessToken), RefreshToken(token.refreshToken.get))
         }
         // Advance time
         _ = clock.fastForward(Duration.ofSeconds(1))
         // Request /refresh
-        refreshEntity <- Marshal(Request.Refresh(refreshToken)).to[RequestEntity]
-        refreshReq = HttpRequest(
-          method = HttpMethods.POST,
-          uri = middlewareUri.withPath(Path./("refresh")),
-          entity = refreshEntity,
-        )
-        resp <- Http().singleRequest(refreshReq)
-        authorize <- {
-          assert(resp.status == StatusCodes.OK)
-          Unmarshal(resp.entity).to[Response.Authorize]
-        }
+        authorize <- middlewareClient.requestRefresh(refreshToken)
       } yield {
         // Test that we got a new access token
         assert(authorize.accessToken != token1)
@@ -314,15 +244,12 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     }
     "fail on an invalid refresh token" in {
       for {
-        refreshEntity <- Marshal(Request.Refresh("made-up-token")).to[RequestEntity]
-        refreshReq = HttpRequest(
-          method = HttpMethods.POST,
-          uri = middlewareUri.withPath(Path./("refresh")),
-          entity = refreshEntity,
-        )
-        resp <- Http().singleRequest(refreshReq)
+        exception <- middlewareClient.requestRefresh(RefreshToken("made-up-token")).transform {
+          case Failure(exception: Client.RefreshException) => Success(exception)
+          case value => fail(s"Expected failure with RefreshException but got $value")
+        }
       } yield {
-        assert(resp.status.isInstanceOf[StatusCodes.ClientError])
+        assert(exception.status.isInstanceOf[StatusCodes.ClientError])
       }
     }
   }
