@@ -34,7 +34,7 @@ private[migration] object ValueSerializer {
     x match {
       case DeprecatedValueVersionsError(deprecatedVersion) =>
         logger.error(
-          s"*** Deserialization of value version $deprecatedVersion is not supported by the SDK 1.9.0 or later. ***")
+          s"*** Deserialization of value version $deprecatedVersion is not supported by the SDK 1.7.0 or later. ***")
         logger.error(
           s"*** Please upgrade your sandbox database by upgrading your SDK to 1.6 first. ***")
     }
