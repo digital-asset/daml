@@ -118,7 +118,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
     val actAs = List(alice, bob, david) // David is submitter but not signatory
     for {
-      (_, tx) <- store(singleCreateP(createCustom(_, signatories, stakeholders), actAs))
+      (_, tx) <- store(singleCreate(createNode(_, signatories, stakeholders), actAs))
       // Response 1: querying as all submitters
       result1 <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.transactionId, Set(alice, bob, david))
@@ -140,7 +140,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
     val actAs = List(alice, bob, david) // David is submitter but not signatory
     for {
-      (_, tx) <- store(singleCreateP(createCustom(_, signatories, stakeholders), actAs))
+      (_, tx) <- store(singleCreate(createNode(_, signatories, stakeholders), actAs))
       result <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.transactionId, Set(charlie))
     } yield {
@@ -661,44 +661,44 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       Mk(
         "singleWildcardParty",
         Map(alice -> Set.empty),
-        () => singleCreateP(create(_, signatories = Set(alice))),
-        () => singleCreateP(create(_, signatories = Set(bob))),
+        () => singleCreate(create(_, signatories = Set(alice))),
+        () => singleCreate(create(_, signatories = Set(bob))),
         ce => (ce.signatories ++ ce.observers) contains alice
       ),
       Mk(
         "singlePartyWithTemplates",
         Map(alice -> Set(someTemplateId)),
-        () => singleCreateP(create(_, signatories = Set(alice))),
-        () => singleCreateP(create(_, signatories = Set(bob))),
+        () => singleCreate(create(_, signatories = Set(alice))),
+        () => singleCreate(create(_, signatories = Set(bob))),
         ce =>
           ((ce.signatories ++ ce.observers) contains alice) /*TODO && ce.templateId == Some(someTemplateId.toString)*/
       ),
       Mk(
         "onlyWildcardParties",
         Map(alice -> Set.empty, bob -> Set.empty),
-        () => singleCreateP(create(_, signatories = Set(alice))),
-        () => singleCreateP(create(_, signatories = Set(charlie))),
+        () => singleCreate(create(_, signatories = Set(alice))),
+        () => singleCreate(create(_, signatories = Set(charlie))),
         ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
       ),
       Mk(
         "sameTemplates",
         Map(alice -> Set(someTemplateId), bob -> Set(someTemplateId)),
-        () => singleCreateP(create(_, signatories = Set(alice))),
-        () => singleCreateP(create(_, signatories = Set(charlie))),
+        () => singleCreate(create(_, signatories = Set(alice))),
+        () => singleCreate(create(_, signatories = Set(charlie))),
         ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
       ),
       Mk(
         "mixedTemplates",
         Map(alice -> Set(someTemplateId), bob -> Set(someRecordId)),
-        () => singleCreateP(create(_, signatories = Set(alice))),
-        () => singleCreateP(create(_, signatories = Set(charlie))),
+        () => singleCreate(create(_, signatories = Set(alice))),
+        () => singleCreate(create(_, signatories = Set(charlie))),
         ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
       ),
       Mk(
         "mixedTemplatesWithWildcardParties",
         Map(alice -> Set(someTemplateId), bob -> Set.empty),
-        () => singleCreateP(create(_, signatories = Set(alice))),
-        () => singleCreateP(create(_, signatories = Set(charlie))),
+        () => singleCreate(create(_, signatories = Set(alice))),
+        () => singleCreate(create(_, signatories = Set(charlie))),
         ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
       ),
     )
