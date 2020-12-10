@@ -124,17 +124,17 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
     delegate.getActiveContracts(filter, verbose)
 
   override def lookupActiveContract(
-      submitter: Party,
+      readers: Set[Party],
       contractId: Value.ContractId,
   )(implicit loggingContext: LoggingContext)
     : Future[Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]]] =
-    delegate.lookupActiveContract(submitter, contractId)
+    delegate.lookupActiveContract(readers, contractId)
 
   override def lookupContractKey(
-      submitter: Party,
+      readers: Set[Party],
       key: GlobalKey,
   )(implicit loggingContext: LoggingContext): Future[Option[Value.ContractId]] =
-    delegate.lookupContractKey(submitter, key)
+    delegate.lookupContractKey(readers, key)
 
   override def lookupMaximumLedgerTime(
       ids: Set[Value.ContractId],
