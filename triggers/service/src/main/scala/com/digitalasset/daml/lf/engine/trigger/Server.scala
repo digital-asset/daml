@@ -19,7 +19,7 @@ import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.{Directive1, Route}
+import akka.http.scaladsl.server.{Directive1, ExceptionHandler, Route}
 import akka.http.scaladsl.settings.ServerSettings
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import akka.pattern.StatusReply
@@ -225,17 +225,26 @@ class Server(
     authClient match {
       case None => provide(None)
       case Some(client) =>
-        client.authorize(claims).flatMap {
-          case AuthClient.Authorized(authorization) => provide(Some(authorization))
-          case AuthClient.Unauthorized =>
-            // Authorization failed after login - respond with 401
-            // TODO[AH] Add WWW-Authenticate header
-            complete(errorResponse(StatusCodes.Unauthorized))
-          case AuthClient.LoginFailed(AuthResponse.LoginError(error, errorDescription)) =>
+        handleExceptions(ExceptionHandler {
+          case ex: AuthClient.ClientException =>
+            logger.error(ex.getLocalizedMessage)
             complete(
               errorResponse(
-                StatusCodes.Forbidden,
-                s"Failed to authenticate: $error${errorDescription.fold("")(": " + _)}"))
+                StatusCodes.InternalServerError,
+                "Failed to authorize with auth middleware"))
+        }).tflatMap { _ =>
+          client.authorize(claims).flatMap {
+            case AuthClient.Authorized(authorization) => provide(Some(authorization))
+            case AuthClient.Unauthorized =>
+              // Authorization failed after login - respond with 401
+              // TODO[AH] Add WWW-Authenticate header
+              complete(errorResponse(StatusCodes.Unauthorized))
+            case AuthClient.LoginFailed(AuthResponse.LoginError(error, errorDescription)) =>
+              complete(
+                errorResponse(
+                  StatusCodes.Forbidden,
+                  s"Failed to authenticate: $error${errorDescription.fold("")(": " + _)}"))
+          }
         }
     }
 
