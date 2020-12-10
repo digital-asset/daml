@@ -24,7 +24,6 @@ class ValueSerializerTest extends AnyWordSpec with Matchers with TableDrivenProp
         val x = ValueSerializer.DeprecatedValueVersionsError.unapply(
           ValueCoder.decodeValue(ValueCoder.CidDecoder, valueBuilder.setVersion(version).build())
         )
-        remy.log(version -> x)
         x shouldBe None
       }
 
@@ -32,8 +31,6 @@ class ValueSerializerTest extends AnyWordSpec with Matchers with TableDrivenProp
         val x = ValueSerializer.DeprecatedValueVersionsError.unapply(
           ValueCoder.decodeValue(ValueCoder.CidDecoder, valueBuilder.setVersion(version).build())
         )
-
-        remy.log(version -> x)
         x shouldBe Some(version)
       }
 
