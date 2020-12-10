@@ -46,11 +46,18 @@ private[apiserver] final class StoreBackedCommandExecutor(
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val start = System.nanoTime()
-    val actAsReadAsUnion = commands.actAs ++ commands.readAs
+    // The actAs and readAs parties are used for two kinds of checks by the ledger API server:
+    // When looking up contracts during command interpretation, the engine should only see contracts
+    // that are visible to at least one of the actAs or readAs parties. This visibility check is not part of the
+    // DAML ledger model.
+    // When checking DAML authorization rules, the engine verifies that the actAs parties are sufficient to
+    // authorize the resulting transaction.
+    val contractReaders = commands.actAs ++ commands.readAs
+    val commitAuthorizers = commands.actAs
     val submissionResult = Timed.trackedValue(
       metrics.daml.execution.engineRunning,
-      engine.submit(actAsReadAsUnion, commands.commands, participant, submissionSeed))
-    consume(actAsReadAsUnion, submissionResult)
+      engine.submit(commitAuthorizers, commands.commands, participant, submissionSeed))
+    consume(contractReaders, submissionResult)
       .map { submission =>
         (for {
           result <- submission
