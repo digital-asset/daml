@@ -5,8 +5,7 @@ package com.daml.platform.db.migration.postgres
 
 import java.io.ByteArrayInputStream
 
-import com.daml.platform.store.serialization.ValueSerializer
-import com.daml.platform.db.migration.translation.ContractSerializer
+import com.daml.platform.db.migration.translation.{ContractSerializer, ValueSerializer}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 private[migration] class V26_1__Fill_create_argument extends BaseJavaMigration {

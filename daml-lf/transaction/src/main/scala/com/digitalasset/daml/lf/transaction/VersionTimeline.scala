@@ -43,11 +43,7 @@ object VersionTimeline {
     */
   private[lf] val inAscendingOrder: NonEmptyList[Release] =
     NonEmptyList(
-      This(This(ValueVersion("1"))),
-      This(This(ValueVersion("2"))),
-      This(This(ValueVersion("3"))),
-      This(This(ValueVersion("4"))),
-      Both(This(ValueVersion("5")), LanguageVersion(LMV.V1, "6")),
+      That(LanguageVersion(LMV.V1, "6")),
       Both(This(ValueVersion("6")), LanguageVersion(LMV.V1, "7")),
       That(LanguageVersion(LMV.V1, "8")),
       This(That(TransactionVersion("10"))),

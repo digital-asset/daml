@@ -578,32 +578,16 @@ jobs:
             fi
         done
 
-        AUTH="$(get_gh_auth_header)"
-
         trap "git checkout $(branch_sha)" EXIT
         git checkout origin/master
-        BRANCH=update-compat-versions-for-$(release_tag)
-        # if this is a rerun, branch might already exist
-        git branch -D $BRANCH || true
-        git checkout -b $BRANCH
         cp .bazelrc compatibility/
         compatibility/update-versions.sh
-        # Note that maven_install.json might be unchanged but
-        # git add is happy about that.
         git add compatibility/versions.bzl compatibility/maven_install.json
-        git -c user.name="Azure Pipelines DAML Build" \
-            -c user.email="support@digitalasset.com" \
-            commit \
-            -m "$(printf "update compat versions for $(release_tag)\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
-        git push origin $BRANCH:$BRANCH
-        curl -H "Content-Type: application/json" \
-             -H "$AUTH" \
-             --silent \
-             --fail \
-             --include \
-             --location \
-             -d "{\"title\": \"update compat versions for $(release_tag)\", \"head\": \"$BRANCH\", \"base\": \"master\"}" \
-             https://api.github.com/repos/digital-asset/daml/pulls
+
+        BRANCH=update-compat-versions-for-$(release_tag)-$(Build.BuildId)
+        TITLE="update compat versions for $(release_tag)"
+        open_pr "$BRANCH" "$TITLE"
+
         setvar "branch" "$BRANCH"
       name: out
 

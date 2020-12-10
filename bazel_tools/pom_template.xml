@@ -32,7 +32,7 @@
   <scm>
     <connection>scm:git:git://github.com/digital-asset/daml.git</connection>
     <developerConnection>scm:git:ssh://github.com:digital-asset/daml.git</developerConnection>
-    <url>http://github.com/digital-asset/daml/tree/master</url>
+    <url>https://github.com/digital-asset/daml/tree/master</url>
   </scm>
 
   <dependencies>

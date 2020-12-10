@@ -1629,7 +1629,7 @@ private[lf] object SBuiltin {
               .toValue
               .ensureNoCid
               .left
-              .map(coid => s"Unexpected contract id in key: $coid")
+              .map(coid => s"Contract IDs are not supported in contract keys: $coid")
           } yield
             Node.KeyWithMaintainers(
               key = keyVal,

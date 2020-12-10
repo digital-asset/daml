@@ -16,13 +16,12 @@ import akka.actor.typed.{ActorRef, Behavior, Scheduler}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.model.Uri.Path
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.{Directive, Directive1, Route}
+import akka.http.scaladsl.server.{Directive1, ExceptionHandler, Route}
 import akka.http.scaladsl.settings.ServerSettings
-import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
+import akka.http.scaladsl.unmarshalling.Unmarshaller
 import akka.pattern.StatusReply
 import akka.stream.Materializer
 import akka.util.{ByteString, Timeout}
@@ -37,12 +36,11 @@ import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine._
 import com.daml.lf.engine.trigger.Request.StartParams
 import com.daml.lf.engine.trigger.Response._
-import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
 import com.daml.lf.engine.trigger.TriggerRunner._
 import com.daml.lf.engine.trigger.dao._
 import com.daml.auth.middleware.api.Request.Claims
 import com.daml.auth.middleware.api.{
-  JsonProtocol => AuthJsonProtocol,
+  Client => AuthClient,
   Request => AuthRequest,
   Response => AuthResponse
 }
@@ -53,15 +51,12 @@ import scalaz.Tag
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
-import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 class Server(
-    maxHttpEntityUploadSize: Long,
-    httpEntityUploadTimeout: FiniteDuration,
-    authConfig: AuthConfig,
+    authClient: Option[AuthClient],
     triggerDao: RunningTriggerDao,
     val logTriggerStatus: (UUID, String) => Unit)(
     implicit ctx: ActorContext[Server.Message],
@@ -149,7 +144,7 @@ class Server(
   // Note that this does not yet start the trigger.
   private def addNewTrigger(
       config: TriggerConfig,
-      auth: Option[Authorization],
+      auth: Option[AuthResponse.Authorize],
   )(implicit ec: ExecutionContext): Future[Either[String, (Trigger, RunningTrigger)]] = {
     val runningTrigger =
       RunningTrigger(
@@ -222,91 +217,34 @@ class Server(
     }
   }
 
-  // TODO[AH] Make sure this is bounded in size.
-  private val authCallbacks: TrieMap[UUID, Route] = TrieMap()
-
-  case class Authorization(accessToken: AccessToken, refreshToken: Option[RefreshToken])
-
   // This directive requires authorization for the given claims via the auth middleware, if configured.
   // If no auth middleware is configured, then the request will proceed without attempting authorization.
-  //
-  // Authorization follows the steps defined in `triggers/service/authentication.md`.
-  // First asking for a token on the `/auth` endpoint and redirecting to `/login` if none was returned.
-  // If a login is required then this will store the current continuation in `authCallbacks`
-  // to proceed once the login flow completed and authentication succeeded.
   private def authorize(claims: AuthRequest.Claims)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[Authorization]] =
-    authConfig match {
-      case NoAuth => provide(None)
-      case AuthMiddleware(authUri) =>
-        // Attempt to obtain the access token from the middleware's /auth endpoint.
-        // Forwards the current request's cookies.
-        // Fails if the response is not OK or Unauthorized.
-        def auth: Directive1[Option[Authorization]] = {
-          val uri = authUri
-            .withPath(Path./("auth"))
-            .withQuery(AuthRequest.Auth(claims).toQuery)
-          import AuthJsonProtocol._
-          extract(_.request.headers[headers.Cookie]).flatMap { cookies =>
-            onSuccess(Http().singleRequest(HttpRequest(uri = uri, headers = cookies))).flatMap {
-              case HttpResponse(StatusCodes.OK, _, entity, _) =>
-                onSuccess(Unmarshal(entity).to[AuthResponse.Authorize]).map { auth =>
-                  Some(
-                    Authorization(
-                      AccessToken(auth.accessToken),
-                      RefreshToken.subst(auth.refreshToken))): Option[Authorization]
-                }
-              case HttpResponse(StatusCodes.Unauthorized, _, _, _) =>
-                provide(None)
-              case resp @ HttpResponse(code, _, _, _) =>
-                onSuccess(Unmarshal(resp).to[String]).flatMap { msg =>
-                  logger.error(s"Failed to authorize with middleware ($code): $msg")
-                  complete(
-                    errorResponse(
-                      StatusCodes.InternalServerError,
-                      "Failed to authorize with middleware"))
-                }
-            }
+      system: ActorSystem): Directive1[Option[AuthResponse.Authorize]] =
+    authClient match {
+      case None => provide(None)
+      case Some(client) =>
+        handleExceptions(ExceptionHandler {
+          case ex: AuthClient.ClientException =>
+            logger.error(ex.getLocalizedMessage)
+            complete(
+              errorResponse(
+                StatusCodes.InternalServerError,
+                "Failed to authorize with auth middleware"))
+        }).tflatMap { _ =>
+          client.authorize(claims).flatMap {
+            case AuthClient.Authorized(authorization) => provide(Some(authorization))
+            case AuthClient.Unauthorized =>
+              // Authorization failed after login - respond with 401
+              // TODO[AH] Add WWW-Authenticate header
+              complete(errorResponse(StatusCodes.Unauthorized))
+            case AuthClient.LoginFailed(AuthResponse.LoginError(error, errorDescription)) =>
+              complete(
+                errorResponse(
+                  StatusCodes.Forbidden,
+                  s"Failed to authenticate: $error${errorDescription.fold("")(": " + _)}"))
           }
-        }
-        auth.flatMap {
-          // Authorization successful - pass token to continuation
-          case Some(authorization) => provide(Some(authorization))
-          // Authorization failed - login and retry on callback request.
-          case None =>
-            // Ensure that the request is fully uploaded.
-            toStrictEntity(httpEntityUploadTimeout, maxHttpEntityUploadSize).tflatMap { _ =>
-              Directive { inner => ctx =>
-                val requestId = UUID.randomUUID()
-                authCallbacks.update(
-                  requestId, {
-                    auth {
-                      case None => {
-                        // Authorization failed after login - respond with 401
-                        // TODO[AH] Add WWW-Authenticate header
-                        complete(errorResponse(StatusCodes.Unauthorized))
-                      }
-                      case Some(authorization) =>
-                        // Authorization successful after login - use old request context and pass token to continuation.
-                        mapRequestContext(_ => ctx) {
-                          inner(Tuple1(Some(authorization)))
-                        }
-                    }
-                  }
-                )
-                // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
-                val callbackUri = Uri()
-                  .withScheme(ctx.request.uri.scheme)
-                  .withAuthority(ctx.request.uri.authority)
-                  .withPath(Path./("cb"))
-                val uri = authUri
-                  .withPath(Path./("login"))
-                  .withQuery(
-                    AuthRequest.Login(callbackUri, claims, Some(requestId.toString)).toQuery)
-                ctx.redirect(uri, StatusCodes.Found)
-              }
-            }
         }
     }
 
@@ -315,10 +253,10 @@ class Server(
   // If the trigger does not exist, then the request will also proceed without attempting authorization.
   private def authorizeForTrigger(uuid: UUID, readOnly: Boolean = false)(
       implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[Authorization]] =
-    authConfig match {
-      case NoAuth => provide(None)
-      case AuthMiddleware(_) =>
+      system: ActorSystem): Directive1[Option[AuthResponse.Authorize]] =
+    authClient match {
+      case None => provide(None)
+      case Some(_) =>
         onComplete(triggerDao.getRunningTrigger(uuid)).flatMap {
           case Failure(e) => complete(errorResponse(StatusCodes.InternalServerError, e.description))
           case Success(None) => provide(None)
@@ -327,23 +265,6 @@ class Server(
             val claims = if (readOnly) Claims(readAs = parties) else Claims(actAs = parties)
             authorize(claims)
         }
-    }
-
-  private val authCallback: Route =
-    parameters('state.as[UUID]) { requestId =>
-      authCallbacks.remove(requestId) match {
-        case None => complete(StatusCodes.NotFound)
-        case Some(callback) =>
-          concat(
-            parameters('error, 'error_description ?) { (error, errorDescription) =>
-              complete(
-                errorResponse(
-                  StatusCodes.Forbidden,
-                  s"Failed to authenticate: $error${errorDescription.fold("")(": " + _)}"))
-            },
-            callback
-          )
-      }
     }
 
   private implicit val unmarshalParty: Unmarshaller[String, Party] = Unmarshaller.strict(Party(_))
@@ -473,7 +394,7 @@ class Server(
       complete((StatusCodes.OK, JsObject(("status", "pass".toJson))))
     },
     // Authorization callback endpoint
-    path("cb") { get { authCallback } },
+    authClient.fold(reject: Route)(client => path("cb") { get { client.callbackHandler } }),
   )
 }
 
@@ -557,24 +478,27 @@ object Server {
     implicit val esf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
 
+    val authClient = authConfig match {
+      case NoAuth => None
+      case AuthMiddleware(uri) =>
+        Some(
+          AuthClient(AuthClient.Config(
+            authMiddlewareUri = uri,
+            // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
+            callbackUri = Uri().withScheme("http").withAuthority(host, port).withPath(Path./("cb")),
+            maxHttpEntityUploadSize = maxHttpEntityUploadSize,
+            httpEntityUploadTimeout = httpEntityUploadTimeout,
+          )))
+    }
+
     val (dao, server, initializeF): (RunningTriggerDao, Server, Future[Unit]) = jdbcConfig match {
       case None =>
         val dao = InMemoryTriggerDao()
-        val server = new Server(
-          maxHttpEntityUploadSize,
-          httpEntityUploadTimeout,
-          authConfig,
-          dao,
-          logTriggerStatus)
+        val server = new Server(authClient, dao, logTriggerStatus)
         (dao, server, Future.successful(()))
       case Some(c) =>
         val dao = DbTriggerDao(c)
-        val server = new Server(
-          maxHttpEntityUploadSize,
-          httpEntityUploadTimeout,
-          authConfig,
-          dao,
-          logTriggerStatus)
+        val server = new Server(authClient, dao, logTriggerStatus)
         val initialize = for {
           _ <- dao.initialize
           packages <- dao.readPackages
@@ -656,40 +580,20 @@ object Server {
           .getRunningTrigger(triggerInstance)
           .flatMap(getOrFail(_, new RuntimeException(s"Unknown trigger $triggerInstance")))
         // Request a token refresh
-        authUri <- getOrFail(authConfig match {
-          case AuthMiddleware(uri) => Some(uri)
-          case _ => None
-        }, new RuntimeException("Cannot refresh token without authorization service"))
+        client <- getOrFail(
+          authClient,
+          new RuntimeException("Cannot refresh token without authorization service"))
         refreshToken <- getOrFail(
           runningTrigger.triggerRefreshToken,
           new RuntimeException(s"No refresh token for $triggerInstance"))
-        requestEntity <- {
-          import AuthJsonProtocol._
-          Marshal(AuthRequest.Refresh(RefreshToken.unwrap(refreshToken)))
-            .to[RequestEntity]
-        }
-        response <- Http().singleRequest(
-          HttpRequest(
-            method = HttpMethods.POST,
-            uri = authUri.withPath(Path./("refresh")),
-            entity = requestEntity,
-          ))
-        authorize <- response.status match {
-          case StatusCodes.OK =>
-            import AuthJsonProtocol._
-            Unmarshal(response.entity).to[AuthResponse.Authorize]
-          case status =>
-            Unmarshal(response).to[String].flatMap { msg =>
-              Future.failed(new RuntimeException(s"Failed to refresh token ($status): $msg"))
-            }
-        }
+        authorization <- client.requestRefresh(refreshToken)
         // Update the tokens in the trigger db
-        accessToken = AccessToken(authorize.accessToken)
-        refreshToken = RefreshToken.subst(authorize.refreshToken)
-        _ <- dao.updateRunningTriggerToken(triggerInstance, accessToken, refreshToken)
+        newAccessToken = authorization.accessToken
+        newRefreshToken = authorization.refreshToken
+        _ <- dao.updateRunningTriggerToken(triggerInstance, newAccessToken, newRefreshToken)
       } yield
         runningTrigger
-          .copy(triggerAccessToken = Some(accessToken), triggerRefreshToken = refreshToken)
+          .copy(triggerAccessToken = Some(newAccessToken), triggerRefreshToken = newRefreshToken)
     }
 
     // The server running state.

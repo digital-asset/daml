@@ -26,9 +26,13 @@ import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.entries.LedgerEntry
-import com.daml.platform.store.serialization.{KeyHasher, ValueSerializer}
+import com.daml.platform.store.serialization.KeyHasher
 import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
-import com.daml.platform.db.migration.translation.{ContractSerializer, TransactionSerializer}
+import com.daml.platform.db.migration.translation.{
+  ContractSerializer,
+  TransactionSerializer,
+  ValueSerializer
+}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 

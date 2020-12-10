@@ -7,8 +7,7 @@ import com.daml.caching.WeightedCache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import com.daml.ledger.validator.{DamlLedgerStateReader, DefaultStateKeySerializationStrategy}
-import org.mockito.ArgumentMatchers._
-import org.mockito.MockitoSugar
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -19,7 +18,8 @@ class CachingDamlLedgerStateReaderSpec
     extends AsyncWordSpec
     with Matchers
     with Inside
-    with MockitoSugar {
+    with MockitoSugar
+    with ArgumentMatchersSugar {
 
   "readState" should {
     "record read keys" in {
@@ -59,7 +59,7 @@ class CachingDamlLedgerStateReaderSpec
 
     "serve request from cache for seen key (if policy allows)" in {
       val mockReader = mock[DamlLedgerStateReader]
-      when(mockReader.readState(any[Seq[DamlStateKey]]())).thenReturn(Future.successful(Seq(None)))
+      when(mockReader.readState(any[Seq[DamlStateKey]])).thenReturn(Future.successful(Seq(None)))
       val instance = newInstance(mockReader, shouldCache = true)
 
       for {

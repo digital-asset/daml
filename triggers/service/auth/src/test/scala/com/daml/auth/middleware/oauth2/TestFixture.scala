@@ -12,6 +12,7 @@ import com.auth0.jwt.JWTVerifier.BaseVerification
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.{Clock => Auth0Clock}
+import com.daml.auth.middleware.api.Client
 import com.daml.clock.AdjustableClock
 import com.daml.jwt.JwtVerifier
 import com.daml.ledger.api.testing.utils.{
@@ -25,6 +26,9 @@ import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthS
 import com.daml.ports.Port
 import org.scalatest.{BeforeAndAfterEach, Suite}
 
+import scala.concurrent.duration
+import scala.concurrent.duration.FiniteDuration
+
 trait TestFixture
     extends AkkaBeforeAndAfterAll
     with BeforeAndAfterEach
@@ -36,6 +40,17 @@ trait TestFixture
   lazy protected val server: OAuthServer = suiteResource.value._2
   lazy protected val serverBinding: ServerBinding = suiteResource.value._3
   lazy protected val middlewareBinding: ServerBinding = suiteResource.value._4
+  lazy protected val middlewareClient: Client = Client(
+    Client.Config(
+      authMiddlewareUri = Uri()
+        .withScheme("http")
+        .withAuthority(
+          middlewareBinding.localAddress.getHostName,
+          middlewareBinding.localAddress.getPort),
+      callbackUri = Uri("http://localhost/CALLBACK"),
+      maxHttpEntityUploadSize = 4194304,
+      httpEntityUploadTimeout = FiniteDuration(1, duration.MINUTES)
+    ))
   override protected lazy val suiteResource
     : Resource[(AdjustableClock, OAuthServer, ServerBinding, ServerBinding)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)

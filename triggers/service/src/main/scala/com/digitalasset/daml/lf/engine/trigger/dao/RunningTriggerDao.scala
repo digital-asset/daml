@@ -6,12 +6,12 @@ package com.daml.lf.engine.trigger.dao
 import java.io.Closeable
 import java.util.UUID
 
+import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.trigger.RunningTrigger
-import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
 
 import scala.concurrent.{ExecutionContext, Future}
 

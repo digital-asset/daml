@@ -5,8 +5,11 @@ package com.daml.auth.middleware.api
 
 import akka.http.scaladsl.marshalling.Marshaller
 import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.server.Directive1
+import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
+import scalaz.{@@, Tag}
 import spray.json.{
   DefaultJsonProtocol,
   JsString,
@@ -19,8 +22,20 @@ import spray.json.{
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent._
 import scala.util.Try
+import scala.language.postfixOps
+
+object Tagged {
+  sealed trait AccessTokenTag
+  type AccessToken = String @@ AccessTokenTag
+  val AccessToken = Tag.of[AccessTokenTag]
+
+  sealed trait RefreshTokenTag
+  type RefreshToken = String @@ RefreshTokenTag
+  val RefreshToken = Tag.of[RefreshTokenTag]
+}
 
 object Request {
+  import Tagged._
 
   // applicationId = None makes no guarantees about the application ID. You can use this
   // if you don’t use the token for requests that use the application ID.
@@ -105,23 +120,55 @@ object Request {
 
   /** Refresh endpoint request entity
     */
-  case class Refresh(refreshToken: String)
+  case class Refresh(refreshToken: RefreshToken)
 
 }
 
 object Response {
+  import Tagged._
 
-  case class Authorize(accessToken: String, refreshToken: Option[String])
+  case class Authorize(accessToken: AccessToken, refreshToken: Option[RefreshToken])
+
+  sealed abstract class Login
+  final case class LoginError(error: String, errorDescription: Option[String]) extends Login
+  object LoginSuccess extends Login
+
+  object Login {
+    val callbackParameters: Directive1[Login] =
+      parameters('error, 'error_description ?)
+        .as[LoginError](LoginError)
+        .or(provide(LoginSuccess))
+  }
 
 }
 
 object JsonProtocol extends DefaultJsonProtocol {
+  import Tagged._
+
   implicit object UriFormat extends JsonFormat[Uri] {
     def read(value: JsValue) = value match {
       case JsString(s) => Uri(s)
       case _ => deserializationError(s"Expected Uri string but got $value")
     }
     def write(uri: Uri) = JsString(uri.toString)
+  }
+  implicit object AccessTokenJsonFormat extends JsonFormat[AccessToken] {
+    def write(x: AccessToken) = {
+      JsString(AccessToken.unwrap(x))
+    }
+    def read(value: JsValue) = value match {
+      case JsString(x) => AccessToken(x)
+      case x => deserializationError(s"Expected AccessToken as JsString, but got $x")
+    }
+  }
+  implicit object RefreshTokenJsonFormat extends JsonFormat[RefreshToken] {
+    def write(x: RefreshToken) = {
+      JsString(RefreshToken.unwrap(x))
+    }
+    def read(value: JsValue) = value match {
+      case JsString(x) => RefreshToken(x)
+      case x => deserializationError(s"Expected RefreshToken as JsString, but got $x")
+    }
   }
   implicit val requestRefreshFormat: RootJsonFormat[Request.Refresh] =
     jsonFormat(Request.Refresh, "refresh_token")

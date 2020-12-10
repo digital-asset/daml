@@ -14,12 +14,15 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{SubmittedTransaction, Transaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import org.mockito.ArgumentMatchers._
-import org.mockito.MockitoSugar
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-class StoreBackedCommandExecutorSpec extends AsyncWordSpec with MockitoSugar with Matchers {
+class StoreBackedCommandExecutorSpec
+    extends AsyncWordSpec
+    with Matchers
+    with MockitoSugar
+    with ArgumentMatchersSugar {
 
   private val emptyTransactionMetadata = Transaction.Metadata(
     submissionSeed = None,
