@@ -231,8 +231,8 @@ jobs:
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml $(Build.SourceBranchName) \
+          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/3d0d81df71cb3ec809a7c2463e1fe9acc119092b/synopsys-detect) \
+          ci-build digital-asset_daml blackduck-jvm-before-haskell \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.tools=BAZEL \
           --detect.bazel.target=//... \
@@ -246,8 +246,8 @@ jobs:
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml $(Build.SourceBranchName) \
+          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/3d0d81df71cb3ec809a7c2463e1fe9acc119092b/synopsys-detect) \
+          ci-build digital-asset_daml blackduck-jvm-before-haskell \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.npm.include.dev.dependencies=false \
           --detect.excluded.detector.types=NUGET \
@@ -262,6 +262,7 @@ jobs:
           --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
           --detect.notices.report=true \
           --detect.cleanup.bdio.files=true \
+          --detect.code.location.name=digital-asset_daml_jvm" \
           --detect.report.timeout=4500
         displayName: 'Blackduck Scan'
         env:
