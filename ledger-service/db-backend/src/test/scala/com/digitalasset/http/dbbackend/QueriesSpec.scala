@@ -23,7 +23,7 @@ class QueriesSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropert
       uniqueSets(xs map ((42, _))) should ===(xs map (x => Map(42 -> x)))
     }
 
-    "always return all elements, albeit in different order" in forAll { xs: Seq[(Int, Int)] =>
+    "always return all elements, albeit in different order" in forAll { xs: Seq[(Byte, Int)] =>
       uniqueSets(xs).flatten should contain theSameElementsAs xs
     }
 
