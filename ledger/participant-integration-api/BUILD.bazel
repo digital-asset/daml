@@ -167,6 +167,7 @@ test_deps = [
     "//daml-lf/interpreter",
     "//daml-lf/language",
     "//daml-lf/transaction",
+    "//daml-lf/transaction:value_proto_java",
     "//daml-lf/transaction-test-lib",
     "//language-support/scala/bindings",
     "//ledger-api/rs-grpc-akka",

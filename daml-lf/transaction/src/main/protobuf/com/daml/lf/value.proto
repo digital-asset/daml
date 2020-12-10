@@ -69,15 +69,15 @@ message Value {
         // https://www.ietf.org/rfc/rfc3339.txt
         int32 date = 13;
 
-        Optional optional = 14; // *since v2*
+        Optional optional = 14;
 
         ContractId contract_id_struct = 15;
 
-        Map map = 16; // *since v4*
+        Map map = 16;
 
-        Enum enum = 17; // *since v5*
+        Enum enum = 17;
 
-        GenMap gen_map = 18; // *since v7*
+        GenMap gen_map = 18; // *since v dev*
     }
 }
 // architecture-handbook-entry-end: Value

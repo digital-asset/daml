@@ -5,7 +5,7 @@ package com.daml.lf
 package value
 
 import com.daml.lf.value.Value._
-import com.daml.lf.data.{Decimal, FrontStack, FrontStackCons, ImmArray}
+import com.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
 import com.daml.lf.transaction.VersionTimeline
 
 import scala.annotation.tailrec
@@ -20,12 +20,7 @@ private[lf] object ValueVersions
       _.protoValue,
     ) {
 
-  private[value] val minVersion = ValueVersion("1")
-  private[value] val minOptional = ValueVersion("2")
-  private[value] val minContractIdStruct = ValueVersion("3")
-  private[value] val minMap = ValueVersion("4")
-  private[value] val minEnum = ValueVersion("5")
-  private[value] val minNumeric = ValueVersion("6")
+  private[value] val minVersion = ValueVersion("6")
   private[value] val minGenMap = ValueVersion("dev")
   private[value] val minContractIdV1 = ValueVersion("dev")
 
@@ -66,22 +61,20 @@ private[lf] object ValueVersions
               case ValueContractId(_) | ValueInt64(_) | ValueText(_) | ValueTimestamp(_) |
                   ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit =>
                 go(currentVersion, values)
-              case ValueNumeric(x) if x.scale == Decimal.scale =>
-                go(currentVersion, values)
-              // for things added after version 1, we raise the minimum if present
               case ValueNumeric(_) =>
-                go(maxVV(minNumeric, currentVersion), values)
+                go(currentVersion, values)
               case ValueOptional(x) =>
-                go(maxVV(minOptional, currentVersion), ImmArray(x.toList) ++: values)
+                go(currentVersion, ImmArray(x.toList) ++: values)
               case ValueTextMap(map) =>
-                go(maxVV(minMap, currentVersion), map.values ++: values)
+                go(currentVersion, map.values ++: values)
+              // for things added after version 6, we raise the minimum if present
               case ValueGenMap(entries) =>
                 val newValues = entries.iterator.foldLeft(values) {
                   case (acc, (key, value)) => key +: value +: acc
                 }
-                go(maxVV(minGenMap, currentVersion), newValues)
+                go(maxVV(currentVersion, minGenMap), newValues)
               case ValueEnum(_, _) =>
-                go(maxVV(minEnum, currentVersion), values)
+                go(currentVersion, values)
             }
         }
       }
