@@ -126,10 +126,9 @@ object ContractDao {
             .groupBy(_.contractId)
             .valuesIterator
             .map { dbcs =>
-              val dbc +: dups = dbcs.toSeq
-              import scalaz.std.iterable._, scalaz.syntax.foldable1._
+              val dbc +: dups = dbcs.toSeq // always non-empty due to groupBy
               (
-                OneAnd(dbc, dups).foldMap1(dbc => NonEmptyList(dbc.templateId)),
+                NonEmptyList.nels(dbc, dups: _*).map(_.templateId),
                 toDomain(tidLookup(dbc.templateId))(dbc))
             }
             .toVector
