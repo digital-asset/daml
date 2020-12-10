@@ -121,7 +121,18 @@ object ContractDao {
           alreadyUnique map { dbc =>
             (NonEmptyList(dbc.templateId), toDomain(tidLookup(dbc.templateId))(dbc))
           }
-        case potentialMultiMatches @ _ => sys.error("TODO SC")
+        case potentialMultiMatches =>
+          potentialMultiMatches.view.flatten
+            .groupBy(_.contractId)
+            .valuesIterator
+            .map { dbcs =>
+              val dbc +: dups = dbcs.toSeq
+              import scalaz.std.iterable._, scalaz.syntax.foldable1._
+              (
+                OneAnd(dbc, dups).foldMap1(dbc => NonEmptyList(dbc.templateId)),
+                toDomain(tidLookup(dbc.templateId))(dbc))
+            }
+            .toVector
       }
   }
 
