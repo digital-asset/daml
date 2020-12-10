@@ -10,10 +10,19 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.Uri.Path
-import akka.http.scaladsl.model.{HttpMethods, HttpRequest, RequestEntity, StatusCodes, Uri, headers}
+import akka.http.scaladsl.model.{
+  HttpMethods,
+  HttpRequest,
+  RequestEntity,
+  StatusCode,
+  StatusCodes,
+  Uri,
+  headers
+}
 import akka.http.scaladsl.server.{Directive, Directive1, Route}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.Unmarshal
+import com.daml.auth.middleware.api.Client.{AuthException, RefreshException}
 import com.daml.auth.middleware.api.Tagged.RefreshToken
 
 import scala.collection.concurrent.TrieMap
@@ -131,8 +140,7 @@ class Client(config: Client.Config) {
           Future.successful(None)
         case status =>
           Unmarshal(response).to[String].flatMap { msg =>
-            Future.failed(
-              new RuntimeException(s"Failed to authorize with middleware ($status): $msg"))
+            Future.failed(AuthException(status, msg))
           }
       }
     } yield authorize
@@ -161,7 +169,7 @@ class Client(config: Client.Config) {
           Unmarshal(response.entity).to[Response.Authorize]
         case status =>
           Unmarshal(response).to[String].flatMap { msg =>
-            Future.failed(new RuntimeException(s"Failed to refresh token ($status): $msg"))
+            Future.failed(RefreshException(status, msg))
           }
       }
     } yield authorize
@@ -185,6 +193,12 @@ object Client {
   final case class Authorized(authorization: Response.Authorize) extends AuthorizeResult
   object Unauthorized extends AuthorizeResult
   final case class LoginFailed(loginError: Response.LoginError) extends AuthorizeResult
+
+  abstract class ClientException(message: String) extends RuntimeException(message)
+  case class AuthException(status: StatusCode, message: String)
+      extends ClientException(s"Failed to authorize with middleware ($status): $message")
+  case class RefreshException(status: StatusCode, message: String)
+      extends ClientException(s"Failed to refresh token on middleware ($status): $message")
 
   case class Config(
       authMiddlewareUri: Uri,
