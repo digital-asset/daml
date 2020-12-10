@@ -32,9 +32,9 @@ private[migration] object ValueSerializer {
       x: Either[ValueCoder.DecodeError, X],
   ): Either[ValueCoder.DecodeError, X] = {
     x match {
-      case DeprecatedValueVersionsError(deprecateVersion) =>
+      case DeprecatedValueVersionsError(deprecatedVersion) =>
         logger.error(
-          s"*** Deserialization of value version $deprecateVersion is not supported by the SDK 1.9.0 or latter. ***")
+          s"*** Deserialization of value version $deprecatedVersion is not supported by the SDK 1.9.0 or later. ***")
         logger.error(
           s"*** Please upgrade your sandbox database by upgrading your SDK to 1.7 or 1.8 first. ***")
     }

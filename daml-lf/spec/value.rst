@@ -4,7 +4,7 @@
 DAML-LF Value Specification
 ===========================
 
-**version 6, 10 Dev 2020**
+**version 6, 10 Dec 2020**
 
 The DAML-LF language includes ways to define *data types*,
 specifications of structure, and includes rules by which a restricted
@@ -146,7 +146,7 @@ Version history
 This table lists every version of this specification in ascending order
 (oldest first).
 
-Support for value versions 1 to 4 was dropped on 2020-12-10.
+Support for value versions 1 to 5 was dropped on 2020-12-10.
 This breaking change does not impact ledgers created with SDK 1.0.0 or
 later.
 
