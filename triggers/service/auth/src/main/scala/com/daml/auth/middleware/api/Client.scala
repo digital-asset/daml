@@ -174,17 +174,17 @@ class Client(config: Client.Config) {
       }
     } yield authorize
 
-  private def authUri(claims: Request.Claims): Uri =
+  def authUri(claims: Request.Claims): Uri =
     config.authMiddlewareUri
       .withPath(Path./("auth"))
       .withQuery(Request.Auth(claims).toQuery)
 
-  private def loginUri(claims: Request.Claims, requestId: Option[UUID]): Uri =
+  def loginUri(claims: Request.Claims, requestId: Option[UUID]): Uri =
     config.authMiddlewareUri
       .withPath(Path./("login"))
       .withQuery(Request.Login(config.callbackUri, claims, requestId.map(_.toString)).toQuery)
 
-  private val refreshUri: Uri = config.authMiddlewareUri
+  val refreshUri: Uri = config.authMiddlewareUri
     .withPath(Path./("refresh"))
 }
 
