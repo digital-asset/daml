@@ -225,7 +225,7 @@ main =
                 expectScriptFailure rs (vr "testDuplicateKey") $ \r ->
                   matchRegex r "due to unique key violation for key"
                 expectScriptFailure rs (vr "testNotVisible") $ \r ->
-                  matchRegex r "Attempt to fetch or exercise a contract not visible to the committer"
+                  matchRegex r "Attempt to fetch or exercise a contract not visible to the reading parties"
                 expectScriptFailure rs (vr "testError") $ \r ->
                   matchRegex r "Aborted:  errorCrash"
                 expectScriptFailure rs (vr "testAbort") $ \r ->
@@ -625,7 +625,41 @@ main =
                     , "  pure ()"
                     ]
                 expectScriptSuccess rs (vr "test") $ \r ->
+                  matchRegex r "Active contracts:  #0:0, #1:0",
+              testCase "multi-party submissions" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import DA.Assert"
+                    , "import DA.List"
+                    , "import Daml.Script"
+                    , "template T"
+                    , "  with p0 : Party, p1 : Party"
+                    , "  where"
+                    , "    signatory p0, p1"
+                    , "    nonconsuming choice C : T"
+                    , "      with cid : ContractId T"
+                    , "      controller p1"
+                    , "      do fetch cid"
+                    , "testSucceed = do"
+                    , "  p0 <- allocateParty \"p0\""
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  submitMultiMustFail [p0] [] (createCmd (T p0 p1))"
+                    , "  submitMultiMustFail [p0] [p1] (createCmd (T p0 p1))"
+                    , "  cid <- submitMulti [p0, p1] ([] : [Party]) (createCmd (T p0 p1))"
+                    , "  cidp0 <- submit p0 (createCmd (T p0 p0))"
+                    , "  submitMultiMustFail [p1] [] (exerciseCmd cid (C cidp0))"
+                    , "  submitMulti [p1] [p0] (exerciseCmd cid (C cidp0))"
+                    , "testFail = do"
+                    , "  p0 <- allocateParty \"p0\""
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  submitMulti [p0] [p1] (createCmd (T p0 p1))"
+                    ]
+                expectScriptSuccess rs (vr "testSucceed") $ \r ->
                   matchRegex r "Active contracts:  #0:0, #1:0"
+                expectScriptFailure rs (vr "testFail") $ \r ->
+                  matchRegex r "missing authorization from 'p1'"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}

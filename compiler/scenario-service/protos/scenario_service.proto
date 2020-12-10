@@ -183,15 +183,17 @@ message ScenarioError {
 
   message ContractNotVisible {
     ContractRef contract_ref = 1;
-    Party committer = 2;
-    repeated Party observers = 3;
+    repeated Party actAs = 2;
+    repeated Party readAs = 3;
+    repeated Party observers = 4;
   }
 
   message ContractKeyNotVisible {
     ContractRef contract_ref = 1;
     Value key = 2;
-    Party committer = 3;
-    repeated Party stakeholders = 4;
+    repeated Party actAs = 3;
+    repeated Party readAs = 4;
+    repeated Party stakeholders = 5;
   }
 
   message ContractNotEffective {
@@ -388,10 +390,11 @@ message ScenarioStep {
   }
 
   message AssertMustFail {
-    Party actor = 1;
-    sfixed64 time = 2;
-    int32 tx_id = 3;
-    Location location = 4;
+    repeated Party actAs = 1;
+    repeated Party readAs = 2;
+    sfixed64 time = 3;
+    int32 tx_id = 4;
+    Location location = 5;
   }
 
   int32 step_id = 1;
@@ -493,10 +496,11 @@ message CommitError {
 }
 
 message Transaction {
-  Party committer = 1;
-  sfixed64 effectiveAt = 2;
-  repeated NodeId roots = 3;
-  repeated NodeId nodes = 4;
+  repeated Party actAs = 1;
+  repeated Party readAs = 2;
+  sfixed64 effectiveAt = 3;
+  repeated NodeId roots = 4;
+  repeated NodeId nodes = 5;
 
   // If non-empty, the transaction failed due to these failed authorizations.
   FailedAuthorizations failed_authorizations = 6; //this is always empty now

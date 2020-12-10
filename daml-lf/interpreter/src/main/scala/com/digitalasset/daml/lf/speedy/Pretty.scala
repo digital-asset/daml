@@ -138,24 +138,25 @@ private[lf] object Pretty {
         text("due to a fetch of a consumed contract") & prettyContractId(coid) &
           char('(') + (prettyIdentifier(tid)) + text(").") /
             text("The contract had been consumed in transaction") & prettyEventId(consumedBy)
-      case ScenarioErrorContractNotVisible(coid, tid, committer, observers) =>
+      case ScenarioErrorContractNotVisible(coid, tid, actAs, readAs, observers) =>
         text("due to the failure to fetch the contract") & prettyContractId(coid) &
           char('(') + (prettyIdentifier(tid)) + text(").") /
-            text("The contract had not been disclosed to the committer") & prettyParty(committer) + char(
+            text(
+              s"The contract had not been disclosed to the reading parties: actAs: ${actAs}, readAs: ${readAs}") & char(
           '.',
         ) /
           text("The contract had been disclosed to:") & intercalate(
           comma + space,
           observers.map(prettyParty),
         ) + char('.')
-      case ScenarioErrorContractKeyNotVisible(coid, gk, committer, stakeholders) =>
+      case ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
         text("due to the failure to fetch the contract") & prettyContractId(coid) &
           char('(') + (prettyIdentifier(gk.templateId)) + text(") associated with key ") +
             prettyValue(false)(gk.key) &
-          text("The contract had not been disclosed to the committer") & prettyParty(committer) + char(
-          '.',
-        ) /
-          text("Stakeholders:") & intercalate(
+          text(
+            s"The contract had not been disclosed to the reading parties: actAs ${actAs}, readAs: ${readAs}") + char(
+            '.') /
+            text("Stakeholders:") & intercalate(
           comma + space,
           stakeholders.map(prettyParty),
         ) + char('.')
@@ -226,7 +227,8 @@ private[lf] object Pretty {
       case ScenarioLedger.PassTime(dt) =>
         "pass" &: str(dt)
       case amf: ScenarioLedger.AssertMustFail =>
-        text("mustFailAt") & prettyParty(amf.actor) & prettyLoc(amf.optLocation)
+        text("mustFailAt") & text(s"actAs: ${amf.actAs}, ") & text(s"readAs: ${amf.readAs}") & prettyLoc(
+          amf.optLocation)
     }
 
   def prettyKeyWithMaintainers(key: KeyWithMaintainers[Value[ContractId]]): Doc =
