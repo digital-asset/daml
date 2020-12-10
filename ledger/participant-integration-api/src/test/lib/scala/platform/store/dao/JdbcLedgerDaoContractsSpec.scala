@@ -134,7 +134,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     }
   }
 
-  it should "not find a key if none of requesters are neither stakeholder nor divulgee" in {
+  it should "not find a key if the requesters are only divulgees" in {
     val aTextValue = ValueText(scala.util.Random.nextString(10))
     for {
       (_, tx) <- createAndStoreContract(
@@ -145,7 +145,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       _ <- storeCommitedContractDivulgence(
         id = nonTransient(tx).loneElement,
-        divulgees = Set(emma)
+        divulgees = Set(david, emma)
       )
       key = GlobalKey.assertBuild(someTemplateId, aTextValue)
       result <- ledgerDao.lookupKey(key, Set(david, emma))
