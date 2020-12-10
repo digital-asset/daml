@@ -94,7 +94,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     val (arg, argCids) = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
     val (key, keyCids) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
     keyCids.foreach { coid =>
-      fail(s"Unexpected contract id in key: $coid")
+      fail(s"Contract IDs are not supported in contract key of $templateId: $coid")
     }
     speedy.Command.ExerciseByKey(templateId, key, choiceId, arg) -> argCids
   }
@@ -125,7 +125,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     val ckTtype = unsafeGetContractKeyType(templateId, template)
     val (key, keyCids) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
     keyCids.foreach { coid =>
-      fail(s"Unexpected contract id in key: $coid")
+      fail(s"Contract IDs are not supported in contract keys: $coid")
     }
     speedy.Command.LookupByKey(templateId, key)
   }

@@ -519,7 +519,8 @@ private[kvutils] class TransactionCommitter(
                 keyWithMaintainers.key.value
               )
               .fold(
-                _ => throw Err.InvalidSubmission("Unexpected contract id in contract key."),
+                _ =>
+                  throw Err.InvalidSubmission("Contract IDs are not supported in contract keys."),
                 identity))
         )
       }

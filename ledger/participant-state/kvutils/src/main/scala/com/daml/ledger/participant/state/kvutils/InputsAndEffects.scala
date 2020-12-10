@@ -137,7 +137,7 @@ private[kvutils] object InputsAndEffects {
                           .fold(
                             _ =>
                               throw Err.InvalidSubmission(
-                                "Unexpected contract id in contract key."),
+                                "Contract IDs are not supported in contract keys."),
                             identity)),
                       Some(create.coid)
                   )
