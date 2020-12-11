@@ -6,8 +6,6 @@ package engine
 
 import java.nio.file.Path
 
-import com.daml.lf.language.LanguageVersion
-
 /**
   * The Engine configurations describes the versions of language and
   * transaction the engine is allowed to read and write together with
@@ -65,10 +63,7 @@ object EngineConfig {
   )
 
   private[this] def toDev(config: EngineConfig): EngineConfig =
-    config.copy(
-      allowedLanguageVersions = config.allowedLanguageVersions.copy(
-        max = LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor.Dev)),
-    )
+    config.copy(allowedLanguageVersions = transaction.VersionTimeline.devLanguageVersions)
 
   /**
     * Recommended production configuration.

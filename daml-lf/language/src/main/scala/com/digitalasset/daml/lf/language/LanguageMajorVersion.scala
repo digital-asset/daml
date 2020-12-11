@@ -8,17 +8,11 @@ import com.daml.lf.LfVersions
 import scalaz.NonEmptyList
 
 // an ADT version of the DAML-LF version
-sealed abstract class LanguageMajorVersion(
-    val pretty: String,
-    stableAscending: NonEmptyList[String])
-    extends LfVersions(
-      stableAscending.map[LanguageMinorVersion](LanguageMinorVersion.Stable) append NonEmptyList(
-        LanguageMinorVersion.Dev))(_.toProtoIdentifier)
+sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: NonEmptyList[String])
+    extends LfVersions(minorAscending.map[LanguageMinorVersion](LanguageMinorVersion))(
+      _.toProtoIdentifier)
     with Product
     with Serializable {
-
-  final val maxSupportedStableMinorVersion: LanguageMinorVersion.Stable =
-    LanguageMinorVersion.Stable(stableAscending.last)
 
   // do *not* use implicitly unless type `LanguageMinorVersion` becomes
   // indexed by the enclosing major version's singleton type --SC
@@ -35,7 +29,9 @@ sealed abstract class LanguageMajorVersion(
 object LanguageMajorVersion {
 
   case object V1
-      extends LanguageMajorVersion(pretty = "1", stableAscending = NonEmptyList("6", "7", "8"))
+      extends LanguageMajorVersion(
+        pretty = "1",
+        minorAscending = NonEmptyList("6", "7", "8", "dev"))
 
   val All: List[LanguageMajorVersion] = List(V1)
 

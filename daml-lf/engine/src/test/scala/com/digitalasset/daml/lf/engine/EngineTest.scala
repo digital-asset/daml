@@ -1955,17 +1955,17 @@ class EngineTest
     "reject disallow packages" in {
       val negativeTestCases = Table(
         ("pkg version", "minVersion", "maxVertion"),
-        (LV.Minor.Stable("6"), LV.Minor.Stable("6"), LV.Minor.Stable("8")),
-        (LV.Minor.Stable("7"), LV.Minor.Stable("6"), LV.Minor.Stable("8")),
-        (LV.Minor.Stable("8"), LV.Minor.Stable("6"), LV.Minor.Stable("8")),
-        (LV.Minor.Dev, LV.Minor.Stable("6"), LV.Minor.Dev),
+        (LV.Minor("6"), LV.Minor("6"), LV.Minor("8")),
+        (LV.Minor("7"), LV.Minor("6"), LV.Minor("8")),
+        (LV.Minor("8"), LV.Minor("6"), LV.Minor("8")),
+        (LV.Minor("dev"), LV.Minor("6"), LV.Minor("dev")),
       )
       val positiveTestCases = Table(
         ("pkg version", "minVersion", "maxVertion"),
-        (LV.Minor.Stable("6"), LV.Minor.Stable("7"), LV.Minor.Dev),
-        (LV.Minor.Stable("7"), LV.Minor.Stable("8"), LV.Minor.Stable("8")),
-        (LV.Minor.Stable("8"), LV.Minor.Stable("6"), LV.Minor.Stable("7")),
-        (LV.Minor.Dev, LV.Minor.Stable("6"), LV.Minor.Stable("8")),
+        (LV.Minor("6"), LV.Minor("7"), LV.Minor("dev")),
+        (LV.Minor("7"), LV.Minor("8"), LV.Minor("8")),
+        (LV.Minor("8"), LV.Minor("6"), LV.Minor("7")),
+        (LV.Minor("dev"), LV.Minor("6"), LV.Minor("8")),
       )
 
       forEvery(negativeTestCases)((v, min, max) =>

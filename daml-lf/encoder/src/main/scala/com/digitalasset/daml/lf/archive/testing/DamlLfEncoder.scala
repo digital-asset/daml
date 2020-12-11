@@ -135,7 +135,7 @@ private[daml] object DamlLfEncoder extends App {
     version.split("""\.""").toSeq match {
       case Seq("1", minor)
           if LanguageMajorVersion.V1.supportsMinorVersion(minor) || minor == "dev" =>
-        LanguageVersion(LanguageMajorVersion.V1, minor)
+        LanguageVersion(LanguageMajorVersion.V1, LanguageVersion.Minor(minor))
       case _ =>
         error(s"version '$version' not supported")
     }

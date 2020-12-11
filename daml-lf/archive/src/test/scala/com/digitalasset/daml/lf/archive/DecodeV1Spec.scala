@@ -10,8 +10,7 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.{Decimal, Numeric, Ref}
 import com.daml.lf.language.Util._
-import com.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion => LV}
-import LanguageMinorVersion.Implicits._
+import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.DottedName
 import com.daml.daml_lf_dev.DamlLf1
@@ -59,8 +58,7 @@ class DecodeV1Spec
   import VersionTimeline.Implicits._
 
   private[this] val lfVersions =
-    List(LV.Minor.Stable("6"), LV.Minor.Stable("7"), LV.Minor.Stable("8"), LV.Minor.Dev)
-      .map(LV(LV.Major.V1, _))
+    List("6", "7", "8", "dev").map(minor => LV(LV.Major.V1, LV.Minor(minor)))
 
   private[this] def forEveryVersionSuchThat[U](cond: LV => Boolean)(f: LV => U): Unit =
     lfVersions.foreach { version =>
@@ -350,7 +348,7 @@ class DecodeV1Spec
         .setPrimLit(DamlLf1.PrimLit.newBuilder().setNumericInternedStr(id))
         .build()
 
-    val decimalBuiltinTestCases = Table[DamlLf1.BuiltinFunction, LanguageMinorVersion, Ast.Expr](
+    val decimalBuiltinTestCases = Table[DamlLf1.BuiltinFunction, String, Ast.Expr](
       ("decimal builtins", "minVersion", "expected output"),
       (
         DamlLf1.BuiltinFunction.ADD_DECIMAL,
@@ -492,8 +490,8 @@ class DecodeV1Spec
       forEveryVersionBefore(LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
 
-        forEvery(decimalBuiltinTestCases) { (proto, version, scala) =>
-          if (LV.Major.V1.minorVersionOrdering.gteq(version, version))
+        forEvery(decimalBuiltinTestCases) { (proto, versionId, scala) =>
+          if (LV.Major.V1.minorVersionOrdering.gteq(LV.Minor(versionId), version.minor))
             decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
         }
       }
@@ -523,7 +521,7 @@ class DecodeV1Spec
 
     "translate numeric comparison builtins as is if version >= 1.7" in {
 
-      val v1_7 = LV.Minor.Stable("7")
+      val v1_7 = LV.Minor("7")
 
       forEveryVersionSuchThat(version =>
         !(version precedes LV.Features.numeric) & (version precedes LV.Features.genComparison)) {
@@ -766,7 +764,7 @@ class DecodeV1Spec
     }
 
     "decode resolving the interned package ID" in {
-      val decoder = Decode.decoders(LV(majorVersion, dalfProto.getMinor))
+      val decoder = Decode.decoders(LV(majorVersion, LV.Minor(dalfProto.getMinor)))
       inside(
         decoder.decoder
           .decodePackage(pkgId, decoder.extract(dalfProto))

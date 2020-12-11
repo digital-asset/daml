@@ -4,7 +4,6 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.language.LanguageMinorVersion.Dev
 import com.daml.lf.language._
 import value.{ValueVersion, ValueVersions}
 
@@ -74,7 +73,7 @@ class VersionTimelineSpec
       inside(inAscendingOrder.last) {
         case Both(
             Both(ValueVersion("dev"), TransactionVersion("dev")),
-            LanguageVersion(LanguageVersion.Major.V1, Dev)) =>
+            LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor("dev"))) =>
       }
     }
 
@@ -90,7 +89,7 @@ class VersionTimelineSpec
 
     "given a dev version" should {
       "never precede another version of same major" in forAll(genDefinedLanguageVersion) { lv =>
-        compareReleaseTime(lv, lv copy (minor = LanguageVersion.Minor.Dev)) should contain oneOf (LT, EQ)
+        compareReleaseTime(lv, lv copy (minor = LanguageVersion.Minor("dev"))) should contain oneOf (LT, EQ)
       }
     }
   }
