@@ -7,7 +7,7 @@ import java.nio.file.{Files, Path}
 
 import scalaz.{Show, \/}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object PortFiles {
   sealed abstract class Error extends Serializable with Product

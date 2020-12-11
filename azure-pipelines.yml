@@ -213,6 +213,57 @@ jobs:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
+  - job: Linux_scala_2_13
+    dependsOn:
+      - da_ghc_lib
+      - check_for_release
+    variables:
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    timeoutInMinutes: 360
+    pool:
+      name: 'linux-pool'
+      demands: assignment -equals default
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+          git checkout $(release_sha)
+        name: checkout_release
+        condition: eq(variables.is_release, 'true')
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - bash: |
+          source dev-env/lib/ensure-nix
+          ci/dev-env-push.py
+        displayName: 'Push Developer Environment build results'
+        condition: eq(variables['System.PullRequest.IsFork'], 'False')
+        env:
+          # to upload to the Nix cache
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+          NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
+
+      - bash: ci/configure-bazel.sh
+        displayName: 'Configure Bazel'
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
+          # to upload to the bazel cache
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          DAML_SCALA_VERSION=2.13.3 bazel test //libs-scala/ports/...
+        displayName: 'Build'
+        env:
+          DAML_SDK_RELEASE_VERSION: $(release_tag)
+      - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
+      - template: ci/report-end.yml
+
   - job: compatibility_ts_libs
     dependsOn:
       - da_ghc_lib
@@ -621,6 +672,7 @@ jobs:
       - compatibility_macos
       - compatibility_linux
       - compatibility_windows
+      - Linux_scala_2_13
     pool:
       name: "linux-pool"
       demands: assignment -equals default
@@ -637,6 +689,10 @@ jobs:
       Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
       Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
       Windows.status: $[ dependencies.Windows.result ]
+      Linux_scala_2_13.start: $[ dependencies.Linux_scala_2_13.outputs['start.time'] ]
+      Linux_scala_2_13.machine: $[ dependencies.Linux_scala_2_13.outputs['start.machine'] ]
+      Linux_scala_2_13.end: $[ dependencies.Linux_scala_2_13.outputs['end.time'] ]
+      Linux_scala_2_13.status: $[ dependencies.Linux_scala_2_13.result ]
       release.start: $[ dependencies.release.outputs['start.time'] ]
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]

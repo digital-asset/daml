@@ -17,6 +17,10 @@ load("@daml//bazel_tools:build_environment.bzl", "build_environment")
 
 build_environment(name = "build_environment")
 
+load("@daml//bazel_tools:scala_version.bzl", "scala_version")
+
+scala_version(name = "scala_version")
+
 load("//:deps.bzl", "daml_deps")
 
 daml_deps()
