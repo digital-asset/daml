@@ -613,3 +613,34 @@ template Asset
       AssetTransfer: ContractId Asset
         with newOwner: Party
         do create this with owner = newOwner
+
+template MultiPartyContract
+  with
+    parties: [Party]
+    value: Text
+  where
+    signatory parties
+
+    -- Example choice for multi-party submissions. Minimal submitters:
+    -- ActAs: all new and old parties
+    -- ReadAs: empty set
+    choice AddSignatories :
+          ContractId MultiPartyContract
+        with
+        newParties: [Party]
+      controller parties ++ newParties
+        do
+          create this with
+            parties = parties ++ newParties
+
+    -- Example choice for multi-party submissions with read delegation. Minimal submitters:
+    -- ActAs: all new parties
+    -- ReadAs: one of the old parties
+    nonconsuming choice DuplicateFor :
+          ContractId MultiPartyContract
+        with
+        newParties: [Party]
+      controller newParties
+        do
+          create this with
+            parties = newParties
