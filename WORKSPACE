@@ -569,25 +569,6 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
-# This will not be needed after merge of the PR to bazel adding proper javadoc filegroups:
-# https://github.com/bazelbuild/bazel/pull/7898
-# `@javadoc_dev_env//:javadoc` could be then replaced with `@local_jdk//:javadoc` and the below removed
-dev_env_tool(
-    name = "javadoc_dev_env",
-    nix_include = ["bin/javadoc"],
-    nix_label = "@jdk_nix",
-    nix_path = "bin/javadoc",
-    tool = "javadoc",
-    win_include = [
-        "bin",
-        "include",
-        "jre",
-        "lib",
-    ],
-    win_path = "bin/javadoc.exe",
-    win_tool = "java-openjdk-11.0.3.7",
-)
-
 # This only makes sense on Windows so we just put dummy values in the nix fields.
 dev_env_tool(
     name = "makensis_dev_env",
