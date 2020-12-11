@@ -72,26 +72,26 @@ final case class ScenarioRunner(
 
         case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
           // We never have readAs parties in scenarios.
-          lookupContractUnsafe(coid, committers, Set(), cbMissing, cbPresent)
+          lookupContractUnsafe(coid, committers, Set.empty, cbMissing, cbPresent)
 
         case SResultNeedTime(callback) =>
           callback(ledger.currentTime)
 
         case SResultScenarioMustFail(tx, committers, callback) =>
           // We never have readAs parties in scenarios.
-          mustFail(tx, committers, Set())
+          mustFail(tx, committers, Set.empty)
           callback(())
 
         case SResultScenarioCommit(value, tx, committers, callback) =>
           // We never have readAs parties in scenarios.
-          commit(value, tx, committers, Set(), callback)
+          commit(value, tx, committers, Set.empty, callback)
 
         case SResultScenarioPassTime(delta, callback) =>
           passTime(delta, callback)
 
         case SResultScenarioInsertMustFail(committers, optLocation) => {
           // We never have readAs parties in scenarios.
-          ledger = ledger.insertAssertMustFail(committers, Set(), optLocation)
+          ledger = ledger.insertAssertMustFail(committers, Set.empty, optLocation)
         }
 
         case SResultScenarioGetParty(partyText, callback) =>
@@ -99,7 +99,7 @@ final case class ScenarioRunner(
 
         case SResultNeedKey(keyWithMaintainers, committers, cb) =>
           // We never have readAs parties in scenarios.
-          lookupKeyUnsafe(keyWithMaintainers.globalKey, committers, Set(), cb)
+          lookupKeyUnsafe(keyWithMaintainers.globalKey, committers, Set.empty, cb)
       }
     }
     val endTime = System.nanoTime()
