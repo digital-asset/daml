@@ -242,7 +242,7 @@ jobs:
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml $Build.SourceBranchName) \
+          ci-build digital-asset_daml $(Build.SourceBranchName) \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.npm.include.dev.dependencies=false \
           --detect.excluded.detector.types=NUGET \
