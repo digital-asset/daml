@@ -26,6 +26,9 @@ There are two main use cases to pass a specific ledger export:
 2. compare the performance improvements of two commits using the same dataset so 
    that the outcomes are comparable
 
+Note that each benchmark will consume the ledger export in its entirety, so it's
+probably better to limit its size.
+
 Note that `-p` is a [JMH](https://github.com/openjdk/jmh) option. You can see
 all available options by running:
 
