@@ -7,11 +7,8 @@ import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.export.WriteSet
 import com.daml.ledger.participant.state.v1.ReadService
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.{
-  CommitStrategy,
-  DamlLedgerStateReader,
-  StateKeySerializationStrategy
-}
+import com.daml.ledger.validator.reading.DamlLedgerStateReader
+import com.daml.ledger.validator.{CommitStrategy, StateKeySerializationStrategy}
 
 trait QueryableWriteSet {
   def getAndClearRecordedWriteSet(): WriteSet

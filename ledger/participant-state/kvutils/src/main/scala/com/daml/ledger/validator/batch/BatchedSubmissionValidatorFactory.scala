@@ -12,12 +12,12 @@ import com.daml.ledger.validator.caching.{
   CachingDamlLedgerStateReader,
   QueryableReadSet
 }
+import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
 import com.daml.ledger.validator.{
   CommitStrategy,
   DamlLedgerStateReader,
   DefaultStateKeySerializationStrategy,
   LedgerStateOperations,
-  LedgerStateReader,
   LogAppendingCommitStrategy,
   StateKeySerializationStrategy
 }

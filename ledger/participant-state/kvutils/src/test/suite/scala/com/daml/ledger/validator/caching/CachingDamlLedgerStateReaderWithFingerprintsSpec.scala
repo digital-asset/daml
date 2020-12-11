@@ -13,9 +13,9 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import com.daml.ledger.participant.state.kvutils.{Fingerprint, FingerprintPlaceholder}
+import com.daml.ledger.validator.ArgumentMatchers.seqOf
 import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderWithFingerprints.`Message-Fingerprint Pair Weight`
 import com.daml.ledger.validator.preexecution.DamlLedgerStateReaderWithFingerprints
-import org.mockito.ArgumentMatchers.argThat
 import org.mockito.MockitoSugar
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -31,7 +31,7 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
   "read" should {
     "update cache upon read if policy allows" in {
       val mockReader = mock[DamlLedgerStateReaderWithFingerprints]
-      when(mockReader.read(argThat((keys: Seq[DamlStateKey]) => keys.size == 1)))
+      when(mockReader.read(seqOf(size = 1)))
         .thenReturn(Future.successful(Seq((Some(aDamlStateValue()), FingerprintPlaceholder))))
       val instance = newInstance(mockReader, shouldCache = true)
 
@@ -42,7 +42,7 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
 
     "do not update cache upon read if policy does not allow" in {
       val mockReader = mock[DamlLedgerStateReaderWithFingerprints]
-      when(mockReader.read(argThat((keys: Seq[DamlStateKey]) => keys.size == 1)))
+      when(mockReader.read(seqOf(size = 1)))
         .thenReturn(Future.successful(Seq((Some(aDamlStateValue()), FingerprintPlaceholder))))
       val instance = newInstance(mockReader, shouldCache = false)
 
@@ -77,7 +77,7 @@ class CachingDamlLedgerStateReaderWithFingerprintsSpec
 
     "do not cache None value returned from delegate" in {
       val mockReader = mock[DamlLedgerStateReaderWithFingerprints]
-      when(mockReader.read(argThat((keys: Seq[DamlStateKey]) => keys.size == 1)))
+      when(mockReader.read(seqOf(size = 1)))
         .thenReturn(Future.successful(Seq((None, FingerprintPlaceholder))))
       val instance = newInstance(mockReader, shouldCache = true)
 

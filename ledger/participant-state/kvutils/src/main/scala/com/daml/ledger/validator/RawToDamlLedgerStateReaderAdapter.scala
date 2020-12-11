@@ -5,18 +5,20 @@ package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 final class RawToDamlLedgerStateReaderAdapter(
     ledgerStateReader: LedgerStateReader,
     keySerializationStrategy: StateKeySerializationStrategy,
-)(implicit executionContext: ExecutionContext)
-    extends DamlLedgerStateReader {
+) extends DamlLedgerStateReader {
 
   import RawToDamlLedgerStateReaderAdapter.deserializeDamlStateValue
 
-  override def readState(keys: Seq[DamlStateKey]): Future[Seq[Option[DamlStateValue]]] =
+  override def read(
+      keys: Seq[DamlStateKey]
+  )(implicit executionContext: ExecutionContext): Future[Seq[Option[DamlStateValue]]] =
     ledgerStateReader
       .read(keys.map(keySerializationStrategy.serializeStateKey))
       .map(_.map(_.map(deserializeDamlStateValue)))

@@ -9,12 +9,12 @@ import akka.stream.Materializer
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.TestHelper.aParticipantId
-import com.daml.ledger.validator.{CommitStrategy, DamlLedgerStateReader, LedgerStateOperations}
+import com.daml.ledger.validator.reading.DamlLedgerStateReader
+import com.daml.ledger.validator.{CommitStrategy, LedgerStateOperations}
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers.{any, anyString}
 import org.mockito.MockitoSugar
 import org.mockito.stubbing.ScalaFirstStubbing
-// import org.mockito.stubbing.OngoingStubbing
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
