@@ -25,7 +25,7 @@ create table participant_contracts
 );
 
 -- support looking up a contract by key
-create unique index on participant_contracts(create_key_hash);
+create index on participant_contracts using hash (create_key_hash);
 
 insert into participant_contracts
 select

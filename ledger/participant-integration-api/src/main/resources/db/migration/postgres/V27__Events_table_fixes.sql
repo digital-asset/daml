@@ -13,7 +13,7 @@ ALTER TABLE participant_events DROP COLUMN is_root;
 ALTER TABLE participant_events ADD COLUMN template_id VARCHAR;
 UPDATE participant_events SET template_id = template_package_id || ':' || template_name;
 ALTER TABLE participant_events ALTER COLUMN template_id SET NOT NULL;
-CREATE INDEX ON participant_events(template_id);
+CREATE INDEX ON participant_events USING hash (template_id);
 
 ALTER TABLE participant_events DROP COLUMN template_package_id;
 ALTER TABLE participant_events DROP COLUMN template_name;

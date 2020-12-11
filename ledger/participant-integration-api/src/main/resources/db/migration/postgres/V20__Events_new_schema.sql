@@ -42,13 +42,13 @@ create index on participant_events(event_offset, transaction_id, node_index);
 
 -- support looking up a create event by the identifier of the contract it created, so that
 -- consuming exercise events can use it to set the value of create_consumed_at
-create index on participant_events(contract_id);
+create index on participant_events using hash (contract_id);
 
 -- support requests of transactions by transaction_id
-create index on participant_events(transaction_id);
+create index on participant_events using hash (transaction_id);
 
 -- support filtering by template
-create index on participant_events(template_name);
+create index on participant_events using hash (template_name);
 
 -- subset of witnesses to see the visibility in the flat transaction stream
 create table participant_event_flat_transaction_witnesses
@@ -58,8 +58,8 @@ create table participant_event_flat_transaction_witnesses
 
     foreign key (event_id) references participant_events(event_id)
 );
-create index on participant_event_flat_transaction_witnesses(event_id);      -- join with events
-create index on participant_event_flat_transaction_witnesses(event_witness); -- filter by party
+create index on participant_event_flat_transaction_witnesses using hash (event_id);      -- join with events
+create index on participant_event_flat_transaction_witnesses using hash (event_witness); -- filter by party
 
 -- complement to participant_event_flat_transaction_witnesses to include
 -- the visibility of events in the transaction trees stream
@@ -70,5 +70,5 @@ create table participant_event_witnesses_complement
 
     foreign key (event_id) references participant_events(event_id)
 );
-create index on participant_event_witnesses_complement(event_id);      -- join with events
-create index on participant_event_witnesses_complement(event_witness); -- filter by party
+create index on participant_event_witnesses_complement using hash (event_id);      -- join with events
+create index on participant_event_witnesses_complement using hash (event_witness); -- filter by party
