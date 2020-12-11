@@ -237,7 +237,7 @@ jobs:
           --detect.report.timeout=1500
         displayName: 'Blackduck Haskell Scan'
         env:
-          BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)        
+          BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
