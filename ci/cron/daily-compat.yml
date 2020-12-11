@@ -225,13 +225,19 @@ jobs:
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
+
+          #needs to be specified since blackduck can not scan all bazel dependency types in one go, haskell has to be scanned separatey and code location name uniquely identified to avoid stomping
+          BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
+
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml master \
+          ci-build digital-asset_daml $(Build.SourceBranchName) \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.tools=BAZEL \
           --detect.bazel.target=//... \
-          --detect.bazel.dependency.type=haskell_cabal_library \
+          --detect.bazel.dependency.type=${BAZEL_DEPENDENCY_TYPE} \
+          --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
           --detect.notices.report=true \
+          --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
           --detect.report.timeout=1500
         displayName: 'Blackduck Haskell Scan'
         env:
@@ -239,8 +245,12 @@ jobs:
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
+
+          #avoid stomping any previous bazel haskell scans for this repository by qualifying as a maven_install (aka jvm) bazel blackduck scan
+          BAZEL_DEPENDENCY_TYPE="maven_install"
+
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml master \
+          ci-build digital-asset_daml $(Build.SourceBranchName) \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.npm.include.dev.dependencies=false \
           --detect.excluded.detector.types=NUGET \
@@ -249,12 +259,13 @@ jobs:
           --detect.python.python3=true \
           --detect.tools=DETECTOR,BAZEL,DOCKER \
           --detect.bazel.target=//... \
-          --detect.bazel.dependency.type=maven_install \
-          --detect.detector.search.exclusion.paths=language-support/ts/codegen/tests/ts,language-support/ts,language-support/scala/examples/iou-no-codegen,language-support/scala/examples/quickstart-scala,docs/source/app-dev/bindings-java/code-snippets,docs/source/app-dev/bindings-java/quickstart/template-root,language-support/scala/examples/quickstart-scala,language-support/scala/examples/iou-no-codegen \
+          --detect.bazel.dependency.type=${BAZEL_DEPENDENCY_TYPE} \
+          --detect.detector.search.exclusion.paths=.bazel-cache,language-support/ts/codegen/tests/ts,language-support/ts,language-support/scala/examples/iou-no-codegen,language-support/scala/examples/quickstart-scala,docs/source/app-dev/bindings-java/code-snippets,docs/source/app-dev/bindings-java/quickstart/template-root,language-support/scala/examples/quickstart-scala,language-support/scala/examples/iou-no-codegen \
           --detect.cleanup=false \
           --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
           --detect.notices.report=true \
           --detect.cleanup.bdio.files=true \
+          --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
           --detect.report.timeout=4500
         displayName: 'Blackduck Scan'
         env:
