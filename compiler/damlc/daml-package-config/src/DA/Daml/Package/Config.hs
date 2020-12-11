@@ -75,12 +75,13 @@ checkPkgConfig PackageConfigFields {pName, pVersion} =
   \ in other projects. Unsupported package names may start causing compilation errors without warning."
   | not $ LF.unPackageName pName =~ ("^[a-zA-Z]([a-zA-Z\\-])*$" :: T.Text)
   ] ++
-  [ "WARNING: Package versions should have the format ^[0-9](\\.[0-9])*$. You may be able to \
+  [ "WARNING: Package versions should have the format \
+  \ ^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?)?. You may be able to \
   \ compile packages with different formats, but you will not be able to use them as dependencies \
   \ in other projects. Unsupported package versions may start causing compilation errors without \
   \ warning."
   | Just version <- [pVersion]
-  , not $ LF.unPackageVersion version =~ ("^[0-9](\\.[0-9])*$" :: T.Text)
+  , not $ LF.unPackageVersion version =~ ("^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?)?$" :: T.Text)
   ]
 
 overrideSdkVersion :: PackageConfigFields -> IO PackageConfigFields
