@@ -64,7 +64,7 @@ private[kvutils] class TransactionCommitter(
     DamlTransactionEntrySummary(submission.getTransactionEntry)
 
   override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
-    "authorize_submitter" -> authorizeSubmitter,
+    "authorize_submitter" -> authorizeSubmitters,
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
     "deduplicate" -> deduplicateCommand,
     "validate_ledger_time" -> validateLedgerTime,
@@ -123,31 +123,48 @@ private[kvutils] class TransactionCommitter(
   }
 
   /** Authorize the submission by looking up the party allocation and verifying
-    * that the submitting party is indeed hosted by the submitting participant.
+    * that all of the submitting parties are indeed hosted by the submitting participant.
     */
-  private def authorizeSubmitter: Step = (commitContext, transactionEntry) => {
-    commitContext.get(partyStateKey(transactionEntry.submitter)) match {
-      case Some(partyAllocation) =>
-        if (partyAllocation.getParty.getParticipantId == commitContext.participantId)
+  private def authorizeSubmitters: Step = (commitContext, transactionEntry) => {
+    def rejection(reason: RejectionReason) =
+      reject[DamlTransactionEntrySummary](
+        commitContext.recordTime,
+        buildRejectionLogEntry(transactionEntry, reason))
+
+    @scala.annotation.tailrec
+    def authorizeAll(submitters: List[Party]): StepResult[DamlTransactionEntrySummary] =
+      submitters match {
+        case Nil =>
           StepContinue(transactionEntry)
-        else
-          reject(
-            commitContext.recordTime,
-            buildRejectionLogEntry(
-              transactionEntry,
+        case submitter :: others =>
+          authorize(submitter) match {
+            case Some(rejection) =>
+              rejection
+            case None =>
+              authorizeAll(others)
+          }
+      }
+
+    def authorize(submitter: Party): Option[StepResult[DamlTransactionEntrySummary]] =
+      commitContext.get(partyStateKey(submitter)) match {
+        case Some(partyAllocation)
+            if partyAllocation.getParty.getParticipantId == commitContext.participantId =>
+          None
+        case Some(_) =>
+          Some(
+            rejection(
               RejectionReason.SubmitterCannotActViaParticipant(
-                s"Party '${transactionEntry.submitter}' not hosted by participant ${commitContext.participantId}")
-            )
-          )
-      case None =>
-        reject(
-          commitContext.recordTime,
-          buildRejectionLogEntry(
-            transactionEntry,
-            RejectionReason.PartyNotKnownOnLedger(
-              s"Submitting party '${transactionEntry.submitter}' not known"))
-        )
-    }
+                s"Party '$submitter' not hosted by participant ${commitContext.participantId}")
+            ))
+        case None =>
+          Some(
+            rejection(
+              RejectionReason.PartyNotKnownOnLedger(
+                s"Submitting party '$submitter' not known")
+            ))
+      }
+
+    authorizeAll(transactionEntry.submitters)
   }
 
   /** Validate ledger effective time and the command's time-to-live. */
@@ -218,7 +235,7 @@ private[kvutils] class TransactionCommitter(
         try {
           engine
             .validate(
-              Set(transactionEntry.submitter),
+              transactionEntry.submitters.toSet,
               SubmittedTransaction(transactionEntry.transaction),
               transactionEntry.ledgerEffectiveTime,
               commitContext.participantId,
@@ -736,16 +753,12 @@ private[kvutils] class TransactionCommitter(
 }
 
 private[kvutils] object TransactionCommitter {
-
   case class DamlTransactionEntrySummary(submission: DamlTransactionEntry) {
     val ledgerEffectiveTime: Timestamp = parseTimestamp(submission.getLedgerEffectiveTime)
     val submitterInfo: DamlSubmitterInfo = submission.getSubmitterInfo
     val commandId: String = submitterInfo.getCommandId
-    val submitter: Party =
-      if (submitterInfo.getSubmittersCount == 1)
-        Party.assertFromString(submitterInfo.getSubmitters(0))
-      else
-        throw Err.InternalError("Multi-party submissions are not supported")
+    val submitters: List[Party] =
+      submitterInfo.getSubmittersList.asScala.toList.map(Party.assertFromString)
     lazy val transaction: Tx.Transaction = Conversions.decodeTransaction(submission.getTransaction)
     val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
     val submissionSeed: crypto.Hash = Conversions.parseHash(submission.getSubmissionSeed)
