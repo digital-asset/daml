@@ -10,7 +10,7 @@ import com.daml.lf.transaction.TransactionOuterClass.Transaction
 
 import scala.collection.mutable
 
-class SubmissionsBuilder(
+final class SubmissionsBuilder(
     packages: mutable.Builder[(PackageId, Package), Map[PackageId, Package]],
     transactions: mutable.Builder[Transaction, Vector[Transaction]],
 ) {
