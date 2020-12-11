@@ -196,7 +196,7 @@ object Repl {
     private val seed = nextSeed()
 
     val (inputValueVersion, outputTransactionVersions) =
-      if (compilerConfig.allowedLanguageVersions.contains(LV(LV.Major.V1, LV.Minor.Dev)))
+      if (compilerConfig.allowedLanguageVersions.contains(LV(LV.Major.V1, LV.Minor("dev"))))
         (
           value.ValueVersions.DevOutputVersions,
           transaction.TransactionVersions.DevOutputVersions,

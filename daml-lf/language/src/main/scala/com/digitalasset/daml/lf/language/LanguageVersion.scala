@@ -15,14 +15,9 @@ object LanguageVersion {
   type Minor = LanguageMinorVersion
   val Minor = LanguageMinorVersion
 
-  val defaultV1: LanguageVersion =
-    LanguageVersion(Major.V1, Major.V1.maxSupportedStableMinorVersion)
+  val defaultV1: LanguageVersion = LanguageVersion(Major.V1, Minor("8"))
 
-  private[lf] def apply(major: LanguageMajorVersion, minor: String): LanguageVersion =
-    apply(major, Minor fromProtoIdentifier minor)
-
-  val default: LanguageVersion =
-    defaultV1
+  val default: LanguageVersion = defaultV1
 
   final val ordering: Ordering[LanguageVersion] =
     (left, right) =>

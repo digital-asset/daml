@@ -13,9 +13,9 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
-  private[this] val v1_6 = LV(LV.Major.V1, LV.Minor.Stable("6"))
-  private[this] val v1_7 = LV(LV.Major.V1, LV.Minor.Stable("7"))
-  private[this] val v1_8 = LV(LV.Major.V1, LV.Minor.Stable("8"))
+  private[this] val v1_6 = LV(LV.Major.V1, LV.Minor("6"))
+  private[this] val v1_7 = LV(LV.Major.V1, LV.Minor("7"))
+  private[this] val v1_8 = LV(LV.Major.V1, LV.Minor("8"))
   private[this] val A = (PackageId.assertFromString("-pkg1-"), DottedName.assertFromString("A"))
   private[this] val B = (PackageId.assertFromString("-pkg2-"), DottedName.assertFromString("B"))
   private[this] val E = (PackageId.assertFromString("-pkg3-"), DottedName.assertFromString("E"))

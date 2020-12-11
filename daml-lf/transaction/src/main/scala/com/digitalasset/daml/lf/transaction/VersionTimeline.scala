@@ -4,7 +4,7 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.value.ValueVersion
 import scalaz.std.map._
 import scalaz.syntax.foldable1._
@@ -31,7 +31,7 @@ import scala.language.higherKinds
   * that same timeline.
   */
 object VersionTimeline {
-  import LanguageVersion.Minor.Dev
+  import LanguageVersion.{Major, Minor}
   import \&/.{Both, That, This}
 
   type AllVersions[:&:[_, _]] = (ValueVersion :&: TransactionVersion) :&: LanguageVersion
@@ -43,12 +43,14 @@ object VersionTimeline {
     */
   private[lf] val inAscendingOrder: NonEmptyList[Release] =
     NonEmptyList(
-      That(LanguageVersion(LMV.V1, "6")),
-      Both(This(ValueVersion("6")), LanguageVersion(LMV.V1, "7")),
-      That(LanguageVersion(LMV.V1, "8")),
+      That(LanguageVersion(Major.V1, Minor("6"))),
+      Both(This(ValueVersion("6")), LanguageVersion(Major.V1, Minor("7"))),
+      That(LanguageVersion(Major.V1, Minor("8"))),
       This(That(TransactionVersion("10"))),
       // add new versions above this line (but see more notes below)
-      Both(Both(ValueVersion("dev"), TransactionVersion("dev")), LanguageVersion(LMV.V1, Dev)),
+      Both(
+        Both(ValueVersion("dev"), TransactionVersion("dev")),
+        LanguageVersion(Major.V1, Minor("dev"))),
       //
       // "dev" versions float through the timeline with little rationale
       // due to their ephemeral contents; don't worry too much about their exact
@@ -167,11 +169,11 @@ object VersionTimeline {
 
   private[lf] val stableLanguageVersions =
     VersionRange(
-      min = LanguageVersion(LMV.V1, "6"),
-      max = LanguageVersion(LMV.V1, "8"),
+      min = LanguageVersion(Major.V1, Minor("6")),
+      max = LanguageVersion(Major.V1, Minor("8")),
     )
 
   private[lf] val devLanguageVersions =
-    stableLanguageVersions.copy(max = LanguageVersion(LMV.V1, Dev))
+    stableLanguageVersions.copy(max = LanguageVersion(Major.V1, Minor("dev")))
 
 }

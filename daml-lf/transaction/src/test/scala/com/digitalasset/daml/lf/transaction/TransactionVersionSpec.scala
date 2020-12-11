@@ -14,11 +14,8 @@ class TransactionVersionSpec extends AnyWordSpec with Matchers with TableDrivenP
 
   "TransactionVersions.assignNodeVersion" should {
 
-    val Seq(v1_6, v1_7, v1_8) = Seq("6", "7", "8").map(minor =>
-      LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor.Stable(minor)))
-
-    val v1_dev =
-      LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor.Dev)
+    val Seq(v1_6, v1_7, v1_8, v1_dev) = Seq("6", "7", "8", "dev").map(minor =>
+      LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor(minor)))
 
     val testCases = Table(
       "language version" -> "transaction version",
