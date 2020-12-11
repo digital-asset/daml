@@ -72,3 +72,8 @@ functional issue with the benchmarks. A first analysis seems to point at the nee
 to ensure the runtime dependencies (like the Logback Classic JAR) are correctly
 forwarded to the JMH artifact ultimately produced by the Bazel `scala_benchmark_jmh`
 rule.
+
+##### Failure to run the benchmarks without an explicit export file on Windows
+
+On Windows the build does not produce the reference ledger export. On Windows, you
+must explicitly pass a ledger export to the benchmarks in order to run them.

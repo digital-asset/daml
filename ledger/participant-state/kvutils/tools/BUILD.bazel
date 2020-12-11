@@ -9,6 +9,7 @@ load(
     "da_scala_test",
     "lf_scalacopts",
 )
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_library(
     name = "tools",
@@ -131,7 +132,7 @@ da_scala_benchmark_jmh(
     srcs = glob(["codec-benchmark/src/benchmark/scala/**/*.scala"]),
     data = [
         "//ledger/participant-state/kvutils:reference-ledger-export.out",
-    ],
+    ] if not is_windows else [],
     max_heap_size = "4g",
     scalacopts = lf_scalacopts,
     tags = [

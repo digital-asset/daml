@@ -3,7 +3,7 @@
 
 package com.daml.lf.benchmark
 
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
@@ -26,7 +26,15 @@ abstract class BenchmarkWithLedgerExport {
   @Setup
   def setup(): Unit = {
 
-    val source = Paths.get(if (ledgerExport.isEmpty) referenceLedgerExportPath else ledgerExport)
+    if (ledgerExport.isEmpty) {
+      ledgerExport = referenceLedgerExportPath
+    }
+
+    val source = Paths.get(ledgerExport)
+
+    if (Files.notExists(source)) {
+      throw new IllegalArgumentException(s"Ledger export file not found at $ledgerExport")
+    }
 
     val builder = Submissions.newBuilder()
 
