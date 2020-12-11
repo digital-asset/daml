@@ -903,10 +903,15 @@ class JsonLedgerClient(
     } else if (!(readAs diff actAs.toSet).isEmpty) {
       Future.failed(new RuntimeException(
         s"JSON API does not support additional parties in readAs on command submissions but got ${readAs}"))
+    } else if (tokenPayload.actAs.isEmpty) {
+      Future.failed(
+        new RuntimeException(
+          s"Tried to submit a command as ${actAs.head} but token contains no actAs parties."))
     } else if (List[String](actAs.head) /== tokenPayload.actAs) {
       Future.failed(
         new RuntimeException(
-          s"Submitted command as ${actAs.head} but token is for ${tokenPayload.actAs}"))
+          s"Tried to submit a command as ${actAs.head} but token provides claims for ${tokenPayload.actAs
+            .mkString(" ")}"))
     } else {
       Future.unit
     }

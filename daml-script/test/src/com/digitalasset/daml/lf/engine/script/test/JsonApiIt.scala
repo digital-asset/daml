@@ -313,7 +313,7 @@ final class JsonApiIt
           run(clients, QualifiedName.assertFromString("ScriptTest:jsonCreate")))
       } yield {
         assert(
-          exception.getMessage === "Tried to submit a command as Alice but token contains no parties.")
+          exception.getMessage === "Tried to submit a command as Alice but token contains no actAs parties.")
       }
     }
     "submit fails on assertion failure" in {

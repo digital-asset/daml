@@ -185,7 +185,7 @@ object ScenarioLedger {
     /** 'True' if the given 'View' contains the given 'Node'. */
     def visibleIn(view: View): Boolean = view match {
       case OperatorView => true
-      case pview : ParticipantView => !pview.readers.intersect(disclosures.keySet).isEmpty
+      case pview: ParticipantView => !pview.readers.intersect(disclosures.keySet).isEmpty
     }
 
     def addDisclosures(newDisclosures: Map[Party, Disclosure]): LedgerNodeInfo = {
@@ -288,7 +288,7 @@ object ScenarioLedger {
 
   /** The view of the ledger at the given party. */
   final case class ParticipantView(actAs: Set[Party], readAs: Set[Party]) extends View {
-    val readers : Set[Party] = actAs union readAs
+    val readers: Set[Party] = actAs union readAs
   }
 
   /** Result of committing a transaction is the new ledger,
