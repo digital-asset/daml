@@ -287,6 +287,8 @@ object ScenarioLedger {
   case object OperatorView extends View
 
   /** The view of the ledger at the given party. */
+  // Note that we only separate actAs and readAs to get better error
+  // messages. The visibility check only needs the union.
   final case class ParticipantView(actAs: Set[Party], readAs: Set[Party]) extends View {
     val readers: Set[Party] = actAs union readAs
   }
