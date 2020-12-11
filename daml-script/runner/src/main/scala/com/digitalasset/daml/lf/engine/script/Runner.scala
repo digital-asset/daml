@@ -48,7 +48,6 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.VersionTimeline
 import com.daml.script.converter.Converter.{JavaList, toContractId, unrollFree}
 import com.daml.script.converter.ConverterException
 
@@ -195,7 +194,7 @@ object Runner {
     import Compiler._
     Config(
       // FIXME: Should probably not include 1.dev by default.
-      allowedLanguageVersions = VersionTimeline.devLanguageVersions,
+      allowedLanguageVersions = LanguageVersion.DevVersions,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = FullStackTrace,

@@ -158,7 +158,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
     }
 
     "fail if version is different" in {
-      val versions = TransactionVersions.acceptedVersions.toIndexedSeq
+      val versions = TransactionVersion.acceptedVersions.toIndexedSeq
       def diffVersion(v: TransactionVersion) = {
         val randomVersion = versions(Random.nextInt(versions.length - 1))
         if (randomVersion != v) randomVersion else versions.last
@@ -262,7 +262,7 @@ object TransactionSpec {
       exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
       key = None,
       byKey = false,
-      version = TransactionVersions.minVersion,
+      version = TransactionVersion.minVersion,
     )
 
   val dummyCid = V.ContractId.V1.assertBuild(
@@ -285,7 +285,7 @@ object TransactionSpec {
       signatories = Set.empty,
       stakeholders = Set.empty,
       key = None,
-      version = TransactionVersions.minVersion,
+      version = TransactionVersion.minVersion,
     )
 
   implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)

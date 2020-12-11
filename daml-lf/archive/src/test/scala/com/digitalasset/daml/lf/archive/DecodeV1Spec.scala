@@ -14,12 +14,12 @@ import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.DottedName
 import com.daml.daml_lf_dev.DamlLf1
-import com.daml.lf.transaction.VersionTimeline
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.JavaConverters._
 
 class DecodeV1Spec
@@ -55,8 +55,6 @@ class DecodeV1Spec
   private[this] val dummyModuleStr = "dummyModule"
   private[this] val dummyModuleName = DottedName.assertFromString(dummyModuleStr)
 
-  import VersionTimeline.Implicits._
-
   private[this] val lfVersions = List(LV.v1_6, LV.v1_7, LV.v1_8, LV.v1_dev)
 
   private[this] def forEveryVersionSuchThat[U](cond: LV => Boolean)(f: LV => U): Unit =
@@ -69,10 +67,10 @@ class DecodeV1Spec
     forEveryVersionSuchThat(_ => true)
 
   private[this] def forEveryVersionBefore[U](maxVersion: LV): (LV => U) => Unit =
-    forEveryVersionSuchThat(v => v precedes maxVersion)
+    forEveryVersionSuchThat(_ < maxVersion)
 
   private[this] def forEveryVersionAtOrAfter[U](maxVersion: LV): (LV => U) => Unit =
-    forEveryVersionSuchThat(v => !(v precedes maxVersion))
+    forEveryVersionSuchThat(_ >= maxVersion)
 
   private def moduleDecoder(
       version: LV,
@@ -520,15 +518,13 @@ class DecodeV1Spec
 
     "translate numeric comparison builtins as is if version >= 1.7" in {
 
-      val v1_7 = LV.Minor("7")
-
-      forEveryVersionSuchThat(version =>
-        !(version precedes LV.Features.numeric) & (version precedes LV.Features.genComparison)) {
+      forEveryVersionSuchThat(
+        version => LV.Features.numeric <= version && version < LV.Features.genComparison) {
         version =>
           val decoder = moduleDecoder(version)
 
           forEvery(numericComparisonBuiltinCases) { (proto, scala) =>
-            if (proto != DamlLf1.BuiltinFunction.EQUAL_NUMERIC || version.minor == v1_7)
+            if (proto != DamlLf1.BuiltinFunction.EQUAL_NUMERIC || version == LV.v1_7)
               decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
           }
       }

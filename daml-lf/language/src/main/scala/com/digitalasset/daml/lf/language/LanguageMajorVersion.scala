@@ -39,6 +39,6 @@ object LanguageMajorVersion {
   @deprecated("use All instead", since = "100.12.12")
   val supported: List[LanguageMajorVersion] = All
 
-  val ordering: Ordering[LanguageMajorVersion] =
-    Ordering.by(All.zipWithIndex.toMap)
+  implicit val Ordering: scala.Ordering[LanguageMajorVersion] =
+    scala.Ordering.by(All.zipWithIndex.toMap)
 }

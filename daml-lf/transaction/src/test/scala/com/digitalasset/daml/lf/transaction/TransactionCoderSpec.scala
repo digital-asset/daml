@@ -17,6 +17,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.JavaConverters._
 
 class TransactionCoderSpec
@@ -26,14 +27,12 @@ class TransactionCoderSpec
     with EitherAssertions
     with ScalaCheckPropertyChecks {
 
-  import VersionTimeline.Implicits._
-
   import com.daml.lf.value.test.ValueGenerators._
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  import TransactionVersions.{v10, vDev}
+  import TransactionVersion.{v10, vDev}
 
   private[this] val transactionVersions = Table("transaction version", v10, vDev)
 
@@ -173,18 +172,17 @@ class TransactionCoderSpec
     "succeed with encoding under later version if succeeded under earlier version" in {
       def overrideNodeVersions[Nid, Cid](tx: GenTransaction[Nid, Cid]) = {
         tx.copy(nodes = tx.nodes.transform((_, node) =>
-          node.updateVersion(TransactionVersions.minVersion)))
+          node.updateVersion(TransactionVersion.minVersion)))
       }
 
       forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
         forAll(transactionVersionGen, transactionVersionGen, minSuccessful(20)) {
           (txVer1, txVer2) =>
-            import VersionTimeline.Implicits._
             import scalaz.std.tuple._
             import scalaz.syntax.bifunctor._
             whenever(txVer1 != txVer2) {
               val orderedVers @ (txvMin, txvMax) =
-                if (txVer2 precedes txVer1) (txVer2, txVer1) else (txVer1, txVer2)
+                if (txVer2 < txVer1) (txVer2, txVer1) else (txVer1, txVer2)
               inside(
                 orderedVers umap (
                     txVer =>
@@ -198,8 +196,8 @@ class TransactionCoderSpec
               ) {
                 case (Left(EncodeError(minMsg)), maxEnc) =>
                   // fuzzy sort of "failed because of the version override" test
-                  minMsg should include(txvMin.toString)
-                  maxEnc.left foreach (_.errorMessage should include(txvMax.toString))
+                  minMsg should include(txvMin.protoValue)
+                  maxEnc.left foreach (_.errorMessage should include(txvMax.protoValue))
                 case (Right(encWithMin), Right(encWithMax)) =>
                   inside(
                     (encWithMin, encWithMax) umap (TransactionCoder
@@ -225,7 +223,7 @@ class TransactionCoderSpec
       forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
         forAll(unsupportedTransactionVersionGen, minSuccessful(20)) {
           badTxVer: TransactionVersion =>
-            TransactionVersions.acceptedVersions.contains(badTxVer) shouldEqual false
+            TransactionVersion.acceptedVersions.contains(badTxVer) shouldEqual false
 
             val encodedTxWithBadTxVer: proto.Transaction = assertRight(
               TransactionCoder
@@ -233,11 +231,11 @@ class TransactionCoderSpec
                   TransactionCoder.NidEncoder,
                   ValueCoder.CidEncoder,
                   VersionedTransaction(
-                    badTxVer,
-                    tx.nodes.mapValues(_.updateVersion(badTxVer)),
+                    TransactionVersion.vDev,
+                    tx.nodes.mapValues(_.updateVersion(TransactionVersion.vDev)),
                     tx.roots),
                 ),
-            )
+            ).toBuilder.setVersion(badTxVer.protoValue).build()
 
             encodedTxWithBadTxVer.getVersion shouldEqual badTxVer.protoValue
 
@@ -267,7 +265,7 @@ class TransactionCoderSpec
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
           key = None,
-          version = TransactionVersions.minVersion,
+          version = TransactionVersion.minVersion,
         )
 
       forEvery(transactionVersions) { version =>
@@ -507,10 +505,10 @@ class TransactionCoderSpec
         before: TransactionVersion,
         f: GenNode[NodeId, ContractId] => GenNode[NodeId, ContractId],
     ): GenNode[NodeId, ContractId] => GenNode[NodeId, ContractId] = {
-      if (txvMin precedes before) f else identity
+      if (txvMin < before) f else identity
     }
 
-    condApply(TransactionVersions.minChoiceObservers, withoutChoiceObservers)
+    condApply(TransactionVersion.minChoiceObservers, withoutChoiceObservers)
       .compose(withoutByKeyFlag[NodeId, ContractId])
 
   }
@@ -538,11 +536,11 @@ class TransactionCoderSpec
         before: TransactionVersion,
         f: GenNode[NodeId, ContractId] => GenNode[NodeId, ContractId],
     ): GenNode[NodeId, ContractId] => GenNode[NodeId, ContractId] =
-      if (txvMin precedes before) f else identity
+      if (txvMin < before) f else identity
 
     nodesWithout(
       nodes,
-      condApply(TransactionVersions.minChoiceObservers, withoutChoiceObservers)
+      condApply(TransactionVersion.minChoiceObservers, withoutChoiceObservers)
         .compose(withoutByKeyFlag[NodeId, ContractId]),
     )
   }
@@ -563,7 +561,7 @@ class TransactionCoderSpec
     nodes.mapValues(_.updateVersion(version))
 
   private[this] def inIncreasingOrder(version1: TransactionVersion, version2: TransactionVersion) =
-    if (version1 precedes version2)
+    if (version1 < version2)
       (version1, version2)
     else
       (version2, version1)

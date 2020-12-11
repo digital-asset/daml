@@ -25,7 +25,7 @@ import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
-import scala.Ordering.Implicits._
+import scala.Ordering.Implicits.infixOrderingOps
 
 final class CommandsValidator(ledgerId: LedgerId) {
 

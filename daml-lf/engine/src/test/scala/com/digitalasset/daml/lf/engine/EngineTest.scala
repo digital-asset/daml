@@ -22,7 +22,7 @@ import com.daml.lf.transaction.{
   VersionedTransaction,
   GenTransaction => GenTx,
   Transaction => Tx,
-  TransactionVersions => TxVersions
+  TransactionVersion => TxVersions
 }
 import com.daml.lf.value.Value
 import Value._
@@ -30,7 +30,7 @@ import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.transaction.Node.GenNode
-import com.daml.lf.value.ValueVersions.assertAsVersionedValue
+import com.daml.lf.value.ValueVersion.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues

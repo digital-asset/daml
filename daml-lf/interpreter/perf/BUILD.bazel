@@ -23,7 +23,6 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/transaction",
     ],
 )
 
@@ -47,7 +46,6 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
@@ -74,7 +72,6 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
@@ -106,7 +103,6 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],

@@ -6,6 +6,8 @@ package engine
 
 import java.nio.file.Path
 
+import com.daml.lf.language.LanguageVersion
+
 /**
   * The Engine configurations describes the versions of language and
   * transaction the engine is allowed to read and write together with
@@ -59,11 +61,11 @@ object EngineConfig {
     * language and transaction.
     */
   val Lenient: EngineConfig = new EngineConfig(
-    allowedLanguageVersions = transaction.VersionTimeline.stableLanguageVersions,
+    allowedLanguageVersions = LanguageVersion.StableVersions
   )
 
   private[this] def toDev(config: EngineConfig): EngineConfig =
-    config.copy(allowedLanguageVersions = transaction.VersionTimeline.devLanguageVersions)
+    config.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
 
   /**
     * Recommended production configuration.

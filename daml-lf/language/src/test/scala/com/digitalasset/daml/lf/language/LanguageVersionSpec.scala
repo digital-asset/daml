@@ -16,6 +16,7 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
       LV(LV.Major.V1, LV.Minor("6")),
       LV(LV.Major.V1, LV.Minor("7")),
       LV(LV.Major.V1, LV.Minor("8")),
+      LV(LV.Major.V1, LV.Minor("dev")),
     )
 
     val versionRank = versionInOrder.zipWithIndex.toMap
@@ -26,7 +27,7 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
       v1 =>
         forEvery(versions)(
           v2 =>
-            LV.ordering
+            LV.Ordering
               .compare(v1, v2)
               .signum shouldBe (versionRank(v1) compareTo versionRank(v2)).signum))
 
