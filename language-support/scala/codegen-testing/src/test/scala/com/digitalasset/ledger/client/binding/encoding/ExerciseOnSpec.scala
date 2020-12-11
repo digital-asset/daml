@@ -27,7 +27,7 @@ class ExerciseOnSpec extends AnyWordSpec with Matchers {
 
     "select an instance, even if singleton type" in {
       def exer(id: Sth.ContractId) =
-        Sth.`Sth syntax`[id.type](id).exerciseFoo(owner)
+        Sth.`Sth syntax`(id).exerciseFoo(owner)
     }
 
     "still select an instance if imported" in {

@@ -11,7 +11,7 @@ da_scala_library(
     name = "bindings",
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     silent_annotations = True,
     tags = ["maven_coordinates=com.daml:bindings-scala:__VERSION__"],
@@ -37,7 +37,7 @@ da_scala_test_suite(
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     deps = [
         ":bindings",

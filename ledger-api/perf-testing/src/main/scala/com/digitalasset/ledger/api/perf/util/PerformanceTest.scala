@@ -7,7 +7,7 @@ import com.daml.ledger.api.perf.util.reporter.JMeterReporter
 import org.scalameter.api._
 import org.scalameter.execution.{LocalExecutor, SeparateJvmsExecutor}
 import org.scalameter.picklers.Implicits._
-import org.scalameter.reporting.LoggingReporter
+import org.scalameter.reporting.RegressionReporter
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -41,7 +41,9 @@ abstract class PerformanceTest extends Bench[Double] {
   @transient lazy val measurer: Measurer[Double] = Measurer.Default()
 
   @transient lazy val reporter: Reporter[Double] = Reporter.Composite(
-    LoggingReporter[Double](),
+    RegressionReporter[Double](
+      RegressionReporter.Tester.Accepter(),
+      RegressionReporter.Historian.ExponentialBackoff()),
     new JMeterReporter[Double](this.getClass)
   )
 

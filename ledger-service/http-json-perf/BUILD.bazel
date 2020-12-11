@@ -16,7 +16,7 @@ da_scala_library(
     name = "http-json-perf",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     resources = glob(["src/main/resources/**/*"]),
     scalacopts = scalacopts,

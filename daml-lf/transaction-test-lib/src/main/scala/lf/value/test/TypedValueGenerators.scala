@@ -122,7 +122,7 @@ object TypedValueGenerators {
     }
 
     type Compose[F[_], G[_], A] = F[G[A]]
-    def list(elt: ValueAddend): Aux[Compose[Vector, elt.Inj, ?]] = new ValueAddend {
+    def list(elt: ValueAddend): Aux[Compose[Vector, elt.Inj, *]] = new ValueAddend {
       type Inj[Cid] = Vector[elt.Inj[Cid]]
       override val t = TypePrim(PT.List, ImmArraySeq(elt.t))
       override def inj[Cid: IntroCtx](elts: Inj[Cid]) =
@@ -148,7 +148,7 @@ object TypedValueGenerators {
       }
     }
 
-    def optional(elt: ValueAddend): Aux[Compose[Option, elt.Inj, ?]] = new ValueAddend {
+    def optional(elt: ValueAddend): Aux[Compose[Option, elt.Inj, *]] = new ValueAddend {
       type Inj[Cid] = Option[elt.Inj[Cid]]
       override val t = TypePrim(PT.Optional, ImmArraySeq(elt.t))
       override def inj[Cid: IntroCtx](oe: Inj[Cid]) = ValueOptional(oe map (elt.inj(_)))
@@ -170,7 +170,7 @@ object TypedValueGenerators {
       }
     }
 
-    def map(elt: ValueAddend): Aux[Compose[SortedLookupList, elt.Inj, ?]] = new ValueAddend {
+    def map(elt: ValueAddend): Aux[Compose[SortedLookupList, elt.Inj, *]] = new ValueAddend {
       type Inj[Cid] = SortedLookupList[elt.Inj[Cid]]
       override val t = TypePrim(PT.TextMap, ImmArraySeq(elt.t))
       override def inj[Cid: IntroCtx](sll: SortedLookupList[elt.Inj[Cid]]) =

@@ -65,7 +65,7 @@ object ContractDao {
     import scalaz.syntax.foldable._
     val partyVector = domain.Party.unsubst(parties.toVector)
     val lastOffsetsStr: Map[String, String] =
-      domain.Party.unsubst[Map[?, String], String](domain.Offset.tag.unsubst(lastOffsets))
+      domain.Party.unsubst[Map[*, String], String](domain.Offset.tag.unsubst(lastOffsets))
     for {
       tpId <- Queries.surrogateTemplateId(
         templateId.packageId,

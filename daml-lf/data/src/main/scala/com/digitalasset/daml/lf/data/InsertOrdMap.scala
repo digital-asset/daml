@@ -23,7 +23,7 @@ final class InsertOrdMap[K, +V] private (
     hashMap: HashMap[K, V]
 ) extends AbstractMap[K, V]
     with Map[K, V]
-    with MapKOps[K, V, InsertOrdMap[K, +?]] {
+    with MapKOps[K, V, InsertOrdMap[K, +*]] {
 
   override def empty: InsertOrdMap[K, V] = InsertOrdMap.empty[K, V]
 

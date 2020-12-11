@@ -49,7 +49,7 @@ da_scala_library(
     srcs = [":MyMain.srcjar"] + glob(["src/main/**/*.scala"]),
     plugins = [
         silencer_plugin,
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     scalacopts = [
         "-P:silencer:checkUnused",

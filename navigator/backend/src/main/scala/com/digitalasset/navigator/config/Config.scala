@@ -7,16 +7,17 @@ import java.nio.file.{Files, Path}
 import java.nio.file.StandardOpenOption._
 
 import com.daml.assistant.config.{
-  ConfigMissing => SdkConfigMissing,
+  ProjectConfig,
   ConfigLoadError => SdkConfigLoadError,
-  ConfigParseError => SdkConfigParseError,
-  ProjectConfig
+  ConfigMissing => SdkConfigMissing,
+  ConfigParseError => SdkConfigParseError
 }
 import com.daml.ledger.api.refinements.ApiTypes
 import com.github.ghik.silencer.silent
 import com.typesafe.config.{ConfigFactory, ConfigRenderOptions}
 import org.slf4j.LoggerFactory
-import pureconfig.{ConfigConvert, ConfigWriter}
+import pureconfig.{ConfigConvert, ConfigSource, ConfigWriter}
+import pureconfig.generic.auto._
 import scalaz.Tag
 
 final case class UserConfig(party: ApiTypes.Party, role: Option[String], useDatabase: Boolean)
@@ -75,8 +76,9 @@ object Config {
     if (Files.exists(configFile)) {
       logger.info(s"Loading Navigator config file from $configFile")
       val config = ConfigFactory.parseFileAnySyntax(configFile.toAbsolutePath.toFile)
-      pureconfig
-        .loadConfig[Config](config)
+      ConfigSource
+        .fromConfig(config)
+        .load[Config]
         .left
         .map(e => ConfigParseFailed(e.toList.mkString(", ")))
     } else {
