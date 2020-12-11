@@ -116,7 +116,8 @@ trait ScriptLedgerClient {
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.Command],
-      optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer)
+      optLocation: Option[Location],
+  )(implicit ec: ExecutionContext, mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]]
 
   def submitMustFail(
