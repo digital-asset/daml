@@ -24,7 +24,7 @@ object TransactionVersions
   import VersionTimeline._
   import VersionTimeline.Implicits._
 
-  private[lf] val List(v10, vDev) = ascendingVersions.list.toList
+  private[lf] val List(v10, vDev) = acceptedVersions
 
   val minVersion = v10
   private[transaction] val minChoiceObservers = vDev
