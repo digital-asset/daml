@@ -255,7 +255,7 @@ private[kvutils] class TransactionCommitter(
         result: Option[Value.ContractId]): Boolean =
       result.exists { contractId =>
         tx.nodes.exists {
-          case (nodeId @ _, create: Node.NodeCreate[_, _]) => create.coid == contractId
+          case (nodeId @ _, create: Node.NodeCreate[_]) => create.coid == contractId
           case _ => false
         }
       }
@@ -384,20 +384,16 @@ private[kvutils] class TransactionCommitter(
       keys: Set[DamlStateKey]): StepResult[DamlTransactionEntrySummary] = {
     val allUnique = transactionEntry.transaction
       .fold((true, keys)) {
-        case (
-            (allUnique, existingKeys),
-            (_, exe: Node.NodeExercises.WithTxValue[NodeId, Value.ContractId]))
+        case ((allUnique, existingKeys), (_, exe: Node.NodeExercises[NodeId, Value.ContractId]))
             if exe.key.isDefined && exe.consuming =>
           val stateKey = Conversions.globalKeyToStateKey(
-            GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
+            GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key)))
           (allUnique, existingKeys - stateKey)
 
-        case ((allUnique, existingKeys), (_, create: Node.NodeCreate.WithTxValue[Value.ContractId]))
+        case ((allUnique, existingKeys), (_, create: Node.NodeCreate[Value.ContractId]))
             if create.key.isDefined =>
           val stateKey = Conversions.globalKeyToStateKey(
-            GlobalKey(
-              create.coinst.template,
-              Conversions.forceNoContractIds(create.key.get.key.value)))
+            GlobalKey(create.coinst.template, Conversions.forceNoContractIds(create.key.get.key)))
 
           (allUnique && !existingKeys.contains(stateKey), existingKeys + stateKey)
 
@@ -508,7 +504,7 @@ private[kvutils] class TransactionCommitter(
         blindingInfo.disclosure(cid2nid(decodeContractId(key.getContractId)))
       cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
       cs.setContractInstance(
-        Conversions.encodeContractInstance(createNode.coinst)
+        Conversions.encodeContractInstance(createNode.versionedCoinst)
       )
       createNode.key.foreach { keyWithMaintainers =>
         cs.setContractKey(
@@ -516,7 +512,7 @@ private[kvutils] class TransactionCommitter(
             GlobalKey
               .build(
                 createNode.coinst.template,
-                keyWithMaintainers.key.value
+                keyWithMaintainers.key
               )
               .fold(
                 _ =>

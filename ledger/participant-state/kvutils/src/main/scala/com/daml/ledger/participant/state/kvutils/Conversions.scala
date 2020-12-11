@@ -201,7 +201,7 @@ private[state] object Conversions {
     assertDecode(
       "ContractInstance",
       TransactionCoder
-        .decodeContractInstance(ValueCoder.CidDecoder, coinst)
+        .decodeVersionedContractInstance(ValueCoder.CidDecoder, coinst)
     )
 
   def encodeContractInstance(coinst: Value.ContractInst[VersionedValue[Value.ContractId]])

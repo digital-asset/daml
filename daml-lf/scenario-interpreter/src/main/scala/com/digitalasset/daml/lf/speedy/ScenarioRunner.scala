@@ -9,11 +9,12 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Transaction => Tx}
+import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
-import com.daml.lf.speedy.Speedy.{OnLedger, OffLedger}
+import com.daml.lf.speedy.Speedy.{OffLedger, OnLedger}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.value.Value
 
 private case class SRunnerException(err: SError) extends RuntimeException(err.toString)
 
@@ -167,7 +168,7 @@ final case class ScenarioRunner(
       actAs: Set[Party],
       readAs: Set[Party],
       cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Tx.Value[ContractId]] => Unit): Either[SError, Unit] =
+      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit): Either[SError, Unit] =
     handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, cbMissing, cbPresent))
 
   private def lookupContractUnsafe(
@@ -175,7 +176,8 @@ final case class ScenarioRunner(
       actAs: Set[Party],
       readAs: Set[Party],
       cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Tx.Value[ContractId]] => Unit) = {
+      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+  ) = {
 
     val effectiveAt = ledger.currentTime
 

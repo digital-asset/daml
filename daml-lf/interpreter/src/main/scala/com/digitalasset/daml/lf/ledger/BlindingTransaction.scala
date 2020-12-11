@@ -70,16 +70,16 @@ object BlindingTransaction {
       val state = state0.discloseNode(witnesses, nodeId)
 
       node match {
-        case _: NodeCreate.WithTxValue[ContractId] => state
-        case _: NodeLookupByKey.WithTxValue[ContractId] => state
+        case _: NodeCreate[ContractId] => state
+        case _: NodeLookupByKey[ContractId] => state
 
         // fetch & exercise nodes cause divulgence
 
-        case fetch: NodeFetch.WithTxValue[ContractId] =>
+        case fetch: NodeFetch[ContractId] =>
           state
             .divulgeCoidTo(parentExerciseWitnesses -- fetch.stakeholders, fetch.coid)
 
-        case ex: NodeExercises.WithTxValue[NodeId, ContractId] =>
+        case ex: NodeExercises[NodeId, ContractId] =>
           val state1 =
             state.divulgeCoidTo(
               (parentExerciseWitnesses union ex.choiceObservers) -- ex.stakeholders,

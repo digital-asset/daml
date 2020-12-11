@@ -29,7 +29,7 @@ import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
-import com.daml.lf.transaction.TransactionVersions.UnversionedNode
+import com.daml.lf.transaction.Node.GenNode
 import com.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -87,7 +87,7 @@ class EngineTest
 
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
-  val withKeyContractInst: ContractInst[Tx.Value[ContractId]] =
+  val withKeyContractInst: ContractInst[Value.VersionedValue[ContractId]] =
     ContractInst(
       TypeConName(basicTestsPkgId, withKeyTemplate),
       assertAsVersionedValue(
@@ -100,7 +100,7 @@ class EngineTest
       ""
     )
 
-  val defaultContracts =
+  val defaultContracts: Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]] =
     Map(
       toContractId("#BasicTests:Simple:1") ->
         ContractInst(
@@ -687,7 +687,7 @@ class EngineTest
       val partyEvents = events.events.values.toList.filter(_.witnesses contains party)
       partyEvents.size shouldBe 1
       partyEvents(0) match {
-        case _: ExerciseEvent[NodeId, ContractId, Tx.Value[ContractId]] => succeed
+        case _: ExerciseEvent[NodeId, ContractId] => succeed
         case _ => fail("expected exercise")
       }
     }
@@ -794,7 +794,7 @@ class EngineTest
 
     "mark all the exercise nodes as performed byKey" in {
       val expectedNodes = tx.nodes.collect {
-        case (id, _: Node.NodeExercises[_, _, _]) => id
+        case (id, _: Node.NodeExercises[_, _]) => id
       }
       val actualNodes = byKeyNodes(tx)
       actualNodes shouldBe 'nonEmpty
@@ -951,8 +951,8 @@ class EngineTest
       tx.roots should have length 2
       tx.nodes.keySet.toList should have length 2
       val ImmArray(create, exercise) = tx.roots.map(tx.nodes)
-      create shouldBe a[Node.NodeCreate[_, _]]
-      exercise shouldBe a[Node.NodeExercises[_, _, _]]
+      create shouldBe a[Node.NodeCreate[_]]
+      exercise shouldBe a[Node.NodeExercises[_, _]]
     }
 
     "reinterpret to the same result" in {
@@ -1281,16 +1281,15 @@ class EngineTest
           contractId = originalCoid,
           templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
           choice = "Transfer",
-          choiceArgument = assertAsVersionedValue(
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:Transfer")),
-              ImmArray((Some[Name]("newReceiver"), ValueParty(clara))))),
+          choiceArgument = ValueRecord(
+            Some(Identifier(basicTestsPkgId, "BasicTests:Transfer")),
+            ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))),
           actingParties = Set(bob),
           isConsuming = true,
           children = ImmArray(noid1),
           stakeholders = Set(bob, alice),
           witnesses = Set(bob, alice),
-          exerciseResult = Some(assertAsVersionedValue(ValueContractId(cid)))
+          exerciseResult = Some(ValueContractId(cid))
         )
 
       val bobVisibleCreate = partyEvents.events(noid1)
@@ -1299,19 +1298,18 @@ class EngineTest
           cid,
           Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
           None,
-          assertAsVersionedValue(
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-              ImmArray(
-                (Some[Name]("giver"), ValueParty(alice)),
-                (Some[Name]("receiver"), ValueParty(clara)))
-            )),
+          ValueRecord(
+            Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+            ImmArray(
+              (Some[Name]("giver"), ValueParty(alice)),
+              (Some[Name]("receiver"), ValueParty(clara)))
+          ),
           "",
           signatories = Set(alice),
           observers = Set(clara), // Clara is implicitly an observer because she controls a choice
           witnesses = Set(bob, clara, alice),
         )
-      bobVisibleCreate.asInstanceOf[CreateEvent[_, _]].stakeholders == Set("Alice", "Clara")
+      bobVisibleCreate.asInstanceOf[CreateEvent[_]].stakeholders == Set("Alice", "Clara")
     }
   }
 
@@ -1354,7 +1352,7 @@ class EngineTest
         ""
       )
 
-    def lookupContract(id: ContractId): Option[ContractInst[Tx.Value[ContractId]]] = {
+    def lookupContract(id: ContractId): Option[ContractInst[Value.VersionedValue[ContractId]]] = {
       id match {
         case `fetchedCid` => Some(makeContract(fetchedStrTid, fetchedTArgs))
         case `fetcher1Cid` => Some(makeContract(fetcherStrTid, fetcher1TArgs))
@@ -1366,14 +1364,14 @@ class EngineTest
     val let = Time.Timestamp.now()
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
 
-    def actFetchActors[Nid, Cid, Val](n: Node.GenNode[Nid, Cid, Val]): Set[Party] = {
+    def actFetchActors[Nid, Cid](n: Node.GenNode[Nid, Cid]): Set[Party] = {
       n match {
         case Node.NodeFetch(_, _, _, actingParties, _, _, _, _, _) => actingParties
         case _ => Set()
       }
     }
 
-    def txFetchActors[Nid, Cid, Val](tx: GenTx[Nid, Cid, Val]): Set[Party] =
+    def txFetchActors[Nid, Cid](tx: GenTx[Nid, Cid]): Set[Party] =
       tx.fold(Set[Party]()) {
         case (actors, (_, n)) => actors union actFetchActors(n)
       }
@@ -1463,7 +1461,7 @@ class EngineTest
       ""
     )
 
-    def lookupContract(id: ContractId): Option[ContractInst[Tx.Value[ContractId]]] = {
+    def lookupContract(id: ContractId): Option[ContractInst[Value.VersionedValue[ContractId]]] = {
       id match {
         case `fetchedCid` => Some(fetchedContract)
         case _ => None
@@ -1529,9 +1527,9 @@ class EngineTest
       lookerUpCid -> lookerUpInst,
     )
 
-    def firstLookupNode[Nid, Cid, Val](
-        tx: GenTx[Nid, Cid, Val],
-    ): Option[(Nid, Node.NodeLookupByKey[Cid, Val])] =
+    def firstLookupNode[Nid, Cid](
+        tx: GenTx[Nid, Cid],
+    ): Option[(Nid, Node.NodeLookupByKey[Cid])] =
       tx.nodes.collectFirst {
         case (nid, nl @ Node.NodeLookupByKey(_, _, _, _, _)) => nid -> nl
       }
@@ -1549,7 +1547,7 @@ class EngineTest
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       val expectedByKeyNodes = tx.transaction.nodes.collect {
-        case (id, _: Node.NodeLookupByKey[_, _]) => id
+        case (id, _: Node.NodeLookupByKey[_]) => id
       }
       val actualByKeyNodes = byKeyNodes(tx)
       actualByKeyNodes shouldBe 'nonEmpty
@@ -1751,7 +1749,7 @@ class EngineTest
 
       tx.transaction.nodes
         .collectFirst {
-          case (id, nf: Node.NodeFetch[_, _]) =>
+          case (id, nf: Node.NodeFetch[_]) =>
             nf.key match {
               // just test that the maintainers match here, getting the key out is a bit hairier
               case Some(Node.KeyWithMaintainers(_, maintainers)) =>
@@ -1997,9 +1995,7 @@ object EngineTest {
     a
   }
 
-  private def findNodeByIdx[Cid, Val](
-      nodes: Map[NodeId, Node.GenNode[NodeId, Cid, Val]],
-      idx: Int) =
+  private def findNodeByIdx[Cid](nodes: Map[NodeId, Node.GenNode[NodeId, Cid]], idx: Int) =
     nodes.collectFirst { case (nodeId, node) if nodeId.index == idx => node }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -2017,15 +2013,15 @@ object EngineTest {
       txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PackageId => Option[Package],
-      contracts: Map[ContractId, Tx.ContractInst[ContractId]] = Map.empty,
+      contracts: Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]] = Map.empty,
   ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
     type Acc =
       (
-          HashMap[NodeId, UnversionedNode],
+          HashMap[NodeId, GenNode[NodeId, ContractId]],
           BackStack[NodeId],
           Boolean,
           BackStack[(NodeId, crypto.Hash)],
-          Map[ContractId, Tx.ContractInst[ContractId]],
+          Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]],
           Map[GlobalKey, ContractId],
       )
     val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
@@ -2069,21 +2065,19 @@ object EngineTest {
                       _,
                     ))) =>
                 (contracts - targetCoid, keys)
-              case (
-                  (contracts, keys),
-                  (_, Node.NodeCreate(cid: ContractId, coinst, _, _, _, key, _))) =>
+              case ((contracts, keys), (_, create: Node.NodeCreate[ContractId])) =>
                 (
                   contracts.updated(
-                    cid,
-                    coinst,
+                    create.coid,
+                    create.versionedCoinst,
                   ),
-                  key.fold(keys)(
+                  create.key.fold(keys)(
                     k =>
                       keys.updated(
                         GlobalKey(
-                          coinst.template,
-                          k.key.value.assertNoCid(cid => s"unexpected relative contract ID $cid")),
-                        cid))
+                          create.templateId,
+                          k.key.assertNoCid(cid => s"unexpected relative contract ID $cid")),
+                        create.coid))
                 )
               case (acc, _) => acc
             }
@@ -2092,13 +2086,7 @@ object EngineTest {
             tr = tr1.transaction.mapNodeId(nodeRenaming)
           } yield
             (
-              nodes ++ tr.nodes.mapValues(
-                Node.GenNode.map3(
-                  identity[NodeId],
-                  identity[ContractId],
-                  (v: VersionedValue[ContractId]) => v.value,
-                )
-              ),
+              nodes ++ tr.nodes,
               roots :++ tr.roots,
               dependsOnTime || meta1.dependsOnTime,
               nodeSeeds :++ meta1.nodeSeeds.map { case (nid, seed) => nodeRenaming(nid) -> seed },
