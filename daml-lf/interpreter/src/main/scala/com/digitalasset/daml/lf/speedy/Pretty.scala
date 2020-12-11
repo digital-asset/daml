@@ -141,11 +141,12 @@ private[lf] object Pretty {
       case ScenarioErrorContractNotVisible(coid, tid, actAs, readAs, observers) =>
         text("due to the failure to fetch the contract") & prettyContractId(coid) &
           char('(') + (prettyIdentifier(tid)) + text(").") /
-            text(
-              s"The contract had not been disclosed to the reading parties: actAs: ${actAs}, readAs: ${readAs}") & char(
-          '.',
-        ) /
-          text("The contract had been disclosed to:") & intercalate(
+            text("The contract had not been disclosed to the reading parties:") &
+          text("actAs:") & intercalate(comma + space, actAs.map(prettyParty))
+          .tightBracketBy(char('{'), char('}')) &
+          text("readAs:") & intercalate(comma + space, readAs.map(prettyParty))
+          .tightBracketBy(char('{'), char('}')) +
+          char('.') / text("The contract had been disclosed to:") & intercalate(
           comma + space,
           observers.map(prettyParty),
         ) + char('.')
@@ -153,10 +154,12 @@ private[lf] object Pretty {
         text("due to the failure to fetch the contract") & prettyContractId(coid) &
           char('(') + (prettyIdentifier(gk.templateId)) + text(") associated with key ") +
             prettyValue(false)(gk.key) &
-          text(
-            s"The contract had not been disclosed to the reading parties: actAs ${actAs}, readAs: ${readAs}") + char(
-            '.') /
-            text("Stakeholders:") & intercalate(
+          text("The contract had not been disclosed to the reading parties:") &
+          text("actAs:") & intercalate(comma + space, actAs.map(prettyParty))
+          .tightBracketBy(char('{'), char('}')) &
+          text("readAs:") & intercalate(comma + space, readAs.map(prettyParty))
+          .tightBracketBy(char('{'), char('}')) +
+          char('.') / text("Stakeholders:") & intercalate(
           comma + space,
           stakeholders.map(prettyParty),
         ) + char('.')
@@ -227,8 +230,12 @@ private[lf] object Pretty {
       case ScenarioLedger.PassTime(dt) =>
         "pass" &: str(dt)
       case amf: ScenarioLedger.AssertMustFail =>
-        text("mustFailAt") & text(s"actAs: ${amf.actAs}, ") & text(s"readAs: ${amf.readAs}") & prettyLoc(
-          amf.optLocation)
+        text("mustFailAt") &
+          text("actAs:") & intercalate(comma + space, amf.actAs.map(prettyParty))
+          .tightBracketBy(char('{'), char('}')) &
+          text("readAs:") & intercalate(comma + space, amf.readAs.map(prettyParty))
+          .tightBracketBy(char('{'), char('}')) &
+          prettyLoc(amf.optLocation)
     }
 
   def prettyKeyWithMaintainers(key: KeyWithMaintainers[Value[ContractId]]): Doc =

@@ -63,7 +63,7 @@ TX #5 1970-01-01T00:00:00Z [Test:59] version: 10
     key { textMap = TextMap(Alice -> <unit>) }
     found 001562b1ff4a33485e45d6e392d6eea26e518c878dae2b8f1d2a6c7d8face9d0f7
 
-mustFailAt 'Bob' [Test:62]
+mustFailAt actAs: {'Bob'} readAs: {} [Test:62]
 
 active contracts:
    001562b1ff4a33485e45d6e392d6eea26e518c878dae2b8f1d2a6c7d8face9d0f7, 00541236708d6615d0586a50793ccd77d0bc2b7c51025df96ce743c2469c8d3c95
