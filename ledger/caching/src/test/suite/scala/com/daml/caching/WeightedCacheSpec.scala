@@ -12,10 +12,10 @@ class WeightedCacheSpec
     with CacheEvictionSpecBase {
   override protected lazy val name: String = "a weighted cache"
 
-  override protected def newCache(): Cache[Integer, String] =
+  override protected def newCache(): ConcurrentCache[Integer, String] =
     WeightedCache.from[Integer, String](WeightedCache.Configuration(maximumWeight = 16))
 
-  override protected def newLargeCache(): Cache[Integer, String] =
+  override protected def newLargeCache(): ConcurrentCache[Integer, String] =
     WeightedCache.from[Integer, String](WeightedCache.Configuration(maximumWeight = 256))
 
   private implicit val `Int Weight`: Weight[Integer] = (_: Integer) => 1

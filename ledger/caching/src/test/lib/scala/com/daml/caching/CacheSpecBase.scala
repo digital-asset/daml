@@ -6,5 +6,5 @@ package com.daml.caching
 trait CacheSpecBase {
   protected def name: String
 
-  protected def newCache(): Cache[Integer, String]
+  protected def newCache(): ConcurrentCache[Integer, String]
 }

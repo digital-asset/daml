@@ -7,7 +7,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.Timer
-import com.daml.caching.Cache
+import com.daml.caching.{Cache, ConcurrentCache}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{Bytes, DamlStateMap, Envelope, KeyValueCommitting}
@@ -43,7 +43,7 @@ class SubmissionValidator[LogResult] private[validator] (
     processSubmission: SubmissionValidator.ProcessSubmission,
     allocateLogEntryId: () => DamlLogEntryId,
     checkForMissingInputs: Boolean,
-    stateValueCache: Cache[Bytes, DamlStateValue],
+    stateValueCache: ConcurrentCache[Bytes, DamlStateValue],
     metrics: Metrics,
 ) {
 
@@ -192,7 +192,7 @@ class SubmissionValidator[LogResult] private[validator] (
                     .zip(declaredInputs)
                     .map {
                       case (valueBytes, key) =>
-                        (key, valueBytes.map(stateValueCache.get(_, bytesToStateValue)))
+                        (key, valueBytes.map(stateValueCache.getOrAcquire(_, bytesToStateValue)))
                     }
                     .toMap
                   _ <- verifyAllInputsArePresent(declaredInputs, readInputs)
@@ -315,7 +315,7 @@ object SubmissionValidator {
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
-      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
+      stateValueCache: ConcurrentCache[Bytes, DamlStateValue] = Cache.none,
       engine: Engine,
       metrics: Metrics,
   ): SubmissionValidator[LogResult] = {
@@ -335,7 +335,7 @@ object SubmissionValidator {
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
-      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
+      stateValueCache: ConcurrentCache[Bytes, DamlStateValue] = Cache.none,
       engine: Engine,
       metrics: Metrics,
       inStaticTimeMode: Boolean,
