@@ -836,6 +836,20 @@ private[lf] object Speedy {
     ): Machine =
       fromPureSExpr(compiledPackages, compiledPackages.compiler.unsafeCompile(expr))
 
+    @throws[PackageNotFound]
+    @throws[CompilationError]
+    // Construct a machine for testing.
+    private[speedy] def dummy(
+        compiledPackages: CompiledPackages,
+    ): Machine = Machine(
+      compiledPackages = compiledPackages,
+      submissionTime = Time.Timestamp.MinValue,
+      initialSeeding = InitialSeeding.NoSeed,
+      expr = null,
+      globalCids = Set.empty,
+      committers = Set.empty,
+    )
+
   }
 
   // Environment
