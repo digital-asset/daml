@@ -15,7 +15,7 @@ DAML-LF, and Protobuf objects and messages.
 To run the benchmarks with a custom ledger export, you can run the following:
 
     bazel run //ledger/participant-state/kvutils/tools:benchmark-codec -- \
-      -p ledgerExport=/absolute/path/to/a/ledger/export.pkv
+      -p ledgerExport=/absolute/path/to/a/ledger/export.bin
        
 Please ensure to use an absolute path, as this will be run in a Bazel sandbox
 whose working directory is unlikely to be yours.
@@ -35,7 +35,7 @@ JMH is mature and rich of features, ranging from setting up the run to gather
 profiling information, persisting the results, tuning the JVM and much more.
 
 You are **strongly** advised to have a look at the available options to make sure
-you run the benchmarks that are relevant to you in
+you run the benchmarks that are relevant to you with the proper settings.
     
 ##### Examples
 
