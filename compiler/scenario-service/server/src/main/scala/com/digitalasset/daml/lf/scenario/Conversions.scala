@@ -148,21 +148,23 @@ final class Conversions(
             .build,
         )
 
-      case SError.ScenarioErrorContractNotVisible(coid, tid, committer, observers) =>
+      case SError.ScenarioErrorContractNotVisible(coid, tid, actAs, readAs, observers) =>
         builder.setScenarioContractNotVisible(
           proto.ScenarioError.ContractNotVisible.newBuilder
             .setContractRef(mkContractRef(coid, tid))
-            .setCommitter(convertParty(committer))
+            .addAllActAs(actAs.map(convertParty(_)).asJava)
+            .addAllReadAs(readAs.map(convertParty(_)).asJava)
             .addAllObservers(observers.map(convertParty).asJava)
             .build,
         )
 
-      case SError.ScenarioErrorContractKeyNotVisible(coid, gk, committer, stakeholders) =>
+      case SError.ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
         builder.setScenarioContractKeyNotVisible(
           proto.ScenarioError.ContractKeyNotVisible.newBuilder
             .setContractRef(mkContractRef(coid, gk.templateId))
             .setKey(convertValue(gk.key))
-            .setCommitter(convertParty(committer))
+            .addAllActAs(actAs.map(convertParty(_)).asJava)
+            .addAllReadAs(readAs.map(convertParty(_)).asJava)
             .addAllStakeholders(stakeholders.map(convertParty).asJava)
             .build,
         )
@@ -356,7 +358,7 @@ final class Conversions(
         )
       case ScenarioLedger.PassTime(dt) =>
         builder.setPassTime(dt)
-      case ScenarioLedger.AssertMustFail(actor, optLocation, time, txId) =>
+      case ScenarioLedger.AssertMustFail(actAs, readAs, optLocation, time, txId) =>
         val assertBuilder = proto.ScenarioStep.AssertMustFail.newBuilder
         optLocation.map { loc =>
           assertBuilder.setLocation(convertLocation(loc))
@@ -364,7 +366,8 @@ final class Conversions(
         builder
           .setAssertMustFail(
             assertBuilder
-              .setActor(convertParty(actor))
+              .addAllActAs(actAs.map(convertParty(_)).asJava)
+              .addAllReadAs(readAs.map(convertParty(_)).asJava)
               .setTime(time.micros)
               .setTxId(txId.index)
               .build,
@@ -377,7 +380,8 @@ final class Conversions(
       rtx: ScenarioLedger.RichTransaction,
   ): proto.Transaction = {
     proto.Transaction.newBuilder
-      .setCommitter(convertParty(rtx.committer))
+      .addAllActAs(rtx.actAs.map(convertParty(_)).asJava)
+      .addAllReadAs(rtx.readAs.map(convertParty(_)).asJava)
       .setEffectiveAt(rtx.effectiveAt.micros)
       .addAllRoots(rtx.transaction.roots.map(convertNodeId(rtx.transactionId, _)).toSeq.asJava)
       .addAllNodes(rtx.transaction.nodes.keys.map(convertNodeId(rtx.transactionId, _)).asJava)

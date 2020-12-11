@@ -8,11 +8,11 @@ TX #0 1970-01-01T00:00:00Z [Test:77] version: 10
     with: { p = 'Alice', k = "some-key", disclosedTo = ['Bob'] }
 key { _1 = 'Alice', _2 = "some-key" }
 
-mustFailAt 'Alice' [Test:84]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:84]
 
-mustFailAt 'Bob' [Test:91]
+mustFailAt actAs: {'Bob'} readAs: {} [Test:91]
 
-mustFailAt 'Bob' [Test:93]
+mustFailAt actAs: {'Bob'} readAs: {} [Test:93]
 
 TX #4 1970-01-01T00:00:00Z [Test:96] version: 10
 #4:0 version: 10
@@ -118,7 +118,7 @@ TX #14 1970-01-01T00:00:00Z [Test:144] version: 10
     │   known to (since): Alice (#14)
     └─> ensure active 00ce68df68a7e42ecadca4ff1e4d35ffff75f009d1f01ae130d36116e1332ff773
 
-mustFailAt 'Alice' [Test:147]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:147]
 
 TX #16 1970-01-01T00:00:00Z [Test:151] version: 10
 #16:0 version: 10
@@ -140,7 +140,7 @@ key { _1 = 'Alice', _2 = "non-consuming-choice" }
 key { _1 = 'Alice', _2 = "non-consuming-choice" }
 found 00bcf23c0f4133f226e7051a79ab289277e1a3941dcf08c545ff477593c9b22651
 
-mustFailAt 'Alice' [Test:161]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:161]
 
 active contracts:
    00528ef7ca096fcc1cfb640394394117e237d21236faef81c544770ec5962c462c, 00a95ea3bb21422ab003f15dc95de204110b3f7f2682b407a2ba75d36b0be9053b, 00bcf23c0f4133f226e7051a79ab289277e1a3941dcf08c545ff477593c9b22651, 00ce68df68a7e42ecadca4ff1e4d35ffff75f009d1f01ae130d36116e1332ff773

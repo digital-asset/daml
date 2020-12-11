@@ -110,7 +110,8 @@ class CollectAuthorityState {
           }
         case SResultScenarioCommit(value, tx, committers, callback) =>
           ScenarioLedger.commitTransaction(
-            committers.head,
+            committers,
+            Set(),
             ledger.currentTime,
             onLedger.commitLocation,
             tx,
@@ -125,7 +126,7 @@ class CollectAuthorityState {
         case SResultNeedContract(acoid, _, committers, _, callback) =>
           val effectiveAt = ledger.currentTime
           ledger.lookupGlobalContract(
-            ScenarioLedger.ParticipantView(committers),
+            ScenarioLedger.ParticipantView(committers, Set()),
             effectiveAt,
             acoid) match {
             case ScenarioLedger.LookupOk(_, result, _) =>

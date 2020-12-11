@@ -127,7 +127,8 @@ object SError {
   final case class ScenarioErrorContractNotVisible(
       coid: ContractId,
       templateId: Identifier,
-      committer: Party,
+      actAs: Set[Party],
+      readAs: Set[Party],
       observers: Set[Party],
   ) extends SErrorScenario
 
@@ -137,7 +138,8 @@ object SError {
   final case class ScenarioErrorContractKeyNotVisible(
       coid: ContractId,
       key: GlobalKey,
-      committer: Party,
+      actAs: Set[Party],
+      readAs: Set[Party],
       stakeholders: Set[Party],
   ) extends SErrorScenario
 
