@@ -72,7 +72,7 @@ class VersionTimelineSpec
     "end with a dev version" in {
       inside(inAscendingOrder.last) {
         case Both(
-            Both(ValueVersion("dev"), TransactionVersion("dev")),
+            Both(ValueVersion("dev"), TransactionVersions.vDev),
             LanguageVersion.v1_dev
             ) =>
       }
