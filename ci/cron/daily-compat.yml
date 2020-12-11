@@ -231,7 +231,7 @@ jobs:
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/3d0d81df71cb3ec809a7c2463e1fe9acc119092b/synopsys-detect) \
+          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
           ci-build digital-asset_daml blackduck-jvm-before-haskell \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.tools=BAZEL \
@@ -246,7 +246,7 @@ jobs:
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
-          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/3d0d81df71cb3ec809a7c2463e1fe9acc119092b/synopsys-detect) \
+          bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
           ci-build digital-asset_daml blackduck-jvm-before-haskell \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.npm.include.dev.dependencies=false \
