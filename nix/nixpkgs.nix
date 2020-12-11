@@ -19,6 +19,7 @@ let
         sha256 = "1jcyd9jy7kz5zfch25s4inwlivb1y1w52fzfjy5ra5vcnp3hmqyr";
         fetchSubmodules = true;
       };
+    });
     nodejs = pkgs.nodejs-12_x;
     grpc = pkgs.grpc.overrideAttrs (oldAttrs: {
       version = "1.23.1";
