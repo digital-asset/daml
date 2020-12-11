@@ -27,12 +27,16 @@ object CachingDamlLedgerStateReaderWithFingerprints {
       ledgerStateReaderWithFingerprints: LedgerStateReaderWithFingerprints,
       keySerializationStrategy: StateKeySerializationStrategy,
   ): StateReader[DamlStateKey, (Option[DamlStateValue], Fingerprint)] =
-    new CachingStateReader[
-      DamlStateKey,
-      (Option[DamlStateValue], Fingerprint),
-      (DamlStateValue, Fingerprint),
-    ](
-      cache = cache,
+    new CachingStateReader[DamlStateKey, (Option[DamlStateValue], Fingerprint)](
+      cache = cache.mapValues(
+        from = {
+          case (value, fingerprint) => (Some(value), fingerprint)
+        },
+        to = {
+          case (None, _) => None
+          case (Some(value), fingerprint) => Some((value, fingerprint))
+        }
+      ),
       shouldCache = cachingPolicy.shouldCacheOnRead,
       delegate = ledgerStateReaderWithFingerprints
         .comapKeys(keySerializationStrategy.serializeStateKey)
@@ -40,12 +44,5 @@ object CachingDamlLedgerStateReaderWithFingerprints {
           case (valueMaybe, fingerprint) =>
             valueMaybe.map(deserializeDamlStateValue) -> fingerprint
         },
-      toCached = {
-        case (None, _) => None
-        case (Some(value), fingerprint) => Some((value, fingerprint))
-      },
-      fromCached = {
-        case (value, fingerprint) => (Some(value), fingerprint)
-      }
     )
 }

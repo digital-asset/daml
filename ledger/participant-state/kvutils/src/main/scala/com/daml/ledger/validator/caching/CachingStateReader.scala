@@ -13,12 +13,10 @@ import scala.concurrent.{ExecutionContext, Future}
   * This is crucial for caching access to large frequently accessed state, for example
   * package state values (which are too expensive to deserialize from bytes every time).
   */
-final class CachingStateReader[Key, Value, CachedValue](
-    cache: Cache[Key, CachedValue],
+final class CachingStateReader[Key, Value](
+    cache: Cache[Key, Value],
     shouldCache: Key => Boolean,
     delegate: StateReader[Key, Value],
-    toCached: Value => Option[CachedValue],
-    fromCached: CachedValue => Value,
 ) extends StateReader[Key, Value] {
   override def read(
       keys: Seq[Key]
@@ -26,7 +24,7 @@ final class CachingStateReader[Key, Value, CachedValue](
     @SuppressWarnings(Array("org.wartremover.warts.Any")) // Required to make `.view` work.
     val cachedValues = keys.view
       .map(key => key -> cache.getIfPresent(key))
-      .collect { case (key, Some(value)) => key -> fromCached(value) }
+      .collect { case (key, Some(value)) => key -> value }
       .toMap
     val keysToRead = keys.toSet -- cachedValues.keySet
     if (keysToRead.nonEmpty) {
@@ -37,11 +35,7 @@ final class CachingStateReader[Key, Value, CachedValue](
           readValues.foreach {
             case (key, value) =>
               if (shouldCache(key)) {
-                toCached(value) match {
-                  case None => ()
-                  case Some(cachedValue) =>
-                    cache.put(key, cachedValue)
-                }
+                cache.put(key, value)
               }
           }
           val all = cachedValues ++ readValues
@@ -61,11 +55,12 @@ object CachingStateReader {
       cachingPolicy: CacheUpdatePolicy[Key],
       ledgerStateReader: StateReader[Key, Option[Value]],
   ): StateReader[Key, Option[Value]] =
-    new CachingStateReader[Key, Option[Value], Value](
-      cache = cache,
+    new CachingStateReader[Key, Option[Value]](
+      cache = cache.mapValues[Option[Value]](
+        from = value => Some(value),
+        to = identity,
+      ),
       shouldCache = cachingPolicy.shouldCacheOnRead,
       delegate = ledgerStateReader,
-      toCached = identity,
-      fromCached = Some.apply,
     )
 }
