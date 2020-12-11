@@ -407,10 +407,10 @@ private class JdbcLedgerDao(
     }
   }
 
-  override def lookupKey(key: GlobalKey, forParty: Party)(
+  override def lookupKey(key: GlobalKey, forParties: Set[Party])(
       implicit loggingContext: LoggingContext,
   ): Future[Option[ContractId]] =
-    contractsReader.lookupContractKey(forParty, key)
+    contractsReader.lookupContractKey(forParties, key)
 
   override def prepareTransactionInsert(
       submitterInfo: Option[SubmitterInfo],
@@ -568,9 +568,9 @@ private class JdbcLedgerDao(
 
   override def lookupActiveOrDivulgedContract(
       contractId: ContractId,
-      forParty: Party,
+      forParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[ContractInst]] =
-    contractsReader.lookupActiveContract(forParty, contractId)
+    contractsReader.lookupActiveContract(forParties, contractId)
 
   private val SQL_SELECT_ALL_PARTIES =
     SQL("select party, display_name, ledger_offset, explicit, is_local from parties")

@@ -450,7 +450,7 @@ class EngineTest
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe 'right
     val interpretResult = engine
-      .submit(Commands(Set(party), ImmArray(command), let, "test"), participant, submissionSeed)
+      .submit(Set(party), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
       .consume(lookupContract, lookupPackage, lookupKey)
 
     "be translated" in {
@@ -522,7 +522,8 @@ class EngineTest
     def interpretResult(
         templateId: String,
         signatories: Set[(String, Party)],
-        submitters: Set[Party]) = {
+        actAs: Set[Party],
+    ) = {
       val cmd = command(templateId, signatories)
       val res = preprocessor
         .preprocessCommands(ImmArray(cmd))
@@ -530,7 +531,7 @@ class EngineTest
       withClue("Preprocessing result: ")(res shouldBe 'right)
 
       engine
-        .submit(Commands(submitters, ImmArray(cmd), let, "test"), participant, submissionSeed)
+        .submit(actAs, Commands(ImmArray(cmd), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
     }
 
@@ -649,7 +650,7 @@ class EngineTest
 
     "be translated" in {
       val Right((rtx, _)) = engine
-        .submit(Commands(Set(party), ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Set(party), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       Tx.isReplayedBy(tx, rtx) shouldBe Right(())
     }
@@ -710,7 +711,7 @@ class EngineTest
 
     "fail at submission" in {
       val submitResult = engine
-        .submit(Commands(Set(alice), ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Set(alice), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       submitResult.left.value.msg should startWith("dependency error: couldn't find key")
     }
@@ -753,7 +754,7 @@ class EngineTest
 
     "be translated" in {
       val submitResult = engine
-        .submit(Commands(Set(alice), ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Set(alice), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
         .map(_._1)
       (result.map(_._1) |@| submitResult)((tx, rtx) => Tx.isReplayedBy(tx, rtx)) shouldBe Right(
@@ -1154,7 +1155,7 @@ class EngineTest
       ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))))
 
     val Right((tx, txMeta)) = engine
-      .submit(Commands(Set(bob), ImmArray(command), let, "test"), participant, submissionSeed)
+      .submit(Set(bob), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
       .consume(lookupContract, lookupPackage, lookupKey)
 
     val submissionTime = txMeta.submissionTime
@@ -1544,7 +1545,7 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
       val Right((tx, _)) = engine
-        .submit(Commands(Set(alice), ImmArray(exerciseCmd), now, "test"), participant, seed)
+        .submit(Set(alice), Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       val expectedByKeyNodes = tx.transaction.nodes.collect {
@@ -1562,7 +1563,7 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
       val Right((tx, txMeta)) = engine
-        .submit(Commands(Set(alice), ImmArray(exerciseCmd), now, "test"), participant, seed)
+        .submit(Set(alice), Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
@@ -1591,7 +1592,7 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))))
       val Right((tx, txMeta)) = engine
-        .submit(Commands(Set(alice), ImmArray(exerciseCmd), now, "test"), participant, seed)
+        .submit(Set(alice), Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
@@ -1649,7 +1650,8 @@ class EngineTest
         )
       engine
         .submit(
-          Commands(Set(party), ImmArray(command), Time.Timestamp.now(), "test"),
+          Set(party),
+          Commands(ImmArray(command), Time.Timestamp.now(), "test"),
           participant,
           submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1785,7 +1787,7 @@ class EngineTest
         choiceArgument = ValueRecord(None, ImmArray((None, ValueInt64(n.toLong)))),
       )
       engine
-        .submit(Commands(Set(party), ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Set(party), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(_ => None, lookupPackage, _ => None)
     }
 

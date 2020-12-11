@@ -87,6 +87,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     * The resulting transaction is annotated with packages required to validate it.
     */
   def submit(
+      submitters: Set[Party],
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
@@ -98,7 +99,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         case (processedCmds, globalCids) =>
           interpretCommands(
             validating = false,
-            submitters = cmds.submitters,
+            submitters = submitters,
             commands = processedCmds,
             ledgerTime = cmds.ledgerEffectiveTime,
             submissionTime = submissionTime,

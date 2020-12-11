@@ -56,6 +56,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final val bob = Party.assertFromString("Bob")
   protected final val charlie = Party.assertFromString("Charlie")
   protected final val david = Party.assertFromString("David")
+  protected final val emma = Party.assertFromString("Emma")
 
   protected final val defaultAppId = "default-app-id"
   protected final val defaultWorkflowId = "default-workflow-id"
@@ -110,20 +111,13 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       absCid: ContractId,
       signatories: Set[Party] = Set(alice, bob),
   ): NodeCreate[ContractId, Value[ContractId]] =
-    NodeCreate(
-      coid = absCid,
-      coinst = someContractInstance,
-      optLocation = None,
-      signatories = signatories,
-      stakeholders = signatories,
-      key = None,
-      version = TransactionVersions.minVersion,
-    )
+    createNode(absCid, signatories, signatories, None)
 
-  protected final def createWithStakeholders(
+  protected final def createNode(
       absCid: ContractId,
       signatories: Set[Party],
       stakeholders: Set[Party],
+      key: Option[KeyWithMaintainers[Value[ContractId]]] = None,
   ): NodeCreate[ContractId, Value[ContractId]] =
     NodeCreate(
       coid = absCid,
@@ -131,7 +125,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       optLocation = None,
       signatories = signatories,
       stakeholders = stakeholders,
-      key = None,
+      key = key,
       version = TransactionVersions.minVersion,
     )
 
@@ -168,34 +162,15 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         set
     }
 
-  protected final def singleCreateP(create: ContractId => NodeCreate[ContractId, Value[ContractId]])
-    : (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = TransactionBuilder()
-    val cid = txBuilder.newCid
-    val creation = create(cid)
-    val eid = txBuilder.add(creation)
-    val offset = nextOffset()
-    val id = offset.toLong
-    val let = Instant.now
-    offset -> LedgerEntry.Transaction(
-      commandId = Some(s"commandId$id"),
-      transactionId = s"trId$id",
-      applicationId = Some("appID1"),
-      actAs = List(alice),
-      workflowId = Some("workflowId"),
-      ledgerEffectiveTime = let,
-      recordedAt = let,
-      transaction = txBuilder.buildCommitted(),
-      explicitDisclosure = Map(eid -> (creation.signatories union creation.stakeholders))
-    )
-  }
-
   protected final def singleCreate: (Offset, LedgerEntry.Transaction) =
-    singleCreateP(create(_))
+    singleCreate(create(_))
 
-  protected final def multiPartySingleCreateP(
+  protected final def multiPartySingleCreate: (Offset, LedgerEntry.Transaction) =
+    singleCreate(create(_, Set(alice, bob)), List(alice, bob))
+
+  protected final def singleCreate(
       create: ContractId => NodeCreate[ContractId, Value[ContractId]],
-      actAs: List[Party],
+      actAs: List[Party] = List(alice),
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
     val cid = txBuilder.newCid
@@ -217,8 +192,34 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     )
   }
 
-  protected final def multiPartySingleCreate: (Offset, LedgerEntry.Transaction) =
-    multiPartySingleCreateP(create(_, Set(alice, bob)), List(alice, bob))
+  protected final def createAndStoreContract(
+      submittingParties: Set[Party],
+      signatories: Set[Party],
+      stakeholders: Set[Party],
+      key: Option[KeyWithMaintainers[Value[ContractId]]]
+  ): Future[(Offset, LedgerEntry.Transaction)] =
+    store(
+      singleCreate(
+        create = { cid =>
+          createNode(
+            absCid = cid,
+            signatories = signatories,
+            stakeholders = stakeholders,
+            key = key,
+          )
+        },
+        actAs = submittingParties.toList
+      ))
+
+  protected final def storeCommitedContractDivulgence(
+      id: ContractId,
+      divulgees: Set[Party],
+  ): Future[(Offset, LedgerEntry.Transaction)] =
+    store(
+      divulgedContracts = Map((id, someVersionedContractInstance) -> divulgees),
+      blindingInfo = None,
+      offsetAndTx = divulgeAlreadyCommittedContract(id, divulgees),
+    )
 
   protected def divulgeAlreadyCommittedContract(
       id: ContractId,

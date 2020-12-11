@@ -54,7 +54,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def lookupInitialLedgerEnd()(implicit loggingContext: LoggingContext): Future[Option[Offset]]
 
   /** Looks up an active or divulged contract if it is visible for the given party. Archived contracts must not be returned by this method */
-  def lookupActiveOrDivulgedContract(contractId: ContractId, forParty: Party)(
+  def lookupActiveOrDivulgedContract(contractId: ContractId, forParties: Set[Party])(
       implicit loggingContext: LoggingContext,
   ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
 
@@ -80,10 +80,10 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     * Looks up a Contract given a contract key and a party
     *
     * @param key the contract key to query
-    * @param forParty the party for which the contract must be visible
+    * @param forParties a set of parties for one of which the contract must be visible
     * @return the optional ContractId
     */
-  def lookupKey(key: GlobalKey, forParty: Party)(
+  def lookupKey(key: GlobalKey, forParties: Set[Party])(
       implicit loggingContext: LoggingContext,
   ): Future[Option[ContractId]]
 
