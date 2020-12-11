@@ -22,7 +22,7 @@ object ValueCoder {
   import Value.MAXIMUM_NESTING
 
   /**
-    * Error type for signalling errors occuring during decoding serialized values
+    * Error type for signalling errors occurring during decoding serialized values
     * @param errorMessage description
     */
   final case class DecodeError(errorMessage: String)
@@ -35,7 +35,7 @@ object ValueCoder {
   }
 
   /**
-    * Error type for signalling errors occuring during encoding values
+    * Error type for signalling errors occurring during encoding values
     * @param errorMessage description
     */
   final case class EncodeError(errorMessage: String)
@@ -51,7 +51,7 @@ object ValueCoder {
     private[lf] def encode(contractId: Cid): proto.ContractId
   }
 
-  @deprecated("use CidEndocer", since = "1.1.2")
+  @deprecated("use CidEncoder", since = "1.1.2")
   val AbsCidDecoder = CidEncoder
 
   object CidEncoder extends EncodeCid[ContractId] {

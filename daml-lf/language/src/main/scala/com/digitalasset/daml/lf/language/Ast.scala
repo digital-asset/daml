@@ -651,7 +651,7 @@ object Ast {
         returnType: Type,
         update: E
     ): GenTemplateChoice[E] =
-      new GenTemplateChoice(
+      GenTemplateChoice(
         name,
         consuming,
         controllers,

@@ -148,7 +148,7 @@ private[lf] object Anf {
   private[this] type Tx[T, A] = (DepthA, T, K[AExpr, A]) => Trampoline[A]
 
   /**
-    * K Is the type for contiunations.
+    * K Is the type for continuations.
     *
     * @tparam T Type the function would have returned had it not been in CPS.
     * @tparam A The return type of the continuation (minus the Trampoline
