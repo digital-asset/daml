@@ -897,10 +897,10 @@ class JsonLedgerClient(
       readAs: Set[Ref.Party]): Future[Unit] = {
     // Relax once the JSON API supports multi-party read/write
     import scalaz.std.string._
-    if (!actAs.tail.isEmpty) {
+    if (actAs.tail.nonEmpty) {
       Future.failed(
         new RuntimeException(s"JSON API does not support multi-party actAs but got ${actAs}"))
-    } else if (!(readAs diff actAs.toSet).isEmpty) {
+    } else if (!(readAs.subsetOf(actAs.toSet))) {
       Future.failed(new RuntimeException(
         s"JSON API does not support additional parties in readAs on command submissions but got ${readAs}"))
     } else if (tokenPayload.actAs.isEmpty) {
