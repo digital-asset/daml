@@ -168,12 +168,9 @@ object VersionTimeline {
   }
 
   private[lf] val stableLanguageVersions =
-    VersionRange(
-      min = LanguageVersion(Major.V1, Minor("6")),
-      max = LanguageVersion(Major.V1, Minor("8")),
-    )
+    VersionRange(min = LanguageVersion.v1_6, max = LanguageVersion.v1_8)
 
   private[lf] val devLanguageVersions =
-    stableLanguageVersions.copy(max = LanguageVersion(Major.V1, Minor("dev")))
+    stableLanguageVersions.copy(max = LanguageVersion.v1_dev)
 
 }

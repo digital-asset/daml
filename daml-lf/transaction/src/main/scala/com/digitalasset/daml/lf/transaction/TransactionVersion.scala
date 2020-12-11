@@ -23,13 +23,15 @@ object TransactionVersions
   import VersionTimeline._
   import VersionTimeline.Implicits._
 
-  val minVersion = TransactionVersion("10")
-  private[transaction] val minChoiceObservers = TransactionVersion("dev")
-  private[transaction] val minNodeVersion = TransactionVersion("dev")
+  private[lf] val List(v10, vDev) = acceptedVersions
+
+  val minVersion = v10
+  private[transaction] val minChoiceObservers = vDev
+  private[transaction] val minNodeVersion = vDev
 
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
   private[lf] val StableOutputVersions: VersionRange[TransactionVersion] =
-    VersionRange(TransactionVersion("10"), TransactionVersion("10"))
+    VersionRange(v10, v10)
 
   private[lf] val DevOutputVersions: VersionRange[TransactionVersion] =
     StableOutputVersions.copy(max = acceptedVersions.last)
