@@ -57,8 +57,7 @@ class DecodeV1Spec
 
   import VersionTimeline.Implicits._
 
-  private[this] val lfVersions =
-    List("6", "7", "8", "dev").map(minor => LV(LV.Major.V1, LV.Minor(minor)))
+  private[this] val lfVersions = List(LV.v1_6, LV.v1_7, LV.v1_8, LV.v1_dev)
 
   private[this] def forEveryVersionSuchThat[U](cond: LV => Boolean)(f: LV => U): Unit =
     lfVersions.foreach { version =>

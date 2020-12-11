@@ -29,7 +29,7 @@ object LanguageVersion {
           LanguageMajorVersion.ordering.compare(leftMajor, rightMajor)
     }
 
-  private val List(v1_6, v1_7, v1_8, v1_dev) =
+  private[lf] val List(v1_6, v1_7, v1_8, v1_dev) =
     Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
 
   object Features {

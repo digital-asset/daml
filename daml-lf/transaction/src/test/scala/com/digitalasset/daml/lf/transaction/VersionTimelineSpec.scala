@@ -73,7 +73,8 @@ class VersionTimelineSpec
       inside(inAscendingOrder.last) {
         case Both(
             Both(ValueVersion("dev"), TransactionVersion("dev")),
-            LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor("dev"))) =>
+            LanguageVersion.v1_dev
+            ) =>
       }
     }
 

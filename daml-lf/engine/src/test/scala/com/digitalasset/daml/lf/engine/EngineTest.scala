@@ -1935,37 +1935,37 @@ class EngineTest
 
     import com.daml.lf.language.{LanguageVersion => LV}
 
-    def engine(min: LV.Minor, max: LV.Minor) =
+    def engine(min: LV, max: LV) =
       new Engine(
         EngineConfig.Dev.copy(
-          allowedLanguageVersions = VersionRange(LV(LV.Major.V1, min), LV(LV.Major.V1, max))
+          allowedLanguageVersions = VersionRange(min, max)
         )
       )
 
     val pkgId = Ref.PackageId.assertFromString("-pkg-")
 
-    def pkg(v: LV.Minor) =
+    def pkg(version: LV) =
       language.Ast.Package(
         Traversable.empty,
         Traversable.empty,
-        LV(LV.Major.V1, v),
+        version,
         None
       )
 
     "reject disallow packages" in {
       val negativeTestCases = Table(
         ("pkg version", "minVersion", "maxVertion"),
-        (LV.Minor("6"), LV.Minor("6"), LV.Minor("8")),
-        (LV.Minor("7"), LV.Minor("6"), LV.Minor("8")),
-        (LV.Minor("8"), LV.Minor("6"), LV.Minor("8")),
-        (LV.Minor("dev"), LV.Minor("6"), LV.Minor("dev")),
+        (LV.v1_6, LV.v1_6, LV.v1_8),
+        (LV.v1_7, LV.v1_6, LV.v1_8),
+        (LV.v1_8, LV.v1_6, LV.v1_8),
+        (LV.v1_dev, LV.v1_6, LV.v1_dev),
       )
       val positiveTestCases = Table(
         ("pkg version", "minVersion", "maxVertion"),
-        (LV.Minor("6"), LV.Minor("7"), LV.Minor("dev")),
-        (LV.Minor("7"), LV.Minor("8"), LV.Minor("8")),
-        (LV.Minor("8"), LV.Minor("6"), LV.Minor("7")),
-        (LV.Minor("dev"), LV.Minor("6"), LV.Minor("8")),
+        (LV.v1_6, LV.v1_7, LV.v1_dev),
+        (LV.v1_7, LV.v1_8, LV.v1_8),
+        (LV.v1_8, LV.v1_6, LV.v1_7),
+        (LV.v1_dev, LV.v1_6, LV.v1_8),
       )
 
       forEvery(negativeTestCases)((v, min, max) =>

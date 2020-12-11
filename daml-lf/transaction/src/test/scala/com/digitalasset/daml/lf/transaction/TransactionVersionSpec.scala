@@ -12,10 +12,9 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class TransactionVersionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  "TransactionVersions.assignNodeVersion" should {
+  import LanguageVersion.{v1_6, v1_7, v1_8, v1_dev}
 
-    val Seq(v1_6, v1_7, v1_8, v1_dev) = Seq("6", "7", "8", "dev").map(minor =>
-      LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor(minor)))
+  "TransactionVersions.assignNodeVersion" should {
 
     val testCases = Table(
       "language version" -> "transaction version",
