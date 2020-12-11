@@ -55,7 +55,7 @@ object LedgerClientConfig {
   }
 
   def create(config: Config = ConfigFactory.load()): Try[LedgerClientConfig] = {
-    wrapError(ConfigSource.fromConfig(config).load[LedgerClientConfig])
+    wrapError(ConfigSource.fromConfig(config).at("ledger-client").load[LedgerClientConfig])
   }
 
   private def wrapError[T](
