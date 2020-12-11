@@ -1954,14 +1954,14 @@ class EngineTest
 
     "reject disallow packages" in {
       val negativeTestCases = Table(
-        ("pkg version", "minVersion", "maxVertion"),
+        ("pkg version", "minVersion", "maxversion"),
         (LV.v1_6, LV.v1_6, LV.v1_8),
         (LV.v1_7, LV.v1_6, LV.v1_8),
         (LV.v1_8, LV.v1_6, LV.v1_8),
         (LV.v1_dev, LV.v1_6, LV.v1_dev),
       )
       val positiveTestCases = Table(
-        ("pkg version", "minVersion", "maxVertion"),
+        ("pkg version", "minVersion", "maxversion"),
         (LV.v1_6, LV.v1_7, LV.v1_dev),
         (LV.v1_7, LV.v1_8, LV.v1_8),
         (LV.v1_8, LV.v1_6, LV.v1_7),
