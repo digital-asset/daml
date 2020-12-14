@@ -6,7 +6,7 @@ package com.daml.platform.store.dao
 import java.io.File
 import java.time.{Duration, Instant}
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles.rlocation
@@ -29,6 +29,7 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueRecord, ValueText, ValueUnit}
 import com.daml.logging.LoggingContext
+import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
 
@@ -41,11 +42,16 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected implicit final val loggingContext: LoggingContext = LoggingContext.ForTesting
 
+  val previousOffset: AtomicReference[Option[Offset]] =
+    new AtomicReference[Option[Offset]](Option.empty)
+
   protected final val nextOffset: () => Offset = {
     val base = BigInt(1) << 32
     val counter = new AtomicLong(0)
     () =>
-      Offset.fromByteArray((base + counter.getAndIncrement()).toByteArray)
+      {
+        Offset.fromByteArray((base + counter.getAndIncrement()).toByteArray)
+      }
   }
 
   protected final implicit class OffsetToLong(offset: Offset) {
@@ -508,8 +514,19 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
       blindingInfo: Option[BlindingInfo],
       offsetAndTx: (Offset, LedgerEntry.Transaction),
+  ): Future[(Offset, LedgerEntry.Transaction)] =
+    storeOffsetStepAndTx(
+      divulgedContracts = divulgedContracts,
+      blindingInfo = blindingInfo,
+      offsetStepAndTx = nextOffsetStep(offsetAndTx._1) -> offsetAndTx._2
+    )
+
+  protected final def storeOffsetStepAndTx(
+      divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
+      blindingInfo: Option[BlindingInfo],
+      offsetStepAndTx: (OffsetStep, LedgerEntry.Transaction),
   ): Future[(Offset, LedgerEntry.Transaction)] = {
-    val (offset, entry) = offsetAndTx
+    val (offsetStep, entry) = offsetStepAndTx
     val submitterInfo =
       for (actAs <- if (entry.actAs.isEmpty) None else Some(entry.actAs); app <- entry.applicationId;
         cmd <- entry.commandId) yield v1.SubmitterInfo(actAs, app, cmd, Instant.EPOCH)
@@ -521,7 +538,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       entry.workflowId,
       entry.transactionId,
       ledgerEffectiveTime,
-      offset,
+      offsetStep.offset,
       committedTransaction,
       divulged,
       blindingInfo,
@@ -534,17 +551,20 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         transaction = committedTransaction,
         recordTime = entry.recordedAt,
         ledgerEffectiveTime = ledgerEffectiveTime,
-        offset = offset,
+        offsetStep = offsetStep,
         divulged = divulged,
         blindingInfo = blindingInfo,
       )
-      .map(_ => offsetAndTx)
+      .map(_ => offsetStep.offset -> entry)
   }
 
   protected final def store(
       offsetAndTx: (Offset, LedgerEntry.Transaction),
   ): Future[(Offset, LedgerEntry.Transaction)] =
-    store(divulgedContracts = Map.empty, blindingInfo = None, offsetAndTx)
+    storeOffsetStepAndTx(
+      divulgedContracts = Map.empty,
+      blindingInfo = None,
+      offsetStepAndTx = nextOffsetStep(offsetAndTx._1) -> offsetAndTx._2)
 
   protected final def storeSync(
       commands: Vector[(Offset, LedgerEntry.Transaction)],
@@ -711,6 +731,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       .map(c => c.commandId -> c.status.get.code)
       .runWith(Sink.seq)
 
+  def nextOffsetStep(offset: Offset): OffsetStep =
+    OffsetStep(previousOffset.getAndSet(Some(offset)), offset)
 }
 
 object JdbcLedgerDaoSuite {
@@ -733,4 +755,5 @@ object JdbcLedgerDaoSuite {
         .traverse(a => Free suspend (Free liftF f(a)))
         .foldMap(NaturalTransformation.refl)
   }
+
 }

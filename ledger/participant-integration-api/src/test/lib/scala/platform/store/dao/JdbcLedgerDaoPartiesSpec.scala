@@ -7,7 +7,10 @@ import java.time.Instant
 import java.util.UUID
 
 import com.daml.ledger.api.domain.PartyDetails
+import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
+import com.daml.platform.indexer.{IncrementalOffsetStep, OffsetStep}
+import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 import com.daml.platform.store.entries.PartyLedgerEntry
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -28,26 +31,10 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       displayName = Some("Bob Bobertson"),
       isLocal = true,
     )
-    val offset1 = nextOffset()
     for {
-      response <- ledgerDao.storePartyEntry(
-        offset1,
-        PartyLedgerEntry.AllocationAccepted(
-          submissionIdOpt = Some(UUID.randomUUID().toString),
-          recordTime = Instant.now,
-          partyDetails = alice,
-        ),
-      )
+      response <- storePartyEntry(alice, nextOffset())
       _ = response should be(PersistenceResponse.Ok)
-      offset2 = nextOffset()
-      response <- ledgerDao.storePartyEntry(
-        offset2,
-        PartyLedgerEntry.AllocationAccepted(
-          submissionIdOpt = Some(UUID.randomUUID().toString),
-          recordTime = Instant.now,
-          partyDetails = bob,
-        ),
-      )
+      response <- storePartyEntry(bob, nextOffset())
       _ = response should be(PersistenceResponse.Ok)
       parties <- ledgerDao.listKnownParties()
     } yield {
@@ -71,16 +58,8 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       displayName = Some("Carol Carlisle"),
       isLocal = true,
     )
-    val offset = nextOffset()
     for {
-      response <- ledgerDao.storePartyEntry(
-        offset,
-        PartyLedgerEntry.AllocationAccepted(
-          submissionIdOpt = Some(UUID.randomUUID().toString),
-          recordTime = Instant.now,
-          partyDetails = carol,
-        ),
-      )
+      response <- storePartyEntry(carol, nextOffset())
       _ = response should be(PersistenceResponse.Ok)
       carolPartyDetails <- ledgerDao.getParties(Seq(party))
       noPartyDetails <- ledgerDao.getParties(Seq(nonExistentParty))
@@ -104,26 +83,10 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       displayName = Some("Dangerous Dan"),
       isLocal = true,
     )
-    val offset1 = nextOffset()
     for {
-      response <- ledgerDao.storePartyEntry(
-        offset1,
-        PartyLedgerEntry.AllocationAccepted(
-          submissionIdOpt = Some(UUID.randomUUID().toString),
-          recordTime = Instant.now,
-          partyDetails = dan,
-        ),
-      )
+      response <- storePartyEntry(dan, nextOffset())
       _ = response should be(PersistenceResponse.Ok)
-      offset2 = nextOffset()
-      response <- ledgerDao.storePartyEntry(
-        offset2,
-        PartyLedgerEntry.AllocationAccepted(
-          submissionIdOpt = Some(UUID.randomUUID().toString),
-          recordTime = Instant.now,
-          partyDetails = eve,
-        ),
-      )
+      response <- storePartyEntry(eve, nextOffset())
       _ = response should be(PersistenceResponse.Ok)
       parties <- ledgerDao.getParties(Seq(danParty, eveParty, nonExistentParty))
     } yield {
@@ -137,29 +100,46 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       displayName = Some("Fred Flintstone"),
       isLocal = true,
     )
-    val offset1 = nextOffset()
     for {
-      response <- ledgerDao.storePartyEntry(
-        offset1,
-        PartyLedgerEntry.AllocationAccepted(
-          submissionIdOpt = Some(UUID.randomUUID().toString),
-          recordTime = Instant.now,
-          partyDetails = fred,
-        ),
-      )
+      response <- storePartyEntry(fred, nextOffset())
       _ = response should be(PersistenceResponse.Ok)
-      offset2 = nextOffset()
-      response <- ledgerDao.storePartyEntry(
-        offset2,
-        PartyLedgerEntry.AllocationAccepted(
-          submissionIdOpt = Some(UUID.randomUUID().toString),
-          recordTime = Instant.now,
-          partyDetails = fred,
-        ),
-      )
+      response <- storePartyEntry(fred, nextOffset(), shouldUpdateLegerEnd = false)
     } yield {
       response should be(PersistenceResponse.Duplicate)
     }
   }
 
+  it should "fail on storing a party entry with non-incremental offsets" in {
+    val fred = PartyDetails(
+      party = Ref.Party.assertFromString(s"Fred-${UUID.randomUUID()}"),
+      displayName = Some("Fred Flintstone"),
+      isLocal = true,
+    )
+    recoverToSucceededIf[LedgerEndUpdateError](
+      ledgerDao.storePartyEntry(
+        IncrementalOffsetStep(nextOffset(), nextOffset()),
+        allocationAccepted(fred)
+      ))
+  }
+
+  private def storePartyEntry(
+      partyDetails: PartyDetails,
+      offset: Offset,
+      shouldUpdateLegerEnd: Boolean = true) =
+    ledgerDao
+      .storePartyEntry(
+        OffsetStep(previousOffset.get(), offset),
+        allocationAccepted(partyDetails)
+      )
+      .map { response =>
+        if (shouldUpdateLegerEnd) previousOffset.set(Some(offset))
+        response
+      }
+
+  private def allocationAccepted(partyDetails: PartyDetails): PartyLedgerEntry.AllocationAccepted =
+    PartyLedgerEntry.AllocationAccepted(
+      submissionIdOpt = Some(UUID.randomUUID().toString),
+      recordTime = Instant.now,
+      partyDetails = partyDetails,
+    )
 }

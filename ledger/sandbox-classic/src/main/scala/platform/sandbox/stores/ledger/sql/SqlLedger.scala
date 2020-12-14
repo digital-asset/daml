@@ -40,6 +40,7 @@ import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLe
 import com.daml.platform.store.{BaseLedger, FlywayMigrations}
 import com.daml.resources.ProgramResource.StartupException
 import scalaz.Tag
+import com.daml.platform.indexer.CurrentOffset
 
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
@@ -211,7 +212,7 @@ private[sandbox] object SqlLedger {
         })
 
         ledgerDao
-          .storePackageEntry(newLedgerEnd, packages, None)
+          .storePackageEntry(CurrentOffset(newLedgerEnd), packages, None)
           .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(
             DEC)
       } else {
@@ -363,7 +364,7 @@ private final class SqlLedger(
             ledgerDao.storeRejection(
               Some(submitterInfo),
               recordTime,
-              offset,
+              CurrentOffset(offset),
               reason,
           ),
           _ => {
@@ -388,7 +389,7 @@ private final class SqlLedger(
               transactionId,
               recordTime,
               transactionMeta.ledgerEffectiveTime.toInstant,
-              offset,
+              CurrentOffset(offset),
               transactionCommitter.commitTransaction(transactionId, transaction),
               divulgedContracts,
               blindingInfo,
@@ -426,7 +427,7 @@ private final class SqlLedger(
     enqueue { offset =>
       ledgerDao
         .storePartyEntry(
-          offset,
+          CurrentOffset(offset),
           PartyLedgerEntry.AllocationAccepted(
             Some(submissionId),
             timeProvider.getCurrentTime,
@@ -454,7 +455,7 @@ private final class SqlLedger(
     enqueue { offset =>
       ledgerDao
         .storePackageEntry(
-          offset,
+          CurrentOffset(offset),
           packages,
           Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)),
         )
@@ -481,7 +482,7 @@ private final class SqlLedger(
         if (recordTime.isAfter(mrt)) {
           ledgerDao
             .storeConfigurationEntry(
-              offset,
+              CurrentOffset(offset),
               recordTime,
               submissionId,
               config,
@@ -497,7 +498,7 @@ private final class SqlLedger(
           implicit val ec: ExecutionContext = DEC
           for {
             response <- ledgerDao.storeConfigurationEntry(
-              offset,
+              CurrentOffset(offset),
               recordTime,
               submissionId,
               config,

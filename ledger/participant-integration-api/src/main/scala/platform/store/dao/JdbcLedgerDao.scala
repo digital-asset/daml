@@ -34,6 +34,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer.{CurrentOffset, OffsetStep}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
@@ -210,7 +211,7 @@ private class JdbcLedgerDao(
         |""".stripMargin)
 
   override def storeConfigurationEntry(
-      offset: Offset,
+      offsetStep: OffsetStep,
       recordedAt: Instant,
       submissionId: String,
       configuration: Configuration,
@@ -241,7 +242,7 @@ private class JdbcLedgerDao(
             rejectionReason
         }
 
-      ParametersTable.updateLedgerEnd(offset)
+      ParametersTable.updateLedgerEnd(offsetStep)
       val configurationBytes = Configuration.encode(configuration).toByteArray
       val typ = if (finalRejectionReason.isEmpty) {
         acceptType
@@ -252,7 +253,7 @@ private class JdbcLedgerDao(
       Try({
         SQL_INSERT_CONFIGURATION_ENTRY
           .on(
-            "ledger_offset" -> offset,
+            "ledger_offset" -> offsetStep.offset,
             "recorded_at" -> recordedAt,
             "submission_id" -> submissionId,
             "typ" -> typ,
@@ -288,21 +289,21 @@ private class JdbcLedgerDao(
         |""".stripMargin)
 
   override def storePartyEntry(
-      offset: Offset,
+      offsetStep: OffsetStep,
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
       if (enableAsyncCommits) {
         queries.enableAsyncCommit
       }
-      ParametersTable.updateLedgerEnd(offset)
+      ParametersTable.updateLedgerEnd(offsetStep)
 
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
           Try({
             SQL_INSERT_PARTY_ENTRY_ACCEPT
               .on(
-                "ledger_offset" -> offset,
+                "ledger_offset" -> offsetStep.offset,
                 "recorded_at" -> recordTime,
                 "submission_id" -> submissionIdOpt,
                 "party" -> partyDetails.party,
@@ -314,7 +315,7 @@ private class JdbcLedgerDao(
               .on(
                 "party" -> partyDetails.party,
                 "display_name" -> partyDetails.displayName,
-                "ledger_offset" -> offset,
+                "ledger_offset" -> offsetStep.offset,
                 "is_local" -> partyDetails.isLocal
               )
               .execute()
@@ -329,7 +330,7 @@ private class JdbcLedgerDao(
         case PartyLedgerEntry.AllocationRejected(submissionId, recordTime, reason) =>
           SQL_INSERT_PARTY_ENTRY_REJECT
             .on(
-              "ledger_offset" -> offset,
+              "ledger_offset" -> offsetStep.offset,
               "recorded_at" -> recordTime,
               "submission_id" -> submissionId,
               "rejection_reason" -> reason
@@ -450,7 +451,7 @@ private class JdbcLedgerDao(
       transactionId: TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
-      offset: Offset,
+      offsetStep: OffsetStep,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
@@ -474,15 +475,15 @@ private class JdbcLedgerDao(
           Timed.value(
             metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
             submitterInfo
-              .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
+              .map(prepareCompletionInsert(_, offsetStep.offset, transactionId, recordTime))
               .foreach(_.execute())
           )
         } else {
-          submitterInfo.foreach(handleError(offset, _, recordTime, error.get))
+          submitterInfo.foreach(handleError(offsetStep.offset, _, recordTime, error.get))
         }
         Timed.value(
           metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
-          ParametersTable.updateLedgerEnd(offset)
+          ParametersTable.updateLedgerEnd(offsetStep)
         )
         Ok
       }
@@ -490,7 +491,7 @@ private class JdbcLedgerDao(
   override def storeRejection(
       submitterInfo: Option[SubmitterInfo],
       recordTime: Instant,
-      offset: Offset,
+      offsetStep: OffsetStep,
       reason: RejectionReason,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher.executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
@@ -498,9 +499,9 @@ private class JdbcLedgerDao(
         queries.enableAsyncCommit
       }
       for (info <- submitterInfo) {
-        handleError(offset, info, recordTime, reason)
+        handleError(offsetStep.offset, info, recordTime, reason)
       }
-      ParametersTable.updateLedgerEnd(offset)
+      ParametersTable.updateLedgerEnd(offsetStep)
       Ok
     }
 
@@ -540,7 +541,7 @@ private class JdbcLedgerDao(
                 ).execute()
             }
         }
-        ParametersTable.updateLedgerEnd(newLedgerEnd)
+        ParametersTable.updateLedgerEnd(CurrentOffset(newLedgerEnd))
     }
 
   private def toParticipantRejection(reason: domain.RejectionReason): RejectionReason =
@@ -662,16 +663,16 @@ private class JdbcLedgerDao(
         |""".stripMargin)
 
   override def storePackageEntry(
-      offset: Offset,
+      offsetStep: OffsetStep,
       packages: List[(Archive, PackageDetails)],
-      optEntry: Option[PackageLedgerEntry]
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
+      optEntry: Option[PackageLedgerEntry])(
+      implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
       implicit connection =>
         if (enableAsyncCommits) {
           queries.enableAsyncCommit
         }
-        ParametersTable.updateLedgerEnd(offset)
+        ParametersTable.updateLedgerEnd(offsetStep)
 
         if (packages.nonEmpty) {
           val uploadId = optEntry.map(_.submissionId).getOrElse(UUID.randomUUID().toString)
@@ -682,7 +683,7 @@ private class JdbcLedgerDao(
           case PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime) =>
             SQL_INSERT_PACKAGE_ENTRY_ACCEPT
               .on(
-                "ledger_offset" -> offset,
+                "ledger_offset" -> offsetStep.offset,
                 "recorded_at" -> recordTime,
                 "submission_id" -> submissionId,
               )
@@ -690,7 +691,7 @@ private class JdbcLedgerDao(
           case PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason) =>
             SQL_INSERT_PACKAGE_ENTRY_REJECT
               .on(
-                "ledger_offset" -> offset,
+                "ledger_offset" -> offsetStep.offset,
                 "recorded_at" -> recordTime,
                 "submission_id" -> submissionId,
                 "rejection_reason" -> reason
