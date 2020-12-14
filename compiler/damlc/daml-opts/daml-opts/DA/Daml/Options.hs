@@ -432,13 +432,18 @@ setImports paths dflags = dflags { importPaths = paths }
 
 locateGhcVersionHeader :: IO GhcVersionHeader
 locateGhcVersionHeader = GhcVersionHeader <$> do
-    resourcesDir <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc")
-    pure (resourcesDir </> "ghcversion.h")
+    resourcesDir <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
+    isDirectory <- doesDirectoryExist resourcesDir
+    let path | isDirectory = resourcesDir </> "ghcversion.h"
+             | otherwise = resourcesDir
+    pure path
 
 locateCppPath :: IO (Maybe FilePath)
 locateCppPath = do
-    resourcesDir <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc")
-    let path = resourcesDir </> "hpp"
+    resourcesDir <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "hpp")
+    isDirectory <- doesDirectoryExist resourcesDir
+    let path | isDirectory = resourcesDir </> "hpp"
+             | otherwise = resourcesDir
     exists <- doesFileExist path
     pure (guard exists >> Just path)
 
