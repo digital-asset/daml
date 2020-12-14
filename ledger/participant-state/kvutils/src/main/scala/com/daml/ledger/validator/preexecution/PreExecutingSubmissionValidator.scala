@@ -13,10 +13,9 @@ import com.daml.ledger.participant.state.kvutils.{
   KeyValueCommitting
 }
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.validator.ValidationFailed
 import com.daml.ledger.validator.batch.BatchedSubmissionValidator
-import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidator._
 import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
-import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidationFailed}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 
@@ -29,8 +28,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class PreExecutingSubmissionValidator[WriteSet](
     committer: KeyValueCommitting,
     metrics: Metrics,
-    keySerializationStrategy: StateKeySerializationStrategy,
-    commitStrategy: PreExecutingCommitStrategy[WriteSet]) {
+    commitStrategy: PreExecutingCommitStrategy[ReadSet, WriteSet],
+) {
   private val logger = ContextualizedLogger.get(getClass)
 
   def validate(
@@ -64,7 +63,7 @@ class PreExecutingSubmissionValidator[WriteSet](
           maxRecordTime = preExecutionResult.maximumRecordTime.map(_.toInstant),
           successWriteSet = generatedWriteSets.successWriteSet,
           outOfTimeBoundsWriteSet = generatedWriteSets.outOfTimeBoundsWriteSet,
-          readSet = generateReadSet(fetchedInputs, preExecutionResult.readSet),
+          readSet = commitStrategy.generateReadSet(fetchedInputs, preExecutionResult.readSet),
           involvedParticipants = generatedWriteSets.involvedParticipants
         )
       }
@@ -137,23 +136,6 @@ class PreExecutingSubmissionValidator[WriteSet](
       submittingParticipantId,
       inputState.mapValues { case (value, _) => value })
   }
-
-  private[preexecution] def generateReadSet(
-      fetchedInputs: DamlStateMapWithFingerprints,
-      accessedKeys: Set[DamlStateKey],
-  ): ReadSet =
-    accessedKeys
-      .map { key =>
-        val (_, fingerprint) =
-          fetchedInputs.getOrElse(key, throw new KeyNotPresentInInputException(key))
-        key -> fingerprint
-      }
-      .map {
-        case (damlKey, fingerprint) =>
-          keySerializationStrategy.serializeStateKey(damlKey) -> fingerprint
-      }
-      .toVector
-      .sortBy(_._1.asReadOnlyByteBuffer)
 }
 
 object PreExecutingSubmissionValidator {
