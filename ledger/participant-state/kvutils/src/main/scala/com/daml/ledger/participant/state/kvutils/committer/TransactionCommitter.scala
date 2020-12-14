@@ -125,7 +125,7 @@ private[kvutils] class TransactionCommitter(
   /** Authorize the submission by looking up the party allocation and verifying
     * that all of the submitting parties are indeed hosted by the submitting participant.
     */
-  private def authorizeSubmitters: Step = (commitContext, transactionEntry) => {
+  private[committer] def authorizeSubmitters: Step = (commitContext, transactionEntry) => {
     def rejection(reason: RejectionReason) =
       reject[DamlTransactionEntrySummary](
         commitContext.recordTime,
