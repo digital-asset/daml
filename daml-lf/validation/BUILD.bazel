@@ -20,7 +20,6 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/language",
-        "//daml-lf/transaction",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

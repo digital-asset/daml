@@ -6,8 +6,9 @@ package value
 
 import com.daml.lf.value.Value._
 import com.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
-import com.daml.lf.transaction.VersionTimeline
+import scalaz.NonEmptyList
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 
 final case class ValueVersion(protoValue: String)
@@ -15,33 +16,29 @@ final case class ValueVersion(protoValue: String)
 /**
   * Currently supported versions of the DAML-LF value specification.
   */
-private[lf] object ValueVersions
-    extends LfVersions(versionsAscending = VersionTimeline.ascendingVersions[ValueVersion])(
+object ValueVersion
+    extends LfVersions(
+      versionsAscending = NonEmptyList(new ValueVersion("6"), new ValueVersion("dev")))(
       _.protoValue,
     ) {
+
+  private[lf] implicit val Ordering: Ordering[ValueVersion] = mkOrdering
 
   private[value] val minVersion = ValueVersion("6")
   private[value] val minGenMap = ValueVersion("dev")
   private[value] val minContractIdV1 = ValueVersion("dev")
 
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
-  val StableOutputVersions: VersionRange[ValueVersion] =
+  private[lf] val StableOutputVersions: VersionRange[ValueVersion] =
     VersionRange(ValueVersion("6"), ValueVersion("6"))
 
-  val DevOutputVersions: VersionRange[ValueVersion] =
+  private[lf] val DevOutputVersions: VersionRange[ValueVersion] =
     StableOutputVersions.copy(max = acceptedVersions.last)
 
-  // Empty range
-  val Empty: VersionRange[ValueVersion] =
-    VersionRange(acceptedVersions.last, acceptedVersions.head)
-
-  def assignVersion[Cid](
+  private[lf] def assignVersion[Cid](
       v0: Value[Cid],
       supportedVersions: VersionRange[ValueVersion] = StableOutputVersions,
   ): Either[String, ValueVersion] = {
-    import VersionTimeline.{maxVersion => maxVV}
-    import VersionTimeline.Implicits._
-
     @tailrec
     def go(
         currentVersion: ValueVersion,
@@ -72,7 +69,7 @@ private[lf] object ValueVersions
                 val newValues = entries.iterator.foldLeft(values) {
                   case (acc, (key, value)) => key +: value +: acc
                 }
-                go(maxVV(currentVersion, minGenMap), newValues)
+                go(currentVersion max minGenMap, newValues)
               case ValueEnum(_, _) =>
                 go(currentVersion, values)
             }
@@ -81,7 +78,7 @@ private[lf] object ValueVersions
     }
 
     go(supportedVersions.min, FrontStack(v0)) match {
-      case Right(inferredVersion) if supportedVersions.max precedes inferredVersion =>
+      case Right(inferredVersion) if supportedVersions.max < inferredVersion =>
         Left(s"inferred version $inferredVersion is not supported")
       case res =>
         res
@@ -90,20 +87,20 @@ private[lf] object ValueVersions
   }
 
   @throws[IllegalArgumentException]
-  def assertAssignVersion[Cid](
+  private[lf] def assertAssignVersion[Cid](
       v0: Value[Cid],
       supportedVersions: VersionRange[ValueVersion] = DevOutputVersions,
   ): ValueVersion =
     data.assertRight(assignVersion(v0, supportedVersions))
 
-  def asVersionedValue[Cid](
+  private[lf] def asVersionedValue[Cid](
       value: Value[Cid],
       supportedVersions: VersionRange[ValueVersion] = DevOutputVersions,
   ): Either[String, VersionedValue[Cid]] =
     assignVersion(value, supportedVersions).map(VersionedValue(_, value))
 
   @throws[IllegalArgumentException]
-  def assertAsVersionedValue[Cid](
+  private[lf] def assertAsVersionedValue[Cid](
       value: Value[Cid],
       supportedVersions: VersionRange[ValueVersion] = DevOutputVersions,
   ): VersionedValue[Cid] =

@@ -10,6 +10,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.language.implicitConversions
@@ -726,7 +727,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
   }
 
   private def versionIsOlderThan(minVersion: LV): Boolean =
-    LV.ordering.lt(languageVersion, minVersion)
+    languageVersion < minVersion
 
   private def assertSince(minVersion: LV, description: String): Unit =
     if (versionIsOlderThan(minVersion))

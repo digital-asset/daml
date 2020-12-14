@@ -13,7 +13,6 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
-import com.daml.lf.transaction.VersionTimeline
 import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
 import org.slf4j.LoggerFactory
 
@@ -62,13 +61,13 @@ private[lf] object Compiler {
 
   object Config {
     val Default = Config(
-      allowedLanguageVersions = VersionTimeline.stableLanguageVersions,
+      allowedLanguageVersions = LanguageVersion.StableVersions,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
     )
     val Dev = Config(
-      allowedLanguageVersions = VersionTimeline.devLanguageVersions,
+      allowedLanguageVersions = LanguageVersion.DevVersions,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
