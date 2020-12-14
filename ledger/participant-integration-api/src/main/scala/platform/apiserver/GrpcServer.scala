@@ -64,7 +64,12 @@ private[apiserver] object GrpcServer {
             throw new UnableToBind(desiredPort, e.getCause)
         }
         server
-      })(server => Future(server.shutdown().awaitTermination()))
+      })(server =>
+        Future {
+          // Do not wait until clients have disconnected.
+          server.shutdownNow()
+          server.awaitTermination()
+      })
     }
   }
 
