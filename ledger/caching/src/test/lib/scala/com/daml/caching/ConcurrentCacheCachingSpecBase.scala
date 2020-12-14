@@ -8,7 +8,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
-trait CacheCachingSpecBase extends CacheSpecBase with AnyWordSpecLike with Matchers {
+trait ConcurrentCacheCachingSpecBase
+    extends ConcurrentCacheSpecBase
+    with AnyWordSpecLike
+    with Matchers {
   name should {
     "compute once, and cache" in {
       val cache = newCache()
@@ -19,10 +22,10 @@ trait CacheCachingSpecBase extends CacheSpecBase with AnyWordSpecLike with Match
         value.toString
       }
 
-      cache.get(1, compute)
-      cache.get(1, compute)
-      cache.get(1, compute)
-      cache.get(2, compute)
+      cache.getOrAcquire(1, compute)
+      cache.getOrAcquire(1, compute)
+      cache.getOrAcquire(1, compute)
+      cache.getOrAcquire(2, compute)
 
       counter.get() should be(2)
     }
@@ -36,7 +39,7 @@ trait CacheCachingSpecBase extends CacheSpecBase with AnyWordSpecLike with Match
     "return the value on `getIfPresent` if the value is present" in {
       val cache = newCache()
 
-      cache.get(7, _.toString) should be("7")
+      cache.getOrAcquire(7, _.toString) should be("7")
       cache.getIfPresent(7) should be(Some("7"))
     }
 
@@ -53,7 +56,7 @@ trait CacheCachingSpecBase extends CacheSpecBase with AnyWordSpecLike with Match
         value.toString
       }
 
-      cache.get(7, compute) should be("7")
+      cache.getOrAcquire(7, compute) should be("7")
       counter.get() should be(0)
     }
   }

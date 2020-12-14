@@ -6,15 +6,18 @@ package com.daml.caching
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
-trait CacheBehaviorSpecBase extends CacheSpecBase with AnyWordSpecLike with Matchers {
+trait ConcurrentCacheBehaviorSpecBase
+    extends ConcurrentCacheSpecBase
+    with AnyWordSpecLike
+    with Matchers {
   name should {
     "compute the correct results" in {
       val cache = newCache()
 
-      cache.get(1, _.toString) should be("1")
-      cache.get(2, _.toString) should be("2")
-      cache.get(3, _.toString) should be("3")
-      cache.get(2, _.toString) should be("2")
+      cache.getOrAcquire(1, _.toString) should be("1")
+      cache.getOrAcquire(2, _.toString) should be("2")
+      cache.getOrAcquire(3, _.toString) should be("3")
+      cache.getOrAcquire(2, _.toString) should be("2")
     }
   }
 }

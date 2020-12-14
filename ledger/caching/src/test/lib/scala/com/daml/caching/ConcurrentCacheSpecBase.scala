@@ -3,8 +3,8 @@
 
 package com.daml.caching
 
-trait CacheSpecBase {
+trait ConcurrentCacheSpecBase {
   protected def name: String
 
-  protected def newCache(): Cache[Integer, String]
+  protected def newCache(): ConcurrentCache[Integer, String]
 }

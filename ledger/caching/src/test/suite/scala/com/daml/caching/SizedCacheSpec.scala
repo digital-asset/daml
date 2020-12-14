@@ -7,14 +7,14 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class SizedCacheSpec
     extends AnyWordSpec
-    with CacheBehaviorSpecBase
-    with CacheCachingSpecBase
-    with CacheEvictionSpecBase {
+    with ConcurrentCacheBehaviorSpecBase
+    with ConcurrentCacheCachingSpecBase
+    with ConcurrentCacheEvictionSpecBase {
   override protected lazy val name: String = "a sized cache"
 
-  override protected def newCache(): Cache[Integer, String] =
+  override protected def newCache(): ConcurrentCache[Integer, String] =
     SizedCache.from[Integer, String](SizedCache.Configuration(maximumSize = 16))
 
-  override protected def newLargeCache(): Cache[Integer, String] =
+  override protected def newLargeCache(): ConcurrentCache[Integer, String] =
     SizedCache.from[Integer, String](SizedCache.Configuration(maximumSize = 128))
 }

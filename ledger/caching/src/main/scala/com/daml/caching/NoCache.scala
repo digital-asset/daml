@@ -3,10 +3,10 @@
 
 package com.daml.caching
 
-final class NoCache[Key, Value] private[caching] extends Cache[Key, Value] {
+final class NoCache[Key, Value] private[caching] extends ConcurrentCache[Key, Value] {
   override def put(key: Key, value: Value): Unit = ()
 
-  override def get(key: Key, acquire: Key => Value): Value = acquire(key)
-
   override def getIfPresent(key: Key): Option[Value] = None
+
+  override def getOrAcquire(key: Key, acquire: Key => Value): Value = acquire(key)
 }

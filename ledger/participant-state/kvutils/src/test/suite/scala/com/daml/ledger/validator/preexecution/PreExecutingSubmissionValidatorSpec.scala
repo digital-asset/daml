@@ -272,7 +272,11 @@ object PreExecutingSubmissionValidatorSpec {
   private def createLedgerStateReader(
       inputState: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)]
   ): DamlLedgerStateReaderWithFingerprints =
-    (keys: Seq[DamlStateKey]) => Future.successful(keys.map(inputState))
+    new DamlLedgerStateReaderWithFingerprints {
+      override def read(keys: Seq[DamlStateKey])(implicit executionContext: ExecutionContext)
+        : Future[Seq[(Option[DamlStateValue], Fingerprint)]] =
+        Future.successful(keys.map(inputState))
+    }
 
   private def verifyReadSet(
       output: PreExecutionOutput[Bytes],
