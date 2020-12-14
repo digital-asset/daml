@@ -70,22 +70,25 @@ parseProjectConfig project = do
 
 checkPkgConfig :: PackageConfigFields -> [String]
 checkPkgConfig PackageConfigFields {pName, pVersion} =
-  [ "WARNING: Package names should have the format ^[A-Za-z][A-Za-z0-9]*(\\-[A-Za-z][A-Za-z0-9]*)*$. \
-  \ You may be able to compile packages with different formats, but you will not be able to use \
-  \ them as dependencies in other projects. Unsupported package names may start causing \
-  \ compilation errors without warning."
-  | not $ LF.unPackageName pName =~ ("^[A-Za-z][A-Za-z0-9]*(\\-[A-Za-z][A-Za-z0-9]*)*$" :: T.Text)
+  [ unlines $
+  ["WARNING: Package names should have the format " <> T.unpack packageNameRegex <> "."]
+  ++ errDescription
+  | not $ LF.unPackageName pName =~ packageNameRegex
   ] ++
-  [ "WARNING: Package versions should have the format \
-  \ ^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?)?. You may be able to \
-  \ compile packages with different formats, but you will not be able to use them as dependencies \
-  \ in other projects. Unsupported package versions may start causing compilation errors without \
-  \ warning."
+  [ unlines $
+  ["WARNING: Package versions should have the format " <> T.unpack versionRegex <> "."]
+  ++ errDescription
   | Just version <- [pVersion]
-  , not $
-      LF.unPackageVersion version =~
-      ("^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?)?$" :: T.Text)
+  , not $ LF.unPackageVersion version =~ versionRegex
   ]
+  where
+    errDescription =
+      [ "You may be able to compile packages with different formats, but you will not be able to"
+      , "use them as dependencies in other projects. Unsupported package names or versions may"
+      , "start causing compilation errors without warning."
+      ]
+    versionRegex = "^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?)?$" :: T.Text
+    packageNameRegex = "^[A-Za-z][A-Za-z0-9]*(\\-[A-Za-z][A-Za-z0-9]*)*$" :: T.Text
 
 overrideSdkVersion :: PackageConfigFields -> IO PackageConfigFields
 overrideSdkVersion pkgConfig = do
