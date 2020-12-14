@@ -334,7 +334,7 @@ object Node {
 
 }
 
-final case class NodeId(index: Int)
+final case class NodeId(index: Int) extends AnyVal
 
 object NodeId {
   implicit def cidMapperInstance[In, Out]: CidMapper[NodeId, NodeId, In, Out] =
