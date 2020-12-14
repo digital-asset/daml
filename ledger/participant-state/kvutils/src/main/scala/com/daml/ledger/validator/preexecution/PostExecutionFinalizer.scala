@@ -9,6 +9,7 @@ import com.daml.ledger.participant.state.kvutils.{Bytes, Fingerprint}
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.validator.LedgerStateOperations
 import com.daml.ledger.validator.LedgerStateOperations.Value
+import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -36,7 +37,7 @@ class PostExecutionFinalizer[LogResult](valueToFingerprint: Option[Value] => Fin
     */
   def conflictDetectAndFinalize(
       now: () => Instant,
-      preExecutionOutput: PreExecutionOutput[RawKeyValuePairsWithLogEntry],
+      preExecutionOutput: PreExecutionOutput[ReadSet, RawKeyValuePairsWithLogEntry],
       ledgerStateOperations: LedgerStateOperations[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {
     val keys = preExecutionOutput.readSet.map(_._1)
@@ -58,15 +59,9 @@ object PostExecutionFinalizer {
   val ConflictDetectedException = new RuntimeException(
     "A conflict has been detected with other submissions during post-execution")
 
-  private def respectsTimeBounds(
-      preExecutionOutput: PreExecutionOutput[RawKeyValuePairsWithLogEntry],
-      recordTime: Instant): Boolean =
-    !recordTime.isBefore(preExecutionOutput.minRecordTime.getOrElse(Instant.MIN)) &&
-      !recordTime.isAfter(preExecutionOutput.maxRecordTime.getOrElse(Instant.MAX))
-
   private def finalizeSubmission[LogResult](
       now: () => Instant,
-      preExecutionOutput: PreExecutionOutput[RawKeyValuePairsWithLogEntry],
+      preExecutionOutput: PreExecutionOutput[ReadSet, RawKeyValuePairsWithLogEntry],
       ledgerStateOperations: LedgerStateOperations[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {
     val recordTime = now()
@@ -79,8 +74,15 @@ object PostExecutionFinalizer {
     } yield SubmissionResult.Acknowledged
   }
 
+  private def respectsTimeBounds(
+      preExecutionOutput: PreExecutionOutput[ReadSet, RawKeyValuePairsWithLogEntry],
+      recordTime: Instant,
+  ): Boolean =
+    !recordTime.isBefore(preExecutionOutput.minRecordTime.getOrElse(Instant.MIN)) &&
+      !recordTime.isAfter(preExecutionOutput.maxRecordTime.getOrElse(Instant.MAX))
+
   private def createLogEntry(
-      preExecutionOutput: PreExecutionOutput[RawKeyValuePairsWithLogEntry],
+      preExecutionOutput: PreExecutionOutput[ReadSet, RawKeyValuePairsWithLogEntry],
       withinTimeBounds: Boolean): (Bytes, Bytes) = {
     val writeSet = if (withinTimeBounds) {
       preExecutionOutput.successWriteSet
@@ -91,7 +93,7 @@ object PostExecutionFinalizer {
   }
 
   private def createWriteSet(
-      preExecutionOutput: PreExecutionOutput[RawKeyValuePairsWithLogEntry],
+      preExecutionOutput: PreExecutionOutput[ReadSet, RawKeyValuePairsWithLogEntry],
       withinTimeBounds: Boolean,
   ): Iterable[(Bytes, Bytes)] =
     if (withinTimeBounds) {

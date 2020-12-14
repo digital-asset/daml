@@ -14,6 +14,7 @@ import com.daml.ledger.validator.caching.{
   CacheUpdatePolicy,
   CachingDamlLedgerStateReaderWithFingerprints
 }
+import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 import com.daml.ledger.validator.{
   LedgerStateAccess,
   LedgerStateOperationsReaderAdapter,
@@ -43,7 +44,7 @@ import scala.util.{Failure, Success}
 class PreExecutingValidatingCommitter[LogResult](
     now: () => Instant,
     keySerializationStrategy: StateKeySerializationStrategy,
-    validator: PreExecutingSubmissionValidator[RawKeyValuePairsWithLogEntry],
+    validator: PreExecutingSubmissionValidator[ReadSet, RawKeyValuePairsWithLogEntry],
     valueToFingerprint: Option[Value] => Fingerprint,
     postExecutionFinalizer: PostExecutionFinalizer[LogResult],
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
@@ -65,18 +66,17 @@ class PreExecutingValidatingCommitter[LogResult](
       // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
       ledgerStateAccess.inTransaction { ledgerStateOperations =>
         for {
-          preExecutionOutput <- validator
-            .validate(
-              submissionEnvelope,
-              submittingParticipantId,
-              CachingDamlLedgerStateReaderWithFingerprints(
-                stateValueCache,
-                cacheUpdatePolicy,
-                new LedgerStateOperationsReaderAdapter(ledgerStateOperations)
-                  .mapValues(value => value -> valueToFingerprint(value)),
-                keySerializationStrategy,
-              )
+          preExecutionOutput <- validator.validate(
+            submissionEnvelope,
+            submittingParticipantId,
+            CachingDamlLedgerStateReaderWithFingerprints(
+              stateValueCache,
+              cacheUpdatePolicy,
+              new LedgerStateOperationsReaderAdapter(ledgerStateOperations)
+                .mapValues(value => value -> valueToFingerprint(value)),
+              keySerializationStrategy,
             )
+          )
           submissionResult <- retry {
             case PostExecutionFinalizer.ConflictDetectedException =>
               logger.error("Conflict detected during post-execution. Retrying...")

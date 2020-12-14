@@ -200,7 +200,7 @@ object PreExecutingSubmissionValidatorSpec {
       expectedSuccessWriteSet: Bytes = ByteString.EMPTY,
       expectedOutOfTimeBoundsWriteSet: Bytes = ByteString.EMPTY,
       expectedInvolvedParticipants: Set[ParticipantId] = Set.empty,
-  ): PreExecutingSubmissionValidator[Bytes] = {
+  ): PreExecutingSubmissionValidator[ReadSet, Bytes] = {
     val mockCommitter = mock[KeyValueCommitting]
     val result = PreExecutionResult(
       expectedReadSet.keySet,
@@ -243,7 +243,7 @@ object PreExecutingSubmissionValidatorSpec {
             expectedOutOfTimeBoundsWriteSet,
             expectedInvolvedParticipants)))
 
-    new PreExecutingSubmissionValidator[Bytes](mockCommitter, metrics, mockCommitStrategy)
+    new PreExecutingSubmissionValidator[ReadSet, Bytes](mockCommitter, metrics, mockCommitStrategy)
   }
 
   private def createLedgerStateReader(
@@ -256,7 +256,7 @@ object PreExecutingSubmissionValidatorSpec {
     }
 
   private def verifyReadSet(
-      output: PreExecutionOutput[Bytes],
+      output: PreExecutionOutput[ReadSet, Bytes],
       expectedReadSet: Map[DamlStateKey, Fingerprint],
   ): Assertion = {
     import org.scalatest.matchers.should.Matchers._

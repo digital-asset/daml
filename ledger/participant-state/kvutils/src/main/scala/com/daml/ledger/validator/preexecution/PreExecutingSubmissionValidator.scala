@@ -15,7 +15,6 @@ import com.daml.ledger.participant.state.kvutils.{
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.ValidationFailed
 import com.daml.ledger.validator.batch.BatchedSubmissionValidator
-import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 
@@ -23,9 +22,9 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
-  * Validator pre-executing submissions.
+  * Validator for pre-executing submissions.
   */
-class PreExecutingSubmissionValidator[WriteSet](
+class PreExecutingSubmissionValidator[ReadSet, WriteSet](
     committer: KeyValueCommitting,
     metrics: Metrics,
     commitStrategy: PreExecutingCommitStrategy[ReadSet, WriteSet],
@@ -39,7 +38,7 @@ class PreExecutingSubmissionValidator[WriteSet](
   )(
       implicit executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): Future[PreExecutionOutput[WriteSet]] =
+  ): Future[PreExecutionOutput[ReadSet, WriteSet]] =
     Timed.timedAndTrackedFuture(
       metrics.daml.kvutils.submission.validator.validatePreExecute,
       metrics.daml.kvutils.submission.validator.validatePreExecuteRunning,
@@ -100,8 +99,8 @@ class PreExecutingSubmissionValidator[WriteSet](
 
   private def fetchSubmissionInputs(
       submission: DamlSubmission,
-      ledgerStateReader: DamlLedgerStateReaderWithFingerprints)(
-      implicit executionContext: ExecutionContext): Future[DamlStateMapWithFingerprints] = {
+      ledgerStateReader: DamlLedgerStateReaderWithFingerprints,
+  )(implicit executionContext: ExecutionContext): Future[DamlStateMapWithFingerprints] = {
     val inputKeys = submission.getInputDamlStateList.asScala
     Timed.timedAndTrackedFuture(
       metrics.daml.kvutils.submission.validator.fetchInputs,
