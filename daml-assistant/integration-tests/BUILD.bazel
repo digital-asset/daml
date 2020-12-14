@@ -198,25 +198,6 @@ da_haskell_library(
 )
 
 da_haskell_test(
-    name = "create-daml-app-tests",
-    timeout = "long",
-    srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
-    args = [
-        "$(location @nodejs//:npm_bin)",
-        "$(location @nodejs//:node_bin)",
-    ],
-    data = [
-        "@nodejs//:node_bin",
-        "@nodejs//:npm_bin",
-    ],
-    hackage_deps = ["base"],
-    main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
-    # Exclusive until we stop hardcoding port numbers in index.test.ts
-    tags = ["exclusive"],
-    deps = [":create-daml-app-tests-lib"],
-)
-
-da_haskell_test(
     name = "create-daml-app-tests-proj-name",
     timeout = "long",
     srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
