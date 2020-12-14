@@ -196,15 +196,12 @@ object TransactionCoder {
           }
 
         case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-          def exe = ne
-          def x =
-            EncodeError(node.version, isTooOldFor = "non-empty choice-observers")
           for {
             _ <- Either.cond(
-              test = exe.version >= TransactionVersion.minChoiceObservers ||
-                exe.choiceObservers.isEmpty,
+              test = ne.version >= TransactionVersion.minChoiceObservers ||
+                ne.choiceObservers.isEmpty,
               right = (),
-              left = x
+              left = EncodeError(node.version, isTooOldFor = "non-empty choice-observers")
             )
             argValue <- encodeValue(encodeCid, ne.versionedChosenValue)
             retValue <- ne.versionedExerciseResult match {

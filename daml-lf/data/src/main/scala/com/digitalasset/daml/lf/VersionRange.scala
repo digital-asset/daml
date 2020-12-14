@@ -28,12 +28,6 @@ final case class VersionRange[V](
       max = this.max min that.max,
     )
 
-  def isEmpty: Boolean =
-    ordering.lt(max, min)
-
-  def nonEmpty: Boolean =
-    !isEmpty
-
   def contains(v: V): Boolean =
     min <= v && v <= max
 
