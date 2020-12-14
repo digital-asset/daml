@@ -177,7 +177,9 @@ later.
 +====================+=================+
 |                 10 |      2020-03-25 |
 +--------------------+-----------------+
-|                dev |      2020-03-25 |
+|       11 (preview) |      2020-12-14 |
++--------------------+-----------------+
+|                dev |      2020-12-14 |
 +--------------------+-----------------+
 
 message Transaction
@@ -266,9 +268,9 @@ Additionally, one of the following node types *must* be included:
 * `message NodeExercise`_ exercise
 * `message NodeLookupByKey`_ lookup
 
-*since version dev*
+*since version 11*
 
-As of version dev, this optional field is included:
+As of version 11, this optional field is included:
 
 * ``string`` ``version``
 

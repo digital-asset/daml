@@ -6,7 +6,7 @@
 //
 // [one-line] version summary
 // * 10:  new field key_with_maintainers in NodeFetch
-// * dev: add choice observer
+// * 11: add choice observer
 syntax = "proto3";
 
 package com.daml.lf.transaction;
@@ -45,7 +45,7 @@ message Node {
         NodeLookupByKey lookup_by_key = 6;
     }
 
-    string version = 63; // optional *since dev*
+    string version = 63; // optional *since 11*
 }
 
 message KeyWithMaintainers {
@@ -88,7 +88,7 @@ message NodeExercise {
     com.daml.lf.value.VersionedValue return_value = 12;
     reserved 13; // was contract_key
     KeyWithMaintainers key_with_maintainers = 14; // optional
-    repeated string observers = 15;  // *Available in versions >= 1.dev*
+    repeated string observers = 15;  // *Available in versions >= 11*
 }
 
 message NodeLookupByKey {

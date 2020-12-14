@@ -24,7 +24,8 @@ private[sql] final class Cli(
       .opt[Unit]("dev-mode-unsafe")
       .optional()
       .action((_, config) => config.copy(devMode = true))
-      .text("Allows development versions of DAML-LF language and transaction format.")
+      .text(
+        s"Allows development versions of DAML-LF language and transaction format (ignored if seeding mode is set to ${Seeding.NoSeedingModeName}).")
       .hidden()
 
     parser
