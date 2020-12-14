@@ -291,6 +291,9 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
     -- data-dependencies to work, except for putting them into the files used
     -- for reconstructing the interfaces, which we already do
   , TypeOperators, UndecidableInstances
+    -- TypeOperators implies ExplicitNamespaces, hence warning on the latter
+    -- would be silly
+  , ExplicitNamespaces
     -- there's no way for our users to actually use this and listing it here
     -- removes a lot of warning from out stdlib, script and trigger builds
     -- NOTE: This should not appear on any list of extensions that are
