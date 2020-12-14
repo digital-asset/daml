@@ -5,7 +5,6 @@ package com.daml.caching
 
 import java.util.concurrent.ConcurrentMap
 
-// Never, ever use this in production code.
 final class MapBackedCacheForTesting[Key, Value](store: ConcurrentMap[Key, Value])
     extends ConcurrentCache[Key, Value] {
   override def put(key: Key, value: Value): Unit = {
