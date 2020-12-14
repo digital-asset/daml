@@ -32,14 +32,7 @@ import scala.collection.JavaConverters._
 class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSugar {
   private[this] val txBuilder = TransactionBuilder()
   private val metrics = new Metrics(new MetricRegistry)
-  private val aDamlTransactionEntry = DamlTransactionEntry.newBuilder
-    .setTransaction(Conversions.encodeTransaction(TransactionBuilder.Empty))
-    .setSubmitterInfo(
-      DamlSubmitterInfo.newBuilder
-        .setCommandId("commandId")
-        .addSubmitters("aSubmitter"))
-    .setSubmissionSeed(ByteString.copyFromUtf8("a" * 32))
-    .build
+  private val aDamlTransactionEntry = createTransationEntry(List("aSubmitter"))
   private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
   private val aRecordTime = Timestamp(100)
   private val instance = createTransactionCommitter() // Stateless, can be shared between tests
@@ -465,52 +458,49 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
   }
 
   "authorizeSubmitters" should {
-    "reject a submission when any of the submitters keys is not present in the input state" in {
-      val alice = "alice"
-      val bob = "bob"
-      val emma = "emma"
-      val participantId = 0
-      val allocationBuilder = DamlPartyAllocation.newBuilder()
-        .setParticipantId(mkParticipantId(participantId))
-      val aliceAllocation = allocationBuilder.setDisplayName(alice).build()
-      val bobAllocation = allocationBuilder.setDisplayName(bob).build()
-      val inputs: Map[DamlStateKey, Option[DamlStateValue]] = Map(
-        DamlStateKey.newBuilder().setParty(alice).build() -> Some(DamlStateValue.newBuilder().setParty(aliceAllocation).build()),
-        DamlStateKey.newBuilder().setParty(bob).build() -> Some(DamlStateValue.newBuilder().setParty(bobAllocation).build())
-      )
-      val context = createCommitContext(recordTime = None, inputs, participantId)
+    val alice = "alice"
+    val bob = "bob"
+    val emma = "emma"
+    val participantId = 0
+    val otherParticipantId = 1
+    def partyAllocation(party: String, participantId: Int): DamlPartyAllocation = DamlPartyAllocation.newBuilder()
+      .setParticipantId(mkParticipantId(participantId))
+      .setDisplayName(party).build()
 
-      val tx = DamlTransactionEntrySummary(
-        DamlTransactionEntry.newBuilder
-          .setTransaction(Conversions.encodeTransaction(TransactionBuilder.Empty))
-          .setSubmitterInfo(DamlSubmitterInfo.newBuilder.addAllSubmitters(List(alice, bob, emma).asJava))
-          .setSubmissionSeed(ByteString.copyFromUtf8("a" * 32))
-          .build
+    def hostedParty(party: String): DamlPartyAllocation = partyAllocation(party, participantId)
+    def notHostedParty(party: String): DamlPartyAllocation = partyAllocation(party, otherParticipantId)
+    def createInputs(inputs: (String, Option[DamlPartyAllocation])*): Map[DamlStateKey, Option[DamlStateValue]] =
+      inputs.map {
+        case (party, partyAllocation) =>
+          DamlStateKey.newBuilder().setParty(party).build() -> partyAllocation.map(DamlStateValue.newBuilder().setParty(_).build())
+      }.toMap
+
+
+
+    "reject a submission when any of the submitters keys is not present in the input state" in {
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = createInputs(
+          alice -> Some(hostedParty(alice)),
+          bob -> Some(hostedParty(bob)),
+        ),
+        participantId = participantId
       )
+      val tx = DamlTransactionEntrySummary(createTransationEntry(List(alice, bob, emma)))
 
       assertThrows[MissingInputState](instance.authorizeSubmitters.apply(context, tx))
     }
 
     "reject a submission when any of the submitters is not known" in {
-      val alice = "alice"
-      val bob = "bob"
-      val participantId = 0
-      val allocationBuilder = DamlPartyAllocation.newBuilder()
-        .setParticipantId(mkParticipantId(participantId))
-      val aliceAllocation = allocationBuilder.setDisplayName(alice).build()
-      val inputs: Map[DamlStateKey, Option[DamlStateValue]] = Map(
-        DamlStateKey.newBuilder().setParty(alice).build() -> Some(DamlStateValue.newBuilder().setParty(aliceAllocation).build()),
-        DamlStateKey.newBuilder().setParty(bob).build() -> None
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = createInputs(
+          alice -> Some(hostedParty(alice)),
+          bob -> None,
+        ),
+        participantId = participantId
       )
-      val context = createCommitContext(recordTime = None, inputs, participantId)
-
-      val tx = DamlTransactionEntrySummary(
-        DamlTransactionEntry.newBuilder
-          .setTransaction(Conversions.encodeTransaction(TransactionBuilder.Empty))
-          .setSubmitterInfo(DamlSubmitterInfo.newBuilder.addAllSubmitters(List(alice, bob).asJava))
-          .setSubmissionSeed(ByteString.copyFromUtf8("a" * 32))
-        .build
-      )
+      val tx = DamlTransactionEntrySummary(createTransationEntry(List(alice, bob)))
 
       val result = instance.authorizeSubmitters.apply(context, tx)
       result shouldBe a[StepStop]
@@ -519,27 +509,15 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     }
 
     "reject a submission when any of the submitters' participant id is incorrect" in {
-      val alice = "alice"
-      val bob = "bob"
-      val participantId = 0
-      val incorrectParticipantId = 1
-      val allocationBuilder = DamlPartyAllocation.newBuilder()
-        .setParticipantId(mkParticipantId(participantId))
-      val aliceAllocation = allocationBuilder.setDisplayName(alice).build()
-      val bobAllocation = allocationBuilder.setDisplayName(bob).setParticipantId(mkParticipantId(incorrectParticipantId)).build()
-      val inputs: Map[DamlStateKey, Option[DamlStateValue]] = Map(
-        DamlStateKey.newBuilder().setParty(alice).build() -> Some(DamlStateValue.newBuilder().setParty(aliceAllocation).build()),
-        DamlStateKey.newBuilder().setParty(bob).build() -> Some(DamlStateValue.newBuilder().setParty(bobAllocation).build())
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = createInputs(
+          alice -> Some(hostedParty(alice)),
+          bob -> Some(notHostedParty(bob)),
+        ),
+        participantId = participantId
       )
-      val context = createCommitContext(recordTime = None, inputs, participantId)
-
-      val tx = DamlTransactionEntrySummary(
-        DamlTransactionEntry.newBuilder
-          .setTransaction(Conversions.encodeTransaction(TransactionBuilder.Empty))
-          .setSubmitterInfo(DamlSubmitterInfo.newBuilder.addAllSubmitters(List(alice, bob).asJava))
-          .setSubmissionSeed(ByteString.copyFromUtf8("a" * 32))
-          .build
-      )
+      val tx = DamlTransactionEntrySummary(createTransationEntry(List(alice, bob)))
 
       val result = instance.authorizeSubmitters.apply(context, tx)
       result shouldBe a[StepStop]
@@ -548,29 +526,16 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     }
 
     "allow a submission when all of the submitters are hosted on the participant" in {
-      val alice = "alice"
-      val bob = "bob"
-      val emma = "emma"
-      val participantId = 0
-      val allocationBuilder = DamlPartyAllocation.newBuilder()
-        .setParticipantId(mkParticipantId(participantId))
-      val aliceAllocation = allocationBuilder.setDisplayName(alice).build()
-      val bobAllocation = allocationBuilder.setDisplayName(bob).build()
-      val emmaAllocation = allocationBuilder.setDisplayName(emma).build()
-      val inputs: Map[DamlStateKey, Option[DamlStateValue]] = Map(
-        DamlStateKey.newBuilder().setParty(alice).build() -> Some(DamlStateValue.newBuilder().setParty(aliceAllocation).build()),
-        DamlStateKey.newBuilder().setParty(bob).build() -> Some(DamlStateValue.newBuilder().setParty(bobAllocation).build()),
-        DamlStateKey.newBuilder().setParty(emma).build() -> Some(DamlStateValue.newBuilder().setParty(emmaAllocation).build())
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = createInputs(
+          alice -> Some(hostedParty(alice)),
+          bob -> Some(hostedParty(bob)),
+          emma -> Some(hostedParty(emma)),
+        ),
+        participantId = participantId
       )
-      val context = createCommitContext(recordTime = None, inputs, participantId)
-
-      val tx = DamlTransactionEntrySummary(
-        DamlTransactionEntry.newBuilder
-          .setTransaction(Conversions.encodeTransaction(TransactionBuilder.Empty))
-          .setSubmitterInfo(DamlSubmitterInfo.newBuilder.addAllSubmitters(List(alice, bob, emma).asJava))
-          .setSubmissionSeed(ByteString.copyFromUtf8("a" * 32))
-          .build
-      )
+      val tx = DamlTransactionEntrySummary(createTransationEntry(List(alice, bob, emma)))
 
       instance.authorizeSubmitters.apply(context, tx) shouldBe a[StepContinue[_]]
     }
@@ -600,4 +565,15 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         DamlConfigurationEntry.newBuilder
           .setConfiguration(Configuration.encode(theDefaultConfig))
       )
+
+  private def createTransationEntry(submitters: List[String]): DamlTransactionEntry = {
+    DamlTransactionEntry.newBuilder
+      .setTransaction(Conversions.encodeTransaction(TransactionBuilder.Empty))
+      .setSubmitterInfo(
+        DamlSubmitterInfo.newBuilder
+          .setCommandId("commandId")
+          .addAllSubmitters(submitters.asJava))
+      .setSubmissionSeed(ByteString.copyFromUtf8("a" * 32))
+      .build
+  }
 }
