@@ -161,11 +161,14 @@ symbols are replaced by `_` characters. E.g. the artifact
 `org.scalaz:scalaz-core_2.12:7.2.24` is available as
 `@maven//:org_scalaz_scalaz_core_2_12`.
 
-Adding, changing, or removing a Maven dependency requires two steps: First, you
-need to modify the `artifacts` attribute to `maven_install`, second, you need
-to execute `bazel run @unpinned_maven//:pin` to update `maven_install.json`.
-You should also run `@unpinned_maven//:pin` if you change other attributes to
-`maven_install`.
+Adding, changing, or removing a Maven dependency requires two steps:
+First, you need to modify the `artifacts` attribute to
+`maven_install`, second, you need to execute `bazel run
+@unpinned_maven//:pin` to update `maven_install.json`.  You should
+also run `@unpinned_maven//:pin` if you change other attributes to
+`maven_install`. You need to run this once per Scala version with the
+default being 2.12 so run it again for 2.13:
+``DAML_SCALA_VERSION=2.13.3 bazel run @unpinned_maven//:pin``.
 
 Refer to the [`rules_jvm_external` documentation][rules_jvm_external] for
 further information.
