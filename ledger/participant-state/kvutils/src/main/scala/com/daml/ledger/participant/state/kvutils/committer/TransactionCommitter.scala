@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter._
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects}
+import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, TimeModel}
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
@@ -208,9 +208,10 @@ private[kvutils] class TransactionCommitter(
         // which are not evidenced in the transaction itself and hence the contract key state is
         // not included in the inputs.
         lazy val knownKeys: Map[DamlContractKey, Value.ContractId] =
-          commitContext.collectInputs {
+          commitContext.inputs.collect {
             case (key, Some(value))
-                if value.getContractState.hasContractKey
+                if value.hasContractState
+                  && value.getContractState.hasContractKey
                   && contractIsActive(transactionEntry, value.getContractState) =>
               value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
           }
@@ -225,9 +226,9 @@ private[kvutils] class TransactionCommitter(
             transactionEntry.submissionSeed,
           )
           .consume(
-            lookupContract(transactionEntry, commitContext),
-            lookupPackage(transactionEntry, commitContext),
-            lookupKey(commitContext, knownKeys),
+            lookupContract(transactionEntry, commitContext.inputs),
+            lookupPackage(transactionEntry, commitContext.inputs),
+            lookupKey(commitContext.inputs, knownKeys),
           )
           .fold(
             err =>
@@ -348,9 +349,8 @@ private[kvutils] class TransactionCommitter(
     (commitContext, transactionEntry) => StepStop(buildLogEntry(transactionEntry, commitContext))
 
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
-    val damlState = commitContext.collectInputs {
-      case (key, Some(value)) if key.hasContractKey => key -> value
-    } ++ commitContext.getOutputs
+    val damlState = commitContext.inputs
+      .collect { case (k, Some(v)) => k -> v } ++ commitContext.getOutputs
     val startingKeys = damlState.collect {
       case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty => k
     }.toSet
@@ -586,7 +586,7 @@ private[kvutils] class TransactionCommitter(
   // an input to a transaction, we do not need to verify the inputs separately.
   private def lookupContract(
       transactionEntry: DamlTransactionEntrySummary,
-      commitContext: CommitContext)(
+      inputState: DamlStateMap)(
       coid: Value.ContractId,
   ): Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]] = {
     val stateKey = contractIdToStateKey(coid)
@@ -598,7 +598,7 @@ private[kvutils] class TransactionCommitter(
       // This is not a problem because after the transaction reinterpretation, we compare the original
       // transaction with the reinterpreted one, and the LookupByKey node will not match.
       // Additionally, all contract keys are checked to uphold causal monotonicity.
-      contractState <- commitContext.read(stateKey).map(_.getContractState)
+      contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState))
       if contractIsActive(transactionEntry, contractState)
       contract = Conversions.decodeContractInstance(contractState.getContractInstance)
     } yield contract
@@ -609,12 +609,13 @@ private[kvutils] class TransactionCommitter(
   // the DAML state entry at `DamlStateKey(packageId = pkgId)`.
   private def lookupPackage(
       transactionEntry: DamlTransactionEntrySummary,
-      commitContext: CommitContext,
+      inputState: DamlStateMap,
   )(pkgId: PackageId): Option[Ast.Package] = {
     val stateKey = packageStateKey(pkgId)
     for {
-      value <- commitContext
-        .read(stateKey)
+      value <- inputState
+        .get(stateKey)
+        .flatten
         .orElse {
           logger.warn(
             s"Lookup package failed, package not found, packageId=$pkgId correlationId=${transactionEntry.commandId}")
@@ -644,7 +645,7 @@ private[kvutils] class TransactionCommitter(
   }
 
   private def lookupKey(
-      commitContext: CommitContext,
+      inputState: DamlStateMap,
       knownKeys: Map[DamlContractKey, Value.ContractId],
   )(key: GlobalKeyWithMaintainers): Option[Value.ContractId] = {
     // we don't check whether the contract is active or not, because in we might not have loaded it earlier.
@@ -660,7 +661,7 @@ private[kvutils] class TransactionCommitter(
     //    contract keys respect causal monotonicity.
     val stateKey = Conversions.globalKeyToStateKey(key.globalKey)
     val contractId = for {
-      stateValue <- commitContext.read(stateKey)
+      stateValue <- inputState.get(stateKey).flatten
       if stateValue.getContractKeyState.getContractId.nonEmpty
     } yield decodeContractId(stateValue.getContractKeyState.getContractId)
 

@@ -185,16 +185,10 @@ object KVTest {
       deduplicationTime: Duration = Duration.ofDays(1)): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     for {
       testState <- get[KVTestState]
-      submissionInfo = createSubmitterInfo(submitter, commandId, deduplicationTime, testState)
+      submInfo = createSubmitterInfo(submitter, commandId, deduplicationTime, testState)
       (tx, txMetaData) = transaction
-      submission = transactionToSubmission(
-        submissionSeed,
-        letDelta,
-        testState,
-        submissionInfo,
-        tx,
-        txMetaData)
-      result <- submit(submission)
+      subm = transactionToSubmission(submissionSeed, letDelta, testState, submInfo, tx, txMetaData)
+      result <- submit(subm)
     } yield result
 
   def preExecuteTransaction(
@@ -207,16 +201,10 @@ object KVTest {
     : KVTest[(DamlLogEntryId, PreExecutionResult)] =
     for {
       testState <- get[KVTestState]
-      submitterInfo = createSubmitterInfo(submitter, commandId, deduplicationTime, testState)
+      submInfo = createSubmitterInfo(submitter, commandId, deduplicationTime, testState)
       (tx, txMetaData) = transaction
-      submission = transactionToSubmission(
-        submissionSeed,
-        letDelta,
-        testState,
-        submitterInfo,
-        tx,
-        txMetaData)
-      result <- preExecute(submission)
+      subm = transactionToSubmission(submissionSeed, letDelta, testState, submInfo, tx, txMetaData)
+      result <- preExecute(subm)
     } yield result
 
   def submitConfig(
