@@ -883,8 +883,8 @@ class DecodeV1Spec
     val observersExpr = DamlLf1.Expr.newBuilder().setVarInternedStr(2).build()
     val bodyExp = DamlLf1.Expr.newBuilder().setVarInternedStr(5).build()
 
-    "reject choice with observers if lf version < 1.7" in {
-
+    "reject choice with observers if lf version = 1.6" in {
+      // special case for LF 1.6 that does not support string interning
       val unitTyp: DamlLf1.Type = DamlLf1.Type
         .newBuilder()
         .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.UNIT))
@@ -952,7 +952,7 @@ class DecodeV1Spec
       }
     }
 
-    "reject choice without observers if lv version >= 1.dev" in {
+    "accept choice with or without observers if lv version >= 1.dev" in {
 
       val unitTyp = DamlLf1.Type.newBuilder().setInterned(0).build()
 
@@ -976,8 +976,7 @@ class DecodeV1Spec
 
         val decoder = moduleDecoder(version, stringTable, ImmArraySeq.empty, typeTable)
 
-        a[ParseError] should be thrownBy (decoder
-          .decodeChoice(templateName, protoChoiceWithoutObservers))
+        decoder.decodeChoice(templateName, protoChoiceWithoutObservers)
         decoder.decodeChoice(templateName, protoChoiceWithObservers)
       }
     }
