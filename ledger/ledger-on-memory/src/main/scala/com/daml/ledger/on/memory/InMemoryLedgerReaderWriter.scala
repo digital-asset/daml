@@ -248,7 +248,7 @@ object InMemoryLedgerReaderWriter {
       keySerializationStrategy,
       validator,
       valueToFingerprint,
-      new PostExecutionConflictDetection,
+      FingerprintAwarePostExecutionConflictDetector,
       stateValueCache = stateValueCacheForPreExecution,
       ImmutablesOnlyCacheUpdatePolicy,
     )

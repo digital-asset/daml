@@ -9,7 +9,7 @@ import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Bytes, Fingerprint}
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.ledger.validator.LedgerStateOperations.Value
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.caching.{
   CacheUpdatePolicy,
   CachingDamlLedgerStateReaderWithFingerprints
@@ -28,23 +28,29 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /**
-  * A pre-executing validating committer based on [[LedgerStateAccess]] (that does not provide fingerprints
-  * alongside values), parametric in the logic that produces a fingerprint given a value.
+  * A pre-executing validating committer based on [[LedgerStateAccess]] (that does not provide
+  * fingerprints alongside values), parametric in the logic that produces a fingerprint given a
+  * value.
   *
-  * @param now                            The record time provider.
-  * @param keySerializationStrategy       The key serializer used for state keys.
-  * @param validator                      The pre-execution validator.
-  * @param valueToFingerprint             The logic that produces a fingerprint given a value.
-  * @param postExecutionConflictDetection The post-execution conflict detector.
-  * @param stateValueCache                The cache instance for state values.
-  * @param cacheUpdatePolicy              The caching policy for values.
+  * @param now                           The record time provider.
+  * @param keySerializationStrategy      The key serializer used for state keys.
+  * @param validator                     The pre-execution validator.
+  * @param valueToFingerprint            The logic that produces a fingerprint given a value.
+  * @param postExecutionConflictDetector The post-execution conflict detector.
+  * @param stateValueCache               The cache instance for state values.
+  * @param cacheUpdatePolicy             The caching policy for values.
   */
 class PreExecutingValidatingCommitter(
     now: () => Instant,
     keySerializationStrategy: StateKeySerializationStrategy,
     validator: PreExecutingSubmissionValidator[ReadSet, RawKeyValuePairsWithLogEntry],
     valueToFingerprint: Option[Value] => Fingerprint,
-    postExecutionConflictDetection: PostExecutionConflictDetection,
+    postExecutionConflictDetector: PostExecutionConflictDetector[
+      Key,
+      (Option[Value], Fingerprint),
+      ReadSet,
+      RawKeyValuePairsWithLogEntry,
+    ],
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
     cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
 ) {
@@ -77,13 +83,13 @@ class PreExecutingValidatingCommitter(
             )
           )
           _ <- retry {
-            case _: PostExecutionConflictDetection.ConflictDetectedException =>
+            case _: ConflictDetectedException =>
               logger.error("Conflict detected during post-execution. Retrying...")
               true
           } { (_, _) =>
-            postExecutionConflictDetection.detectConflicts(preExecutionOutput, stateReader)
+            postExecutionConflictDetector.detectConflicts(preExecutionOutput, stateReader)
           }.transform {
-            case Failure(_: PostExecutionConflictDetection.ConflictDetectedException) =>
+            case Failure(_: ConflictDetectedException) =>
               logger.error("Too many conflicts detected during post-execution. Giving up.")
               Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
             case result => result
