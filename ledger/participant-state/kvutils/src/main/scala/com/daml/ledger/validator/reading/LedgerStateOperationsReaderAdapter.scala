@@ -8,8 +8,9 @@ import com.daml.ledger.validator.reading.StateReader
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LedgerStateOperationsReader[LogResult](operations: LedgerStateOperations[LogResult])
-    extends StateReader[Key, Option[Value]] {
+final class LedgerStateOperationsReaderAdapter[LogResult](
+    operations: LedgerStateOperations[LogResult]
+) extends StateReader[Key, Option[Value]] {
   override def read(
       keys: Seq[Key]
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] =
