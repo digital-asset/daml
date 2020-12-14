@@ -19,6 +19,8 @@ import com.daml.ledger.participant.state.kvutils.{
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.ValidationFailed
 import com.daml.ledger.validator.batch.BatchedSubmissionValidator
+import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidator._
+import com.daml.ledger.validator.reading.StateReader
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 
@@ -138,4 +140,9 @@ class PreExecutingSubmissionValidator[ReadSet, WriteSet](
       }
     )
   }
+}
+
+object PreExecutingSubmissionValidator {
+  type DamlLedgerStateReaderWithFingerprints =
+    StateReader[DamlStateKey, (Option[DamlStateValue], Fingerprint)]
 }

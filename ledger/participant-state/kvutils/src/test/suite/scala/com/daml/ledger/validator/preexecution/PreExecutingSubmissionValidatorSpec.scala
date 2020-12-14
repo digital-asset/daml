@@ -22,6 +22,7 @@ import com.daml.ledger.participant.state.kvutils.{
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.ledger.validator.TestHelper._
 import com.daml.ledger.validator.ValidationFailed.ValidationError
+import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidator.DamlLedgerStateReaderWithFingerprints
 import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidatorSpec._
 import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 import com.daml.lf.data.Ref.ParticipantId
