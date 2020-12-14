@@ -23,8 +23,8 @@ final class MappedCacheSpec
       val store: ConcurrentMap[Int, String] = new ConcurrentHashMap
       val cache: ConcurrentCache[Int, String] = new MapBackedCacheForTesting(store)
       val mappedCache = cache.mapValues[String](
-        from = value => value.substring(6),
-        to = value => Some("value " + value),
+        mapAfterReading = value => value.substring(6),
+        mapBeforeWriting = value => Some("value " + value),
       )
 
       mappedCache.put(7, "seven")
@@ -35,22 +35,22 @@ final class MappedCacheSpec
     "allow the mapping to change type" in {
       val store: ConcurrentMap[Int, String] = new ConcurrentHashMap
       val cache: ConcurrentCache[Int, String] = new MapBackedCacheForTesting(store)
-      val mappedCache = cache.mapValues[Int](
-        from = value => Integer.parseInt(value),
-        to = value => Some(value.toString),
+      val mappedCache = cache.mapValues[Double](
+        mapAfterReading = value => java.lang.Double.parseDouble(value),
+        mapBeforeWriting = value => Some(value.toString),
       )
 
-      mappedCache.put(7, 789)
-      Option(store.get(7)) should be(Some("789"))
-      mappedCache.getIfPresent(7) should be(Some(789))
+      mappedCache.put(7, 789.5)
+      Option(store.get(7)) should be(Some("789.5"))
+      mappedCache.getIfPresent(7) should be(Some(789.5))
     }
 
     "do not write if the mapping is lossy" in {
       val store: ConcurrentMap[Int, Int] = new ConcurrentHashMap
       val cache: ConcurrentCache[Int, Int] = new MapBackedCacheForTesting(store)
       val mappedCache = cache.mapValues[String](
-        from = value => value.toString,
-        to = value =>
+        mapAfterReading = value => value.toString,
+        mapBeforeWriting = value =>
           try {
             Some(Integer.parseInt(value))
           } catch {

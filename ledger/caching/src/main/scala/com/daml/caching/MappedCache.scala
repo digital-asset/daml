@@ -4,15 +4,15 @@
 package com.daml.caching
 
 private[caching] final class MappedCache[Key, Value, NewValue](
-    from: Value => NewValue,
-    to: NewValue => Option[Value],
+    mapAfterReading: Value => NewValue,
+    mapBeforeWriting: NewValue => Option[Value],
 )(delegate: Cache[Key, Value])
     extends Cache[Key, NewValue] {
   override def put(key: Key, value: NewValue): Unit =
-    to(value).foreach { cacheValue =>
+    mapBeforeWriting(value).foreach { cacheValue =>
       delegate.put(key, cacheValue)
     }
 
   override def getIfPresent(key: Key): Option[NewValue] =
-    delegate.getIfPresent(key).map(from)
+    delegate.getIfPresent(key).map(mapAfterReading)
 }

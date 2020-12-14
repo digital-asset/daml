@@ -29,10 +29,10 @@ object CachingDamlLedgerStateReaderWithFingerprints {
   ): StateReader[DamlStateKey, (Option[DamlStateValue], Fingerprint)] =
     new CachingStateReader[DamlStateKey, (Option[DamlStateValue], Fingerprint)](
       cache = cache.mapValues(
-        from = {
+        mapAfterReading = {
           case (value, fingerprint) => (Some(value), fingerprint)
         },
-        to = {
+        mapBeforeWriting = {
           case (None, _) => None
           case (Some(value), fingerprint) => Some((value, fingerprint))
         }

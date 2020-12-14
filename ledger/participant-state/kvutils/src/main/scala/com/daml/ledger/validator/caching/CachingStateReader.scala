@@ -57,8 +57,8 @@ object CachingStateReader {
   ): StateReader[Key, Option[Value]] =
     new CachingStateReader[Key, Option[Value]](
       cache = cache.mapValues[Option[Value]](
-        from = value => Some(value),
-        to = identity,
+        mapAfterReading = value => Some(value),
+        mapBeforeWriting = identity,
       ),
       shouldCache = cachingPolicy.shouldCacheOnRead,
       delegate = ledgerStateReader,
