@@ -244,11 +244,11 @@ object InMemoryLedgerReaderWriter {
       commitStrategy,
     )
     val committer = new PreExecutingValidatingCommitter(
-      () => timeProvider.getCurrentTime,
       keySerializationStrategy,
       validator,
       valueToFingerprint,
       FingerprintAwarePostExecutionConflictDetector,
+      new RawPostExecutionFinalizer(now = timeProvider.getCurrentTime _),
       stateValueCache = stateValueCacheForPreExecution,
       ImmutablesOnlyCacheUpdatePolicy,
     )

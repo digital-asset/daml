@@ -3,8 +3,6 @@
 
 package com.daml.ledger.validator.preexecution
 
-import java.time.Instant
-
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Bytes, Fingerprint}
@@ -32,16 +30,15 @@ import scala.util.{Failure, Success}
   * fingerprints alongside values), parametric in the logic that produces a fingerprint given a
   * value.
   *
-  * @param now                           The record time provider.
   * @param keySerializationStrategy      The key serializer used for state keys.
   * @param validator                     The pre-execution validator.
   * @param valueToFingerprint            The logic that produces a fingerprint given a value.
   * @param postExecutionConflictDetector The post-execution conflict detector.
+  * @param postExecutionFinalizer        The post-execution finalizer.
   * @param stateValueCache               The cache instance for state values.
   * @param cacheUpdatePolicy             The caching policy for values.
   */
 class PreExecutingValidatingCommitter(
-    now: () => Instant,
     keySerializationStrategy: StateKeySerializationStrategy,
     validator: PreExecutingSubmissionValidator[ReadSet, RawKeyValuePairsWithLogEntry],
     valueToFingerprint: Option[Value] => Fingerprint,
@@ -51,6 +48,7 @@ class PreExecutingValidatingCommitter(
       ReadSet,
       RawKeyValuePairsWithLogEntry,
     ],
+    postExecutionFinalizer: PostExecutionFinalizer[ReadSet, RawKeyValuePairsWithLogEntry],
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
     cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
 ) {
@@ -94,11 +92,9 @@ class PreExecutingValidatingCommitter(
               Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
             case result => result
           }
-          submissionResult <- PostExecutionFinalizer.finalizeSubmission(
-            now,
+          submissionResult <- postExecutionFinalizer.finalizeSubmission(
             preExecutionOutput,
-            ledgerStateOperations,
-          )
+            ledgerStateOperations)
         } yield submissionResult
       }
     }
