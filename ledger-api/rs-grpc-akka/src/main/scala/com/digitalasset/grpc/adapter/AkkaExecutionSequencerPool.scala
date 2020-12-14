@@ -33,7 +33,7 @@ class AkkaExecutionSequencerPool(
 
   def closeAsync(): Future[Unit] = {
     implicit val ec: ExecutionContext = system.dispatcher
-    val eventuallyClosed: Future[Seq[Done]] = Future.sequence(pool.map(_.closeAsync).toSeq)
+    val eventuallyClosed: Future[Seq[Done]] = Future.sequence(pool.view.map(_.closeAsync).toSeq)
     Future.firstCompletedOf(
       Seq(
         system.whenTerminated.map(_ => ()), //  Cut it short if the ActorSystem stops.

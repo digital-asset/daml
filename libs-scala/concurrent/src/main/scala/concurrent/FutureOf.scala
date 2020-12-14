@@ -3,7 +3,7 @@
 
 package com.daml.concurrent
 
-import scala.language.{implicitConversions}
+import scala.language.implicitConversions
 import scala.{concurrent => sc}
 import scala.util.Try
 
