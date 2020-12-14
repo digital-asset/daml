@@ -621,26 +621,41 @@ template MultiPartyContract
   where
     signatory parties
 
-    -- Example choice for multi-party submissions. Minimal submitters:
-    -- ActAs: all new and old parties
-    -- ReadAs: empty set
-    choice AddSignatories :
-          ContractId MultiPartyContract
-        with
+    key this: MultiPartyContract
+    maintainer key.parties
+
+    choice MPAddSignatories : ContractId MultiPartyContract
+      with
         newParties: [Party]
       controller parties ++ newParties
-        do
-          create this with
-            parties = parties ++ newParties
+      do
+        create this with
+          parties = parties ++ newParties
 
-    -- Example choice for multi-party submissions with read delegation. Minimal submitters:
-    -- ActAs: all new parties
-    -- ReadAs: one of the old parties
-    nonconsuming choice DuplicateFor :
-          ContractId MultiPartyContract
-        with
-        newParties: [Party]
-      controller newParties
-        do
-          create this with
-            parties = newParties
+    nonconsuming choice MPFetchOther : ()
+      with
+        cid: ContractId MultiPartyContract
+        actors: [Party]
+      controller actors
+      do
+        actualContract <- fetch cid
+        return ()
+
+    nonconsuming choice MPFetchOtherByKey : ()
+      with
+        keyToFetch: MultiPartyContract
+        actors: [Party]
+      controller actors
+      do
+        (actualCid, actualContract) <- fetchByKey @MultiPartyContract keyToFetch
+        return ()
+
+    nonconsuming choice MPLookupOtherByKey : ()
+      with
+        keyToFetch: MultiPartyContract
+        actors: [Party]
+        expectedCid: Optional (ContractId MultiPartyContract)
+      controller actors
+      do
+        actualCid <- lookupByKey @MultiPartyContract keyToFetch
+        assertMsg "LookupOtherByKey value matches" (expectedCid == actualCid)
