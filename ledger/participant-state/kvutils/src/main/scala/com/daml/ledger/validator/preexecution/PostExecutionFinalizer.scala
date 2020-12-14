@@ -8,7 +8,6 @@ import java.time.Instant
 import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.validator.LedgerStateOperations
-import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -19,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 object PostExecutionFinalizer {
   def finalizeSubmission[LogResult](
       now: () => Instant,
-      preExecutionOutput: PreExecutionOutput[ReadSet, RawKeyValuePairsWithLogEntry],
+      preExecutionOutput: PreExecutionOutput[Any, RawKeyValuePairsWithLogEntry],
       ledgerStateOperations: LedgerStateOperations[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {
     val recordTime = now()
@@ -33,15 +32,16 @@ object PostExecutionFinalizer {
   }
 
   private def respectsTimeBounds(
-      preExecutionOutput: PreExecutionOutput[ReadSet, RawKeyValuePairsWithLogEntry],
+      preExecutionOutput: PreExecutionOutput[Any, Any],
       recordTime: Instant,
   ): Boolean =
     !recordTime.isBefore(preExecutionOutput.minRecordTime.getOrElse(Instant.MIN)) &&
       !recordTime.isAfter(preExecutionOutput.maxRecordTime.getOrElse(Instant.MAX))
 
   private def createLogEntry(
-      preExecutionOutput: PreExecutionOutput[ReadSet, RawKeyValuePairsWithLogEntry],
-      withinTimeBounds: Boolean): (Bytes, Bytes) = {
+      preExecutionOutput: PreExecutionOutput[Any, RawKeyValuePairsWithLogEntry],
+      withinTimeBounds: Boolean,
+  ): (Bytes, Bytes) = {
     val writeSet = if (withinTimeBounds) {
       preExecutionOutput.successWriteSet
     } else {
@@ -51,7 +51,7 @@ object PostExecutionFinalizer {
   }
 
   private def createWriteSet(
-      preExecutionOutput: PreExecutionOutput[ReadSet, RawKeyValuePairsWithLogEntry],
+      preExecutionOutput: PreExecutionOutput[Any, RawKeyValuePairsWithLogEntry],
       withinTimeBounds: Boolean,
   ): Iterable[(Bytes, Bytes)] =
     if (withinTimeBounds) {
