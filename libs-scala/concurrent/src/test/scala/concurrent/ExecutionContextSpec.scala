@@ -5,13 +5,11 @@ package com.daml.concurrent
 
 import scala.{concurrent => sc}
 
-import com.github.ghik.silencer.silent
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 import shapeless.test.illTyped
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-@silent("Unused import")
 class ExecutionContextSpec extends AnyWordSpec with Matchers {
   import ExecutionContextSpec._
 
@@ -76,7 +74,7 @@ class ExecutionContextSpec extends AnyWordSpec with Matchers {
   }
 
   "using intersections" should {
-    import TestImplicits.{Elephant, Cat, cryptozoology}
+    import TestImplicits.{Elephant, cryptozoology}
 
     "prefer the intersection" in {
       theEC[Elephant] should ===(cryptozoology)

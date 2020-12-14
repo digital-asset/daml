@@ -3,7 +3,7 @@
 
 package com.daml.concurrent
 
-import scala.language.{higherKinds, implicitConversions}
+import scala.language.{implicitConversions}
 import scala.{concurrent => sc}
 import scala.util.Try
 
@@ -108,7 +108,7 @@ object FutureOf {
 
     def transform[B](s: A => B, f: Throwable => Throwable)(
         implicit ec: ExecutionContext[EC]): Future[EC, B] =
-      self.removeExecutionContext transform (s, f)
+      self.removeExecutionContext.transform(s, f)
 
     def foreach[U](f: A => U)(implicit ec: ExecutionContext[EC]): Unit =
       self.removeExecutionContext foreach f

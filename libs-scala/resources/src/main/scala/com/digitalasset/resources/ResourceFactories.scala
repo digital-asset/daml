@@ -7,14 +7,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import com.daml.resources.HasExecutionContext.executionContext
 
-import scala.collection.generic.CanBuildFrom
-import scala.collection.mutable
+import scala.collection.compat._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
 final class ResourceFactories[Context: HasExecutionContext] {
-
-  import scala.language.higherKinds
 
   private type R[+T] = Resource[Context, T]
 
@@ -101,12 +98,12 @@ final class ResourceFactories[Context: HasExecutionContext] {
     * @tparam U The return type.
     * @return A [[Resource]] with a sequence of the values of the sequenced [[Resource]]s as its underlying value.
     */
-  def sequence[T, C[X] <: Traversable[X], U](seq: C[R[T]])(
-      implicit bf: CanBuildFrom[C[R[T]], T, U],
+  def sequence[T, C[X] <: Iterable[X], U](seq: C[R[T]])(
+      implicit bf: Factory[T, U],
       context: Context,
   ): R[U] = new R[U] {
     private val resource = seq
-      .foldLeft(successful(bf()))((builderResource, elementResource) =>
+      .foldLeft(successful(bf.newBuilder))((builderResource, elementResource) =>
         for {
           builder <- builderResource // Consider the builder in the accumulator resource
           element <- elementResource // Consider the value in the actual resource element
@@ -129,23 +126,9 @@ final class ResourceFactories[Context: HasExecutionContext] {
     * @tparam C The [[Traversable]] actual type.
     * @return A [[Resource]] sequencing the [[Resource]]s and no underlying value.
     */
-  def sequenceIgnoringValues[T, C[X] <: Traversable[X]](seq: C[R[T]])(
+  def sequenceIgnoringValues[T, C[X] <: Iterable[X]](seq: C[R[T]])(
       implicit context: Context
   ): R[Unit] =
-    sequence(seq)(new UnitCanBuildFrom, context)
-
-  final class UnitCanBuildFrom[T, C[X] <: Traversable[X]] extends CanBuildFrom[C[R[T]], T, Unit] {
-    override def apply(from: C[R[T]]): mutable.Builder[T, Unit] = apply()
-
-    override def apply(): mutable.Builder[T, Unit] = UnitBuilder
-  }
-
-  object UnitBuilder extends mutable.Builder[Any, Unit] {
-    override def +=(elem: Any): this.type = this
-
-    override def clear(): Unit = ()
-
-    override def result(): Unit = ()
-  }
+    sequence(seq)(new UnitCanBuildFrom[T, Nothing], context)
 
 }

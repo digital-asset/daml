@@ -13,6 +13,15 @@ da_scala_library(
     data = [
         "@postgresql_dev_env//:all",
     ],
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
+        ],
+    },
     visibility = [
         "//visibility:public",
     ],
@@ -22,7 +31,5 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:commons_io_commons_io",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
