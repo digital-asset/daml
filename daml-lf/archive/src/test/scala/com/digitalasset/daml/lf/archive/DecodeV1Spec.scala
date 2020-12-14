@@ -12,7 +12,6 @@ import com.daml.lf.data.{Decimal, Numeric, Ref}
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.DottedName
 import com.daml.daml_lf_dev.DamlLf1
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}
@@ -53,7 +52,7 @@ class DecodeV1Spec
   }
 
   private[this] val dummyModuleStr = "dummyModule"
-  private[this] val dummyModuleName = DottedName.assertFromString(dummyModuleStr)
+  private[this] val dummyModuleName = Ref.DottedName.assertFromString(dummyModuleStr)
 
   private[this] val lfVersions = List(LV.v1_6, LV.v1_7, LV.v1_8, LV.v1_dev)
 
@@ -69,13 +68,14 @@ class DecodeV1Spec
   private def moduleDecoder(
       version: LV,
       stringTable: ImmArraySeq[String] = ImmArraySeq.empty,
-      dottedNameTable: ImmArraySeq[DottedName] = ImmArraySeq.empty,
+      dottedNameTable: ImmArraySeq[Ref.DottedName] = ImmArraySeq.empty,
+      typeTable: ImmArraySeq[Ast.Type] = ImmArraySeq.empty,
   ) = {
     new DecodeV1(version.minor).Env(
       Ref.PackageId.assertFromString("noPkgId"),
       stringTable,
       dottedNameTable,
-      IndexedSeq(),
+      typeTable,
       None,
       Some(dummyModuleName),
       onlySerializableDataDefs = false
@@ -281,7 +281,7 @@ class DecodeV1Spec
     "reject non interned type for LF >= 1.dev" in {
 
       val stringTable = ImmArraySeq("pkgId", "x")
-      val dottedNameTable = ImmArraySeq("Mod", "T", "S").map(DottedName.assertFromString)
+      val dottedNameTable = ImmArraySeq("Mod", "T", "S").map(Ref.DottedName.assertFromString)
 
       val unit = DamlLf1.Unit.newBuilder().build()
       val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
@@ -871,6 +871,114 @@ class DecodeV1Spec
           Ast.PackageMetadata(
             Ref.PackageName.assertFromString("foobar"),
             Ref.PackageVersion.assertFromString("0.0.0")))
+      }
+    }
+  }
+
+  "decodeChoice" should {
+    val stringTable = ImmArraySeq("SomeChoice", "controllers", "observers", "self", "arg", "body")
+    val typeTable = ImmArraySeq(TUnit)
+    val templateName = Ref.DottedName.assertFromString("Template")
+    val controllersExpr = DamlLf1.Expr.newBuilder().setVarInternedStr(1).build()
+    val observersExpr = DamlLf1.Expr.newBuilder().setVarInternedStr(2).build()
+    val bodyExp = DamlLf1.Expr.newBuilder().setVarInternedStr(5).build()
+
+    "reject choice with observers if lf version < 1.7" in {
+
+      val unitTyp: DamlLf1.Type = DamlLf1.Type
+        .newBuilder()
+        .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.UNIT))
+        .build()
+
+      val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
+        .newBuilder()
+        .setNameStr("ChoiceName")
+        .setConsuming(true)
+        .setControllers(DamlLf1.Expr.newBuilder().setVarStr("controllers"))
+        .setSelfBinderStr("self")
+        .setArgBinder(DamlLf1.VarWithType.newBuilder().setVarStr("arg").setType(unitTyp))
+        .setRetType(unitTyp)
+        .setUpdate(DamlLf1.Expr.newBuilder().setVarStr("body").build())
+        .build()
+
+      val protoChoiceWithObservers =
+        protoChoiceWithoutObservers.toBuilder.setObservers(observersExpr).build
+
+      forEveryVersionSuchThat(_ < LV.Features.internedStrings) { version =>
+        assert(version < LV.Features.internedStrings)
+        assert(version < LV.Features.internedTypes)
+
+        val decoder = moduleDecoder(version)
+
+        decoder.decodeChoice(templateName, protoChoiceWithoutObservers)
+        a[ParseError] should be thrownBy (decoder
+          .decodeChoice(templateName, protoChoiceWithObservers))
+
+      }
+    }
+
+    "reject choice with observers if 1.7 < lf version < 1.dev" in {
+      val unitTyp: DamlLf1.Type = DamlLf1.Type
+        .newBuilder()
+        .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.UNIT))
+        .build()
+
+      val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
+        .newBuilder()
+        .setNameInternedStr(0)
+        .setConsuming(true)
+        .setControllers(controllersExpr)
+        .setSelfBinderInternedStr(3)
+        .setArgBinder(DamlLf1.VarWithType.newBuilder().setVarInternedStr(4).setType(unitTyp))
+        .setRetType(unitTyp)
+        .setUpdate(bodyExp)
+        .build()
+
+      val protoChoiceWithObservers =
+        protoChoiceWithoutObservers.toBuilder.setObservers(observersExpr).build
+
+      forEveryVersionSuchThat(
+        v => LV.Features.internedStrings < v && v < LV.Features.choiceObservers
+      ) { version =>
+        assert(LV.Features.internedStrings <= version)
+        assert(version < LV.Features.internedTypes)
+
+        val decoder = moduleDecoder(version, stringTable)
+
+        decoder.decodeChoice(templateName, protoChoiceWithoutObservers)
+        a[ParseError] should be thrownBy decoder
+          .decodeChoice(templateName, protoChoiceWithObservers)
+
+      }
+    }
+
+    "reject choice without observers if lv version >= 1.dev" in {
+
+      val unitTyp = DamlLf1.Type.newBuilder().setInterned(0).build()
+
+      val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
+        .newBuilder()
+        .setNameInternedStr(0)
+        .setConsuming(true)
+        .setControllers(controllersExpr)
+        .setSelfBinderInternedStr(3)
+        .setArgBinder(DamlLf1.VarWithType.newBuilder().setVarInternedStr(4).setType(unitTyp))
+        .setRetType(unitTyp)
+        .setUpdate(bodyExp)
+        .build()
+
+      val protoChoiceWithObservers =
+        protoChoiceWithoutObservers.toBuilder.setObservers(observersExpr).build
+
+      forEveryVersionSuchThat(LV.Features.choiceObservers <= _) { version =>
+        assert(LV.Features.internedStrings <= version)
+        assert(LV.Features.internedTypes <= version)
+
+        val decoder = moduleDecoder(version, stringTable, ImmArraySeq.empty, typeTable)
+
+        a[ParseError] should be thrownBy (decoder
+          .decodeChoice(templateName, protoChoiceWithoutObservers))
+        decoder.decodeChoice(templateName, protoChoiceWithObservers)
       }
     }
   }
