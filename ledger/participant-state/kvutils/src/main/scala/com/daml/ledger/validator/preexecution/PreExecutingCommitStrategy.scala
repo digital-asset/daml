@@ -3,13 +3,9 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlLogEntryId,
-  DamlStateKey,
-  DamlStateValue
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
+import com.daml.ledger.participant.state.kvutils.Fingerprint
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
-import com.daml.ledger.participant.state.kvutils.{DamlStateMapWithFingerprints, Fingerprint}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.LedgerStateOperations.Key
 
@@ -25,16 +21,16 @@ object PreExecutionCommitResult {
   type ReadSet = Seq[(Key, Fingerprint)]
 }
 
-trait PreExecutingCommitStrategy[ReadSet, WriteSet] {
+trait PreExecutingCommitStrategy[StateKey, StateValue, ReadSet, WriteSet] {
   def generateReadSet(
-      fetchedInputs: DamlStateMapWithFingerprints,
-      accessedKeys: Set[DamlStateKey],
+      fetchedInputs: Map[StateKey, StateValue],
+      accessedKeys: Set[StateKey],
   ): ReadSet
 
   def generateWriteSets(
       participantId: ParticipantId,
       logEntryId: DamlLogEntryId,
-      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      inputState: Map[StateKey, StateValue],
       preExecutionResult: PreExecutionResult,
   )(implicit executionContext: ExecutionContext): Future[PreExecutionCommitResult[WriteSet]]
 }

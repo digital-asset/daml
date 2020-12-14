@@ -3,12 +3,17 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlSubmission}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlStateKey,
+  DamlStateValue,
+  DamlSubmission
+}
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{
   Bytes,
   DamlStateMapWithFingerprints,
   Envelope,
+  Fingerprint,
   KeyValueCommitting
 }
 import com.daml.ledger.participant.state.v1.ParticipantId
@@ -26,7 +31,12 @@ import scala.concurrent.{ExecutionContext, Future}
 class PreExecutingSubmissionValidator[ReadSet, WriteSet](
     committer: KeyValueCommitting,
     metrics: Metrics,
-    commitStrategy: PreExecutingCommitStrategy[ReadSet, WriteSet],
+    commitStrategy: PreExecutingCommitStrategy[
+      DamlStateKey,
+      (Option[DamlStateValue], Fingerprint),
+      ReadSet,
+      WriteSet,
+    ],
 ) {
   private val logger = ContextualizedLogger.get(getClass)
 
@@ -54,8 +64,12 @@ class PreExecutingSubmissionValidator[ReadSet, WriteSet](
         logEntryId = BatchedSubmissionValidator.bytesToLogEntryId(submissionEnvelope)
         generatedWriteSets <- Timed.future(
           metrics.daml.kvutils.submission.validator.generateWriteSets,
-          commitStrategy
-            .generateWriteSets(submittingParticipantId, logEntryId, inputState, preExecutionResult)
+          commitStrategy.generateWriteSets(
+            submittingParticipantId,
+            logEntryId,
+            fetchedInputs,
+            preExecutionResult,
+          )
         )
       } yield {
         PreExecutionOutput(

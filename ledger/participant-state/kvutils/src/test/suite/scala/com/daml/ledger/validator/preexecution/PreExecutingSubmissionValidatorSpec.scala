@@ -219,7 +219,12 @@ object PreExecutingSubmissionValidatorSpec {
       ))
       .thenReturn(result)
 
-    val mockCommitStrategy = mock[PreExecutingCommitStrategy[ReadSet, Bytes]]
+    val mockCommitStrategy = mock[PreExecutingCommitStrategy[
+      DamlStateKey,
+      (Option[DamlStateValue], Fingerprint),
+      ReadSet,
+      Bytes,
+    ]]
     when(
       mockCommitStrategy.generateReadSet(any[DamlStateMapWithFingerprints], any[Set[DamlStateKey]]))
       .thenAnswer[DamlStateMapWithFingerprints, Set[DamlStateKey]] {
@@ -233,7 +238,7 @@ object PreExecutingSubmissionValidatorSpec {
       mockCommitStrategy.generateWriteSets(
         eqTo(aParticipantId),
         any[DamlLogEntryId],
-        any[DamlStateMap],
+        any[Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)]],
         same(result),
       )(any[ExecutionContext]))
       .thenReturn(

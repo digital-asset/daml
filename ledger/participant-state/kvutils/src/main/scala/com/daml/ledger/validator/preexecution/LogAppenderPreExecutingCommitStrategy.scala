@@ -6,13 +6,14 @@ package com.daml.ledger.validator.preexecution
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
-  DamlStateKey
+  DamlStateKey,
+  DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.{
   Bytes,
-  DamlKvutils,
   DamlStateMapWithFingerprints,
   Envelope,
+  Fingerprint,
   KeyValueCommitting
 }
 import com.daml.ledger.participant.state.v1.ParticipantId
@@ -29,7 +30,12 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class LogAppenderPreExecutingCommitStrategy(
     keySerializationStrategy: StateKeySerializationStrategy,
-) extends PreExecutingCommitStrategy[ReadSet, RawKeyValuePairsWithLogEntry] {
+) extends PreExecutingCommitStrategy[
+      DamlStateKey,
+      (Option[DamlStateValue], Fingerprint),
+      ReadSet,
+      RawKeyValuePairsWithLogEntry,
+    ] {
   private val stateSerializationStrategy = new StateSerializationStrategy(keySerializationStrategy)
 
   override def generateReadSet(
@@ -52,7 +58,7 @@ final class LogAppenderPreExecutingCommitStrategy(
   override def generateWriteSets(
       participantId: ParticipantId,
       logEntryId: DamlLogEntryId,
-      inputState: Map[DamlKvutils.DamlStateKey, Option[DamlKvutils.DamlStateValue]],
+      inputState: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
       preExecutionResult: KeyValueCommitting.PreExecutionResult,
   )(implicit executionContext: ExecutionContext)
     : Future[PreExecutionCommitResult[RawKeyValuePairsWithLogEntry]] = {
