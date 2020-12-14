@@ -13,12 +13,11 @@ import com.daml.ledger.participant.state.kvutils.{
   DamlKvutils,
   DamlStateMapWithFingerprints,
   Envelope,
-  Fingerprint,
   KeyValueCommitting
 }
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.LedgerStateOperations.Key
 import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidator.KeyNotPresentInInputException
+import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 import com.daml.ledger.validator.{
   StateKeySerializationStrategy,
   StateSerializationStrategy,
@@ -30,13 +29,13 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class LogAppenderPreExecutingCommitStrategy(
     keySerializationStrategy: StateKeySerializationStrategy,
-) extends PreExecutingCommitStrategy[Seq[(Key, Fingerprint)], RawKeyValuePairsWithLogEntry] {
+) extends PreExecutingCommitStrategy[ReadSet, RawKeyValuePairsWithLogEntry] {
   private val stateSerializationStrategy = new StateSerializationStrategy(keySerializationStrategy)
 
   override def generateReadSet(
       fetchedInputs: DamlStateMapWithFingerprints,
       accessedKeys: Set[DamlStateKey],
-  ): Seq[(Key, Fingerprint)] =
+  ): ReadSet =
     accessedKeys
       .map { key =>
         val (_, fingerprint) =

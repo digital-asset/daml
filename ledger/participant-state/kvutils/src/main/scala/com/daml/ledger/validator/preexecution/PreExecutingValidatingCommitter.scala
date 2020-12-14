@@ -38,17 +38,17 @@ import scala.util.{Failure, Success}
   * @param stateValueCache               The cache instance for state values.
   * @param cacheUpdatePolicy             The caching policy for values.
   */
-class PreExecutingValidatingCommitter(
+class PreExecutingValidatingCommitter[WriteSet](
     keySerializationStrategy: StateKeySerializationStrategy,
-    validator: PreExecutingSubmissionValidator[ReadSet, RawKeyValuePairsWithLogEntry],
+    validator: PreExecutingSubmissionValidator[ReadSet, WriteSet],
     valueToFingerprint: Option[Value] => Fingerprint,
     postExecutionConflictDetector: PostExecutionConflictDetector[
       Key,
       (Option[Value], Fingerprint),
       ReadSet,
-      RawKeyValuePairsWithLogEntry,
+      WriteSet,
     ],
-    postExecutionFinalizer: PostExecutionFinalizer[ReadSet, RawKeyValuePairsWithLogEntry],
+    postExecutionFinalizer: PostExecutionFinalizer[ReadSet, WriteSet],
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
     cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
 ) {
@@ -69,16 +69,17 @@ class PreExecutingValidatingCommitter(
       ledgerStateAccess.inTransaction { ledgerStateOperations =>
         val stateReader = new LedgerStateOperationsReaderAdapter(ledgerStateOperations)
           .mapValues(value => value -> valueToFingerprint(value))
+        val cachingStateReader = CachingDamlLedgerStateReaderWithFingerprints(
+          stateValueCache,
+          cacheUpdatePolicy,
+          stateReader,
+          keySerializationStrategy,
+        )
         for {
           preExecutionOutput <- validator.validate(
             submissionEnvelope,
             submittingParticipantId,
-            CachingDamlLedgerStateReaderWithFingerprints(
-              stateValueCache,
-              cacheUpdatePolicy,
-              stateReader,
-              keySerializationStrategy,
-            )
+            cachingStateReader,
           )
           _ <- retry {
             case _: ConflictDetectedException =>

@@ -29,7 +29,6 @@ import com.daml.ledger.validator.batch.{
   ConflictDetection
 }
 import com.daml.ledger.validator.caching.ImmutablesOnlyCacheUpdatePolicy
-import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 import com.daml.ledger.validator.preexecution._
 import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidateAndCommit}
 import com.daml.lf.engine.Engine
@@ -238,11 +237,7 @@ object InMemoryLedgerReaderWriter {
     val commitStrategy = new LogAppenderPreExecutingCommitStrategy(keySerializationStrategy)
     val valueToFingerprint: Option[Value] => Fingerprint =
       _.getOrElse(FingerprintPlaceholder)
-    val validator = new PreExecutingSubmissionValidator[ReadSet, RawKeyValuePairsWithLogEntry](
-      keyValueCommitting,
-      metrics,
-      commitStrategy,
-    )
+    val validator = new PreExecutingSubmissionValidator(keyValueCommitting, metrics, commitStrategy)
     val committer = new PreExecutingValidatingCommitter(
       keySerializationStrategy,
       validator,
