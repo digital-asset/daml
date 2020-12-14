@@ -31,22 +31,20 @@ import scala.util.{Failure, Success}
   * A pre-executing validating committer based on [[LedgerStateAccess]] (that does not provide fingerprints
   * alongside values), parametric in the logic that produces a fingerprint given a value.
   *
-  * @param now                      The record time provider.
-  * @param keySerializationStrategy The key serializer used for state keys.
-  * @param validator                The pre-execution validator.
-  * @param valueToFingerprint       The logic that produces a fingerprint given a value.
-  * @param postExecutionFinalizer   The post-execution finalizer that will also perform conflicts detection and
-  *                                 time bounds checks.
-  * @param stateValueCache          The cache instance for state values.
-  * @param cacheUpdatePolicy         The caching policy for values.
-  * @tparam LogResult type of the offset used for a log entry.
+  * @param now                            The record time provider.
+  * @param keySerializationStrategy       The key serializer used for state keys.
+  * @param validator                      The pre-execution validator.
+  * @param valueToFingerprint             The logic that produces a fingerprint given a value.
+  * @param postExecutionConflictDetection The post-execution conflict detector.
+  * @param stateValueCache                The cache instance for state values.
+  * @param cacheUpdatePolicy              The caching policy for values.
   */
-class PreExecutingValidatingCommitter[LogResult](
+class PreExecutingValidatingCommitter(
     now: () => Instant,
     keySerializationStrategy: StateKeySerializationStrategy,
     validator: PreExecutingSubmissionValidator[ReadSet, RawKeyValuePairsWithLogEntry],
     valueToFingerprint: Option[Value] => Fingerprint,
-    postExecutionFinalizer: PostExecutionFinalizer[LogResult],
+    postExecutionConflictDetection: PostExecutionConflictDetection,
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
     cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
 ) {
@@ -56,7 +54,7 @@ class PreExecutingValidatingCommitter[LogResult](
   /**
     * Pre-executes and then commits a submission.
     */
-  def commit(
+  def commit[LogResult](
       correlationId: String,
       submissionEnvelope: Bytes,
       submittingParticipantId: ParticipantId,
@@ -65,6 +63,8 @@ class PreExecutingValidatingCommitter[LogResult](
     LoggingContext.newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
       // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
       ledgerStateAccess.inTransaction { ledgerStateOperations =>
+        val stateReader = new LedgerStateOperationsReaderAdapter(ledgerStateOperations)
+          .mapValues(value => value -> valueToFingerprint(value))
         for {
           preExecutionOutput <- validator.validate(
             submissionEnvelope,
@@ -72,26 +72,27 @@ class PreExecutingValidatingCommitter[LogResult](
             CachingDamlLedgerStateReaderWithFingerprints(
               stateValueCache,
               cacheUpdatePolicy,
-              new LedgerStateOperationsReaderAdapter(ledgerStateOperations)
-                .mapValues(value => value -> valueToFingerprint(value)),
+              stateReader,
               keySerializationStrategy,
             )
           )
-          submissionResult <- retry {
-            case PostExecutionFinalizer.ConflictDetectedException =>
+          _ <- retry {
+            case _: PostExecutionConflictDetection.ConflictDetectedException =>
               logger.error("Conflict detected during post-execution. Retrying...")
               true
           } { (_, _) =>
-            postExecutionFinalizer.conflictDetectAndFinalize(
-              now,
-              preExecutionOutput,
-              ledgerStateOperations)
+            postExecutionConflictDetection.detectConflicts(preExecutionOutput, stateReader)
           }.transform {
-            case Failure(PostExecutionFinalizer.ConflictDetectedException) =>
+            case Failure(_: PostExecutionConflictDetection.ConflictDetectedException) =>
               logger.error("Too many conflicts detected during post-execution. Giving up.")
               Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
             case result => result
           }
+          submissionResult <- PostExecutionFinalizer.finalizeSubmission(
+            now,
+            preExecutionOutput,
+            ledgerStateOperations,
+          )
         } yield submissionResult
       }
     }
