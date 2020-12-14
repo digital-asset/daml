@@ -8,8 +8,6 @@ module TemplateLetWithSignatures where
 -- which indicated that the signature was being ignored.
 -- It is now not ignored, and the example does indeed fail to type check.
 
--- TODO: only report the type error once, instead of 5 times!
-
 template T
   with
     p : Party
@@ -21,8 +19,4 @@ template T
       controller q
       do pure ()
 
--- @ERROR Couldn't match expected type ‘Int’ with actual type ‘Party’
--- @ERROR Couldn't match expected type ‘Int’ with actual type ‘Party’
--- @ERROR Couldn't match expected type ‘Int’ with actual type ‘Party’
--- @ERROR Couldn't match expected type ‘Int’ with actual type ‘Party’
 -- @ERROR Couldn't match expected type ‘Int’ with actual type ‘Party’
