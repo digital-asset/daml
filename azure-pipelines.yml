@@ -13,14 +13,6 @@ trigger:
       - master
       - release/*
 
-# Enable PR triggers that target the master branch
-pr:
-  autoCancel: true # cancel previous builds on push
-  branches:
-    include:
-      - master
-      - release/*
-
 jobs:
   - job: git_sha
     pool:
@@ -29,84 +21,13 @@ jobs:
     steps:
       - bash: |
           set -euo pipefail
-          if [ "$(Build.Reason)" == "PullRequest" ]; then
-              echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD^2)"
-              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD^1)"
-              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git merge-base $(git rev-parse HEAD^1) $(git rev-parse HEAD^2))"
-          else
-              echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD)"
-              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD^1)"
-              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git rev-parse HEAD^1)"
-          fi
+          echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD)"
+          echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD^1)"
+          echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git rev-parse HEAD^1)"
         name: out
-
-  - job: check_standard_change_label
-    dependsOn:
-      - git_sha
-    variables:
-      fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
-      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
-    condition: eq(variables['Build.Reason'], 'PullRequest')
-    pool:
-      name: 'linux-pool'
-      demands: assignment -equals default
-    steps:
-      - checkout: self
-      - bash: |
-          set -euo pipefail
-
-          has_changed () {
-              git diff $(fork_sha) $(branch_sha) --name-only | grep -q "^$1"
-          }
-
-          fail_if_missing_std_change_label () {
-              curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
-          }
-
-          if has_changed "infra/" || has_changed "LATEST"; then
-              fail_if_missing_std_change_label
-          fi
-        env:
-          PR: $(System.PullRequest.PullRequestNumber)
-
-  - job: check_changelog_entry
-    dependsOn:
-      - git_sha
-    variables:
-      fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
-      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
-      pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
-    condition: eq(variables['Build.Reason'], 'PullRequest')
-    pool:
-      name: 'linux-pool'
-      demands: assignment -equals default
-    steps:
-      - checkout: self
-      - template: ci/bash-lib.yml
-        parameters:
-          var_name: bash-lib
-      - bash: |
-          set -euo pipefail
-          source $(bash-lib)
-          git checkout $(branch_sha)
-          if ci/check-changelog.sh $(fork_sha); then
-              exit 0
-          else
-              user=$(user_slack_handle $(branch_sha))
-              if [ "$user" != "" ]; then
-                  tell_slack "<@${user}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> is missing a changelog entry." \
-                         "$(Slack.team-daml-ci)"
-              fi
-              exit 1
-          fi
-
-  - template: ci/da-ghc-lib/compile.yml
-    parameters:
-      final_job_name: da_ghc_lib
 
   - job: Linux
     dependsOn:
-      - da_ghc_lib
       - check_for_release
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -143,7 +64,6 @@ jobs:
 
   - job: macOS
     dependsOn:
-      - da_ghc_lib
       - check_for_release
     timeoutInMinutes: 360
     pool:
@@ -173,15 +93,9 @@ jobs:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
-  - template: ci/patch_bazel_windows/compile.yml
-    parameters:
-      final_job_name: patch_bazel_windows
-
   - job: Windows
     dependsOn:
-      - da_ghc_lib
       - check_for_release
-      - patch_bazel_windows
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
@@ -215,7 +129,6 @@ jobs:
 
   - job: Linux_scala_2_13
     dependsOn:
-      - da_ghc_lib
       - check_for_release
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -266,7 +179,6 @@ jobs:
 
   - job: compatibility_ts_libs
     dependsOn:
-      - da_ghc_lib
       - check_for_release
     timeoutInMinutes: 360
     pool:
@@ -281,7 +193,6 @@ jobs:
 
   - job: compatibility_linux
     dependsOn:
-      - da_ghc_lib
       - check_for_release
       - compatibility_ts_libs
     timeoutInMinutes: 360
@@ -299,7 +210,6 @@ jobs:
 
   - job: compatibility_macos
     dependsOn:
-      - da_ghc_lib
       - check_for_release
       - compatibility_ts_libs
     timeoutInMinutes: 360
@@ -318,10 +228,8 @@ jobs:
 
   - job: compatibility_windows
     dependsOn:
-      - da_ghc_lib
       - check_for_release
       - compatibility_ts_libs
-      - patch_bazel_windows
     timeoutInMinutes: 360
     pool:
       name: 'windows-pool'
@@ -395,7 +303,6 @@ jobs:
     pool:
       name: linux-pool
       demands: assignment -equals default
-    condition: eq(variables['Build.Reason'], 'IndividualCI')
     steps:
     - bash: |
         TEST_SHA=$(cat ci/cron/perf/test_sha)
@@ -418,6 +325,7 @@ jobs:
 
   - job: release
     dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
+    # need to check for master because file also runs on release/x.y branches
     condition: and(succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
@@ -813,85 +721,3 @@ jobs:
           # value or empty string, but not $(Azure.Variable.Name)).
           PR_NUM: $(pr.num)
           PR_BRANCH: $(pr.branch)
-
-  - job: notify_release_pr
-    condition: and(not(canceled()),
-                   startsWith(variables['Build.SourceBranchName'], 'auto-release-pr-'),
-                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
-    dependsOn:
-      - git_sha
-      - collect_build_data
-      - check_for_release
-    pool:
-      name: 'linux-pool'
-      demands: assignment -equals default
-    variables:
-      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
-      status: $[ dependencies.collect_build_data.result ]
-      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
-    steps:
-      - checkout: self
-        persistCredentials: true
-      - template: ci/bash-lib.yml
-        parameters:
-          var_name: bash-lib
-      - bash: |
-          set -euo pipefail
-
-          source $(bash-lib)
-
-          AUTH="$(get_gh_auth_header)"
-          PR=$(curl -H "$AUTH" \
-                    -H "Accept: application/vnd.github.groot-preview+json" \
-                    -s -f \
-                    "https://api.github.com/repos/digital-asset/daml/commits/$(git rev-parse HEAD)/pulls" \
-               | jq '.[0].number' \
-               || echo "")
-          # Note: if we somehow fail to resolve the PR number from the GitHub
-          # API, there is still value in getting the notification on Slack, as
-          # we do have the build number and from there we can click through to
-          # the PR. Hence the `|| echo ""`.
-          PR_HANDLER=$(head -1 release/rotation | awk '{print $1}')
-
-          case "$(status)" in
-            Succeeded*)
-              msg="has succeeded! Next step is to approve & merge."
-              ;;
-            Failed*)
-              msg="has failed. Please investigate."
-              ;;
-            *)
-              # Should not be reached, but who knows?
-              msg="has completed with status $(status). See <https://github.com/digital-asset/daml/blob/master/release/RELEASE.md|RELEASE.md> for what to do next."
-              ;;
-            esac
-          tell_slack "<@${PR_HANDLER}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/${PR}|#${PR}> $msg"
-
-  - job: notify_user
-    condition: and(eq(variables['Build.Reason'], 'PullRequest'), not(canceled()))
-    dependsOn:
-      - git_sha
-      - collect_build_data
-      - check_for_release
-      - check_changelog_entry
-    pool:
-      name: 'linux-pool'
-      demands: assignment -equals default
-    variables:
-      pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
-      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
-      build_status: $[ dependencies.collect_build_data.result ]
-      changelog_status: $[ dependencies.check_changelog_entry.result ]
-    steps:
-      - template: ci/bash-lib.yml
-        parameters:
-          var_name: bash-lib
-      - bash: |
-          set -euo pipefail
-          source $(bash-lib)
-
-          user=$(user_slack_handle $(branch_sha))
-          if [ "$user" != "" ]; then
-              tell_slack "<@${user}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has completed with status $(build_status) (changelog: $(changelog_status))." \
-                         "$(Slack.team-daml-ci)"
-          fi
