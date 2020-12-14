@@ -255,7 +255,7 @@ jobs:
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
-          DAML_SCALA_VERSION=2.13.3 bazel test //libs-scala/ports/...
+          bazel test --config scala_2_13 //libs-scala/ports/...
         displayName: 'Build'
         env:
           DAML_SDK_RELEASE_VERSION: $(release_tag)

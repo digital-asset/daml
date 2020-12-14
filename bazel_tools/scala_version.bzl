@@ -12,7 +12,6 @@ def _impl(ctx):
     version = ctx.os.environ.get("DAML_SCALA_VERSION", default = "2.12.12")
     suffix = version.replace(".", "_")
 
-    last_dot = version.rfind(".")
     major = version[:version.rfind(".")]
     major_suffix = major.replace(".", "_")
     ctx.file(
