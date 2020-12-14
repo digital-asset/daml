@@ -77,10 +77,13 @@ abstract class Reader[+Pkg] {
     val majorVersion = readArchiveVersion(lf)
     val minorVersion = lf.getMinor
     val version =
-      LanguageVersion(majorVersion, LanguageVersion.Minor fromProtoIdentifier minorVersion)
+      LanguageVersion(majorVersion, LanguageVersion.Minor(minorVersion))
     if (!(majorVersion supportsMinorVersion minorVersion)) {
+      val supportedVersions =
+        majorVersion.acceptedVersions.map(v => s"$majorVersion.${v.identifier}")
       throw ParseError(
-        s"LF file $majorVersion.$minorVersion unsupported; maximum supported $majorVersion.x is $majorVersion.${majorVersion.maxSupportedStableMinorVersion.toProtoIdentifier: String}")
+        s"LF $majorVersion.$minorVersion unsupported. Supported LF versions are ${supportedVersions
+          .mkString(",")}")
     }
     (readArchivePayloadOfVersion(hash, lf, version), majorVersion)
   }

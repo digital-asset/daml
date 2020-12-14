@@ -9,11 +9,12 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Transaction => Tx}
+import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
-import com.daml.lf.speedy.Speedy.{OnLedger, OffLedger}
+import com.daml.lf.speedy.Speedy.{OffLedger, OnLedger}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.value.Value
 
 private case class SRunnerException(err: SError) extends RuntimeException(err.toString)
 
@@ -71,33 +72,35 @@ final case class ScenarioRunner(
           crash(s"package $pkgId not found")
 
         case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
-          lookupContractUnsafe(coid, committers, cbMissing, cbPresent)
+          // We never have readAs parties in scenarios.
+          lookupContractUnsafe(coid, committers, Set.empty, cbMissing, cbPresent)
 
         case SResultNeedTime(callback) =>
           callback(ledger.currentTime)
 
         case SResultScenarioMustFail(tx, committers, callback) =>
-          mustFail(tx, committers)
+          // We never have readAs parties in scenarios.
+          mustFail(tx, committers, Set.empty)
           callback(())
 
         case SResultScenarioCommit(value, tx, committers, callback) =>
-          commit(value, tx, committers, callback)
+          // We never have readAs parties in scenarios.
+          commit(value, tx, committers, Set.empty, callback)
 
         case SResultScenarioPassTime(delta, callback) =>
           passTime(delta, callback)
 
         case SResultScenarioInsertMustFail(committers, optLocation) => {
-          val committer =
-            if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
-
-          ledger = ledger.insertAssertMustFail(committer, optLocation)
+          // We never have readAs parties in scenarios.
+          ledger = ledger.insertAssertMustFail(committers, Set.empty, optLocation)
         }
 
         case SResultScenarioGetParty(partyText, callback) =>
           getParty(partyText, callback)
 
         case SResultNeedKey(keyWithMaintainers, committers, cb) =>
-          lookupKeyUnsafe(keyWithMaintainers.globalKey, committers, cb)
+          // We never have readAs parties in scenarios.
+          lookupKeyUnsafe(keyWithMaintainers.globalKey, committers, Set.empty, cb)
       }
     }
     val endTime = System.nanoTime()
@@ -116,15 +119,13 @@ final case class ScenarioRunner(
     }
   }
 
-  private def mustFail(tx: SubmittedTransaction, committers: Set[Party]) = {
+  private def mustFail(tx: SubmittedTransaction, actAs: Set[Party], readAs: Set[Party]) = {
     // Update expression evaluated successfully,
     // however we might still have an authorization failure.
-    val committer =
-      if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
-
     if (ScenarioLedger
         .commitTransaction(
-          committer = committer,
+          actAs = actAs,
+          readAs = readAs,
           effectiveAt = ledger.currentTime,
           optLocation = onLedger.commitLocation,
           tx = tx,
@@ -132,19 +133,18 @@ final case class ScenarioRunner(
         .isRight) {
       throw SRunnerException(ScenarioErrorMustFailSucceeded(tx))
     }
-    ledger = ledger.insertAssertMustFail(committer, onLedger.commitLocation)
+    ledger = ledger.insertAssertMustFail(actAs, readAs, onLedger.commitLocation)
   }
 
   private def commit(
       value: SValue,
       tx: SubmittedTransaction,
-      committers: Set[Party],
+      actAs: Set[Party],
+      readAs: Set[Party],
       callback: SValue => Unit) = {
-    val committer =
-      if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
-
     ScenarioLedger.commitTransaction(
-      committer = committer,
+      actAs = actAs,
+      readAs = readAs,
       effectiveAt = ledger.currentTime,
       optLocation = onLedger.commitLocation,
       tx = tx,
@@ -165,20 +165,20 @@ final case class ScenarioRunner(
 
   private[lf] def lookupContract(
       acoid: ContractId,
-      committers: Set[Party],
+      actAs: Set[Party],
+      readAs: Set[Party],
       cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Tx.Value[ContractId]] => Unit): Either[SError, Unit] =
-    handleUnsafe(lookupContractUnsafe(acoid, committers, cbMissing, cbPresent))
+      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit): Either[SError, Unit] =
+    handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, cbMissing, cbPresent))
 
   private def lookupContractUnsafe(
       acoid: ContractId,
-      committers: Set[Party],
+      actAs: Set[Party],
+      readAs: Set[Party],
       cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Tx.Value[ContractId]] => Unit) = {
+      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+  ) = {
 
-    // Once we support multi-party reads, we can drop this restriction.
-    val committer =
-      if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
     val effectiveAt = ledger.currentTime
 
     def missingWith(err: SError) =
@@ -186,7 +186,7 @@ final case class ScenarioRunner(
         throw SRunnerException(err)
 
     ledger.lookupGlobalContract(
-      view = ScenarioLedger.ParticipantView(Set(committer)),
+      view = ScenarioLedger.ParticipantView(actAs, readAs),
       effectiveAt = effectiveAt,
       acoid) match {
       case ScenarioLedger.LookupOk(_, coinst, _) =>
@@ -204,26 +204,26 @@ final case class ScenarioRunner(
         missingWith(ScenarioErrorContractNotActive(coid, tid, consumedBy))
 
       case ScenarioLedger.LookupContractNotVisible(coid, tid, observers, stakeholders @ _) =>
-        missingWith(ScenarioErrorContractNotVisible(coid, tid, committer, observers))
+        missingWith(ScenarioErrorContractNotVisible(coid, tid, actAs, readAs, observers))
     }
   }
 
   private[lf] def lookupKey(
       gk: GlobalKey,
-      committers: Set[Party],
+      actAs: Set[Party],
+      readAs: Set[Party],
       canContinue: SKeyLookupResult => Boolean,
   ): Either[SError, Unit] =
-    handleUnsafe(lookupKeyUnsafe(gk, committers, canContinue))
+    handleUnsafe(lookupKeyUnsafe(gk, actAs, readAs, canContinue))
 
   private def lookupKeyUnsafe(
       gk: GlobalKey,
-      committers: Set[Party],
+      actAs: Set[Party],
+      readAs: Set[Party],
       canContinue: SKeyLookupResult => Boolean,
   ): Unit = {
-    // Once we support multi-party reads, we can drop this restriction.
-    val committer =
-      if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
     val effectiveAt = ledger.currentTime
+    val readers = actAs union readAs
 
     def missingWith(err: SError) =
       if (!canContinue(SKeyLookupResult.NotFound))
@@ -238,16 +238,17 @@ final case class ScenarioRunner(
         missingWith(SErrorCrash(s"Key $gk not found"))
       case Some(acoid) =>
         ledger.lookupGlobalContract(
-          view = ScenarioLedger.ParticipantView(Set(committer)),
+          view = ScenarioLedger.ParticipantView(actAs, readAs),
           effectiveAt = effectiveAt,
           acoid) match {
           case ScenarioLedger.LookupOk(_, _, stakeholders) =>
-            if (stakeholders.contains(committer))
+            if (!readers.intersect(stakeholders).isEmpty)
               // We should always be able to continue with a SKeyLookupResult.Found.
               // Run to get side effects and assert result.
               assert(canContinue(SKeyLookupResult.Found(acoid)))
             else
-              notVisibleWith(ScenarioErrorContractKeyNotVisible(acoid, gk, committer, stakeholders))
+              notVisibleWith(
+                ScenarioErrorContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders))
           case ScenarioLedger.LookupContractNotFound(coid) =>
             missingWith(SErrorCrash(s"contract $coid not found, but we found its key!"))
           case ScenarioLedger.LookupContractNotEffective(_, _, _) =>
@@ -260,14 +261,11 @@ final case class ScenarioRunner(
               observers @ _,
               stakeholders,
               ) =>
-            notVisibleWith(ScenarioErrorContractKeyNotVisible(coid, gk, committer, stakeholders))
+            notVisibleWith(
+              ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders))
         }
     }
   }
-
-  private def crashTooManyCommitters(committers: Set[Party]) =
-    crash(s"Expecting one committer for scenario action, but got $committers")
-
 }
 
 object ScenarioRunner {

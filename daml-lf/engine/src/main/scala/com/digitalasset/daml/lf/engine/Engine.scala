@@ -87,6 +87,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     * The resulting transaction is annotated with packages required to validate it.
     */
   def submit(
+      submitters: Set[Party],
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
@@ -98,7 +99,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         case (processedCmds, globalCids) =>
           interpretCommands(
             validating = false,
-            submitters = cmds.submitters,
+            submitters = submitters,
             commands = processedCmds,
             ledgerTime = cmds.ledgerEffectiveTime,
             submissionTime = submissionTime,
@@ -137,7 +138,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     */
   def reinterpret(
       submitters: Set[Party],
-      node: GenNode.WithTxValue[NodeId, Value.ContractId],
+      node: GenNode[NodeId, Value.ContractId],
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
@@ -466,11 +467,11 @@ object Engine {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
-        case create: NodeCreate[_, _] => makeDesc("create", create.coinst.template, None)
-        case exercise: NodeExercises[_, _, _] =>
+        case create: NodeCreate[_] => makeDesc("create", create.coinst.template, None)
+        case exercise: NodeExercises[_, _] =>
           makeDesc("exercise", exercise.templateId, Some(exercise.choiceId.toString))
-        case fetch: NodeFetch[_, _] => makeDesc("fetch", fetch.templateId, None)
-        case lookup: NodeLookupByKey[_, _] => makeDesc("lookup", lookup.templateId, None)
+        case fetch: NodeFetch[_] => makeDesc("fetch", fetch.templateId, None)
+        case lookup: NodeLookupByKey[_] => makeDesc("lookup", lookup.templateId, None)
       }
     } else {
       s"compound:${tx.roots.length}"

@@ -482,7 +482,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
     inside(updates) {
       case Seq(update: Update.TransactionAccepted) =>
         inside(update.transaction.nodes.values.toSeq) {
-          case Seq(create: NodeCreate[ContractId, _]) =>
+          case Seq(create: NodeCreate[ContractId]) =>
             create.coid
         }
     }

@@ -14,6 +14,7 @@ import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.testing.parser.{ParserParameters, parseModules}
 import com.daml.lf.validation.Validation
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 import scala.collection.breakOut
 import scala.io.Source
@@ -59,8 +60,7 @@ private[daml] object DamlLfEncoder extends App {
     val modules = parseModules[this.type](source).fold(error, identity)
 
     val metadata =
-      if (LanguageVersion.ordering
-          .gteq(parserParameters.languageVersion, LanguageVersion.Features.packageMetadata)) {
+      if (parserParameters.languageVersion >= LanguageVersion.Features.packageMetadata) {
         Some(
           Ast.PackageMetadata(
             Ref.PackageName.assertFromString("encoder_binary"),
@@ -135,7 +135,7 @@ private[daml] object DamlLfEncoder extends App {
     version.split("""\.""").toSeq match {
       case Seq("1", minor)
           if LanguageMajorVersion.V1.supportsMinorVersion(minor) || minor == "dev" =>
-        LanguageVersion(LanguageMajorVersion.V1, minor)
+        LanguageVersion(LanguageMajorVersion.V1, LanguageVersion.Minor(minor))
       case _ =>
         error(s"version '$version' not supported")
     }

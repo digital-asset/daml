@@ -22,11 +22,11 @@ package object events {
 
   import com.daml.lf.{transaction => lftx}
   private[events] type NodeId = lftx.NodeId
-  private[events] type Node = lftx.Node.GenNode.WithTxValue[NodeId, ContractId]
-  private[events] type Create = lftx.Node.NodeCreate.WithTxValue[ContractId]
-  private[events] type Exercise = lftx.Node.NodeExercises.WithTxValue[NodeId, ContractId]
-  private[events] type Fetch = lftx.Node.NodeFetch.WithTxValue[ContractId]
-  private[events] type LookupByKey = lftx.Node.NodeLookupByKey.WithTxValue[ContractId]
+  private[events] type Node = lftx.Node.GenNode[NodeId, ContractId]
+  private[events] type Create = lftx.Node.NodeCreate[ContractId]
+  private[events] type Exercise = lftx.Node.NodeExercises[NodeId, ContractId]
+  private[events] type Fetch = lftx.Node.NodeFetch[ContractId]
+  private[events] type LookupByKey = lftx.Node.NodeLookupByKey[ContractId]
   private[events] type Key = lftx.GlobalKey
   private[events] val Key = lftx.GlobalKey
 

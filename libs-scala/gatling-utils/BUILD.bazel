@@ -16,7 +16,7 @@ da_scala_library(
     name = "gatling-utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     scalacopts = scalacopts,
     tags = ["maven_coordinates=com.daml:gatling-utils:__VERSION__"],
@@ -48,7 +48,7 @@ da_scala_test(
         ":test-simulation-logs",
     ],
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     scalacopts = scalacopts,
     deps = [

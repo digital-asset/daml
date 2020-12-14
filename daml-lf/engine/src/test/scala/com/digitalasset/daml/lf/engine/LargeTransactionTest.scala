@@ -185,9 +185,9 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       exerciseCmdTx: Transaction,
       expectedNumberOfContracts: Int): Assertion = {
 
-    val newContracts: List[N.GenNode.WithTxValue[NodeId, Value.ContractId]] =
+    val newContracts: List[N.GenNode[NodeId, Value.ContractId]] =
       firstRootNode(exerciseCmdTx) match {
-        case ne: N.NodeExercises[_, _, _] => ne.children.toList.map(nid => exerciseCmdTx.nodes(nid))
+        case ne: N.NodeExercises[_, _] => ne.children.toList.map(nid => exerciseCmdTx.nodes(nid))
         case n @ _ => fail(s"Unexpected match: $n")
       }
 
@@ -205,7 +205,8 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
   ): Tx.Transaction = {
     engine
       .submit(
-        Commands(Set(submitter), ImmArray(cmd), Time.Timestamp.now(), cmdReference),
+        submitters = Set(submitter),
+        Commands(ImmArray(cmd), Time.Timestamp.now(), cmdReference),
         participant,
         seed,
       )
@@ -285,11 +286,11 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       exerciseCmdTx: Transaction,
       fieldName: String): Value[ContractId] = {
 
-    val contractInst: ContractInst[Tx.Value[ContractId]] =
+    val contractInst: ContractInst[Value[ContractId]] =
       extractResultFromExerciseTransaction(exerciseCmdTx)
 
     val fields: ImmArray[(Option[String], Value[ContractId])] =
-      contractInst.arg.value match {
+      contractInst.arg match {
         case ValueRecord(_, x: ImmArray[_]) => x
         case v @ _ => fail(s"Unexpected match: $v")
       }
@@ -306,13 +307,13 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
 
   private def extractResultFromExerciseTransaction(
       exerciseCmdTx: Transaction,
-  ): ContractInst[Tx.Value[ContractId]] = {
+  ): ContractInst[Value[ContractId]] = {
 
     exerciseCmdTx.roots.length shouldBe 1
     exerciseCmdTx.nodes.size shouldBe 2
 
-    val createNode: N.GenNode.WithTxValue[NodeId, ContractId] = firstRootNode(exerciseCmdTx) match {
-      case ne: N.NodeExercises[_, _, _] => exerciseCmdTx.nodes(ne.children.head)
+    val createNode: N.GenNode[NodeId, ContractId] = firstRootNode(exerciseCmdTx) match {
+      case ne: N.NodeExercises[_, _] => exerciseCmdTx.nodes(ne.children.head)
       case n @ _ => fail(s"Unexpected match: $n")
     }
 

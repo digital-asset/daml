@@ -21,6 +21,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator
 import com.daml.ledger.validator.SubmissionValidator.LogEntryAndState
 import com.daml.ledger.validator._
+import com.daml.ledger.validator.reading.DamlLedgerStateReader
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -115,7 +116,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       recordTimeInstant: Instant,
       participantId: ParticipantId,
       ledgerStateReader: DamlLedgerStateReader,
-      commitStrategy: CommitStrategy[CommitResult]
+      commitStrategy: CommitStrategy[CommitResult],
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] =
     withCorrelationIdLogged(correlationId) { implicit loggingContext =>
       val recordTime = Time.Timestamp.assertFromInstant(recordTimeInstant)
@@ -333,7 +334,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
         metrics.fetchInputs,
         metrics.fetchInputsRunning,
         ledgerStateReader
-          .readState(inputKeys)
+          .read(inputKeys)
           .map { values =>
             (correlatedSubmission, inputKeys.zip(values).toMap)
           }

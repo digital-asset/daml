@@ -98,7 +98,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
               }
 
             node match {
-              case nf: N.NodeFetch.WithTxValue[ContractId] =>
+              case nf: N.NodeFetch[ContractId] =>
                 val nodeParties = nf.signatories
                   .union(nf.stakeholders)
                   .union(nf.actingParties)
@@ -108,7 +108,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                   parties.union(nodeParties),
                   archivedIds
                 )
-              case nc: N.NodeCreate.WithTxValue[ContractId] =>
+              case nc: N.NodeCreate[ContractId] =>
                 val nodeParties = nc.signatories
                   .union(nc.stakeholders)
                   .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
@@ -118,12 +118,12 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                   transactionId = transactionId,
                   nodeId = nodeId,
                   workflowId = workflowId,
-                  contract = nc.coinst,
+                  contract = nc.versionedCoinst,
                   witnesses = disclosure(nodeId),
                   // A contract starts its life without being divulged at all.
                   divulgences = Map.empty,
-                  key =
-                    nc.key.map(_.assertNoCid(coid => s"Contract ID $coid found in contract key")),
+                  key = nc.versionedKey.map(_.assertNoCid(coid =>
+                    s"Contract ID $coid found in contract key")),
                   signatories = nc.signatories,
                   observers = nc.stakeholders.diff(nc.signatories),
                   agreementText = nc.coinst.agreementText
@@ -148,7 +148,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                       )
                     }
                 }
-              case ne: N.NodeExercises.WithTxValue[_, ContractId] =>
+              case ne: N.NodeExercises[_, ContractId] =>
                 val nodeParties = ne.signatories
                   .union(ne.stakeholders)
                   .union(ne.actingParties)
@@ -162,14 +162,14 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                   parties = parties.union(nodeParties),
                   archivedIds = if (ne.consuming) archivedIds + ne.targetCoid else archivedIds
                 )
-              case nlkup: N.NodeLookupByKey.WithTxValue[ContractId] =>
+              case nlkup: N.NodeLookupByKey[ContractId] =>
                 // Check that the stored lookup result matches the current result
                 val key = nlkup.key.key.ensureNoCid.fold(
                   coid =>
                     throw new IllegalStateException(s"Contract ID $coid found in contract key"),
                   identity
                 )
-                val gk = GlobalKey(nlkup.templateId, key.value)
+                val gk = GlobalKey(nlkup.templateId, key)
                 val nodeParties = nlkup.key.maintainers
 
                 if (actAs.nonEmpty) {

@@ -61,14 +61,11 @@ object EngineConfig {
     * language and transaction.
     */
   val Lenient: EngineConfig = new EngineConfig(
-    allowedLanguageVersions = transaction.VersionTimeline.stableLanguageVersions,
+    allowedLanguageVersions = LanguageVersion.StableVersions
   )
 
   private[this] def toDev(config: EngineConfig): EngineConfig =
-    config.copy(
-      allowedLanguageVersions = config.allowedLanguageVersions.copy(
-        max = LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor.Dev)),
-    )
+    config.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
 
   /**
     * Recommended production configuration.

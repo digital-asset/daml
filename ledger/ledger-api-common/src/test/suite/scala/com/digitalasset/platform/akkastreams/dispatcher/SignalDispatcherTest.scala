@@ -58,7 +58,7 @@ class SignalDispatcherTest
       s.cancel()
       await("Cancellation handling")
         .atMost(Duration.TEN_SECONDS)
-        .until(() => new lang.Boolean(sut.getRunningState.isEmpty))
+        .until(() => lang.Boolean.valueOf(sut.getRunningState.isEmpty))
       sut.getRunningState shouldBe empty
     }
 

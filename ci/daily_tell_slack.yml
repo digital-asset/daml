@@ -16,11 +16,6 @@ steps:
         MESSAGE="${{ parameters['success-message'] }}"
     fi
     PAYLOAD="{\"text\":$MESSAGE}"
-    echo curl -XPOST \
-              -i \
-              -H 'Content-type: application/json' \
-              --data "$PAYLOAD" \
-              Slack.team-daml
     if [ "$(Build.SourceBranchName)" = "master" ]; then
         curl -XPOST \
              -i \

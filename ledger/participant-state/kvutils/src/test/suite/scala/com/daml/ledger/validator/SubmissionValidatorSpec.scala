@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.validator.ArgumentMatchers.anyExecutionContext
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.SubmissionValidator.RawKeyValuePairs
 import com.daml.ledger.validator.SubmissionValidatorSpec._
@@ -291,11 +292,7 @@ class SubmissionValidatorSpec
 }
 
 object SubmissionValidatorSpec {
-
-  import ArgumentMatchersSugar._
   import MockitoSugar._
-
-  private def anyExecutionContext = any[ExecutionContext]
 
   private def aLogEntry(): DamlLogEntry =
     DamlLogEntry

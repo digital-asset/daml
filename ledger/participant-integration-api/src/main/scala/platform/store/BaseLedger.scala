@@ -51,10 +51,10 @@ private[platform] abstract class BaseLedger(
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
-  override def lookupKey(key: GlobalKey, forParty: Party)(
+  override def lookupKey(key: GlobalKey, forParties: Set[Party])(
       implicit loggingContext: LoggingContext,
   ): Future[Option[ContractId]] =
-    ledgerDao.lookupKey(key, forParty)
+    ledgerDao.lookupKey(key, forParties)
 
   override def flatTransactions(
       startExclusive: Option[Offset],
@@ -107,10 +107,10 @@ private[platform] abstract class BaseLedger(
 
   override def lookupContract(
       contractId: ContractId,
-      forParty: Party
+      forParties: Set[Party]
   )(implicit loggingContext: LoggingContext)
     : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
-    ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty)
+    ledgerDao.lookupActiveOrDivulgedContract(contractId, forParties)
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,

@@ -67,7 +67,7 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
 
   def lookupContract(
       contractId: Value.ContractId,
-      forParty: Party
+      forParties: Set[Party]
   )(implicit loggingContext: LoggingContext)
     : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
 
@@ -75,7 +75,7 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       contractIds: Set[ContractId],
   )(implicit loggingContext: LoggingContext): Future[Option[Instant]]
 
-  def lookupKey(key: GlobalKey, forParty: Party)(
+  def lookupKey(key: GlobalKey, forParties: Set[Party])(
       implicit loggingContext: LoggingContext,
   ): Future[Option[ContractId]]
 

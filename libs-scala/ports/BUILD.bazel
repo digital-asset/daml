@@ -10,20 +10,25 @@ load(
 da_scala_library(
     name = "ports",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     tags = ["maven_coordinates=com.daml:ports:__VERSION__"],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     visibility = [
         "//visibility:public",
-    ],
-    deps = [
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
 da_scala_test(
     name = "ports-tests",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     deps = [
         ":ports",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

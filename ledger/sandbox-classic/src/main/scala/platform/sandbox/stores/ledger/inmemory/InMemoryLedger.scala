@@ -228,21 +228,21 @@ private[sandbox] final class InMemoryLedger(
 
   override def lookupContract(
       contractId: ContractId,
-      forParty: Party
+      forParties: Set[Party],
   )(implicit loggingContext: LoggingContext)
     : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     Future.successful(this.synchronized {
       acs.activeContracts
         .get(contractId)
-        .filter(ac => acs.isVisibleForDivulgees(ac.id, forParty))
+        .filter(ac => acs.isVisibleForDivulgees(ac.id, forParties))
         .map(_.contract)
     })
 
-  override def lookupKey(key: GlobalKey, forParty: Party)(
+  override def lookupKey(key: GlobalKey, forParties: Set[Party])(
       implicit loggingContext: LoggingContext,
   ): Future[Option[ContractId]] =
     Future.successful(this.synchronized {
-      acs.keys.get(key).filter(acs.isVisibleForStakeholders(_, forParty))
+      acs.keys.get(key).filter(acs.isVisibleForStakeholders(_, forParties))
     })
 
   override def lookupMaximumLedgerTime(contractIds: Set[ContractId])(

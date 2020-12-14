@@ -19,6 +19,8 @@ import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueParty, ValueUnit}
 
+import scala.Ordering.Implicits.infixOrderingOps
+
 class SimplePackage(additionalContractDataType: String) {
   val damlPackageWithContractData: Ast.Package =
     p"""
@@ -79,13 +81,13 @@ class SimplePackage(additionalContractDataType: String) {
     defaultParserParameters.defaultPackageId
 
   val decodedPackage: Ast.Package = {
-    val metadata = if (LanguageVersion.ordering
-        .gteq(defaultParserParameters.languageVersion, LanguageVersion.Features.packageMetadata)) {
-      Some(
-        Ast.PackageMetadata(
-          Ref.PackageName.assertFromString("kvutils-tests"),
-          Ref.PackageVersion.assertFromString("1.0.0")))
-    } else None
+    val metadata =
+      if (defaultParserParameters.languageVersion >= LanguageVersion.Features.packageMetadata) {
+        Some(
+          Ast.PackageMetadata(
+            Ref.PackageName.assertFromString("kvutils-tests"),
+            Ref.PackageVersion.assertFromString("1.0.0")))
+      } else None
     damlPackageWithContractData.copy(metadata = metadata)
   }
 

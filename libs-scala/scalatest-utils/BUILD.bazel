@@ -12,7 +12,7 @@ da_scala_library(
     name = "scalatest-utils",
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:scalatest-utils:__VERSION__"],

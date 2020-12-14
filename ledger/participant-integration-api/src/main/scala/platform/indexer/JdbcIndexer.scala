@@ -3,6 +3,8 @@
 
 package com.daml.platform.indexer
 
+import java.util.concurrent.atomic.AtomicReference
+
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Flow, Keep, Sink}
@@ -22,6 +24,7 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer.OffsetUpdate.OffsetStepUpdatePair
 import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao, PersistenceResponse}
@@ -63,10 +66,7 @@ object JdbcIndexer {
           config.eventsPageSize,
           metrics,
           lfValueTranslationCache,
-          /* There is currently a corner-case which affects durability
-           * guarantees when performing async commits. This feature
-           * will be disabled until the mitigation is merged. */
-          jdbcAsyncCommits = false,
+          jdbcAsyncCommits = true,
         )
         _ <- ResourceOwner.forFuture(() => ledgerDao.reset())
         initialLedgerEnd <- initializeLedger(ledgerDao)
@@ -80,7 +80,7 @@ object JdbcIndexer {
           config.eventsPageSize,
           metrics,
           lfValueTranslationCache,
-          jdbcAsyncCommits = false,
+          jdbcAsyncCommits = true,
         )
         initialLedgerEnd <- initializeLedger(ledgerDao)
       } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics)
@@ -237,45 +237,45 @@ private[daml] class JdbcIndexer private[indexer] (
     new SubscriptionResourceOwner(readService)
 
   private def handleStateUpdate(
-      implicit loggingContext: LoggingContext): Flow[(Offset, Update), Unit, NotUsed] =
-    Flow[(Offset, Update)]
-      .wireTap(Sink.foreach[(Offset, Update)] {
-        case (offset, update) =>
+      implicit loggingContext: LoggingContext): Flow[OffsetUpdate, Unit, NotUsed] =
+    Flow[OffsetUpdate]
+      .wireTap(Sink.foreach[OffsetUpdate] {
+        case OffsetUpdate(offsetStep, update) =>
           val lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
 
           logger.trace(update.description)
 
           metrics.daml.indexer.lastReceivedRecordTime.updateValue(lastReceivedRecordTime)
-          metrics.daml.indexer.lastReceivedOffset.updateValue(offset.toApiString)
+          metrics.daml.indexer.lastReceivedOffset.updateValue(offsetStep.offset.toApiString)
       })
-      .mapAsync(1)((prepareTransactionInsert _).tupled)
+      .mapAsync(1)(prepareTransactionInsert)
       .mapAsync(1) {
-        case kvUpdate @ OffsetUpdate(offset, update) =>
-          withEnrichedLoggingContext(JdbcIndexer.loggingContextFor(offset, update)) {
+        case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
+          withEnrichedLoggingContext(JdbcIndexer.loggingContextFor(offsetStep.offset, update)) {
             implicit loggingContext =>
               Timed.future(
                 metrics.daml.indexer.stateUpdateProcessing,
-                executeUpdate(kvUpdate),
+                executeUpdate(offsetUpdate),
               )
           }
       }
       .map(_ => ())
 
-  private def prepareTransactionInsert(offset: Offset, update: Update): Future[OffsetUpdate] =
-    update match {
-      case tx: TransactionAccepted =>
+  private def prepareTransactionInsert(offsetUpdate: OffsetUpdate): Future[OffsetUpdate] =
+    offsetUpdate match {
+      case OffsetStepUpdatePair(offsetStep, tx: TransactionAccepted) =>
         Timed.future(
           metrics.daml.index.db.storeTransactionDbMetrics.prepareBatches,
           Future {
             OffsetUpdate.PreparedTransactionInsert(
-              offset = offset,
+              offsetStep = offsetStep,
               update = tx,
               preparedInsert = ledgerDao.prepareTransactionInsert(
                 submitterInfo = tx.optSubmitterInfo,
                 workflowId = tx.transactionMeta.workflowId,
                 transactionId = tx.transactionId,
                 ledgerEffectiveTime = tx.transactionMeta.ledgerEffectiveTime.toInstant,
-                offset = offset,
+                offset = offsetStep.offset,
                 transaction = tx.transaction,
                 divulgedContracts = tx.divulgedContracts,
                 blindingInfo = tx.blindingInfo,
@@ -283,14 +283,14 @@ private[daml] class JdbcIndexer private[indexer] (
             )
           }(mat.executionContext)
         )
-      case update => Future.successful(OffsetUpdate.OffsetUpdatePair(offset, update))
+      case offsetUpdate => Future.successful(offsetUpdate)
     }
 
   private def executeUpdate(offsetUpdate: OffsetUpdate)(
       implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     offsetUpdate match {
       case OffsetUpdate.PreparedTransactionInsert(
-          offset,
+          offsetStep,
           TransactionAccepted(
             optSubmitterInfo,
             transactionMeta,
@@ -307,12 +307,12 @@ private[daml] class JdbcIndexer private[indexer] (
           transactionId = transactionId,
           recordTime = recordTime.toInstant,
           ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-          offset = offset,
+          offsetStep = offsetStep,
           transaction = transaction,
           divulged = divulgedContracts,
           blindingInfo = blindingInfo,
         )
-      case OffsetUpdate.OffsetUpdatePair(offset, update) =>
+      case OffsetUpdate.OffsetStepUpdatePair(offsetStep, update) =>
         update match {
           case PartyAddedToParticipant(
               party,
@@ -326,7 +326,7 @@ private[daml] class JdbcIndexer private[indexer] (
               recordTime.toInstant,
               domain.PartyDetails(party, Some(displayName), participantId == hostingParticipantId)
             )
-            ledgerDao.storePartyEntry(offset, entry)
+            ledgerDao.storePartyEntry(offsetStep, entry)
 
           case PartyAllocationRejected(
               submissionId,
@@ -339,7 +339,7 @@ private[daml] class JdbcIndexer private[indexer] (
               recordTime.toInstant,
               rejectionReason,
             )
-            ledgerDao.storePartyEntry(offset, entry)
+            ledgerDao.storePartyEntry(offsetStep, entry)
 
           case PublicPackageUpload(archives, optSourceDescription, recordTime, optSubmissionId) =>
             val recordTimeInstant = recordTime.toInstant
@@ -353,7 +353,7 @@ private[daml] class JdbcIndexer private[indexer] (
             val optEntry: Option[PackageLedgerEntry] =
               optSubmissionId.map(submissionId =>
                 PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTimeInstant))
-            ledgerDao.storePackageEntry(offset, packages, optEntry)
+            ledgerDao.storePackageEntry(offsetStep, packages, optEntry)
 
           case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
             val entry = PackageLedgerEntry.PackageUploadRejected(
@@ -361,11 +361,11 @@ private[daml] class JdbcIndexer private[indexer] (
               recordTime.toInstant,
               rejectionReason,
             )
-            ledgerDao.storePackageEntry(offset, List.empty, Some(entry))
+            ledgerDao.storePackageEntry(offsetStep, List.empty, Some(entry))
 
           case config: ConfigurationChanged =>
             ledgerDao.storeConfigurationEntry(
-              offset,
+              offsetStep,
               config.recordTime.toInstant,
               config.submissionId,
               config.newConfiguration,
@@ -374,7 +374,7 @@ private[daml] class JdbcIndexer private[indexer] (
 
           case configRejection: ConfigurationChangeRejected =>
             ledgerDao.storeConfigurationEntry(
-              offset,
+              offsetStep,
               configRejection.recordTime.toInstant,
               configRejection.submissionId,
               configRejection.proposedConfiguration,
@@ -382,7 +382,7 @@ private[daml] class JdbcIndexer private[indexer] (
             )
 
           case CommandRejected(recordTime, submitterInfo, reason) =>
-            ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offset, reason)
+            ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offsetStep, reason)
           case update: TransactionAccepted =>
             import update._
             logger.warn(
@@ -394,7 +394,7 @@ private[daml] class JdbcIndexer private[indexer] (
                 workflowId = transactionMeta.workflowId,
                 transactionId = transactionId,
                 ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-                offset = offset,
+                offset = offsetStep.offset,
                 transaction = transaction,
                 divulgedContracts = divulgedContracts,
                 blindingInfo = blindingInfo,
@@ -403,13 +403,35 @@ private[daml] class JdbcIndexer private[indexer] (
               transactionId = transactionId,
               recordTime = recordTime.toInstant,
               ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-              offset = offset,
+              offsetStep = offsetStep,
               transaction = transaction,
               divulged = divulgedContracts,
               blindingInfo = blindingInfo,
             )
         }
     }
+
+  private def zipWithPreviousOffset(
+      initialOffset: Option[Offset]): Flow[(Offset, Update), OffsetStepUpdatePair, NotUsed] =
+    Flow[(Offset, Update)]
+      .statefulMapConcat { () =>
+        val previousOffsetRef = new AtomicReference(initialOffset)
+
+        { offsetUpdateTuple: (Offset, Update) =>
+          val (nextOffset, update) = offsetUpdateTuple
+          val offsetStep =
+            previousOffsetRef
+              .getAndSet(Some(nextOffset))
+              .map { previousOffset =>
+                IncrementalOffsetStep(previousOffset, nextOffset)
+              }
+              .getOrElse {
+                CurrentOffset(nextOffset)
+              }
+
+          OffsetStepUpdatePair(offsetStep, update) :: Nil
+        }
+      }
 
   private class SubscriptionResourceOwner(
       readService: ReadService,
@@ -420,6 +442,7 @@ private[daml] class JdbcIndexer private[indexer] (
         val (killSwitch, completionFuture) = readService
           .stateUpdates(startExclusive)
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+          .via(zipWithPreviousOffset(startExclusive))
           .via(handleStateUpdate)
           .toMat(Sink.ignore)(Keep.both)
           .run()

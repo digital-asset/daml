@@ -267,7 +267,8 @@ object domain {
       workflowId: Option[WorkflowId],
       applicationId: ApplicationId,
       commandId: CommandId,
-      submitter: Ref.Party,
+      actAs: Set[Ref.Party],
+      readAs: Set[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
       commands: LfCommands)

@@ -208,11 +208,11 @@ private[platform] final class LedgerBackedIndexService(
     ledger.getLfPackage(packageId)
 
   override def lookupActiveContract(
-      submitter: Ref.Party,
+      readers: Set[Party],
       contractId: ContractId,
   )(implicit loggingContext: LoggingContext)
     : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
-    ledger.lookupContract(contractId, submitter)
+    ledger.lookupContract(contractId, readers)
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(
       implicit loggingContext: LoggingContext,
@@ -220,10 +220,10 @@ private[platform] final class LedgerBackedIndexService(
     ledger.lookupMaximumLedgerTime(ids)
 
   override def lookupContractKey(
-      submitter: Party,
+      readers: Set[Party],
       key: GlobalKey,
   )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
-    ledger.lookupKey(key, submitter)
+    ledger.lookupKey(key, readers)
 
   // PartyManagementService
   override def getParticipantId()(implicit loggingContext: LoggingContext): Future[ParticipantId] =

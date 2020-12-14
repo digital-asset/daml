@@ -35,7 +35,7 @@ trait Equalz extends Matchers {
   import Equalz.{LubEqual, XMatcherFactory1, EqualFactory1}
 
   final def equalz[Ex](expected: Ex): EqualFactory1[Ex] =
-    new MatcherFactory1[Ex, LubEqual[Ex, ?]] with XMatcherFactory1[Ex] {
+    new MatcherFactory1[Ex, LubEqual[Ex, *]] with XMatcherFactory1[Ex] {
       type TC[A] = LubEqual[Ex, A]
       override def matcher[T <: Ex](implicit ev: TC[T]): Matcher[T] =
         actual =>
@@ -65,7 +65,7 @@ object Equalz extends Equalz {
     }
   }
 
-  type EqualFactory1[SC] = XMatcherFactory1[SC] with MatcherFactory1[SC, LubEqual[SC, ?]] {
+  type EqualFactory1[SC] = XMatcherFactory1[SC] with MatcherFactory1[SC, LubEqual[SC, *]] {
     type TC[A] = LubEqual[SC, A]
   }
 

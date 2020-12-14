@@ -209,9 +209,7 @@ class ReplService(
   override def runScript(
       req: RunScriptRequest,
       respObs: StreamObserver[RunScriptResponse]): Unit = {
-    val lfVer = LanguageVersion(
-      LanguageVersion.Major.V1,
-      LanguageVersion.Minor fromProtoIdentifier req.getMinor)
+    val lfVer = LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor(req.getMinor))
     val dop: Decode.OfPackage[_] = Decode.decoders
       .lift(lfVer)
       .getOrElse(throw new RuntimeException(s"No decode support for LF ${lfVer.pretty}"))

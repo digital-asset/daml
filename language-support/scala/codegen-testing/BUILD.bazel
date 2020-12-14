@@ -12,7 +12,7 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
         # Plugins have to be specified as JARs.
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     visibility = [
         "//visibility:public",
@@ -44,7 +44,7 @@ da_scala_library(
     srcs = testing_utils,
     plugins = [
         # Plugins have to be specified as JARs.
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     visibility = [
         "//visibility:public",

@@ -27,6 +27,7 @@ import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
+import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.entries.{
@@ -54,7 +55,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def lookupInitialLedgerEnd()(implicit loggingContext: LoggingContext): Future[Option[Offset]]
 
   /** Looks up an active or divulged contract if it is visible for the given party. Archived contracts must not be returned by this method */
-  def lookupActiveOrDivulgedContract(contractId: ContractId, forParty: Party)(
+  def lookupActiveOrDivulgedContract(contractId: ContractId, forParties: Set[Party])(
       implicit loggingContext: LoggingContext,
   ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
 
@@ -80,10 +81,10 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     * Looks up a Contract given a contract key and a party
     *
     * @param key the contract key to query
-    * @param forParty the party for which the contract must be visible
+    * @param forParties a set of parties for one of which the contract must be visible
     * @return the optional ContractId
     */
-  def lookupKey(key: GlobalKey, forParty: Party)(
+  def lookupKey(key: GlobalKey, forParties: Set[Party])(
       implicit loggingContext: LoggingContext,
   ): Future[Option[ContractId]]
 
@@ -207,7 +208,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       transactionId: TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
-      offset: Offset,
+      offsetStep: OffsetStep,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
@@ -216,7 +217,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   def storeRejection(
       submitterInfo: Option[SubmitterInfo],
       recordTime: Instant,
-      offset: Offset,
+      offsetStep: OffsetStep,
       reason: RejectionReason,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
@@ -235,11 +236,11 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   /**
     * Stores a party allocation or rejection thereof.
     *
-    * @param offset       the offset to store the party entry
+    * @param offsetStep  Pair of previous offset and the offset to store the party entry at
     * @param partyEntry  the PartyEntry to be stored
     * @return Ok when the operation was successful otherwise a Duplicate
     */
-  def storePartyEntry(offset: Offset, partyEntry: PartyLedgerEntry)(
+  def storePartyEntry(offsetStep: OffsetStep, partyEntry: PartyLedgerEntry)(
       implicit loggingContext: LoggingContext,
   ): Future[PersistenceResponse]
 
@@ -247,18 +248,18 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     * Store a configuration change or rejection.
     */
   def storeConfigurationEntry(
-      offset: Offset,
+      offsetStep: OffsetStep,
       recordedAt: Instant,
       submissionId: String,
       configuration: Configuration,
-      rejectionReason: Option[String]
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
+      rejectionReason: Option[String])(
+      implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   /**
     * Store a DAML-LF package upload result.
     */
   def storePackageEntry(
-      offset: Offset,
+      offsetStep: OffsetStep,
       packages: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry]
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]

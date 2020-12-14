@@ -29,7 +29,7 @@ class ValueCoderSpec
 
   private[this] val firstNumericVersion = ValueVersion("6")
 
-  private[this] val defaultValueVersion = ValueVersions.acceptedVersions.lastOption getOrElse sys
+  private[this] val defaultValueVersion = ValueVersion.acceptedVersions.lastOption getOrElse sys
     .error("there are no allowed versions! impossible! but could it be?")
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
@@ -137,9 +137,9 @@ class ValueCoderSpec
       testRoundTripWithVersion
     )
 
-    "do ContractId in any ValueVersion > 1.7" in forAll(
+    "do ContractId in any ValueVersion" in forAll(
       coidValueGen,
-      valueVersionGen(ValueVersions.minContractIdV1))(
+      valueVersionGen(ValueVersion.minContractIdV1))(
       testRoundTripWithVersion
     )
 
@@ -214,13 +214,13 @@ class ValueCoderSpec
     }
 
     "do versioned value with assigned version" in forAll(valueGen) { v: Value[ContractId] =>
-      testRoundTripWithVersion(v, ValueVersions.assertAssignVersion(v))
+      testRoundTripWithVersion(v, ValueVersion.assertAssignVersion(v))
     }
 
     "versioned value should pass serialization if unsupported override version provided" in
       forAll(valueGen, unsupportedValueVersionGen) {
         (value: Value[ContractId], badVer: ValueVersion) =>
-          ValueVersions.acceptedVersions.contains(badVer) shouldBe false
+          ValueVersion.acceptedVersions.contains(badVer) shouldBe false
 
           val actual: proto.VersionedValue = assertRight(
             ValueCoder
@@ -236,7 +236,7 @@ class ValueCoderSpec
     "versioned value should fail deserialization if version is not supported" in
       forAll(valueGen, unsupportedValueVersionGen) {
         (value: Value[ContractId], badVer: ValueVersion) =>
-          ValueVersions.acceptedVersions.contains(badVer) shouldBe false
+          ValueVersion.acceptedVersions.contains(badVer) shouldBe false
 
           val protoWithUnsupportedVersion: proto.VersionedValue =
             assertRight(
@@ -272,7 +272,7 @@ class ValueCoderSpec
   }
 
   def testRoundTripWithVersion(value0: Value[ContractId], version: ValueVersion): Assertion = {
-    ValueVersions.acceptedVersions.contains(version) shouldBe true
+    ValueVersion.acceptedVersions.contains(version) shouldBe true
 
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder

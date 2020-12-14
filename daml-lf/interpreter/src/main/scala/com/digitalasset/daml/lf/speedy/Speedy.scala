@@ -15,7 +15,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.transaction.TransactionVersions
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
@@ -742,7 +742,7 @@ private[lf] object Speedy {
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
     ): Machine = {
       val pkg2TxVersion =
-        compiledPackages.packageLanguageVersion.andThen(TransactionVersions.assignNodeVersion)
+        compiledPackages.packageLanguageVersion.andThen(TransactionVersion.assignNodeVersion)
       new Machine(
         ctrl = expr,
         returnValue = null,

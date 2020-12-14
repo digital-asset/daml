@@ -176,11 +176,11 @@ object LfEngineToApi {
       verbose: Boolean,
       trId: Ref.LedgerString,
       nodeId: NodeId,
-      node: NodeCreate.WithTxValue[Lf.ContractId],
+      node: NodeCreate[Lf.ContractId],
   ): Either[String, Event] =
     for {
-      arg <- lfValueToApiRecord(verbose, node.coinst.arg.value)
-      key <- lfContractKeyToApiValue(verbose, node.key)
+      arg <- lfValueToApiRecord(verbose, node.coinst.arg)
+      key <- lfContractKeyToApiValue(verbose, node.versionedKey)
     } yield
       Event(
         Event.Event.Created(CreatedEvent(
@@ -198,7 +198,7 @@ object LfEngineToApi {
   def lfNodeExercisesToEvent(
       trId: Ref.LedgerString,
       nodeId: NodeId,
-      node: NodeExercises.WithTxValue[NodeId, Lf.ContractId],
+      node: NodeExercises[NodeId, Lf.ContractId],
   ): Either[String, Event] =
     Either.cond(
       node.consuming,
@@ -218,11 +218,11 @@ object LfEngineToApi {
       verbose: Boolean,
       eventId: EventId,
       witnessParties: Set[Ref.Party],
-      node: NodeCreate.WithTxValue[Lf.ContractId],
+      node: NodeCreate[Lf.ContractId],
   ): Either[String, TreeEvent] =
     for {
-      arg <- lfValueToApiRecord(verbose, node.coinst.arg.value)
-      key <- lfContractKeyToApiValue(verbose, node.key)
+      arg <- lfValueToApiRecord(verbose, node.coinst.arg)
+      key <- lfContractKeyToApiValue(verbose, node.versionedKey)
     } yield
       TreeEvent(
         TreeEvent.Kind.Created(CreatedEvent(
@@ -242,12 +242,12 @@ object LfEngineToApi {
       trId: Ref.LedgerString,
       eventId: EventId,
       witnessParties: Set[Ref.Party],
-      node: NodeExercises.WithTxValue[NodeId, Lf.ContractId],
+      node: NodeExercises[NodeId, Lf.ContractId],
       filterChildren: NodeId => Boolean,
   ): Either[String, TreeEvent] =
     for {
-      arg <- lfVersionedValueToApiValue(verbose, node.chosenValue)
-      result <- lfVersionedValueToApiValue(verbose, node.exerciseResult)
+      arg <- lfVersionedValueToApiValue(verbose, node.versionedChosenValue)
+      result <- lfVersionedValueToApiValue(verbose, node.versionedExerciseResult)
     } yield {
       TreeEvent(
         TreeEvent.Kind.Exercised(ExercisedEvent(

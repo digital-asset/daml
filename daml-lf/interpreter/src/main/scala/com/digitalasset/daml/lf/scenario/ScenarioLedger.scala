@@ -22,8 +22,6 @@ import Value.{NodeId => _, _}
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
 import scala.collection.immutable
-import scalaz.std.set._
-import scalaz.syntax.foldable._
 
 /** An in-memory representation of a ledger for scenarios */
 object ScenarioLedger {
@@ -58,7 +56,7 @@ object ScenarioLedger {
     * transaction node in the node identifier, where here the identifier
     * is an eventId.
     */
-  type Node = GenNode.WithTxValue[NodeId, ContractId]
+  type Node = GenNode[NodeId, ContractId]
 
   /** A transaction as it is committed to the ledger.
     *
@@ -83,7 +81,8 @@ object ScenarioLedger {
     *                    'implicit disclosures'.
     */
   final case class RichTransaction(
-      committer: Party,
+      actAs: Set[Party],
+      readAs: Set[Party],
       effectiveAt: Time.Timestamp,
       transactionId: LedgerString,
       transaction: CommittedTransaction,
@@ -100,7 +99,8 @@ object ScenarioLedger {
       * the package format.
       */
     private[lf] def apply(
-        committer: Party,
+        actAs: Set[Party],
+        readAs: Set[Party],
         effectiveAt: Time.Timestamp,
         transactionId: LedgerString,
         submittedTransaction: SubmittedTransaction,
@@ -108,7 +108,8 @@ object ScenarioLedger {
       val blindingInfo =
         BlindingTransaction.calculateBlindingInfo(submittedTransaction)
       new RichTransaction(
-        committer = committer,
+        actAs = actAs,
+        readAs = readAs,
         effectiveAt = effectiveAt,
         transactionId = transactionId,
         transaction = Tx.commitTransaction(submittedTransaction),
@@ -130,7 +131,8 @@ object ScenarioLedger {
   final case class PassTime(dtMicros: Long) extends ScenarioStep
 
   final case class AssertMustFail(
-      actor: Party,
+      actAs: Set[Party],
+      readAs: Set[Party],
       optLocation: Option[Location],
       time: Time.Timestamp,
       txid: TransactionId,
@@ -183,7 +185,7 @@ object ScenarioLedger {
     /** 'True' if the given 'View' contains the given 'Node'. */
     def visibleIn(view: View): Boolean = view match {
       case OperatorView => true
-      case ParticipantView(parties) => parties.any(disclosures.contains(_))
+      case pview: ParticipantView => !pview.readers.intersect(disclosures.keySet).isEmpty
     }
 
     def addDisclosures(newDisclosures: Map[Party, Disclosure]): LedgerNodeInfo = {
@@ -202,7 +204,7 @@ object ScenarioLedger {
 
   final case class LookupOk(
       coid: ContractId,
-      coinst: ContractInst[Tx.Value[ContractId]],
+      coinst: ContractInst[Value.VersionedValue[ContractId]],
       stakeholders: Set[Party],
   ) extends LookupResult
   final case class LookupContractNotFound(coid: ContractId) extends LookupResult
@@ -236,7 +238,8 @@ object ScenarioLedger {
     * update-expression at time `effectiveAt`.
     */
   def commitTransaction(
-      committer: Party,
+      actAs: Set[Party],
+      readAs: Set[Party],
       effectiveAt: Time.Timestamp,
       optLocation: Option[Location],
       tx: SubmittedTransaction,
@@ -245,7 +248,7 @@ object ScenarioLedger {
     // transactionId is small enough (< 20 chars), so we do no exceed the 255
     // chars limit when concatenate in EventId#toLedgerString method.
     val transactionId = l.scenarioStepId.id
-    val richTr = RichTransaction(committer, effectiveAt, transactionId, tx)
+    val richTr = RichTransaction(actAs, readAs, effectiveAt, transactionId, tx)
     processTransaction(l.scenarioStepId, richTr, l.ledgerData) match {
       case Left(err) => Left(CommitError.UniqueKeyViolation(err))
       case Right(updatedCache) =>
@@ -284,7 +287,11 @@ object ScenarioLedger {
   case object OperatorView extends View
 
   /** The view of the ledger at the given party. */
-  final case class ParticipantView(party: Set[Party]) extends View
+  // Note that we only separate actAs and readAs to get better error
+  // messages. The visibility check only needs the union.
+  final case class ParticipantView(actAs: Set[Party], readAs: Set[Party]) extends View {
+    val readers: Set[Party] = actAs union readAs
+  }
 
   /** Result of committing a transaction is the new ledger,
     * and the enriched transaction.
@@ -428,7 +435,7 @@ object ScenarioLedger {
                   val idsToProcess = (mbParentId -> restOfNodeIds) :: restENPs
 
                   node match {
-                    case nc: NodeCreate.WithTxValue[ContractId] =>
+                    case nc: NodeCreate[ContractId] =>
                       val newCache1 =
                         newCache
                           .markAsActive(nc.coid)
@@ -439,7 +446,7 @@ object ScenarioLedger {
                           val gk = GlobalKey(
                             nc.coinst.template,
                             // FIXME: we probably should never crash here !
-                            assertNoContractId(keyWithMaintainers.key.value),
+                            assertNoContractId(keyWithMaintainers.key),
                           )
                           newCache1.activeKeys.get(gk) match {
                             case None => Right(newCache1.addKey(gk, nc.coid))
@@ -455,7 +462,7 @@ object ScenarioLedger {
 
                       processNodes(Right(newCacheP), idsToProcess)
 
-                    case ex: NodeExercises.WithTxValue[NodeId, ContractId] =>
+                    case ex: NodeExercises[NodeId, ContractId] =>
                       val newCache0 =
                         newCache.updateLedgerNodeInfo(ex.targetCoid)(
                           info =>
@@ -469,7 +476,7 @@ object ScenarioLedger {
                           val nc = newCache0_1
                             .nodeInfoByCoid(ex.targetCoid)
                             .node
-                            .asInstanceOf[NodeCreate[ContractId, Tx.Value[ContractId]]]
+                            .asInstanceOf[NodeCreate[ContractId]]
                           nc.key match {
                             case None => newCache0_1
                             case Some(keyWithMaintainers) =>
@@ -477,7 +484,7 @@ object ScenarioLedger {
                                 GlobalKey(
                                   ex.templateId,
                                   // FIXME: we probably should'nt crash here !
-                                  assertNoContractId(keyWithMaintainers.key.value),
+                                  assertNoContractId(keyWithMaintainers.key),
                                 ),
                               )
                           }
@@ -488,7 +495,7 @@ object ScenarioLedger {
                         (Some(nodeId) -> ex.children.toList) :: idsToProcess,
                       )
 
-                    case nlkup: NodeLookupByKey.WithTxValue[ContractId] =>
+                    case nlkup: NodeLookupByKey[ContractId] =>
                       nlkup.result match {
                         case None =>
                           processNodes(Right(newCache), idsToProcess)
@@ -567,10 +574,13 @@ case class ScenarioLedger(
     scenarioStepId = scenarioStepId.next,
   )
 
-  def insertAssertMustFail(p: Party, optLocation: Option[Location]): ScenarioLedger = {
+  def insertAssertMustFail(
+      actAs: Set[Party],
+      readAs: Set[Party],
+      optLocation: Option[Location]): ScenarioLedger = {
     val id = scenarioStepId
     val effAt = currentTime
-    val newIMS = scenarioSteps + (id.index -> AssertMustFail(p, optLocation, effAt, id))
+    val newIMS = scenarioSteps + (id.index -> AssertMustFail(actAs, readAs, optLocation, effAt, id))
     copy(
       scenarioSteps = newIMS,
       scenarioStepId = scenarioStepId.next,
@@ -601,7 +611,7 @@ case class ScenarioLedger(
       case None => LookupContractNotFound(coid)
       case Some(info) =>
         info.node match {
-          case create: NodeCreate.WithTxValue[ContractId] =>
+          case create: NodeCreate[ContractId] =>
             if (info.effectiveAt.compareTo(effectiveAt) > 0)
               LookupContractNotEffective(coid, create.coinst.template, info.effectiveAt)
             else if (info.consumedBy.nonEmpty)
@@ -618,9 +628,9 @@ case class ScenarioLedger(
                 create.stakeholders,
               )
             else
-              LookupOk(coid, create.coinst, create.stakeholders)
+              LookupOk(coid, create.versionedCoinst, create.stakeholders)
 
-          case _: NodeExercises[_, _, _] | _: NodeFetch[_, _] | _: NodeLookupByKey[_, _] =>
+          case _: NodeExercises[_, _] | _: NodeFetch[_] | _: NodeLookupByKey[_] =>
             LookupContractNotFound(coid)
         }
     }

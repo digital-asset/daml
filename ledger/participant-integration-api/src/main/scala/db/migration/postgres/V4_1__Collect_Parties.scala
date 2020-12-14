@@ -98,21 +98,21 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
       .fold[Set[Ref.Party]](Set.empty) {
         case (parties, (_, node)) =>
           node match {
-            case nf: NodeFetch.WithTxValue[ContractId] =>
+            case nf: NodeFetch[ContractId] =>
               parties
                 .union(nf.signatories)
                 .union(nf.stakeholders)
                 .union(nf.actingParties)
-            case nc: NodeCreate.WithTxValue[ContractId] =>
+            case nc: NodeCreate[ContractId] =>
               parties
                 .union(nc.signatories)
                 .union(nc.stakeholders)
-            case ne: NodeExercises.WithTxValue[_, ContractId] =>
+            case ne: NodeExercises[_, ContractId] =>
               parties
                 .union(ne.signatories)
                 .union(ne.stakeholders)
                 .union(ne.actingParties)
-            case _: NodeLookupByKey.WithTxValue[ContractId] =>
+            case _: NodeLookupByKey[ContractId] =>
               parties
           }
       }

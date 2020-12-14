@@ -8,6 +8,8 @@ import com.daml.lf.transaction.{BlindingInfo, NodeId}
 import org.scalatest.LoneElement
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+import com.daml.platform.indexer.IncrementalOffsetStep
+import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 
 private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
@@ -61,10 +63,20 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
         blindingInfo = Some(mismatchingBlindingInfo),
         divulgedContracts = Map.empty,
       )
-      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, alice)
+      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, Set(alice))
     } yield {
       result shouldBe None
     }
   }
 
+  it should "fail trying to store transactions with non-incremental offsets" in {
+    val (offset, tx) = singleCreate
+    recoverToSucceededIf[LedgerEndUpdateError](
+      storeOffsetStepAndTx(
+        offsetStepAndTx = IncrementalOffsetStep(nextOffset(), offset) -> tx,
+        blindingInfo = None,
+        divulgedContracts = Map.empty,
+      )
+    )
+  }
 }

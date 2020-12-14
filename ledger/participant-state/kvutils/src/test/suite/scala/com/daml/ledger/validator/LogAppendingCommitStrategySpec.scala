@@ -5,6 +5,7 @@ package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.validator.ArgumentMatchers.anyExecutionContext
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.LogAppendingCommitStrategySpec._
 import com.daml.ledger.validator.TestHelper._
@@ -13,7 +14,7 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 final class LogAppendingCommitStrategySpec
     extends AsyncWordSpec
@@ -77,11 +78,6 @@ final class LogAppendingCommitStrategySpec
 }
 
 object LogAppendingCommitStrategySpec {
-
-  import ArgumentMatchersSugar._
-
-  private def anyExecutionContext = any[ExecutionContext]
-
   private val aStateKey: DamlStateKey = DamlStateKey
     .newBuilder()
     .setContractId(1.toString)

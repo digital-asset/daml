@@ -8,7 +8,7 @@ import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{Node, TransactionVersions}
+import com.daml.lf.transaction.{Node, TransactionVersion}
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -29,7 +29,7 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
       signatories = signatories,
       stakeholders = stakeholders,
       key = None,
-      version = TransactionVersions.minVersion,
+      version = TransactionVersion.minVersion,
     )
 
   def makeExeNode(
@@ -55,7 +55,7 @@ class ProjectionsSpec extends AnyWordSpec with Matchers {
       exerciseResult = None,
       key = None,
       byKey = false,
-      version = TransactionVersions.minVersion,
+      version = TransactionVersion.minVersion,
     )
 
   def project(tx: Transaction) = {

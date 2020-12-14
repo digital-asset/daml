@@ -8,7 +8,7 @@ import com.daml.lf.engine.Engine
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.value.{Value, ValueVersions}
+import com.daml.lf.value.{Value, ValueVersion}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -98,7 +98,7 @@ class ContractDiscriminatorFreshnessCheckSpec
   private def contractInstance(party: Ref.Party, idx: Int, cids: List[ContractId]) =
     Value.ContractInst(
       tmplId,
-      ValueVersions.assertAsVersionedValue(contractRecord(party, idx, cids)),
+      ValueVersion.assertAsVersionedValue(contractRecord(party, idx, cids)),
       "Agreement",
     )
 
@@ -123,8 +123,8 @@ class ContractDiscriminatorFreshnessCheckSpec
   ) =
     engine
       .submit(
+        submitters = Set(alice),
         cmds = command.Commands(
-          submitters = Set(alice),
           commands = cmds,
           ledgerEffectiveTime = let,
           commandsReference = "test",

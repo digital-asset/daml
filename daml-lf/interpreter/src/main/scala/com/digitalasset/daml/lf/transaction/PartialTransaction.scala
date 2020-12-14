@@ -14,8 +14,7 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   SubmittedTransaction,
-  TransactionVersion,
-  TransactionVersions,
+  TransactionVersion => TxVersion,
   Transaction => Tx
 }
 import com.daml.lf.value.Value
@@ -25,8 +24,8 @@ import scala.collection.immutable.HashMap
 private[lf] object PartialTransaction {
 
   type NodeIdx = Value.NodeIdx
-  type Node = Node.GenNode[NodeId, Value.ContractId, Value[Value.ContractId]]
-  type LeafNode = Node.LeafOnlyNode[Value.ContractId, Value[Value.ContractId]]
+  type Node = Node.GenNode[NodeId, Value.ContractId]
+  type LeafNode = Node.LeafOnlyNode[Value.ContractId]
 
   /** Contexts of the transaction graph builder, which we use to record
     * the sub-transaction structure due to 'exercises' statements.
@@ -114,7 +113,7 @@ private[lf] object PartialTransaction {
   )
 
   def initial(
-      pkg2TxVersion: Ref.PackageId => TransactionVersion,
+      pkg2TxVersion: Ref.PackageId => TxVersion,
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
   ) = PartialTransaction(
@@ -161,7 +160,7 @@ private[lf] object PartialTransaction {
   *              locally archived contract ids will succeed wrongly.
   */
 private[lf] case class PartialTransaction(
-    packageToTransactionVersion: Ref.PackageId => TransactionVersion,
+    packageToTransactionVersion: Ref.PackageId => TxVersion,
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
     nodes: HashMap[NodeId, PartialTransaction.Node],
@@ -201,8 +200,8 @@ private[lf] case class PartialTransaction(
       // so we need to compute them.
       val rootNodes = {
         val allChildNodeIds: Set[NodeId] = nodes.values.iterator.flatMap {
-          case _: Node.LeafOnlyNode[_, _] => Nil
-          case ex: Node.NodeExercises[NodeId, _, _] => ex.children.toSeq
+          case _: Node.LeafOnlyNode[_] => Nil
+          case ex: Node.NodeExercises[NodeId, _] => ex.children.toSeq
         }.toSet
 
         nodes.keySet diff allChildNodeIds
@@ -230,7 +229,7 @@ private[lf] case class PartialTransaction(
     if (context.exeContext.isEmpty && aborted.isEmpty) {
       CompleteTransaction(
         SubmittedTransaction(
-          TransactionVersions.asVersionedTransaction(context.children.toImmArray, nodes)
+          TxVersion.asVersionedTransaction(context.children.toImmArray, nodes)
         )
       )
     } else

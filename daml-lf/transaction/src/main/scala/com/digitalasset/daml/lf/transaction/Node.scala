@@ -6,12 +6,10 @@ package transaction
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, ScalazEqual}
+import com.daml.lf.value.Value.VersionedValue
 import com.daml.lf.value._
 import scalaz.Equal
-import scalaz.std.option._
 import scalaz.syntax.equal._
-
-import scala.language.higherKinds
 
 /**
   * Generic transaction node type for both update transactions and the
@@ -20,24 +18,16 @@ import scala.language.higherKinds
 object Node {
 
   /** Transaction nodes parametrized over identifier type */
-  sealed trait GenNode[+Nid, +Cid, +Val]
+  sealed trait GenNode[+Nid, +Cid]
       extends Product
       with Serializable
       with NodeInfo
-      with CidContainer[GenNode[Nid, Cid, Val]] {
+      with CidContainer[GenNode[Nid, Cid]] {
 
     def templateId: TypeConName
     def version: TransactionVersion
 
     final override protected def self: this.type = this
-
-    @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
-    final def mapContractIdAndValue[Cid2, Val2](
-        f: Cid => Cid2,
-        g: Val => Val2): GenNode[Nid, Cid2, Val2] =
-      GenNode.map3(identity[Nid], f, g)(this)
-    final def mapNodeId[Nid2](f: Nid => Nid2): GenNode[Nid2, Cid, Val] =
-      GenNode.map3(f, identity[Cid], identity[Val])(this)
 
     /** Required authorizers (see ledger model); UNSAFE TO USE on fetch nodes of transaction with versions < 5
       *
@@ -53,19 +43,21 @@ object Node {
 
     def byKey: Boolean
 
-    def foreach3(fNid: Nid => Unit, fCid: Cid => Unit, fVal: Val => Unit) =
-      GenNode.foreach3(fNid, fCid, fVal)(this)
+    def foreach2(fNid: Nid => Unit, fCid: Cid => Unit) =
+      GenNode.foreach2(fNid, fCid)(this)
 
-    private[lf] def updateVersion(version: TransactionVersion): GenNode[Nid, Cid, Val]
+    private[lf] def updateVersion(version: TransactionVersion): GenNode[Nid, Cid]
+
+    protected def versionValue[Cid2 >: Cid](v: Value[Cid2]): VersionedValue[Cid2] =
+      VersionedValue(TransactionVersion.assignValueVersion(version), v)
   }
 
-  object GenNode extends WithTxValue3[GenNode] with CidContainer3[GenNode] {
+  object GenNode extends CidContainer2[GenNode] {
 
-    override private[lf] def map3[A1, A2, A3, B1, B2, B3](
+    override private[lf] def map2[A1, A2, B1, B2](
         f1: A1 => B1,
         f2: A2 => B2,
-        f3: A3 => B3,
-    ): GenNode[A1, A2, A3] => GenNode[B1, B2, B3] = {
+    ): GenNode[A1, A2] => GenNode[B1, B2] = {
       case self @ NodeCreate(
             coid,
             coinst,
@@ -77,8 +69,8 @@ object Node {
           ) =>
         self copy (
           coid = f2(coid),
-          coinst = Value.ContractInst.map1(f3)(coinst),
-          key = key.map(KeyWithMaintainers.map1(f3)),
+          coinst = Value.ContractInst.map1(Value.map1(f2))(coinst),
+          key = key.map(KeyWithMaintainers.map1(Value.map1(f2))),
         )
       case self @ NodeFetch(
             coid,
@@ -93,7 +85,7 @@ object Node {
           ) =>
         self copy (
           coid = f2(coid),
-          key = key.map(KeyWithMaintainers.map1(f3)),
+          key = key.map(KeyWithMaintainers.map1(Value.map1(f2))),
         )
       case self @ NodeExercises(
             targetCoid,
@@ -114,10 +106,10 @@ object Node {
           ) =>
         self copy (
           targetCoid = f2(targetCoid),
-          chosenValue = f3(chosenValue),
+          chosenValue = Value.map1(f2)(chosenValue),
           children = children.map(f1),
-          exerciseResult = exerciseResult.map(f3),
-          key = key.map(KeyWithMaintainers.map1(f3)),
+          exerciseResult = exerciseResult.map(Value.map1(f2)),
+          key = key.map(KeyWithMaintainers.map1(Value.map1(f2))),
         )
       case self @ NodeLookupByKey(
             _,
@@ -127,16 +119,15 @@ object Node {
             _,
           ) =>
         self copy (
-          key = KeyWithMaintainers.map1(f3)(key),
+          key = KeyWithMaintainers.map1(Value.map1(f2))(key),
           result = result.map(f2),
         )
     }
 
-    override private[lf] def foreach3[A, B, C](
+    override private[lf] def foreach2[A, B](
         f1: A => Unit,
         f2: B => Unit,
-        f3: C => Unit,
-    ): GenNode[A, B, C] => Unit = {
+    ): GenNode[A, B] => Unit = {
       case NodeCreate(
           coid,
           coinst,
@@ -147,8 +138,8 @@ object Node {
           _,
           ) =>
         f2(coid)
-        Value.ContractInst.foreach1(f3)(coinst)
-        key.foreach(KeyWithMaintainers.foreach1(f3))
+        Value.ContractInst.foreach1(Value.foreach1(f2))(coinst)
+        key.foreach(KeyWithMaintainers.foreach1(Value.foreach1(f2)))
       case NodeFetch(
           coid,
           templateId @ _,
@@ -161,7 +152,7 @@ object Node {
           _,
           ) =>
         f2(coid)
-        key.foreach(KeyWithMaintainers.foreach1(f3))
+        key.foreach(KeyWithMaintainers.foreach1(Value.foreach1(f2)))
       case NodeExercises(
           targetCoid,
           templateId @ _,
@@ -180,9 +171,9 @@ object Node {
           _,
           ) =>
         f2(targetCoid)
-        f3(chosenValue)
-        exerciseResult.foreach(f3)
-        key.foreach(KeyWithMaintainers.foreach1(f3))
+        Value.foreach1(f2)(chosenValue)
+        exerciseResult.foreach(Value.foreach1(f2))
+        key.foreach(KeyWithMaintainers.foreach1(Value.foreach1(f2)))
         children.foreach(f1)
       case NodeLookupByKey(
           templateId @ _,
@@ -191,113 +182,124 @@ object Node {
           result,
           _,
           ) =>
-        KeyWithMaintainers.foreach1(f3)(key)
+        KeyWithMaintainers.foreach1(Value.foreach1(f2))(key)
         result.foreach(f2)
     }
   }
 
   /** A transaction node that can't possibly refer to `Nid`s. */
-  sealed trait LeafOnlyNode[+Cid, +Val] extends GenNode[Nothing, Cid, Val]
-
-  object LeafOnlyNode extends WithTxValue2[LeafOnlyNode]
+  sealed trait LeafOnlyNode[+Cid] extends GenNode[Nothing, Cid]
 
   /** Denotes the creation of a contract instance. */
-  final case class NodeCreate[+Cid, +Val](
+  final case class NodeCreate[+Cid](
       coid: Cid,
-      coinst: Value.ContractInst[Val],
+      coinst: Value.ContractInst[Value[Cid]],
       optLocation: Option[Location], // Optional location of the create expression
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[KeyWithMaintainers[Val]],
+      key: Option[KeyWithMaintainers[Value[Cid]]],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyNode[Cid, Val]
+  ) extends LeafOnlyNode[Cid]
       with NodeInfo.Create {
 
     override def templateId: TypeConName = coinst.template
     override def byKey: Boolean = false
 
-    override private[lf] def updateVersion(version: TransactionVersion): NodeCreate[Cid, Val] =
+    override private[lf] def updateVersion(version: TransactionVersion): NodeCreate[Cid] =
       copy(version = version)
+
+    def versionedCoinst: Value.ContractInst[Value.VersionedValue[Cid]] =
+      Value.ContractInst.map1(versionValue)(coinst)
+
+    def versionedKey: Option[KeyWithMaintainers[Value.VersionedValue[Cid]]] =
+      key.map(KeyWithMaintainers.map1(versionValue))
   }
 
-  object NodeCreate extends WithTxValue2[NodeCreate]
-
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
-  final case class NodeFetch[+Cid, +Val](
+  final case class NodeFetch[+Cid](
       coid: Cid,
       override val templateId: TypeConName,
       optLocation: Option[Location], // Optional location of the fetch expression
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[KeyWithMaintainers[Val]],
+      key: Option[KeyWithMaintainers[Value[Cid]]],
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyNode[Cid, Val]
+  ) extends LeafOnlyNode[Cid]
       with NodeInfo.Fetch {
 
-    override private[lf] def updateVersion(version: TransactionVersion): NodeFetch[Cid, Val] =
+    override private[lf] def updateVersion(version: TransactionVersion): NodeFetch[Cid] =
       copy(version = version)
-  }
 
-  object NodeFetch extends WithTxValue2[NodeFetch]
+    def versionedKey: Option[KeyWithMaintainers[Value.VersionedValue[Cid]]] =
+      key.map(KeyWithMaintainers.map1(versionValue))
+  }
 
   /** Denotes a transaction node for an exercise.
     * We remember the `children` of this `NodeExercises`
     * to allow segregating the graph afterwards into party-specific
     * ledgers.
     */
-  final case class NodeExercises[+Nid, +Cid, +Val](
+  final case class NodeExercises[+Nid, +Cid](
       targetCoid: Cid,
       override val templateId: TypeConName,
       choiceId: ChoiceName,
       optLocation: Option[Location], // Optional location of the exercise expression
       consuming: Boolean,
       actingParties: Set[Party],
-      chosenValue: Val,
+      chosenValue: Value[Cid],
       stakeholders: Set[Party],
       signatories: Set[Party],
       choiceObservers: Set[Party],
       children: ImmArray[Nid],
-      exerciseResult: Option[Val],
-      key: Option[KeyWithMaintainers[Val]],
+      exerciseResult: Option[Value[Cid]],
+      key: Option[KeyWithMaintainers[Value[Cid]]],
       override val byKey: Boolean, // invariant (!byKey || exerciseResult.isDefined)
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends GenNode[Nid, Cid, Val]
+  ) extends GenNode[Nid, Cid]
       with NodeInfo.Exercise {
     @deprecated("use actingParties instead", since = "1.1.2")
     private[daml] def controllers: actingParties.type = actingParties
 
     override private[lf] def updateVersion(
         version: TransactionVersion,
-    ): NodeExercises[Nid, Cid, Val] =
+    ): NodeExercises[Nid, Cid] =
       copy(version = version)
+
+    def versionedChosenValue: Value.VersionedValue[Cid] =
+      versionValue(chosenValue)
+
+    def versionedExerciseResult: Option[Value.VersionedValue[Cid]] =
+      exerciseResult.map(versionValue)
+
+    def versionedKey: Option[KeyWithMaintainers[Value.VersionedValue[Cid]]] =
+      key.map(KeyWithMaintainers.map1(versionValue))
   }
 
-  object NodeExercises extends WithTxValue3[NodeExercises]
-
-  final case class NodeLookupByKey[+Cid, +Val](
+  final case class NodeLookupByKey[+Cid](
       override val templateId: TypeConName,
       optLocation: Option[Location],
-      key: KeyWithMaintainers[Val],
+      key: KeyWithMaintainers[Value[Cid]],
       result: Option[Cid],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyNode[Cid, Val]
+  ) extends LeafOnlyNode[Cid]
       with NodeInfo.LookupByKey {
 
     override def keyMaintainers: Set[Party] = key.maintainers
     override def hasResult: Boolean = result.isDefined
     override def byKey: Boolean = true
 
-    override private[lf] def updateVersion(version: TransactionVersion): NodeLookupByKey[Cid, Val] =
+    override private[lf] def updateVersion(version: TransactionVersion): NodeLookupByKey[Cid] =
       copy(version = version)
-  }
 
-  object NodeLookupByKey extends WithTxValue2[NodeLookupByKey]
+    def versionedKey: KeyWithMaintainers[Value.VersionedValue[Cid]] =
+      KeyWithMaintainers.map1[Value[Cid], Value.VersionedValue[Cid]](versionValue)(key)
+  }
 
   final case class KeyWithMaintainers[+Val](key: Val, maintainers: Set[Party])
       extends CidContainer[KeyWithMaintainers[Val]] {
@@ -328,91 +330,6 @@ object Node {
     override private[lf] def foreach1[A](f: A => Unit): KeyWithMaintainers[A] => Unit =
       x => f(x.key)
 
-  }
-
-  @deprecated("this method is not maintain anymore", since = "1.7.0")
-  final def isReplayedBy[Cid: Equal, Val: Equal](
-      recorded: GenNode[Nothing, Cid, Val],
-      isReplayedBy: GenNode[Nothing, Cid, Val],
-  ): Boolean =
-    ScalazEqual.match2[recorded.type, isReplayedBy.type, Boolean](fallback = false) {
-      case nc: NodeCreate[Cid, Val] => {
-        case NodeCreate(
-            coid2,
-            coinst2,
-            optLocation2 @ _,
-            signatories2,
-            stakeholders2,
-            key2,
-            version2) =>
-          import nc._
-          // NOTE(JM): Do not compare location annotations as they may differ due to
-          // differing update expression constructed from the root node.
-          version == version2 &&
-          coid === coid2 && coinst === coinst2 &&
-          signatories == signatories2 && stakeholders == stakeholders2 && key === key2
-        case _ => false
-      }
-      case nf: NodeFetch[Cid, Val] => {
-        case NodeFetch(
-            coid2,
-            templateId2,
-            optLocation2 @ _,
-            actingParties2,
-            signatories2,
-            stakeholders2,
-            key2,
-            _,
-            version2,
-            ) =>
-          import nf._
-          version == version2 &&
-          coid === coid2 && templateId == templateId2 &&
-          actingParties.forall(_ => actingParties == actingParties2) &&
-          signatories == signatories2 && stakeholders == stakeholders2 &&
-          key.forall(_ => key == key2)
-      }
-      case ne: NodeExercises[Nothing, Cid, Val] => {
-        case NodeExercises(
-            targetCoid2,
-            templateId2,
-            choiceId2,
-            optLocation2 @ _,
-            consuming2,
-            actingParties2,
-            chosenValue2,
-            stakeholders2,
-            signatories2,
-            choiceObservers2,
-            _,
-            exerciseResult2,
-            key2,
-            _,
-            version2,
-            ) =>
-          import ne._
-          version == version2 &&
-          targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
-          consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
-          stakeholders == stakeholders2 && signatories == signatories2 && choiceObservers == choiceObservers2 &&
-          exerciseResult.fold(true)(_ => exerciseResult === exerciseResult2) &&
-          key.fold(true)(_ => key === key2)
-      }
-      case nl: NodeLookupByKey[Cid, Val] => {
-        case NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2, version2) =>
-          import nl._
-          version == version2 &&
-          templateId == templateId2 &&
-          key === key2 && result === result2
-      }
-    }(recorded, isReplayedBy)
-
-  sealed trait WithTxValue2[F[+ _, + _]] {
-    type WithTxValue[+Cid] = F[Cid, Transaction.Value[Cid]]
-  }
-
-  sealed trait WithTxValue3[F[+ _, + _, + _]] {
-    type WithTxValue[+Nid, +Cid] = F[Nid, Cid, Transaction.Value[Cid]]
   }
 
 }

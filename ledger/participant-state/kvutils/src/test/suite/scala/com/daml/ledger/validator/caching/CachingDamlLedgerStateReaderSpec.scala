@@ -6,13 +6,16 @@ package com.daml.ledger.validator.caching
 import com.daml.caching.WeightedCache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
-import com.daml.ledger.validator.{DamlLedgerStateReader, DefaultStateKeySerializationStrategy}
+import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, seqOf}
+import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
+import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderSpec._
+import com.daml.ledger.validator.reading.DamlLedgerStateReader
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 class CachingDamlLedgerStateReaderSpec
     extends AsyncWordSpec
@@ -20,15 +23,14 @@ class CachingDamlLedgerStateReaderSpec
     with Inside
     with MockitoSugar
     with ArgumentMatchersSugar {
-
-  "readState" should {
+  "read" should {
     "record read keys" in {
       val mockReader = mock[DamlLedgerStateReader]
-      when(mockReader.readState(argThat((keys: Seq[DamlStateKey]) => keys.size == 1)))
-        .thenReturn(Future.successful(Seq(Some(aDamlStateValue()))))
+      when(mockReader.read(seqOf(size = 1))(anyExecutionContext))
+        .thenReturn(Future.successful(Seq(Some(aDamlStateValue))))
       val instance = newInstance(mockReader, shouldCache = false)
 
-      instance.readState(Seq(aDamlStateKey)).map { actual =>
+      instance.read(Seq(aDamlStateKey)).map { actual =>
         actual should have size 1
         instance.getReadSet should be(
           Set(keySerializationStrategy.serializeStateKey(aDamlStateKey)))
@@ -37,51 +39,56 @@ class CachingDamlLedgerStateReaderSpec
 
     "update cache upon read if policy allows" in {
       val mockReader = mock[DamlLedgerStateReader]
-      when(mockReader.readState(argThat((keys: Seq[DamlStateKey]) => keys.size == 1)))
-        .thenReturn(Future.successful(Seq(Some(aDamlStateValue()))))
+      when(mockReader.read(seqOf(size = 1))(anyExecutionContext))
+        .thenReturn(Future.successful(Seq(Some(aDamlStateValue))))
       val instance = newInstance(mockReader, shouldCache = true)
 
-      instance.readState(Seq(aDamlStateKey)).map { _ =>
+      instance.read(Seq(aDamlStateKey)).map { _ =>
         instance.cache.getIfPresent(aDamlStateKey) shouldBe defined
       }
     }
 
     "do not update cache upon read if policy does not allow" in {
       val mockReader = mock[DamlLedgerStateReader]
-      when(mockReader.readState(argThat((keys: Seq[DamlStateKey]) => keys.size == 1)))
-        .thenReturn(Future.successful(Seq(Some(aDamlStateValue()))))
+      when(mockReader.read(seqOf(size = 1))(anyExecutionContext))
+        .thenReturn(Future.successful(Seq(Some(aDamlStateValue))))
       val instance = newInstance(mockReader, shouldCache = false)
 
-      instance.readState(Seq(aDamlStateKey)).map { _ =>
+      instance.read(Seq(aDamlStateKey)).map { _ =>
         instance.cache.getIfPresent(aDamlStateKey) should not be defined
       }
     }
 
     "serve request from cache for seen key (if policy allows)" in {
       val mockReader = mock[DamlLedgerStateReader]
-      when(mockReader.readState(any[Seq[DamlStateKey]])).thenReturn(Future.successful(Seq(None)))
+      when(mockReader.read(any[Seq[DamlStateKey]])(anyExecutionContext))
+        .thenReturn(Future.successful(Seq(Some(aDamlStateValue))))
       val instance = newInstance(mockReader, shouldCache = true)
 
       for {
-        originalReadState <- instance.readState(Seq(aDamlStateKey))
-        readAgain <- instance.readState(Seq(aDamlStateKey))
+        originalReadState <- instance.read(Seq(aDamlStateKey))
+        readAgain <- instance.read(Seq(aDamlStateKey))
       } yield {
-        verify(mockReader, times(1)).readState(_)
+        verify(mockReader, times(1)).read(eqTo(Seq(aDamlStateKey)))(anyExecutionContext)
         readAgain shouldEqual originalReadState
       }
     }
   }
+}
 
+object CachingDamlLedgerStateReaderSpec {
   private val keySerializationStrategy = DefaultStateKeySerializationStrategy
 
   private lazy val aDamlStateKey = DamlStateKey.newBuilder
     .setContractId("aContractId")
     .build
 
-  private def aDamlStateValue(): DamlStateValue = DamlStateValue.getDefaultInstance
+  private val aDamlStateValue: DamlStateValue = DamlStateValue.getDefaultInstance
 
-  private def newInstance(damlLedgerStateReader: DamlLedgerStateReader, shouldCache: Boolean)(
-      implicit executionContext: ExecutionContext): CachingDamlLedgerStateReader = {
+  private def newInstance(
+      damlLedgerStateReader: DamlLedgerStateReader,
+      shouldCache: Boolean,
+  ): CachingDamlLedgerStateReader = {
     val cache = WeightedCache.from[DamlStateKey, DamlStateValue](WeightedCache.Configuration(1024))
     new CachingDamlLedgerStateReader(
       cache,

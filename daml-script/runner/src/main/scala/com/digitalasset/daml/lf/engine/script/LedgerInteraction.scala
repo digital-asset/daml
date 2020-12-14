@@ -112,13 +112,17 @@ trait ScriptLedgerClient {
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]]
 
-  def submit(party: Ref.Party, commands: List[command.Command], optLocation: Option[Location])(
-      implicit ec: ExecutionContext,
-      mat: Materializer)
+  def submit(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
+      commands: List[command.Command],
+      optLocation: Option[Location],
+  )(implicit ec: ExecutionContext, mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]]
 
   def submitMustFail(
-      party: Ref.Party,
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
       commands: List[command.Command],
       optLocation: Option[Location])(
       implicit ec: ExecutionContext,
@@ -225,7 +229,8 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   }
 
   override def submit(
-      party: Ref.Party,
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
       commands: List[command.Command],
       optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer) = {
     import scalaz.syntax.traverse._
@@ -234,7 +239,9 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       case Right(cmds) => cmds
     }
     val apiCommands = Commands(
-      party = party,
+      party = actAs.head,
+      actAs = actAs.toList,
+      readAs = readAs.toList,
       commands = ledgerCommands,
       ledgerId = grpcClient.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
@@ -265,10 +272,11 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   }
 
   override def submitMustFail(
-      party: Ref.Party,
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
       commands: List[command.Command],
       optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer) = {
-    submit(party, commands, optLocation).map({
+    submit(actAs, readAs, commands, optLocation).map({
       case Right(_) => Left(())
       case Left(_) => Right(())
     })
@@ -413,7 +421,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
     val acs = scenarioRunner.ledger.query(
-      view = ScenarioLedger.ParticipantView(Set(parties.toList: _*)),
+      view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
       effectiveAt = scenarioRunner.ledger.currentTime)
     val filtered = acs.collect {
       case ScenarioLedger.LookupOk(cid, Value.ContractInst(tpl, arg, _), stakeholders)
@@ -432,7 +440,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     scenarioRunner.ledger.lookupGlobalContract(
-      view = ScenarioLedger.ParticipantView(Set(parties.toList: _*)),
+      view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
       effectiveAt = scenarioRunner.ledger.currentTime,
       cid) match {
       case ScenarioLedger.LookupOk(_, Value.ContractInst(_, arg, _), stakeholders)
@@ -467,7 +475,8 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
 
   // unsafe version of submit that does not clear the commit.
   private def unsafeSubmit(
-      party: Ref.Party,
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
       commands: List[command.Command],
       optLocation: Option[Location])(implicit ec: ExecutionContext)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = Future {
@@ -479,33 +488,35 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to[ImmArray])._1
     val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
     machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
-    onLedger.committers = Set(party)
+    onLedger.committers = actAs.toList.toSet
     var result: Seq[ScriptLedgerClient.CommandResult] = null
     while (result == null) {
       machine.run() match {
-        case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
-          scenarioRunner.lookupContract(coid, committers, cbMissing, cbPresent).toTry.get
-        case SResultNeedKey(keyWithMaintainers, committers, cb) =>
-          scenarioRunner.lookupKey(keyWithMaintainers.globalKey, committers, cb).toTry.get
+        case SResultNeedContract(coid, tid @ _, committers @ _, cbMissing, cbPresent) =>
+          scenarioRunner.lookupContract(coid, actAs.toSet, readAs, cbMissing, cbPresent).toTry.get
+        case SResultNeedKey(keyWithMaintainers, committers @ _, cb) =>
+          scenarioRunner.lookupKey(keyWithMaintainers.globalKey, actAs.toSet, readAs, cb).toTry.get
         case SResultFinalValue(SUnit) =>
           onLedger.ptx.finish match {
             case PartialTransaction.CompleteTransaction(tx) =>
               val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
                 tx.nodes(n) match {
-                  case create: NodeCreate.WithTxValue[ContractId] =>
+                  case create: NodeCreate[ContractId] =>
                     ScriptLedgerClient.CreateResult(create.coid)
-                  case exercise: NodeExercises.WithTxValue[_, ContractId] =>
+                  case exercise: NodeExercises[_, ContractId] =>
                     ScriptLedgerClient.ExerciseResult(
                       exercise.templateId,
                       exercise.choiceId,
-                      exercise.exerciseResult.get.value)
+                      exercise.exerciseResult.get,
+                    )
                   case n =>
                     // Root nodes can only be creates and exercises.
                     throw new RuntimeException(s"Unexpected node: $n")
                 }
               }
               ScenarioLedger.commitTransaction(
-                committer = party,
+                actAs = actAs.toSet,
+                readAs = readAs,
                 effectiveAt = scenarioRunner.ledger.currentTime,
                 optLocation = onLedger.commitLocation,
                 tx = tx,
@@ -553,11 +564,12 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   }
 
   override def submit(
-      party: Ref.Party,
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
       commands: List[command.Command],
       optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
-    unsafeSubmit(party, commands, optLocation).map {
+    unsafeSubmit(actAs, readAs, commands, optLocation).map {
       case Right(x) =>
         // Expected successful commit so clear.
         machine.clearCommit
@@ -569,12 +581,13 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     }
 
   override def submitMustFail(
-      party: Ref.Party,
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
       commands: List[command.Command],
       optLocation: Option[Location])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Either[Unit, Unit]] = {
-    unsafeSubmit(party, commands, optLocation)
+    unsafeSubmit(actAs, readAs, commands, optLocation)
       .map({
         case Right(_) => Left(())
         // We don't expect to hit this case but list it for completeness.
@@ -793,12 +806,14 @@ class JsonLedgerClient(
     }
   }
   override def submit(
-      party: Ref.Party,
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
       commands: List[command.Command],
       optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer)
     : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     for {
-      () <- validateTokenParties(OneAnd(party, Set()), "submit a command")
+      () <- validateSubmitParties(actAs, readAs)
+
       result <- commands match {
         case Nil => Future { Right(List()) }
         case cmd :: Nil =>
@@ -820,10 +835,11 @@ class JsonLedgerClient(
     } yield result
   }
   override def submitMustFail(
-      party: Ref.Party,
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party],
       commands: List[command.Command],
       optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer) = {
-    submit(party, commands, optLocation).map({
+    submit(actAs, readAs, commands, optLocation).map({
       case Right(_) => Left(())
       case Left(_) => Right(())
     })
@@ -875,6 +891,31 @@ class JsonLedgerClient(
     } else {
       Future.failed(new RuntimeException(s"Tried to $what as ${parties.toList
         .mkString(" ")} but token provides claims for ${tokenParties.mkString(" ")}"))
+    }
+  }
+
+  private def validateSubmitParties(
+      actAs: OneAnd[Set, Ref.Party],
+      readAs: Set[Ref.Party]): Future[Unit] = {
+    // Relax once the JSON API supports multi-party read/write
+    import scalaz.std.string._
+    if (actAs.tail.nonEmpty) {
+      Future.failed(
+        new RuntimeException(s"JSON API does not support multi-party actAs but got ${actAs}"))
+    } else if (!(readAs.subsetOf(actAs.toSet))) {
+      Future.failed(new RuntimeException(
+        s"JSON API does not support additional parties in readAs on command submissions but got ${readAs}"))
+    } else if (tokenPayload.actAs.isEmpty) {
+      Future.failed(
+        new RuntimeException(
+          s"Tried to submit a command as ${actAs.head} but token contains no actAs parties."))
+    } else if (List[String](actAs.head) /== tokenPayload.actAs) {
+      Future.failed(
+        new RuntimeException(
+          s"Tried to submit a command as ${actAs.head} but token provides claims for ${tokenPayload.actAs
+            .mkString(" ")}"))
+    } else {
+      Future.unit
     }
   }
 

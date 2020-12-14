@@ -80,7 +80,7 @@ sealed abstract class Primitive extends PrimitiveInstances {
     def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]]
     implicit def canBuildFrom[V]: CanBuildFrom[Coll, (String, V), TextMap[V]]
     final def fromMap[V](map: imm.Map[String, V]): TextMap[V] = leibniz[V].subst[Id](map)
-    def subst[F[_[_]]](fa: F[imm.Map[String, ?]]): F[TextMap]
+    def subst[F[_[_]]](fa: F[imm.Map[String, *]]): F[TextMap]
     final def leibniz[V]: imm.Map[String, V] === TextMap[V] =
       subst[Lambda[g[_] => imm.Map[String, V] === g[V]]](scalaz.Leibniz.refl)
   }

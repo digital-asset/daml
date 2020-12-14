@@ -101,11 +101,11 @@ da_scala_library(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_play_anorm_2_12",
-        "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
         "@maven//:com_zaxxer_HikariCP",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_flywaydb_flyway_core",
+        "@maven//:org_playframework_anorm_anorm_2_12",
+        "@maven//:org_playframework_anorm_anorm_tokenizer_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

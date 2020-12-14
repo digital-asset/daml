@@ -285,7 +285,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
         Field("id", IDType, resolve = _.value.idString),
         Field("offset", OffsetType, resolve = context => context.value.offset),
         Field("effectiveAt", TimeType, resolve = _.value.effectiveAt),
-        Field("commandId", CommandIdType, resolve = _.value.commandId.orNull),
+        Field("commandId", OptionType(CommandIdType), resolve = _.value.commandId),
         Field("events", ListType(EventType), resolve = _.value.events)
     )
   )

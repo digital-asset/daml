@@ -8,7 +8,7 @@ import java.util.UUID
 
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
-import com.daml.lf.transaction.TransactionVersions
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInst, ValueParty, VersionedValue}
 import com.daml.lf.value.ValueVersion
@@ -34,7 +34,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           signatories = Set(alice),
           stakeholders = Set(alice),
           key = None,
-          version = TransactionVersions.minVersion,
+          version = TransactionVersion.minVersion,
         )
       )
       contractId -> builder.buildCommitted()
@@ -52,7 +52,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           key = Some(
             KeyWithMaintainers(ValueParty(bob), Set(bob))
           ),
-          version = TransactionVersions.minVersion,
+          version = TransactionVersion.minVersion,
         )
       )
       contractId -> builder.buildCommitted()
@@ -75,7 +75,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           exerciseResult = None,
           key = None,
           byKey = false,
-          version = TransactionVersions.minVersion,
+          version = TransactionVersion.minVersion,
         )
       )
       builder.add(
@@ -90,7 +90,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
             KeyWithMaintainers(ValueParty(bob), Set(bob))
           ),
           byKey = false,
-          version = TransactionVersions.minVersion,
+          version = TransactionVersion.minVersion,
         ),
         parentId = rootExercise,
       )
@@ -112,7 +112,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
             KeyWithMaintainers(ValueParty(bob), Set(bob))
           ),
           byKey = false,
-          version = TransactionVersions.minVersion,
+          version = TransactionVersion.minVersion,
         ),
         parentId = rootExercise,
       )
@@ -126,7 +126,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           key = Some(
             KeyWithMaintainers(ValueParty(bob), Set(bob))
           ),
-          version = TransactionVersions.minVersion,
+          version = TransactionVersion.minVersion,
         ),
         parentId = nestedExercise,
       )
@@ -177,7 +177,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       _ <- store(
         divulgedContracts = Map((create2, someVersionedContractInstance) -> Set(alice)),
         blindingInfo = None,
-        nextOffset() -> LedgerEntry.Transaction(
+        offsetAndTx = nextOffset() -> LedgerEntry.Transaction(
           commandId = Some(UUID.randomUUID.toString),
           transactionId = UUID.randomUUID.toString,
           applicationId = Some(appId),

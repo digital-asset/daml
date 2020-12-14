@@ -226,7 +226,7 @@ class ScenarioService(
   ): Unit = {
     val lfVersion = LanguageVersion(
       LanguageVersion.Major.V1,
-      LanguageVersion.Minor.fromProtoIdentifier(req.getLfMinor)
+      LanguageVersion.Minor(req.getLfMinor)
     )
     val ctx = Context.newContext(lfVersion)
     contexts += (ctx.contextId -> ctx)

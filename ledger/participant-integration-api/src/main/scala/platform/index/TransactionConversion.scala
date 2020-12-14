@@ -35,8 +35,8 @@ private[platform] object TransactionConversion {
   private type ContractId = lf.value.Value.ContractId
   private type Transaction = CommittedTransaction
   private type Node = Tx.Node
-  private type Create = NodeCreate.WithTxValue[ContractId]
-  private type Exercise = NodeExercises.WithTxValue[NodeId, ContractId]
+  private type Create = NodeCreate[ContractId]
+  private type Exercise = NodeExercises[NodeId, ContractId]
 
   private def collect[A](tx: Transaction)(pf: PartialFunction[(NodeId, Node), A]): Seq[A] =
     tx.fold(Vector.empty[A]) {

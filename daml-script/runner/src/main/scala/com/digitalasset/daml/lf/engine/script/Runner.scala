@@ -12,7 +12,8 @@ import com.typesafe.scalalogging.StrictLogging
 import java.time.Clock
 
 import scala.concurrent.{ExecutionContext, Future}
-import scalaz.{Applicative, NonEmptyList, OneAnd, Traverse, \/-}
+import scalaz.{Applicative, Foldable, NonEmptyList, OneAnd, Traverse, \/-}
+import scalaz.OneAnd._
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._
@@ -31,7 +32,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SDefinition, SValue, Speedy}
+import com.daml.lf.speedy.{Compiler, Pretty, SDefinition, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -47,7 +48,6 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.VersionTimeline
 import com.daml.script.converter.Converter.{JavaList, toContractId, unrollFree}
 import com.daml.script.converter.ConverterException
 
@@ -194,7 +194,7 @@ object Runner {
     import Compiler._
     Config(
       // FIXME: Should probably not include 1.dev by default.
-      allowedLanguageVersions = VersionTimeline.devLanguageVersions,
+      allowedLanguageVersions = LanguageVersion.DevVersions,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = FullStackTrace,
@@ -301,6 +301,38 @@ object Runner {
     runner.runWithClients(initialClients)._2
   }
 
+  private case class SubmitPayload(
+      actAs: OneAnd[List, SValue],
+      readAs: List[SValue],
+      freeAp: SValue,
+      continue: SValue,
+      loc: Option[SValue])
+
+  private def submitPayload: SValue PartialFunction SubmitPayload = {
+    // no location
+    case SRecord(_, _, JavaList(sParty, SRecord(_, _, JavaList(freeAp)), continue)) =>
+      SubmitPayload(OneAnd(sParty, List()), List(), freeAp, continue, None)
+    // location
+    case SRecord(_, _, JavaList(sParty, SRecord(_, _, JavaList(freeAp)), continue, loc)) =>
+      SubmitPayload(OneAnd(sParty, List()), List(), freeAp, continue, Some(loc))
+
+    // multi-party actAs/readAs + location
+    case SRecord(
+        _,
+        _,
+        JavaList(
+          SRecord(_, _, JavaList(hdAct, SList(tlAct))),
+          SList(read),
+          SRecord(_, _, JavaList(freeAp)),
+          continue,
+          loc)) =>
+      SubmitPayload(OneAnd(hdAct, tlAct.toList), read.toList, freeAp, continue, Some(loc))
+
+  }
+
+  private def toOneAndSet[F[_], A](x: OneAnd[F, A])(implicit fF: Foldable[F]): OneAnd[Set, A] =
+    OneAnd(x.head, x.tail.toSet - x.head)
+
   // used to help scalac propagate the expected `B` type into `f`, which doesn't
   // work with the literal tuple syntax.  The curried form also indents much
   // more nicely with scalafmt, with far less horizontal space used
@@ -405,7 +437,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
 
     def run(expr: SExpr): Future[SValue] = {
       machine.setExpressionToEvaluate(expr)
-      import Runner.{match2, m2c}
+      import Runner.{match2, m2c, submitPayload, toOneAndSet}
       stepToValue()
         .fold(Future.failed, Future.successful)
         .flatMap(fsu => Converter toFuture unrollFree(fsu))
@@ -413,24 +445,23 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
           case Right((vv, v)) =>
             match2(vv, v) {
               case "Submit" =>
-                m2c("record with 3 or 4 fields") {
-                  // For backwards compatibility we support SubmitCmd without a callstack.
-                  case SRecord(
-                      _,
-                      _,
-                      JavaList(sParty, SRecord(_, _, JavaList(freeAp)), continue, restVals @ _*))
-                      if restVals.size <= 1 =>
+                m2c("record with 3,4 or 5 fields") {
+                  submitPayload.andThen { payload =>
                     for {
-                      party <- Converter.toFuture(Converter
-                        .toParty(sParty))
+                      actAs <- Converter
+                        .toFuture(payload.actAs.traverse(Converter.toParty(_)))
+                        .map(toOneAndSet(_))
+                      readAs <- Converter
+                        .toFuture(payload.readAs.traverse(Converter.toParty(_)))
+                        .map(_.toSet)
                       commands <- Converter.toFuture(Converter
-                        .toCommands(extendedCompiledPackages, freeAp))
+                        .toCommands(extendedCompiledPackages, payload.freeAp))
                       client <- Converter.toFuture(clients
-                        .getPartyParticipant(party))
-                      commitLocation <- restVals.headOption cata (sLoc =>
+                        .getPartiesParticipant(actAs))
+                      commitLocation <- payload.loc cata (sLoc =>
                         Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
                       Future(None))
-                      submitRes <- client.submit(party, commands, commitLocation)
+                      submitRes <- client.submit(actAs, readAs, commands, commitLocation)
                       _ = copyTracelog(client)
                       v <- submitRes match {
                         case Right(results) => {
@@ -441,7 +472,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                                   extendedCompiledPackages,
                                   lookupChoiceTy,
                                   valueTranslator,
-                                  freeAp,
+                                  payload.freeAp,
                                   results))
                             v <- {
                               run(filled)
@@ -458,42 +489,43 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                             res <- Converter.toFuture(Converter
                               .fromStatusException(script.scriptIds, statusEx))
                             v <- {
-                              run(SEApp(SEValue(continue), Array(SEValue(res))))
+                              run(SEApp(SEValue(payload.continue), Array(SEValue(res))))
                             }
                           } yield v
                         }
                       }
                     } yield v
 
+                  }
                 }
               case "SubmitMustFail" =>
                 m2c("record with 3 or 4 fields") {
-                  // For backwards compatibility we support SubmitCmd without a callstack.
-                  case SRecord(
-                      _,
-                      _,
-                      JavaList(sParty, SRecord(_, _, JavaList(freeAp)), continue, restVals @ _*))
-                      if restVals.size <= 1 =>
+                  submitPayload.andThen { payload =>
                     for {
-                      party <- Converter.toFuture(Converter
-                        .toParty(sParty))
+                      actAs <- Converter
+                        .toFuture(payload.actAs.traverse(Converter.toParty(_)))
+                        .map(toOneAndSet(_))
+                      readAs <- Converter
+                        .toFuture(payload.readAs.traverse(Converter.toParty(_)))
+                        .map(_.toSet)
                       commands <- Converter.toFuture(Converter
-                        .toCommands(extendedCompiledPackages, freeAp))
+                        .toCommands(extendedCompiledPackages, payload.freeAp))
                       client <- Converter.toFuture(clients
-                        .getPartyParticipant(party))
-                      commitLocation <- restVals.headOption cata (sLoc =>
+                        .getPartiesParticipant(actAs))
+                      commitLocation <- payload.loc cata (sLoc =>
                         Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
                       Future(None))
-                      submitRes <- client.submitMustFail(party, commands, commitLocation)
+                      submitRes <- client.submitMustFail(actAs, readAs, commands, commitLocation)
                       _ = copyTracelog(client)
                       v <- submitRes match {
                         case Right(()) =>
-                          run(SEApp(SEValue(continue), Array(SEValue(SUnit))))
+                          run(SEApp(SEValue(payload.continue), Array(SEValue(SUnit))))
                         case Left(()) =>
                           Future.failed(
                             new DamlEUserError("Expected submit to fail but it succeeded"))
                       }
                     } yield v
+                  }
                 }
               case "Query" =>
                 m2c("record with 3 fields") {

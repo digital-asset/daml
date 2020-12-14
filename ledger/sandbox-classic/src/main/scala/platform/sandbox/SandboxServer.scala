@@ -354,9 +354,9 @@ final class SandboxServer(
       Banner.show(Console.out)
       logger.withoutContext.info(
         s"Initialized {} version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
-        name,
+        LedgerName.unwrap(name),
         BuildInfo.Version,
-        ledgerId,
+        LedgerId.unwrap(ledgerId),
         apiServer.port.toString,
         config.damlPackages,
         timeProviderType.description,

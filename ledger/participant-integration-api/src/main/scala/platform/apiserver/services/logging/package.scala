@@ -64,8 +64,6 @@ package object logging {
     "submissionId" -> id
   private[services] def submittedAt(t: Instant): (String, String) =
     "submittedAt" -> t.toString
-  private[services] def submitter(party: String): (String, String) =
-    "submitter" -> party
   private[services] def transactionId(id: TransactionId): (String, String) =
     "transactionId" -> id.unwrap
   private[services] def workflowId(id: WorkflowId): (String, String) =
@@ -74,11 +72,11 @@ package object logging {
     val context =
       Map(
         commandId(cmds.commandId),
-        party(cmds.submitter),
         deduplicateUntil(cmds.deduplicateUntil),
         applicationId(cmds.applicationId),
         submittedAt(cmds.submittedAt),
-        submitter(cmds.submitter),
+        actAs(cmds.actAs),
+        readAs(cmds.readAs)
       )
     cmds.workflowId.fold(context)(context + workflowId(_))
   }

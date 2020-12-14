@@ -16,6 +16,7 @@ import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 import com.google.protobuf.CodedInputStream
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.JavaConverters._
 import scala.collection.{breakOut, mutable}
 
@@ -1277,7 +1278,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
   }
 
   private def versionIsOlderThan(minVersion: LV): Boolean =
-    LV.ordering.lt(languageVersion, minVersion)
+    languageVersion < minVersion
 
   private def toPackageId(s: String, description: => String): PackageId = {
     assertUntil(LV.Features.internedStrings, description)
