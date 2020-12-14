@@ -19,7 +19,7 @@ da_scala_library(
     name = "http-json",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     scalacopts = hj_scalacopts,
     tags = ["maven_coordinates=com.daml:http-json:__VERSION__"],
@@ -120,7 +120,7 @@ da_scala_test(
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     scalacopts = hj_scalacopts,
     deps = [
@@ -165,7 +165,7 @@ da_scala_test(
         "//ledger/test-common/test-certificates",
     ],
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     resources = glob(["src/it/resources/**/*"]),
     scalacopts = hj_scalacopts,
@@ -216,7 +216,7 @@ da_scala_test(
         "@toxiproxy_dev_env//:bin/toxiproxy-cmd" if not is_windows else "@toxiproxy_dev_env//:toxiproxy-server-windows-amd64.exe",
     ],
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     resources = glob(["src/failure/resources/**/*"]),
     scalacopts = hj_scalacopts,

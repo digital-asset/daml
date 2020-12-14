@@ -11,7 +11,7 @@ import scalaz.syntax.apply._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.traverse._
 
-/** Cofree[K ==>> ?, A], except gremlins have infested scalaz with
+/** Cofree[K ==>> *, A], except gremlins have infested scalaz with
   * trampolines
   */
 final case class Namespace[K, A](here: A, subtree: K ==>> Namespace[K, A]) {
@@ -28,8 +28,8 @@ final case class Namespace[K, A](here: A, subtree: K ==>> Namespace[K, A]) {
 
 object Namespace {
   // could be Traverse1 instead of Traverse but I don't know we'll need it
-  implicit def `Namespace covariant`[K]: Comonad[Namespace[K, ?]] with Traverse[Namespace[K, ?]] =
-    new Comonad[Namespace[K, ?]] with Traverse[Namespace[K, ?]] {
+  implicit def `Namespace covariant`[K]: Comonad[Namespace[K, *]] with Traverse[Namespace[K, *]] =
+    new Comonad[Namespace[K, *]] with Traverse[Namespace[K, *]] {
       override def cobind[A, B](fa: Namespace[K, A])(f: Namespace[K, A] => B): Namespace[K, B] =
         Namespace(f(fa), fa.subtree.map(cobind(_)(f)))
 

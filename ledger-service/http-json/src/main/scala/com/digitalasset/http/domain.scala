@@ -462,7 +462,7 @@ object domain {
   }
 
   object ContractKeyStreamRequest {
-    implicit def covariantR[Off]: Traverse[ContractKeyStreamRequest[Off, ?]] = {
+    implicit def covariantR[Off]: Traverse[ContractKeyStreamRequest[Off, *]] = {
       type F[A] = ContractKeyStreamRequest[Off, A]
       new Traverse[F] {
         override def traverseImpl[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] =
@@ -470,8 +470,8 @@ object domain {
       }
     }
 
-    implicit def hasTemplateId[Off]: HasTemplateId[ContractKeyStreamRequest[Off, ?]] =
-      HasTemplateId.by[ContractKeyStreamRequest[Off, ?]](_.ekey)
+    implicit def hasTemplateId[Off]: HasTemplateId[ContractKeyStreamRequest[Off, *]] =
+      HasTemplateId.by[ContractKeyStreamRequest[Off, *]](_.ekey)
   }
 
   private[this] implicit final class ErrorOps[A](private val o: Option[A]) extends AnyVal {
@@ -531,11 +531,11 @@ object domain {
       }
     }
 
-    implicit val leftTraverseInstance: Traverse[ExerciseCommand[+?, Nothing]] =
+    implicit val leftTraverseInstance: Traverse[ExerciseCommand[+*, Nothing]] =
       bitraverseInstance.leftTraverse
 
     implicit val hasTemplateId =
-      new HasTemplateId[ExerciseCommand[+?, domain.ContractLocator[_]]] {
+      new HasTemplateId[ExerciseCommand[+*, domain.ContractLocator[_]]] {
 
         override def templateId(
             fab: ExerciseCommand[_, domain.ContractLocator[_]],

@@ -56,7 +56,7 @@ class LedgerClientBinding(
 
     logger.debug(
       "[tx {}] subscription start with offset template selector {}, start {}, end {}",
-      party,
+      Party.unwrap(party),
       templateSelector,
       startOffset,
       endOffset)

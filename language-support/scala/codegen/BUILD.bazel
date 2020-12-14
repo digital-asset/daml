@@ -26,7 +26,7 @@ da_scala_library(
         ),
     plugins = [
         # Plugins have to be specified as JARs.
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     scalacopts = common_scalacopts,
     tags = ["maven_coordinates=com.daml:codegen-scala:__VERSION__"],

@@ -92,7 +92,7 @@ class DomainJsonDecoder(
         .decode[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]](a)
         .liftErrS("DomainJsonDecoder_decodeExerciseCommand")(JsonError)
 
-      lfType <- lookupLfType[domain.ExerciseCommand[+?, domain.ContractLocator[_]]](cmd0)(
+      lfType <- lookupLfType[domain.ExerciseCommand[+*, domain.ContractLocator[_]]](cmd0)(
         domain.ExerciseCommand.hasTemplateId)
 
       cmd1 <- cmd0.bitraverse(

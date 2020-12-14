@@ -67,13 +67,13 @@ object InsertDeleteStepTest {
   implicit val `IDS arb`: Arbitrary[IDS] =
     Arbitrary(arbitrary[(Vector[Cid], Map[Cid, Unit])] map {
       case (is, ds) =>
-        InsertDeleteStep(is filterNot ds.keySet, Cid.unsubst[Map[?, Unit], String](ds))
+        InsertDeleteStep(is filterNot ds.keySet, Cid.unsubst[Map[*, Unit], String](ds))
     })
 
   implicit val `IDS shr`: Shrink[IDS] =
     Shrink.xmap[(Vector[Cid], Map[Cid, Unit]), IDS](
-      { case (is, ds) => InsertDeleteStep(is, Cid.unsubst[Map[?, Unit], String](ds)) },
-      step => (step.inserts, Cid.subst[Map[?, Unit], String](step.deletes)),
+      { case (is, ds) => InsertDeleteStep(is, Cid.unsubst[Map[*, Unit], String](ds)) },
+      step => (step.inserts, Cid.subst[Map[*, Unit], String](step.deletes)),
     )
 
   implicit val `IDS eq`: Equal[IDS] = Equal.equalA
