@@ -39,7 +39,7 @@ import scala.collection.JavaConverters._
 class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSugar {
   private[this] val txBuilder = TransactionBuilder()
   private val metrics = new Metrics(new MetricRegistry)
-  private val aDamlTransactionEntry = createTransationEntry(List("aSubmitter"))
+  private val aDamlTransactionEntry = createTransactionEntry(List("aSubmitter"))
   private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
   private val aRecordTime = Timestamp(100)
   private val instance = createTransactionCommitter() // Stateless, can be shared between tests
@@ -474,7 +474,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         ),
         participantId = ParticipantId
       )
-      val tx = DamlTransactionEntrySummary(createTransationEntry(List(Alice, Bob, Emma)))
+      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob, Emma)))
 
       assertThrows[MissingInputState](instance.authorizeSubmitters.apply(context, tx))
     }
@@ -488,7 +488,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         ),
         participantId = ParticipantId
       )
-      val tx = DamlTransactionEntrySummary(createTransationEntry(List(Alice, Bob)))
+      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob)))
 
       val result = instance.authorizeSubmitters.apply(context, tx)
       result shouldBe a[StepStop]
@@ -510,7 +510,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         ),
         participantId = ParticipantId
       )
-      val tx = DamlTransactionEntrySummary(createTransationEntry(List(Alice, Bob)))
+      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob)))
 
       val result = instance.authorizeSubmitters.apply(context, tx)
       result shouldBe a[StepStop]
@@ -534,7 +534,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         ),
         participantId = ParticipantId
       )
-      val tx = DamlTransactionEntrySummary(createTransationEntry(List(Alice, Bob, Emma)))
+      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob, Emma)))
 
       instance.authorizeSubmitters.apply(context, tx) shouldBe a[StepContinue[_]]
     }
@@ -588,7 +588,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
           .setConfiguration(Configuration.encode(theDefaultConfig))
       )
 
-  private def createTransationEntry(submitters: List[String]): DamlTransactionEntry = {
+  private def createTransactionEntry(submitters: List[String]): DamlTransactionEntry = {
     DamlTransactionEntry.newBuilder
       .setTransaction(Conversions.encodeTransaction(TransactionBuilder.Empty))
       .setSubmitterInfo(
