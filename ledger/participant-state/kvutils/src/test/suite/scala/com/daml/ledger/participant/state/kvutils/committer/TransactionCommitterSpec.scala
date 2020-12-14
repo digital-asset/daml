@@ -17,7 +17,14 @@ import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, ReplayMismatch}
 import com.daml.lf.transaction
-import com.daml.lf.transaction.{NodeId, RecordedNodeMissing, ReplayNodeMismatch, ReplayedNodeMissing, Transaction, TransactionOuterClass}
+import com.daml.lf.transaction.{
+  NodeId,
+  RecordedNodeMissing,
+  ReplayNodeMismatch,
+  ReplayedNodeMissing,
+  Transaction,
+  TransactionOuterClass
+}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.metrics.Metrics
@@ -463,19 +470,23 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     val emma = "emma"
     val participantId = 0
     val otherParticipantId = 1
-    def partyAllocation(party: String, participantId: Int): DamlPartyAllocation = DamlPartyAllocation.newBuilder()
-      .setParticipantId(mkParticipantId(participantId))
-      .setDisplayName(party).build()
+    def partyAllocation(party: String, participantId: Int): DamlPartyAllocation =
+      DamlPartyAllocation
+        .newBuilder()
+        .setParticipantId(mkParticipantId(participantId))
+        .setDisplayName(party)
+        .build()
 
     def hostedParty(party: String): DamlPartyAllocation = partyAllocation(party, participantId)
-    def notHostedParty(party: String): DamlPartyAllocation = partyAllocation(party, otherParticipantId)
-    def createInputs(inputs: (String, Option[DamlPartyAllocation])*): Map[DamlStateKey, Option[DamlStateValue]] =
+    def notHostedParty(party: String): DamlPartyAllocation =
+      partyAllocation(party, otherParticipantId)
+    def createInputs(
+        inputs: (String, Option[DamlPartyAllocation])*): Map[DamlStateKey, Option[DamlStateValue]] =
       inputs.map {
         case (party, partyAllocation) =>
-          DamlStateKey.newBuilder().setParty(party).build() -> partyAllocation.map(DamlStateValue.newBuilder().setParty(_).build())
+          DamlStateKey.newBuilder().setParty(party).build() -> partyAllocation.map(
+            DamlStateValue.newBuilder().setParty(_).build())
       }.toMap
-
-
 
     "reject a submission when any of the submitters keys is not present in the input state" in {
       val context = createCommitContext(
@@ -504,7 +515,12 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
       val result = instance.authorizeSubmitters.apply(context, tx)
       result shouldBe a[StepStop]
-      val rejectionReason = result.asInstanceOf[StepStop].logEntry.getTransactionRejectionEntry.getPartyNotKnownOnLedger.getDetails
+      val rejectionReason = result
+        .asInstanceOf[StepStop]
+        .logEntry
+        .getTransactionRejectionEntry
+        .getPartyNotKnownOnLedger
+        .getDetails
       rejectionReason should fullyMatch regex """Submitting party .+ not known"""
     }
 
@@ -521,8 +537,14 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
       val result = instance.authorizeSubmitters.apply(context, tx)
       result shouldBe a[StepStop]
-      val rejectionReason = result.asInstanceOf[StepStop].logEntry.getTransactionRejectionEntry.getSubmitterCannotActViaParticipant.getDetails
-      rejectionReason should fullyMatch regex s"""Party .+ not hosted by participant ${mkParticipantId(participantId)}"""
+      val rejectionReason = result
+        .asInstanceOf[StepStop]
+        .logEntry
+        .getTransactionRejectionEntry
+        .getSubmitterCannotActViaParticipant
+        .getDetails
+      rejectionReason should fullyMatch regex s"""Party .+ not hosted by participant ${mkParticipantId(
+        participantId)}"""
     }
 
     "allow a submission when all of the submitters are hosted on the participant" in {

@@ -159,8 +159,7 @@ private[kvutils] class TransactionCommitter(
         case None =>
           Some(
             rejection(
-              RejectionReason.PartyNotKnownOnLedger(
-                s"Submitting party '$submitter' not known")
+              RejectionReason.PartyNotKnownOnLedger(s"Submitting party '$submitter' not known")
             ))
       }
 
