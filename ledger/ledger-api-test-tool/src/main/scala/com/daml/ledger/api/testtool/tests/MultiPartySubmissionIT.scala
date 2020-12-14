@@ -6,6 +6,7 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test.model.Test._
 import io.grpc.Status
 import scalaz.syntax.tag._
@@ -22,7 +23,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
       val request = ledger.submitRequest(
         actAs = List(alice, bob),
         readAs = List.empty,
-        commands = MultiPartyContract(List(alice, bob), "").create.command,
+        commands = MultiPartyContract(Primitive.List(alice, bob), "").create.command,
       )
 
       for {
@@ -45,7 +46,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         _ <- ledger.create(
           actAs = List(alice, bob),
           readAs = List.empty,
-          template = MultiPartyContract(List(alice, bob), "")
+          template = MultiPartyContract(Primitive.List(alice, bob), "")
         )
         active <- ledger.activeContracts(bob)
       } yield {
@@ -67,7 +68,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           .create(
             actAs = List(alice, bob),
             readAs = List.empty,
-            template = MultiPartyContract(List(alice, bob, charlie), "")
+            template = MultiPartyContract(Primitive.List(alice, bob, charlie), "")
           )
           .failed
       } yield {
@@ -90,7 +91,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         contract <- ledger.create(
           actAs = List(alice, bob),
           readAs = List.empty,
-          template = MultiPartyContract(List(alice, bob), "")
+          template = MultiPartyContract(Primitive.List(alice, bob), "")
         )
 
         // Exercise a choice to add (Charlie, David)
@@ -98,7 +99,9 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         _ <- ledger.exercise(
           actAs = List(alice, bob, charlie, david),
           readAs = List.empty,
-          exercise = contract.exerciseAddSignatories(null, List(alice, bob, charlie, david)))
+          exercise = contract
+            .exerciseAddSignatories(unusedActorArgument, Primitive.List(alice, bob, charlie, david))
+        )
         active <- ledger.activeContracts(david)
       } yield {
         assert(active.length == 1)
@@ -117,7 +120,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         contract <- ledger.create(
           actAs = List(alice, bob),
           readAs = List.empty,
-          template = MultiPartyContract(List(alice, bob), "")
+          template = MultiPartyContract(Primitive.List(alice, bob), "")
         )
 
         // Exercise a choice to duplicate contract for (Charlie, David)
@@ -126,7 +129,8 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         _ <- ledger.exercise(
           actAs = List(charlie, david),
           readAs = List(alice),
-          exercise = contract.exerciseDuplicateFor(null, List(charlie, david)))
+          exercise =
+            contract.exerciseDuplicateFor(unusedActorArgument, Primitive.List(charlie, david)))
         active <- ledger.activeContracts(david)
       } yield {
         assert(active.length == 1)
@@ -154,7 +158,8 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
           .exercise(
             actAs = List(charlie, david),
             readAs = List.empty,
-            exercise = contract.exerciseDuplicateFor(null, List(charlie, david)))
+            exercise =
+              contract.exerciseDuplicateFor(unusedActorArgument, Primitive.List(charlie, david)))
           .failed
       } yield {
         assertGrpcError(
@@ -164,4 +169,7 @@ final class MultiPartySubmissionIT extends LedgerTestSuite {
         )
       }
   })
+
+  // The "actor" argument in the generated methods to exercise choices is not used
+  private[this] val unusedActorArgument: Primitive.Party = Primitive.Party("")
 }
