@@ -215,35 +215,27 @@ private[kvutils] class TransactionCommitter(
               value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
           }
 
-        try {
-          engine
-            .validate(
-              Set(transactionEntry.submitter),
-              SubmittedTransaction(transactionEntry.transaction),
-              transactionEntry.ledgerEffectiveTime,
-              commitContext.participantId,
-              transactionEntry.submissionTime,
-              transactionEntry.submissionSeed,
-            )
-            .consume(
-              lookupContract(transactionEntry, commitContext),
-              lookupPackage(transactionEntry, commitContext),
-              lookupKey(commitContext, knownKeys),
-            )
-            .fold(
-              err =>
-                reject[DamlTransactionEntrySummary](
-                  commitContext.recordTime,
-                  buildRejectionLogEntry(transactionEntry, rejectionReasonForValidationError(err))),
-              _ => StepContinue[DamlTransactionEntrySummary](transactionEntry)
-            )
-        } catch {
-          case err: Err.MissingInputState =>
-            logger.warn("Exception during model conformance validation.", err)
-            reject(
-              commitContext.recordTime,
-              buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.getMessage)))
-        }
+        engine
+          .validate(
+            Set(transactionEntry.submitter),
+            SubmittedTransaction(transactionEntry.transaction),
+            transactionEntry.ledgerEffectiveTime,
+            commitContext.participantId,
+            transactionEntry.submissionTime,
+            transactionEntry.submissionSeed,
+          )
+          .consume(
+            lookupContract(transactionEntry, commitContext),
+            lookupPackage(transactionEntry, commitContext),
+            lookupKey(commitContext, knownKeys),
+          )
+          .fold(
+            err =>
+              reject[DamlTransactionEntrySummary](
+                commitContext.recordTime,
+                buildRejectionLogEntry(transactionEntry, rejectionReasonForValidationError(err))),
+            _ => StepContinue[DamlTransactionEntrySummary](transactionEntry)
+          )
       })
 
   private[committer] def rejectionReasonForValidationError(
