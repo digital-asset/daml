@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Telemetry}
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{
   CommandConfiguration,
@@ -100,7 +100,7 @@ trait ReadServiceOwner[+RS <: ReadService, ExtraConfig] extends ConfigProvider[E
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RS]
+  )(implicit materializer: Materializer, loggingContext: LoggingContext, telemetry: Telemetry): ResourceOwner[RS]
 }
 
 trait WriteServiceOwner[+WS <: WriteService, ExtraConfig] extends ConfigProvider[ExtraConfig] {
@@ -108,7 +108,7 @@ trait WriteServiceOwner[+WS <: WriteService, ExtraConfig] extends ConfigProvider
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[WS]
+  )(implicit materializer: Materializer, loggingContext: LoggingContext, telemetry: Telemetry): ResourceOwner[WS]
 }
 
 trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig]
@@ -119,21 +119,21 @@ trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig]
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RWS] =
+  )(implicit materializer: Materializer, loggingContext: LoggingContext, telemetry: Telemetry): ResourceOwner[RWS] =
     readWriteServiceOwner(config, participantConfig, engine)
 
   override final def writeServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RWS] =
+  )(implicit materializer: Materializer, loggingContext: LoggingContext, telemetry: Telemetry): ResourceOwner[RWS] =
     readWriteServiceOwner(config, participantConfig, engine)
 
   def readWriteServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): ResourceOwner[RWS]
+  )(implicit materializer: Materializer, loggingContext: LoggingContext,telemetry: Telemetry): ResourceOwner[RWS]
 }
 
 object LedgerFactory {
@@ -149,6 +149,7 @@ object LedgerFactory {
     )(
         implicit materializer: Materializer,
         loggingContext: LoggingContext,
+        telemetry: Telemetry
     ): ResourceOwner[KeyValueParticipantState] =
       for {
         readerWriter <- owner(config, participantConfig, engine)

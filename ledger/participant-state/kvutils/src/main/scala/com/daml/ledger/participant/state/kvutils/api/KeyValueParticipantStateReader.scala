@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.preexecution.TimeUpdatesProvider
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{Metrics, Timed, Spans, Telemetry}
 
 /**
   * Adapts a [[LedgerReader]] instance to [[ReadService]].
@@ -31,13 +31,13 @@ class KeyValueParticipantStateReader private[api] (
     logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update],
     timeUpdatesProvider: TimeUpdatesProvider,
     failOnUnexpectedEvent: Boolean,
-) extends ReadService {
+)(implicit val telemetry: Telemetry) extends ReadService {
   import KeyValueParticipantStateReader._
 
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(createLedgerInitialConditions())
 
-  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
+  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, UpdateWithContext), NotUsed] = {
     Source
       .single(beginAfter.map(OffsetBuilder.dropLowestIndex))
       .flatMapConcat(reader.events)
@@ -49,14 +49,17 @@ class KeyValueParticipantStateReader private[api] (
               case Envelope.LogEntryMessage(logEntry) =>
                 Timed.value(
                   metrics.daml.kvutils.reader.parseUpdates, {
-                    val logEntryId = DamlLogEntryId.parseFrom(entryId)
-                    val updates =
-                      logEntryToUpdate(logEntryId, logEntry, timeUpdatesProvider())
-                    val updatesWithOffsets = Source(updates).zipWithIndex.map {
-                      case (update, index) =>
-                        offsetForUpdate(offset, index.toInt, updates.size) -> update
-                    }
-                    Right(updatesWithOffsets)
+                    telemetry.runInSpan(Spans.ReadParseUpdates){ implicit telemetryContext =>
+                      val logEntryId = DamlLogEntryId.parseFrom(entryId)
+                      val updates =
+                        logEntryToUpdate(logEntryId, logEntry, timeUpdatesProvider())
+                      val updatesWithOffsets = Source(updates).zipWithIndex.map {
+                        case (update, index) =>
+                          // TODO: duplicate the implementation in oem
+                          offsetForUpdate(offset, index.toInt, updates.size) -> UpdateWithContext(update)
+                        }
+                      Right(updatesWithOffsets)
+                   }
                   }
                 )
               case _ =>
@@ -86,7 +89,7 @@ object KeyValueParticipantStateReader {
       metrics: Metrics,
       timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault,
       failOnUnexpectedEvent: Boolean = true,
-  ): KeyValueParticipantStateReader =
+  )(implicit telemetry: Telemetry): KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
       metrics,

@@ -25,6 +25,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",

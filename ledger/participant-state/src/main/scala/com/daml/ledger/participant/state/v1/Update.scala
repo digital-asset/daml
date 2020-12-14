@@ -7,6 +7,9 @@ package participant.state.v1
 import com.daml.lf.data.Time.Timestamp
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.transaction.BlindingInfo
+import com.daml.metrics.TelemetryContext
+
+case class UpdateWithContext(update: Update)(implicit val telemetryContext: TelemetryContext)
 
 /** An update to the (abstract) participant state.
   *

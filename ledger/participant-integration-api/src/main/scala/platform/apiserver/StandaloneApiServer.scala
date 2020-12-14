@@ -18,7 +18,7 @@ import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedServic
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.Engine
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Telemetry}
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
@@ -52,7 +52,7 @@ final class StandaloneApiServer(
     otherInterceptors: List[ServerInterceptor] = List.empty,
     engine: Engine,
     lfValueTranslationCache: LfValueTranslation.Cache,
-)(implicit actorSystem: ActorSystem, materializer: Materializer, loggingContext: LoggingContext)
+)(implicit actorSystem: ActorSystem, materializer: Materializer, loggingContext: LoggingContext, telemetry: Telemetry)
     extends ResourceOwner[ApiServer] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -97,7 +97,7 @@ final class StandaloneApiServer(
         healthChecks = healthChecksWithIndexService,
         seedService = SeedService(config.seeding),
         managementServiceTimeout = config.managementServiceTimeout,
-      )(materializer, executionSequencerFactory, loggingContext)
+      )(materializer, executionSequencerFactory, loggingContext, telemetry)
         .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(
         apiServicesOwner,

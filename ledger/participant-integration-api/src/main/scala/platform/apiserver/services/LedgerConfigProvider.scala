@@ -24,6 +24,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.LedgerConfiguration
 
+import com.daml.metrics.{Spans, Telemetry}
+
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.{DurationInt, DurationLong}
 import scala.concurrent.{Future, Promise}
@@ -41,7 +43,7 @@ private[apiserver] final class LedgerConfigProvider private (
     timeProvider: TimeProvider,
     config: LedgerConfiguration,
     materializer: Materializer,
-)(implicit loggingContext: LoggingContext)
+)(implicit loggingContext: LoggingContext, telemetry: Telemetry)
     extends AutoCloseable {
 
   private[this] val logger = ContextualizedLogger.get(this.getClass)
@@ -137,27 +139,29 @@ private[apiserver] final class LedgerConfigProvider private (
     // This method therefore does not try to re-submit the initial configuration in case of failure.
     val submissionId = SubmissionId.assertFromString(UUID.randomUUID.toString)
     logger.info(s"No ledger configuration found, submitting an initial configuration $submissionId")
-    FutureConverters
+    telemetry.runFutureInSpan(Spans.LegderConfigProviderInitialConfig){ implicit telemetryContext =>
+      FutureConverters
       .toScala(
         writeService.submitConfiguration(
           Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
           submissionId,
           config.initialConfiguration
-        ))
-      .map {
-        case SubmissionResult.Acknowledged =>
-          logger.info(s"Initial configuration submission $submissionId was successful")
-          ()
-        case SubmissionResult.NotSupported =>
-          logger.info("Setting an initial ledger configuration is not supported")
-          ()
-        case result =>
-          logger.warn(
-            s"Initial configuration submission $submissionId failed. Reason: ${result.description}")
-          ()
-      }(DE)
-  }
-
+          ))
+          .map {
+            case SubmissionResult.Acknowledged =>
+            logger.info(s"Initial configuration submission $submissionId was successful")
+            ()
+            case SubmissionResult.NotSupported =>
+            logger.info("Setting an initial ledger configuration is not supported")
+            ()
+            case result =>
+            logger.warn(
+              s"Initial configuration submission $submissionId failed. Reason: ${result.description}")
+              ()
+            }(DE)
+          }
+        }
+    
   /** The latest configuration found so far.
     * This may not be the currently active ledger configuration, e.g., if the index is lagging behind the ledger.
     */
@@ -183,6 +187,6 @@ private[apiserver] object LedgerConfigProvider {
       optWriteService: Option[WriteConfigService],
       timeProvider: TimeProvider,
       config: LedgerConfiguration,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): LedgerConfigProvider =
+  )(implicit materializer: Materializer, loggingContext: LoggingContext, telemetry: Telemetry): LedgerConfigProvider =
     new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer)
 }

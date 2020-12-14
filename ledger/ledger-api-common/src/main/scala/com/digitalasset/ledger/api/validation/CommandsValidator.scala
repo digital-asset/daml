@@ -19,6 +19,7 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
 import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
 import com.daml.lf.value.{Value => Lf}
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.metrics.{Spans, TelemetryContext}
 import com.daml.platform.server.api.validation.ErrorFactories._
 import com.daml.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import io.grpc.StatusRuntimeException
@@ -35,46 +36,47 @@ final class CommandsValidator(ledgerId: LedgerId) {
       commands: ProtoCommands,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationTime: Option[Duration]): Either[StatusRuntimeException, domain.Commands] =
-    for {
-      cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
-      ledgerId <- matchLedgerId(ledgerId)(LedgerId(cmdLegerId))
-      workflowId <- if (commands.workflowId.isEmpty) Right(None)
-      else requireLedgerString(commands.workflowId).map(x => Some(domain.WorkflowId(x)))
-      appId <- requireLedgerString(commands.applicationId, "application_id")
-        .map(domain.ApplicationId(_))
-      commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
-      submitters <- CommandsValidator.validateSubmitters(commands)
-      commandz <- requireNonEmpty(commands.commands, "commands")
-      validatedCommands <- validateInnerCommands(commandz)
-      ledgerEffectiveTime <- validateLedgerTime(currentLedgerTime, commands)
-      ledgerEffectiveTimestamp <- Time.Timestamp
-        .fromInstant(ledgerEffectiveTime)
-        .left
-        .map(_ =>
-          invalidArgument(
-            s"Can not represent command ledger time $ledgerEffectiveTime as a DAML timestamp"))
-      deduplicationTime <- validateDeduplicationTime(
-        commands.deduplicationTime,
-        maxDeduplicationTime,
-        "deduplication_time")
-    } yield
-      domain.Commands(
-        ledgerId = ledgerId,
-        workflowId = workflowId,
-        applicationId = appId,
-        commandId = commandId,
-        submitter = submitters.actAs.head,
-        submittedAt = currentUtcTime,
-        deduplicateUntil = currentUtcTime.plus(deduplicationTime),
-        commands = Commands(
-          submitters = Set(submitters.actAs.head),
-          commands = ImmArray(validatedCommands),
-          ledgerEffectiveTime = ledgerEffectiveTimestamp,
-          commandsReference = workflowId.fold("")(_.unwrap)
-        ),
-      )
-
+      maxDeduplicationTime: Option[Duration])(implicit telemetryContext: TelemetryContext): Either[StatusRuntimeException, domain.Commands] =
+    telemetryContext.runInNewSpan(Spans.ValidatorValidate) { _ =>
+      for {
+        cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
+        ledgerId <- matchLedgerId(ledgerId)(LedgerId(cmdLegerId))
+        workflowId <- if (commands.workflowId.isEmpty) Right(None)
+        else requireLedgerString(commands.workflowId).map(x => Some(domain.WorkflowId(x)))
+        appId <- requireLedgerString(commands.applicationId, "application_id")
+          .map(domain.ApplicationId(_))
+        commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
+        submitters <- CommandsValidator.validateSubmitters(commands)
+        commandz <- requireNonEmpty(commands.commands, "commands")
+        validatedCommands <- validateInnerCommands(commandz)
+        ledgerEffectiveTime <- validateLedgerTime(currentLedgerTime, commands)
+        ledgerEffectiveTimestamp <- Time.Timestamp
+          .fromInstant(ledgerEffectiveTime)
+          .left
+          .map(_ =>
+            invalidArgument(
+              s"Can not represent command ledger time $ledgerEffectiveTime as a DAML timestamp"))
+        deduplicationTime <- validateDeduplicationTime(
+          commands.deduplicationTime,
+          maxDeduplicationTime,
+          "deduplication_time")
+      } yield
+        domain.Commands(
+          ledgerId = ledgerId,
+          workflowId = workflowId,
+          applicationId = appId,
+          commandId = commandId,
+          submitter = submitters.actAs.head,
+          submittedAt = currentUtcTime,
+          deduplicateUntil = currentUtcTime.plus(deduplicationTime),
+          commands = Commands(
+            submitters = Set(submitters.actAs.head),
+            commands = ImmArray(validatedCommands),
+            ledgerEffectiveTime = ledgerEffectiveTimestamp,
+            commandsReference = workflowId.fold("")(_.unwrap)
+          ),
+        )
+    }
   private def validateLedgerTime(
       currentTime: Instant,
       commands: ProtoCommands,

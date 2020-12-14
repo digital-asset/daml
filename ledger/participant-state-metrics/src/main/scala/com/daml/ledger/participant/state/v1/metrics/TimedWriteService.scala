@@ -9,7 +9,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Time
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{Metrics, Timed, TelemetryContext}
 
 final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends WriteService {
 
@@ -18,7 +18,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     Timed.timedAndTrackedCompletionStage(
       metrics.daml.services.write.submitTransaction,
       metrics.daml.services.write.submitTransactionRunning,
@@ -34,7 +34,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       submissionId: SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String]
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.daml.services.write.uploadPackages,
       delegate.uploadPackages(submissionId, archives, sourceDescription))
@@ -43,7 +43,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.daml.services.write.allocateParty,
       delegate.allocateParty(hint, displayName, submissionId))
@@ -52,7 +52,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
       config: Configuration
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.daml.services.write.submitConfiguration,
       delegate.submitConfiguration(maxRecordTime, submissionId, config))

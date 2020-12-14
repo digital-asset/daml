@@ -17,7 +17,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{Metrics, Timed, SpanKind, Spans}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common
 import com.daml.platform.common.MismatchException
@@ -237,27 +237,33 @@ private[daml] class JdbcIndexer private[indexer] (
     new SubscriptionResourceOwner(readService)
 
   private def handleStateUpdate(
-      implicit loggingContext: LoggingContext): Flow[(Offset, Update), Unit, NotUsed] =
-    Flow[(Offset, Update)]
-      .wireTap(Sink.foreach[(Offset, Update)] {
-        case (offset, update) =>
-          val lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
+      implicit loggingContext: LoggingContext): Flow[(Offset, UpdateWithContext), Unit, NotUsed] =
+    Flow[(Offset, UpdateWithContext)]
+      .wireTap(Sink.foreach[(Offset, UpdateWithContext)] {
+        case (offset, updateWithContext) =>
+          val lastReceivedRecordTime = updateWithContext.update.recordTime.toInstant.toEpochMilli
 
-          logger.trace(update.description)
+          logger.trace(updateWithContext.update.description)
 
           metrics.daml.indexer.lastReceivedRecordTime.updateValue(lastReceivedRecordTime)
           metrics.daml.indexer.lastReceivedOffset.updateValue(offset.toApiString)
       })
-      .mapAsync(1)((prepareTransactionInsert _).tupled)
-      .mapAsync(1) {
-        case kvUpdate @ OffsetUpdate(offset, update) =>
-          withEnrichedLoggingContext(JdbcIndexer.loggingContextFor(offset, update)) {
-            implicit loggingContext =>
+      .mapAsync(1){
+        case (offset, updateWithContext) =>
+          updateWithContext.telemetryContext.runFutureInNewSpan(Spans.IndexerPrepareStateUpdates){ implicit telemetryContext =>
+            prepareTransactionInsert(offset, updateWithContext.update).map(offsetUpdate => OffsetUpdateWithContext(offsetUpdate))(mat.executionContext)
+          }
+      }
+      .mapAsync(1) { offsetUpdateWithContext =>
+        withEnrichedLoggingContext(JdbcIndexer.loggingContextFor(offsetUpdateWithContext.offsetUpdate.offset, offsetUpdateWithContext.offsetUpdate.update)) {
+          implicit loggingContext =>
+            offsetUpdateWithContext.telemetryContext.runFutureInNewSpan(Spans.IndexerProcessedStateUpdates, SpanKind.Internal) {_ =>
               Timed.future(
                 metrics.daml.indexer.stateUpdateProcessing,
-                executeUpdate(kvUpdate),
+                executeUpdate(offsetUpdateWithContext.offsetUpdate),
               )
-          }
+            }
+        }
       }
       .map(_ => ())
 

@@ -45,6 +45,8 @@ import com.daml.ports.Port
 import com.daml.resources.ResettableResourceOwner
 import scalaz.syntax.tag._
 
+import com.daml.metrics.{DefaultTelemetry, Spans, Telemetry}
+
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
@@ -102,6 +104,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     newLoggingContext { implicit loggingContext =>
       implicit val actorSystem: ActorSystem = ActorSystem("sandbox")
       implicit val materializer: Materializer = Materializer(actorSystem)
+      implicit val telemetry: Telemetry = DefaultTelemetry
 
       val owner = for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
@@ -262,14 +265,16 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     }
 
   private def uploadDar(from: File, to: WritePackagesService)(
-      implicit executionContext: ExecutionContext
+      implicit executionContext: ExecutionContext, telemetry: Telemetry
   ): Future[Unit] = {
-    val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
-    for {
-      dar <- Future(
-        DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from).get)
-      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
-    } yield ()
+    telemetry.runInSpan(Spans.RunnerUploadDar){ implicit telemetryContext =>
+      val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
+      for {
+        dar <- Future(
+          DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from).get)
+        _ <- to.uploadPackages(submissionId, dar.all, None).toScala
+      } yield ()
+    }
   }
 }
 

@@ -30,7 +30,7 @@ import com.daml.lf.transaction.{
 }
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{DefaultTelemetry, Metrics, NoOpTelemetry, Telemetry}
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.PartyConfiguration
 import com.daml.platform.packages.InMemoryPackageStore
@@ -79,7 +79,8 @@ object SandboxServer {
   def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
     owner(DefaultName, config)
 
-  def owner(name: LedgerName, config: SandboxConfig): ResourceOwner[SandboxServer] =
+  def owner(name: LedgerName, config: SandboxConfig): ResourceOwner[SandboxServer] ={
+    implicit val telemetry: Telemetry = DefaultTelemetry
     for {
       metrics <- new MetricsReporting(
         classOf[SandboxServer].getName,
@@ -98,6 +99,7 @@ object SandboxServer {
           Resource.fromFuture(server.apiServer.map(_ => ()))
       }
     } yield server
+  }
 
   final class SandboxState(
       materializer: Materializer,
@@ -138,7 +140,7 @@ final class SandboxServer(
     config: SandboxConfig,
     materializer: Materializer,
     metrics: Metrics,
-) extends AutoCloseable {
+)(implicit telemetry: Telemetry) extends AutoCloseable {
 
   private[this] val engine = {
     val engineConfig =
@@ -152,7 +154,7 @@ final class SandboxServer(
 
   // Only used for testing.
   def this(config: SandboxConfig, materializer: Materializer) =
-    this(DefaultName, config, materializer, new Metrics(new MetricRegistry))
+    this(DefaultName, config, materializer, new Metrics(new MetricRegistry))(NoOpTelemetry)
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
   private val seedingService = SeedService(config.seeding.getOrElse(SeedService.Seeding.Weak))
@@ -235,7 +237,7 @@ final class SandboxServer(
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode,
       currentPort: Option[Port],
-  )(implicit loggingContext: LoggingContext): Resource[ApiServer] = {
+  )(implicit loggingContext: LoggingContext, telemetry: Telemetry): Resource[ApiServer] = {
     implicit val _materializer: Materializer = materializer
     implicit val actorSystem: ActorSystem = materializer.system
     implicit val executionContext: ExecutionContext = materializer.executionContext
@@ -334,7 +336,7 @@ final class SandboxServer(
         healthChecks = healthChecks,
         seedService = seedingService,
         managementServiceTimeout = config.managementServiceTimeout,
-      )(materializer, executionSequencerFactory, loggingContext)
+      )(materializer, executionSequencerFactory, loggingContext, telemetry)
         .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(
         apiServicesOwner,

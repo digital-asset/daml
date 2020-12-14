@@ -26,6 +26,8 @@ import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
+import com.daml.metrics.DefaultTelemetry
+
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -146,8 +148,9 @@ private[apiserver] object ApiPartyManagementService {
         submissionId: SubmissionId,
         input: (Option[Ref.Party], Option[String]),
     ): Future[SubmissionResult] = {
+      // TODO: carry telemetry context to this point
       val (party, displayName) = input
-      writeService.allocateParty(party, displayName, submissionId).toScala
+      writeService.allocateParty(party, displayName, submissionId)(DefaultTelemetry.contextFromGrpcThreadLocalContext()).toScala
     }
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[PartyEntry, _] =

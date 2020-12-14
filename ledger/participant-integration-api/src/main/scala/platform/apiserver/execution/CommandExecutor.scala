@@ -7,6 +7,7 @@ import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.lf.crypto
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.ErrorCause
+import com.daml.metrics.TelemetryContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -17,5 +18,6 @@ private[apiserver] trait CommandExecutor {
   )(
       implicit ec: ExecutionContext,
       loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]]
 }

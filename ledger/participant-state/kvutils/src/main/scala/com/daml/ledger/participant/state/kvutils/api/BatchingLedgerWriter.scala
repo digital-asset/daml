@@ -15,6 +15,8 @@ import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
+import com.daml.metrics.{NoOpTelemetryContext, TelemetryContext}
+
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.{Duration, MILLISECONDS}
 import scala.concurrent.{ExecutionContext, Future}
@@ -47,7 +49,7 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
       correlationId: String,
       envelope: kvutils.Bytes,
       metadata: CommitMetadata,
-  ): Future[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] =
     queueHandle
       .offer(
         DamlSubmissionBatch.CorrelatedSubmission.newBuilder
@@ -79,7 +81,8 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
         .build
       val envelope = Envelope.enclose(batch)
       writer
-        .commit(correlationId, envelope, CommitMetadata.Empty)
+        // TODO: not use noop
+        .commit(correlationId, envelope, CommitMetadata.Empty)(NoOpTelemetryContext)
         .map {
           case SubmissionResult.Acknowledged => ()
           case error =>

@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v1
 import java.util.concurrent.CompletionStage
 
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.metrics.TelemetryContext
 
 /** An interface for uploading packages via a participant. */
 trait WritePackagesService {
@@ -40,5 +41,5 @@ trait WritePackagesService {
       submissionId: SubmissionId,
       archives: List[Archive],
       sourceDescription: Option[String]
-  ): CompletionStage[SubmissionResult]
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
 }

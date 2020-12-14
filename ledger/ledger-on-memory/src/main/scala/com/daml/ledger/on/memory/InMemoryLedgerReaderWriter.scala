@@ -33,7 +33,7 @@ import com.daml.ledger.validator.preexecution._
 import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidateAndCommit}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, TelemetryContext}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -52,7 +52,7 @@ final class InMemoryLedgerReaderWriter private[memory] (
       correlationId: String,
       envelope: Bytes,
       metadata: CommitMetadata,
-  ): Future[SubmissionResult] =
+  )(implicit elemetryContext: TelemetryContext): Future[SubmissionResult] =
     validateAndCommit(correlationId, envelope, participantId)
       .andThen {
         case Success(SubmissionResult.Acknowledged) =>

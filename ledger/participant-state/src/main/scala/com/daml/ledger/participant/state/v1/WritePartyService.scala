@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.v1
 
 import java.util.concurrent.CompletionStage
+import com.daml.metrics.TelemetryContext
 
 /** An interface for on-boarding parties via a participant. */
 trait WritePartyService {
@@ -35,5 +36,5 @@ trait WritePartyService {
       hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId
-  ): CompletionStage[SubmissionResult]
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
 }

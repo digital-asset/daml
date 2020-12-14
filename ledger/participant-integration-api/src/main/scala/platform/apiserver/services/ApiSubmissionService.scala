@@ -27,7 +27,7 @@ import com.daml.lf.crypto
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Spans, TelemetryContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
@@ -108,7 +108,7 @@ private[apiserver] final class ApiSubmissionService private (
 
   private val DuplicateCommand = Status.ALREADY_EXISTS.augmentDescription("Duplicate command")
 
-  override def submit(request: SubmitRequest): Future[Unit] =
+  override def submit(request: SubmitRequest)(implicit telemetryContext: TelemetryContext): Future[Unit] =
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
       logger.trace(s"Commands: ${request.commands.commands.commands}")
       ledgerConfigProvider.latestConfiguration
@@ -121,15 +121,16 @@ private[apiserver] final class ApiSubmissionService private (
       seed: crypto.Hash,
       commands: ApiCommands,
       ledgerConfig: Configuration,
-  )(implicit loggingContext: LoggingContext): Future[Unit] =
-    submissionService
+  )(implicit loggingContext: LoggingContext, telemetryContext: TelemetryContext): Future[Unit] =
+    telemetryContext.runFutureInNewSpan(Spans.SubmissionDeduplicate){ _ =>
+      submissionService
       .deduplicateCommand(
         commands.commandId,
         List(commands.submitter),
         commands.submittedAt,
         commands.deduplicateUntil,
-      )
-      .flatMap {
+        )
+    }.flatMap {
         case CommandDeduplicationNew =>
           evaluateAndSubmit(seed, commands, ledgerConfig)
             .transform(handleSubmissionResult)
@@ -181,7 +182,7 @@ private[apiserver] final class ApiSubmissionService private (
       submissionSeed: crypto.Hash,
       commands: ApiCommands,
       ledgerConfig: Configuration,
-  )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
+  )(implicit loggingContext: LoggingContext, telemetryContext: TelemetryContext): Future[SubmissionResult] =
     for {
       result <- commandExecutor.execute(commands, submissionSeed)
       transactionInfo <- handleCommandExecutionResult(result)
@@ -192,7 +193,7 @@ private[apiserver] final class ApiSubmissionService private (
   // Takes the whole transaction to ensure to traverse it only if necessary
   private def allocateMissingInformees(
       transaction: SubmittedTransaction,
-  )(implicit loggingContext: LoggingContext): Future[Seq[SubmissionResult]] =
+  )(implicit loggingContext: LoggingContext, telemetryContext: TelemetryContext): Future[Seq[SubmissionResult]] =
     if (configuration.implicitPartyAllocation) {
       val partiesInTransaction = transaction.nodes.valuesIterator.flatMap(_.informeesOfNode).toSeq
       partyManagementService.getParties(partiesInTransaction).flatMap { partyDetails =>
@@ -230,7 +231,7 @@ private[apiserver] final class ApiSubmissionService private (
       transactionInfo: CommandExecutionResult,
       partyAllocationResults: Seq[SubmissionResult],
       ledgerConfig: Configuration,
-  ): Future[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] =
     partyAllocationResults.find(_ != SubmissionResult.Acknowledged) match {
       case Some(result) =>
         Future.successful(result)
@@ -258,7 +259,7 @@ private[apiserver] final class ApiSubmissionService private (
 
   private def submitTransaction(
       result: CommandExecutionResult,
-  ): Future[SubmissionResult] = {
+  )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] = {
     metrics.daml.commands.validSubmissions.mark()
     writeService
       .submitTransaction(

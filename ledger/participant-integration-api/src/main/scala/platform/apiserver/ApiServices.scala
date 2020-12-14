@@ -20,7 +20,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, Telemetry}
 import com.daml.platform.apiserver.execution.{
   LedgerTimeAwareCommandExecutor,
   StoreBackedCommandExecutor,
@@ -89,6 +89,7 @@ private[daml] object ApiServices {
       implicit materializer: Materializer,
       esf: ExecutionSequencerFactory,
       loggingContext: LoggingContext,
+      telemetry: Telemetry,
   ) extends ResourceOwner[ApiServices] {
     private val configurationService: IndexConfigurationService = indexService
     private val identityService: IdentityProvider = indexService

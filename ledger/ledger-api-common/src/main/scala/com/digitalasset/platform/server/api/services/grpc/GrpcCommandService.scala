@@ -9,6 +9,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitAndWaitRequestValidator}
+import com.daml.metrics.{ApplicationId, CommandId, Submitter, Telemetry, TelemetryContext, WorkflowId}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.dec.DirectExecutionContext
 import com.daml.platform.server.api.ProxyCloseable
@@ -24,7 +25,7 @@ class GrpcCommandService(
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration]
-) extends CommandService
+)(implicit telemetry: Telemetry) extends CommandService
     with GrpcApiService
     with ProxyCloseable {
 
@@ -33,30 +34,52 @@ class GrpcCommandService(
   private[this] val validator =
     new SubmitAndWaitRequestValidator(new CommandsValidator(ledgerId))
 
-  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
+  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {
+    implicit val telemetryContext: TelemetryContext = telemetry.contextFromGrpcThreadLocalContext()
+    addRequestTraceAttributes(request, telemetryContext)
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
       .fold(Future.failed, _ => service.submitAndWait(request))
+  }
 
   override def submitAndWaitForTransactionId(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] =
+      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] = {
+    implicit val telemetryContext: TelemetryContext = telemetry.contextFromGrpcThreadLocalContext()
+    addRequestTraceAttributes(request, telemetryContext)
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
       .fold(Future.failed, _ => service.submitAndWaitForTransactionId(request))
+  }
 
   override def submitAndWaitForTransaction(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] =
+      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] = {
+    implicit val telemetryContext: TelemetryContext = telemetry.contextFromGrpcThreadLocalContext()
+    addRequestTraceAttributes(request, telemetryContext)
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
       .fold(Future.failed, _ => service.submitAndWaitForTransaction(request))
+  }
 
   override def submitAndWaitForTransactionTree(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] =
+      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] = {
+    implicit val telemetryContext: TelemetryContext = telemetry.contextFromGrpcThreadLocalContext()
+    addRequestTraceAttributes(request, telemetryContext)
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
       .fold(Future.failed, _ => service.submitAndWaitForTransactionTree(request))
+  }
 
   override def bindService(): ServerServiceDefinition =
     CommandServiceGrpc.bindService(this, DirectExecutionContext)
 
+
+  private def addRequestTraceAttributes(request: SubmitAndWaitRequest, telemetryContext: TelemetryContext): TelemetryContext = {
+    request.commands.foreach{ commands =>
+      telemetryContext.setAttribute(ApplicationId, commands.applicationId)
+      telemetryContext.setAttribute(Submitter, commands.party)
+      telemetryContext.setAttribute(CommandId, commands.commandId)
+      telemetryContext.setAttribute(WorkflowId, commands.workflowId)
+    }
+    telemetryContext
+  }
 }

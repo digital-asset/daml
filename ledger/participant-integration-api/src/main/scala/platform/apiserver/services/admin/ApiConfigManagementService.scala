@@ -34,6 +34,7 @@ import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
+import com.daml.metrics.{Telemetry, TelemetryContext}
 
 private[apiserver] final class ApiConfigManagementService private (
     index: IndexConfigManagementService,
@@ -41,7 +42,7 @@ private[apiserver] final class ApiConfigManagementService private (
     timeProvider: TimeProvider,
     ledgerConfiguration: LedgerConfiguration,
     materializer: Materializer
-)(implicit loggingContext: LoggingContext)
+)(implicit loggingContext: LoggingContext, telemetry: Telemetry)
     extends ConfigManagementService
     with GrpcApiService {
 
@@ -172,6 +173,7 @@ private[apiserver] object ApiConfigManagementService {
       ledgerConfiguration: LedgerConfiguration)(
       implicit mat: Materializer,
       loggingContext: LoggingContext,
+      telemetry: Telemetry,
   ): ConfigManagementServiceGrpc.ConfigManagementService with GrpcApiService =
     new ApiConfigManagementService(
       readBackend,
@@ -184,7 +186,7 @@ private[apiserver] object ApiConfigManagementService {
       writeConfigService: WriteConfigService,
       configManagementService: IndexConfigManagementService,
       ledgerEnd: Option[LedgerOffset.Absolute],
-  )(implicit loggingContext: LoggingContext)
+  )(implicit loggingContext: LoggingContext, telemetry: Telemetry)
       extends SynchronousResponse.Strategy[
         (Time.Timestamp, Configuration),
         ConfigurationEntry,
@@ -198,6 +200,7 @@ private[apiserver] object ApiConfigManagementService {
         submissionId: SubmissionId,
         input: (Time.Timestamp, Configuration),
     ): Future[SubmissionResult] = {
+      implicit val telemetryContext: TelemetryContext = telemetry.contextFromGrpcThreadLocalContext()
       val (maximumRecordTime, newConfiguration) = input
       writeConfigService
         .submitConfiguration(maximumRecordTime, submissionId, newConfiguration)

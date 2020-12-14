@@ -153,5 +153,5 @@ trait ReadService extends ReportsHealth {
     * data segregation.
     *
     */
-  def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed]
+  def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, UpdateWithContext), NotUsed]
 }

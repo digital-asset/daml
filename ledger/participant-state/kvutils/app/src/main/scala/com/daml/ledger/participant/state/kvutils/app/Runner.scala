@@ -18,7 +18,7 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.JvmMetricSet
+import com.daml.metrics.{DefaultTelemetry, JvmMetricSet, Spans, Telemetry}
 import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.IndexMetadata
@@ -76,6 +76,7 @@ final class Runner[T <: ReadWriteService, Extra](
     implicit val actorSystem: ActorSystem = ActorSystem(
       "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
     implicit val materializer: Materializer = Materializer(actorSystem)
+    implicit val telemetry: Telemetry = DefaultTelemetry
 
     // share engine between the kvutils committer backend and the ledger api server
     // this avoids duplicate compilation of packages as well as keeping them in memory twice
@@ -117,7 +118,7 @@ final class Runner[T <: ReadWriteService, Extra](
               "write" -> writeService,
             )
             _ <- Resource.sequence(config.archiveFiles.map(path =>
-              Resource.fromFuture(uploadDar(path, writeService)(resourceContext.executionContext))))
+              Resource.fromFuture(uploadDar(path, writeService)(resourceContext.executionContext, telemetry))))
             _ <- participantConfig.mode match {
               case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
                 new StandaloneIndexerServer(
@@ -156,13 +157,16 @@ final class Runner[T <: ReadWriteService, Extra](
   }
 
   private def uploadDar(from: Path, to: WritePackagesService)(
-      implicit executionContext: ExecutionContext
+      implicit executionContext: ExecutionContext,
+      telemetry: Telemetry
   ): Future[Unit] = {
-    val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
-    for {
-      dar <- Future(
-        DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from.toFile).get)
-      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
-    } yield ()
+    telemetry.runInSpan(Spans.RunnerUploadDar){ implicit telemetryContext =>
+      val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
+      for {
+        dar <- Future(
+          DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from.toFile).get)
+          _ <- to.uploadPackages(submissionId, dar.all, None).toScala
+      } yield ()
+    }
   }
 }

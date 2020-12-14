@@ -7,6 +7,7 @@ import java.time.{Duration, Instant}
 
 import com.daml.ledger.api.messages.command.submission
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.metrics.TelemetryContext
 import com.daml.platform.server.api.validation.FieldValidations.requirePresence
 import com.daml.platform.server.util.context.TraceContextConversions.toBrave
 import io.grpc.StatusRuntimeException
@@ -17,7 +18,7 @@ class SubmitAndWaitRequestValidator(commandsValidator: CommandsValidator) {
       req: SubmitAndWaitRequest,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationTime: Option[Duration])
+      maxDeduplicationTime: Option[Duration])(implicit telemetryContext: TelemetryContext)
     : Either[StatusRuntimeException, submission.SubmitRequest] =
     for {
       commands <- requirePresence(req.commands, "commands")

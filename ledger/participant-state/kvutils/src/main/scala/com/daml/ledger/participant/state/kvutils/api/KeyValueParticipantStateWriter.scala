@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.{Ref, Time}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, TelemetryContext}
 
 import scala.compat.java8.FutureConverters
 
@@ -25,7 +25,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  ): CompletionStage[SubmissionResult] = {
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val submission =
       keyValueSubmission.transactionToSubmission(
         submitterInfo,
@@ -42,7 +42,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
   override def uploadPackages(
       submissionId: SubmissionId,
       archives: List[DamlLf.Archive],
-      sourceDescription: Option[String]): CompletionStage[SubmissionResult] = {
+      sourceDescription: Option[String])(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val submission = keyValueSubmission
       .archivesToSubmission(
         submissionId,
@@ -55,7 +55,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
-      config: Configuration): CompletionStage[SubmissionResult] = {
+      config: Configuration)(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val submission =
       keyValueSubmission
         .configurationToSubmission(maxRecordTime, submissionId, writer.participantId, config)
@@ -65,7 +65,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
   override def allocateParty(
       hint: Option[Party],
       displayName: Option[String],
-      submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
+      submissionId: SubmissionId)(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(generateRandomParty())
     val submission =
       keyValueSubmission.partyToSubmission(
@@ -85,7 +85,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       correlationId: String,
       submission: DamlSubmission,
       metadata: Option[CommitMetadata] = None,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(
       writer.commit(
         correlationId,

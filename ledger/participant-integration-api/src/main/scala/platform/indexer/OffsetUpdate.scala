@@ -6,6 +6,9 @@ package com.daml.platform.indexer
 import com.daml.ledger.participant.state.v1.{Offset, Update}
 import com.daml.ledger.participant.state.v1.Update.TransactionAccepted
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
+import com.daml.metrics.TelemetryContext
+
+case class OffsetUpdateWithContext(offsetUpdate: OffsetUpdate)(implicit val telemetryContext: TelemetryContext)
 
 sealed trait OffsetUpdate {
   def offset: Offset

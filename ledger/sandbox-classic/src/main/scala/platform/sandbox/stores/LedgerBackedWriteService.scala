@@ -24,6 +24,7 @@ import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.platform.sandbox.stores.ledger.{Ledger, PartyIdGenerator}
+import com.daml.metrics.TelemetryContext
 
 import io.grpc.Status
 
@@ -40,7 +41,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
       "submitter" -> submitterInfo.singleSubmitterOrThrow(),
       "applicationId" -> submitterInfo.applicationId,
@@ -59,7 +60,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId,
-  ): CompletionStage[SubmissionResult] = {
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(PartyIdGenerator.generateRandomId())
     withEnrichedLoggingContext(
       "party" -> party,
@@ -74,7 +75,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       submissionId: SubmissionId,
       payload: List[Archive],
       sourceDescription: Option[String]
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
       "submissionId" -> submissionId,
       "description" -> sourceDescription.getOrElse(""),
@@ -90,7 +91,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
       config: Configuration,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
       "maxRecordTime" -> maxRecordTime.toInstant.toString,
       "submissionId" -> submissionId,

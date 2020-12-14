@@ -23,7 +23,7 @@ import com.daml.lf.engine.{
 }
 import com.daml.lf.language.Ast.Package
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{Metrics, Spans, TelemetryContext, Timed}
 import com.daml.platform.store.ErrorCause
 import scalaz.syntax.tag._
 
@@ -44,42 +44,48 @@ private[apiserver] final class StoreBackedCommandExecutor(
   )(
       implicit ec: ExecutionContext,
       loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val start = System.nanoTime()
     val submissionResult = Timed.trackedValue(
       metrics.daml.execution.engineRunning,
-      engine.submit(commands.commands, participant, submissionSeed))
-    consume(commands.submitter, submissionResult)
-      .map { submission =>
-        (for {
-          result <- submission
-          (updateTx, meta) = result
-        } yield {
-          val interpretationTimeNanos = System.nanoTime() - start
-          CommandExecutionResult(
-            submitterInfo = SubmitterInfo.withSingleSubmitter(
-              commands.submitter,
-              commands.applicationId.unwrap,
-              commands.commandId.unwrap,
-              commands.deduplicateUntil,
-            ),
-            transactionMeta = TransactionMeta(
-              commands.commands.ledgerEffectiveTime,
-              commands.workflowId.map(_.unwrap),
-              meta.submissionTime,
-              submissionSeed,
-              Some(meta.usedPackages),
-              Some(meta.nodeSeeds),
-              Some(
-                updateTx.nodes
-                  .collect { case (nodeId, node) if node.byKey => nodeId }
-                  .to[ImmArray]),
-            ),
-            transaction = updateTx,
-            dependsOnLedgerTime = meta.dependsOnTime,
-            interpretationTimeNanos = interpretationTimeNanos
-          )
-        }).left.map(ErrorCause.DamlLf)
+      telemetryContext.runInNewSpan(Spans.ExecutionEngineRunning){ _ =>
+        engine.submit(commands.commands, participant, submissionSeed)
+      }
+    )
+    telemetryContext.runFutureInNewSpan(Spans.ExecutionConsume){ _ =>
+      consume(commands.submitter, submissionResult)
+        .map { submission =>
+          (for {
+            result <- submission
+            (updateTx, meta) = result
+          } yield {
+            val interpretationTimeNanos = System.nanoTime() - start
+            CommandExecutionResult(
+              submitterInfo = SubmitterInfo.withSingleSubmitter(
+                commands.submitter,
+                commands.applicationId.unwrap,
+                commands.commandId.unwrap,
+                commands.deduplicateUntil,
+              ),
+              transactionMeta = TransactionMeta(
+                commands.commands.ledgerEffectiveTime,
+                commands.workflowId.map(_.unwrap),
+                meta.submissionTime,
+                submissionSeed,
+                Some(meta.usedPackages),
+                Some(meta.nodeSeeds),
+                Some(
+                  updateTx.nodes
+                    .collect { case (nodeId, node) if node.byKey => nodeId }
+                    .to[ImmArray]),
+              ),
+              transaction = updateTx,
+              dependsOnLedgerTime = meta.dependsOnTime,
+              interpretationTimeNanos = interpretationTimeNanos
+            )
+          }).left.map(ErrorCause.DamlLf)
+        }
       }
   }
 

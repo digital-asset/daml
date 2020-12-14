@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.command_submission_service.{
   SubmitRequest => ApiSubmitRequest
 }
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{ApplicationId ,CommandId, DefaultTelemetry, Metrics, Submitter, Timed, TelemetryContext, WorkflowId}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
@@ -40,7 +40,15 @@ class GrpcCommandSubmissionService(
 
   private val validator = new SubmitRequestValidator(new CommandsValidator(ledgerId))
 
-  override def submit(request: ApiSubmitRequest): Future[Empty] =
+  override def submit(request: ApiSubmitRequest): Future[Empty] = {
+    implicit val telemetryContext: TelemetryContext = DefaultTelemetry.contextFromGrpcThreadLocalContext()
+    request.commands.foreach{commands =>
+      telemetryContext.setAttribute(ApplicationId, commands.applicationId)
+      telemetryContext.setAttribute(CommandId, commands.commandId)
+      telemetryContext.setAttribute(Submitter, commands.party)
+      telemetryContext.setAttribute(WorkflowId, commands.workflowId)
+    }
+
     Timed.timedAndTrackedFuture(
       metrics.daml.commands.submissions,
       metrics.daml.commands.submissionsRunning,
@@ -53,6 +61,7 @@ class GrpcCommandSubmissionService(
           Future.failed,
           service.submit(_).map(_ => Empty.defaultInstance)(DirectExecutionContext))
     )
+  }
 
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, DirectExecutionContext)

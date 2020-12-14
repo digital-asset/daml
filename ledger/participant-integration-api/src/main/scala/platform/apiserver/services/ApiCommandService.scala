@@ -42,6 +42,8 @@ import com.google.protobuf.empty.Empty
 import io.grpc._
 import scalaz.syntax.tag._
 
+import com.daml.metrics.{Telemetry, TelemetryContext}
+
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
@@ -54,7 +56,8 @@ private[apiserver] final class ApiCommandService private (
 )(
     implicit grpcExecutionContext: ExecutionContext,
     actorMaterializer: Materializer,
-    loggingContext: LoggingContext
+    loggingContext: LoggingContext,
+    telemetry: Telemetry
 ) extends CommandServiceGrpc.CommandService
     with AutoCloseable {
 
@@ -84,6 +87,9 @@ private[apiserver] final class ApiCommandService private (
       logging.actAs(request.getCommands.actAs),
       logging.readAs(request.getCommands.readAs),
     ) { implicit loggingContext =>
+      implicit val telemetryContext: TelemetryContext = telemetry.contextFromGrpcThreadLocalContext()
+      telemetryContext.setAttribute(com.daml.metrics.CommandId, request.getCommands.commandId)
+      telemetryContext.setAttribute(com.daml.metrics.CorrelationId, request.getCommands.commandId)
       if (running) {
         ledgerConfigProvider.latestConfiguration.fold[Future[Completion]](
           Future.failed(ErrorFactories.missingLedgerConfig()))(ledgerConfig =>
@@ -192,7 +198,8 @@ private[apiserver] object ApiCommandService {
   )(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: Materializer,
-      loggingContext: LoggingContext
+      loggingContext: LoggingContext,
+      telemetry: Telemetry
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
       new ApiCommandService(services, configuration, ledgerConfigProvider, metrics),

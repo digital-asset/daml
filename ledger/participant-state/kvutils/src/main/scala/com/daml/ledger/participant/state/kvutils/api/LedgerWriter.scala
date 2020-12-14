@@ -9,6 +9,8 @@ import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 
 import scala.concurrent.Future
 
+import com.daml.metrics.TelemetryContext
+
 /**
   * Defines how we initiate a commit to the ledger.
   *
@@ -35,5 +37,5 @@ trait LedgerWriter extends ReportsHealth {
       correlationId: String,
       envelope: Bytes,
       metadata: CommitMetadata,
-  ): Future[SubmissionResult]
+  )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult]
 }
