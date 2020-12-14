@@ -302,7 +302,7 @@ class TransactionCoderSpec
 
   "encodeVersionedNode" should {
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7709
+    // FIXME: https://github.com/digital-asset/daml/issues/7139
     // replace all occurrences of "dev" by "11", once "11" is released
     "fail iff try to encode choice observers in version < dev" in {
       val normalize = minimalistNode(v10)
@@ -383,7 +383,7 @@ class TransactionCoderSpec
       }
     }
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7709
+    // FIXME: https://github.com/digital-asset/daml/issues/7139
     // enable the test when we have more that one version newer than 10
     "fail if try to decode a node in a version newer than the enclosing Transaction message version" ignore {
 
@@ -417,7 +417,7 @@ class TransactionCoderSpec
       }
     }
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7709
+    // FIXME: https://github.com/digital-asset/daml/issues/7139
     // replace all occurrences of "dev" by "11", once "11" is released
     "ignore field observers in version < dev" in {
       val normalize = minimalistNode(v10)
