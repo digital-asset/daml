@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import org.scalatest.wordspec.AnyWordSpec
 
-class NoCacheSpec extends AnyWordSpec with CacheBehaviorSpecBase {
+class NoCacheSpec extends AnyWordSpec with ConcurrentCacheBehaviorSpecBase {
   override protected lazy val name: String = "a non-existent cache"
 
   override protected def newCache(): ConcurrentCache[Integer, String] =

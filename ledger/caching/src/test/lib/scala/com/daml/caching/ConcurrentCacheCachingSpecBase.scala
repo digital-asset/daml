@@ -8,7 +8,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
-trait CacheCachingSpecBase extends CacheSpecBase with AnyWordSpecLike with Matchers {
+trait ConcurrentCacheCachingSpecBase
+    extends ConcurrentCacheSpecBase
+    with AnyWordSpecLike
+    with Matchers {
   name should {
     "compute once, and cache" in {
       val cache = newCache()

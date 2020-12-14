@@ -11,8 +11,8 @@ import org.scalatest.wordspec.AnyWordSpec
 final class MappedCacheSpec
     extends AnyWordSpec
     with Matchers
-    with CacheBehaviorSpecBase
-    with CacheCachingSpecBase {
+    with ConcurrentCacheBehaviorSpecBase
+    with ConcurrentCacheCachingSpecBase {
   override protected def name: String = "mapped cache"
 
   override protected def newCache(): ConcurrentCache[Integer, String] =

@@ -7,9 +7,9 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class WeightedCacheSpec
     extends AnyWordSpec
-    with CacheBehaviorSpecBase
-    with CacheCachingSpecBase
-    with CacheEvictionSpecBase {
+    with ConcurrentCacheBehaviorSpecBase
+    with ConcurrentCacheCachingSpecBase
+    with ConcurrentCacheEvictionSpecBase {
   override protected lazy val name: String = "a weighted cache"
 
   override protected def newCache(): ConcurrentCache[Integer, String] =

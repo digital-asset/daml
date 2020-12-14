@@ -10,8 +10,8 @@ import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.util.Random
 
-trait CacheEvictionSpecBase
-    extends CacheBehaviorSpecBase
+trait ConcurrentCacheEvictionSpecBase
+    extends ConcurrentCacheBehaviorSpecBase
     with AnyWordSpecLike
     with Matchers
     with Eventually {
