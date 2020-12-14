@@ -113,10 +113,11 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       consuming: Boolean,
       actingParties: Set[String],
       argument: Value,
+      choiceObservers: Set[String] = Set.empty,
       byKey: Boolean = true,
   ): Exercise =
     Exercise(
-      choiceObservers = Set.empty, //FIXME #7709: take observers as argument (pref no default value)
+      choiceObservers = choiceObservers.map(Ref.Party.assertFromString),
       targetCoid = contract.coid,
       templateId = contract.coinst.template,
       choiceId = Ref.ChoiceName.assertFromString(choice),
