@@ -139,11 +139,3 @@ class PreExecutingSubmissionValidator[ReadSet, WriteSet](
     )
   }
 }
-
-object PreExecutingSubmissionValidator {
-
-  final class KeyNotPresentInInputException(key: DamlStateKey)
-      extends IllegalStateException(
-        s"The committer accessed a key that was not present in the input.\nKey: $key")
-
-}
