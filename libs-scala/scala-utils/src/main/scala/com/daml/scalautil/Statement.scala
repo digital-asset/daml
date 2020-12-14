@@ -12,7 +12,7 @@ object Statement {
     * @tparam A return type of the expression that gets discarded.
     */
   @specialized def discard[A](evaluateForSideEffectOnly: A): Unit = {
-    val _: A = evaluateForSideEffectOnly
+    val _ = evaluateForSideEffectOnly
     () //Return unit to prevent warning due to discarding value
   }
 }

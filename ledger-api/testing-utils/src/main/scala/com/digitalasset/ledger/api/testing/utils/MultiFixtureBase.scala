@@ -83,7 +83,7 @@ trait MultiFixtureBase[FixtureId, TestContext]
       }
     }
 
-    val timeoutPromise = Promise[Assertion]
+    val timeoutPromise = Promise[Assertion]()
     es.schedule(
       () => timeoutPromise.failure(new TimeoutException(s"Timed out after $timeLimit")),
       timeLimit.toMillis,
@@ -103,7 +103,7 @@ trait MultiFixtureBase[FixtureId, TestContext]
 
   /** Same as forAllFixtures, nicer to use with the "test" in allFixtures { ctx => ??? } syntax */
   protected def allFixtures(runTest: TestContext => Future[Assertion]): Future[Assertion] =
-    forAllFixtures(fixture => runTest(fixture.context))
+    forAllFixtures(fixture => runTest(fixture.context()))
 
   protected def forAllFixtures(runTest: TestFixture => Future[Assertion]): Future[Assertion] = {
     forAllMatchingFixtures { case f => runTest(f) }

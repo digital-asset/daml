@@ -96,7 +96,7 @@ object ContextualizedLoggerIT {
     val contextualizedLogger = ContextualizedLogger.createFor(logger)
     t(contextualizedLogger)
     output.close()
-    output.toString.split(System.lineSeparator())
+    output.toString.split(System.lineSeparator()).toIndexedSeq
   }
 
   private[this] def setupLogger(encoder: Encoder[ILoggingEvent]): (Logger, OutputStream) = {

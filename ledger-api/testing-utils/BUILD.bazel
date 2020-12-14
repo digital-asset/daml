@@ -6,10 +6,24 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
+load("//bazel_tools:scala.bzl", "silencer_plugin")
 
 da_scala_library(
     name = "testing-utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
+    ],
     tags = ["maven_coordinates=com.daml:testing-utils:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -26,13 +40,9 @@ da_scala_library(
         "//libs-scala/grpc-utils",
         "//libs-scala/resources",
         "@maven//:com_google_guava_guava",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_config",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

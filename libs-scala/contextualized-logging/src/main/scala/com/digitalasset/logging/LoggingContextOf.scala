@@ -5,7 +5,7 @@ package com.daml.logging
 
 import com.github.ghik.silencer.silent
 
-import scala.language.{higherKinds, implicitConversions}
+import scala.language.implicitConversions
 
 /** [[LoggingContext]] with a phantom type parameter representing what kind of
   * details are in it.  If a function that accepts a LoggingContext is supposed

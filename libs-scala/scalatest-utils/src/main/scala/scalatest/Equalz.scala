@@ -6,7 +6,6 @@ package com.daml.scalatest
 import org.scalatest.matchers.dsl.{MatcherFactory1}
 import org.scalatest.matchers.{MatchResult, Matcher}
 import org.scalatest.matchers.should.Matchers
-import scala.language.higherKinds
 import scalaz.Equal
 
 /** Provides the `equalz` [[Matcher]].

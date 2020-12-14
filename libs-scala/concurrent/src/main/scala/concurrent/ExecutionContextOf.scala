@@ -3,7 +3,6 @@
 
 package com.daml.concurrent
 
-import scala.language.higherKinds
 import scala.{concurrent => sc}
 
 sealed abstract class ExecutionContextOf {

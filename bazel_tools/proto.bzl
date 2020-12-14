@@ -10,6 +10,7 @@ load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@scala_version//:index.bzl", "scala_major_version_suffix")
 
 # taken from rules_proto:
 # https://github.com/stackb/rules_proto/blob/f5d6eea6a4528bef3c1d3a44d486b51a214d61c2/compile.bzl#L369-L393
@@ -177,10 +178,10 @@ def _proto_scala_srcs(name, grpc):
 def _proto_scala_deps(grpc, proto_deps):
     return [
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_thesamet_scalapb_lenses_2_12",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
+        "@maven//:com_thesamet_scalapb_lenses_{}".format(scala_major_version_suffix),
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_{}".format(scala_major_version_suffix),
     ] + ([
-        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_12",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_{}".format(scala_major_version_suffix),
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_protobuf",
