@@ -165,7 +165,6 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-pre-execution",
-    flaky = True,
     ports = [6865],
     server = ":app",
     server_args = [
