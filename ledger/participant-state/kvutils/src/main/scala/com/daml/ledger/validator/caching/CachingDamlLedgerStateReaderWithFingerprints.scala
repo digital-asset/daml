@@ -39,7 +39,7 @@ object CachingDamlLedgerStateReaderWithFingerprints {
       ),
       shouldCache = cachingPolicy.shouldCacheOnRead,
       delegate = ledgerStateReaderWithFingerprints
-        .comapKeys(keySerializationStrategy.serializeStateKey)
+        .contramapKeys(keySerializationStrategy.serializeStateKey)
         .mapValues {
           case (valueMaybe, fingerprint) =>
             valueMaybe.map(deserializeDamlStateValue) -> fingerprint

@@ -25,11 +25,14 @@ trait StateReader[Key, Value] {
   /**
     * Create a new StateReader that transforms the keys before reading.
     *
+    * This is an instance of a "contravariant functor", in which the mapping is backwards, because
+    * it's upon input, not upon output.
+    *
     * @param f the transformation function
     * @tparam NewKey the type of the keys
     * @return a `StateReader[NewKey, Value]`
     */
-  def comapKeys[NewKey](f: NewKey => Key): StateReader[NewKey, Value] =
+  def contramapKeys[NewKey](f: NewKey => Key): StateReader[NewKey, Value] =
     new StateReader[NewKey, Value] {
       override def read(
           keys: Seq[NewKey]
@@ -38,7 +41,7 @@ trait StateReader[Key, Value] {
     }
 
   /**
-    * Create a new StateReader that transforms the values upon reading.
+    * Create a new StateReader that transforms the values after reading.
     *
     * @param f the transformation function
     * @tparam NewValue the type of the values
