@@ -257,7 +257,7 @@ jobs:
           eval "$(./dev-env/bin/dade-assist)"
           bazel build --config scala_2_13 //libs-scala/...
           # gatling-utils tests fail with a ClassNotFoundException for scala.collection.SeqLike
-          bazel test --config scala_2_13 -- //libs-scala/... -//libs-scala/gatling-utils
+          bazel test --config scala_2_13 -- //libs-scala/... -//libs-scala/gatling-utils/...
         displayName: 'Build'
         env:
           DAML_SDK_RELEASE_VERSION: $(release_tag)
