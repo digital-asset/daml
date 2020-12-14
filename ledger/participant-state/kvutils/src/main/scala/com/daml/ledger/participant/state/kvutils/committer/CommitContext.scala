@@ -21,12 +21,10 @@ import scala.collection.mutable
 /** Commit context provides access to state inputs, commit parameters (e.g. record time) and
   * allows committer to set state outputs.
   */
-private[kvutils] case class CommitContext(
-    private val inputs: DamlStateMap,
-    recordTime: Option[Timestamp],
-    participantId: ParticipantId,
-) {
+private[kvutils] trait CommitContext {
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
+
+  protected def inputs: DamlStateMap
 
   // NOTE(JM): The outputs must be iterable in deterministic order, hence we
   // keep track of insertion order.
@@ -44,7 +42,11 @@ private[kvutils] case class CommitContext(
   // pre-execution.
   var outOfTimeBoundsLogEntry: Option[DamlLogEntry] = None
 
-  def preExecute: Boolean = recordTime.isEmpty
+  def getRecordTime: Option[Timestamp]
+
+  def getParticipantId: ParticipantId
+
+  def preExecute: Boolean = getRecordTime.isEmpty
 
   /** Retrieve value from output state, or if not found, from input state. */
   def get(key: DamlStateKey): Option[DamlStateValue] =

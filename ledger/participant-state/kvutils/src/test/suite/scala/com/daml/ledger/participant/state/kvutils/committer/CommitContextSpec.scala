@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, TestHelpers}
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -159,10 +160,17 @@ class CommitContextSpec extends AnyWordSpec with Matchers {
     .setParty(DamlPartyAllocation.newBuilder.setDisplayName("another party name"))
     .build
 
+  private class TestCommitContext(
+      override val getRecordTime: Option[Time.Timestamp],
+      override val inputs: DamlStateMap)
+      extends CommitContext {
+    override def getParticipantId: ParticipantId = TestHelpers.mkParticipantId(1)
+  }
+
   private def newInstance(
       recordTime: Option[Time.Timestamp] = Some(Time.Timestamp.now()),
       inputs: DamlStateMap = Map.empty) =
-    CommitContext(inputs, recordTime, TestHelpers.mkParticipantId(1))
+    new TestCommitContext(recordTime, inputs)
 
   private def newDamlStateMap(keyAndValues: (DamlStateKey, DamlStateValue)*): DamlStateMap =
     (for ((key, value) <- keyAndValues)
