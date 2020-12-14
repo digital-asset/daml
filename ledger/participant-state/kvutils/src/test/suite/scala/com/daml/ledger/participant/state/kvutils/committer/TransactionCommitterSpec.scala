@@ -555,7 +555,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     def notHostedParty(party: String): DamlPartyAllocation =
       partyAllocation(party, OtherParticipantId)
     def createInputs(
-                      inputs: (String, Option[DamlPartyAllocation])*): Map[DamlStateKey, Option[DamlStateValue]] =
+        inputs: (String, Option[DamlPartyAllocation])*): Map[DamlStateKey, Option[DamlStateValue]] =
       inputs.map {
         case (party, partyAllocation) =>
           DamlStateKey.newBuilder().setParty(party).build() -> partyAllocation.map(
