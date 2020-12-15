@@ -8,7 +8,7 @@ import java.util
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.ledger.javaapi.data.{DamlGenMap, DamlList, DamlOptional, DamlTextMap}
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._

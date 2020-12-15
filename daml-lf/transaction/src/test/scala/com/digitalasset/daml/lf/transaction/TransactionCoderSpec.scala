@@ -4,7 +4,7 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.{TransactionOuterClass => proto}
@@ -269,7 +269,7 @@ class TransactionCoderSpec
 
       forEvery(transactionVersions) { version =>
         val versionedNode = node.updateVersion(version)
-        val roots = ImmArray.ImmArraySeq.range(0, 10000).map(NodeId(_)).toImmArray
+        val roots = ImmArraySeq.range(0, 10000).map(NodeId(_)).toImmArray
         val nodes = roots.iterator.map(nid => nid -> versionedNode).toMap
         val tx = VersionedTransaction(
           version,

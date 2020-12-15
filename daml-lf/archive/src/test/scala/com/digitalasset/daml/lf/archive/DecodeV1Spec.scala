@@ -11,7 +11,7 @@ import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.{Decimal, Numeric, Ref}
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{Ast, LanguageVersion => LV}
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.ImmArraySeq
 import com.daml.daml_lf_dev.DamlLf1
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}

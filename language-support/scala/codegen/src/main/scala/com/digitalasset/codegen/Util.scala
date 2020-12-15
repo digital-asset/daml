@@ -5,8 +5,7 @@ package com.daml.codegen
 
 import com.daml.codegen.dependencygraph.{OrderedDependencies, TypeDeclOrTemplateWrapper}
 import com.daml.lf.iface.{Type => IType, _}
-import com.daml.lf.data.Ref
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.{ImmArraySeq, Ref}
 
 import java.io.File
 

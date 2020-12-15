@@ -5,8 +5,7 @@ package com.daml.lf
 package iface
 package reader
 
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.{ImmArray, ImmArraySeq}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, QualifiedName}
 import com.daml.lf.language.Ast

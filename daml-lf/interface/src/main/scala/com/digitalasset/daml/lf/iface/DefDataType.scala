@@ -12,7 +12,7 @@ import scalaz.syntax.traverse._
 import scalaz.{Applicative, Bifunctor, Bitraverse, Bifoldable, Foldable, Functor, Monoid, Traverse}
 import java.{util => j}
 
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.ImmArraySeq
 import com.daml.lf.data.Ref
 
 import scala.language.higherKinds

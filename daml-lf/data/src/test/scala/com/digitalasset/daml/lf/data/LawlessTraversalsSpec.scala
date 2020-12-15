@@ -3,8 +3,6 @@
 
 package com.daml.lf.data
 
-import ImmArray.ImmArraySeq
-
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

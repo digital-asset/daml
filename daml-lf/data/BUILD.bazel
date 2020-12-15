@@ -7,14 +7,27 @@ load(
     "da_scala_test",
     "lf_scalacopts",
 )
+load("//bazel_tools:scala.bzl", "silencer_plugin")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 da_scala_library(
     name = "data",
-    srcs = glob(["src/main/**/*.scala"]),
+    srcs =
+        glob(["src/main/scala/**/*.scala"]) + glob([
+            "src/main/{}/**/*.scala".format(scala_major_version),
+        ]),
     plugins = [
-        "@maven//:org_typelevel_kind_projector_2_12_12",
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        silencer_plugin,
     ],
-    scalacopts = lf_scalacopts,
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts + [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
+        "-P:silencer:lineContentFilters=import ImmArraySeq.Implicits._",
+    ],
     tags = ["maven_coordinates=com.daml:daml-lf-data:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -22,7 +35,6 @@ da_scala_library(
     deps = [
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -30,14 +42,24 @@ da_scala_test(
     name = "data-test",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
-    scalacopts = lf_scalacopts,
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    scalacopts = lf_scalacopts + [
+        "-P:silencer:lineContentFilters=import ImmArraySeq.Implicits._",
+        "-P:silencer:lineContentFilters=import scala.collection.compat._",
+        "-P:silencer:lineContentFilters=signum",
+    ],
     deps = [
         ":data",
         "//daml-lf/data-scalacheck",
         "//libs-scala/scalatest-utils",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
     ],
 )

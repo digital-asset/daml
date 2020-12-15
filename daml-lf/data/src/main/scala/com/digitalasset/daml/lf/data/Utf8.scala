@@ -11,7 +11,8 @@ import com.google.protobuf.ByteString
 import scalaz.Order
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
+import scala.collection.compat._
+import scala.jdk.CollectionConverters._
 
 // The DAML-LF strings are supposed to be UTF-8 while standard java strings are UTF16
 // Note number of UTF16 operations are not Utf8 equivalent (for instance length, charAt, ordering ...)
@@ -70,7 +71,7 @@ object Utf8 {
   }
 
   def unpack(s: String): ImmArray[Long] =
-    ImmArray(s.codePoints().iterator().asScala.map(_.toLong).toIterable)
+    ImmArray(s.codePoints().iterator().asScala.map(_.toLong).iterator.to(Iterable))
 
   @throws[IllegalArgumentException]
   def pack(codePoints: ImmArray[Long]): String = {

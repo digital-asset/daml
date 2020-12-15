@@ -199,13 +199,18 @@ def _wrap_rule(
         deps = [],
         scala_deps = [],
         versioned_scala_deps = {},
+        exports = [],
+        scala_exports = [],
         silent_annotations = False,
         **kwargs):
     deps = deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
+    exports = exports + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_exports]
     if silent_annotations:
         scalacopts = ["-P:silencer:checkUnused"] + scalacopts
         plugins = [silencer_plugin] + plugins
         deps = [silencer_lib] + deps
+    if (len(exports) > 0):
+        kwargs["exports"] = exports
     rule(
         name = name,
         scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,

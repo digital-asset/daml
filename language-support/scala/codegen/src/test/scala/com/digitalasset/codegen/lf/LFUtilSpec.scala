@@ -142,7 +142,7 @@ object LFUtilSpec {
     }
 
   import com.daml.lf.iface._
-  import com.daml.lf.data.ImmArray.ImmArraySeq
+  import com.daml.lf.data.ImmArraySeq
 
   private[this] val fooRec = Record(ImmArraySeq.empty)
   val envInterfaceWithKey = EnvironmentInterface(

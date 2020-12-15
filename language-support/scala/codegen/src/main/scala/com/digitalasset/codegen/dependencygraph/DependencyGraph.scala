@@ -7,7 +7,7 @@ import com.daml.lf.iface._
 import com.daml.lf.iface.reader.InterfaceType
 import com.daml.lf.data.Ref.Identifier
 import com.daml.codegen.{Util, lf}
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.ImmArraySeq
 import lf.DefTemplateWithRecord
 import scalaz.std.list._
 import scalaz.syntax.bifoldable._

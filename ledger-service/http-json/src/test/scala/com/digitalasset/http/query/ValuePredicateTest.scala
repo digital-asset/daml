@@ -5,8 +5,7 @@ package com.daml.http
 package query
 
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue, jsValueToApiValue}
-import com.daml.lf.data.{Decimal, ImmArray, Numeric, Ref, SortedLookupList, Time}
-import ImmArray.ImmArraySeq
+import com.daml.lf.data.{Decimal, ImmArray, ImmArraySeq, Numeric, Ref, SortedLookupList, Time}
 import com.daml.lf.iface
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, ValueAddend => VA}

@@ -6,7 +6,7 @@ package com.daml.codegen.lf
 import java.io.File
 
 import com.daml.codegen.Util
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, QualifiedName}
 import com.typesafe.scalalogging.Logger
 import scalaz.syntax.std.option._

@@ -7,8 +7,7 @@ package value
 package test
 
 import scala.language.higherKinds
-import data.{FrontStack, ImmArray, ImmArrayCons, Numeric, Ref, SortedLookupList, Time}
-import ImmArray.ImmArraySeq
+import data.{FrontStack, ImmArray, ImmArraySeq, ImmArrayCons, Numeric, Ref, SortedLookupList, Time}
 import data.DataArbitrary._
 import iface.{
   DefDataType,

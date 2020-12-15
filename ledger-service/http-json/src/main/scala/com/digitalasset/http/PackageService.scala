@@ -3,8 +3,7 @@
 
 package com.daml.http
 
-import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{ImmArraySeq, Ref}
 import com.daml.lf.iface
 import com.daml.http.domain.{Choice, TemplateId}
 import com.daml.http.util.IdentifierConverters

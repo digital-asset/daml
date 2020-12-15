@@ -10,6 +10,8 @@ import org.scalatest.wordspec.AnyWordSpec
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
 
+import scala.collection.compat._
+
 class FrontStackSpec
     extends AnyWordSpec
     with Matchers
@@ -53,7 +55,8 @@ class FrontStackSpec
 
   "toImmArray" should {
     "yield same elements as iterator" in forAll { fs: FrontStack[Int] =>
-      fs.toImmArray should ===(fs.iterator.to[ImmArray])
+      import ImmArray._
+      fs.toImmArray should ===(implicitly[Factory[Int, ImmArray[Int]]].fromSpecific(fs.iterator))
     }
   }
 

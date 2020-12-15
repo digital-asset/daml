@@ -3,7 +3,7 @@
 
 package com.daml.http.util
 
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.ImmArraySeq
 import com.daml.http.domain.TemplateId
 import com.daml.http.util.IdentifierConverters.apiIdentifier
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent}

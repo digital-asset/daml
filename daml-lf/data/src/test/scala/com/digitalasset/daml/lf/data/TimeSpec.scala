@@ -28,19 +28,19 @@ class TimeSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks 
     "Date.fromLong fails if it overflows" in {
       val max = Date.MaxValue.days
       val min = Date.MinValue.days
-      Date.fromDaysSinceEpoch(max) shouldBe 'right
-      Date.fromDaysSinceEpoch(max + 1) shouldBe 'left
-      Date.fromDaysSinceEpoch(min) shouldBe 'right
-      Date.fromDaysSinceEpoch(min - 1) shouldBe 'left
+      Date.fromDaysSinceEpoch(max) shouldBe Symbol("right")
+      Date.fromDaysSinceEpoch(max + 1) shouldBe Symbol("left")
+      Date.fromDaysSinceEpoch(min) shouldBe Symbol("right")
+      Date.fromDaysSinceEpoch(min - 1) shouldBe Symbol("left")
     }
 
     "Date.fromString fails if it overflows" in {
       val max = Date.MaxValue.toString
       val min = Date.MinValue.toString
-      Date.fromString(max) shouldBe 'right
-      Date.fromString(LocalDate.parse(max).plusDays(1).toString) shouldBe 'left
-      Date.fromString(min) shouldBe 'right
-      Date.fromString(LocalDate.parse(min).plusDays(-1).toString) shouldBe 'left
+      Date.fromString(max) shouldBe Symbol("right")
+      Date.fromString(LocalDate.parse(max).plusDays(1).toString) shouldBe Symbol("left")
+      Date.fromString(min) shouldBe Symbol("right")
+      Date.fromString(LocalDate.parse(min).plusDays(-1).toString) shouldBe Symbol("left")
     }
 
     "toString produces an ISO 8601 compliant string" in {
@@ -72,19 +72,19 @@ class TimeSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks 
     "Timestamp.fromLong fails if it overflows" in {
       val max = Timestamp.MaxValue.micros
       val min = Timestamp.MinValue.micros
-      Timestamp.fromLong(max) shouldBe 'right
-      Timestamp.fromLong(max + 1) shouldBe 'left
-      Timestamp.fromLong(min) shouldBe 'right
-      Timestamp.fromLong(min - 1) shouldBe 'left
+      Timestamp.fromLong(max) shouldBe Symbol("right")
+      Timestamp.fromLong(max + 1) shouldBe Symbol("left")
+      Timestamp.fromLong(min) shouldBe Symbol("right")
+      Timestamp.fromLong(min - 1) shouldBe Symbol("left")
     }
 
     "Timestamp.fromString fails if it overflows" in {
       val max = Timestamp.MaxValue.toString
       val min = Timestamp.MinValue.toString
-      Timestamp.fromString(max) shouldBe 'right
-      Timestamp.fromString(Instant.parse(max).plusMillis(1).toString) shouldBe 'left
-      Timestamp.fromString(min) shouldBe 'right
-      Timestamp.fromString(Instant.parse(min).plusMillis(-1).toString) shouldBe 'left
+      Timestamp.fromString(max) shouldBe Symbol("right")
+      Timestamp.fromString(Instant.parse(max).plusMillis(1).toString) shouldBe Symbol("left")
+      Timestamp.fromString(min) shouldBe Symbol("right")
+      Timestamp.fromString(Instant.parse(min).plusMillis(-1).toString) shouldBe Symbol("left")
     }
 
     "add increments the timestamp" in {

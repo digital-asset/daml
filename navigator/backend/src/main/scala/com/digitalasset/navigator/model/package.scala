@@ -45,8 +45,8 @@ package object model extends NavigatorModelAliases[String] {
 
   type DamlLfTypeConNameOrPrimType = DamlLfIface.TypeConNameOrPrimType
 
-  type DamlLfImmArraySeq[T] = DamlLfData.ImmArray.ImmArraySeq[T]
-  val DamlLfImmArraySeq = DamlLfData.ImmArray.ImmArraySeq
+  type DamlLfImmArraySeq[T] = DamlLfData.ImmArraySeq[T]
+  val DamlLfImmArraySeq = DamlLfData.ImmArraySeq
 
   type DamlLfImmArray[T] = DamlLfData.ImmArray[T]
   val DamlLfImmArray = DamlLfData.ImmArray

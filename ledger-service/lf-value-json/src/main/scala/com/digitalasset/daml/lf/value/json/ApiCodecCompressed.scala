@@ -3,8 +3,15 @@
 
 package com.daml.lf.value.json
 
-import com.daml.lf.data.{FrontStack, ImmArray, Ref, SortedLookupList, Time, Numeric => LfNumeric}
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.{
+  FrontStack,
+  ImmArray,
+  ImmArraySeq,
+  Ref,
+  SortedLookupList,
+  Time,
+  Numeric => LfNumeric
+}
 import com.daml.lf.data.ScalazEqual._
 import com.daml.lf.iface
 import com.daml.lf.value.{Value => V}

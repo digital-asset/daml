@@ -4,7 +4,7 @@
 package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.iface.{PrimTypeBool, TypePrim}
 import com.squareup.javapoet._

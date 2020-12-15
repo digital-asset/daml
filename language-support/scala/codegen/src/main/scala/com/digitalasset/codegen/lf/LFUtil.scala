@@ -5,7 +5,7 @@ package com.daml.codegen.lf
 
 import com.daml.{codegen => parent}
 import com.daml.lf.data.Ref
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.ImmArraySeq
 import parent.dependencygraph.DependencyGraph
 import parent.exception.UnsupportedDamlTypeException
 import com.daml.lf.iface

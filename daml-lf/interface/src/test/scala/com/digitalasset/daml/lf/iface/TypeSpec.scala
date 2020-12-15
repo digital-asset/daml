@@ -3,7 +3,7 @@
 
 package com.daml.lf.iface
 
-import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.data.BackStack
 import org.scalatest.matchers.should.Matchers

@@ -8,8 +8,7 @@ import java.util
 
 import com.daml.lf.archive.Decode.ParseError
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Decimal, ImmArray, Numeric, Struct, Time}
-import ImmArray.ImmArraySeq
+import com.daml.lf.data.{Decimal, ImmArray, ImmArraySeq, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{LanguageVersion => LV}
