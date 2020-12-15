@@ -285,7 +285,7 @@ patches we backport to the 1.0 release branch).
 
    > Manual tests passed on Windows.
 
-1. If the release is bad, delete the release from [the releases page]. Mention
+1. If the release is bad, delete the release from the [releases page]. Mention
    why it is bad as a comment on your PR, and **stop the process here**.
 
 1. Announce the release on the relevant internal Slack channels (`#product-daml`,
