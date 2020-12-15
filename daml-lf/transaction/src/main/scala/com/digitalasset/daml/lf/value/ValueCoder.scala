@@ -30,8 +30,6 @@ object ValueCoder {
   object DecodeError extends (String => DecodeError) {
     private[lf] def apply(version: TransactionVersion, isTooOldFor: String): DecodeError =
       DecodeError(s"transaction version ${version.protoValue} is too old to support $isTooOldFor")
-    private[lf] def apply(version: ValueVersion, isTooOldFor: String): DecodeError =
-      DecodeError(s"value version ${version.protoValue} is too old to support $isTooOldFor")
   }
 
   /**
@@ -43,8 +41,6 @@ object ValueCoder {
   object EncodeError extends (String => EncodeError) {
     private[lf] def apply(version: TransactionVersion, isTooOldFor: String): EncodeError =
       EncodeError(s"transaction version ${version.protoValue} is too old to support $isTooOldFor")
-    private[lf] def apply(version: ValueVersion, isTooOldFor: String): EncodeError =
-      EncodeError(s"value version ${version.protoValue} is too old to support $isTooOldFor")
   }
 
   abstract class EncodeCid[-Cid] private[lf] {
@@ -129,12 +125,21 @@ object ValueCoder {
 
     } yield Identifier(pkgId, QualifiedName(module, name))
 
-  private def decodeVersion(vs: String): Either[DecodeError, ValueVersion] =
-    ValueVersion
-      .isAcceptedVersion(vs)
-      .fold[Either[DecodeError, ValueVersion]](Left(DecodeError(s"Unsupported value version $vs")))(
-        v => Right(v),
-      )
+  // For backward compatibility reasons, V10 is encoded as "6" when used inside a
+  // proto.VersionedValue
+  private[this] def encodeValueVersion(version: TransactionVersion): String =
+    if (version == TransactionVersion.V10) {
+      "6"
+    } else {
+      version.protoValue
+    }
+
+  private[this] def decodeValueVersion(vs: String): Either[DecodeError, TransactionVersion] =
+    vs match {
+      case "6" => Right(TransactionVersion.V10)
+      case "10" => Left(DecodeError("Unsupported value version 10"))
+      case _ => TransactionVersion.fromString(vs).left.map(DecodeError)
+    }
 
   /**
     * Reads a serialized protobuf versioned value,
@@ -153,7 +158,7 @@ object ValueCoder {
       protoValue0: proto.VersionedValue,
   ): Either[DecodeError, VersionedValue[Cid]] =
     for {
-      version <- decodeVersion(protoValue0.getVersion)
+      version <- decodeValueVersion(protoValue0.getVersion)
       value <- decodeValue(decodeCid, version, protoValue0.getValue)
     } yield VersionedValue(version, value)
 
@@ -162,27 +167,6 @@ object ValueCoder {
       protoValue0: proto.VersionedValue,
   ): Either[DecodeError, Value[Cid]] =
     decodeVersionedValue(decodeCid, protoValue0) map (_.value)
-
-  /**
-    * Serializes [[Value]] to protobuf, library decides which [[ValueVersion]] to assign.
-    * See [[ValueVersion.assignVersion]].
-    *
-    * @param value value to be written
-    * @param encodeCid a function to stringify contractIds (it's better to be invertible)
-    * @tparam Cid ContractId type
-    * @return protocol buffer serialized values
-    */
-  def encodeVersionedValue[Cid](
-      encodeCid: EncodeCid[Cid],
-      value: Value[Cid],
-      supportedVersions: VersionRange[ValueVersion],
-  ): Either[EncodeError, proto.VersionedValue] =
-    ValueVersion
-      .assignVersion(value, supportedVersions)
-      .fold(
-        err => Left(EncodeError(err)),
-        version => encodeVersionedValueWithCustomVersion(encodeCid, VersionedValue(version, value)),
-      )
 
   /**
     * Serializes [[VersionedValue]] to protobuf, caller provides the [[ValueVersion]].
@@ -200,7 +184,7 @@ object ValueCoder {
       value <- encodeValue(encodeCid, versionedValue.version, versionedValue.value)
     } yield {
       val builder = proto.VersionedValue.newBuilder()
-      builder.setVersion(versionedValue.version.protoValue).setValue(value).build()
+      builder.setVersion(encodeValueVersion(versionedValue.version)).setValue(value).build()
     }
 
   /**
@@ -214,7 +198,7 @@ object ValueCoder {
     */
   def decodeValue[Cid](
       decodeCid: DecodeCid[Cid],
-      valueVersion: ValueVersion,
+      version: TransactionVersion,
       protoValue0: proto.Value,
   ): Either[DecodeError, Value[Cid]] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
@@ -227,9 +211,9 @@ object ValueCoder {
           identity,
         )
 
-    def assertSince(minVersion: ValueVersion, description: => String) =
-      if (valueVersion < minVersion)
-        throw Err(s"$description is not supported by value version $valueVersion")
+    def assertSince(minVersion: TransactionVersion, description: => String) =
+      if (version < minVersion)
+        throw Err(s"$description is not supported by value version $version")
 
     def go(nesting: Int, protoValue: proto.Value): Value[Cid] = {
       if (nesting > MAXIMUM_NESTING) {
@@ -343,7 +327,7 @@ object ValueCoder {
             ValueTextMap(map)
 
           case proto.Value.SumCase.GEN_MAP =>
-            assertSince(ValueVersion.minGenMap, "Value.SumCase.MAP")
+            assertSince(TransactionVersion.minGenMap, "Value.SumCase.MAP")
             val genMap = protoValue.getGenMap.getEntriesList.asScala.map(entry =>
               go(newNesting, entry.getKey) -> go(newNesting, entry.getValue))
             ValueGenMap(ImmArray(genMap))
@@ -372,12 +356,12 @@ object ValueCoder {
     */
   def encodeValue[Cid](
       encodeCid: EncodeCid[Cid],
-      valueVersion: ValueVersion,
+      valueVersion: TransactionVersion,
       v0: Value[Cid],
   ): Either[EncodeError, proto.Value] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
-    def assertSince(minVersion: ValueVersion, description: => String) =
+    def assertSince(minVersion: TransactionVersion, description: => String) =
       if (valueVersion < minVersion)
         throw Err(s"$description is not supported by value version $valueVersion")
 
@@ -469,7 +453,7 @@ object ValueCoder {
             builder.setMap(protoMap).build()
 
           case ValueGenMap(entries) =>
-            assertSince(ValueVersion.minGenMap, "Value.SumCase.MAP")
+            assertSince(TransactionVersion.minGenMap, "Value.SumCase.MAP")
             val protoMap = proto.GenMap.newBuilder()
             entries.foreach {
               case (key, value) =>
@@ -493,18 +477,6 @@ object ValueCoder {
       case Err(msg) => Left(EncodeError(msg))
     }
   }
-
-  // The codomain and domain of the below functions are subject to change
-  // without warning or type change; they are stable with respect to
-  // each other and nothing else.  As such, they are unsafe for
-  // general usage
-
-  private[value] def valueToBytes[Cid](
-      encodeCid: EncodeCid[Cid],
-      v: Value[Cid],
-      supportedVersions: VersionRange[ValueVersion] = ValueVersion.DevOutputVersions,
-  ): Either[EncodeError, Array[Byte]] =
-    encodeVersionedValue(encodeCid, v, supportedVersions).map(_.toByteArray)
 
   private[value] def valueFromBytes[Cid](
       decodeCid: DecodeCid[Cid],

@@ -4,7 +4,6 @@
 package com.daml.lf
 package transaction
 
-import value.ValueVersion
 import com.daml.lf.language.LanguageVersion
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
@@ -32,21 +31,4 @@ class TransactionVersionSpec extends AnyWordSpec with Matchers with TableDrivenP
     }
 
   }
-
-  "TransactionVersion.assignValueVersion" should {
-    "be stable" in {
-
-      val testCases = Table(
-        "input" -> "output",
-        V10 -> ValueVersion("6"),
-        VDev -> ValueVersion("dev")
-      )
-
-      forEvery(testCases) { (input, expectedOutput) =>
-        TransactionVersion.assignValueVersion(input) shouldBe expectedOutput
-      }
-
-    }
-  }
-
 }

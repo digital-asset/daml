@@ -7,6 +7,7 @@ package value
 import data.{Bytes, ImmArray, Ref}
 import Value._
 import Ref.{Identifier, Name}
+import com.daml.lf.transaction.TransactionVersion
 import test.ValueGenerators.{coidGen, idGen, nameGen}
 import test.TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
 import com.daml.scalatest.Unnatural
@@ -57,10 +58,10 @@ class ValueSpec
     "does not bump version when" - {
 
       "ensureNoCid is used " in {
-        val value = VersionedValue[ContractId](ValueVersion.minVersion, ValueUnit)
+        val value = VersionedValue[ContractId](TransactionVersion.minVersion, ValueUnit)
         val contract = ContractInst(tmplId, value, "agreed")
-        value.ensureNoCid.map(_.version) shouldBe Right(ValueVersion.minVersion)
-        contract.ensureNoCid.map(_.arg.version) shouldBe Right(ValueVersion.minVersion)
+        value.ensureNoCid.map(_.version) shouldBe Right(TransactionVersion.minVersion)
+        contract.ensureNoCid.map(_.arg.version) shouldBe Right(TransactionVersion.minVersion)
 
       }
 

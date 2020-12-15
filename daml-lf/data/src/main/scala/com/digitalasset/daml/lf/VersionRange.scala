@@ -7,15 +7,13 @@ import scala.Ordering.Implicits.infixOrderingOps
 
 /**
   * [[VersionRange]] represents a range of versions of
-  * [[com.daml.lf.language.LanguageVersion]],
-  * [[com.daml.lf.transaction.TransactionVersion]], or
-  * [[com.daml.lf.value.ValueVersion]].
+  * [[com.daml.lf.language.LanguageVersion]] or
+  * [[com.daml.lf.transaction.TransactionVersion]].
   *
   * @param min the minimal version included in the range.
   * @param max the maximal version included in the range.
-  * @tparam V either [[com.daml.lf.language.LanguageVersion]],
-  *   [[com.daml.lf.transaction.TransactionVersion]], or
-  *   [[com.daml.lf.value.ValueVersion]].
+  * @tparam V either [[com.daml.lf.language.LanguageVersion]] or
+  *   [[com.daml.lf.transaction.TransactionVersion]].
   */
 final case class VersionRange[V](
     min: V,
