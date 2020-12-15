@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.validator.HasDamlStateValue
 import com.daml.metrics.MetricName
 import com.google.protobuf.ByteString
 
@@ -41,5 +42,12 @@ package object kvutils {
   val MetricPrefix: MetricName = MetricName.DAML :+ "kvutils"
 
   implicit val `Bytes Ordering`: Ordering[Bytes] = Ordering.by(_.asReadOnlyByteBuffer)
+
+  implicit object `DamlStateValue with Fingerprint has DamlStateValue`
+      extends HasDamlStateValue[(Option[DamlStateValue], Fingerprint)] {
+    override def damlStateValue(
+        value: (Option[DamlStateValue], Fingerprint)
+    ): Option[DamlStateValue] = value._1
+  }
 
 }

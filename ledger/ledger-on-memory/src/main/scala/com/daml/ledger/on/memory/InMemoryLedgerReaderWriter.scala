@@ -17,7 +17,8 @@ import com.daml.ledger.participant.state.kvutils.{
   Bytes,
   Fingerprint,
   FingerprintPlaceholder,
-  KeyValueCommitting
+  KeyValueCommitting,
+  `DamlStateValue with Fingerprint has DamlStateValue`
 }
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
