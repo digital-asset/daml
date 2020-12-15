@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.Conversions.configurationStateKey
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter.DamlTransactionEntrySummary
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
@@ -38,14 +39,7 @@ import scala.collection.JavaConverters._
 class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSugar {
   private[this] val txBuilder = TransactionBuilder()
   private val metrics = new Metrics(new MetricRegistry)
-  private val aDamlTransactionEntry = DamlTransactionEntry.newBuilder
-    .setTransaction(Conversions.encodeTransaction(TransactionBuilder.Empty))
-    .setSubmitterInfo(
-      DamlSubmitterInfo.newBuilder
-        .setCommandId("commandId")
-        .addSubmitters("aSubmitter"))
-    .setSubmissionSeed(ByteString.copyFromUtf8("a" * 32))
-    .build
+  private val aDamlTransactionEntry = createTransactionEntry(List("aSubmitter"))
   private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)
   private val aRecordTime = Timestamp(100)
   private val instance = createTransactionCommitter() // Stateless, can be shared between tests
@@ -470,6 +464,105 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     }
   }
 
+  "authorizeSubmitters" should {
+    "reject a submission when any of the submitters keys is not present in the input state" in {
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = createInputs(
+          Alice -> Some(hostedParty(Alice)),
+          Bob -> Some(hostedParty(Bob)),
+        ),
+        participantId = ParticipantId
+      )
+      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob, Emma)))
+
+      assertThrows[MissingInputState](instance.authorizeSubmitters.apply(context, tx))
+    }
+
+    "reject a submission when any of the submitters is not known" in {
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = createInputs(
+          Alice -> Some(hostedParty(Alice)),
+          Bob -> None,
+        ),
+        participantId = ParticipantId
+      )
+      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob)))
+
+      val result = instance.authorizeSubmitters.apply(context, tx)
+      result shouldBe a[StepStop]
+      val rejectionReason = result
+        .asInstanceOf[StepStop]
+        .logEntry
+        .getTransactionRejectionEntry
+        .getPartyNotKnownOnLedger
+        .getDetails
+      rejectionReason should fullyMatch regex """Submitting party .+ not known"""
+    }
+
+    "reject a submission when any of the submitters' participant id is incorrect" in {
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = createInputs(
+          Alice -> Some(hostedParty(Alice)),
+          Bob -> Some(notHostedParty(Bob)),
+        ),
+        participantId = ParticipantId
+      )
+      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob)))
+
+      val result = instance.authorizeSubmitters.apply(context, tx)
+      result shouldBe a[StepStop]
+      val rejectionReason = result
+        .asInstanceOf[StepStop]
+        .logEntry
+        .getTransactionRejectionEntry
+        .getSubmitterCannotActViaParticipant
+        .getDetails
+      rejectionReason should fullyMatch regex s"""Party .+ not hosted by participant ${mkParticipantId(
+        ParticipantId)}"""
+    }
+
+    "allow a submission when all of the submitters are hosted on the participant" in {
+      val context = createCommitContext(
+        recordTime = None,
+        inputs = createInputs(
+          Alice -> Some(hostedParty(Alice)),
+          Bob -> Some(hostedParty(Bob)),
+          Emma -> Some(hostedParty(Emma)),
+        ),
+        participantId = ParticipantId
+      )
+      val tx = DamlTransactionEntrySummary(createTransactionEntry(List(Alice, Bob, Emma)))
+
+      instance.authorizeSubmitters.apply(context, tx) shouldBe a[StepContinue[_]]
+    }
+
+    lazy val Alice = "alice"
+    lazy val Bob = "bob"
+    lazy val Emma = "emma"
+    lazy val ParticipantId = 0
+    lazy val OtherParticipantId = 1
+    def partyAllocation(party: String, participantId: Int): DamlPartyAllocation =
+      DamlPartyAllocation
+        .newBuilder()
+        .setParticipantId(mkParticipantId(participantId))
+        .setDisplayName(party)
+        .build()
+
+    def hostedParty(party: String): DamlPartyAllocation = partyAllocation(party, ParticipantId)
+    def notHostedParty(party: String): DamlPartyAllocation =
+      partyAllocation(party, OtherParticipantId)
+    def createInputs(
+        inputs: (String, Option[DamlPartyAllocation])*): Map[DamlStateKey, Option[DamlStateValue]] =
+      inputs.map {
+        case (party, partyAllocation) =>
+          DamlStateKey.newBuilder().setParty(party).build() -> partyAllocation.map(
+            DamlStateValue.newBuilder().setParty(_).build())
+      }.toMap
+  }
+
   private def createTransactionCommitter(): TransactionCommitter =
     new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
 
@@ -494,4 +587,15 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         DamlConfigurationEntry.newBuilder
           .setConfiguration(Configuration.encode(theDefaultConfig))
       )
+
+  private def createTransactionEntry(submitters: List[String]): DamlTransactionEntry = {
+    DamlTransactionEntry.newBuilder
+      .setTransaction(Conversions.encodeTransaction(TransactionBuilder.Empty))
+      .setSubmitterInfo(
+        DamlSubmitterInfo.newBuilder
+          .setCommandId("commandId")
+          .addAllSubmitters(submitters.asJava))
+      .setSubmissionSeed(ByteString.copyFromUtf8("a" * 32))
+      .build
+  }
 }
