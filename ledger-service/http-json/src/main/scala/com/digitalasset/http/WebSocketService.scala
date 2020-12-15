@@ -419,7 +419,7 @@ class WebSocketService(
             {
               case (dao, fetch) =>
                 val tx = for {
-                  bookmark <- fetch.fetchAndPersist(jwt, parties, templateIds)
+                  bookmark <- fetch.fetchAndPersist(jwt, parties, resolved.toList)
                   mdContracts <- dbQuery(parties)(implicitly[LogHandler])
                   // TODO SC: save bookmark here, loop if fail
                 } yield
@@ -433,7 +433,7 @@ class WebSocketService(
           )
 
       Source
-        .lazyFuture(() =>
+        .lazyFutureSource(() =>
           prefilter.map {
             case (prefiltered, shiftedPrefix) =>
               val liveFiltered = contractsService
@@ -446,8 +446,11 @@ class WebSocketService(
                 .via(convertFilterContracts(fn))
                 .via(emitOffsetTicksAndFilterOutEmptySteps)
                 .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
-              prefiltered ++ liveFiltered
+              prefiltered.map(StepAndErrors(Seq.empty, _)) ++ liveFiltered
         })
+        .mapMaterializedValue { _: Future[NotUsed] =>
+          NotUsed
+        }
         .map(_.mapPos(Q.renderCreatedMetadata).render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => \/-(wsMessage(jsv)))
