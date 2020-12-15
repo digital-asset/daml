@@ -216,7 +216,6 @@ jobs:
   - job: Linux_scala_2_13
     dependsOn:
       - da_ghc_lib
-      - check_for_release
     timeoutInMinutes: 360
     pool:
       name: 'linux-pool'
