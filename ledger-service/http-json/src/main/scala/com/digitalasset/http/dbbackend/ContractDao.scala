@@ -110,7 +110,7 @@ object ContractDao {
       dbContracts <- Queries
         .selectContractsMultiTemplate(domain.Party unsubst parties, stIdSeq map {
           case (_, stid, _, pred) => (stid, pred)
-        })
+        }, Queries.MatchedQueryMarker.ByInt)
         .toVector
         .traverse(_.to[Vector])
       tidLookup = stIdSeq.view.map { case (ix, _, tid, _) => ix -> tid }.toMap
