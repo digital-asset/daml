@@ -253,9 +253,9 @@ object PreExecutingSubmissionValidatorSpec {
     val wrappedInputState = inputState.mapValues(TestValue(_))
     new StateReader[DamlStateKey, TestValue] {
       override def read(
-          keys: Seq[DamlStateKey]
+          keys: Iterable[DamlStateKey]
       )(implicit executionContext: ExecutionContext): Future[Seq[TestValue]] =
-        Future.successful(keys.map(wrappedInputState))
+        Future.successful(keys.view.map(wrappedInputState).toVector)
     }
   }
 

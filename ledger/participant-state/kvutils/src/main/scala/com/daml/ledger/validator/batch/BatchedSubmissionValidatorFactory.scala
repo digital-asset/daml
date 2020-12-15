@@ -36,9 +36,9 @@ object BatchedSubmissionValidatorFactory {
 
   class LedgerStateReaderAdapter[LogResult](delegate: LedgerStateOperations[LogResult])
       extends LedgerStateReader {
-    override def read(keys: Seq[Key])(
-        implicit executionContext: ExecutionContext
-    ): Future[Seq[Option[Value]]] =
+    override def read(
+        keys: Iterable[Key]
+    )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] =
       delegate.readState(keys)
   }
 

@@ -17,7 +17,7 @@ final class RawToDamlLedgerStateReaderAdapter(
   import RawToDamlLedgerStateReaderAdapter.deserializeDamlStateValue
 
   override def read(
-      keys: Seq[DamlStateKey]
+      keys: Iterable[DamlStateKey]
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[DamlStateValue]]] =
     ledgerStateReader
       .read(keys.map(keySerializationStrategy.serializeStateKey))

@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.export.{
 }
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, seqOf}
+import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, iterableOf}
 import com.daml.ledger.validator.TestHelper.{aParticipantId, anInvalidEnvelope, makePartySubmission}
 import com.daml.ledger.validator.batch.BatchedSubmissionValidatorSpec._
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
@@ -129,7 +129,7 @@ class BatchedSubmissionValidatorSpec
       val mockCommit = mock[CommitStrategy[Unit]]
       val partySubmission = makePartySubmission("foo")
       // Expect two keys, i.e., to retrieve the party and submission dedup values.
-      when(mockLedgerStateReader.read(seqOf(size = 2))(anyExecutionContext))
+      when(mockLedgerStateReader.read(iterableOf(size = 2))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(None, None)))
       val logEntryCaptor = ArgumentCaptor.forClass(classOf[DamlLogEntry])
       val outputStateCaptor = ArgumentCaptor.forClass(classOf[Map[DamlStateKey, DamlStateValue]])
@@ -176,7 +176,7 @@ class BatchedSubmissionValidatorSpec
       val (submissions, _, batchSubmissionBytes) = createBatchSubmissionOf(1000)
       val mockLedgerStateReader = mock[DamlLedgerStateReader]
       // Expect two keys, i.e., to retrieve the party and submission dedup values.
-      when(mockLedgerStateReader.read(seqOf(size = 2))(anyExecutionContext))
+      when(mockLedgerStateReader.read(iterableOf(size = 2))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(None, None)))
       val logEntryCaptor = ArgumentCaptor.forClass(classOf[DamlLogEntry])
       val outputStateCaptor = ArgumentCaptor.forClass(classOf[Map[DamlStateKey, DamlStateValue]])
@@ -243,7 +243,7 @@ class BatchedSubmissionValidatorSpec
         .build()
       val mockLedgerStateReader = mock[DamlLedgerStateReader]
       // Expect two keys, i.e., to retrieve the party and submission dedup values.
-      when(mockLedgerStateReader.read(seqOf(size = 2))(anyExecutionContext))
+      when(mockLedgerStateReader.read(iterableOf(size = 2))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(None, None)))
       val mockCommit = mock[CommitStrategy[Unit]]
       when(
@@ -291,7 +291,7 @@ class BatchedSubmissionValidatorSpec
       val (submissions, batchSubmission, batchSubmissionBytes) = createBatchSubmissionOf(2)
       val mockLedgerStateReader = mock[DamlLedgerStateReader]
       // Expect two keys, i.e., to retrieve the party and submission dedup values.
-      when(mockLedgerStateReader.read(seqOf(size = 2))(anyExecutionContext))
+      when(mockLedgerStateReader.read(iterableOf(size = 2))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(None, None)))
       val mockCommit = mock[CommitStrategy[Unit]]
       when(
