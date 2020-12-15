@@ -3,10 +3,6 @@
 
 package com.daml.ledger.validator
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.Fingerprint
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.reading.StateReader
 import com.daml.lf.data.Time.Timestamp
 
 package object preexecution {
@@ -16,10 +12,4 @@ package object preexecution {
     */
   type TimeUpdatesProvider =
     () => Option[Timestamp]
-
-  type LedgerStateReaderWithFingerprints =
-    StateReader[Key, (Option[Value], Fingerprint)]
-
-  type DamlLedgerStateReaderWithFingerprints =
-    StateReader[DamlStateKey, (Option[DamlStateValue], Fingerprint)]
 }

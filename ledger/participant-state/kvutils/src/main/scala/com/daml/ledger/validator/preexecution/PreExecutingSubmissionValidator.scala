@@ -3,20 +3,24 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlSubmission}
-import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlStateKey,
+  DamlStateValue,
+  DamlSubmission
+}
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{
   Bytes,
   DamlStateMapWithFingerprints,
   Envelope,
+  Fingerprint,
   KeyValueCommitting
 }
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.validator.ValidationFailed
 import com.daml.ledger.validator.batch.BatchedSubmissionValidator
 import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidator._
-import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
-import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidationFailed}
+import com.daml.ledger.validator.reading.StateReader
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 
@@ -24,13 +28,18 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
-  * Validator pre-executing submissions.
+  * Validator for pre-executing submissions.
   */
-class PreExecutingSubmissionValidator[WriteSet](
+class PreExecutingSubmissionValidator[ReadSet, WriteSet](
     committer: KeyValueCommitting,
     metrics: Metrics,
-    keySerializationStrategy: StateKeySerializationStrategy,
-    commitStrategy: PreExecutingCommitStrategy[WriteSet]) {
+    commitStrategy: PreExecutingCommitStrategy[
+      DamlStateKey,
+      (Option[DamlStateValue], Fingerprint),
+      ReadSet,
+      WriteSet,
+    ],
+) {
   private val logger = ContextualizedLogger.get(getClass)
 
   def validate(
@@ -40,23 +49,29 @@ class PreExecutingSubmissionValidator[WriteSet](
   )(
       implicit executionContext: ExecutionContext,
       loggingContext: LoggingContext,
-  ): Future[PreExecutionOutput[WriteSet]] =
+  ): Future[PreExecutionOutput[ReadSet, WriteSet]] =
     Timed.timedAndTrackedFuture(
       metrics.daml.kvutils.submission.validator.validatePreExecute,
       metrics.daml.kvutils.submission.validator.validatePreExecuteRunning,
       for {
         decodedSubmission <- decodeSubmission(submissionEnvelope)
         fetchedInputs <- fetchSubmissionInputs(decodedSubmission, ledgerStateReader)
-        preExecutionResult <- preExecuteSubmission(
+        inputState = fetchedInputs.mapValues(_._1)
+        preExecutionResult = committer.preExecuteSubmission(
+          LedgerReader.DefaultConfiguration,
           decodedSubmission,
           submittingParticipantId,
-          fetchedInputs)
+          inputState,
+        )
         logEntryId = BatchedSubmissionValidator.bytesToLogEntryId(submissionEnvelope)
-        inputState = fetchedInputs.map { case (key, (value, _)) => key -> value }
         generatedWriteSets <- Timed.future(
           metrics.daml.kvutils.submission.validator.generateWriteSets,
-          commitStrategy
-            .generateWriteSets(submittingParticipantId, logEntryId, inputState, preExecutionResult)
+          commitStrategy.generateWriteSets(
+            submittingParticipantId,
+            logEntryId,
+            fetchedInputs,
+            preExecutionResult,
+          )
         )
       } yield {
         PreExecutionOutput(
@@ -64,7 +79,7 @@ class PreExecutingSubmissionValidator[WriteSet](
           maxRecordTime = preExecutionResult.maximumRecordTime.map(_.toInstant),
           successWriteSet = generatedWriteSets.successWriteSet,
           outOfTimeBoundsWriteSet = generatedWriteSets.outOfTimeBoundsWriteSet,
-          readSet = generateReadSet(fetchedInputs, preExecutionResult.readSet),
+          readSet = commitStrategy.generateReadSet(fetchedInputs, preExecutionResult.readSet),
           involvedParticipants = generatedWriteSets.involvedParticipants
         )
       }
@@ -101,8 +116,8 @@ class PreExecutingSubmissionValidator[WriteSet](
 
   private def fetchSubmissionInputs(
       submission: DamlSubmission,
-      ledgerStateReader: DamlLedgerStateReaderWithFingerprints)(
-      implicit executionContext: ExecutionContext): Future[DamlStateMapWithFingerprints] = {
+      ledgerStateReader: DamlLedgerStateReaderWithFingerprints,
+  )(implicit executionContext: ExecutionContext): Future[DamlStateMapWithFingerprints] = {
     val inputKeys = submission.getInputDamlStateList.asScala
     Timed.timedAndTrackedFuture(
       metrics.daml.kvutils.submission.validator.fetchInputs,
@@ -125,41 +140,9 @@ class PreExecutingSubmissionValidator[WriteSet](
       }
     )
   }
-
-  private def preExecuteSubmission(
-      submission: DamlSubmission,
-      submittingParticipantId: ParticipantId,
-      inputState: DamlStateMapWithFingerprints)(
-      implicit executionContext: ExecutionContext): Future[PreExecutionResult] = Future {
-    committer.preExecuteSubmission(
-      LedgerReader.DefaultConfiguration,
-      submission,
-      submittingParticipantId,
-      inputState.mapValues { case (value, _) => value })
-  }
-
-  private[preexecution] def generateReadSet(
-      fetchedInputs: DamlStateMapWithFingerprints,
-      accessedKeys: Set[DamlStateKey],
-  ): ReadSet =
-    accessedKeys
-      .map { key =>
-        val (_, fingerprint) =
-          fetchedInputs.getOrElse(key, throw new KeyNotPresentInInputException(key))
-        key -> fingerprint
-      }
-      .map {
-        case (damlKey, fingerprint) =>
-          keySerializationStrategy.serializeStateKey(damlKey) -> fingerprint
-      }
-      .toVector
-      .sortBy(_._1.asReadOnlyByteBuffer)
 }
 
 object PreExecutingSubmissionValidator {
-
-  final class KeyNotPresentInInputException(key: DamlStateKey)
-      extends IllegalStateException(
-        s"The committer accessed a key that was not present in the input.\nKey: $key")
-
+  type DamlLedgerStateReaderWithFingerprints =
+    StateReader[DamlStateKey, (Option[DamlStateValue], Fingerprint)]
 }

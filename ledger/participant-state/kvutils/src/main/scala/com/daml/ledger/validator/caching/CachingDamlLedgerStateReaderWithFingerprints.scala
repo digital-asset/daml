@@ -6,9 +6,9 @@ package com.daml.ledger.validator.caching
 import com.daml.caching.{Cache, Weight}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.Fingerprint
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.RawToDamlLedgerStateReaderAdapter.deserializeDamlStateValue
 import com.daml.ledger.validator.StateKeySerializationStrategy
-import com.daml.ledger.validator.preexecution.LedgerStateReaderWithFingerprints
 import com.daml.ledger.validator.reading.StateReader
 import com.google.protobuf.MessageLite
 
@@ -19,12 +19,10 @@ object CachingDamlLedgerStateReaderWithFingerprints {
       value._1.getSerializedSize.toLong + value._2.size()
   }
 
-  type StateCacheWithFingerprints = Cache[DamlStateKey, (DamlStateValue, Fingerprint)]
-
   def apply(
-      cache: StateCacheWithFingerprints,
+      cache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
       cachingPolicy: CacheUpdatePolicy[DamlStateKey],
-      ledgerStateReaderWithFingerprints: LedgerStateReaderWithFingerprints,
+      ledgerStateReaderWithFingerprints: StateReader[Key, (Option[Value], Fingerprint)],
       keySerializationStrategy: StateKeySerializationStrategy,
   ): StateReader[DamlStateKey, (Option[DamlStateValue], Fingerprint)] =
     new CachingStateReader[DamlStateKey, (Option[DamlStateValue], Fingerprint)](
