@@ -407,8 +407,8 @@ object KVTest {
       deduplicationTime: Duration,
       recordTime: Timestamp,
   ): SubmitterInfo =
-    SubmitterInfo.withSingleSubmitter(
-      submitter = submitter,
+    SubmitterInfo(
+      actAs = List(submitter),
       applicationId = Ref.LedgerString.assertFromString("test"),
       commandId = commandId,
       deduplicateUntil = recordTime.addMicros(deduplicationTime.toNanos / 1000).toInstant,
