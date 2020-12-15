@@ -192,6 +192,8 @@ in rec {
     wget = pkgs.wget;
     grpcurl = pkgs.grpcurl;
 
+    hello = pkgs.callPackage ./tools/hello { stdenv = pkgs.stdenv; coreutils = pkgs.coreutils; gcc = pkgs.gcc; };
+
     # String mangling tooling.
     base64 = pkgs.coreutils;
     bc = pkgs.bc;
