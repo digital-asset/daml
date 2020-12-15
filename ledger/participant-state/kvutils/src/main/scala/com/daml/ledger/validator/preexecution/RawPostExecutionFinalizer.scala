@@ -12,8 +12,11 @@ import com.daml.ledger.validator.LedgerStateOperations
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
-  * An in-transasaction finalizer that persists both the ledger state and the log entry after all
-  * checks have been performed.
+  * An in-transasaction finalizer that persists both the ledger state and the log entry.
+  *
+  * This implementation verifies that the output respects the time bounds before writing to the
+  * ledger. If the output is outside the time window, an alternative log entry is written to
+  * represent the failure, and no state is written at all.
   */
 final class RawPostExecutionFinalizer[ReadSet](now: () => Instant)
     extends PostExecutionFinalizer[ReadSet, RawKeyValuePairsWithLogEntry] {
@@ -23,11 +26,11 @@ final class RawPostExecutionFinalizer[ReadSet](now: () => Instant)
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {
     val recordTime = now()
     val withinTimeBounds = respectsTimeBounds(preExecutionOutput, recordTime)
-    val writeSet = createWriteSet(preExecutionOutput, withinTimeBounds)
-    val logEntry = createLogEntry(preExecutionOutput, withinTimeBounds)
+    val writeSet = retrieveState(preExecutionOutput, withinTimeBounds)
+    val (logEntryKey, logEntryValue) = retrieveLogEntry(preExecutionOutput, withinTimeBounds)
     for {
       _ <- ledgerStateOperations.writeState(writeSet)
-      _ <- ledgerStateOperations.appendToLog(logEntry._1, logEntry._2)
+      _ <- ledgerStateOperations.appendToLog(logEntryKey, logEntryValue)
     } yield SubmissionResult.Acknowledged
   }
 
@@ -38,7 +41,7 @@ final class RawPostExecutionFinalizer[ReadSet](now: () => Instant)
     !recordTime.isBefore(preExecutionOutput.minRecordTime.getOrElse(Instant.MIN)) &&
       !recordTime.isAfter(preExecutionOutput.maxRecordTime.getOrElse(Instant.MAX))
 
-  private def createLogEntry(
+  private def retrieveLogEntry(
       preExecutionOutput: PreExecutionOutput[Any, RawKeyValuePairsWithLogEntry],
       withinTimeBounds: Boolean,
   ): (Bytes, Bytes) = {
@@ -50,7 +53,7 @@ final class RawPostExecutionFinalizer[ReadSet](now: () => Instant)
     writeSet.logEntryKey -> writeSet.logEntryValue
   }
 
-  private def createWriteSet(
+  private def retrieveState(
       preExecutionOutput: PreExecutionOutput[Any, RawKeyValuePairsWithLogEntry],
       withinTimeBounds: Boolean,
   ): Iterable[(Bytes, Bytes)] =

@@ -9,7 +9,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * An in-transaction post-execution conflict detection to be invoked as the last stage of a
-  * pre-execution pipeline. It performs bound checks and detects pre-execution conflicts.
+  * pre-execution pipeline.
   */
 trait PostExecutionConflictDetector[StateKey, StateValue, ReadSet, WriteSet] {
 
