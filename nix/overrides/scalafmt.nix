@@ -7,6 +7,7 @@ let
     name = "${baseName}-deps-${version}";
     buildCommand = ''
       export COURSIER_CACHE=$(pwd)
+      # hopefully this changes the hash somehow
       ${coursier}/bin/coursier fetch org.scalameta:scalafmt-cli_2.12:${version} > deps
       mkdir -p $out/share/java
       cp $(< deps) $out/share/java/
