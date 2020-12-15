@@ -202,6 +202,7 @@ client_server_build(
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=%s,port=%d" % (REFERENCE_LEDGER_EXPORT_NAME, REFERENCE_LEDGER_EXPORT_PORT),
     ],
+    visibility = [":__subpackages__"],
 ) if not is_windows else None
 
 # Test for checking the integrity of the ledger export produced above.
