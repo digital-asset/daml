@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.{Connection, PreparedStatement}
 import java.time.Instant
 
-import anorm.{BatchSql, NamedParameter, Row, SimpleSql, SqlStringInterpolation, ToStatement}
+import anorm.{BatchSql, NamedParameter, ToStatement}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
@@ -14,19 +14,19 @@ import com.daml.platform.store.Conversions._
 object EventsTablePostgresql extends EventsTable {
 
   /**
-    * Insertions are represented by a single statement made of nested arrays, one per column, instead of JDBC batches.
-    * This leverages a PostgreSQL-specific feature known as "array unnesting", which has shown to be considerable
-    * faster than using JDBC batches.
-    */
+   * Insertions are represented by a single statement made of nested arrays, one per column, instead of JDBC batches.
+   * This leverages a PostgreSQL-specific feature known as "array unnesting", which has shown to be considerable
+   * faster than using JDBC batches.
+   */
   final class Batches(
-      insertEvents: Option[SimpleSql[Row]],
-      updateArchives: Option[BatchSql],
-  ) extends EventsTable.Batches {
+                       insertEvents: Connection => PreparedStatement,
+                       updateArchives: Option[BatchSql],
+                     ) extends EventsTable.Batches {
     override def execute()(implicit connection: Connection): Unit = {
-      insertEvents.foreach(_.execute())
+      insertEvents(connection).executeUpdate()
       updateArchives.foreach(_.execute())
     }
-  }
+ }
 
   private val updateArchived =
     """update participant_events set create_consumed_at={consumed_at} where contract_id={contract_id} and create_argument is not null"""
@@ -38,10 +38,10 @@ object EventsTablePostgresql extends EventsTable {
     )
 
   override def toExecutables(
-      tx: TransactionIndexing.TransactionInfo,
-      info: TransactionIndexing.EventsInfo,
-      serialized: TransactionIndexing.Serialized,
-  ): EventsTable.Batches = {
+                              tx: TransactionIndexing.TransactionInfo,
+                              info: TransactionIndexing.EventsInfo,
+                              serialized: TransactionIndexing.Serialized,
+                            ): EventsTable.Batches = {
     val batchSize = info.events.size
     val eventIds = Array.ofDim[String](batchSize)
     val eventOffsets = Array.fill(batchSize)(tx.offset.toByteArray)
@@ -111,7 +111,7 @@ object EventsTablePostgresql extends EventsTable {
       }
     }
 
-    val inserts = insertEvents(
+    val inserts = (conn: Connection) => insertEventsBatched(
       eventIds,
       eventOffsets,
       contractIds,
@@ -137,60 +137,77 @@ object EventsTablePostgresql extends EventsTable {
       exerciseResults,
       exerciseActors,
       exerciseChildEventIds
-    )
+    )(conn)
 
     val archivals =
       info.archives.iterator.map(archive(tx.offset)).toList
 
     new Batches(
-      insertEvents = Some(inserts),
+      insertEvents = (conn: Connection) => inserts(conn),
       updateArchives = batch(updateArchived, archivals),
     )
   }
 
-  // Specific for PostgreSQL parallel unnesting insertions
-
-  private implicit object ByteArrayArrayToStatement extends ToStatement[Array[Array[Byte]]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Array[Byte]]): Unit =
-      s.setObject(index, v)
+  private def insertEventsBatched(
+                                   eventIds: Array[String],
+                                   eventOffsets: Array[Array[Byte]],
+                                   contractIds: Array[String],
+                                   transactionIds: Array[String],
+                                   workflowIds: Array[String],
+                                   ledgerEffectiveTimes: Array[Instant],
+                                   templateIds: Array[String],
+                                   nodeIndexes: Array[java.lang.Integer],
+                                   commandIds: Array[String],
+                                   applicationIds: Array[String],
+                                   submitters: Array[String],
+                                   flatEventWitnesses: Array[String],
+                                   treeEventWitnesses: Array[String],
+                                   createArguments: Array[Array[Byte]],
+                                   createSignatories: Array[String],
+                                   createObservers: Array[String],
+                                   createAgreementTexts: Array[String],
+                                   createConsumedAt: Array[Array[Byte]],
+                                   createKeyValues: Array[Array[Byte]],
+                                   exerciseConsuming: Array[java.lang.Boolean],
+                                   exerciseChoices: Array[String],
+                                   exerciseArguments: Array[Array[Byte]],
+                                   exerciseResults: Array[Array[Byte]],
+                                   exerciseActors: Array[String],
+                                   exerciseChildEventIds: Array[String],
+                                 )(conn: Connection) = {
+    val preparedStatement = conn.prepareStatement(batchInsertSqlString)
+    preparedStatement.setObject(1, eventIds)
+    preparedStatement.setObject(2, eventOffsets)
+    preparedStatement.setObject(3, contractIds)
+    preparedStatement.setObject(4, transactionIds)
+    preparedStatement.setObject(5, workflowIds)
+    preparedStatement.setArray(6, conn.createArrayOf("TIMESTAMP", ledgerEffectiveTimes.map(java.sql.Timestamp.from))) // Handle instant
+    preparedStatement.setObject(7, templateIds)
+    preparedStatement.setObject(8, nodeIndexes)
+    preparedStatement.setObject(9, commandIds)
+    preparedStatement.setObject(10, applicationIds)
+    preparedStatement.setObject(11, submitters)
+    preparedStatement.setObject(12, flatEventWitnesses)
+    preparedStatement.setObject(13, treeEventWitnesses)
+    preparedStatement.setObject(14, createArguments)
+    preparedStatement.setObject(15, createSignatories)
+    preparedStatement.setObject(16, createObservers)
+    preparedStatement.setObject(17, createAgreementTexts)
+    preparedStatement.setObject(18, createConsumedAt)
+    preparedStatement.setObject(19, createKeyValues)
+    preparedStatement.setObject(20, exerciseConsuming)
+    preparedStatement.setObject(21, exerciseChoices)
+    preparedStatement.setObject(22, exerciseArguments)
+    preparedStatement.setObject(23, exerciseResults)
+    preparedStatement.setObject(24, exerciseActors)
+    preparedStatement.setObject(25, exerciseChildEventIds)
+    preparedStatement
   }
 
-  private implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
-      val conn = s.getConnection
-      val ts = conn.createArrayOf("TIMESTAMP", v.map(java.sql.Timestamp.from))
-      s.setArray(index, ts)
-    }
-  }
-
-  private def insertEvents(
-      eventIds: Array[String],
-      eventOffsets: Array[Array[Byte]],
-      contractIds: Array[String],
-      transactionIds: Array[String],
-      workflowIds: Array[String],
-      ledgerEffectiveTimes: Array[Instant],
-      templateIds: Array[String],
-      nodeIndexes: Array[java.lang.Integer],
-      commandIds: Array[String],
-      applicationIds: Array[String],
-      submitters: Array[String],
-      flatEventWitnesses: Array[String],
-      treeEventWitnesses: Array[String],
-      createArguments: Array[Array[Byte]],
-      createSignatories: Array[String],
-      createObservers: Array[String],
-      createAgreementTexts: Array[String],
-      createConsumedAt: Array[Array[Byte]],
-      createKeyValues: Array[Array[Byte]],
-      exerciseConsuming: Array[java.lang.Boolean],
-      exerciseChoices: Array[String],
-      exerciseArguments: Array[Array[Byte]],
-      exerciseResults: Array[Array[Byte]],
-      exerciseActors: Array[String],
-      exerciseChildEventIds: Array[String],
-  ) =
-    SQL"""insert into participant_events(
+  private val batchInsertSqlString =
+    """
+       SET LOCAL synchronous_commit = 'off';
+       insert into participant_events(
            event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitters, flat_event_witnesses, tree_event_witnesses,
            create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
            exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
@@ -200,17 +217,12 @@ object EventsTablePostgresql extends EventsTable {
            create_argument, string_to_array(create_signatories,'|'), string_to_array(create_observers,'|'), create_agreement_text, create_consumed_at, create_key_value,
            exercise_consuming, exercise_choice, exercise_argument, exercise_result, string_to_array(exercise_actors,'|'), string_to_array(exercise_child_event_ids,'|')
          from
-           unnest(
-             $eventIds::varchar[], $eventOffsets::bytea[], $contractIds::varchar[], $transactionIds::varchar[], $workflowIds::varchar[], $ledgerEffectiveTimes::timestamp[], $templateIds::varchar[], $nodeIndexes::int[], $commandIds::varchar[], $applicationIds::varchar[], $submitters::varchar[], $flatEventWitnesses::varchar[], $treeEventWitnesses::varchar[],
-             $createArguments::bytea[], $createSignatories::varchar[], $createObservers::varchar[], $createAgreementTexts::varchar[], $createConsumedAt::bytea[], $createKeyValues::bytea[],
-             $exerciseConsuming::bool[], $exerciseChoices::varchar[], $exerciseArguments::bytea[], $exerciseResults::bytea[], $exerciseActors::varchar[], $exerciseChildEventIds::varchar[]
-           )
+           unnest(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            as
                t(
                  event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitters, flat_event_witnesses, tree_event_witnesses,
                  create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
                  exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
-               )
+               );
        """
-
 }

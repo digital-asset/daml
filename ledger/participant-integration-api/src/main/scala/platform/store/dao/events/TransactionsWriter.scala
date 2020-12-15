@@ -25,6 +25,7 @@ object TransactionsWriter {
       eventsTableExecutables: EventsTable.Batches,
       contractsTableExecutables: ContractsTable.Executables,
       contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
+      insertsPhase2: InsertsPhase2
   ) {
     def write(metrics: Metrics)(implicit connection: Connection): Unit = {
       import metrics.daml.index.db.storeTransactionDbMetrics._
@@ -41,20 +42,9 @@ object TransactionsWriter {
         Timed.value(deleteContractsBatch, deleteContracts.execute())
       }
 
-      for (insertContracts <- contractsTableExecutables.insertContracts) {
-        Timed.value(insertContractsBatch, insertContracts.execute())
-      }
-
-      // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
-      // Compute and insert new witnesses regardless of whether the current transaction adds new
-      // contracts because it may be the case that we are only adding new witnesses to existing
-      // contracts (e.g. via divulging a contract with fetch).
-      for (insertWitnesses <- contractWitnessesTableExecutables.insertWitnesses) {
-        Timed.value(insertContractWitnessesBatch, insertWitnesses.execute())
-      }
+      insertsPhase2.insert(connection).execute()
     }
   }
-
 }
 
 private[dao] final class TransactionsWriter(
@@ -108,10 +98,10 @@ private[dao] final class TransactionsWriter(
 
     new TransactionsWriter.PreparedInsert(
       eventsTable.toExecutables(indexing.transaction, indexing.events, serialized),
-      contractsTable.toExecutables(indexing.transaction, indexing.contracts, serialized),
+      contractsTable.toExecutables(indexing.transaction, indexing.contracts),
       contractWitnessesTable.toExecutables(indexing.contractWitnesses),
+      InsertsPhase2.toExecutable(indexing.transaction, indexing.contracts, serialized, indexing.contractWitnesses)
     )
-
   }
 
   def prepareEventsDelete(endInclusive: Offset): SimpleSql[Row] =

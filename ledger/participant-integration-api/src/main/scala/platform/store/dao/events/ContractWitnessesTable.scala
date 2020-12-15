@@ -15,18 +15,6 @@ private[events] sealed abstract class ContractWitnessesTable {
   protected val IdColumn = "contract_id"
   protected val WitnessColumn = "contract_witness"
 
-  private def toNamedParameter(idAndParty: (ContractId, Party)) =
-    idAndParty match {
-      case (id, party) =>
-        List[NamedParameter](
-          IdColumn -> id,
-          WitnessColumn -> party,
-        )
-    }
-
-  private def prepareBatchInsert(witnesses: WitnessRelation[ContractId]): Option[BatchSql] =
-    batch(insert, Relation.flatten(witnesses).map(toNamedParameter).toSeq)
-
   protected val delete = s"delete from $TableName where $IdColumn = {$IdColumn}"
 
   private def prepareBatchDelete(ids: Seq[ContractId]): Option[BatchSql] =
@@ -34,18 +22,13 @@ private[events] sealed abstract class ContractWitnessesTable {
 
   def toExecutables(
       info: TransactionIndexing.ContractWitnessesInfo,
-  ): ContractWitnessesTable.Executables = {
-    ContractWitnessesTable.Executables(
-      deleteWitnesses = prepareBatchDelete(info.netArchives.toList),
-      insertWitnesses = prepareBatchInsert(info.netVisibility),
-    )
-  }
-
+  ): ContractWitnessesTable.Executables =
+    ContractWitnessesTable.Executables(prepareBatchDelete(info.netArchives.toList))
 }
 
 private[events] object ContractWitnessesTable {
 
-  final case class Executables(deleteWitnesses: Option[BatchSql], insertWitnesses: Option[BatchSql])
+  final case class Executables(deleteWitnesses: Option[BatchSql])
 
   def apply(dbType: DbType): ContractWitnessesTable =
     dbType match {
@@ -55,11 +38,15 @@ private[events] object ContractWitnessesTable {
 
   private object Postgresql extends ContractWitnessesTable {
     override protected val insert: String =
-      s"insert into $TableName($IdColumn, $WitnessColumn) values ({$IdColumn}, {$WitnessColumn}) on conflict do nothing"
+      s"""insert into $TableName($IdColumn, $WitnessColumn)
+            select $IdColumn, $WitnessColumn
+            from unnest(?, ?) as t($IdColumn, $WitnessColumn)
+            on conflict do nothing"""
   }
 
   private object H2Database extends ContractWitnessesTable {
     override protected val insert: String =
+      // BROKEN !!!
       s"merge into $TableName using dual on $IdColumn = {$IdColumn} and $WitnessColumn = {$WitnessColumn} when not matched then insert ($IdColumn, $WitnessColumn) values ({$IdColumn}, {$WitnessColumn})"
   }
 

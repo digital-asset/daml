@@ -48,7 +48,7 @@ common_scalacopts = [
     "-Ypartial-unification",
     # better error reporting for pureconfig
     "-Xmacro-settings:materialize-derivations",
-    "-Xfatal-warnings",
+#    "-Xfatal-warnings",
     # catch missing string interpolators
     "-Xlint:missing-interpolator",
     "-Xlint:by-name-right-associative",  # will never be by-name if used correctly
