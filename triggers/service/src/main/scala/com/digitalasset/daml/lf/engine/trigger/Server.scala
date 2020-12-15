@@ -219,9 +219,7 @@ class Server(
 
   // This directive requires authorization for the given claims via the auth middleware, if configured.
   // If no auth middleware is configured, then the request will proceed without attempting authorization.
-  private def authorize(claims: AuthRequest.Claims)(
-      implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[AuthResponse.Authorize]] =
+  private def authorize(claims: AuthRequest.Claims): Directive1[Option[AuthResponse.Authorize]] =
     authClient match {
       case None => provide(None)
       case Some(client) =>
@@ -251,19 +249,22 @@ class Server(
   // This directive requires authorization for the party of the given running trigger via the auth middleware, if configured.
   // If no auth middleware is configured, then the request will proceed without attempting authorization.
   // If the trigger does not exist, then the request will also proceed without attempting authorization.
-  private def authorizeForTrigger(uuid: UUID, readOnly: Boolean = false)(
-      implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[AuthResponse.Authorize]] =
+  private def authorizeForTrigger(
+      uuid: UUID,
+      readOnly: Boolean = false): Directive1[Option[AuthResponse.Authorize]] =
     authClient match {
       case None => provide(None)
       case Some(_) =>
-        onComplete(triggerDao.getRunningTrigger(uuid)).flatMap {
-          case Failure(e) => complete(errorResponse(StatusCodes.InternalServerError, e.description))
-          case Success(None) => provide(None)
-          case Success(Some(trigger)) =>
-            val parties = List(trigger.triggerParty)
-            val claims = if (readOnly) Claims(readAs = parties) else Claims(actAs = parties)
-            authorize(claims)
+        extractExecutionContext.flatMap { implicit ec =>
+          onComplete(triggerDao.getRunningTrigger(uuid)).flatMap {
+            case Failure(e) =>
+              complete(errorResponse(StatusCodes.InternalServerError, e.description))
+            case Success(None) => provide(None)
+            case Success(Some(trigger)) =>
+              val parties = List(trigger.triggerParty)
+              val claims = if (readOnly) Claims(readAs = parties) else Claims(actAs = parties)
+              authorize(claims)
+          }
         }
     }
 
@@ -285,8 +286,7 @@ class Server(
                     AuthRequest.Claims(
                       actAs = List(params.party),
                       applicationId = Some(config.applicationId))
-                  // TODO[AH] Why do we need to pass ec, system explicitly?
-                  authorize(claims)(ec, system) {
+                  authorize(claims) {
                     auth =>
                       val instOrErr: Future[Either[String, JsValue]] =
                         addNewTrigger(config, auth)
@@ -310,7 +310,7 @@ class Server(
             get {
               parameters('party.as[Party]) { party =>
                 val claims = Claims(readAs = List(party))
-                authorize(claims)(ec, system) { _ =>
+                authorize(claims) { _ =>
                   onComplete(listTriggers(party)) {
                     case Failure(err) =>
                       complete(errorResponse(StatusCodes.InternalServerError, err.description))
@@ -325,7 +325,7 @@ class Server(
           uuid =>
             concat(
               get {
-                authorizeForTrigger(uuid, readOnly = true)(ec, system) { _ =>
+                authorizeForTrigger(uuid, readOnly = true) { _ =>
                   onComplete(triggerStatus(uuid)) {
                     case Failure(err) =>
                       complete(errorResponse(StatusCodes.InternalServerError, err.description))
@@ -337,7 +337,7 @@ class Server(
                 }
               },
               delete {
-                authorizeForTrigger(uuid)(ec, system) {
+                authorizeForTrigger(uuid) {
                   _ =>
                     onComplete(stopTrigger(uuid)) {
                       case Failure(err) =>
@@ -359,7 +359,7 @@ class Server(
       // "dar".
       post {
         val claims = Claims(admin = true)
-        authorize(claims)(ec, system) {
+        authorize(claims) {
           _ =>
             fileUpload("dar") {
               case (_, byteSource) =>
