@@ -19,7 +19,7 @@ sealed abstract class TransactionVersion private (val protoValue: String, privat
   */
 object TransactionVersion {
 
-  case object V10 extends TransactionVersion("10", 0)
+  case object V10 extends TransactionVersion("10", 10)
   case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
   val Values = List(V10, VDev)
