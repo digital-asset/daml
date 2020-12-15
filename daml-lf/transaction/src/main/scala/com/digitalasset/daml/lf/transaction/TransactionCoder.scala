@@ -464,11 +464,7 @@ object TransactionCoder {
   }
 
   def decodeVersion(vs: String): Either[DecodeError, TransactionVersion] =
-    TransactionVersion
-      .isAcceptedVersion(vs)
-      .fold[Either[DecodeError, TransactionVersion]](
-        Left(DecodeError(s"Unsupported transaction version $vs")),
-      )(v => Right(v))
+    TransactionVersion.fromString(vs).left.map(DecodeError)
 
   /**
     * Reads a [[VersionedTransaction]] from protobuf and checks if

@@ -507,12 +507,7 @@ object ValueGenerators {
     stringVersionGen.map(ValueVersion(_)).filterNot(ValueVersion.acceptedVersions.contains)
 
   def transactionVersionGen: Gen[TransactionVersion] =
-    Gen.oneOf(TransactionVersion.acceptedVersions)
-
-  def unsupportedTransactionVersionGen: Gen[TransactionVersion] =
-    stringVersionGen
-      .map(TransactionVersion(_))
-      .filterNot(TransactionVersion.acceptedVersions.contains)
+    Gen.oneOf(TransactionVersion.Values)
 
   object Implicits {
     implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)

@@ -158,7 +158,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
     }
 
     "fail if version is different" in {
-      val versions = TransactionVersion.acceptedVersions.toIndexedSeq
+      val versions = TransactionVersion.Values
       def diffVersion(v: TransactionVersion) = {
         val randomVersion = versions(Random.nextInt(versions.length - 1))
         if (randomVersion != v) randomVersion else versions.last
