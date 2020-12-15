@@ -113,7 +113,7 @@ EOF
 cat <<EOF > "$DIR/daml-lf-proto-types.cabal"
 cabal-version: 2.4
 name: daml-lf-proto-types
-version: 0.1.4.0
+version: 0.1.8.0
 
 extra-source-files:
   protobuf/com/daml/daml_lf_dev/daml_lf.proto
@@ -152,11 +152,11 @@ if [ ! -f "$TARGET_DIR/cabal.project" ]; then
     cat <<EOF > "$TARGET_DIR/cabal.project"
 packages:
 --   ./. -- add this if the top project is cabalised
-  ./da-hs-base-0.1.4.0.tar.gz
-  ./daml-lf-ast-0.1.4.0.tar.gz
-  ./daml-lf-proto-0.1.4.0.tar.gz
-  ./daml-lf-proto-types-0.1.4.0.tar.gz
-  ./daml-lf-reader-0.1.4.0.tar.gz
+  ./da-hs-base-0.1.8.0.tar.gz
+  ./daml-lf-ast-0.1.8.0.tar.gz
+  ./daml-lf-proto-0.1.8.0.tar.gz
+  ./daml-lf-proto-types-0.1.8.0.tar.gz
+  ./daml-lf-reader-0.1.8.0.tar.gz
 EOF
     echo "Wrote $TARGET_DIR/cabal.project"
 else
@@ -175,11 +175,11 @@ packages:
 extra-deps:
 - proto3-suite-0.4.0.0
 - proto3-wire-1.1.0
-- ./da-hs-base-0.1.4.0.tar.gz
-- ./daml-lf-ast-0.1.4.0.tar.gz
-- ./daml-lf-proto-types-0.1.4.0.tar.gz
-- ./daml-lf-proto-0.1.4.0.tar.gz
-- ./daml-lf-reader-0.1.4.0.tar.gz
+- ./da-hs-base-0.1.8.0.tar.gz
+- ./daml-lf-ast-0.1.8.0.tar.gz
+- ./daml-lf-proto-types-0.1.8.0.tar.gz
+- ./daml-lf-proto-0.1.8.0.tar.gz
+- ./daml-lf-reader-0.1.8.0.tar.gz
 EOF
     echo "Wrote $TARGET_DIR/stack.yaml"
 else
