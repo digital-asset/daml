@@ -14,6 +14,9 @@ LATEST      @hurryabit @gerolf-da @bame-da @cocreature
 azure-pipelines.yml @garyverhaegen-da
 azure-cron.yml      @garyverhaegen-da
 
+# Blackduck
+NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
+
 # Language
 /compiler/          @hurryabit @cocreature
 /libs-haskell/      @hurryabit @cocreature
