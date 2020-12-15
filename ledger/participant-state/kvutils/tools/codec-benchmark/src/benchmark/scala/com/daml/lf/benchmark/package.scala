@@ -14,7 +14,7 @@ import com.daml.lf.transaction.{NodeId, VersionedTransaction}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder._
 import com.daml.lf.value.ValueOuterClass.VersionedValue
-import com.daml.lf.value.{Value, ValueVersions}
+import com.daml.lf.value.{Value, ValueVersion}
 import com.google.protobuf.ByteString
 
 package object benchmark {
@@ -89,6 +89,6 @@ package object benchmark {
     encodeTransaction(NidEncoder, CidEncoder, transaction)
 
   private def encode(value: DecodedValue): EncodeResult[EncodedValue] =
-    encodeVersionedValue(CidEncoder, value, ValueVersions.DevOutputVersions)
+    encodeVersionedValue(CidEncoder, value, ValueVersion.DevOutputVersions)
 
 }
