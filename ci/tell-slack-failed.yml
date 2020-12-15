@@ -8,7 +8,7 @@ steps:
   - bash: |
       set -euo pipefail
       COMMIT_TITLE=$(git log --pretty=format:%s -n1 ${{ parameters.trigger_sha }})
-      COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
+      COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${${${COMMIT_TITLE//&/&amp;}//>/&gt;}//</&lt;}>"
       if [ -z "${{ parameters.trigger_sha }}" ]; then
           WARNING="<!here> *FAILED* $(Build.SourceBranchName)/$(Agent.JobName): $COMMIT_LINK"
       else
