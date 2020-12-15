@@ -19,7 +19,7 @@ import query.ValuePredicate.{LfV, TypeLookup}
 import com.daml.jwt.domain.Jwt
 import com.typesafe.scalalogging.LazyLogging
 import com.daml.http.query.ValuePredicate
-import doobie.ConnectionIO
+import doobie.{ConnectionIO, LogHandler}
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
@@ -47,7 +47,7 @@ object WebSocketService {
       resolved: Set[domain.TemplateId.RequiredPkg],
       unresolved: Set[domain.TemplateId.OptionalPkg],
       fn: domain.ActiveContract[LfV] => Option[Positive],
-      dbQuery: OneAnd[Set, domain.Party] => ConnectionIO[
+      dbQuery: OneAnd[Set, domain.Party] => LogHandler => ConnectionIO[
         Vector[(Positive, domain.ActiveContract[JsValue])]],
   )
 
@@ -198,7 +198,9 @@ object WebSocketService {
           unresolved,
           fn,
           parties =>
-            dbbackend.ContractDao.selectContractsMultiTemplate(parties, sys.error("TODO queries")))
+            implicit lh =>
+              dbbackend.ContractDao
+                .selectContractsMultiTemplate(parties, sys.error("TODO queries")))
       }
 
       private def prepareFilters(
@@ -418,7 +420,7 @@ class WebSocketService(
               case (dao, fetch) =>
                 val tx = for {
                   bookmark <- fetch.fetchAndPersist(jwt, parties, templateIds)
-                  mdContracts <- dbQuery(parties)
+                  mdContracts <- dbQuery(parties)(implicitly[LogHandler])
                   // TODO SC: save bookmark here, loop if fail
                 } yield
                   (
