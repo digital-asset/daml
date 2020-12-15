@@ -36,12 +36,12 @@ private[kvutils] class ConfigCommitter(
     // Check the maximum record time against the record time of the commit.
     // This mechanism allows the submitter to detect lost submissions and retry
     // with a submitter controlled rate.
-    if (ctx.getRecordTime.exists(_ > maximumRecordTime)) {
+    if (ctx.recordTime.exists(_ > maximumRecordTime)) {
       rejectionTraceLog(
-        s"submission timed out (${ctx.getRecordTime} > $maximumRecordTime)",
+        s"submission timed out (${ctx.recordTime} > $maximumRecordTime)",
         result.submission)
       reject(
-        ctx.getRecordTime,
+        ctx.recordTime,
         result.submission,
         _.setTimedOut(
           TimedOut.newBuilder
@@ -65,17 +65,17 @@ private[kvutils] class ConfigCommitter(
     //      there exists no current configuration
     //   OR the current configuration's participant matches the submitting participant.
     //  )
-    val authorized = result.submission.getParticipantId == ctx.getParticipantId
+    val authorized = result.submission.getParticipantId == ctx.participantId
 
     val wellFormed =
-      result.currentConfig._1.forall(_.getParticipantId == ctx.getParticipantId)
+      result.currentConfig._1.forall(_.getParticipantId == ctx.participantId)
 
     if (!authorized) {
       val msg =
-        s"participant id ${result.submission.getParticipantId} did not match authenticated participant id ${ctx.getParticipantId}"
+        s"participant id ${result.submission.getParticipantId} did not match authenticated participant id ${ctx.participantId}"
       rejectionTraceLog(msg, result.submission)
       reject(
-        ctx.getRecordTime,
+        ctx.recordTime,
         result.submission,
         _.setParticipantNotAuthorized(
           ParticipantNotAuthorized.newBuilder
@@ -83,10 +83,10 @@ private[kvutils] class ConfigCommitter(
         )
       )
     } else if (!wellFormed) {
-      val msg = s"${ctx.getParticipantId} is not authorized to change configuration."
+      val msg = s"${ctx.participantId} is not authorized to change configuration."
       rejectionTraceLog(msg, result.submission)
       reject(
-        ctx.getRecordTime,
+        ctx.recordTime,
         result.submission,
         _.setParticipantNotAuthorized(
           ParticipantNotAuthorized.newBuilder
@@ -104,7 +104,7 @@ private[kvutils] class ConfigCommitter(
       .fold(
         err =>
           reject(
-            ctx.getRecordTime,
+            ctx.recordTime,
             result.submission,
             _.setInvalidConfiguration(
               Invalid.newBuilder
@@ -113,7 +113,7 @@ private[kvutils] class ConfigCommitter(
         config =>
           if (config.generation != (1 + result.currentConfig._2.generation))
             reject(
-              ctx.getRecordTime,
+              ctx.recordTime,
               result.submission,
               _.setGenerationMismatch(
                 GenerationMismatch.newBuilder
@@ -125,14 +125,14 @@ private[kvutils] class ConfigCommitter(
   }
 
   private val deduplicateSubmission: Step = (ctx, result) => {
-    val submissionKey = configDedupKey(ctx.getParticipantId, result.submission.getSubmissionId)
+    val submissionKey = configDedupKey(ctx.participantId, result.submission.getSubmissionId)
     if (ctx.get(submissionKey).isEmpty) {
       StepContinue(result)
     } else {
       val msg = s"duplicate submission='${result.submission.getSubmissionId}'"
       rejectionTraceLog(msg, result.submission)
       reject(
-        ctx.getRecordTime,
+        ctx.recordTime,
         result.submission,
         _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
       )
@@ -157,14 +157,14 @@ private[kvutils] class ConfigCommitter(
     )
 
     ctx.set(
-      configDedupKey(ctx.getParticipantId, result.submission.getSubmissionId),
+      configDedupKey(ctx.participantId, result.submission.getSubmissionId),
       DamlStateValue.newBuilder
         .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
         .build
     )
 
     val successLogEntry = buildLogEntryWithOptionalRecordTime(
-      ctx.getRecordTime,
+      ctx.recordTime,
       _.setConfigurationEntry(configurationEntry))
     StepStop(successLogEntry)
   }
@@ -209,7 +209,7 @@ private[kvutils] class ConfigCommitter(
   ): ConfigCommitter.Result =
     ConfigCommitter.Result(
       submission.getConfigurationSubmission,
-      getCurrentConfiguration(defaultConfig, ctx.inputs, logger)
+      getCurrentConfiguration(defaultConfig, ctx, logger)
     )
 
   override protected val steps: Iterable[(StepInfo, Step)] = Iterable(

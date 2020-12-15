@@ -19,27 +19,35 @@ import com.daml.ledger.participant.state.kvutils.{
   TestHelpers
 }
 import com.daml.ledger.participant.state.v1.Configuration
-import com.daml.ledger.validator.TestHelper.{aLogEntry, anInvalidEnvelope}
+import com.daml.ledger.validator.StateKeySerializationStrategy
+import com.daml.ledger.validator.TestHelper._
 import com.daml.ledger.validator.ValidationFailed.ValidationError
 import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidatorSpec._
-import com.daml.ledger.validator.{StateKeySerializationStrategy, TestHelper}
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito._
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.{Assertion, AsyncWordSpec, Matchers}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSugar {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   "validate" should {
     "generate correct output in case of success" in {
       val expectedReadSet = Map(
-        TestHelper.allDamlStateKeyTypes.head -> FingerprintPlaceholder
+        allDamlStateKeyTypes.head -> FingerprintPlaceholder
+      )
+      val actualInputState = Map(
+        allDamlStateKeyTypes.head -> (
+          (
+            Some(DamlStateValue.getDefaultInstance),
+            FingerprintPlaceholder))
       )
       val expectedMinRecordTime = Some(recordTime.toInstant.minusSeconds(123))
       val expectedMaxRecordTime = Some(recordTime.toInstant)
@@ -54,14 +62,10 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         expectedOutOfTimeBoundsWriteSet = expectedOutOfTimeBoundsWriteSet,
         expectedInvolvedParticipants = expectedInvolvedParticipants
       )
-      val ledgerStateReader = createLedgerStateReader(expectedReadSet)
+      val ledgerStateReader = createLedgerStateReader(actualInputState)
 
       instance
-        .validate(
-          anEnvelope(expectedReadSet.keySet),
-          aCorrelationId,
-          aParticipantId,
-          ledgerStateReader)
+        .validate(anEnvelope(expectedReadSet.keySet), aParticipantId, ledgerStateReader)
         .map { actual =>
           actual.minRecordTime shouldBe expectedMinRecordTime
           actual.maxRecordTime shouldBe expectedMaxRecordTime
@@ -74,26 +78,50 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
 
     "return a sorted read set with correct fingerprints" in {
       val expectedReadSet =
-        TestHelper.allDamlStateKeyTypes.map(key => key -> key.toByteString).toMap
+        allDamlStateKeyTypes.map(key => key -> key.toByteString).toMap
+      val actualInputState =
+        allDamlStateKeyTypes
+          .map(key => key -> ((Some(DamlStateValue.getDefaultInstance), key.toByteString)))
+          .toMap
       val instance = createInstance(expectedReadSet = expectedReadSet)
-      val ledgerStateReader = createLedgerStateReader(expectedReadSet)
+      val ledgerStateReader = createLedgerStateReader(actualInputState)
 
       instance
-        .validate(
-          anEnvelope(expectedReadSet.keySet),
-          aCorrelationId,
-          aParticipantId,
-          ledgerStateReader)
-        .map { actual =>
-          val expectedSortedReadSet = expectedReadSet
-            .map {
-              case (key, fingerprint) =>
-                keySerializationStrategy.serializeStateKey(key) -> fingerprint
-            }
-            .toSeq
-            .sortBy(_._1.asReadOnlyByteBuffer())
-          actual.readSet shouldBe expectedSortedReadSet
-        }
+        .validate(anEnvelope(expectedReadSet.keySet), aParticipantId, ledgerStateReader)
+        .map(verifyReadSet(_, expectedReadSet))
+    }
+
+    "return a read set when the contract keys are inconsistent" in {
+      val contractKeyStateKey = makeContractKeyStateKey("id")
+      val contractKeyFingerprint = fingerprint("contract key")
+
+      // At the time of pre-execution, the key points to contract A.
+      val contractIdAStateKey = makeContractIdStateKey("contract ID A")
+      val contractIdAStateValue = makeContractIdStateValue()
+      val contractIdAFingerprint = fingerprint("contract ID A")
+
+      // However, at the time of validation, it points to contract B.
+      val contractKeyBStateValue = makeContractKeyStateValue("contract ID B")
+      val contractIdBStateKey = makeContractIdStateKey("contract ID B")
+      val contractIdBStateValue = makeContractIdStateValue()
+      val contractIdBFingerprint = fingerprint("contract ID B")
+
+      val preExecutedInputKeys = Set(contractKeyStateKey, contractIdAStateKey)
+      val expectedReadSet = Map(
+        contractKeyStateKey -> contractKeyFingerprint,
+        contractIdBStateKey -> contractIdBFingerprint,
+      )
+      val actualInputState = Map(
+        contractKeyStateKey -> ((Some(contractKeyBStateValue), contractKeyFingerprint)),
+        contractIdAStateKey -> ((Some(contractIdAStateValue), contractIdAFingerprint)),
+        contractIdBStateKey -> ((Some(contractIdBStateValue), contractIdBFingerprint)),
+      )
+      val instance = createInstance(expectedReadSet = expectedReadSet)
+      val ledgerStateReader = createLedgerStateReader(actualInputState)
+
+      instance
+        .validate(anEnvelope(preExecutedInputKeys), aParticipantId, ledgerStateReader)
+        .map(verifyReadSet(_, expectedReadSet))
     }
 
     "fail in case a batched submission is input" in {
@@ -108,7 +136,6 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       instance
         .validate(
           Envelope.enclose(aBatchedSubmission),
-          aCorrelationId,
           aParticipantId,
           mock[DamlLedgerStateReaderWithFingerprints])
         .failed
@@ -122,11 +149,7 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       val instance = createInstance()
 
       instance
-        .validate(
-          anInvalidEnvelope,
-          aCorrelationId,
-          aParticipantId,
-          mock[DamlLedgerStateReaderWithFingerprints])
+        .validate(anInvalidEnvelope, aParticipantId, mock[DamlLedgerStateReaderWithFingerprints])
         .failed
         .map {
           case ValidationError(actualReason) =>
@@ -141,7 +164,6 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       instance
         .validate(
           anEnvelopedDamlLogEntry,
-          aCorrelationId,
           aParticipantId,
           mock[DamlLedgerStateReaderWithFingerprints])
         .failed
@@ -153,6 +175,19 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
   }
 
   "generateReadSet" should {
+    "generate a read set" in {
+      val contractIdStateKey = DamlStateKey.newBuilder.setContractId("a contract ID").build
+      val contractIdStateValue =
+        DamlStateValue.newBuilder.setContractState(DamlContractState.newBuilder).build
+      val fingerprint = ByteString.copyFromUtf8("fingerprint")
+      val instance = createInstance()
+
+      instance.generateReadSet(
+        fetchedInputs = Map(contractIdStateKey -> ((Some(contractIdStateValue), fingerprint))),
+        accessedKeys = Set(contractIdStateKey),
+      ) should be(Seq(contractIdStateKey.toByteString -> fingerprint))
+    }
+
     "throw in case an input key is declared in the read set but not fetched as input" in {
       val instance = createInstance()
 
@@ -160,7 +195,7 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         instance
           .generateReadSet(
             fetchedInputs = Map.empty,
-            accessedKeys = TestHelper.allDamlStateKeyTypes.toSet
+            accessedKeys = allDamlStateKeyTypes.toSet
           )
       )
     }
@@ -169,17 +204,14 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
 
 object PreExecutingSubmissionValidatorSpec {
 
-  import MockitoSugar._
+  import org.mockito.Mockito.when
+  import org.scalatest.mockito.MockitoSugar.mock
 
   private val recordTime = Timestamp.now()
 
   private val metrics = new Metrics(new MetricRegistry)
 
   private val keySerializationStrategy = StateKeySerializationStrategy.createDefault()
-
-  private val aCorrelationId = "correlation ID"
-
-  private val aParticipantId = TestHelpers.mkParticipantId(1)
 
   private def anEnvelope(expectedReadSet: Set[DamlStateKey] = Set.empty): Bytes = {
     val submission = DamlSubmission
@@ -237,15 +269,22 @@ object PreExecutingSubmissionValidatorSpec {
   }
 
   private def createLedgerStateReader(
-      expectedReadSet: Map[DamlStateKey, Fingerprint],
+      inputState: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)]
   ): DamlLedgerStateReaderWithFingerprints =
-    (keys: Seq[DamlStateKey]) =>
-      Future.successful {
-        keys.map {
-          case key if expectedReadSet.isDefinedAt(key) =>
-            Some(DamlStateValue.getDefaultInstance) -> expectedReadSet(key)
-          case _ =>
-            None -> FingerprintPlaceholder
-        }
-    }
+    (keys: Seq[DamlStateKey]) => Future.successful(keys.map(inputState))
+
+  private def verifyReadSet(
+      output: PreExecutionOutput[Bytes],
+      expectedReadSet: Map[DamlStateKey, Fingerprint],
+  ): Assertion = {
+    import org.scalatest.Matchers._
+    val expectedSortedReadSet = expectedReadSet
+      .map {
+        case (key, fingerprint) =>
+          keySerializationStrategy.serializeStateKey(key) -> fingerprint
+      }
+      .toSeq
+      .sortBy(_._1.asReadOnlyByteBuffer())
+    output.readSet shouldBe expectedSortedReadSet
+  }
 }

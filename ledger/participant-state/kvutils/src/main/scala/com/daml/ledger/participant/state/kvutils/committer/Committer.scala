@@ -84,13 +84,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       inputState: DamlStateMap,
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
-      val commitContext: CommitContext = new CommitContext {
-        override def getRecordTime: Option[Time.Timestamp] = recordTime
-
-        override def getParticipantId: ParticipantId = participantId
-
-        override val inputs: DamlStateMap = inputState
-      }
+      val commitContext = CommitContext(inputState, recordTime, participantId)
       val logEntry = runSteps(commitContext, submission)
       logEntry -> commitContext.getOutputs.toMap
     }
@@ -101,13 +95,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       inputState: DamlStateMap,
   ): PreExecutionResult =
     preExecutionRunTimer.time { () =>
-      val commitContext: CommitContext = new CommitContext {
-        override def getRecordTime: Option[Time.Timestamp] = None
-
-        override def getParticipantId: ParticipantId = participantId
-
-        override val inputs: DamlStateMap = inputState
-      }
+      val commitContext = CommitContext(inputState, recordTime = None, participantId)
       preExecute(submission, commitContext)
     }
 
@@ -176,16 +164,10 @@ object Committer {
 
   def getCurrentConfiguration(
       defaultConfig: Configuration,
-      inputState: DamlStateMap,
+      commitContext: CommitContext,
       logger: Logger): (Option[DamlConfigurationEntry], Configuration) =
-    inputState
-      .getOrElse(
-        Conversions.configurationStateKey,
-        /* If we're retrieving configuration, we require it to at least
-         * have been declared as an input by the submitter as it is used
-         * to authorize configuration changes. */
-        throw Err.MissingInputState(Conversions.configurationStateKey)
-      )
+    commitContext
+      .get(Conversions.configurationStateKey)
       .flatMap { v =>
         val entry = v.getConfigurationEntry
         Configuration

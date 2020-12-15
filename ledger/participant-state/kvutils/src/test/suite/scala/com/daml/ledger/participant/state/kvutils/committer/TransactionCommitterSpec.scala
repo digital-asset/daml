@@ -7,6 +7,7 @@ import java.time.Instant
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions
+import com.daml.ledger.participant.state.kvutils.Conversions.configurationStateKey
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
@@ -56,7 +57,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
   "deduplicateCommand" should {
     "continue if record time is not available" in {
-      val context = new FakeCommitContext(recordTime = None)
+      val context = createCommitContext(recordTime = None)
 
       val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -69,7 +70,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     "continue if record time is available but no deduplication entry could be found" in {
       val inputs = Map(dedupKey -> None)
       val context =
-        new FakeCommitContext(recordTime = Some(aRecordTime), inputs = inputs)
+        createCommitContext(recordTime = Some(aRecordTime), inputs = inputs)
 
       val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -83,7 +84,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
       val dedupValue = newDedupValue(aRecordTime)
       val inputs = Map(dedupKey -> Some(dedupValue))
       val context =
-        new FakeCommitContext(recordTime = Some(aRecordTime.addMicros(1)), inputs = inputs)
+        createCommitContext(recordTime = Some(aRecordTime.addMicros(1)), inputs = inputs)
 
       val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -100,7 +101,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
         val dedupValue = newDedupValue(deduplicationTime)
         val inputs = Map(dedupKey -> Some(dedupValue))
         val context =
-          new FakeCommitContext(recordTime = Some(recordTime), inputs = inputs)
+          createCommitContext(recordTime = Some(recordTime), inputs = inputs)
 
         val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -172,7 +173,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
 
       for (ledgerEffectiveTime <- Iterable(lowerBound, upperBound)) {
         val context =
-          new FakeCommitContext(recordTime = Some(recordTime), inputs = inputWithDeclaredConfig)
+          createCommitContext(recordTime = Some(recordTime), inputs = inputWithDeclaredConfig)
         val transactionEntrySummary = DamlTransactionEntrySummary(
           aDamlTransactionEntry.toBuilder
             .setLedgerEffectiveTime(
@@ -189,11 +190,20 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
         }
       }
     }
+
+    "mark config key as accessed in context" in {
+      val commitContext =
+        createCommitContext(recordTime = None, inputWithTimeModelAndCommandDeduplication)
+
+      val _ = instance.validateLedgerTime(commitContext, aTransactionEntrySummary)
+
+      commitContext.getAccessedInputKeys should contain(configurationStateKey)
+    }
   }
 
   "buildLogEntry" should {
     "set record time in log entry when it is available" in {
-      val context = new FakeCommitContext(recordTime = Some(theRecordTime))
+      val context = createCommitContext(recordTime = Some(theRecordTime))
 
       val actual = instance.buildLogEntry(aTransactionEntrySummary, context)
 
@@ -204,7 +214,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     }
 
     "skip setting record time in log entry when it is not available" in {
-      val context = new FakeCommitContext(recordTime = None)
+      val context = createCommitContext(recordTime = None)
 
       val actual = instance.buildLogEntry(aTransactionEntrySummary, context)
 
@@ -214,7 +224,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     }
 
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
-      val context = new FakeCommitContext(recordTime = None)
+      val context = createCommitContext(recordTime = None)
 
       val _ = instance.buildLogEntry(aTransactionEntrySummary, context)
 
@@ -228,7 +238,7 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     }
 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
-      val context = new FakeCommitContext(recordTime = Some(aRecordTime))
+      val context = createCommitContext(recordTime = Some(aRecordTime))
 
       val _ = instance.buildLogEntry(aTransactionEntrySummary, context)
 
@@ -241,12 +251,10 @@ class TransactionCommitterSpec extends WordSpec with Matchers with MockitoSugar 
     new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
 
   private def contextWithTimeModelAndEmptyCommandDeduplication() =
-    new FakeCommitContext(
-      recordTime = None,
-      inputs = inputWithTimeModelAndEmptyCommandDeduplication)
+    createCommitContext(recordTime = None, inputs = inputWithTimeModelAndEmptyCommandDeduplication)
 
   private def contextWithTimeModelAndCommandDeduplication() =
-    new FakeCommitContext(recordTime = None, inputs = inputWithTimeModelAndCommandDeduplication)
+    createCommitContext(recordTime = None, inputs = inputWithTimeModelAndCommandDeduplication)
 
   private def newDedupValue(deduplicationTime: Timestamp): DamlStateValue =
     DamlStateValue.newBuilder

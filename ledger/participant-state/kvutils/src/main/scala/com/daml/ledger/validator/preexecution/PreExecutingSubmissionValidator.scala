@@ -14,9 +14,9 @@ import com.daml.ledger.participant.state.kvutils.{
 }
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.batch.BatchedSubmissionValidator
+import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidator._
 import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidationFailed}
-import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 
@@ -35,43 +35,40 @@ class PreExecutingSubmissionValidator[WriteSet](
 
   def validate(
       submissionEnvelope: Bytes,
-      correlationId: String,
       submittingParticipantId: ParticipantId,
       ledgerStateReader: DamlLedgerStateReaderWithFingerprints,
-  )(implicit executionContext: ExecutionContext): Future[PreExecutionOutput[WriteSet]] =
-    newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
-      Timed.timedAndTrackedFuture(
-        metrics.daml.kvutils.submission.validator.validatePreExecute,
-        metrics.daml.kvutils.submission.validator.validatePreExecuteRunning,
-        for {
-          decodedSubmission <- decodeSubmission(submissionEnvelope)
-          fetchedInputs <- fetchSubmissionInputs(decodedSubmission, ledgerStateReader)
-          preExecutionResult <- preExecuteSubmission(
-            decodedSubmission,
-            submittingParticipantId,
-            fetchedInputs)
-          logEntryId = BatchedSubmissionValidator.bytesToLogEntryId(submissionEnvelope)
-          inputState = fetchedInputs.map { case (key, (value, _)) => key -> value }
-          generatedWriteSets <- Timed.future(
-            metrics.daml.kvutils.submission.validator.generateWriteSets,
-            commitStrategy.generateWriteSets(
-              submittingParticipantId,
-              logEntryId,
-              inputState,
-              preExecutionResult)
-          )
-        } yield {
-          PreExecutionOutput(
-            minRecordTime = preExecutionResult.minimumRecordTime.map(_.toInstant),
-            maxRecordTime = preExecutionResult.maximumRecordTime.map(_.toInstant),
-            successWriteSet = generatedWriteSets.successWriteSet,
-            outOfTimeBoundsWriteSet = generatedWriteSets.outOfTimeBoundsWriteSet,
-            readSet = generateReadSet(fetchedInputs, preExecutionResult.readSet),
-            involvedParticipants = generatedWriteSets.involvedParticipants
-          )
-        }
-      )
-    }
+  )(
+      implicit executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[PreExecutionOutput[WriteSet]] =
+    Timed.timedAndTrackedFuture(
+      metrics.daml.kvutils.submission.validator.validatePreExecute,
+      metrics.daml.kvutils.submission.validator.validatePreExecuteRunning,
+      for {
+        decodedSubmission <- decodeSubmission(submissionEnvelope)
+        fetchedInputs <- fetchSubmissionInputs(decodedSubmission, ledgerStateReader)
+        preExecutionResult <- preExecuteSubmission(
+          decodedSubmission,
+          submittingParticipantId,
+          fetchedInputs)
+        logEntryId = BatchedSubmissionValidator.bytesToLogEntryId(submissionEnvelope)
+        inputState = fetchedInputs.map { case (key, (value, _)) => key -> value }
+        generatedWriteSets <- Timed.future(
+          metrics.daml.kvutils.submission.validator.generateWriteSets,
+          commitStrategy
+            .generateWriteSets(submittingParticipantId, logEntryId, inputState, preExecutionResult)
+        )
+      } yield {
+        PreExecutionOutput(
+          minRecordTime = preExecutionResult.minimumRecordTime.map(_.toInstant),
+          maxRecordTime = preExecutionResult.maximumRecordTime.map(_.toInstant),
+          successWriteSet = generatedWriteSets.successWriteSet,
+          outOfTimeBoundsWriteSet = generatedWriteSets.outOfTimeBoundsWriteSet,
+          readSet = generateReadSet(fetchedInputs, preExecutionResult.readSet),
+          involvedParticipants = generatedWriteSets.involvedParticipants
+        )
+      }
+    )
 
   private def decodeSubmission(submissionEnvelope: Bytes)(
       implicit executionContext: ExecutionContext,
@@ -110,12 +107,22 @@ class PreExecutingSubmissionValidator[WriteSet](
     Timed.timedAndTrackedFuture(
       metrics.daml.kvutils.submission.validator.fetchInputs,
       metrics.daml.kvutils.submission.validator.fetchInputsRunning,
-      ledgerStateReader
-        .read(inputKeys)
-        .map { values =>
-          assert(inputKeys.size == values.size)
-          inputKeys.zip(values).toMap
+      for {
+        inputValues <- ledgerStateReader.read(inputKeys)
+
+        nestedInputKeys = inputValues.collect {
+          case (Some(value), _) if value.hasContractKeyState =>
+            val contractId = value.getContractKeyState.getContractId
+            DamlStateKey.newBuilder.setContractId(contractId).build
         }
+        nestedInputValues <- ledgerStateReader.read(nestedInputKeys)
+      } yield {
+        assert(inputKeys.size == inputValues.size)
+        assert(nestedInputKeys.size == nestedInputValues.size)
+        val inputPairs = inputKeys.toIterator zip inputValues.toIterator
+        val nestedInputPairs = nestedInputKeys.toIterator zip nestedInputValues.toIterator
+        (inputPairs ++ nestedInputPairs).toMap
+      }
     )
   }
 
@@ -133,13 +140,12 @@ class PreExecutingSubmissionValidator[WriteSet](
 
   private[preexecution] def generateReadSet(
       fetchedInputs: DamlStateMapWithFingerprints,
-      accessedKeys: Set[DamlStateKey]): ReadSet =
+      accessedKeys: Set[DamlStateKey],
+  ): ReadSet =
     accessedKeys
       .map { key =>
-        val (_, fingerprint) = fetchedInputs.getOrElse(
-          key,
-          throw new IllegalStateException(
-            "Committer accessed key that was not present in the input"))
+        val (_, fingerprint) =
+          fetchedInputs.getOrElse(key, throw new KeyNotPresentInInputException(key))
         key -> fingerprint
       }
       .map {
@@ -148,4 +154,12 @@ class PreExecutingSubmissionValidator[WriteSet](
       }
       .toVector
       .sortBy(_._1.asReadOnlyByteBuffer)
+}
+
+object PreExecutingSubmissionValidator {
+
+  final class KeyNotPresentInInputException(key: DamlStateKey)
+      extends IllegalStateException(
+        s"The committer accessed a key that was not present in the input.\nKey: $key")
+
 }
