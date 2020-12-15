@@ -58,9 +58,7 @@ import scala.util.{Failure, Success, Try}
 class Server(
     authClient: Option[AuthClient],
     triggerDao: RunningTriggerDao,
-    val logTriggerStatus: (UUID, String) => Unit)(
-    implicit ctx: ActorContext[Server.Message],
-    materializer: Materializer)
+    val logTriggerStatus: (UUID, String) => Unit)(implicit ctx: ActorContext[Server.Message])
     extends StrictLogging {
 
   // We keep the compiled packages in memory as it is required to construct a trigger Runner.
@@ -103,7 +101,8 @@ class Server(
   }
 
   private def restartTriggers(triggers: Vector[RunningTrigger])(
-      implicit ec: ExecutionContext): Future[Either[String, Unit]] = {
+      implicit ec: ExecutionContext,
+      sys: ActorSystem): Future[Either[String, Unit]] = {
     import cats.implicits._
     triggers.toList.traverse(
       runningTrigger =>
@@ -116,9 +115,10 @@ class Server(
     }
   }
 
-  private def getRunner(triggerInstance: UUID): Future[Option[ActorRef[TriggerRunner.Message]]] = {
+  private def getRunner(triggerInstance: UUID)(
+      implicit sys: ActorSystem): Future[Option[ActorRef[TriggerRunner.Message]]] = {
     implicit val timeout: Timeout = Timeout(5 seconds)
-    implicit val scheduler: Scheduler = schedulerFromActorSystem(ctx.system)
+    implicit val scheduler: Scheduler = schedulerFromActorSystem(sys.toTyped)
     ctx.self.ask(Server.GetRunner(_, triggerInstance))
   }
 
@@ -163,9 +163,10 @@ class Server(
   }
 
   private def startTrigger(trigger: Trigger, runningTrigger: RunningTrigger)(
-      implicit ec: ExecutionContext): Future[JsValue] = {
+      implicit ec: ExecutionContext,
+      sys: ActorSystem): Future[JsValue] = {
     implicit val timeout: Timeout = Timeout(5 seconds)
-    implicit val scheduler: Scheduler = schedulerFromActorSystem(ctx.system)
+    implicit val scheduler: Scheduler = schedulerFromActorSystem(sys.toTyped)
     ctx.self
       .askWithStatus(x => Server.StartTrigger(trigger, runningTrigger, compiledPackages, x))
       .map {
@@ -174,7 +175,8 @@ class Server(
       }
   }
 
-  private def stopTrigger(uuid: UUID)(implicit ec: ExecutionContext): Future[Option[JsValue]] = {
+  private def stopTrigger(
+      uuid: UUID)(implicit ec: ExecutionContext, sys: ActorSystem): Future[Option[JsValue]] = {
     triggerDao.removeRunningTrigger(uuid).flatMap {
       case false => Future.successful(None)
       case true =>
@@ -270,7 +272,7 @@ class Server(
 
   private implicit val unmarshalParty: Unmarshaller[String, Party] = Unmarshaller.strict(Party(_))
 
-  private def route(implicit ec: ExecutionContext, system: ActorSystem) = concat(
+  private val route = concat(
     pathPrefix("v1" / "triggers") {
       concat(
         pathEnd {
@@ -288,20 +290,29 @@ class Server(
                       applicationId = Some(config.applicationId))
                   authorize(claims) {
                     auth =>
-                      val instOrErr: Future[Either[String, JsValue]] =
-                        addNewTrigger(config, auth)
-                          .flatMap {
-                            case Left(value) => Future.successful(Left(value))
-                            case Right((trigger, runningTrigger)) =>
-                              startTrigger(trigger, runningTrigger).map(Right(_))
+                      extractExecutionContext {
+                        implicit ec =>
+                          extractActorSystem {
+                            implicit sys =>
+                              val instOrErr: Future[Either[String, JsValue]] =
+                                addNewTrigger(config, auth)
+                                  .flatMap {
+                                    case Left(value) => Future.successful(Left(value))
+                                    case Right((trigger, runningTrigger)) =>
+                                      startTrigger(trigger, runningTrigger).map(Right(_))
+                                  }
+                              onComplete(instOrErr) {
+                                case Failure(exception) =>
+                                  complete(
+                                    errorResponse(
+                                      StatusCodes.InternalServerError,
+                                      exception.description))
+                                case Success(Left(err)) =>
+                                  complete(errorResponse(StatusCodes.UnprocessableEntity, err))
+                                case Success(triggerInstance) =>
+                                  complete(successResponse(triggerInstance))
+                              }
                           }
-                      onComplete(instOrErr) {
-                        case Failure(exception) =>
-                          complete(
-                            errorResponse(StatusCodes.InternalServerError, exception.description))
-                        case Success(Left(err)) =>
-                          complete(errorResponse(StatusCodes.UnprocessableEntity, err))
-                        case Success(triggerInstance) => complete(successResponse(triggerInstance))
                       }
                   }
               }
@@ -311,10 +322,12 @@ class Server(
               parameters('party.as[Party]) { party =>
                 val claims = Claims(readAs = List(party))
                 authorize(claims) { _ =>
-                  onComplete(listTriggers(party)) {
-                    case Failure(err) =>
-                      complete(errorResponse(StatusCodes.InternalServerError, err.description))
-                    case Success(triggerInstances) => complete(successResponse(triggerInstances))
+                  extractExecutionContext { implicit ec =>
+                    onComplete(listTriggers(party)) {
+                      case Failure(err) =>
+                        complete(errorResponse(StatusCodes.InternalServerError, err.description))
+                      case Success(triggerInstances) => complete(successResponse(triggerInstances))
+                    }
                   }
                 }
               }
@@ -325,28 +338,44 @@ class Server(
           uuid =>
             concat(
               get {
-                authorizeForTrigger(uuid, readOnly = true) { _ =>
-                  onComplete(triggerStatus(uuid)) {
-                    case Failure(err) =>
-                      complete(errorResponse(StatusCodes.InternalServerError, err.description))
-                    case Success(None) =>
-                      complete(
-                        errorResponse(StatusCodes.NotFound, s"No trigger found with id $uuid"))
-                    case Success(Some(status)) => complete(successResponse(status))
-                  }
+                authorizeForTrigger(uuid, readOnly = true) {
+                  _ =>
+                    extractExecutionContext {
+                      implicit ec =>
+                        extractActorSystem { implicit sys =>
+                          onComplete(triggerStatus(uuid)) {
+                            case Failure(err) =>
+                              complete(
+                                errorResponse(StatusCodes.InternalServerError, err.description))
+                            case Success(None) =>
+                              complete(
+                                errorResponse(
+                                  StatusCodes.NotFound,
+                                  s"No trigger found with id $uuid"))
+                            case Success(Some(status)) => complete(successResponse(status))
+                          }
+                        }
+                    }
                 }
               },
               delete {
                 authorizeForTrigger(uuid) {
                   _ =>
-                    onComplete(stopTrigger(uuid)) {
-                      case Failure(err) =>
-                        complete(errorResponse(StatusCodes.InternalServerError, err.description))
-                      case Success(None) =>
-                        val err = s"No trigger running with id $uuid"
-                        complete(errorResponse(StatusCodes.NotFound, err))
-                      case Success(Some(stoppedTriggerId)) =>
-                        complete(successResponse(stoppedTriggerId))
+                    extractExecutionContext {
+                      implicit ec =>
+                        extractActorSystem {
+                          implicit sys =>
+                            onComplete(stopTrigger(uuid)) {
+                              case Failure(err) =>
+                                complete(
+                                  errorResponse(StatusCodes.InternalServerError, err.description))
+                              case Success(None) =>
+                                val err = s"No trigger running with id $uuid"
+                                complete(errorResponse(StatusCodes.NotFound, err))
+                              case Success(Some(stoppedTriggerId)) =>
+                                complete(successResponse(stoppedTriggerId))
+                            }
+                        }
                     }
                 }
               }
@@ -363,26 +392,36 @@ class Server(
           _ =>
             fileUpload("dar") {
               case (_, byteSource) =>
-                val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
-                onSuccess(byteStringF) {
-                  byteString =>
-                    val inputStream = new ByteArrayInputStream(byteString.toArray)
-                    DarReader()
-                      .readArchive("package-upload", new ZipInputStream(inputStream)) match {
-                      case Failure(err) =>
-                        complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
-                      case Success(dar) =>
-                        onComplete(addDar(dar)) {
-                          case Failure(err: ParseError) =>
-                            complete(
-                              errorResponse(StatusCodes.UnprocessableEntity, err.description))
-                          case Failure(exception) =>
-                            complete(
-                              errorResponse(StatusCodes.InternalServerError, exception.description))
-                          case Success(()) =>
-                            val mainPackageId =
-                              JsObject(("mainPackageId", dar.main._1.name.toJson))
-                            complete(successResponse(mainPackageId))
+                extractMaterializer {
+                  implicit mat =>
+                    val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
+                    onSuccess(byteStringF) {
+                      byteString =>
+                        val inputStream = new ByteArrayInputStream(byteString.toArray)
+                        DarReader()
+                          .readArchive("package-upload", new ZipInputStream(inputStream)) match {
+                          case Failure(err) =>
+                            complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
+                          case Success(dar) =>
+                            extractExecutionContext {
+                              implicit ec =>
+                                onComplete(addDar(dar)) {
+                                  case Failure(err: ParseError) =>
+                                    complete(
+                                      errorResponse(
+                                        StatusCodes.UnprocessableEntity,
+                                        err.description))
+                                  case Failure(exception) =>
+                                    complete(
+                                      errorResponse(
+                                        StatusCodes.InternalServerError,
+                                        exception.description))
+                                  case Success(()) =>
+                                    val mainPackageId =
+                                      JsObject(("mainPackageId", dar.main._1.name.toJson))
+                                    complete(successResponse(mainPackageId))
+                                }
+                            }
                         }
                     }
                 }
