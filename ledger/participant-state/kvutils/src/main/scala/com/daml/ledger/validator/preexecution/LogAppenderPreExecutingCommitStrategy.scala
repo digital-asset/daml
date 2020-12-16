@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, Fingerprint, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.FingerprintedReadSet
+import com.daml.ledger.validator.preexecution.LogAppenderPreExecutingCommitStrategy.FingerprintedReadSet
 import com.daml.ledger.validator.{
   StateKeySerializationStrategy,
   StateSerializationStrategy,
@@ -84,4 +84,8 @@ final class LogAppenderPreExecutingCommitStrategy(
       logEntry: DamlLogEntry,
   )(implicit executionContext: ExecutionContext): Future[(Bytes, Bytes)] =
     Future(logEntryId -> Envelope.enclose(logEntry))
+}
+
+object LogAppenderPreExecutingCommitStrategy {
+  type FingerprintedReadSet = Map[DamlStateKey, Fingerprint]
 }

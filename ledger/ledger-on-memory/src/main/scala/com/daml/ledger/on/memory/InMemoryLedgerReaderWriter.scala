@@ -30,7 +30,7 @@ import com.daml.ledger.validator.batch.{
   ConflictDetection
 }
 import com.daml.ledger.validator.caching.ImmutablesOnlyCacheUpdatePolicy
-import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.FingerprintedReadSet
+import com.daml.ledger.validator.preexecution.LogAppenderPreExecutingCommitStrategy.FingerprintedReadSet
 import com.daml.ledger.validator.preexecution._
 import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidateAndCommit}
 import com.daml.lf.engine.Engine

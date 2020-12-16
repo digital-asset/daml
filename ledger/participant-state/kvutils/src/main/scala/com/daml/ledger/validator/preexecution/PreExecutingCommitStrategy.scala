@@ -3,8 +3,7 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntryId, DamlStateKey}
-import com.daml.ledger.participant.state.kvutils.Fingerprint
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.v1.ParticipantId
 
@@ -15,10 +14,6 @@ sealed case class PreExecutionCommitResult[WriteSet](
     outOfTimeBoundsWriteSet: WriteSet,
     involvedParticipants: Set[ParticipantId]
 )
-
-object PreExecutionCommitResult {
-  type FingerprintedReadSet = Map[DamlStateKey, Fingerprint]
-}
 
 trait PreExecutingCommitStrategy[StateKey, StateValue, ReadSet, WriteSet] {
   def generateReadSet(
