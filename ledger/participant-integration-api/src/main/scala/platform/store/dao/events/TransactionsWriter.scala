@@ -7,12 +7,7 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.{Row, SimpleSql}
-import com.daml.ledger.participant.state.v1.{
-  CommittedTransaction,
-  DivulgedContract,
-  Offset,
-  SubmitterInfo
-}
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, TransactionId => v1TxId, DivulgedContract, Offset, SubmitterInfo}
 import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
@@ -21,12 +16,17 @@ import com.daml.platform.store.DbType
 
 object TransactionsWriter {
 
-  final class PreparedInsert private[TransactionsWriter] (
-      eventsTableExecutables: EventsTable.Batches,
-      contractsTableExecutables: ContractsTable.Executables,
-      contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
-      insertsPhase2: InsertsPhase2
-  ) {
+  final class PreparedInsert private[TransactionsWriter](
+                                                          eventsTableExecutables: EventsTable.Batches,
+                                                          contractsTableExecutables: ContractsTable.Executables,
+                                                          contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
+                                                          insertsPhase2: InsertsPhase2
+                                                        ) {
+    def writeEvents(metrics: Metrics, submitterInfo: Option[SubmitterInfo], offset: Offset, transaction: CommittedTransaction, recordTime: Instant, transactionId: v1TxId)(implicit conn: Connection) = {
+      import metrics.daml.index.db.storeTransactionDbMetrics._
+
+      Timed.value(eventsBatch, eventsTableExecutables.execute(submitterInfo, offset, transaction, recordTime, transactionId))
+    }
 
     def writeEvents(metrics: Metrics)(implicit connection: Connection): Unit = {
       import metrics.daml.index.db.storeTransactionDbMetrics._
@@ -50,28 +50,29 @@ object TransactionsWriter {
       insertsPhase2.insert(connection).execute()
     }
   }
+
 }
 
 private[dao] final class TransactionsWriter(
-    dbType: DbType,
-    metrics: Metrics,
-    lfValueTranslation: LfValueTranslation,
-) {
+                                             dbType: DbType,
+                                             metrics: Metrics,
+                                             lfValueTranslation: LfValueTranslation,
+                                           ) {
 
   private val eventsTable = EventsTable(dbType)
   private val contractsTable = ContractsTable(dbType)
   private val contractWitnessesTable = ContractWitnessesTable(dbType)
 
   def prepare(
-      submitterInfo: Option[SubmitterInfo],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      ledgerEffectiveTime: Instant,
-      offset: Offset,
-      transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
-      blindingInfo: Option[BlindingInfo],
-  ): TransactionsWriter.PreparedInsert = {
+               submitterInfo: Option[SubmitterInfo],
+               workflowId: Option[WorkflowId],
+               transactionId: TransactionId,
+               ledgerEffectiveTime: Instant,
+               offset: Offset,
+               transaction: CommittedTransaction,
+               divulgedContracts: Iterable[DivulgedContract],
+               blindingInfo: Option[BlindingInfo],
+             ): TransactionsWriter.PreparedInsert = {
 
     // Backwards-compatibility: blinding info was previously not pre-computed and saved by the committer
     // but rather computed on the read path from Fetch and LookupByKey nodes (now trimmed just before

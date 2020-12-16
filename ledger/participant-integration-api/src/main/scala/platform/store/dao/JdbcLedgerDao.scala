@@ -457,9 +457,6 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     val stateUpdateFuture = dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
-        if (enableAsyncCommits) {
-          queries.enableAsyncCommit
-        }
         val error =
           Timed.value(
             metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
@@ -469,7 +466,6 @@ private class JdbcLedgerDao(
               divulged = divulged.iterator.map(_.contractId).toSet,
             )
           )
-        setAsyncCommit
         if (error.isEmpty) {
           preparedInsert.writeState(metrics)
         } else {
@@ -482,17 +478,7 @@ private class JdbcLedgerDao(
         if (enableAsyncCommits) {
           queries.enableAsyncCommit
         }
-        preparedInsert.writeEvents(metrics)
-        Timed.value(
-          metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
-          submitterInfo
-            .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
-            .foreach(_.execute())
-        )
-        Timed.value(
-          metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
-          ParametersTable.updateLedgerEnd(offset)
-        )
+        preparedInsert.writeEvents(metrics, submitterInfo, offset, transaction, recordTime, transactionId)
         Ok
       }
     implicit val ec: ExecutionContext = executionContext

@@ -8,7 +8,7 @@ import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.{EventId, TransactionId}
-import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo, WorkflowId}
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, TransactionId, Offset, SubmitterInfo, WorkflowId}
 import com.daml.platform.store.Conversions._
 
 object EventsTableH2Database extends EventsTable {
@@ -19,6 +19,7 @@ object EventsTableH2Database extends EventsTable {
       insertEvents.foreach(_.execute())
       updateArchives.foreach(_.execute())
     }
+    override def execute(submitterInfo: Option[SubmitterInfo], offset: Offset, transaction: CommittedTransaction, recordTime: Instant, transactionId: TransactionId)(implicit connection: Connection): Unit = ()
   }
 
   private val insertEvent: String = {

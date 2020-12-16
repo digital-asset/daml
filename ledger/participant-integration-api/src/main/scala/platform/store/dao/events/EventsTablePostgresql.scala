@@ -7,7 +7,7 @@ import java.sql.{Connection, PreparedStatement}
 import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter, ToStatement}
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, Offset, SubmitterInfo, TransactionId}
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._
 
@@ -23,10 +23,38 @@ object EventsTablePostgresql extends EventsTable {
                        updateArchives: Option[BatchSql],
                      ) extends EventsTable.Batches {
     override def execute()(implicit connection: Connection): Unit = {
-      insertEvents(connection).executeUpdate()
+      val preparedStatement = insertEvents(connection)
+preparedStatement.execute()
       updateArchives.foreach(_.execute())
     }
- }
+
+    override def execute(maybeSubmitterInfo: Option[SubmitterInfo], offset: Offset, transaction: CommittedTransaction, recordTime: Instant, transactionId: TransactionId)(implicit connection: Connection): Unit = {
+      val preparedStatement = insertEvents(connection)
+      maybeSubmitterInfo.map{ submitterInfo =>
+        preparedStatement.setObject(26, Array(offset.toByteArray))
+        preparedStatement.setArray(27, connection.createArrayOf("TIMESTAMP", Array(java.sql.Timestamp.from(recordTime))))
+        preparedStatement.setObject(28, Array[String](submitterInfo.applicationId))
+        preparedStatement.setObject(29,  Array[String](submitterInfo.actAs.toArray[String].mkString("|")))
+        preparedStatement.setObject(30, Array[String](submitterInfo.commandId))
+        preparedStatement.setObject(31, Array[String](transactionId))
+        preparedStatement.setBytes(32, offset.toByteArray)
+        preparedStatement.setBytes(33, offset.toByteArray)
+        preparedStatement
+      }.getOrElse{
+        preparedStatement.setObject(26, Array.empty[Array[Byte]])
+        preparedStatement.setArray(27, connection.createArrayOf("TIMESTAMP", Array.empty[AnyRef]))
+        preparedStatement.setObject(28, Array.empty[String])
+        preparedStatement.setArray(29, connection.createArrayOf("ARRAY", Array.empty[AnyRef]))
+        preparedStatement.setObject(30, Array.empty[String])
+        preparedStatement.setObject(31, Array.empty[String])
+        preparedStatement.setBytes(32, offset.toByteArray)
+        preparedStatement.setBytes(33, offset.toByteArray)
+        preparedStatement
+      }.execute()
+
+      updateArchives.foreach(_.execute())
+    }
+  }
 
   private val updateArchived =
     """update participant_events set create_consumed_at={consumed_at} where contract_id={contract_id} and create_argument is not null"""
@@ -206,7 +234,6 @@ object EventsTablePostgresql extends EventsTable {
 
   private val batchInsertSqlString =
     """
-       SET LOCAL synchronous_commit = 'off';
        insert into participant_events(
            event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitters, flat_event_witnesses, tree_event_witnesses,
            create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
@@ -224,5 +251,9 @@ object EventsTablePostgresql extends EventsTable {
                  create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
                  exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
                );
+         insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id)
+             select completion_offset, record_time, application_id, string_to_array(submitters,'|'), command_id, transaction_id
+             from unnest(?, ?, ?, ?, ?, ?) as t(completion_offset, record_time, application_id, submitters, command_id, transaction_id);
+         update parameters set ledger_end = ? where (ledger_end is null or ledger_end < ?);
        """
 }

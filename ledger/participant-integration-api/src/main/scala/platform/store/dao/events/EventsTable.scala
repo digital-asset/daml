@@ -9,20 +9,11 @@ import java.time.Instant
 
 import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
 import anorm.{RowParser, ~}
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.participant.state.v1.{CommittedTransaction, Offset, SubmitterInfo, TransactionId}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
-import com.daml.ledger.api.v1.transaction.{
-  TreeEvent,
-  Transaction => ApiTransaction,
-  TransactionTree => ApiTransactionTree
-}
-import com.daml.ledger.api.v1.transaction_service.{
-  GetFlatTransactionResponse,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse
-}
+import com.daml.ledger.api.v1.transaction.{TreeEvent, Transaction => ApiTransaction, TransactionTree => ApiTransactionTree}
+import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.daml.platform.index.TransactionConversion
@@ -87,6 +78,8 @@ private[events] object EventsTable {
   val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
 
   trait Batches {
+    def execute(submitterInfo: Option[SubmitterInfo], offset: Offset, transaction: CommittedTransaction, recordTime: Instant, transactionId: TransactionId)(implicit connection: Connection): Unit
+
     def execute()(implicit connection: Connection): Unit
   }
 

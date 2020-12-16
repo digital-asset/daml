@@ -43,6 +43,7 @@ private[platform] final class HikariConnection(
     config.addDataSourceProperty("cachePrepStmts", "true")
     config.addDataSourceProperty("prepStmtCacheSize", "128")
     config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
+    config.setConnectionInitSql("SET synchronous_commit=OFF")
     config.setAutoCommit(false)
     config.setMaximumPoolSize(maxPoolSize)
     config.setMinimumIdle(minimumIdle)
