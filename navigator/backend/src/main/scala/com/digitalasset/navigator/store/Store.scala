@@ -34,6 +34,8 @@ object Store {
 
   case class UpdatedParties(details: List[PartyDetails])
 
+  case class AllocateParties(parties: List[String])
+
   /** Request to subscribe a party to the store (without response to sender). */
   case class Subscribe(displayName: String, config: UserConfig)
 

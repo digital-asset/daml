@@ -23,6 +23,7 @@ import akka.util.Timeout
 import com.daml.grpc.GrpcException
 import com.daml.navigator.SessionJsonProtocol._
 import com.daml.navigator.config._
+import com.daml.assistant.config._
 import com.daml.navigator.graphql.GraphQLContext
 import com.daml.navigator.graphqless.GraphQLObject
 import com.daml.navigator.model.{Ledger, PackageRegistry, PartyState}
@@ -245,6 +246,23 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         applicationInfo,
         arguments.ledgerInboundMessageSizeMax
       ))
+
+    if (arguments.allocateProjectParties) {
+      val projectConfig = ProjectConfig.loadFromEnv()
+      projectConfig match {
+        case Left(err) =>
+          userFacingLogger.error(s"Unable to read project configuration: $err")
+        case Right(config) => {
+          config.parties match {
+            case Left(err) =>
+              userFacingLogger.error(s"Failed to parse parties in project configuration: $err")
+            case Right(optParties) =>
+              optParties.foreach(parties => store ! AllocateParties(parties))
+          }
+        }
+      }
+    }
+
     // If no parties are specified, we periodically poll from the party management service.
     // If parties are specified, we only use those. This allows users to use custom display names
     // if they are non-unique or use only a subset of parties for performance reasons.

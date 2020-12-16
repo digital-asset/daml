@@ -31,7 +31,8 @@ case class Arguments(
     startConsole: Boolean = false,
     startWebServer: Boolean = false,
     useDatabase: Boolean = false,
-    ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024 // 50 MiB
+    ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024, // 50 MiB
+    allocateProjectParties: Boolean = false
 )
 
 trait ArgumentsHelper { self: OptionParser[Arguments] =>
@@ -153,6 +154,11 @@ object Arguments {
             )
           }
         )
+
+      opt[Unit]("allocateProjectParties")
+        .optional()
+        .text("Allocate parties specified in the daml.yaml project configuration file.")
+        .action((_, arguments) => arguments.copy(allocateProjectParties = true))
 
       cmd("server")
         .text("serve data from platform")

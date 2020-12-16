@@ -178,6 +178,12 @@ class PlatformStore(
         }
       }
 
+    case AllocateParties(parties) =>
+      parties.foreach(
+        party =>
+          state.ledgerClient.partyManagementClient
+            .allocateParty(Some(party), Some(party)))
+
     case Subscribe(displayName, config) =>
       if (!state.parties.contains(displayName)) {
         log.info(s"Starting actor for $displayName")
