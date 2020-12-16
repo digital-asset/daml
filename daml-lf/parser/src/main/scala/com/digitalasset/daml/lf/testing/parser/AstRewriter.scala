@@ -25,6 +25,7 @@ private[daml] class AstRewriter(
       name = module.name,
       definitions = module.definitions.transform((_, x) => apply(x)),
       templates = module.templates.transform((_, x) => apply(x)),
+      exceptions = module.exceptions,
       featureFlags = module.featureFlags,
     )
 
@@ -113,6 +114,10 @@ private[daml] class AstRewriter(
           EToAny(ty, apply(body))
         case EFromAny(ty, body) =>
           EFromAny(ty, apply(body))
+        case EFromAnyException(ty, body) =>
+          EFromAnyException(ty, apply(body))
+        case EMakeAnyException(typ, message, body) =>
+          EMakeAnyException(typ, apply(message), apply(body))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {
@@ -153,6 +158,8 @@ private[daml] class AstRewriter(
         UpdateLookupByKey(apply(rbk))
       case UpdateEmbedExpr(typ, body) =>
         UpdateEmbedExpr(apply(typ), apply(body))
+      case UpdateTryCatch(typ, body, binder, handler) =>
+        UpdateTryCatch(apply(typ), apply(body), binder, apply(handler))
     }
 
   def apply(x: RetrieveByKey): RetrieveByKey = x match {

@@ -54,9 +54,6 @@ final case class ContextDefDataType(tycon: TypeConName) extends Context {
 final case class ContextTemplate(tycon: TypeConName) extends Context {
   def pretty: String = s"data type ${tycon.qualifiedName}"
 }
-final case class ContextDefException(tycon: TypeConName) extends Context {
-  def pretty: String = s"exception type ${tycon.qualifiedName}"
-}
 final case class ContextDefValue(ref: ValueRef) extends Context {
   def pretty: String = s"value type ${ref.qualifiedName}"
 }
@@ -297,10 +294,6 @@ final case class EExpectedAnyType(context: Context, typ: Type) extends Validatio
   protected def prettyInternal: String =
     s"expected a type containing neither type variables nor quantifiers, but found: ${typ.pretty}"
 }
-final case class EExpectedExceptionType(context: Context, typ: Type) extends ValidationError {
-  protected def prettyInternal: String =
-    s"expected an exception type, but found: ${typ.pretty}"
-}
 final case class EExpectedHigherKind(context: Context, kind: Kind) extends ValidationError {
   protected def prettyInternal: String = s"expected higher kinded type, but found: ${kind.pretty}"
 }
@@ -359,11 +352,6 @@ final case class EExpectedTemplatableType(context: Context, conName: TypeConName
     extends ValidationError {
   protected def prettyInternal: String =
     s"expected monomorphic record type in template definition, but found: ${conName.qualifiedName}"
-}
-final case class EExpectedExceptionableType(context: Context, conName: TypeConName)
-    extends ValidationError {
-  protected def prettyInternal: String =
-    s"expected monomorphic record type in exception definition, but found: ${conName.qualifiedName}"
 }
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"

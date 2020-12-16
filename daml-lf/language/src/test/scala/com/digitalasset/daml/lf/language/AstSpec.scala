@@ -21,8 +21,8 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
       Package(
         List(
-          Module(modName1, List.empty, List.empty, FeatureFlags.default),
-          Module(modName2, List.empty, List.empty, FeatureFlags.default),
+          Module(modName1, List.empty, List.empty, List.empty, FeatureFlags.default),
+          Module(modName2, List.empty, List.empty, List.empty, FeatureFlags.default),
         ),
         Set.empty,
         defaultVersion,
@@ -31,8 +31,8 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       a[PackageError] shouldBe thrownBy(
         Package(
           List(
-            Module(modName1, List.empty, List.empty, FeatureFlags.default),
-            Module(modName1, List.empty, List.empty, FeatureFlags.default),
+            Module(modName1, List.empty, List.empty, List.empty, FeatureFlags.default),
+            Module(modName1, List.empty, List.empty, List.empty, FeatureFlags.default),
           ),
           Set.empty,
           defaultVersion,
@@ -71,6 +71,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           defName("def4") -> valDef
         ),
         templates = List(defName("def3") -> template),
+        exceptions = List.empty,
         featureFlags = FeatureFlags.default,
       )
 
@@ -84,6 +85,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
             defName("def1") -> valDef
           ),
           templates = List(defName("def3") -> template),
+          exceptions = List.empty,
           featureFlags = FeatureFlags.default,
         ))
 
@@ -100,6 +102,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         templates = List(
           defName("defName1") -> template,
         ),
+        exceptions = List.empty,
         featureFlags = FeatureFlags.default,
       )
 
@@ -114,8 +117,43 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
             defName("defName1") -> template,
             defName("defName1") -> template,
           ),
+          exceptions = List.empty,
           featureFlags = FeatureFlags.default,
-        ))
+        )
+      )
+    }
+
+    "catch exception collisions" in {
+      val unit = ()
+
+      Module.apply(
+        name = modName1,
+        definitions = List(
+          defName("defName1") -> recordDef,
+          defName("defName2") -> recordDef,
+        ),
+        templates = List.empty,
+        exceptions = List(
+          defName("defName1") -> unit,
+        ),
+        featureFlags = FeatureFlags.default,
+      )
+
+      a[PackageError] shouldBe thrownBy(
+        Module.apply(
+          name = modName1,
+          definitions = List(
+            defName("defName1") -> recordDef,
+            defName("defName2") -> recordDef,
+          ),
+          templates = List.empty,
+          exceptions = List(
+            defName("defName1") -> unit,
+            defName("defName1") -> unit,
+          ),
+          featureFlags = FeatureFlags.default,
+        )
+      )
     }
 
   }

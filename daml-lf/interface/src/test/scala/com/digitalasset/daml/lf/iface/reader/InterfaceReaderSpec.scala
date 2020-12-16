@@ -152,6 +152,7 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
       moduleName,
       Map(dataName -> dfn),
       Map.empty,
+      Map.empty,
       Ast.FeatureFlags.default,
     )
 

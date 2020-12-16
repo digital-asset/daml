@@ -24,13 +24,15 @@ private[validation] object Typing {
   }
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
-    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep |
-      BTAnyException | BTGeneralError | BTArithmeticError | BTContractError =>
+    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
       KArrow(KStar, KStar)
     case BTArrow | BTGenMap => KArrow(KStar, KArrow(KStar, KStar))
+    case BTAnyException | BTArithmeticError | BTContractError | BTGeneralError =>
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      sys.error("exceptions not supported")
   }
 
   private def typeOfPrimLit(lit: PrimLit): Type = lit match {
@@ -212,15 +214,6 @@ private[validation] object Typing {
         TForall(
           alpha.name -> KStar,
           TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta))),
-      // Exception functions
-      BThrow -> TForall(alpha.name -> KStar, TAnyException ->: alpha),
-      BMakeGeneralError -> (TText ->: TGeneralError),
-      BMakeArithmeticError -> (TText ->: TArithmeticError),
-      BMakeContractError -> (TText ->: TContractError),
-      BAnyExceptionMessage -> (TAnyException ->: TText),
-      BGeneralErrorMessage -> (TGeneralError ->: TText),
-      BArithmeticErrorMessage -> (TArithmeticError ->: TText),
-      BContractErrorMessage -> (TContractError ->: TText),
       // Unstable text functions
       BTextToUpper -> (TText ->: TText),
       BTextToLower -> (TText ->: TText),
@@ -274,15 +267,6 @@ private[validation] object Typing {
             env.checkTemplate(tyConName, template)
           case _ =>
             throw EExpectedTemplatableType(env.ctx, tyConName)
-        }
-    }
-    mod.exceptions.foreach {
-      case (exnName, ()) =>
-        val tyConName = TypeConName(pkgId, QualifiedName(mod.name, exnName))
-        val ctx = ContextDefException(tyConName)
-        world.lookupDataType(ctx, tyConName) match {
-          case DDataType(_, ImmArray(), DataRecord(_)) => ()
-          case _ => throw EExpectedExceptionableType(ctx, tyConName)
         }
     }
   }
@@ -873,12 +857,9 @@ private[validation] object Typing {
       case UpdateLookupByKey(retrieveByKey) =>
         checkByKey(retrieveByKey.templateId, retrieveByKey.key)
         TUpdate(TOptional(TContractId(TTyCon(retrieveByKey.templateId))))
-      case UpdateTryCatch(typ, body, binder, handler) =>
-        checkType(typ, KStar)
-        val updTyp = TUpdate(typ)
-        checkExpr(body, updTyp)
-        introExprVar(binder, TAnyException).checkExpr(handler, TOptional(updTyp))
-        updTyp
+      case UpdateTryCatch(_, _, _, _) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("exception not supported")
     }
 
     private def typeOfCommit(typ: Type, party: Expr, update: Expr): Type = {
@@ -930,14 +911,6 @@ private[validation] object Typing {
     private def checkAnyType(typ: Type): Unit = {
       checkAnyType_(typ)
       checkType(typ, KStar)
-    }
-
-    private def checkExceptionType(typ: Type): Unit = {
-      typ match {
-        case TGeneralError | TArithmeticError | TContractError => ()
-        case TTyCon(tyCon) if lookupException(ctx, tyCon) => ()
-        case _ => throw EExpectedExceptionType(ctx, typ)
-      }
     }
 
     def typeOf(expr: Expr): Type = {
@@ -1017,15 +990,9 @@ private[validation] object Typing {
       case ETypeRep(typ) =>
         checkAnyType(typ)
         TTypeRep
-      case EMakeAnyException(typ, message, value) =>
-        checkExceptionType(typ)
-        checkExpr(message, TText)
-        checkExpr(value, typ)
-        TAnyException
-      case EFromAnyException(typ, value) =>
-        checkExceptionType(typ)
-        checkExpr(value, TAnyException)
-        TOptional(typ)
+      case EFromAnyException(_, _) | EMakeAnyException(_, _, _) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("exception not supported")
     }
 
     def checkExpr(expr: Expr, typ0: Type): Type = {

@@ -62,8 +62,7 @@ private[validation] object Serializability {
         checkType(targ)
       case TBuiltin(builtinType) =>
         builtinType match {
-          case BTInt64 | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit |
-            BTAnyException | BTGeneralError | BTArithmeticError | BTContractError => ()
+          case BTInt64 | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit =>
           case BTNumeric =>
             unserializable(URNumeric)
           case BTList =>
@@ -86,6 +85,9 @@ private[validation] object Serializability {
             unserializable(URAny)
           case BTTypeRep =>
             unserializable(URTypeRep)
+          case BTAnyException | BTArithmeticError | BTContractError | BTGeneralError =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            sys.error("exceptions not supported")
         }
       case TForall(_, _) =>
         unserializable(URForall)

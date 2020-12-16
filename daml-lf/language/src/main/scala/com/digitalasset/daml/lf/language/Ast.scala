@@ -425,14 +425,14 @@ object Ast {
   final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
 
   // Exceptions
-  final case object BThrow extends BuiltinFunction(1) // : ∀a. AnyException -> a
-  final case object BMakeGeneralError extends BuiltinFunction(1) // Text -> GeneralError
-  final case object BMakeArithmeticError extends BuiltinFunction(1) // Text -> ArithmeticError
-  final case object BMakeContractError extends BuiltinFunction(1) // Text -> ContractError
-  final case object BAnyExceptionMessage extends BuiltinFunction(1) // AnyException -> Text
-  final case object BGeneralErrorMessage extends BuiltinFunction(1) // GeneralError -> Text
-  final case object BArithmeticErrorMessage extends BuiltinFunction(1) // ArithmeticError -> Text
-  final case object BContractErrorMessage extends BuiltinFunction(1) // ContractError -> Text
+  final case object BThrow extends BuiltinFunction(1) // : ∀a. AnyException → a
+  final case object BMakeGeneralError extends BuiltinFunction(1) // Text → GeneralError
+  final case object BMakeArithmeticError extends BuiltinFunction(1) // Text → ArithmeticError
+  final case object BMakeContractError extends BuiltinFunction(1) // Text → ContractError
+  final case object BAnyExceptionMessage extends BuiltinFunction(1) // AnyException → Text
+  final case object BGeneralErrorMessage extends BuiltinFunction(1) // GeneralError → Text
+  final case object BArithmeticErrorMessage extends BuiltinFunction(1) // ArithmeticError → Text
+  final case object BContractErrorMessage extends BuiltinFunction(1) // ContractError → Text
 
   // Unstable Text Primitives
   final case object BTextToUpper extends BuiltinFunction(1) // Text → Text
