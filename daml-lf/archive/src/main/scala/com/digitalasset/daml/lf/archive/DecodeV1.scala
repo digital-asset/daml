@@ -988,10 +988,13 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           ETypeRep(decodeType(lfExpr.getTypeRep))
 
         case PLF.Expr.SumCase.MAKE_ANY_EXCEPTION =>
-          throw ParseError("Expr.MAKE_ANY_EXCEPTION") // TODO #8020
+          throw ParseError("Expr.MAKE_ANY_EXCEPTION") // TODO https://github.com/digital-asset/daml/issues/8020
 
         case PLF.Expr.SumCase.FROM_ANY_EXCEPTION =>
-          throw ParseError("Expr.FROM_ANY_EXCEPTION") // TODO #8020
+          throw ParseError("Expr.FROM_ANY_EXCEPTION") // TODO https://github.com/digital-asset/daml/issues/8020
+
+        case PLF.Expr.SumCase.THROW =>
+          throw ParseError("Expr.THROW") // TODO https://github.com/digital-asset/daml/issues/8020
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw ParseError("Expr.SUM_NOT_SET")
@@ -1698,7 +1701,6 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId, maxVersion = Some(genMap)),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId),
-      BuiltinFunctionInfo(THROW, BTextToUpper, minVersion = exceptions), // TODO #8020
       BuiltinFunctionInfo(MAKE_GENERAL_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
       BuiltinFunctionInfo(MAKE_ARITHMETIC_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
       BuiltinFunctionInfo(MAKE_CONTRACT_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020

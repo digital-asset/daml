@@ -485,7 +485,6 @@ enum BuiltinFunction {
   APPEND_TEXT = 24;
 
   ERROR = 25;
-  THROW = 137;                      // *Available in versions >= 1.dev*
   ANY_EXCEPTION_MESSAGE = 138;      // *Available in versions >= 1.dev*
   MAKE_GENERAL_ERROR = 139;         // *Available in versions >= 1.dev*
   GENERAL_ERROR_MESSAGE = 140;      // *Available in versions >= 1.dev*
@@ -885,12 +884,10 @@ message Expr {
     Type type = 1;
     // argument
     Expr expr = 2;
-    // error message
-    Expr message = 3;
   }
 
   // Extract the given exception type from AnyException or return None on type-mismatch
-  // *Available in versions >= 1.7*
+  // *Available in versions >= 1.dev*
   message FromAnyException {
     // type that should be extracted. Must be an exception type.
     Type type = 1;
@@ -898,6 +895,16 @@ message Expr {
     Expr expr = 2;
   }
 
+  // Throw an exception.
+  // *Available in versions >= 1.dev*
+  message Throw {
+    // Overall type of the "throw" expression.
+    Type return_type = 1;
+    // Type of exception to throw. Must be an exception type.
+    Type exception_type = 2;
+    // Value of type "exception_type".
+    Expr exception_expr = 3;
+  }
 
   // Location of the expression in the DAML code source.
   // Optional
@@ -1004,6 +1011,10 @@ message Expr {
     // Extract an arbitrary exception from an AnyException ('ExpFromAnyException').
     // *Available in versions >= 1.dev*
     FromAnyException from_any_exception = 34;
+
+    // Throw an exception ('ExpThrow').
+    // *Available in versions >= 1.dev*
+    Throw throw = 35;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*
@@ -1418,6 +1429,7 @@ message DefException {
   // *Must be a valid interned dotted name*
   int32 name_interned_dname = 1;
   Location location = 2;
+  Expr message = 3;
 }
 
 // Data type definition
