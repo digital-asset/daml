@@ -987,8 +987,8 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           assertSince(LV.Features.typeRep, "Expr.type_rep")
           ETypeRep(decodeType(lfExpr.getTypeRep))
 
-        case PLF.Expr.SumCase.MAKE_ANY_EXCEPTION =>
-          throw ParseError("Expr.MAKE_ANY_EXCEPTION") // TODO https://github.com/digital-asset/daml/issues/8020
+        case PLF.Expr.SumCase.TO_ANY_EXCEPTION =>
+          throw ParseError("Expr.TO_ANY_EXCEPTION") // TODO https://github.com/digital-asset/daml/issues/8020
 
         case PLF.Expr.SumCase.FROM_ANY_EXCEPTION =>
           throw ParseError("Expr.FROM_ANY_EXCEPTION") // TODO https://github.com/digital-asset/daml/issues/8020
