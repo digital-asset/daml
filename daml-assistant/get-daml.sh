@@ -18,7 +18,12 @@
 
 set -eu
 readonly SWD="$PWD"
-readonly TMPDIR="$(mktemp -d)"
+readonly INSTALL_MINSIZE=1000000
+if [ -z $TEMPDIR ]; then
+  readonly TMPDIR="$(mktemp -d)"
+else
+  readonly TMPDIR=$TEMPDIR
+fi
 cd $TMPDIR
 
 cleanup() {
@@ -27,6 +32,18 @@ cleanup() {
   rm -rf $TMPDIR
 }
 trap cleanup EXIT
+
+#
+# Check that the temporary directory has enough space for the installation
+#
+if [ "$(df $TMPDIR | tail -1 | awk '{print $4}')" -lt $INSTALL_MINSIZE ]; then
+    echo "Not enough disk space available to extract DAML SDK in $TMPDIR."
+    echo ""
+    echo "You can specify an alternative extraction directory by"
+    echo "setting the TEMPDIR environment variable."
+    exit 1
+fi
+
 
 #
 # Check if curl and tar are available.
