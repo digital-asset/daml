@@ -196,8 +196,8 @@ alphaExpr' env = \case
     ETypeRep t1 -> \case
         ETypeRep t2 -> alphaType' env t1 t2
         _ -> False
-    EMakeAnyException t1 e1 -> \case
-        EMakeAnyException t2 e2
+    EToAnyException t1 e1 -> \case
+        EToAnyException t2 e2
             -> alphaType' env t1 t2
             && alphaExpr' env e1 e2
         _ -> False

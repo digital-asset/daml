@@ -215,7 +215,7 @@ safetyStep = \case
     | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
   ETypeRepF _ -> Safe 0
-  EMakeAnyExceptionF _ s
+  EToAnyExceptionF _ s
     | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
   EFromAnyExceptionF _ s

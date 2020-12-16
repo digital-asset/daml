@@ -515,7 +515,7 @@ data Expr
     }
   | ETypeRep !Type
   -- | Construct an 'AnyException' value from a value of an exception type.
-  | EMakeAnyException
+  | EToAnyException
     { makeAnyExceptionType :: !Type
     , makeAnyExceptionValue :: !Expr
     }

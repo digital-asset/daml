@@ -46,7 +46,7 @@ data ExprF expr
   | EToAnyF !Type !expr
   | EFromAnyF !Type !expr
   | ETypeRepF !Type
-  | EMakeAnyExceptionF !Type !expr
+  | EToAnyExceptionF !Type !expr
   | EFromAnyExceptionF !Type !expr
   | EThrowF !Type !Type !expr
   deriving (Foldable, Functor, Traversable)
@@ -187,7 +187,7 @@ instance Recursive Expr where
     EToAny a b  -> EToAnyF a b
     EFromAny a b -> EFromAnyF a b
     ETypeRep a -> ETypeRepF a
-    EMakeAnyException a b -> EMakeAnyExceptionF a b
+    EToAnyException a b -> EToAnyExceptionF a b
     EFromAnyException a b -> EFromAnyExceptionF a b
 
 instance Corecursive Expr where
@@ -219,6 +219,6 @@ instance Corecursive Expr where
     EToAnyF a b  -> EToAny a b
     EFromAnyF a b -> EFromAny a b
     ETypeRepF a -> ETypeRep a
-    EMakeAnyExceptionF a b -> EMakeAnyException a b
+    EToAnyExceptionF a b -> EToAnyException a b
     EFromAnyExceptionF a b -> EFromAnyException a b
     EThrowF a b c -> EThrow a b c

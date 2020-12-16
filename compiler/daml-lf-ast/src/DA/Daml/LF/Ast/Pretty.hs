@@ -508,7 +508,7 @@ instance Pretty Expr where
     EToAny ty body -> pPrintAppKeyword lvl prec "to_any" [TyArg ty, TmArg body]
     EFromAny ty body -> pPrintAppKeyword lvl prec "from_any" [TyArg ty, TmArg body]
     ETypeRep ty -> pPrintAppKeyword lvl prec "type_rep" [TyArg ty]
-    EMakeAnyException ty val -> pPrintAppKeyword lvl prec "make_any_exception"
+    EToAnyException ty val -> pPrintAppKeyword lvl prec "to_any_exception"
         [TyArg ty, TmArg val]
     EFromAnyException ty val -> pPrintAppKeyword lvl prec "from_any_exception"
         [TyArg ty, TmArg val]

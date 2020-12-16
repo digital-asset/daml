@@ -672,10 +672,10 @@ encodeExpr' = \case
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
     ETypeRep ty -> do
         expr . P.ExprSumTypeRep <$> encodeType' ty
-    EMakeAnyException ty val -> do
-        expr_MakeAnyExceptionType <- encodeType ty
-        expr_MakeAnyExceptionExpr <- encodeExpr val
-        pureExpr $ P.ExprSumMakeAnyException P.Expr_MakeAnyException{..}
+    EToAnyException ty val -> do
+        expr_ToAnyExceptionType <- encodeType ty
+        expr_ToAnyExceptionExpr <- encodeExpr val
+        pureExpr $ P.ExprSumToAnyException P.Expr_ToAnyException{..}
     EFromAnyException ty val -> do
         expr_FromAnyExceptionType <- encodeType ty
         expr_FromAnyExceptionExpr <- encodeExpr val

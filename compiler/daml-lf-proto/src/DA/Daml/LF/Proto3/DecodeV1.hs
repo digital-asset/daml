@@ -604,9 +604,9 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     return (EFromAny type' expr)
   LF1.ExprSumTypeRep typ ->
     ETypeRep <$> decodeType typ
-  LF1.ExprSumMakeAnyException LF1.Expr_MakeAnyException {..} -> EMakeAnyException
-    <$> mayDecode "expr_MakeAnyExceptionType" expr_MakeAnyExceptionType decodeType
-    <*> mayDecode "expr_MakeAnyExceptionExpr" expr_MakeAnyExceptionExpr decodeExpr
+  LF1.ExprSumToAnyException LF1.Expr_ToAnyException {..} -> EToAnyException
+    <$> mayDecode "expr_ToAnyExceptionType" expr_ToAnyExceptionType decodeType
+    <*> mayDecode "expr_ToAnyExceptionExpr" expr_ToAnyExceptionExpr decodeExpr
   LF1.ExprSumFromAnyException LF1.Expr_FromAnyException {..} -> EFromAnyException
     <$> mayDecode "expr_FromAnyExceptionType" expr_FromAnyExceptionType decodeType
     <*> mayDecode "expr_FromAnyExceptionExpr" expr_FromAnyExceptionExpr decodeExpr

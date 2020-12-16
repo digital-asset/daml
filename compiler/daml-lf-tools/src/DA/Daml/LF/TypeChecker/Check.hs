@@ -698,7 +698,7 @@ typeOf' = \case
   ETypeRep ty -> do
     checkGroundType ty
     pure $ TBuiltin BTTypeRep
-  EMakeAnyException ty val -> do
+  EToAnyException ty val -> do
     checkExceptionType ty
     checkExpr val ty
     pure TAnyException

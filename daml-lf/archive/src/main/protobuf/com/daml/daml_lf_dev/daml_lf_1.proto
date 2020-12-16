@@ -879,7 +879,7 @@ message Expr {
 
   // Wrap an exception value in AnyException
   // *Available in versions >= 1.dev*
-  message MakeAnyException {
+  message ToAnyException {
     // type of argument. Must be an exception type.
     Type type = 1;
     // argument
@@ -1004,9 +1004,9 @@ message Expr {
     // *Available in versions >= 1.7*
     Type type_rep = 32;
 
-    // Wrap an arbitrary exception into an AnyException ('ExpMakeAnyException').
+    // Wrap an arbitrary exception into an AnyException ('ExpToAnyException').
     // *Available in versions >= 1.dev*
-    MakeAnyException make_any_exception = 33;
+    ToAnyException make_any_exception = 33;
 
     // Extract an arbitrary exception from an AnyException ('ExpFromAnyException').
     // *Available in versions >= 1.dev*
