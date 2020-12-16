@@ -189,6 +189,7 @@ instance Recursive Expr where
     ETypeRep a -> ETypeRepF a
     EToAnyException a b -> EToAnyExceptionF a b
     EFromAnyException a b -> EFromAnyExceptionF a b
+    EThrow a b c -> EThrowF a b c
 
 instance Corecursive Expr where
   embed = \case

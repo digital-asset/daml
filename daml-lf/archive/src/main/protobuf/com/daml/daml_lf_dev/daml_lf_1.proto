@@ -1006,7 +1006,7 @@ message Expr {
 
     // Wrap an arbitrary exception into an AnyException ('ExpToAnyException').
     // *Available in versions >= 1.dev*
-    ToAnyException make_any_exception = 33;
+    ToAnyException to_any_exception = 33;
 
     // Extract an arbitrary exception from an AnyException ('ExpFromAnyException').
     // *Available in versions >= 1.dev*
