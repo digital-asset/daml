@@ -429,7 +429,7 @@ private[lf] final class Compiler(
         SBFromAny(ty)(compile(e))
       case ETypeRep(typ) =>
         SEValue(STypeRep(typ))
-      case EFromAnyException(_, _) | EMakeAnyException(_, _, _) =>
+      case EThrow(_, _, _) | EFromAnyException(_, _) | EToAnyException(_, _) =>
         // TODO https://github.com/digital-asset/daml/issues/8020
         sys.error("exceptions not supported")
     }

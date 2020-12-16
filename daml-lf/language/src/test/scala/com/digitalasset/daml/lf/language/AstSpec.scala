@@ -54,6 +54,9 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       observers = eParties,
       key = None
     )
+    def exception = Exception(
+      message = eText
+    )
     val recordDef = DDataType(true, ImmArray.empty, DataRecord(ImmArray.empty))
     val variantDef = DDataType(true, ImmArray.empty, DataVariant(ImmArray.empty))
     val valDef = DValue(TUnit, false, EUnit, false)
@@ -124,8 +127,6 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     }
 
     "catch exception collisions" in {
-      val unit = ()
-
       Module.apply(
         name = modName1,
         definitions = List(
@@ -134,7 +135,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
         ),
         templates = List.empty,
         exceptions = List(
-          defName("defName1") -> unit,
+          defName("defName1") -> exception,
         ),
         featureFlags = FeatureFlags.default,
       )
@@ -148,8 +149,8 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           ),
           templates = List.empty,
           exceptions = List(
-            defName("defName1") -> unit,
-            defName("defName1") -> unit,
+            defName("defName1") -> exception,
+            defName("defName1") -> exception,
           ),
           featureFlags = FeatureFlags.default,
         )

@@ -78,9 +78,12 @@ private[validation] object TypeTraversable {
         foreach(u, f)
       case EScenario(s) =>
         foreach(s, f)
-      case EMakeAnyException(typ, message, value) =>
+      case EThrow(returnType, exceptionType, exception) =>
+        f(returnType)
+        f(exceptionType)
+        foreach(exception, f)
+      case EToAnyException(typ, value) =>
         f(typ)
-        foreach(message, f)
         foreach(value, f)
       case EFromAnyException(typ, value) =>
         f(typ)

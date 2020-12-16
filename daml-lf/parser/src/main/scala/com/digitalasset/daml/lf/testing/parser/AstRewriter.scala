@@ -111,13 +111,15 @@ private[daml] class AstRewriter(
         case ESome(typ, body) =>
           ESome(apply(typ), apply(body))
         case EToAny(ty, body) =>
-          EToAny(ty, apply(body))
+          EToAny(apply(ty), apply(body))
         case EFromAny(ty, body) =>
-          EFromAny(ty, apply(body))
+          EFromAny(apply(ty), apply(body))
+        case EThrow(returnType, exceptionType, exception) =>
+          EThrow(apply(returnType), apply(exceptionType), apply(exception))
         case EFromAnyException(ty, body) =>
-          EFromAnyException(ty, apply(body))
-        case EMakeAnyException(typ, message, body) =>
-          EMakeAnyException(typ, apply(message), apply(body))
+          EFromAnyException(apply(ty), apply(body))
+        case EToAnyException(typ, body) =>
+          EToAnyException(apply(typ), apply(body))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {

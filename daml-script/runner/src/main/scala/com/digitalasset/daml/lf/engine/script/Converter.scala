@@ -19,7 +19,7 @@ import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast
-import com.daml.lf.language.Ast._
+import com.daml.lf.language.Ast.{Exception => _, _}
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.{Pretty, SExpr, SValue, Speedy}

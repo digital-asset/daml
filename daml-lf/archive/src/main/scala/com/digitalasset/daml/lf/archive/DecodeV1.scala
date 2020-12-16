@@ -196,7 +196,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     private def decodeModuleWithName(lfModule: PLF.Module, moduleName: ModuleName) = {
       val defs = mutable.ArrayBuffer[(DottedName, Definition)]()
       val templates = mutable.ArrayBuffer[(DottedName, Template)]()
-      val exceptions = mutable.ArrayBuffer[(DottedName, Unit)]()
+      val exceptions = mutable.ArrayBuffer[(DottedName, Exception)]()
 
       if (versionIsOlderThan(LV.Features.typeSynonyms)) {
         assertEmpty(lfModule.getSynonymsList, "Module.synonyms")
@@ -263,7 +263,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           "DefTemplate.tycon.tycon"
         )
         currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
-        templates += ((defName, decodeTemplate(defn)))
+        templates += ((defName, decodeTemplate(defName, defn)))
       }
 
       if (versionIsOlderThan(LV.Features.exceptions)) {
@@ -272,7 +272,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         lfModule.getExceptionsList.asScala
           .foreach { defn =>
             val defName = getInternedDottedName(defn.getNameInternedDname)
-            exceptions += ((defName, ()))
+            exceptions += ((defName, decodeException(defName, defn)))
           }
       }
 
@@ -534,15 +534,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       }
     }
 
-    private[this] def decodeTemplate(lfTempl: PLF.DefTemplate): Template = {
-      val tpl = handleDottedName(
-        lfTempl.getTyconCase,
-        PLF.DefTemplate.TyconCase.TYCON_DNAME,
-        lfTempl.getTyconDname,
-        PLF.DefTemplate.TyconCase.TYCON_INTERNED_DNAME,
-        lfTempl.getTyconInternedDname,
-        "DefTemplate.tycon.tycon"
-      )
+    private[this] def decodeTemplate(tpl: DottedName, lfTempl: PLF.DefTemplate): Template = {
       val paramName = handleInternedName(
         lfTempl.getParamCase,
         PLF.DefTemplate.ParamCase.PARAM_STR,
@@ -603,6 +595,12 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         update = decodeExpr(lfChoice.getUpdate, s"$tpl:$chName:choice")
       )
     }
+
+    private[lf] def decodeException(
+        exceptionName: DottedName,
+        lfException: PLF.DefException,
+    ): Exception =
+      Exception(decodeExpr(lfException.getMessage, s"$exceptionName:message"))
 
     private[lf] def decodeKind(lfKind: PLF.Kind): Kind =
       lfKind.getSumCase match {
@@ -998,12 +996,20 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           assertSince(LV.Features.typeRep, "Expr.type_rep")
           ETypeRep(decodeType(lfExpr.getTypeRep))
 
+        case PLF.Expr.SumCase.THROW =>
+          assertSince(LV.Features.exceptions, "Expr.from_any_exception")
+          val eThrow = lfExpr.getThrow
+          EThrow(
+            returnType = decodeType(eThrow.getReturnType),
+            exceptionType = decodeType(eThrow.getExceptionType),
+            exception = decodeExpr(eThrow.getExceptionExpr, definition)
+          )
+
         case PLF.Expr.SumCase.TO_ANY_EXCEPTION =>
           assertSince(LV.Features.exceptions, "Expr.to_any_exception")
-          val makeAnyException = lfExpr.getMakeAnyException
-          EMakeAnyException(
+          val makeAnyException = lfExpr.getToAnyException
+          EToAnyException(
             typ = decodeType(makeAnyException.getType),
-            message = decodeExpr(makeAnyException.getMessage, definition),
             value = decodeExpr(makeAnyException.getExpr, definition),
           )
 
@@ -1726,7 +1732,6 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId, maxVersion = Some(genMap)),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId),
-      BuiltinFunctionInfo(THROW, BThrow, minVersion = exceptions),
       BuiltinFunctionInfo(MAKE_GENERAL_ERROR, BMakeGeneralError, minVersion = exceptions),
       BuiltinFunctionInfo(MAKE_ARITHMETIC_ERROR, BMakeArithmeticError, minVersion = exceptions),
       BuiltinFunctionInfo(MAKE_CONTRACT_ERROR, BMakeContractError, minVersion = exceptions),

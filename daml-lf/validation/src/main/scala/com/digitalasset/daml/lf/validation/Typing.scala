@@ -990,7 +990,7 @@ private[validation] object Typing {
       case ETypeRep(typ) =>
         checkAnyType(typ)
         TTypeRep
-      case EFromAnyException(_, _) | EMakeAnyException(_, _, _) =>
+      case EThrow(_, _, _) | EFromAnyException(_, _) | EToAnyException(_, _) =>
         // TODO https://github.com/digital-asset/daml/issues/8020
         sys.error("exception not supported")
     }

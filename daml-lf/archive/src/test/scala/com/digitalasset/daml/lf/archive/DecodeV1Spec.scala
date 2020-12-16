@@ -743,15 +743,20 @@ class DecodeV1Spec
     s"translate exception builtins as is iff version >= ${LV.Features.exceptions}" in {
       val exceptionBuiltinCases = Table(
         "exception builtins" -> "expected output",
-        DamlLf1.BuiltinFunction.THROW -> Ast.EBuiltin(Ast.BThrow),
-        DamlLf1.BuiltinFunction.MAKE_GENERAL_ERROR -> Ast.EBuiltin(Ast.BMakeGeneralError),
-        DamlLf1.BuiltinFunction.MAKE_ARITHMETIC_ERROR -> Ast.EBuiltin(Ast.BMakeArithmeticError),
-        DamlLf1.BuiltinFunction.MAKE_CONTRACT_ERROR -> Ast.EBuiltin(Ast.BMakeContractError),
-        DamlLf1.BuiltinFunction.ANY_EXCEPTION_MESSAGE -> Ast.EBuiltin(Ast.BAnyExceptionMessage),
-        DamlLf1.BuiltinFunction.GENERAL_ERROR_MESSAGE -> Ast.EBuiltin(Ast.BGeneralErrorMessage),
-        DamlLf1.BuiltinFunction.ARITHMETIC_ERROR_MESSAGE -> Ast.EBuiltin(
-          Ast.BArithmeticErrorMessage),
-        DamlLf1.BuiltinFunction.CONTRACT_ERROR_MESSAGE -> Ast.EBuiltin(Ast.BContractErrorMessage),
+        DamlLf1.BuiltinFunction.MAKE_GENERAL_ERROR ->
+          Ast.EBuiltin(Ast.BMakeGeneralError),
+        DamlLf1.BuiltinFunction.MAKE_ARITHMETIC_ERROR ->
+          Ast.EBuiltin(Ast.BMakeArithmeticError),
+        DamlLf1.BuiltinFunction.MAKE_CONTRACT_ERROR ->
+          Ast.EBuiltin(Ast.BMakeContractError),
+        DamlLf1.BuiltinFunction.ANY_EXCEPTION_MESSAGE ->
+          Ast.EBuiltin(Ast.BAnyExceptionMessage),
+        DamlLf1.BuiltinFunction.GENERAL_ERROR_MESSAGE ->
+          Ast.EBuiltin(Ast.BGeneralErrorMessage),
+        DamlLf1.BuiltinFunction.ARITHMETIC_ERROR_MESSAGE ->
+          Ast.EBuiltin(Ast.BArithmeticErrorMessage),
+        DamlLf1.BuiltinFunction.CONTRACT_ERROR_MESSAGE ->
+          Ast.EBuiltin(Ast.BContractErrorMessage),
       )
 
       forEveryVersion { version =>

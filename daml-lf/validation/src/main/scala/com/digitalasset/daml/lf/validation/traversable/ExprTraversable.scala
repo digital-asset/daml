@@ -62,8 +62,9 @@ private[validation] object ExprTraversable {
         f(body)
       case EFromAny(ty @ _, body) =>
         f(body)
-      case EMakeAnyException(typ @ _, message, value) =>
-        f(message)
+      case EThrow(returnType @ _, exceptionType @ _, exception) =>
+        f(exception)
+      case EToAnyException(typ @ _, value) =>
         f(value)
       case EFromAnyException(typ @ _, value) =>
         f(value)

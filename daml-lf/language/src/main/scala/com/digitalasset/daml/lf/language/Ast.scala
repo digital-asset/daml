@@ -5,6 +5,7 @@ package com.daml.lf.language
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
+import com.github.ghik.silencer.silent
 
 object Ast {
   //
@@ -146,8 +147,11 @@ object Ast {
   /** Unique textual representation of template Id **/
   final case class ETypeRep(typ: Type) extends Expr
 
+  /** Throw an exception */
+  final case class EThrow(returnType: Type, exceptionType: Type, exception: Expr) extends Expr
+
   /** Construct an AnyException from its message and payload */
-  final case class EMakeAnyException(typ: Type, message: Expr, value: Expr) extends Expr
+  final case class EToAnyException(typ: Type, value: Expr) extends Expr
 
   /** Extract the payload from an AnyException if it matches the given exception type */
   final case class EFromAnyException(typ: Type, value: Expr) extends Expr
@@ -698,6 +702,28 @@ object Ast {
   type TemplateChoiceSignature = GenTemplateChoice[Unit]
   object TemplateChoiceSignature extends GenTemplateChoiceCompanion[Unit]
 
+  sealed case class GenException[E](message: E)
+
+  sealed class GenExceptionCompanion[E] {
+    def apply(message: E): GenException[E] =
+      GenException(message)
+
+    def unapply(arg: GenException[E]): Option[E] =
+      GenException.unapply(arg)
+  }
+
+  type Exception = GenException[Expr]
+  object Exception extends GenExceptionCompanion[Expr]
+
+  type ExceptionSignature = GenException[Unit]
+  object ExceptionSignature {
+    val Singleton: ExceptionSignature = GenException(())
+    def apply(): ExceptionSignature = Singleton
+
+    @silent("parameter value arg in method unapply is never used")
+    def unapply(arg: ExceptionSignature): Option[Unit] = Some(())
+  }
+
   case class FeatureFlags(
       forbidPartyLiterals: Boolean // If set to true, party literals are not allowed to appear in daml-lf packages.
       /*
@@ -727,7 +753,7 @@ object Ast {
       name: ModuleName,
       definitions: Map[DottedName, GenDefinition[E]],
       templates: Map[DottedName, GenTemplate[E]],
-      exceptions: Map[DottedName, Unit],
+      exceptions: Map[DottedName, GenException[E]],
       featureFlags: FeatureFlags
   ) extends NoCopy
 
@@ -740,7 +766,7 @@ object Ast {
         name: ModuleName,
         definitions: Iterable[(DottedName, GenDefinition[E])],
         templates: Iterable[(DottedName, GenTemplate[E])],
-        exceptions: Iterable[(DottedName, Unit)],
+        exceptions: Iterable[(DottedName, GenException[E])],
         featureFlags: FeatureFlags
     ): GenModule[E] = {
 
@@ -763,7 +789,7 @@ object Ast {
         ModuleName,
         Map[DottedName, GenDefinition[E]],
         Map[DottedName, GenTemplate[E]],
-        Map[DottedName, Unit],
+        Map[DottedName, GenException[E]],
         FeatureFlags)] =
       GenModule.unapply(arg)
   }
