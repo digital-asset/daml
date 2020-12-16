@@ -242,7 +242,7 @@ class TransactionCoderSpec
               ValueCoder.CidDecoder,
               encodedTxWithBadTxVer,
             ) shouldEqual Left(
-              DecodeError(s"Unsupported transaction version $badTxVer"),
+              DecodeError(s"Unsupported transaction version '$badTxVer'"),
             )
           }
         }

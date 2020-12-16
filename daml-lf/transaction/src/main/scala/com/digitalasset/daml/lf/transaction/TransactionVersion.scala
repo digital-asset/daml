@@ -32,7 +32,7 @@ object TransactionVersion {
     stringMapping.get(vs) match {
       case Some(value) => Right(value)
       case None =>
-        Left(s"Unsupported transaction version `$vs``")
+        Left(s"Unsupported transaction version '$vs'")
     }
 
   def assertFromString(vs: String): TransactionVersion =

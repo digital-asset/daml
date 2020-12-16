@@ -146,8 +146,6 @@ object ValueCoder {
     * checks if the value version is currently supported and
     * converts the value to the type usable by engine/interpreter.
     *
-    * Supported value versions configured in [[ValueVersions]].
-    *
     * @param protoValue0 the value to be read
     * @param decodeCid a function to decode stringified contract ids
     * @tparam Cid ContractId type
@@ -167,25 +165,6 @@ object ValueCoder {
       protoValue0: proto.VersionedValue,
   ): Either[DecodeError, Value[Cid]] =
     decodeVersionedValue(decodeCid, protoValue0) map (_.value)
-
-  /**
-    * Serializes [[VersionedValue]] to protobuf, caller provides the [[ValueVersion]].
-    *
-    * @param versionedValue value to be written
-    * @param encodeCid a function to stringify contractIds (it's better to be invertible)
-    * @tparam Cid ContractId type
-    * @return protocol buffer serialized values
-    */
-  def encodeVersionedValueWithCustomVersion[Cid](
-      encodeCid: EncodeCid[Cid],
-      versionedValue: VersionedValue[Cid],
-  ): Either[EncodeError, proto.VersionedValue] =
-    for {
-      value <- encodeValue(encodeCid, versionedValue.version, versionedValue.value)
-    } yield {
-      val builder = proto.VersionedValue.newBuilder()
-      builder.setVersion(encodeValueVersion(versionedValue.version)).setValue(value).build()
-    }
 
   /**
     * Method to read a serialized protobuf value
@@ -344,6 +323,32 @@ object ValueCoder {
       case Err(msg) => Left(DecodeError(msg))
     }
   }
+
+  /**
+    * Serializes [[VersionedValue]] to protobuf.
+    *
+    * @param versionedValue value to be written
+    * @param encodeCid a function to stringify contractIds (it's better to be invertible)
+    * @tparam Cid ContractId type
+    * @return protocol buffer serialized values
+    */
+  def encodeVersionedValue[Cid](
+      encodeCid: EncodeCid[Cid],
+      versionedValue: VersionedValue[Cid],
+  ): Either[EncodeError, proto.VersionedValue] =
+    encodeVersionedValue(encodeCid, versionedValue.version, versionedValue.value)
+
+  def encodeVersionedValue[Cid](
+      encodeCid: EncodeCid[Cid],
+      version: TransactionVersion,
+      value: Value[Cid],
+  ): Either[EncodeError, proto.VersionedValue] =
+    for {
+      protoValue <- encodeValue(encodeCid, version, value)
+    } yield {
+      val builder = proto.VersionedValue.newBuilder()
+      builder.setVersion(encodeValueVersion(version)).setValue(protoValue).build()
+    }
 
   /**
     * Serialize a Value to protobuf

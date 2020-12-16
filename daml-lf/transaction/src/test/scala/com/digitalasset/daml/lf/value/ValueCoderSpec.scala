@@ -174,7 +174,7 @@ class ValueCoderSpec
     )
     val bytes =
       assertRight(
-        ValueCoder.encodeVersionedValueWithCustomVersion(
+        ValueCoder.encodeVersionedValue(
           ValueCoder.CidEncoder,
           VersionedValue(version, value),
         )
@@ -193,9 +193,7 @@ class ValueCoderSpec
       version: TransactionVersion): Assertion = {
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder
-        .encodeVersionedValueWithCustomVersion(
-          ValueCoder.CidEncoder,
-          VersionedValue(version, value0)),
+        .encodeVersionedValue(ValueCoder.CidEncoder, VersionedValue(version, value0)),
     )
     val decoded: VersionedValue[ContractId] = assertRight(
       ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encoded),

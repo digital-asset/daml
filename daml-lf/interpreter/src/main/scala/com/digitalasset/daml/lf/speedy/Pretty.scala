@@ -8,7 +8,6 @@ import org.typelevel.paiges.Doc._
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
 import Value.{NodeId => _, _}
-import com.daml.lf.VersionRange
 import com.daml.lf.transaction.Node._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
@@ -98,12 +97,6 @@ private[lf] object Pretty {
           "Update failed due to a contract key with an empty sey of maintainers when fetching or looking up by key") &
           prettyTypeConName(tid) /
             text("The provided key is") & prettyValue(true)(key)
-
-      case DamlEDisallowedInputValueVersion(VersionRange(expectedMin, expectedMax), actual) =>
-        text("Update failed due to disallowed value version") /
-          text("Expected value version between") & text(expectedMin.protoValue) &
-          text("and") & text(expectedMax.protoValue) & text("but got") &
-          text(actual.protoValue)
 
     }
 

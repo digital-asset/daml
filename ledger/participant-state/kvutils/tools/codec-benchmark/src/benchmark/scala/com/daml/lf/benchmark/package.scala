@@ -10,11 +10,11 @@ import com.daml.lf.transaction.TransactionCoder.{
   encodeTransaction
 }
 import com.daml.lf.transaction.TransactionOuterClass.Transaction
-import com.daml.lf.transaction.{NodeId, VersionedTransaction}
+import com.daml.lf.transaction.{NodeId, TransactionVersion, VersionedTransaction}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.ValueCoder._
 import com.daml.lf.value.ValueOuterClass.VersionedValue
-import com.daml.lf.value.{Value, ValueVersion}
+import com.daml.lf.value.Value
 import com.google.protobuf.ByteString
 
 package object benchmark {
@@ -32,7 +32,7 @@ package object benchmark {
 
   /**
     * This is the output of a successful call to
-    * [[com.daml.lf.value.ValueCoder.encodeValue]].
+    * [[com.daml.lf.value.ValueCoder.encodeVersionedValue]].
     * It's the in-memory representation of the Protobuf message that
     * describes a value, not its serialized form.
     */
@@ -89,6 +89,6 @@ package object benchmark {
     encodeTransaction(NidEncoder, CidEncoder, transaction)
 
   private def encode(value: DecodedValue): EncodeResult[EncodedValue] =
-    encodeVersionedValue(CidEncoder, value, ValueVersion.DevOutputVersions)
+    encodeVersionedValue(CidEncoder, TransactionVersion.VDev, value)
 
 }
