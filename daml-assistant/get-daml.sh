@@ -26,12 +26,22 @@ else
 fi
 cd $TMPDIR
 
+# Don't remove user specified temporary directory on cleanup.
+rmTmpDir() {
+  if [ -z $TEMPDIR ]; then
+    rm -rf $TMPDIR
+  else
+    echo "Feel free to remove DAML files in $TEMPDIR."
+  fi
+}
+
 cleanup() {
   echo "$(tput setaf 3)FAILED TO INSTALL!$(tput sgr 0)"
   cd $SWD
-  rm -rf $TMPDIR
+  rmTmpDir
 }
 trap cleanup EXIT
+
 
 #
 # Check that the temporary directory has enough space for the installation
@@ -134,4 +144,4 @@ fi
 trap - EXIT
 echo "$(tput setaf 3)Successfully installed DAML.$(tput sgr 0)"
 cd $SWD
-rm -rf $TMPDIR
+rmTmpDir
