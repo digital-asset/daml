@@ -22,11 +22,16 @@ final case class VersionRange[V](
     max: V,
 )(implicit ordering: Ordering[V]) {
 
+  require(min <= max)
+
   def intersect(that: VersionRange[V]): VersionRange[V] =
     VersionRange(
       min = this.min max that.min,
       max = this.max min that.max,
     )
+
+  def map[W](f: V => W)(implicit ordering: Ordering[W]) =
+    VersionRange(f(min), f(max))
 
   def contains(v: V): Boolean =
     min <= v && v <= max

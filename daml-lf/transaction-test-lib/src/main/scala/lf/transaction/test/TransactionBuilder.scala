@@ -193,7 +193,7 @@ object TransactionBuilder {
   private val KeyWithMaintainers = Node.KeyWithMaintainers
 
   def apply(): TransactionBuilder =
-    TransactionBuilder(TransactionVersion.StableOutputVersions.min)
+    TransactionBuilder(TransactionVersion.StableVersions.min)
 
   def apply(txVersion: TransactionVersion): TransactionBuilder =
     new TransactionBuilder(_ => txVersion)
