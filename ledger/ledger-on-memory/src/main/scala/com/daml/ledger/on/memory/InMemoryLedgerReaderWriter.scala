@@ -238,7 +238,7 @@ object InMemoryLedgerReaderWriter {
     val commitStrategy = new LogAppenderPreExecutingCommitStrategy(keySerializationStrategy)
     val valueToFingerprint: Option[Value] => Fingerprint =
       _.getOrElse(FingerprintPlaceholder)
-    val validator = new PreExecutingSubmissionValidator(keyValueCommitting, metrics, commitStrategy)
+    val validator = new PreExecutingSubmissionValidator(keyValueCommitting, commitStrategy, metrics)
     val committer = new PreExecutingValidatingCommitter(
       keySerializationStrategy,
       validator,

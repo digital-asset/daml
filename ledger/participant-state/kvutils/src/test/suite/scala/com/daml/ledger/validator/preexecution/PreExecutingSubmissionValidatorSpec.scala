@@ -244,7 +244,7 @@ object PreExecutingSubmissionValidatorSpec {
             expectedInvolvedParticipants,
           )))
 
-    new PreExecutingSubmissionValidator(mockCommitter, metrics, mockCommitStrategy)
+    new PreExecutingSubmissionValidator(mockCommitter, mockCommitStrategy, metrics)
   }
 
   private def createLedgerStateReader(

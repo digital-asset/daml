@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
 /**
   * This typeclass signifies that implementor contains an optional DAML state value.
   *
-  * Used by the submission validator.
+  * Used by the [[com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidator]].
   */
 trait HasDamlStateValue[T] {
   def damlStateValue(value: T): Option[DamlStateValue]
