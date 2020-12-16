@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.kvutils.api._
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.{
   Bytes,
+  Envelope,
   Fingerprint,
   FingerprintPlaceholder,
   KeyValueCommitting,
@@ -22,16 +23,20 @@ import com.daml.ledger.participant.state.kvutils.{
 }
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.validator.LedgerStateOperations.Value
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
   BatchedSubmissionValidatorFactory,
   BatchedValidatingCommitter,
   ConflictDetection
 }
-import com.daml.ledger.validator.caching.ImmutablesOnlyCacheUpdatePolicy
+import com.daml.ledger.validator.caching.{
+  CachingDamlLedgerStateReaderWithFingerprints,
+  ImmutablesOnlyCacheUpdatePolicy
+}
 import com.daml.ledger.validator.preexecution.LogAppenderPreExecutingCommitStrategy.FingerprintedReadSet
 import com.daml.ledger.validator.preexecution._
+import com.daml.ledger.validator.reading.StateReader
 import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidateAndCommit}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -240,18 +245,18 @@ object InMemoryLedgerReaderWriter {
       stateValueCacheForPreExecution: PreExecutionStateValueCache,
   )(implicit materializer: Materializer): ValidateAndCommit = {
     val commitStrategy = new LogAppenderPreExecutingCommitStrategy(keySerializationStrategy)
-    val valueToFingerprint: Option[Value] => Fingerprint =
-      _.getOrElse(FingerprintPlaceholder)
     val validator = new PreExecutingSubmissionValidator(keyValueCommitting, commitStrategy, metrics)
     val committer =
-      new PreExecutingValidatingCommitter[FingerprintedReadSet, RawKeyValuePairsWithLogEntry](
-        keySerializationStrategy,
-        validator,
-        valueToFingerprint,
-        new EqualityBasedPostExecutionConflictDetector,
-        new RawPostExecutionFinalizer(now = timeProvider.getCurrentTime _),
-        stateValueCache = stateValueCacheForPreExecution,
-        ImmutablesOnlyCacheUpdatePolicy,
+      new PreExecutingValidatingCommitter[
+        FingerprintedReadSet,
+        RawKeyValuePairsWithLogEntry,
+        Index,
+      ](
+        transformStateReader =
+          transformStateReader(keySerializationStrategy, stateValueCacheForPreExecution),
+        validator = validator,
+        postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector,
+        postExecutionFinalizer = new RawPostExecutionFinalizer(now = timeProvider.getCurrentTime _),
       )
     locally {
       implicit val executionContext: ExecutionContext = materializer.executionContext
@@ -270,6 +275,27 @@ object InMemoryLedgerReaderWriter {
 
       validateAndCommit
     }
+  }
+
+  private def transformStateReader(
+      keySerializationStrategy: StateKeySerializationStrategy,
+      cache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)]
+  )(stateReader: StateReader[Key, Option[Value]])
+    : StateReader[DamlStateKey, (Option[DamlStateValue], Fingerprint)] = {
+    CachingDamlLedgerStateReaderWithFingerprints(
+      cache,
+      ImmutablesOnlyCacheUpdatePolicy,
+      stateReader
+        .contramapKeys(keySerializationStrategy.serializeStateKey)
+        .mapValues(value => {
+          val damlStateValue = value.map(
+            Envelope
+              .openStateValue(_)
+              .getOrElse(sys.error("Opening enveloped DamlStateValue failed")))
+          val fingerprint = value.getOrElse(FingerprintPlaceholder)
+          damlStateValue -> fingerprint
+        }),
+    )
   }
 
   private def createKeyValueCommitting(
