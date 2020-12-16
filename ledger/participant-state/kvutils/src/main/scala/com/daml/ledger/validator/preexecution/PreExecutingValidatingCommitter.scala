@@ -40,7 +40,11 @@ import scala.util.{Failure, Success}
   */
 class PreExecutingValidatingCommitter[WriteSet](
     keySerializationStrategy: StateKeySerializationStrategy,
-    validator: PreExecutingSubmissionValidator[ReadSet, WriteSet],
+    validator: PreExecutingSubmissionValidator[
+      (Option[DamlStateValue], Fingerprint),
+      ReadSet,
+      WriteSet,
+    ],
     valueToFingerprint: Option[Value] => Fingerprint,
     postExecutionConflictDetector: PostExecutionConflictDetector[
       Key,
