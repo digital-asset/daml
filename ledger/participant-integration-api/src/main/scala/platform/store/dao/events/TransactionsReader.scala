@@ -72,7 +72,7 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
     val span =
-      OpenTelemetryTracer
+      ParticipantTracer
         .spanBuilder("com.daml.platform.store.dao.events.TransactionsReader.getFlatTransactions")
         .setNoParent()
         .setAttribute(SpanAttribute.OffsetFrom.key, startExclusive.toHexString)
@@ -152,7 +152,7 @@ private[dao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext)
     : Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
     val span =
-      OpenTelemetryTracer
+      ParticipantTracer
         .spanBuilder("com.daml.platform.store.dao.events.TransactionsReader.getTransactionTrees")
         .setNoParent()
         .setAttribute(SpanAttribute.OffsetFrom.key, startExclusive.toHexString)
@@ -232,7 +232,7 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val span =
-      OpenTelemetryTracer
+      ParticipantTracer
         .spanBuilder("com.daml.platform.store.dao.events.TransactionsReader.getActiveContracts")
         .setNoParent()
         .setAttribute(SpanAttribute.Offset.key, activeAt.toHexString)

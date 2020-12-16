@@ -10,7 +10,7 @@ import io.opentelemetry.trace.Tracer
 
 package object metrics {
 
-  val OpenTelemetryTracer: Tracer = OpenTelemetry.getTracer("ledger")
+  val ParticipantTracer: Tracer = OpenTelemetry.getTracer("participant")
 
   private[metrics] def registerGauge(
       name: MetricName,
