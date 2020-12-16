@@ -31,7 +31,7 @@ rmTmpDir() {
   if [ -z $TEMPDIR ]; then
     rm -rf $TMPDIR
   else
-    echo "Feel free to remove DAML files in $TEMPDIR."
+    echo "You may now remove the DAML installation files from $TEMPDIR"
   fi
 }
 
