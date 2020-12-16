@@ -12,11 +12,15 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
 
   type Elem = Token
 
-  case class Reader[A](l: Seq[A]) extends util.parsing.input.Reader[A] {
-    override def first: A = l.head
+  case class Reader[A](l: Seq[(Position, A)]) extends util.parsing.input.Reader[A] {
+    override def first: A = l.head._2
+
     override def rest: Reader[A] = Reader(l.tail)
-    override def pos: Position = NoPosition
+
+    override def pos: Position = l.headOption.map(_._1).getOrElse(NoPosition)
+
     override def atEnd: Boolean = l.isEmpty
+
     override def toString: String = l.mkString(" ")
   }
 
@@ -46,7 +50,7 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
   def parseAll[A](p: Parser[A], s: String): A =
     phrase(p)(Reader(Lexer.lex(s))) match {
       case Success(l, _) => l
-      case e: NoSuccess => throw ParsingError(e.msg)
+      case e: NoSuccess => throw ParsingError(e.msg, e.next.pos)
     }
 
   /* backport ~>! and <~! from parser combinator 1.1.x */

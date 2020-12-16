@@ -14,11 +14,13 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import io.circe.syntax._
 import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
 class TransactionSingleTableSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Suite
     with PostgresAroundAll
     with SuiteResourceManagementAroundAll

@@ -5,7 +5,7 @@ package com.daml.extractor
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{RestartSource, Sink}
-import akka.stream.{KillSwitches, Materializer}
+import akka.stream.{KillSwitches, Materializer, RestartSettings}
 import com.daml.auth.TokenHolder
 import com.daml.extractor.Types._
 import com.daml.extractor.config.{ExtractorConfig, SnapshotEndSetting}
@@ -168,10 +168,11 @@ class Extractor[T](config: ExtractorConfig, target: T)(
 
     RestartSource
       .onFailuresWithBackoff(
-        minBackoff = 3.seconds,
-        maxBackoff = 30.seconds,
-        randomFactor = 0.2 // adds 20% "noise" to vary the intervals slightly
-      ) { () =>
+        RestartSettings(
+          minBackoff = 3.seconds,
+          maxBackoff = 30.seconds,
+          randomFactor = 0.2 // adds 20% "noise" to vary the intervals slightly
+        )) { () =>
         tokenHolder.foreach(_.refresh())
         logger.info(s"Starting streaming transactions from ${startOffSet}...")
         client.transactionClient

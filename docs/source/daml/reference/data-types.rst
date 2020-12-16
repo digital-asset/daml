@@ -4,9 +4,7 @@
 Reference: data types
 #####################
 
-This page gives reference information on DAML's data types:
-
-.. contents:: :local:
+This page gives reference information on DAML's data types.
 
 .. _daml-ref-built-in-types:
 

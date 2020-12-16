@@ -1,6 +1,8 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE PatternSynonyms #-}
+
 module DA.Daml.Assistant.Install
     ( InstallOptions (..)
     , InstallURL (..)
@@ -9,6 +11,7 @@ module DA.Daml.Assistant.Install
     , getLatestVersion
     , install
     , uninstallVersion
+    , pattern RawInstallTarget_Project
     ) where
 
 import DA.Directory
@@ -387,6 +390,12 @@ shouldInstallAssistant InstallEnv{..} versionToInstall =
     || determineAuto (isNewer || missingAssistant || installingFromOutside)
         (unwrapInstallAssistant (iAssistant options))
 
+pattern RawInstallTarget_Project :: RawInstallTarget
+pattern RawInstallTarget_Project = RawInstallTarget "project"
+
+pattern RawInstallTarget_Latest :: RawInstallTarget
+pattern RawInstallTarget_Latest = RawInstallTarget "latest"
+
 -- | Run install command.
 install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> Maybe DamlAssistantSdkVersion -> IO ()
 install options damlPath projectPathM assistantVersion = do
@@ -416,12 +425,12 @@ install options damlPath projectPathM assistantVersion = do
                 ]
             exitFailure
 
-        Just (RawInstallTarget "project") -> do
+        Just RawInstallTarget_Project -> do
             projectPath <- required "'daml install project' must be run from within a project."
                 projectPathM
             projectInstall env projectPath
 
-        Just (RawInstallTarget "latest") ->
+        Just RawInstallTarget_Latest ->
             latestInstall env
 
         Just (RawInstallTarget arg) | Right version <- parseVersion (pack arg) ->

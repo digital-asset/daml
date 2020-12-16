@@ -15,7 +15,9 @@ import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandboxnext.SandboxNextFixture
-import org.scalatest.{AsyncWordSpec, Inside, Matchers}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 final class LedgerClientAuthIT
     extends AsyncWordSpec

@@ -7,7 +7,7 @@ import * as React from 'react';
 import {
   ApolloClient,
   ApolloProvider,
-} from 'react-apollo';
+} from '@apollo/client';
 import * as ReactDOM from 'react-dom';
 import ArgumentDisplayGuide from '../ArgumentDisplay/Guide';
 import AutosuggestGuide from '../Autosuggest/Guide';
@@ -47,8 +47,8 @@ const apolloMock = {
   }),
   query: () => mockRejectPromise,
   mutate: () => mockRejectPromise,
-// tslint:disable-next-line:no-any
-} as any as ApolloClient
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+} as any as ApolloClient<any>
 
 const App = (_: {}): JSX.Element => (
   <ApolloProvider client={apolloMock}>

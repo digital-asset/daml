@@ -9,8 +9,9 @@ import scala.language.higherKinds
 import scala.collection.immutable.Map
 
 import org.scalacheck.{Arbitrary, Gen, Shrink}
-import org.scalatest.{Matchers, WordSpec}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz.{Apply, OneAnd, ~>}
 import scalaz.std.option._
 import scalaz.std.tuple._
@@ -25,7 +26,7 @@ import com.daml.ledger.api.v1.{value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}
 import binding.{Primitive => P}
 
-class LfTypeEncodingSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+class LfTypeEncodingSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
   import LfTypeEncodingSpec._
 
   /** The sanity check for [[LfTypeEncoding]]: can we produce something that works

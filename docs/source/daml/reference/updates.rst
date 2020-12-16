@@ -4,11 +4,7 @@
 Reference: updates
 ##################
 
-This page gives reference information on Updates:
-
-.. contents:: :local:
-
-For the structure around them, see :doc:`structure`.
+This page gives reference information on Updates. For the structure around them, see :doc:`structure`.
 
 .. _daml-ref-updates-background:
 

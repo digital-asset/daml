@@ -164,6 +164,15 @@ See :ref:`verbosity` above.
 Utility services
 ****************
 
+.. _party-service:
+
+Party management service
+========================
+
+Use the **party management service** to allocate parties on the ledger and retrieve information about allocated parties.
+
+Allocating parties is necessary to interact with the ledger. For more information, refer to the pages on :doc:`Identity Management</concepts/identity-and-package-management>` and :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.PartyManagementService>`.
+
 .. _package-service:
 
 Package service
@@ -207,6 +216,15 @@ Use the **version service** to retrieve information about the Ledger API version
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.VersionService>`.
 
 .. _ledger-api-testing-services:
+
+Pruning service
+============================
+
+Use the **pruning service** to prune archived contracts and transactions before or at a given offset.
+
+For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.ParticipantPruningService>`.
+
+.. _pruning-service:
 
 Testing services
 ****************

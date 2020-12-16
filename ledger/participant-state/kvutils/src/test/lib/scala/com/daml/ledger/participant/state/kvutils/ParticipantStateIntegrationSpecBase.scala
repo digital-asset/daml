@@ -29,8 +29,9 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.MismatchException
 import org.scalatest.Inside._
-import org.scalatest.Matchers._
-import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
+import org.scalatest.matchers.should.Matchers._
+import org.scalatest.{Assertion, BeforeAndAfterEach}
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.{SortedSet, mutable}
 import scala.compat.java8.FutureConverters._

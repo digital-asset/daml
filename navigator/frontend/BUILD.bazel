@@ -55,7 +55,7 @@ nodejs_binary(
 # name = "frontend",
 # tsconfig = ":tsconfig.json",
 # srcs = glob(["**/*.ts"]),
-# data = [":package.json", ":tslint.json"],
+# data = [":package.json", ":.eslintrc.js"],
 # node_modules = "@navigator_frontend_deps//:node_modules",
 # visibility = [
 # "//navigator:__subpackages__",
@@ -79,7 +79,7 @@ genrule(
         "webpack.config.js",
         "declarations.d.ts",
         "tsconfig.json",
-        "tslint.json",
+        ".eslintrc.js",
         "package.json",
         ".modernizrrc",
         ":src",
@@ -104,23 +104,31 @@ genrule(
     cp -L "$$(pwd)/$(execpath webpack.config.js)" "$$IN/webpack.config.js"
     cp -L "$$(pwd)/$(execpath .modernizrrc)" "$$IN/.modernizrrc"
     cp -L "$$(pwd)/$(execpath tsconfig.json)" "$$IN/tsconfig.json"
-    cp -L "$$(pwd)/$(execpath tslint.json)" "$$IN/tslint.json"
+    cp -L "$$(pwd)/$(execpath .eslintrc.js)" "$$IN/.eslintrc.js"
     cp -L "$$(pwd)/$(execpath declarations.d.ts)" "$$IN/declarations.d.ts"
 
     # Webpack needs the HOME variable to be set
     export HOME="$$IN"
+
+    PREV=$$PWD
+
+    WEBPACK=$$PREV/$(execpath :webpack)
+
+    cd $$IN
 
     # Run webpack.
     # To debug, add the following options:
     # -d --progress --display-error-details --verbose
     WP_IN={WP_IN}
     WP_OUT={WP_OUT}
-    $(execpath :webpack) \\
-      --config="$$IN/webpack.config.js" \\
-      --env.prod \\
-      --env.paths_case_check="{PATHS_CASE_CHECK}" \\
-      --env.bazel_in_dir="{WP_IN_ESCAPED}" \\
-      --env.bazel_out_dir="{WP_OUT_ESCAPED}"
+    $$WEBPACK \\
+      --config="webpack.config.js" \\
+      --env prod \\
+      --env paths_case_check="{PATHS_CASE_CHECK}" \\
+      --env bazel_in_dir="{WP_IN_ESCAPED}" \\
+      --env bazel_out_dir="{WP_OUT_ESCAPED}"
+
+    cd $$PREV
 
     # Package result (.TGZ)
     # To debug, change 'c' to 'cv'.

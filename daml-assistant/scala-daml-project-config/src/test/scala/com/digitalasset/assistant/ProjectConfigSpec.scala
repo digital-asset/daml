@@ -3,9 +3,10 @@
 
 package com.daml.assistant.config
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ProjectConfigSpec extends WordSpec with Matchers {
+class ProjectConfigSpec extends AnyWordSpec with Matchers {
   "ProjectConfig" when {
 
     "Loading a default config" should {

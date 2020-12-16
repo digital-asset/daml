@@ -1,13 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Button, Dispatch, styled, ThunkAction } from '@da/ui-core';
+import { Button, styled } from '@da/ui-core';
 import * as Session from '@da/ui-core/lib/session';
 import * as React from 'react';
-import { connect } from 'react-redux';
-import { compose } from 'redux';
+import { connect, ConnectedComponent } from 'react-redux';
+import { ThunkAction, ThunkDispatch } from 'redux-thunk';
 import { configFileAPI, ConfigType, prettyPrintConfig } from '../../config';
-import { Connect } from '../../types';
 import * as App from '../app';
 
 export type Action
@@ -37,7 +36,7 @@ export interface State {
   result: StateResult;
 }
 
-export type ToSelf = (action: Action | ThunkAction<void>) => App.Action;
+export type ToSelf = (action: Action | ThunkAction<void, undefined, undefined, Action>) => App.Action;
 
 export function init(): State {
   return {
@@ -46,7 +45,7 @@ export function init(): State {
   };
 }
 
-export function reload(toSelf: ToSelf): ThunkAction<void> {
+export function reload(toSelf: ToSelf): ThunkAction<void, App.State, undefined, App.Action> {
   return (dispatch) => {
     dispatch(toSelf(setLoading()));
 
@@ -71,14 +70,14 @@ export function reload(toSelf: ToSelf): ThunkAction<void> {
   };
 }
 
-function handleResponse(to: ToSelf, dispatch: Dispatch<Action>) {
+function handleResponse(to: ToSelf, dispatch: ThunkDispatch<App.State, undefined, App.Action>) {
   return (source: string): void => {
     dispatch(to(setSource(source)));
   };
 }
 
-function handleFetchError(to: ToSelf, dispatch: Dispatch<Action>) {
-  // tslint:disable-next-line no-any
+function handleFetchError(to: ToSelf, dispatch: ThunkDispatch<App.State, undefined, App.Action>) {
+  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   return (reason: any) => {
     if (reason instanceof Error) {
       // Log to console to show error call stack
@@ -130,7 +129,7 @@ interface OwnProps {
   toSelf: ToSelf;
 }
 interface ReduxProps {
-  dispatch: Dispatch<App.Action>;
+  dispatch: ThunkDispatch<App.State, undefined, App.Action>;
 }
 
 type Props = OwnProps & ReduxProps;
@@ -183,8 +182,6 @@ class Component extends React.Component<Props, {}> {
       </Wrapper>
     );
   }
-};
+}
 
-const withRedux: Connect<ReduxProps, OwnProps> = connect();
-
-export const UI = compose(withRedux)(Component);
+export const UI: ConnectedComponent<typeof Component, OwnProps> = connect()(Component);

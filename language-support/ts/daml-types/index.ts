@@ -34,6 +34,10 @@ export interface Template<T extends object, K = unknown, I extends string = stri
   /**
    * @internal
    */
+  sdkVersion: '0.0.0-SDKVERSION';
+  /**
+   * @internal
+   */
   keyDecoder: jtv.Decoder<K>;
   /**
    * @internal
@@ -103,7 +107,7 @@ export const registerTemplate = <T extends object>(template: Template<T>): void 
 export const lookupTemplate = (templateId: string): Template<object> => {
   const template = registeredTemplates[templateId];
   if (template === undefined) {
-    throw Error(`Trying to look up template ${templateId}.`);
+    throw Error(`Failed to look up template ${templateId}. Make sure your @daml/types version agrees with the used DAML SDK version.`);
   }
   return template;
 }
@@ -289,6 +293,7 @@ export const Date: Serializable<Date> = {
   decoder: jtv.string(),
   encode: (d: Date) => d,
 }
+
 
 /**
  * Used to `brand` [[ContractId]].

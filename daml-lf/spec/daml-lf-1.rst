@@ -108,113 +108,10 @@ features involved in the change.  One can refer also to the
 `Serialization` section which is particularly concerned about versioning
 and backward compatibility.
 
+Support for language versions 1.0 to 1.5 was dropped on 2020-11-30.
+This breaking change does not impact ledgers created with SDK 1.0.0 or
+later.
 
-Version 1.0 (deprecated)
-........................
-
-* Introduction date:
-
-    2018-12-11
-
-* Description:
-
-    Initial version
-
-Version: 1.1 (deprecated)
-.........................
-
-* Introduction date:
-
-    2019-01-25
-
-* Description:
-
-  + **Add** support for `option type
-    <https://en.wikipedia.org/wiki/Option_type>`_.
-
-    For more details, one can refer to the `Abstract Syntax`_,
-    `Operational semantics`_ and `Type system`_ sections. There, the
-    option type is denoted by ``'Optional'`` and populated thanks to
-    the constructor ``'None'`` and ``'Some'``.
-
-  + **Add** built-in functions to order party literals.
-
-    For more details about party literal order functions, one can to
-    `Party built-in functions <Party functions_>`_ section.
-
-  + **Change** the representation of serialized function
-    type. Deprecate the ``'Fun'`` type in favor of the more general
-    built-in type ``'TArrow'``.
-
-    For more details about the type ``'TArrow'``, one can refer to the
-    sections "`Abstract Syntax`_", "`Operational semantics`_" and
-    "`Type system`_".  For details about the ``'Fun'`` type, one can
-    refer to section `Function type vs arrow type`.
-
-
-Version: 1.2 (deprecated)
-.........................
-
-* Introduction date:
-
-    2019-03-18
-
-* Description:
-
-  + **Add** a built-in function to perform `SHA-256
-    <https://en.wikipedia.org/wiki/SHA-2>`_ hashing of strings
-
-  + **Add** built-in functions to convert from ``'Party'`` to
-    ``'Text'`` and vice versa.
-
-  + **Change** the scope when the controllers of a choice are
-    computed. Needed to support the so-called `flexible controllers`_
-    in the surface language
-
-
-Version: 1.3 (deprecated)
-.........................
-
-* Introduction date:
-
-    2019-03-25
-
-* Description:
-
-  + **Add** support for contract keys.
-
-  + **Add** support for built-in ``'Map'`` type.
-
-Version: 1.4 (deprecated)
-.........................
-
-* Introduction date:
-
-    2019-05-21
-
-* Description:
-
-  + **Add** support for complex contract keys.
-
-Version: 1.5 (deprecated)
-.........................
-
-* Introduction date:
-
-    2019-05-27
-
-* Description:
-
-  + **Change** serializability condition for ``ContractId`` such that
-    ``ContractId a`` is serializable whenever ``a`` is so. This is more
-    relaxed than the previous condition.
-
-  + **Add** ``COERCE_CONTRACT_ID`` primitive for coercing ``ContractId``.
-
-  + **Change** ``Update.Exercise`` such that ``actor`` must not be set anymore.
-
-  + **Add** ``FROM_TEXT_INT64`` and ``FROM_TEXT_DECIMAL`` primitives for
-    parsing integer and decimal values.
 
 Version: 1.6
 ............
@@ -225,12 +122,7 @@ Version: 1.6
 
 * Description:
 
-  + **Add** support for built-in ``'Enum'`` type.
-
-  + **Add** ``TEXT_FROM_CODE_POINTS`` and ``TEXT_TO_CODE_POINTS``
-    primitives for (un)packing strings.
-
-  + **Add** package IDs interning in external package references.
+  + Initial version
 
 Version: 1.7
 ............
@@ -314,6 +206,8 @@ Version: 1.dev
   + **Add** `exercise_by_key` Update.
 
   + **Add** choice observers.
+
+  + **Add** exception handling.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -610,7 +504,7 @@ Then we can define our kinds, types, and expressions::
 
   Kinds
     k
-      ::= 'nat'                                     -- KindNat
+      ::= 'nat'                                     -- KindNat  [DAML-LF ≥ 1.7]
        | ek                                         -- KindErasable
 
   Erasable Kind
@@ -637,22 +531,26 @@ Then we can define our kinds, types, and expressions::
        |  'List'                                    -- BTyList
        |  'Optional'                                -- BTyOptional
        |  'TextMap'                                 -- BTTextMap: map with string keys
-       |  'GenMap'                                  -- BTGenMap: map with general value keys
+       |  'GenMap'                                  -- BTGenMap: map with general value keys [DAML-LF ≥ 1.dev]
        |  'ContractId'                              -- BTyContractId
-       |  'Any'                                     -- BTyAny
-       |  'TypeRep'                                 -- BTTypeRep
+       |  'Any'                                     -- BTyAny [DAML-LF ≥ 1.7]
+       |  'TypeRep'                                 -- BTTypeRep [DAML-LF ≥ 1.7]
        |  'Update'                                  -- BTyUpdate
        |  'Scenario'                                -- BTyScenario
+       |  'AnyException'                            -- BTyAnyException [DAML-LF ≥ 1.dev]
+       |  'GeneralError'                            -- BTyGeneralError [DAML-LF ≥ 1.dev]
+       |  'ArithmeticError'                         -- BTyArithmeticError [DAML-LF ≥ 1.dev]
+       |  'ContractError'                           -- BTyContractError [DAML-LF ≥ 1.dev]
 
   Types (mnemonic: tau for type)
     τ, σ
       ::= α                                         -- TyVar: Type variable
-       |  n                                         -- TyNat: Nat Type
+       |  n                                         -- TyNat: Nat Type [DAML-LF ≥ 1.7]
        |  τ σ                                       -- TyApp: Type application
        |  ∀ α : k . τ                               -- TyForall: Universal quantification
        |  BuiltinType                               -- TyBuiltin: Builtin type
        |  Mod:T                                     -- TyCon: type constructor
-       |  |Mod:S τ₁ … τₘ|                           -- TySyn: type synonym
+       |  |Mod:S τ₁ … τₘ|                           -- TySyn: type synonym [DAML-LF ≥ 1.8]
        |  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩                     -- TyStruct: Structural record type
 
   Expressions
@@ -688,12 +586,14 @@ Then we can define our kinds, types, and expressions::
        |  'None' @τ                                 -- ExpOptionalNone: Empty Optional
        |  'Some' @τ e                               -- ExpOptionalSome: Non-empty Optional
        |  [t₁ ↦ e₁; …; tₙ ↦ eₙ]                     -- ExpTextMap
-       | 〚e₁ ↦ e₁; …; eₙ ↦ eₙ'〛                    -- ExpGenMap
-       | 'to_any' @τ e                              -- ExpToAny: Wrap a value of the given type in Any
-       | 'from_any' @τ e                            -- ExpToAny: Extract a value of the given from Any or return None
-       | 'type_rep' @τ                              -- ExpToTypeRep: A type representation
+       | 〚e₁ ↦ e₁; …; eₙ ↦ eₙ'〛                    -- ExpGenMap [DAML-LF ≥ 1.dev]
+       | 'to_any' @τ e                              -- ExpToAny: Wrap a value of the given type in Any [DAML-LF ≥ 1.7]
+       | 'from_any' @τ e                            -- ExpToAny: Extract a value of the given from Any or return None [DAML-LF ≥ 1.7]
+       | 'type_rep' @τ                              -- ExpToTypeRep: A type representation [DAML-LF ≥ 1.7]
        |  u                                         -- ExpUpdate: Update expression
        |  s                                         -- ExpScenario: Scenario expression
+       | 'make_any_exception' @τ eₘ eₚ              -- ExpMakeAnyException: Turn a concrete exception into an 'AnyException' [DAML-LF ≥ 1.dev]
+       | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException' [DAML-LF ≥ 1.dev]
 
   Patterns
     p
@@ -720,6 +620,7 @@ Then we can define our kinds, types, and expressions::
        |  'fetch_by_key' @τ e                       -- UpdateFecthByKey
        |  'lookup_by_key' @τ e                      -- UpdateLookUpByKey
        |  'embed_expr' @τ e                         -- UpdateEmbedExpr
+       |  'try' @τ e₁ 'catch' x. e₂                 -- UpdateTryCatch [DAML-LF ≥ 1.dev]
 
   Scenario
     s ::= 'spure' @τ e                              -- ScenarioPure
@@ -790,6 +691,7 @@ available for usage::
             , 'choices' { ChDef₁, …, ChDefₘ }
             , KeyDef
             }
+       |  'exception' (x: T)                        -- DefException [DAML-LF ≥ 1.dev]
 
   Module (mnemonic: delta for definitions)
     Δ ::= ε                                         -- DefCtxEmpty
@@ -1013,6 +915,46 @@ We now formally defined *well-formed types*. ::
    ————————————————————————————————————————————— TyScenario
      Γ  ⊢  'Scenario' : ⋆ → ⋆
 
+   ————————————————————————————————————————————— TyAnyException [DAML-LF ≥ 1.dev]
+     Γ  ⊢  'AnyException' : ⋆
+
+   ————————————————————————————————————————————— TyGeneralError [DAML-LF ≥ 1.dev]
+     Γ  ⊢  'GeneralError' : ⋆
+
+   ————————————————————————————————————————————— TyArithmeticError [DAML-LF ≥ 1.dev]
+     Γ  ⊢  'ArithmeticError' : ⋆
+
+   ————————————————————————————————————————————— TyContractError [DAML-LF ≥ 1.dev]
+     Γ  ⊢  'ContractError' : ⋆
+
+
+Exception types
+...............
+
+To state the typing rules related to exception handling, we need the notion of
+*exception types*. As the name suggests, values of these types are the ones that
+can be thrown and caught by the exception handling mechanism. ::
+
+                      ┌────────┐
+  Exception types     │ ⊢ₑ  τ  │
+                      └────────┘
+
+      'exception' (x : T) ↦ …  ∈  〚Ξ〛Mod
+    ———————————————————————————————————————————————————————————————— ExnTyDefException
+      ⊢ₑ  Mod:T
+
+    ———————————————————————————————————————————————————————————————— ExnTyGeneralError
+      ⊢ₑ  'GeneralError'
+
+    ———————————————————————————————————————————————————————————————— ExnTyArithmeticError
+      ⊢ₑ  'ArithmeticError'
+
+    ———————————————————————————————————————————————————————————————— ExnTyContractError
+      ⊢ₑ  'ContractError'
+
+Note that ``'AnyException'`` is not an exception type in order to avoid having
+``'AnyException'`` wrapped into ``'AnyException'``.
+
 
 Well-formed expression
 ......................
@@ -1191,6 +1133,17 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpCase
       Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ
 
+      ε  ⊢  τ  :  ⋆      ⊢ₑ  τ
+      Γ  ⊢  eₘ  : 'Text'
+      Γ  ⊢  eₚ  :  τ
+    ——————————————————————————————————————————————————————————————— ExpMakeAnyException [DAML-LF ≥ 1.dev]
+      Γ  ⊢  'make_any_exception' @τ eₘ eₚ  :  'AnyException'
+
+      ε  ⊢  τ  :  ⋆      ⊢ₑ  τ
+      Γ  ⊢  e  :  'AnyException'
+    ——————————————————————————————————————————————————————————————— ExpFromAnyException [DAML-LF ≥ 1.dev]
+      Γ  ⊢  'from_any_exception' @τ e  :  'Option' τ
+
       Γ  ⊢  τ  :  ⋆      Γ  ⊢  e  :  τ
     ——————————————————————————————————————————————————————————————— UpdPure
       Γ  ⊢  'pure' e  :  'Update' τ
@@ -1257,6 +1210,12 @@ Then we define *well-formed expressions*. ::
       τ  ↠  τ'     Γ  ⊢  e  :  'Update' τ'
     ——————————————————————————————————————————————————————————————— UpdEmbedExpr
       Γ  ⊢  'embed_expr' @τ e  :  'Update' τ'
+
+      τ  ↠  τ'
+      Γ  ⊢  e₁  :  'Update' τ'
+      x : 'AnyException' · Γ  ⊢  e₂  :  'Optional' ('Update' τ')
+    ——————————————————————————————————————————————————————————————— UpdTryCatch [DAML-LF ≥ 1.dev]
+      Γ  ⊢  'try' @τ e₁ 'catch' x. e₂  :  'Update' τ'
 
       Γ  ⊢  τ  : ⋆      Γ  ⊢  e  :  τ
     ——————————————————————————————————————————————————————————————— ScnPure
@@ -1454,12 +1413,8 @@ types are the types whose values can be persisted on the ledger. ::
     ———————————————————————————————————————————————————————————————— STyParty
       ⊢ₛ  'Party'
 
-      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
-    ———————————————————————————————————————————————————————————————— STyCid [DAML-LF < 1.5]
-      ⊢ₛ  'ContractId' Mod:T
-
       ⊢ₛ  τ
-    ———————————————————————————————————————————————————————————————— STyCid [DAML-LF ≥ 1.5]
+    ———————————————————————————————————————————————————————————————— STyCid
       ⊢ₛ  'ContractId' τ
 
       'record' T α₁ … αₙ ↦ { f₁: σ₁, …, fₘ: σₘ }  ∈  〚Ξ〛Mod
@@ -1485,6 +1440,18 @@ types are the types whose values can be persisted on the ledger. ::
      'enum' T ↦ E₁: σ₁ | … | Eₘ: σₘ  ∈  〚Ξ〛Mod   m ≥ 1
     ———————————————————————————————————————————————————————————————— STyEnumCon
       ⊢ₛ  Mod:T
+
+    ———————————————————————————————————————————————————————————————— STyAnyException
+      ⊢ₛ  'AnyException'
+
+    ———————————————————————————————————————————————————————————————— STyGeneralError
+      ⊢ₛ  'GeneralError'
+
+    ———————————————————————————————————————————————————————————————— STyArithmeticError
+      ⊢ₛ  'ArithmeticError'
+
+    ———————————————————————————————————————————————————————————————— STyContractError
+      ⊢ₛ  'ContractError'
 
 Note that
 
@@ -1549,14 +1516,19 @@ for the ``DefTemplate`` rule). ::
          , KeyDef
          }
 
+    'record' T ↦ { f₁ : τ₁, …, fₙ : τₙ }  ∈  〚Ξ〛Mod
+    ⊢ₛ  Mod:T
+    x : Mod:T  ⊢  eₘ  :  'Text'
+  ——————————————————————————————————————————————————————————————— DefException [DAML-LF ≥ 1.dev]
+    ⊢  'exception' (x : T) ↦ { 'message' eₘ }
+
                           ┌───────────────────┐
   Well-formed choices     │ x : Mod:T ⊢ ChDef │
                           └───────────────────┘
     ⊢ₛ  τ
     ⊢ₛ  σ
     y : 'ContractId' Mod:T · z : τ · x : Mod:T  ⊢  e  :  'Update' σ
-    x : Mod:T  ⊢  eₚ  :  'List' 'Party'     x ≠ y                        [DAML-LF < 1.2]
-    z : τ · x : Mod:T  ⊢  eₚ  :  'List' 'Party'                          [DAML-LF ≥ 1.2]
+    z : τ · x : Mod:T  ⊢  eₚ  :  'List' 'Party'
   ——————————————————————————————————————————————————————————————— ChDef
     x : Mod:T  ⊢  'choice' ChKind Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ ↦ e
 
@@ -1607,6 +1579,15 @@ Specifically, a template definition is *coherent* if:
 * Its argument data type is defined in the same module that the
   template is defined in;
 * Its argument data type is not an argument to any other template.
+
+
+Exception coherence
+~~~~~~~~~~~~~~~~~~~
+
+The *exception coherence* condition is literally the same as the template
+coherence condition with "template" replaced by "exception". We further require
+that no type has a template definition and an exception definition associated to
+it.
 
 
 Party literal restriction
@@ -1730,6 +1711,7 @@ Then, a collection of packages ``Ξ`` is well-formed if:
 
 * Each definition in ``Ξ`` is `well-formed <well-formed-definitions_>`_;
 * Each template in ``Ξ`` is `coherent <Template coherence_>`_;
+* Each exception in ``Ξ`` is `coherent <Exception coherence_>`_;
 * The `party literal restriction`_ is respected for
   every module in ``Ξ`` -- taking the ``ForbidPartyLiterals`` flag into
   account.
@@ -1857,6 +1839,22 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpTypeRep
      ⊢ᵥ  'type_rep' @τ
 
+     ⊢ᵥ  eₘ      ⊢ᵥ  eₚ
+   ——————————————————————————————————————————————————— ValMakeAnyException
+     ⊢ᵥ  'make_any_exception' @τ eₘ eₚ
+
+     ⊢ᵥ  e
+   ——————————————————————————————————————————————————— ValGeneralError
+     ⊢ᵥ  'MAKE_GENERAL_ERROR' e
+
+     ⊢ᵥ  e
+   ——————————————————————————————————————————————————— ValArithmeticError
+     ⊢ᵥ  'MAKE_ARITHMETIC_ERROR' e
+
+     ⊢ᵥ  e
+   ——————————————————————————————————————————————————— ValContractError
+     ⊢ᵥ  'MAKE_CONTRACT_ERROR' e
+
      ⊢ᵥᵤ  u
    ——————————————————————————————————————————————————— ValUpdate
      ⊢ᵥ  u
@@ -1912,6 +1910,9 @@ need to be evaluated further. ::
 
    ——————————————————————————————————————————————————— ValUpdateEmbedExpr
      ⊢ᵥᵤ   'embed_expr' @τ e
+
+   ——————————————————————————————————————————————————— ValUpdateTryCatch
+     ⊢ᵥᵤ   'try' @τ e₁ 'catch' x. e₂
 
 
                            ┌────────┐
@@ -2043,53 +2044,65 @@ types that satisfies the following rules::
   ——————————————————————————————————————————————————— TypeOrderBoolInt64
     'Bool' <ₜ 'Int64'
 
-  ——————————————————————————————————————————————————— TypeOrderInt64Date
-    'Int64' <ₜ 'Date'
+  ——————————————————————————————————————————————————— TypeOrderInt64Text
+    'Int64' <ₜ 'Text'
 
-  ——————————————————————————————————————————————————— TypeOrderDateTimestamp
-    'Date' <ₜ 'Timestamp'
+  —————————————————————————————————————————————————— TypeOrderTextTimestamp
+    'Text' <ₜ 'Timestamp'
 
-  ——————————————————————————————————————————————————— TypeOrderTimestampText
-    'Timestamp' <ₜ 'Text'
+  ——————————————————————————————————————————————————— TypeOrderTimestampPArty
+    'Timestamp' <ₜ 'Party'
 
-  —————————————————————————————————————————————————— TypeOrderTextParty
-    'Text' <ₜ 'Party'
+  ——————————————————————————————————————————————————— TypeOrderPartyList
+    'Party' <ₜ 'List'
 
-  ——————————————————————————————————————————————————— TypeOrderPartyNumeric
-    'Party' <ₜ 'Numeric'
+  —————————————————————————————————————————————————— TypeOrderListUpdate
+    'List' <ₜ 'Update'
 
-  ——————————————————————————————————————————————————— TypeOrderNumericContractId
-    'Numeric' <ₜ 'ContractId'
+  ——————————————————————————————————————————————————— TypeOrderUpdateScenario
+    'Update' <ₜ 'Scenario'
 
-  ——————————————————————————————————————————————————— TypeOrderContractIdArrow
-    'ContractId' <ₜ'Arrow'
+  ——————————————————————————————————————————————————— TypeOrderScenarioDate
+    'Scenario' <ₜ 'Date'
 
-  ——————————————————————————————————————————————————— TypeOrderArrowOptional
-    'Arrow' <ₜ 'Optional'
+  ——————————————————————————————————————————————————— TypeOrderDateContractId
+    'Date' <ₜ 'ContractId'
 
-  ——————————————————————————————————————————————————— TypeOrderOptionalList
-    'Optional' <ₜ 'List'
+  ——————————————————————————————————————————————————— TypeOrderContractIdOptional
+    'ContractId' <ₜ 'Optional'
 
-  —————————————————————————————————————————————————— TypeOrderListTextMap
-    'List' <ₜ 'TextMap'
+  ——————————————————————————————————————————————————— TypeOrderOptionalArrow
+    'Optional' <ₜ 'Arrow'
 
-  ——————————————————————————————————————————————————— TypeOrderTextMapGenMap
-    'TextMap' <ₜ 'GenMap'
+  ——————————————————————————————————————————————————— TypeOrderArrowTextMap
+    'Arrow' <ₜ 'TextMap'
 
-  ——————————————————————————————————————————————————— TypeOrderGenMapAny
-    'GenMap' <ₜ 'Any'
+  ——————————————————————————————————————————————————— TypeOrderTextMapNumeric
+    'TextMap' <ₜ 'Numeric'
+
+  ——————————————————————————————————————————————————— TypeOrderNumericAny
+    'Numeric' <ₜ  'Any'
 
   ——————————————————————————————————————————————————— TypeOrderAnyTypeRep
     'Any' <ₜ 'TypeRep'
 
   ——————————————————————————————————————————————————— TypeOrderTypeRepUpdate
-    'TypeRep' <ₜ 'Update'
+    'TypeRep' <ₜ 'GenMap'
 
-  ——————————————————————————————————————————————————— TypeOrderTypeRepUpdate
-    'Update' <ₜ 'Scenario'
+  ——————————————————————————————————————————————————— TypeOrderGenMapAny
+    'GenMap' <ₜ 'AnyException'
 
-  —————————————————————————————————————————————————— TypeOrderUpdateTyCon
-    'Update' <ₜ Mod:T
+  ——————————————————————————————————————————————————— TypeOrderAnyExceptionGeneralError
+    'AnyException' <ₜ 'GeneralError'
+
+  ——————————————————————————————————————————————————— TypeOrderGeneralErrorArithmeticError
+    'GeneralError' <ₜ 'ArithmeticError'
+
+  ——————————————————————————————————————————————————— TypeOrderArithmeticErrorContractError
+    'ArithmeticError' <ₜ 'ContractError'
+
+  —————————————————————————————————————————————————— TypeOrderContractErrorTyCon
+    'ContractError' <ₜ Mod:T
 
     PkgId₁ comes lexicographically before PkgId₂
   ——————————————————————————————————————————————————— TypeOrderTyConPackageId
@@ -2172,7 +2185,7 @@ exact output.
 
   Evaluation result
     r ::= Ok v                                      -- ResOk
-       |  Err t                                     -- ResErr
+       |  Err v                                     -- ResErr, v a value of type 'AnyException'
 
                            ┌──────────┐
   Big-step evaluation      │ e  ⇓  r  │
@@ -2394,6 +2407,46 @@ exact output.
         ⇓
       Ok ⟨ f₁= v₁, …, fᵢ= vᵢ', …, fₙ= vₙ ⟩
 
+      e  ⇓  Ok v
+    —————————————————————————————————————————————————————————————————————— EvExpThrow
+      'THROW' @τ e  ⇓  Err v
+
+      eₘ  ⇓  Err v
+    —————————————————————————————————————————————————————————————————————— EvExpMakeAnyExceptionErr1
+      'make_any_exception' @τ eₘ eₚ  ⇓  Err v
+
+      eₘ  ⇓  Ok vₘ
+      eₚ  ⇓  Err v
+    —————————————————————————————————————————————————————————————————————— EvExpMakeAnyExceptionErr2
+      'make_any_exception' @τ eₘ eₚ  ⇓  Err v
+
+      eₘ  ⇓  Ok vₘ
+      eₚ  ⇓  Ok vₚ
+    —————————————————————————————————————————————————————————————————————— EvExpMakeAnyException
+      'make_any_exception' @τ eₘ eₚ  ⇓  Ok ('make_any_exception @τ vₘ vₚ)
+
+      e  ⇓  Err v
+    —————————————————————————————————————————————————————————————————————— EvExpFromAnyExceptionErr
+      'from_any_exception' @τ e  ⇓  Err v
+
+      e  ⇓  Ok ('make_any_exception' @σ vₘ vₚ)
+      σ ≠ τ
+    —————————————————————————————————————————————————————————————————————— EvExpFromAnyExceptionNone
+      'from_any_exception' @τ e  ⇓  Ok ('None' @τ)
+
+      e  ⇓  Ok ('make_any_exception' @σ vₘ vₚ)
+      σ = τ
+    —————————————————————————————————————————————————————————————————————— EvExpFromAnyExceptionSome
+      'from_any_exception' @τ e  ⇓  Ok ('Some' @τ vₚ)
+
+      e  ⇓  Err v
+    —————————————————————————————————————————————————————————————————————— EvExpAnyExceptionMessageErr
+      'ANY_EXCEPTION_MESSAGE' @τ e  ⇓  Err v
+
+      e  ⇓  Ok ('make_any_exception' @σ vₘ vₚ)
+    —————————————————————————————————————————————————————————————————————— EvExpAnyExceptionMessage
+      'ANY_EXCEPTION_MESSAGE' @τ e  ⇓  Ok vₘ
+
       e  ⇓  Err t
     —————————————————————————————————————————————————————————————————————— EvExpUpPureErr
       'pure' @τ e  ⇓  Err t
@@ -2503,6 +2556,10 @@ exact output.
        ⇓
       Ok ('lookup_by_key' @Mod:T v)
 
+    —————————————————————————————————————————————————————————————————————— EvExpUpTryCatch
+      'try' @τ e₁ 'catch' x. e₂
+       ⇓
+      Ok ('try' @τ e₁ 'catch' x. e₂)
 
       e  ⇓  Err t
     —————————————————————————————————————————————————————————————————————— EvExpScenarioPureErr
@@ -2648,6 +2705,7 @@ as described by the ledger model::
     act
       ::= 'create' Contract
        |  'exercise' v Contract ChKind tr  -- v must be of type 'List' 'Party'
+       |  'fail' v tr  -- v must be of type type 'AnyException'
 
   Ledger transactions
     tr
@@ -2664,53 +2722,55 @@ as described by the ledger model::
   Contract key index
      keys ∈ finite injective map from GlobalKey to cid
 
-  Update result
-    ur ::= Ok (v, tr) ‖ S
-        |  Err t
+  Contract state
     S ::= (st, keys)
 
+  Update result
+    ur ::= (Ok v, tr) ‖ S
+        |  (Err v, tr)     -- v must be of type 'AnyException'
 
                                     ┌──────────────┐
   Big-step update interpretation    │ u ‖ S₀ ⇓ᵤ ur │  (u is an update value)
                                     └──────────────┘
 
    —————————————————————————————————————————————————————————————————————— EvUpdPure
-     'pure' v ‖ (st, keys)  ⇓ᵤ  Ok (v, ε) ‖ (st, keys)
+     'pure' v ‖ (st, keys)  ⇓ᵤ  (Ok v, ε) ‖ (st, keys)
 
-     u₁ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+     u₁ ‖ S₀  ⇓ᵤ  (Err v, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdBindErr1
-     'bind' x : τ ← u₁ ; e₂ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+     'bind' x : τ ← u₁ ; e₂ ‖ S₀  ⇓ᵤ  (Err v, tr)
 
-     u₁ ‖ (st₀, keys₀)  ⇓ᵤ  Ok (v₁, tr₁) ‖ (st₁, keys₁)
-     e₂[x ↦ v₁]  ⇓  Err t
+     u₁ ‖ S₀  ⇓ᵤ  (Ok v₁, tr₁) ‖ S₁
+     e₂[x ↦ v₁]  ⇓  Err v₂
    —————————————————————————————————————————————————————————————————————— EvUpdBindErr2
-     'bind' x : τ ← u₁ ; e₂ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+     'bind' x : τ ← u₁ ; e₂ ‖ S₀  ⇓ᵤ  (Err v₂, tr₁)
 
-     u₁ ‖ (st₀, keys₀)  ⇓ᵤ  Ok (v₁, tr₁) ‖ (st₁, keys₁)
+     u₁ ‖ S₀  ⇓ᵤ  (Ok v₁, tr₁) ‖ S₁
      e₂[x ↦ v₁]  ⇓  Ok u₂
-     u₂ ‖ (st₁, keys₁)  ⇓ᵤ  Err t
+     u₂ ‖ S₁  ⇓ᵤ  (Err v₂, tr₂)
    —————————————————————————————————————————————————————————————————————— EvUpdBindErr3
-     'bind' x : τ ← u₁ ; e₂ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+     'bind' x : τ ← u₁ ; e₂ ‖ S₀  ⇓ᵤ  (Err v₂, tr₁ ⋅ tr₂)
 
-     u₁ ‖ (st₀, keys₀)  ⇓ᵤ  Ok (v₁, tr₁) ‖ (st₁, keys₁)
+     u₁ ‖ S₀  ⇓ᵤ  Ok (v₁, tr₁) ‖ S₁
      e₂[x ↦ v₁]  ⇓  Ok u₂
-     u₂ ‖ (st₁, keys₁)  ⇓ᵤ  Ok (v₂, tr₂) ‖ (st₂, keys₂)
+     u₂ ‖ S₁  ⇓ᵤ  Ok (v₂, tr₂) ‖ S₂
    —————————————————————————————————————————————————————————————————————— EvUpdBind
-     'bind' x : τ ← u₁ ; e₂ ‖ (st₀, keys₀)
+     'bind' x : τ ← u₁ ; e₂ ‖ S₀
        ⇓ᵤ
-     Ok (v₂, tr₁ · tr₂) ‖ (st₂, keys₂)
+     (Ok v₂, tr₁ · tr₂) ‖ S₂
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, … }  ∈  〚Ξ〛Mod
-     eₚ[x ↦ vₜ]  ⇓  Err t
+     eₚ[x ↦ vₜ]  ⇓  Err v
    —————————————————————————————————————————————————————————————————————— EvUpdCreateErr1
-     'create' @Mod:T vₜ ‖ (st₀, keys₀)  ⇓ᵤ  Err t
+     'create' @Mod:T vₜ ‖ S₀  ⇓ᵤ  (Err v, ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'False'
+     v = "Precondition failed on {Mod:T}."
    —————————————————————————————————————————————————————————————————————— EvUpdCreateFail
-     'create' @Mod:T vₜ ‖ (st, keys)
+     'create' @Mod:T vₜ ‖ S₀
        ⇓ᵤ
-     Err "template precondition violated"
+     (Err ('make_any_exception' @'ContractError' v ('MAKE_CONTRACT_ERROR' v)), ε)
 
      'tpl' (x : T) ↦ { 'precondition' eₚ, 'agreement' eₐ, … }  ∈  〚Ξ〛Mod
      eₚ[x ↦ vₜ]  ⇓  Ok 'True'
@@ -3030,6 +3090,69 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdEmbedExpr
      'embed_expr' @τ e ‖ (st; keys)  ⇓ᵤ  ur
 
+     e₁  ⇓  Err v₁
+     e₂[x ↦ v₁]  ⇓  Err v₂
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr1e
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err v₂, 'fail' v₁ ε)
+
+     e₁  ⇓  Ok u₁
+     u₁ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
+     e₂[x ↦ v₁]  ⇓  Err v₂
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr1u
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err v₂, 'fail' v₁ tr₁)
+
+     e₁  ⇓  Err v₁
+     e₂[x ↦ v₁]  ⇓  Ok ('None' @σ)
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr2e
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err v₁, ε)
+
+     e₁  ⇓  Ok u₁
+     u₁ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
+     e₂[x ↦ v₁]  ⇓  Ok ('None' @σ)
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr2u
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
+
+     e₁  ⇓  Err v₁
+     e₂[x ↦ v₁]  ⇓  Ok ('Some' @σ u₂)
+     u2 ‖ S₀  ⇓ᵤ  (Err v₂, tr₂)
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr3e
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀
+       ⇓ᵤ
+     (Err v₂, ('fail' v₁ ε) ⋅ tr₂)
+
+     e₁  ⇓  Ok u₁
+     u₁ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
+     e₂[x ↦ v₁]  ⇓  Ok ('Some' @σ u₂)
+     u2 ‖ S₀  ⇓ᵤ  (Err v₂, tr₂)
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr3u
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀
+       ⇓ᵤ
+     (Err v₂, ('fail' v₁ tr₁) ⋅ tr₂)
+
+     e₁  ⇓  Err v₁
+     e₂[x ↦ v₁]  ⇓  Ok ('Some' @σ u₂)
+     u2 ‖ S₀  ⇓ᵤ  (Ok v₂, tr₂) ‖ S₂
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr4e
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀
+       ⇓ᵤ
+     (Ok v₂, ('fail' v₁ ε) ⋅ tr₂) ‖ S₂
+
+     e₁  ⇓  Ok u₁
+     u₁ ‖ S₀  ⇓ᵤ  (Err v₁, tr₁)
+     e₂[x ↦ v₁]  ⇓  Ok ('Some' @σ u₂)
+     u2 ‖ S₀  ⇓ᵤ  (Ok v₂, tr₂) ‖ S₂
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr4u
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀
+       ⇓ᵤ
+     (Ok v₂, ('fail' v₁ tr₁) ⋅ tr₂) ‖ S₂
+
+     e₁  ⇓  Ok u₁
+     u₁ ‖ S₀  ⇓ᵤ  (Ok v₁, tr₁) ‖ S₁
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatch
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀
+       ⇓ᵤ
+     (Ok v₁, tr₁) ‖ S₁
+
 
 About scenario interpretation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3319,7 +3442,10 @@ Int64 functions
 
 * ``ADD_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
-  Adds the two integers. Throws an error in case of overflow.
+  Adds the two integers. In case of an overflow, throws an exception
+  ``'make_any_exception' @'ArithmeticError' t ('MAKE_ARITHMETIC_ERROR' t)``,
+  where ``t = "Overflow: ADD_INT64 {m} {n}"`` for ``m`` and ``n`` the actual
+  values of the operands.
 
 * ``SUB_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
@@ -3382,8 +3508,6 @@ Int64 functions
   Given a string representation of an integer returns the integer wrapped
   in ``Some``. If the input does not match the regexp ``[+-]?\d+`` or
   if the result of the conversion overflows, returns ``None``.
-
-  [*Available in versions >= 1.5*]
 
 Numeric functions
 ~~~~~~~~~~~~~~~~~
@@ -3477,8 +3601,6 @@ Numeric functions
   ``None``.  The scale of the output is given by the type parameter
   `α`.
 
-  [*Available in versions >= 1.5*]
-
 String functions
 ~~~~~~~~~~~~~~~~
 
@@ -3501,8 +3623,6 @@ String functions
   Performs the `SHA-256 <https://en.wikipedia.org/wiki/SHA-2>`_
   hashing of the UTF-8 string and returns it encoded as a Hexadecimal
   string (lower-case).
-
-  [*Available in versions >= 1.2*]
 
 * ``LESS_EQ_TEXT : 'Text' → 'Text' → 'Bool'``
 
@@ -3541,8 +3661,6 @@ String functions
   <https://en.wikipedia.org/wiki/Code_point>`_ of the input
   string represented as integers.
 
-  [*Available in versions >= 1.6*]
-
 * ``TEXT_FROM_CODE_POINTS``: 'List' 'Int64' → 'Text'
 
   Given a list of integer representations of Unicode codepoints,
@@ -3550,8 +3668,6 @@ String functions
   if one of the elements of the input list is not in the range
   from `0x000000` to `0x00D7FF` or in the range from `0x00DFFF`
   to `0x10FFFF` (bounds included).
-
-  [*Available in versions >= 1.6*]
 
 Timestamp functions
 ~~~~~~~~~~~~~~~~~~~
@@ -3662,34 +3778,25 @@ Date functions
 Party functions
 ~~~~~~~~~~~~~~~
 
-.. note:: Since version 1.1, DAML-LF provides four built-in comparison
-   functions, which impose a *total order* on party literals.  This
-   order is left unspecified. However, it is guaranteed to not change
-   within minor version of DAML-LF 1.
-
-   For this reason, it is recommended to *not* store lists sorted using
-   this ordering, since the ordering might change in future versions of
-   DAML-LF.
-
 * ``LESS_EQ_PARTY : 'Party' → 'Party' → 'Bool'``
 
   Returns ``'True'`` if the first party is less or equal than the
-  second, ``'False'`` otherwise. [*Available in versions >= 1.1*]
+  second, ``'False'`` otherwise.
 
 * ``GREATER_EQ_PARTY : 'Party' → 'Party' → 'Bool'``
 
   Returns ``'True'`` if the first party is greater or equal than the
-  second, ``'False'`` otherwise. [*Available in versions >= 1.1*]
+  second, ``'False'`` otherwise.
 
 * ``LESS_PARTY : 'Party' → 'Party' → 'Bool'``
 
   Returns ``'True'`` if the first party is strictly less than the
-  second, ``'False'`` otherwise. [*Available in versions >= 1.1*]
+  second, ``'False'`` otherwise.
 
 * ``GREATER_PARTY : 'Party' → 'Party' → 'Bool'``
 
   Returns ``'True'`` if the first party is strictly greater than the
-  second, ``'False'`` otherwise. [*Available in versions >= 1.1*]
+  second, ``'False'`` otherwise.
 
 * ``EQUAL_PARTY : 'Party' → 'Party' → 'Bool'``
 
@@ -3714,14 +3821,10 @@ Party functions
     ∀ p. FROM_TEXT_PARTY (TO_TEXT_PARTY p) = 'Some' p
     ∀ txt p. FROM_TEXT_PARTY txt = 'Some' p → TO_TEXT_PARTY p = txt
 
-  [*Available in versions >= 1.2*]
-
 * ``FROM_TEXT_PARTY : 'Text' → 'Optional' 'Party'``
 
   Given the string representation of the party, returns the party,
   if the input string is a `PartyId strings <Literals_>`_.
-
-  [*Available in versions >= 1.2*]
 
 ContractId functions
 ~~~~~~~~~~~~~~~~~~~~
@@ -3736,8 +3839,6 @@ ContractId functions
 * ``COERCE_CONTRACT_ID  : ∀ (α : ⋆) (β : ⋆) . 'ContractId' α → 'ContractId' β``
 
   Returns the given contract ID unchanged at a different type.
-
-  [*Available in versions >= 1.5*]
 
 * ``TO_TEXT_CONTRACT_ID : ∀ (α : ⋆) . 'ContractId' α -> 'Optional' 'Text'``
 
@@ -3774,41 +3875,29 @@ ordered by keys.
 
   Returns the empty TextMap.
 
-  [*Available in versions >= 1.3*]
-
 * ``TEXTMAP_INSERT : ∀ α.  'Text' → α → 'TextMap' α → 'TextMap' α``
 
   Inserts a new key and value in the map. If the key is already
   present in the map, the associated value is replaced with the
   supplied value.
 
-  [*Available in versions >= 1.3*]
-
 * ``TEXTMAP_LOOKUP : ∀ α. 'Text' → 'TextMap' α → 'Optional' α``
 
   Looks up the value at a key in the map.
-
-  [*Available in versions >= 1.3*]
 
 * ``TEXTMAP_DELETE : ∀ α. 'Text' → 'TextMap' α → 'TextMap' α``
 
   Deletes a key and its value from the map. When the key is not a
   member of the map, the original map is returned.
 
-  [*Available in versions >= 1.3*]
-
 * ``TEXTMAP_TO_LIST : ∀ α. 'TextMap' α → 'List' ⟨ key: 'Text', value: α  ⟩``
 
   Converts to a list of key/value pairs. The output list is guaranteed to be
   sorted according to the ordering of its keys.
 
-  [*Available in versions >= 1.3*]
-
 * ``TEXTMAP_SIZE : ∀ α. 'TextMap' α → 'Int64'``
 
   Return the number of elements in the map.
-
-  [*Available in versions >= 1.3*]
 
 Generic map functions
 ~~~~~~~~~~~~~~~~~~~~~
@@ -3983,7 +4072,7 @@ Type Representation function
   Returns ``'True'`` if the first type representation is syntactically equal to
   the second one, ``'False'`` otherwise.
 
-  [*Available in versions = 1.7*]
+  [*Available in versions >= 1.7*]
 
 
 Conversions functions
@@ -4023,7 +4112,61 @@ Error functions
 
 * ``ERROR : ∀ (α : ⋆) . 'Text' → α``
 
-  Throws an error with the string as message.
+  Throws a ``'GeneralError'`` with the string as message. Formally the function
+  is defined as a shortcut for the function::
+
+    'ERROR' ≡
+        Λ (α : ⋆). λ (x : 'Text').
+        'THROW' @α ('make_any_exception' @'GeneralError' x ('MAKE_GENERAL_ERROR' x))
+
+* ``THROW : ∀ (α : ⋆) . 'AnyException' → α``
+
+  [*Available in version >= 1.dev*]
+
+  Throws an ``'AnyException'``. See the evaluation rule ``EvExpThrow`` for
+  precise semantics.
+
+* ``ANY_EXCEPTION_MESSAGE : 'AnyException' → 'Text'``
+
+  [*Available in version >= 1.dev*]
+
+  Extract the error message from an ``'AnyException'``.
+
+* ``MAKE_GENERAL_ERROR : 'Text' → 'GeneralError'``
+
+  [*Available in version >= 1.dev*]
+
+  Construct a ``'GeneralError'`` from its error message.
+
+* ``GENERAL_ERROR_MESSAGE : 'GeneralError' → 'Text'``
+
+  [*Available in version >= 1.dev*]
+
+  Extract the error message from a ``'GeneralError'``.
+
+* ``MAKE_ARITHMETIC_ERROR : 'Text' → 'ArithmeticError'``
+
+  [*Available in version >= 1.dev*]
+
+  Construct an ``'ArithmeticError'`` from its error message.
+
+* ``ARITHMETIC_ERROR_MESSAGE : 'ArithmeticError' → 'Text'``
+
+  [*Available in version >= 1.dev*]
+
+  Extract the error message from ``'ArithmeticError'``.
+
+* ``MAKE_CONTRACT_ERROR : 'Text' → 'ContractError'``
+
+  [*Available in version >= 1.dev*]
+
+  Construct a ``'ContractError'`` from its error message.
+
+* ``CONTRACT_ERROR_MESSAGE : 'ContractError' → 'Text'``
+
+  [*Available in version >= 1.dev*]
+
+  Extract the error message from a ``'ContractError'``.
 
 
 Debugging functions
@@ -4158,7 +4301,7 @@ objects only dynamically using the builtin functions prefixed by
 `TEXTMAP_` or `'GENMAP_'`
 
 
-Serialization changes since version 1.0
+Serialization changes since version 1.6
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 As explained in `Version history`_ section, DAML-LF programs are
@@ -4167,84 +4310,7 @@ deserialization process to interpret different versions of the
 language in a backward compatibility way. During deserialization, any
 encoding that does not follow the minor version provided is rejected.
 Below we list, in chronological order, all the changes that have been
-introduced to the serialization format since version 1.0
-
-
-Optional type
-.............
-
-[*Available in versions >= 1.1*]
-
-DAML-LF 1.1 is the first version that supports option type.
-
-The deserialization process will reject any DAML-LF 1.0 program using
-this data structure.
-
-
-Party ordering
-..............
-
-[*Available in versions >= 1.1*]
-
-DAML-LF 1.1 is the first version that supports the built-in functions
-``LESS_EQ_PARTY``, ``GREATER_EQ_PARTY``, ``LESS_PARTY``, and
-``GREATER_PARTY`` to compare party literals.
-
-The deserialization process will reject any DAML-LF 1.0 program using
-those functions.
-
-
-Function type vs arrow type
-...........................
-
-[*Changed in version 1.1*]
-
-Version 1.1 introduces a change in the way function types are
-represented.
-
-* In version 1.0, functional type are encoded in a "compressed" way
-  using the message `message Type.Fun`. ::
-
-    message Fun {
-      repeated Type params = 1;
-      Type result = 2;
-    }
-
-  This message is interpreted as::
-
-    ('TArrow' τ₁ ('TArrow … ('TArrow' τₙ τ)))
-
-  where `τᵢ` is the interpretation of the ``iᵗʰ`` elements of the
-  field ``params`` (whenever ``1 ≤ i ≤ n``) and ``τ`` is the
-  interpretation of the ``result`` field.  Note that in this version,
-  there is no direct way to encode the built-in type ``'TArrow'``.
-
-* In version 1.1 (or later), the primitive type ``'TArrow'`` is
-  directly encoded using the enumeration value ``PrimType.ARROW``.
-
-The deserialization process will reject:
-
-* any DAML-LF 1.0 program that uses the enumeration value
-  ``PrimType.ARROW``;
-* any DAML-LF 1.1 (or later) program that uses the message
-  ``Type.Fun``.
-
-
-Flexible controllers
-....................
-
-[*Available in versions >= 1.2*]
-
-Version 1.2 changes what is in scope when the controllers of a choice are
-computed.
-
-* In version 1.1 (or earlier), only the template argument is in scope.
-
-* In version 1.2 (or later), the template argument and the choice argument
-  are both in scope.
-
-The type checker will reject any DAML-LF < 1.2 program that tries to access
-the choice argument in a controller expression.
+introduced to the serialization format since version 1.6
 
 
 Choice observers
@@ -4296,62 +4362,9 @@ An engine compliant with the present specification must accept loading a
 package if and only if the latter of these two validation passes.
 
 
-SHA-256 Hashing
-...............
-
-[*Available in versions >= 1.2*]
-
-DAML-LF 1.2 is the first version that supports the built-in functions
-``SHA256_TEXT`` to hash string.
-
-The deserialization process will reject any DAML-LF 1.1 (or earlier)
-program using this functions.
-
-Contract Key
-............
-
-[*Available in versions >= 1.3*]
-
-Since DAML-LF 1.3, a contract key can be associated to a contract at
-creation. Subsequently, the contract can be retrieved by the corresponding
-key using the update statements ``fetch_by_key`` or
-``lookup_by_key``.
-
-DAML-LF 1.3 is the first version that supports the statements
-``fetch_by_key`` and ``lookup_by_key``. The key is an optional field
-``key`` in the Protocol buffer message ``DefTemplate``
-
-The deserialization process will reject any DAML-LF 1.2 (or earlier)
-program using the two statements above or the field ``key`` within
-the message ``DefTemplate`` .
-
-TextMap
-.......
-
-[*Available in versions >= 1.3*]
-
-The deserialization process will reject any DAML-LF 1.2 (or earlier)
-program using the builtin type ``TEXTMAP`` or the builtin functions
-``TEXTMAP_EMPTY``, ``TEXTMAP_INSERT``, ``TEXTMAP_LOOKUP``,
-``TEXTMAP_DELETE``, ``TEXTMAP_TO_LIST``, ``TEXTMAP_SIZE``,
-
-``'TextMap'`` was called ``'Map'`` in versions < 1.8.
-
-Enum
-....
-
-[*Available in versions >= 1.6*]
-
-The deserialization process will reject any DAML-LF 1.5 (or earlier)
-program using the field ``enum`` in ``DefDataType`` messages, the
-field ``enum`` in  ``CaseAlt`` messages, or the field ``enum_con_str``
-in ``Expr`` messages.
-
 
 String Interning
 ................
-
-[*Available in versions >= 1.6*]
 
 To provide string sharing, the so-called *string interning* mechanism
 allows the strings within messages to be stored in a global table and
@@ -4372,11 +4385,6 @@ in ``Package.interned_strings``.
   literal
 + An `interned identifier` is an `interned string` that can be
   interpreted as a valid `identifier`
-
-Starting from DAML-LF 1.6, the field
-``PackageRef.package_id_interned_str`` [*Available in versions >=
-1.6*] may be used instead of ``PackageRef.package_id_str`` and it
-must be a valid *interned packageId*.
 
 Starting from DAML-LF 1.7, all ``string`` (or ``repeated string``)
 fields with the suffix ``_str`` are forbidden. Alternative fields of
@@ -4439,9 +4447,9 @@ decimals. Prior versions have decimal number with a fixed scale of 10
 called Decimal.  Backward compatibility with the current specification
 is achieved as follows:
 
-On the one hand, in case of DAML-LF 1.6 (or earlier) archive:
+On the one hand, in case of DAML-LF 1.6 archive:
 
-- The ``decimal`` fields of the ``PrimLit`` message must match the
+- The ``decimal`` field of the ``PrimLit`` message must match the
   regexp::
 
     ``[+-]?\d{1,28}(.[0-9]\d{1-10})?``
@@ -4504,7 +4512,7 @@ Any type and type representation
 DAML-LF 1.7 is the first version that supports any type and
 type representation.
 
-The deserialization process will reject any DAML-LF 1.0 program using
+The deserialization process will reject any DAML-LF 1.6 program using
 this data structure.
 
 Generic Map
@@ -4517,6 +4525,12 @@ program using the builtin type ``GENMAP`` or the functions
 ``GENMAP_EMPTY``, ``GENMAP_INSERT``, ``GENMAP_LOOKUP``,
 ``GENMAP_DELETE``, ``GENMAP_KEYS``, ``GENMAP_VALUES``,
 ``GENMAP_SIZE``.
+
+
+Exception
+.........
+
+.. FIXME: https://github.com/digital-asset/daml/issues/7788
 
 
 .. Local Variables:

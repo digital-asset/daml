@@ -5,10 +5,11 @@ package com.daml.lf.data
 
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{Matchers, PropSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.propspec.AnyPropSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-final class RelationTest extends PropSpec with Matchers with PropertyChecks {
+final class RelationTest extends AnyPropSpec with Matchers with ScalaCheckPropertyChecks {
 
   import Relation.Relation._
 

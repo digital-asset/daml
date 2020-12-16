@@ -10,12 +10,13 @@ import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Implicits._
-import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import scala.language.implicitConversions
 
-class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matchers {
 
   private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 
@@ -348,7 +349,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "fetch @Mod:T e" ->
           UpdateFetch(T.tycon, e"e"),
         "exercise @Mod:T Choice cid arg" ->
-          UpdateExercise(T.tycon, n"Choice", e"cid", None, e"arg"),
+          UpdateExercise(T.tycon, n"Choice", e"cid", e"arg"),
         "exercise_by_key @Mod:T Choice key arg" ->
           UpdateExerciseByKey(T.tycon, n"Choice", e"key", e"arg"),
         "fetch_by_key @Mod:T e" ->

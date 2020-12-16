@@ -1,9 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-
-// Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
-// All rights reserved.
-
+import { ApolloClient } from '@apollo/client';
+import { withApollo } from '@apollo/client/react/hoc'
 import {
   ApolloDataProvider,
   ContractColumn,
@@ -13,12 +11,9 @@ import {
 } from '@da/ui-core';
 import { User } from '@da/ui-core/lib/session';
 import * as React from 'react';
-import { ApolloClient, withApollo } from 'react-apollo';
 import { connect } from 'react-redux';
-import { compose } from 'redux';
 import { contract as contractRoute } from '../../routes';
 import { pathToAction } from '../../routes';
-import { Connect } from '../../types';
 import * as App from '../app';
 import columns from './columns';
 import { Contract, dataToRows, makeQueryVariables, query } from './data';
@@ -27,7 +22,7 @@ export const INITIAL_FETCH_SIZE = 100;
 
 export type State = ContractTableConfig;
 
-export const init = () => ({
+export const init = (): State => ({
   search: '',
   filter: [],
   includeArchived: false,
@@ -57,7 +52,8 @@ interface ReduxProps {
 }
 
 interface ApolloProps {
-  client: ApolloClient;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: ApolloClient<any>;
 }
 
 interface OwnProps {
@@ -98,7 +94,7 @@ class Component extends React.Component<Props, {}> {
         dataProvider={this.dataProvider}
         config={this.props.state}
         hideActionRow={false}
-        columns={this.props.columns || columns}
+        columns={this.props.columns || columns}
         onConfigChange={this.onConfigChange}
         onContractClick={this.onClick}
         rowClassName="ContractTable__row"
@@ -113,9 +109,4 @@ class Component extends React.Component<Props, {}> {
   }
 }
 
-const withRedux: Connect<ReduxProps, OwnProps & ApolloProps> = connect();
-
-export const UI: React.ComponentClass<OwnProps> = compose(
-  withApollo,
-  withRedux,
-)(Component);
+export const UI: React.ComponentClass<OwnProps> = withApollo<OwnProps>(connect()(Component));

@@ -34,7 +34,8 @@ import io.reactivex.{Flowable, Observable, Single}
 import org.pcollections.{HashTreePMap, HashTreePSet}
 import org.reactivestreams.{Subscriber, Subscription}
 import org.scalatest.concurrent.Eventually
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -44,7 +45,7 @@ import scala.concurrent.{Future, Promise}
 import scala.util.Random
 import scala.util.control.NonFatal
 
-final class BotTest extends FlatSpec with Matchers with Eventually {
+final class BotTest extends AnyFlatSpec with Matchers with Eventually {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(5.seconds, 1.second)
 
   private def ledgerServices: LedgerServices = new LedgerServices("bot-test")

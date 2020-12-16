@@ -7,20 +7,11 @@ load("//bazel_tools:proto.bzl", "proto_gen")
 proto_gen(
     name = "ledger-api-akka-srcs",
     srcs = [
-        "//ledger-api/grpc-definitions:protos",
+        "//ledger-api/grpc-definitions:ledger_api_proto",
         "@com_github_grpc_grpc//src/proto/grpc/health/v1:health_proto_descriptor",
     ],
     plugin_exec = "//scala-protoc-plugins/scala-akka:protoc-gen-scala-akka",
     plugin_name = "scala-akka",
-    deps = [
-        "@com_github_googleapis_googleapis//google/rpc:status_proto",
-        "@com_google_protobuf//:any_proto",
-        "@com_google_protobuf//:descriptor_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:wrappers_proto",
-    ],
 )
 
 da_scala_library(
@@ -31,7 +22,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
         "@maven//:com_typesafe_akka_akka_actor_2_12",

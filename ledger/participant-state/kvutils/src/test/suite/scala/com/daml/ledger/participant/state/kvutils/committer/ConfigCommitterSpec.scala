@@ -11,9 +11,10 @@ import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ConfigCommitterSpec extends WordSpec with Matchers {
+class ConfigCommitterSpec extends AnyWordSpec with Matchers {
   private val metrics = new Metrics(new MetricRegistry)
   private val aRecordTime = Timestamp(100)
   private val aConfigurationSubmission = DamlConfigurationSubmission.newBuilder
@@ -27,7 +28,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
   "checkTtl" should {
     "produce rejection log entry if maximum record time is before record time" in {
       val instance = createConfigCommitter(aRecordTime)
-      val context = new FakeCommitContext(recordTime = Some(aRecordTime.addMicros(1)))
+      val context = createCommitContext(recordTime = Some(aRecordTime.addMicros(1)))
 
       val actual = instance.checkTtl(context, anEmptyResult)
 
@@ -44,7 +45,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
     "continue if maximum record time is on or after record time" in {
       for (maximumRecordTime <- Iterable(aRecordTime, aRecordTime.addMicros(1))) {
         val instance = createConfigCommitter(maximumRecordTime)
-        val context = new FakeCommitContext(recordTime = Some(aRecordTime))
+        val context = createCommitContext(recordTime = Some(aRecordTime))
 
         val actual = instance.checkTtl(context, anEmptyResult)
 
@@ -57,7 +58,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
 
     "skip checking against maximum record time if record time is not available" in {
       val instance = createConfigCommitter(aRecordTime)
-      val context = new FakeCommitContext(recordTime = None)
+      val context = createCommitContext(recordTime = None)
 
       instance.checkTtl(context, anEmptyResult) match {
         case StepContinue(_) => succeed
@@ -67,7 +68,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
 
     "set the maximum record time and out-of-time-bounds log entry in the context if record time is not available" in {
       val instance = createConfigCommitter(aRecordTime)
-      val context = new FakeCommitContext(recordTime = None)
+      val context = createCommitContext(recordTime = None)
 
       instance.checkTtl(context, anEmptyResult)
 
@@ -85,7 +86,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
       val instance = createConfigCommitter(theRecordTime)
-      val context = new FakeCommitContext(recordTime = Some(aRecordTime))
+      val context = createCommitContext(recordTime = Some(aRecordTime))
 
       instance.checkTtl(context, anEmptyResult)
 
@@ -97,7 +98,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
   "buildLogEntry" should {
     "set record time in log entry when it is available" in {
       val instance = createConfigCommitter(theRecordTime.addMicros(1000))
-      val context = new FakeCommitContext(recordTime = Some(theRecordTime))
+      val context = createCommitContext(recordTime = Some(theRecordTime))
 
       val actual = instance.buildLogEntry(context, anEmptyResult)
 
@@ -111,7 +112,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
 
     "skip setting record time in log entry when it is not available" in {
       val instance = createConfigCommitter(theRecordTime)
-      val context = new FakeCommitContext(recordTime = None)
+      val context = createCommitContext(recordTime = None)
 
       val actual = instance.buildLogEntry(context, anEmptyResult)
 
@@ -125,7 +126,7 @@ class ConfigCommitterSpec extends WordSpec with Matchers {
     "produce a log entry (pre-execution disabled or enabled)" in {
       for (recordTimeMaybe <- Iterable(Some(aRecordTime), None)) {
         val instance = createConfigCommitter(theRecordTime)
-        val context = new FakeCommitContext(recordTime = recordTimeMaybe)
+        val context = createCommitContext(recordTime = recordTimeMaybe)
 
         val actual = instance.buildLogEntry(context, anEmptyResult)
 

@@ -5,15 +5,16 @@ package com.daml.lf.validation
 
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast.Package
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Try
 
-class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   "Serializability checking" should {
 
@@ -228,7 +229,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
 
     "reject unserializable contract id" in {
 
-      val pkg0 =
+      val pkg =
         p"""
           // well-formed module
           module NegativeTestCase1 {
@@ -250,17 +251,17 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
             record @serializable SerializableContractId = { cid : ContractId NegativeTestCase1:SerializableRecord };
           }
 
-          module OncePositiveTestCase1 {
+          module NegativeTestCase3 {
             record @serializable SerializableRecord = {};
 
-            record @serializable OnceUnserializableContractId = { cid : ContractId OncePositiveTestCase1:SerializableRecord };
+            record @serializable OnceUnserializableContractId = { cid : ContractId NegativeTestCase3:SerializableRecord };
           }
 
-          module OncePositiveTestCase2 {
+          module NegativeTestCase4 {
             record @serializable OnceUnserializableContractId = { cid : ContractId Int64 };
           }
 
-          module OncePositiveTestCase3 {
+          module NegativeTestCase5 {
             record @serializable OnceUnserializableContractId (a : *) = { cid : ContractId a };
           }
 
@@ -275,36 +276,27 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
           }
          """
 
-      val version1_4 = LanguageVersion(LanguageMajorVersion.V1, "4")
-      val version1_5 = LanguageVersion(LanguageMajorVersion.V1, "5")
-      val versions = Table("version", version1_4, version1_5)
-
-      val neverFail = (_: LanguageVersion) => false
-      val failBefore1_5 =
-        (version: LanguageVersion) => LanguageVersion.ordering.lteq(version, version1_4)
-      val alwaysFail = (_: LanguageVersion) => true
-      val testCases = Table[String, LanguageVersion => Boolean](
-        "module" -> "should fail",
-        "NegativeTestCase1" -> neverFail,
-        "NegativeTestCase2" -> neverFail,
-        "OncePositiveTestCase1" -> failBefore1_5,
-        "OncePositiveTestCase2" -> failBefore1_5,
-        "OncePositiveTestCase3" -> failBefore1_5,
-        "PositiveTestCase1" -> alwaysFail,
-        "PositiveTestCase2" -> alwaysFail,
+      val negativeTestCases = Table(
+        "module",
+        "NegativeTestCase1",
+        "NegativeTestCase2",
+        "NegativeTestCase3",
+        "NegativeTestCase4",
+        "NegativeTestCase5",
+      )
+      val positiveTestCases = Table(
+        "module",
+        "PositiveTestCase1",
+        "PositiveTestCase2",
       )
 
-      forEvery(versions) { version =>
-        val pkg = pkg0.copy(languageVersion = version)
-        forEvery(testCases) { (modName: String, shouldFail: LanguageVersion => Boolean) =>
-          if (shouldFail(version)) {
-            an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, modName))
-            ()
-          } else {
-            check(pkg, modName)
-          }
-        }
+      forEvery(negativeTestCases) { modName =>
+        check(pkg, modName)
       }
+      forEvery(positiveTestCases) { modName =>
+        an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, modName))
+      }
+
     }
   }
 

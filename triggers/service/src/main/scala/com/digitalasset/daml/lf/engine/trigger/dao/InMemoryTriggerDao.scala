@@ -5,6 +5,7 @@ package com.daml.lf.engine.trigger.dao
 
 import java.util.UUID
 
+import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.archive.Dar
@@ -27,6 +28,18 @@ final class InMemoryTriggerDao extends RunningTriggerDao {
   override def getRunningTrigger(triggerInstance: UUID)(
       implicit ec: ExecutionContext): Future[Option[RunningTrigger]] = Future {
     triggers.get(triggerInstance)
+  }
+
+  override def updateRunningTriggerToken(
+      triggerInstance: UUID,
+      accessToken: AccessToken,
+      refreshToken: Option[RefreshToken])(implicit ec: ExecutionContext): Future[Unit] = Future {
+    triggers.get(triggerInstance) match {
+      case Some(t) =>
+        triggers += (triggerInstance -> t
+          .copy(triggerAccessToken = Some(accessToken), triggerRefreshToken = refreshToken))
+      case None => ()
+    }
   }
 
   override def removeRunningTrigger(triggerInstance: UUID)(

@@ -21,7 +21,9 @@ import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.daml.platform.testing.StreamConsumer
-import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
+import org.scalatest.Inspectors
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future

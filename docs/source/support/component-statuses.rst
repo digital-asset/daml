@@ -243,8 +243,8 @@ Developer Tools
      - Stable
      -
    * - DAML Sandbox on Postgres (iw with the ``--sql-backend-jdbcurl`` flag)
-     - Stable
-     -
+     - Stable, Deprecated
+     - 2020-12-16
    * - DAML Sandbox Classic and associated CLIs ``daml sandbox-classic``, ``daml start --sandbox-classic``
      - Stable, Deprecated
      - 2020-04-09

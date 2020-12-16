@@ -1,20 +1,20 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+
+import { ApolloClient } from '@apollo/client';
+import { withApollo, withQuery } from '@apollo/client/react/hoc';
 import {
   ApolloDataProvider,
   ContractColumn,
   ContractTable,
   ContractTableConfig,
   Dispatch,
-  WithGraphQL,
-  WithRedux,
 } from '@da/ui-core';
 import { User } from '@da/ui-core/lib/session';
 import * as React from 'react';
-import { ApolloClient, graphql, withApollo } from 'react-apollo';
 import { connect } from 'react-redux';
-import { compose } from 'redux';
+import { ContractsByTemplateParamQuery, ContractsByTemplateParamQueryVariables } from 'src/api/Queries';
 import { contract as contractRoute } from '../../routes';
 import { pathToAction } from '../../routes';
 import * as App from '../app';
@@ -37,7 +37,7 @@ export interface TableConfig extends ContractTableConfig {
 
 export type State = TableConfig;
 
-export const init = (id: string) => ({
+export const init = (id: string): TableConfig => ({
   search: '',
   filter: [],
   includeArchived: true,
@@ -65,7 +65,8 @@ interface ReduxProps {
 }
 
 interface ApolloProps {
-  client: ApolloClient;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: ApolloClient<any>;
 }
 
 interface GraphQLProps {
@@ -129,12 +130,18 @@ class Component extends React.Component<Props, {}> {
   }
 }
 
-const withRedux: WithRedux<Props> = connect();
-const withGraphQL: WithGraphQL<Props>
-  = graphql(paramQuery, { options: (s) => makeParamQueryVariables(s) });
+const withGraphQL
+  =
+  withQuery<
+    ReduxProps & ApolloProps & OwnProps,
+    ContractsByTemplateParamQuery,
+    ContractsByTemplateParamQueryVariables,
+    GraphQLProps>(
+    paramQuery, { options: (s) => makeParamQueryVariables(s) });
 
-export const UI: React.ComponentClass<OwnProps> = compose(
-  withApollo,
-  withRedux,
-  withGraphQL,
-)(Component);
+export const UI: React.ComponentClass<OwnProps> =
+  withApollo<OwnProps>(
+    connect()(
+      withGraphQL(Component),
+    ),
+  );

@@ -17,11 +17,13 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.Ast
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
-import org.scalatest.{Matchers, ParallelTestExecution, WordSpec}
+import org.scalatest.ParallelTestExecution
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.JavaConverters._
 
-class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecution {
+class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestExecution {
 
   import com.daml.lf.testing.parser.Implicits._
 
@@ -500,7 +502,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
     def newCommitter = new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.No)
 
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
-      val context = new FakeCommitContext(recordTime = None)
+      val context = createCommitContext(recordTime = None)
 
       newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)
 
@@ -515,7 +517,7 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
     }
 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
-      val context = new FakeCommitContext(recordTime = Some(theRecordTime))
+      val context = createCommitContext(recordTime = Some(theRecordTime))
 
       newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)
 

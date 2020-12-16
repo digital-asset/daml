@@ -4,9 +4,7 @@
 Reference: DAML file structure
 ##############################
 
-This page gives reference information on the structure of DAML files outside of :doc:`templates <templates>`:
-
-.. contents:: :local:
+This page gives reference information on the structure of DAML files outside of :doc:`templates <templates>`.
 
 File structure
 **************

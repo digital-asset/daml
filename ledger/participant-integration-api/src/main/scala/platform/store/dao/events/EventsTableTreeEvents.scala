@@ -7,10 +7,10 @@ import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions._
 
-private[events] trait EventsTableTreeEvents { this: EventsTable =>
+private[events] object EventsTableTreeEvents {
 
   private val createdTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
-    createdEventRow map {
+    EventsTable.createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
         EventsTable.Entry(
           eventOffset = eventOffset,
@@ -35,7 +35,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     }
 
   private val exercisedTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Exercised]] =
-    exercisedEventRow map {
+    EventsTable.exercisedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
         EventsTable.Entry(
           eventOffset = eventOffset,
@@ -102,7 +102,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
     SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
-                 case when submitter = $requestingParty then command_id else '' end as command_id
+                 case when submitters = array[$requestingParty] then command_id else '' end as command_id
           from participant_events
           join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
           where transaction_id = $transactionId and #$witnessesWhereClause
@@ -117,8 +117,10 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParties)
     val filteredWitnesses =
       sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
+    val submittersInPartiesClause =
+      sqlFunctions.arrayIntersectionWhereClause("submitters", requestingParties)
     SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                 case when submitter in ($requestingParties) then command_id else '' end as command_id
+                 case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
           join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
           where transaction_id = $transactionId and #$witnessesWhereClause
@@ -145,7 +147,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     EventsRange.readPage(
       read = (range, limitExpr) => SQL"""
         select #$selectColumns, array[$requestingParty] as event_witnesses,
-               case when submitter = $requestingParty then command_id else '' end as command_id
+               case when submitters = array[$requestingParty] then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > ${range.startExclusive}
               and event_sequential_id <= ${range.endInclusive}
@@ -166,10 +168,12 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParties)
     val filteredWitnesses =
       sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
+    val submittersInPartiesClause =
+      sqlFunctions.arrayIntersectionWhereClause("submitters", requestingParties)
     EventsRange.readPage(
       read = (range, limitExpr) => SQL"""
         select #$selectColumns, #$filteredWitnesses as event_witnesses,
-               case when submitter in ($requestingParties) then command_id else '' end as command_id
+               case when #$submittersInPartiesClause then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > ${range.startExclusive}
               and event_sequential_id <= ${range.endInclusive}

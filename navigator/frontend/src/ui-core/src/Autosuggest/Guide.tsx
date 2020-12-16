@@ -87,7 +87,7 @@ type AutosuggestType = Autosuggest<Contract>;
 type AutosuggestCtor = new() => AutosuggestType;
 const TypedAutosuggest: AutosuggestCtor = Autosuggest as AutosuggestCtor;
 
-export default () => (
+export default (): JSX.Element => (
   <Section
     title="Autosuggest"
     description="This input field shows suggestions based on the current value."

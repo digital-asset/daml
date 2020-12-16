@@ -6,9 +6,10 @@ package com.daml.lf.validation
 import com.daml.lf.language.Ast.Type
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class AlphaEquivSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class AlphaEquivSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   import SpecUtil._
 

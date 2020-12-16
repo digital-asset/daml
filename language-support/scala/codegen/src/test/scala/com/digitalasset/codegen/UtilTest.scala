@@ -10,10 +10,12 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
 import com.daml.lf.{iface => I}
 
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
-class UtilTest extends UtilTestHelpers with GeneratorDrivenPropertyChecks {
+class UtilTest extends UtilTestHelpers with ScalaCheckDrivenPropertyChecks {
 
   val packageInterface =
     I.Interface(packageId = PackageId.assertFromString("abcdef"), typeDecls = Map.empty)
@@ -52,7 +54,7 @@ class UtilTest extends UtilTestHelpers with GeneratorDrivenPropertyChecks {
 
 }
 
-abstract class UtilTestHelpers extends FlatSpec with Matchers with BeforeAndAfterAll {
+abstract class UtilTestHelpers extends AnyFlatSpec with Matchers with BeforeAndAfterAll {
 
   val outputDir = Files.createTempDirectory("codegenUtilTest")
 

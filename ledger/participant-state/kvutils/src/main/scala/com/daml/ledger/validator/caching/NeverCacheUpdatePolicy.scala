@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.caching
-import com.daml.ledger.participant.state.kvutils.DamlKvutils
 
-object NeverCacheUpdatePolicy extends CacheUpdatePolicy {
-  override def shouldCacheOnWrite(key: DamlKvutils.DamlStateKey): Boolean = false
+object NeverCacheUpdatePolicy extends CacheUpdatePolicy[Any] {
+  override def shouldCacheOnWrite(key: Any): Boolean = false
 
-  override def shouldCacheOnRead(key: DamlKvutils.DamlStateKey): Boolean = false
+  override def shouldCacheOnRead(key: Any): Boolean = false
 }

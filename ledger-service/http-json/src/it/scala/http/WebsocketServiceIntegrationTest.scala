@@ -7,10 +7,13 @@ import akka.NotUsed
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.ws.{Message, TextMessage, WebSocketRequest}
 import akka.http.scaladsl.model.{StatusCodes, Uri}
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.{KillSwitches, UniqueKillSwitch}
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.http.json.SprayJson
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.std.option._
 import scalaz.std.vector._
 import scalaz.syntax.std.option._
@@ -150,7 +153,11 @@ class WebsocketServiceIntegrationTest
       for {
         _ <- initialIouCreate(uri)
 
-        clientMsg <- singleClientQueryStream(jwt, uri, """{"templateIds": ["Iou:Iou"]}""")
+        clientMsg <- singleClientQueryStream(
+          jwt,
+          uri,
+          """{"templateIds": ["Iou:Iou"]}"""
+        ).take(2)
           .runWith(collectResultsAsTextMessage)
       } yield
         inside(clientMsg) {
@@ -167,6 +174,7 @@ class WebsocketServiceIntegrationTest
         _ <- initialAccountCreate(uri, encoder)
 
         clientMsg <- singleClientFetchStream(jwt, uri, fetchRequest)
+          .take(2)
           .runWith(collectResultsAsTextMessage)
       } yield
         inside(clientMsg) {
@@ -185,7 +193,8 @@ class WebsocketServiceIntegrationTest
       clientMsg <- singleClientQueryStream(
         jwt,
         uri,
-        """{"templateIds": ["Iou:Iou", "Unknown:Template"]}""")
+        """{"templateIds": ["Iou:Iou", "Unknown:Template"]}"""
+      ).take(3)
         .runWith(collectResultsAsTextMessage)
     } yield
       inside(clientMsg) {
@@ -203,7 +212,8 @@ class WebsocketServiceIntegrationTest
       clientMsg <- singleClientFetchStream(
         jwt,
         uri,
-        """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}, {"templateId": "Unknown:Template", "key": ["Alice", "abc123"]}]""")
+        """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}, {"templateId": "Unknown:Template", "key": ["Alice", "abc123"]}]"""
+      ).take(3)
         .runWith(collectResultsAsTextMessage)
     } yield
       inside(clientMsg) {
@@ -241,17 +251,6 @@ class WebsocketServiceIntegrationTest
       errorResponse.errors should have size 1
   }
 
-  // NB SC #3936: the WS connection below terminates at an appropriate time for
-  // unknown reasons.  By all appearances, it should not disconnect, and
-  // fail for timeout; instead, it receives the correct # of contracts before
-  // disconnecting.  The read-write-read test further down demonstrates that this
-  // is not a matter of too-strictness; the `case (1` cannot possibly be from the
-  // ACS at the time of WS connect, if the test passes.  You can also see, structurally
-  // and observing by logging, that withHttpService is not responsible by way of
-  // disconnecting. We can see that the stream is truly continuous by testing outside
-  // this test code, e.g. in a browser with a JavaScript client, so will leave this
-  // mystery to be explored another time.
-
   private def exercisePayload(cid: domain.ContractId, amount: BigDecimal = BigDecimal("42.42")) = {
     import json.JsonProtocol._
     import spray.json._
@@ -276,7 +275,9 @@ class WebsocketServiceIntegrationTest
         ]"""
 
       @com.github.ghik.silencer.silent("evtsWrapper.*never used")
-      def resp(iouCid: domain.ContractId): Sink[JsValue, Future[ShouldHaveEnded]] = {
+      def resp(
+          iouCid: domain.ContractId,
+          kill: UniqueKillSwitch): Sink[JsValue, Future[ShouldHaveEnded]] = {
         val dslSyntax = Consume.syntax[JsValue]
         import dslSyntax._
         Consume.interpret(
@@ -322,6 +323,7 @@ class WebsocketServiceIntegrationTest
               (preOffset, 2)
             }
 
+            _ = kill.shutdown
             heartbeats <- drain
             hbCount = (heartbeats.iterator.map {
               case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
@@ -339,14 +341,17 @@ class WebsocketServiceIntegrationTest
         creation <- initialCreate
         _ = creation._1 shouldBe 'success
         iouCid = getContractId(getResult(creation._2))
-        lastState <- singleClientQueryStream(jwt, uri, query) via parseResp runWith resp(iouCid)
+        (kill, source) = singleClientQueryStream(jwt, uri, query)
+          .viaMat(KillSwitches.single)(Keep.right)
+          .preMaterialize
+        lastState <- source via parseResp runWith resp(iouCid, kill)
         liveOffset = inside(lastState) {
           case ShouldHaveEnded(liveStart, 2, lastSeen) =>
             lastSeen.unwrap should be > liveStart.unwrap
             liveStart
         }
         rescan <- (singleClientQueryStream(jwt, uri, query, Some(liveOffset))
-          via parseResp runWith remainingDeltas)
+          via parseResp).take(1) runWith remainingDeltas
       } yield
         inside(rescan) {
           case (Vector((fstId, fst @ _), (sndId, snd @ _)), Vector(observeConsumed), Some(_)) =>
@@ -378,7 +383,8 @@ class WebsocketServiceIntegrationTest
 
       def resp(
           cid1: domain.ContractId,
-          cid2: domain.ContractId): Sink[JsValue, Future[ShouldHaveEnded]] = {
+          cid2: domain.ContractId,
+          kill: UniqueKillSwitch): Sink[JsValue, Future[ShouldHaveEnded]] = {
         val dslSyntax = Consume.syntax[JsValue]
         import dslSyntax._
         Consume.interpret(
@@ -418,6 +424,7 @@ class WebsocketServiceIntegrationTest
                     number shouldBe "def567"
                 }
             }
+            _ = kill.shutdown
             heartbeats <- drain
             hbCount = (heartbeats.iterator.map {
               case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
@@ -442,17 +449,19 @@ class WebsocketServiceIntegrationTest
         _ = r2._1 shouldBe 'success
         cid2 = getContractId(getResult(r2._2))
 
-        lastState <- singleClientQueryStream(
+        (kill, source) = singleClientQueryStream(
           jwtForParties(List("Alice", "Bob"), List(), testId),
           uri,
-          query) via parseResp runWith resp(cid1, cid2)
+          query
+        ).viaMat(KillSwitches.single)(Keep.right).preMaterialize()
+        lastState <- source via parseResp runWith resp(cid1, cid2, kill)
         liveOffset = inside(lastState) {
           case ShouldHaveEnded(liveStart, 5, lastSeen) =>
             lastSeen.unwrap should be > liveStart.unwrap
             liveStart
         }
         rescan <- (singleClientQueryStream(jwt, uri, query, Some(liveOffset))
-          via parseResp runWith remainingDeltas)
+          via parseResp).take(1) runWith remainingDeltas
       } yield
         inside(rescan) {
           case (Vector(_), _, Some(_)) => succeed
@@ -477,7 +486,8 @@ class WebsocketServiceIntegrationTest
 
       def resp(
           cid1: domain.ContractId,
-          cid2: domain.ContractId): Sink[JsValue, Future[ShouldHaveEnded]] = {
+          cid2: domain.ContractId,
+          kill: UniqueKillSwitch): Sink[JsValue, Future[ShouldHaveEnded]] = {
         val dslSyntax = Consume.syntax[JsValue]
         import dslSyntax._
         Consume.interpret(
@@ -504,6 +514,7 @@ class WebsocketServiceIntegrationTest
               (off, 0)
             }
 
+            _ = kill.shutdown
             heartbeats <- drain
             hbCount = (heartbeats.iterator.map {
               case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
@@ -527,8 +538,12 @@ class WebsocketServiceIntegrationTest
         _ = r2._1 shouldBe 'success
         cid2 = getContractId(getResult(r2._2))
 
-        lastState <- singleClientFetchStream(jwt, uri, fetchRequest())
-          .via(parseResp) runWith resp(cid1, cid2)
+        (kill, source) = singleClientFetchStream(jwt, uri, fetchRequest())
+          .viaMat(KillSwitches.single)(Keep.right)
+          .preMaterialize
+
+        lastState <- source
+          .via(parseResp) runWith resp(cid1, cid2, kill)
 
         liveOffset = inside(lastState) {
           case ShouldHaveEnded(liveStart, 0, lastSeen) =>
@@ -539,8 +554,15 @@ class WebsocketServiceIntegrationTest
         // check contractIdAtOffsets' effects on phantom filtering
         resumes <- Future.traverse(Seq((None, 2L), (Some(None), 0L), (Some(Some(cid1)), 1L))) {
           case (abcHint, expectArchives) =>
-            (singleClientFetchStream(jwt, uri, fetchRequest(abcHint), Some(liveOffset))
-              via parseResp runWith remainingDeltas)
+            (singleClientFetchStream(
+              jwt,
+              uri,
+              fetchRequest(abcHint),
+              Some(liveOffset)
+            )
+              via parseResp)
+              .take(2)
+              .runWith(remainingDeltas)
               .map {
                 case (creates, archives, _) =>
                   creates shouldBe empty
@@ -571,7 +593,7 @@ class WebsocketServiceIntegrationTest
           | {"templateId": "Account:Account", "key": ["Alice", "def456"]}]
           |""".stripMargin
     val futureResults =
-      singleClientFetchStream(jwt, uri, req, keepOpen = true)
+      singleClientFetchStream(jwt, uri, req)
         .via(parseResp)
         .filterNot(isOffsetTick)
         .take(4)
@@ -635,7 +657,8 @@ class WebsocketServiceIntegrationTest
 
       def resp(
           cid1: domain.ContractId,
-          cid2: domain.ContractId): Sink[JsValue, Future[ShouldHaveEnded]] = {
+          cid2: domain.ContractId,
+          kill: UniqueKillSwitch): Sink[JsValue, Future[ShouldHaveEnded]] = {
         val dslSyntax = Consume.syntax[JsValue]
         import dslSyntax._
         Consume.interpret(
@@ -657,6 +680,7 @@ class WebsocketServiceIntegrationTest
                 headers = headersWithPartyAuth(List("Bob"))))
             ContractDelta(Vector(), Vector(archivedCid2), Some(lastSeenOffset)) <- readOne
             _ = archivedCid2.contractId shouldBe cid2
+            _ = kill.shutdown
             heartbeats <- drain
             hbCount = (heartbeats.iterator.map {
               case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
@@ -681,10 +705,12 @@ class WebsocketServiceIntegrationTest
         _ = r2._1 shouldBe 'success
         cid2 = getContractId(getResult(r2._2))
 
-        lastState <- singleClientFetchStream(
+        (kill, source) = singleClientFetchStream(
           jwtForParties(List("Alice", "Bob"), List(), testId),
           uri,
-          query) via parseResp runWith resp(cid1, cid2)
+          query
+        ).viaMat(KillSwitches.single)(Keep.right).preMaterialize
+        lastState <- source via parseResp runWith resp(cid1, cid2, kill)
         liveOffset = inside(lastState) {
           case ShouldHaveEnded(liveStart, 5, lastSeen) =>
             lastSeen.unwrap should be > liveStart.unwrap
@@ -694,8 +720,9 @@ class WebsocketServiceIntegrationTest
           jwtForParties(List("Alice", "Bob"), List(), testId),
           uri,
           query,
-          Some(liveOffset))
-          via parseResp runWith remainingDeltas)
+          Some(liveOffset)
+        )
+          via parseResp).take(2) runWith remainingDeltas
       } yield
         inside(rescan) {
           case (Vector(), Vector(_, _), Some(_)) => succeed
@@ -726,16 +753,20 @@ class WebsocketServiceIntegrationTest
         """[
           {"templateIds": ["Iou:Iou"]}
         ]"""
-      singleClientQueryStream(jwt, uri, query)
+      val (kill, source) = singleClientQueryStream(jwt, uri, query)
+        .viaMat(KillSwitches.single)(Keep.right)
+        .preMaterialize
+      source
         .via(parseResp)
         .map(iouSplitResult)
         .filterNot(_ == \/-((Vector(), Vector()))) // liveness marker/heartbeat
-        .runWith(Consume.interpret(trialSplitSeq(uri, splitSample)))
+        .runWith(Consume.interpret(trialSplitSeq(uri, splitSample, kill)))
   }
 
   private def trialSplitSeq(
       serviceUri: Uri,
-      ss: SplitSeq[BigDecimal]): Consume.FCC[IouSplitResult, Assertion] = {
+      ss: SplitSeq[BigDecimal],
+      kill: UniqueKillSwitch): Consume.FCC[IouSplitResult, Assertion] = {
     val dslSyntax = Consume.syntax[IouSplitResult]
     import SplitSeq._
     import dslSyntax._
@@ -785,6 +816,7 @@ class WebsocketServiceIntegrationTest
       \/-((Vector((genesisCid, amt)), Vector())) <- readOne
       _ = amt should ===(ss.x)
       last <- go(genesisCid, ss)
+      _ = kill.shutdown
     } yield last
   }
 

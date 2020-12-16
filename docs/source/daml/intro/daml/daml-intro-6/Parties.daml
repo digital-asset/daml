@@ -41,7 +41,7 @@ simple_iou_test = do
   -- Bob delivers the goods.
 
   passTime (minutes 10)
-  -- Alice just deletes the payment again.
+  -- Alice just deletes the payment.
   submit alice do
     archiveCmd iou
 -- SIMPLE_IOU_SCENARIO_END

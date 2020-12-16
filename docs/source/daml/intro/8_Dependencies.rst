@@ -9,7 +9,7 @@ The application from Chapter 7 is a complete and secure model for atomic swaps o
 1. Upgrades, which change existing logic. For example, one might want the ``Asset`` template to have multiple signatories.
 2. Extensions, which merely add new functionality though additional templates.
 
-Upgrades are covered in their own own section outside this introduction to DAML: :doc:`/upgrade/index` so in this section we will extend the chapter 7 model with a simple second workflow: A multi-leg trade. In doing so, you'll learn about:
+Upgrades are covered in their own section outside this introduction to DAML: :doc:`/upgrade/index` so in this section we will extend the chapter 7 model with a simple second workflow: a multi-leg trade. In doing so, you'll learn about:
 
 - The software architecture of the DAML Stack
 - Dependencies and Data Dependencies
@@ -67,7 +67,7 @@ Dependencies under the ``daml.yaml`` ``dependencies`` group rely on the ``*.hi``
 
 However, as you can see above, this information isn't preserved. Furthermore, preserving this information may not even be desireable. Imagine we had built ``7Composing`` with SDK 1.100.0, and are building ``8Dependencies`` with SDK 1.101.0. All the typeclasses and instances on the inbuilt types may have changed and are now present twice -- once from the current SDK and once from the dependency. This gets messy fast, which is why the SDK does not support ``dependencies`` across SDK versions. For dependencies on contract models that were fetched from a ledger, or come from an older SDK version, there is a simpler kind of dependency called ``data-dependencies``. The syntax for ``data-dependencies`` is the same, but they only rely on the "binary" ``*.dalf`` files. The name tries to confer that the main purpose of such dependencies is to handle data: Records, Choices, Templates. The stuff one needs to use contract composability across projects.
 
-For an extension model like this one, ``data-dependencies`` are appropriate so the chapter 8 project incldues the chapter 7 that way.
+For an extension model like this one, ``data-dependencies`` are appropriate so the chapter 8 project includes the chapter 7 that way.
 
 .. literalinclude:: daml/daml-intro-8/daml.yaml.template
   :language: yaml

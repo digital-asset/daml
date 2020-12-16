@@ -4,9 +4,7 @@
 Reference: scenarios
 ####################
 
-This page gives reference information on scenario syntax, used for testing templates:
-
-.. contents:: :local:
+This page gives reference information on scenario syntax, used for testing templates.
 
 For an introduction to scenarios, see :doc:`../testing-scenarios`.
 

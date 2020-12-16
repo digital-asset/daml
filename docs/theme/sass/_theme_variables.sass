@@ -7,7 +7,7 @@
 $font-awesome-dir:                    "../fonts/"
 $static-img:                          "../img/"
 
-$nav-content-width:                   800px
+$nav-content-width:                   745px
 $nav-media-query:                     (($nav-desktop-width) + ($nav-content-width))
 
 $mathjax-color:                       $text-color
@@ -26,17 +26,17 @@ $method-color:                        $gray
 $guilabel-color:                      $blue
 
 // Footer colors
-$footer-color:                        $text-medium
+$footer-color:                        $gray
 
 // Menu colors
 $menu-vertical-background-color:      $section-background-color
 
 // Menu text colors
 $menu-color:                          $gray
-$menu-dark:                           lighten($menu-color,10%) !default
-$menu-medium:                         lighten($menu-color,27.5%) !default
-$menu-light:                          lighten($menu-color,45%) !default
-$menu-lighter:                        lighten($menu-color,60%) !default
+$menu-dark:                           $gray-dark
+$menu-medium:                         $gray
+$menu-light:                          $gray-lighter
+$menu-lighter:                        lighten($gray,20%)
 
 // Menu link colors
 $menu-link-color:                     $text-color
@@ -49,12 +49,12 @@ $menu-link-active:                    $white
 $nav-background-color:                $menu-background-color
 $nav-search-background-color:         $blue
 $nav-search-color:                    $section-background-color
-$nav-link-color:                      $blue
-$nav-link-color-visited:              $blue
-$nav-link-color-hover:                lighten($nav-link-color, 6%) !default
+$nav-link-color:                      $text-dark
+$nav-link-color-visited:              $purple
+$nav-link-color-hover:                $text-medium
 $nav-link-color-alt:                  hsl(33, 100%, 51%)
-$nav-caption:                         $blue // gftdocs
-$nav-shadow:                          #ABB2C8
+$nav-caption:                         $gray-dark
+$nav-shadow:                          $gray-lighter
 
 // Sidebar colors
 $sidebar-background-color:            $table-stripe-color
@@ -64,7 +64,14 @@ $sidebar-title-background-color:      $table-border-color
 // Sphinx highlight color
 $highlight-color:                     $yellow
 
-$base-font-family:                    "Montserrat", "Lato", "proxima-nova", "Helvetica Neue", Arial, sans-serif
-$custom-font-family:                  "Roboto Slab", "ff-tisa-web-pro", "Georgia", Arial, sans-serif
-$custom-font-family2:                 Georgia, serif
-$code-font-family:                    SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", Courier, monospace
+$base-font-family:                    "Lato", Helvetica,Arial,sans-serif
+$custom-font-family:                  "Lato", Helvetica,Arial,sans-serif
+$custom-font-family2:                 "Lato", Helvetica,Arial,sans-serif
+$code-font-family:                    "Source Code Pro", "Courier New", Courier, monospace
+$btn-font-family:                     "Roboto Mono", "Lato", Helvetica,Arial,sans-serif
+
+$weight-title:                        400
+$weight-body:                         300
+$weight-bold:                         400
+$weight-code:                         400
+$weight-btn:                          400

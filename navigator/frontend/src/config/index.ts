@@ -1,7 +1,6 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-
 import * as configAPISource from '!raw-loader!../config/api/v1';
 import * as UICore from '@da/ui-core';
 import * as Session from '@da/ui-core/lib/session';
@@ -17,7 +16,7 @@ import { Either, left, right } from './either';
 import { catchToError } from './utils';
 
 /** List of approved and bundled imports that are available to the config file */
-// tslint:disable-next-line: no-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const imports: {[name: string]: any} = {
   'react': React,
   'react-DOM': ReactDOM,
@@ -76,7 +75,7 @@ export function loadConfig(source: string): LoadConfigResult {
         }
     };
 
-    // tslint:disable-next-line: no-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const configExports: any = {};
 
     // Evaluate transformed source
@@ -167,7 +166,8 @@ export type EvalConfigCache = {[hash: string]: EvalConfigResult};
  * A cached version of evalConfig
  * Warning: Assumes the loaded config function is referentially transparent!
  */
-export function evalConfigCached(user: Session.User, source: string, cache: EvalConfigCache) {
+export function evalConfigCached(user: Session.User, source: string, cache: EvalConfigCache):
+ { cache: EvalConfigCache, result: Either<Error, ConfigType> } {
   const hash = `${user.id};${user.party};${user.role};${source}`;
   if (cache[hash]) {
     const result = cache[hash];
@@ -188,7 +188,7 @@ export function prettyPrintConfig(config: ConfigType): Either<Error, string> {
     // JSON.stringify, but stringify functions
     return right(JSON.stringify(config, (_key, value) => {
       if (typeof value === 'function') {
-        return (value as Function).toString();
+        return value.toString();
       }
       else {
         return value;

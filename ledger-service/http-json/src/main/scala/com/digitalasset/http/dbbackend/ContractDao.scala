@@ -43,10 +43,7 @@ object ContractDao {
       implicit log: LogHandler): ConnectionIO[Map[domain.Party, domain.Offset]] = {
     import doobie.postgres.implicits._
     for {
-      tpId <- Queries.surrogateTemplateId(
-        templateId.packageId,
-        templateId.moduleName,
-        templateId.entityName)
+      tpId <- surrogateTemplateId(templateId)
       offset <- Queries
         .lastOffset(domain.Party.unsubst(parties), tpId)
     } yield {
@@ -68,7 +65,7 @@ object ContractDao {
     import scalaz.syntax.foldable._
     val partyVector = domain.Party.unsubst(parties.toVector)
     val lastOffsetsStr: Map[String, String] =
-      domain.Party.unsubst[Map[?, String], String](domain.Offset.tag.unsubst(lastOffsets))
+      domain.Party.unsubst[Map[*, String], String](domain.Offset.tag.unsubst(lastOffsets))
     for {
       tpId <- Queries.surrogateTemplateId(
         templateId.packageId,
@@ -90,10 +87,7 @@ object ContractDao {
       implicit log: LogHandler): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
     import doobie.postgres.implicits._
     for {
-      tpId <- Queries.surrogateTemplateId(
-        templateId.packageId,
-        templateId.moduleName,
-        templateId.entityName)
+      tpId <- surrogateTemplateId(templateId)
 
       dbContracts <- Queries
         .selectContracts(domain.Party.unsubst(parties), tpId, predicate)
@@ -101,6 +95,37 @@ object ContractDao {
       domainContracts = dbContracts.map(toDomain(templateId))
     } yield domainContracts
   }
+
+  private[http] def fetchById(
+      parties: OneAnd[Set, domain.Party],
+      templateId: domain.TemplateId.RequiredPkg,
+      contractId: domain.ContractId)(
+      implicit log: LogHandler): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
+    import doobie.postgres.implicits._
+    for {
+      tpId <- surrogateTemplateId(templateId)
+      dbContracts <- Queries.fetchById(
+        domain.Party unsubst parties,
+        tpId,
+        domain.ContractId unwrap contractId)
+    } yield dbContracts.map(toDomain(templateId))
+  }
+
+  private[http] def fetchByKey(
+      parties: OneAnd[Set, domain.Party],
+      templateId: domain.TemplateId.RequiredPkg,
+      key: JsValue)(
+      implicit log: LogHandler): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
+    import doobie.postgres.implicits._
+    for {
+      tpId <- surrogateTemplateId(templateId)
+      dbContracts <- Queries.fetchByKey(domain.Party unsubst parties, tpId, key)
+    } yield dbContracts.map(toDomain(templateId))
+  }
+
+  private[this] def surrogateTemplateId(templateId: domain.TemplateId.RequiredPkg)(
+      implicit log: LogHandler) =
+    Queries.surrogateTemplateId(templateId.packageId, templateId.moduleName, templateId.entityName)
 
   private def toDomain(templateId: domain.TemplateId.RequiredPkg)(
       a: Queries.DBContract[Unit, JsValue, JsValue, Vector[String]])

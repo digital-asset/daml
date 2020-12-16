@@ -14,7 +14,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "@maven//:io_grpc_grpc_api",
     ],
 )

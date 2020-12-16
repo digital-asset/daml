@@ -1,23 +1,18 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import { ApolloClient } from '@apollo/client';
+import { withApollo, withQuery } from '@apollo/client/react/hoc';
 import {
   DataColumnConfig,
   DataTable,
   Dispatch,
 
   WithGraphQL,
-  WithRedux,
 } from '@da/ui-core';
 import { User } from '@da/ui-core/lib/session';
 import * as React from 'react';
-import {
-  ApolloClient,
-  graphql,
-  withApollo,
-} from 'react-apollo';
 import { connect } from 'react-redux';
-import { compose } from 'redux';
 import { template as templateRoute } from '../../routes';
 import { pathToAction } from '../../routes';
 import * as App from '../app';
@@ -35,7 +30,7 @@ export const INITIAL_FETCH_SIZE = 100;
 
 export type State = TableConfig;
 
-export const init = () => ({
+export const init = (): State => ({
   search: '',
   filter: [],
   count: INITIAL_FETCH_SIZE,
@@ -61,7 +56,7 @@ export const reduce = (state?: State, action?: Action): State => {
 
 // GraphQL-enhanced data table
 const withGraphql: WithGraphQL<TableProps>
-  = graphql(query, { options: makeQueryVariables });
+  = withQuery(query, { options: makeQueryVariables });
 export const TemplateTable = withGraphql(DataTable);
 
 interface ReduxProps {
@@ -69,7 +64,8 @@ interface ReduxProps {
 }
 
 interface ApolloProps {
-  client: ApolloClient;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: ApolloClient<any>;
 }
 
 interface OwnProps {
@@ -121,9 +117,4 @@ class Component
   }
 }
 
-const withRedux: WithRedux<Props & ApolloProps> = connect();
-
-export const UI: React.ComponentClass<OwnProps> = compose(
-  withApollo,
-  withRedux,
-)(Component);
+export const UI: React.ComponentClass<OwnProps> = withApollo<OwnProps>(connect()(Component));

@@ -149,10 +149,10 @@ tar xzf "$TARBALL" -C "$SDK_DIR" --strip-components 1
 readonly DAML_CMD="$(command -v daml)"
 if [[ -x "$DAML_CMD" && "$DAML_CMD" == "$DAML_HOME/bin/daml" ]]; then
   # A daml installation already exists, so just install SDK version $DAML_SDK_RELEASE_VERSION.
-  "${DAML_HOME}/bin/daml" install "$SDK_DIR" --force
+  "${DAML_HOME}/bin/daml" install "$SDK_DIR" --force --set-path=no
 else
   # No daml installation detected, so install the tarball normally but disable auto-install.
-  "${SDK_DIR}/install.sh" --force
+  "${SDK_DIR}/install.sh" --force --set-path=no
   echo "auto-install: false" > "${DAML_HOME}/daml-config.yaml"
 fi
 

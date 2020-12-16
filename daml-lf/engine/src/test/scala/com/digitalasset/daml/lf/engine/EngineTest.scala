@@ -22,19 +22,20 @@ import com.daml.lf.transaction.{
   VersionedTransaction,
   GenTransaction => GenTx,
   Transaction => Tx,
-  TransactionVersions => TxVersions
+  TransactionVersion => TxVersions
 }
 import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
-import com.daml.lf.transaction.Node.VersionedNode
-import com.daml.lf.transaction.TransactionVersions.UnversionedNode
-import com.daml.lf.value.ValueVersions.assertAsVersionedValue
+import com.daml.lf.transaction.Node.GenNode
+import com.daml.lf.value.ValueVersion.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{EitherValues, Matchers, WordSpec}
+import org.scalatest.EitherValues
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside._
 import scalaz.std.either._
 import scalaz.syntax.apply._
@@ -49,7 +50,7 @@ import scala.language.implicitConversions
     "org.wartremover.warts.Product"
   ))
 class EngineTest
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
     with EitherValues
@@ -86,7 +87,7 @@ class EngineTest
 
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
-  val withKeyContractInst: ContractInst[Tx.Value[ContractId]] =
+  val withKeyContractInst: ContractInst[Value.VersionedValue[ContractId]] =
     ContractInst(
       TypeConName(basicTestsPkgId, withKeyTemplate),
       assertAsVersionedValue(
@@ -99,7 +100,7 @@ class EngineTest
       ""
     )
 
-  val defaultContracts =
+  val defaultContracts: Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]] =
     Map(
       toContractId("#BasicTests:Simple:1") ->
         ContractInst(
@@ -449,7 +450,7 @@ class EngineTest
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe 'right
     val interpretResult = engine
-      .submit(Commands(party, ImmArray(command), let, "test"), participant, submissionSeed)
+      .submit(Set(party), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
       .consume(lookupContract, lookupPackage, lookupKey)
 
     "be translated" in {
@@ -476,7 +477,7 @@ class EngineTest
       val Right((tx, meta)) = interpretResult
       val Right(submitter) = tx.guessSubmitter
       val validated = engine
-        .validate(submitter, tx, let, participant, meta.submissionTime, submissionSeed)
+        .validate(Set(submitter), tx, let, participant, meta.submissionTime, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -495,6 +496,123 @@ class EngineTest
       interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
     }
 
+  }
+
+  "multi-party create command" should {
+    val multiPartyTemplate = "BasicTests:SimpleMultiParty"
+
+    val cases = Table(
+      ("templateId", "signatories", "submitters"),
+      (multiPartyTemplate, Set("p1" -> alice, "p2" -> bob), Set(alice, bob)),
+      (multiPartyTemplate, Set("p1" -> alice, "p2" -> bob), Set(alice, bob, clara))
+    )
+
+    def id(templateId: String) = Identifier(basicTestsPkgId, templateId)
+    def command(templateId: String, signatories: Set[(String, Party)]) = {
+      val templateArgs: Set[(Some[Name], ValueParty)] = signatories.map {
+        case (label, party) =>
+          Some[Name](label) -> ValueParty(party)
+      }
+      CreateCommand(id(templateId), ValueRecord(Some(id(templateId)), ImmArray(templateArgs)))
+    }
+
+    val let = Time.Timestamp.now()
+    val submissionSeed = hash("multi-party create command")
+
+    def interpretResult(
+        templateId: String,
+        signatories: Set[(String, Party)],
+        actAs: Set[Party],
+    ) = {
+      val cmd = command(templateId, signatories)
+      val res = preprocessor
+        .preprocessCommands(ImmArray(cmd))
+        .consume(lookupContract, lookupPackage, lookupKey)
+      withClue("Preprocessing result: ")(res shouldBe 'right)
+
+      engine
+        .submit(actAs, Commands(ImmArray(cmd), let, "test"), participant, submissionSeed)
+        .consume(lookupContract, lookupPackage, lookupKey)
+    }
+
+    "be translated" in {
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          interpretResult(templateId, signatories, submitters) shouldBe 'right
+      }
+    }
+
+    "reinterpret to the same result" in {
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          val Right((tx, txMeta)) = interpretResult(templateId, signatories, submitters)
+
+          val Right((rtx, _)) =
+            reinterpret(
+              engine,
+              signatories.map(_._2),
+              tx.roots,
+              tx,
+              txMeta,
+              let,
+              lookupPackage
+            )
+          Tx.isReplayedBy(tx, rtx) shouldBe Right(())
+      }
+    }
+
+    "be validated" in {
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          val Right((tx, meta)) = interpretResult(templateId, signatories, submitters)
+          val validated = engine
+            .validate(submitters, tx, let, participant, meta.submissionTime, submissionSeed)
+            .consume(lookupContract, lookupPackage, lookupKey)
+          validated match {
+            case Left(e) =>
+              fail(e.msg)
+            case Right(()) => succeed
+          }
+      }
+    }
+
+    "allow replay with a superset of submitters" in {
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          val Right((tx, _)) = interpretResult(templateId, signatories, submitters)
+
+          val replaySubmitters = submitters + party
+          val replayResult = engine.replay(
+            submitters = replaySubmitters,
+            tx = tx,
+            ledgerEffectiveTime = let,
+            participantId = participant,
+            submissionTime = let,
+            submissionSeed = submissionSeed,
+          )
+
+          replayResult shouldBe a[ResultDone[_]]
+      }
+    }
+
+    "not allow replay with a subset of submitters" in {
+      forAll(cases) {
+        case (templateId, signatories, submitters) =>
+          val Right((tx, _)) = interpretResult(templateId, signatories, submitters)
+
+          val replaySubmitters = submitters.drop(1)
+          val replayResult = engine.replay(
+            submitters = replaySubmitters,
+            tx = tx,
+            ledgerEffectiveTime = let,
+            participantId = participant,
+            submissionTime = let,
+            submissionSeed = submissionSeed,
+          )
+
+          replayResult shouldBe a[ResultError]
+      }
+    }
   }
 
   "exercise command" should {
@@ -532,7 +650,7 @@ class EngineTest
 
     "be translated" in {
       val Right((rtx, _)) = engine
-        .submit(Commands(party, ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Set(party), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       Tx.isReplayedBy(tx, rtx) shouldBe Right(())
     }
@@ -554,7 +672,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(submitter, tx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -569,7 +687,7 @@ class EngineTest
       val partyEvents = events.events.values.toList.filter(_.witnesses contains party)
       partyEvents.size shouldBe 1
       partyEvents(0) match {
-        case _: ExerciseEvent[NodeId, ContractId, Tx.Value[ContractId]] => succeed
+        case _: ExerciseEvent[NodeId, ContractId] => succeed
         case _ => fail("expected exercise")
       }
     }
@@ -593,7 +711,7 @@ class EngineTest
 
     "fail at submission" in {
       val submitResult = engine
-        .submit(Commands(alice, ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Set(alice), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       submitResult.left.value.msg should startWith("dependency error: couldn't find key")
     }
@@ -636,7 +754,7 @@ class EngineTest
 
     "be translated" in {
       val submitResult = engine
-        .submit(Commands(alice, ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Set(alice), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
         .map(_._1)
       (result.map(_._1) |@| submitResult)((tx, rtx) => Tx.isReplayedBy(tx, rtx)) shouldBe Right(
@@ -654,7 +772,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(submitter, tx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -676,7 +794,7 @@ class EngineTest
 
     "mark all the exercise nodes as performed byKey" in {
       val expectedNodes = tx.nodes.collect {
-        case (id, _: Node.NodeExercises[_, _, _]) => id
+        case (id, _: Node.NodeExercises[_, _]) => id
       }
       val actualNodes = byKeyNodes(tx)
       actualNodes shouldBe 'nonEmpty
@@ -833,8 +951,8 @@ class EngineTest
       tx.roots should have length 2
       tx.nodes.keySet.toList should have length 2
       val ImmArray(create, exercise) = tx.roots.map(tx.nodes)
-      create shouldBe a[Node.NodeCreate[_, _]]
-      exercise shouldBe a[Node.NodeExercises[_, _, _]]
+      create shouldBe a[Node.NodeCreate[_]]
+      exercise shouldBe a[Node.NodeExercises[_, _]]
     }
 
     "reinterpret to the same result" in {
@@ -848,7 +966,7 @@ class EngineTest
 
     "be validated" in {
       val validated = engine
-        .validate(submitter, tx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), tx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -1037,7 +1155,7 @@ class EngineTest
       ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))))
 
     val Right((tx, txMeta)) = engine
-      .submit(Commands(bob, ImmArray(command), let, "test"), participant, submissionSeed)
+      .submit(Set(bob), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
       .consume(lookupContract, lookupPackage, lookupKey)
 
     val submissionTime = txMeta.submissionTime
@@ -1102,6 +1220,7 @@ class EngineTest
             _,
             _,
             _,
+            _,
             ) =>
           coid shouldBe originalCoid
           consuming shouldBe true
@@ -1112,7 +1231,7 @@ class EngineTest
       }
 
       findNodeByIdx(bobView.nodes, 1).getOrElse(fail("node not found")) match {
-        case Node.NodeCreate(_, coins, _, _, stakeholders, _) =>
+        case Node.NodeCreate(_, coins, _, _, stakeholders, _, _) =>
           coins.template shouldBe templateId
           stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
@@ -1124,7 +1243,7 @@ class EngineTest
 
       claraView.nodes.size shouldBe 1
       findNodeByIdx(claraView.nodes, 1).getOrElse(fail("node not found")) match {
-        case Node.NodeCreate(_, coins, _, _, stakeholders, _) =>
+        case Node.NodeCreate(_, coins, _, _, stakeholders, _, _) =>
           coins.template shouldBe templateId
           stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
@@ -1162,16 +1281,15 @@ class EngineTest
           contractId = originalCoid,
           templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
           choice = "Transfer",
-          choiceArgument = assertAsVersionedValue(
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:Transfer")),
-              ImmArray((Some[Name]("newReceiver"), ValueParty(clara))))),
+          choiceArgument = ValueRecord(
+            Some(Identifier(basicTestsPkgId, "BasicTests:Transfer")),
+            ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))),
           actingParties = Set(bob),
           isConsuming = true,
           children = ImmArray(noid1),
           stakeholders = Set(bob, alice),
           witnesses = Set(bob, alice),
-          exerciseResult = Some(assertAsVersionedValue(ValueContractId(cid)))
+          exerciseResult = Some(ValueContractId(cid))
         )
 
       val bobVisibleCreate = partyEvents.events(noid1)
@@ -1180,19 +1298,18 @@ class EngineTest
           cid,
           Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
           None,
-          assertAsVersionedValue(
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-              ImmArray(
-                (Some[Name]("giver"), ValueParty(alice)),
-                (Some[Name]("receiver"), ValueParty(clara)))
-            )),
+          ValueRecord(
+            Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+            ImmArray(
+              (Some[Name]("giver"), ValueParty(alice)),
+              (Some[Name]("receiver"), ValueParty(clara)))
+          ),
           "",
           signatories = Set(alice),
           observers = Set(clara), // Clara is implicitly an observer because she controls a choice
           witnesses = Set(bob, clara, alice),
         )
-      bobVisibleCreate.asInstanceOf[CreateEvent[_, _]].stakeholders == Set("Alice", "Clara")
+      bobVisibleCreate.asInstanceOf[CreateEvent[_]].stakeholders == Set("Alice", "Clara")
     }
   }
 
@@ -1235,7 +1352,7 @@ class EngineTest
         ""
       )
 
-    def lookupContract(id: ContractId): Option[ContractInst[Tx.Value[ContractId]]] = {
+    def lookupContract(id: ContractId): Option[ContractInst[Value.VersionedValue[ContractId]]] = {
       id match {
         case `fetchedCid` => Some(makeContract(fetchedStrTid, fetchedTArgs))
         case `fetcher1Cid` => Some(makeContract(fetcherStrTid, fetcher1TArgs))
@@ -1247,14 +1364,14 @@ class EngineTest
     val let = Time.Timestamp.now()
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
 
-    def actFetchActors[Nid, Cid, Val](n: Node.GenNode[Nid, Cid, Val]): Set[Party] = {
+    def actFetchActors[Nid, Cid](n: Node.GenNode[Nid, Cid]): Set[Party] = {
       n match {
-        case Node.NodeFetch(_, _, _, actingParties, _, _, _, _) => actingParties
+        case Node.NodeFetch(_, _, _, actingParties, _, _, _, _, _) => actingParties
         case _ => Set()
       }
     }
 
-    def txFetchActors[Nid, Cid, Val](tx: GenTx[Nid, Cid, Val]): Set[Party] =
+    def txFetchActors[Nid, Cid](tx: GenTx[Nid, Cid]): Set[Party] =
       tx.fold(Set[Party]()) {
         case (actors, (_, n)) => actors union actFetchActors(n)
       }
@@ -1302,8 +1419,8 @@ class EngineTest
 
     "be retained when reinterpreting single fetch nodes" in {
       val Right((tx, txMeta)) = runExample(fetcher1Cid, clara)
-      val fetchNodes = tx.versionedNodes.iterator.collect {
-        case entry @ (_, VersionedNode(_, Node.NodeFetch(_, _, _, _, _, _, _, _))) => entry
+      val fetchNodes = tx.nodes.iterator.collect {
+        case entry @ (_, Node.NodeFetch(_, _, _, _, _, _, _, _, _)) => entry
       }
 
       fetchNodes.foreach {
@@ -1311,7 +1428,7 @@ class EngineTest
           val fetchTx = VersionedTransaction(n.version, Map(nid -> n), ImmArray(nid))
           val Right((reinterpreted, _)) =
             engine
-              .reinterpret(n.node.requiredAuthorizers, n.node, txMeta.nodeSeeds.toSeq.collectFirst {
+              .reinterpret(n.requiredAuthorizers, n, txMeta.nodeSeeds.toSeq.collectFirst {
                 case (`nid`, seed) => seed
               }, txMeta.submissionTime, let)
               .consume(lookupContract, lookupPackage, lookupKey)
@@ -1344,7 +1461,7 @@ class EngineTest
       ""
     )
 
-    def lookupContract(id: ContractId): Option[ContractInst[Tx.Value[ContractId]]] = {
+    def lookupContract(id: ContractId): Option[ContractInst[Value.VersionedValue[ContractId]]] = {
       id match {
         case `fetchedCid` => Some(fetchedContract)
         case _ => None
@@ -1363,6 +1480,7 @@ class EngineTest
         stakeholders = Set.empty,
         key = None,
         byKey = false,
+        version = TxVersions.minVersion,
       )
 
       val let = Time.Timestamp.now()
@@ -1409,11 +1527,11 @@ class EngineTest
       lookerUpCid -> lookerUpInst,
     )
 
-    def firstLookupNode[Nid, Cid, Val](
-        tx: GenTx[Nid, Cid, Val],
-    ): Option[(Nid, Node.NodeLookupByKey[Cid, Val])] =
+    def firstLookupNode[Nid, Cid](
+        tx: GenTx[Nid, Cid],
+    ): Option[(Nid, Node.NodeLookupByKey[Cid])] =
       tx.nodes.collectFirst {
-        case (nid, nl @ Node.NodeLookupByKey(_, _, _, _)) => nid -> nl
+        case (nid, nl @ Node.NodeLookupByKey(_, _, _, _, _)) => nid -> nl
       }
 
     val now = Time.Timestamp.now()
@@ -1425,11 +1543,11 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
       val Right((tx, _)) = engine
-        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, seed)
+        .submit(Set(alice), Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       val expectedByKeyNodes = tx.transaction.nodes.collect {
-        case (id, _: Node.NodeLookupByKey[_, _]) => id
+        case (id, _: Node.NodeLookupByKey[_]) => id
       }
       val actualByKeyNodes = byKeyNodes(tx)
       actualByKeyNodes shouldBe 'nonEmpty
@@ -1443,7 +1561,7 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
       val Right((tx, txMeta)) = engine
-        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, seed)
+        .submit(Set(alice), Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
@@ -1472,7 +1590,7 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))))
       val Right((tx, txMeta)) = engine
-        .submit(Commands(alice, ImmArray(exerciseCmd), now, "test"), participant, seed)
+        .submit(Set(alice), Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
@@ -1530,7 +1648,8 @@ class EngineTest
         )
       engine
         .submit(
-          Commands(party, ImmArray(command), Time.Timestamp.now(), "test"),
+          Set(party),
+          Commands(ImmArray(command), Time.Timestamp.now(), "test"),
           participant,
           submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1568,7 +1687,7 @@ class EngineTest
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       tx.transaction.nodes.values.headOption match {
-        case Some(Node.NodeFetch(_, _, _, _, _, _, key, _)) =>
+        case Some(Node.NodeFetch(_, _, _, _, _, _, key, _, _)) =>
           key match {
             // just test that the maintainers match here, getting the key out is a bit hairier
             case Some(Node.KeyWithMaintainers(_, maintainers)) =>
@@ -1630,7 +1749,7 @@ class EngineTest
 
       tx.transaction.nodes
         .collectFirst {
-          case (id, nf: Node.NodeFetch[_, _]) =>
+          case (id, nf: Node.NodeFetch[_]) =>
             nf.key match {
               // just test that the maintainers match here, getting the key out is a bit hairier
               case Some(Node.KeyWithMaintainers(_, maintainers)) =>
@@ -1666,7 +1785,7 @@ class EngineTest
         choiceArgument = ValueRecord(None, ImmArray((None, ValueInt64(n.toLong)))),
       )
       engine
-        .submit(Commands(party, ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(Set(party), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(_ => None, lookupPackage, _ => None)
     }
 
@@ -1682,7 +1801,7 @@ class EngineTest
         for {
           submitter <- tx.guessSubmitter.left.map(ValidationError)
           res <- engine
-            .validate(submitter, tx, let, participant, metaData.submissionTime, submissionSeed)
+            .validate(Set(submitter), tx, let, participant, metaData.submissionTime, submissionSeed)
             .consume(_ => None, lookupPackage, _ => None)
         } yield res
 
@@ -1693,7 +1812,7 @@ class EngineTest
     "be partially reinterpretable" in {
       val Right((tx, txMeta)) = run(3)
       val ImmArray(_, exeNode1) = tx.transaction.roots
-      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _, _) =
+      val Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _, _, _) =
         tx.transaction.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
 
@@ -1814,37 +1933,37 @@ class EngineTest
 
     import com.daml.lf.language.{LanguageVersion => LV}
 
-    def engine(min: LV.Minor, max: LV.Minor) =
+    def engine(min: LV, max: LV) =
       new Engine(
         EngineConfig.Dev.copy(
-          allowedLanguageVersions = VersionRange(LV(LV.Major.V1, min), LV(LV.Major.V1, max))
+          allowedLanguageVersions = VersionRange(min, max)
         )
       )
 
     val pkgId = Ref.PackageId.assertFromString("-pkg-")
 
-    def pkg(v: LV.Minor) =
+    def pkg(version: LV) =
       language.Ast.Package(
         Traversable.empty,
         Traversable.empty,
-        LV(LV.Major.V1, v),
+        version,
         None
       )
 
     "reject disallow packages" in {
       val negativeTestCases = Table(
-        ("pkg version", "minVersion", "maxVertion"),
-        (LV.Minor.Stable("6"), LV.Minor.Stable("6"), LV.Minor.Stable("8")),
-        (LV.Minor.Stable("7"), LV.Minor.Stable("6"), LV.Minor.Stable("8")),
-        (LV.Minor.Stable("8"), LV.Minor.Stable("6"), LV.Minor.Stable("8")),
-        (LV.Minor.Dev, LV.Minor.Stable("6"), LV.Minor.Dev),
+        ("pkg version", "minVersion", "maxversion"),
+        (LV.v1_6, LV.v1_6, LV.v1_8),
+        (LV.v1_7, LV.v1_6, LV.v1_8),
+        (LV.v1_8, LV.v1_6, LV.v1_8),
+        (LV.v1_dev, LV.v1_6, LV.v1_dev),
       )
       val positiveTestCases = Table(
-        ("pkg version", "minVersion", "maxVertion"),
-        (LV.Minor.Stable("6"), LV.Minor.Stable("7"), LV.Minor.Dev),
-        (LV.Minor.Stable("7"), LV.Minor.Stable("8"), LV.Minor.Stable("8")),
-        (LV.Minor.Stable("8"), LV.Minor.Stable("6"), LV.Minor.Stable("7")),
-        (LV.Minor.Dev, LV.Minor.Stable("6"), LV.Minor.Stable("8")),
+        ("pkg version", "minVersion", "maxversion"),
+        (LV.v1_6, LV.v1_7, LV.v1_dev),
+        (LV.v1_7, LV.v1_8, LV.v1_8),
+        (LV.v1_8, LV.v1_6, LV.v1_7),
+        (LV.v1_dev, LV.v1_6, LV.v1_8),
       )
 
       forEvery(negativeTestCases)((v, min, max) =>
@@ -1876,9 +1995,7 @@ object EngineTest {
     a
   }
 
-  private def findNodeByIdx[Cid, Val](
-      nodes: Map[NodeId, Node.GenNode[NodeId, Cid, Val]],
-      idx: Int) =
+  private def findNodeByIdx[Cid](nodes: Map[NodeId, Node.GenNode[NodeId, Cid]], idx: Int) =
     nodes.collectFirst { case (nodeId, node) if nodeId.index == idx => node }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -1896,15 +2013,15 @@ object EngineTest {
       txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PackageId => Option[Package],
-      contracts: Map[ContractId, Tx.ContractInst[ContractId]] = Map.empty,
+      contracts: Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]] = Map.empty,
   ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
     type Acc =
       (
-          HashMap[NodeId, UnversionedNode],
+          HashMap[NodeId, GenNode[NodeId, ContractId]],
           BackStack[NodeId],
           Boolean,
           BackStack[(NodeId, crypto.Hash)],
-          Map[ContractId, Tx.ContractInst[ContractId]],
+          Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]],
           Map[GlobalKey, ContractId],
       )
     val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
@@ -1944,23 +2061,23 @@ object EngineTest {
                       _,
                       _,
                       _,
-                      _))) =>
+                      _,
+                      _,
+                    ))) =>
                 (contracts - targetCoid, keys)
-              case (
-                  (contracts, keys),
-                  (_, Node.NodeCreate(cid: ContractId, coinst, _, _, _, key))) =>
+              case ((contracts, keys), (_, create: Node.NodeCreate[ContractId])) =>
                 (
                   contracts.updated(
-                    cid,
-                    coinst,
+                    create.coid,
+                    create.versionedCoinst,
                   ),
-                  key.fold(keys)(
+                  create.key.fold(keys)(
                     k =>
                       keys.updated(
                         GlobalKey(
-                          coinst.template,
-                          k.key.value.assertNoCid(cid => s"unexpected relative contract ID $cid")),
-                        cid))
+                          create.templateId,
+                          k.key.assertNoCid(cid => s"unexpected relative contract ID $cid")),
+                        create.coid))
                 )
               case (acc, _) => acc
             }
@@ -1969,13 +2086,7 @@ object EngineTest {
             tr = tr1.transaction.mapNodeId(nodeRenaming)
           } yield
             (
-              nodes ++ tr.nodes.mapValues(
-                Node.GenNode.map3(
-                  identity[NodeId],
-                  identity[ContractId],
-                  (v: VersionedValue[ContractId]) => v.value,
-                )
-              ),
+              nodes ++ tr.nodes,
               roots :++ tr.roots,
               dependsOnTime || meta1.dependsOnTime,
               nodeSeeds :++ meta1.nodeSeeds.map { case (nid, seed) => nodeRenaming(nid) -> seed },
@@ -1988,7 +2099,6 @@ object EngineTest {
       case (nodes, roots, dependsOnTime, nodeSeeds, _, _) =>
         (
           TxVersions.asVersionedTransaction(
-            engine.compiledPackages().packageLanguageVersion,
             roots.toImmArray,
             nodes,
           ),

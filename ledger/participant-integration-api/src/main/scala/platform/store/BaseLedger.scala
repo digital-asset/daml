@@ -51,10 +51,10 @@ private[platform] abstract class BaseLedger(
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
-  override def lookupKey(key: GlobalKey, forParty: Party)(
+  override def lookupKey(key: GlobalKey, forParties: Set[Party])(
       implicit loggingContext: LoggingContext,
   ): Future[Option[ContractId]] =
-    ledgerDao.lookupKey(key, forParty)
+    ledgerDao.lookupKey(key, forParties)
 
   override def flatTransactions(
       startExclusive: Option[Offset],
@@ -107,10 +107,10 @@ private[platform] abstract class BaseLedger(
 
   override def lookupContract(
       contractId: ContractId,
-      forParty: Party
+      forParties: Set[Party]
   )(implicit loggingContext: LoggingContext)
     : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
-    ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty)
+    ledgerDao.lookupActiveOrDivulgedContract(contractId, forParties)
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -179,21 +179,21 @@ private[platform] abstract class BaseLedger(
 
   override def deduplicateCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
-    ledgerDao.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil)
+    ledgerDao.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil)
 
   override def removeExpiredDeduplicationData(currentTime: Instant)(
       implicit loggingContext: LoggingContext,
   ): Future[Unit] =
     ledgerDao.removeExpiredDeduplicationData(currentTime)
 
-  override def stopDeduplicatingCommand(commandId: CommandId, submitter: Party)(
+  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Party])(
       implicit loggingContext: LoggingContext,
   ): Future[Unit] =
-    ledgerDao.stopDeduplicatingCommand(commandId, submitter)
+    ledgerDao.stopDeduplicatingCommand(commandId, submitters)
 
   override def prune(pruneUpToInclusive: Offset)(
       implicit loggingContext: LoggingContext): Future[Unit] =

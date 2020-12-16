@@ -129,21 +129,21 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
       delegate.getActiveContracts(filter, verbose))
 
   override def lookupActiveContract(
-      submitter: Party,
+      readers: Set[Party],
       contractId: Value.ContractId,
   )(implicit loggingContext: LoggingContext)
     : Future[Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]]] =
     Timed.future(
       metrics.daml.services.index.lookupActiveContract,
-      delegate.lookupActiveContract(submitter, contractId))
+      delegate.lookupActiveContract(readers, contractId))
 
   override def lookupContractKey(
-      submitter: Party,
+      readers: Set[Party],
       key: GlobalKey,
   )(implicit loggingContext: LoggingContext): Future[Option[Value.ContractId]] =
     Timed.future(
       metrics.daml.services.index.lookupContractKey,
-      delegate.lookupContractKey(submitter, key))
+      delegate.lookupContractKey(readers, key))
 
   override def lookupMaximumLedgerTime(
       ids: Set[Value.ContractId],
@@ -187,21 +187,21 @@ private[daml] final class TimedIndexService(delegate: IndexService, metrics: Met
 
   override def deduplicateCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[v2.CommandDeduplicationResult] =
     Timed.future(
       metrics.daml.services.index.deduplicateCommand,
-      delegate.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil))
+      delegate.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil))
 
   override def stopDeduplicatingCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     Timed.future(
       metrics.daml.services.index.stopDeduplicateCommand,
-      delegate.stopDeduplicatingCommand(commandId, submitter))
+      delegate.stopDeduplicatingCommand(commandId, submitters))
 
   override def prune(pruneUpToInclusive: Offset)(
       implicit loggingContext: LoggingContext): Future[Unit] =

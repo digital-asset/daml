@@ -23,7 +23,7 @@ private[lf] object CheckAuthorization {
       List(failWith)
   }
 
-  private[lf] def authorizeCreate(create: NodeCreate[_, _])(
+  private[lf] def authorizeCreate(create: NodeCreate[_])(
       auth: Authorize,
   ): List[FailedAuthorization] = {
     authorize(
@@ -55,7 +55,7 @@ private[lf] object CheckAuthorization {
       })
   }
 
-  private[lf] def authorizeFetch(fetch: NodeFetch[_, _])(
+  private[lf] def authorizeFetch(fetch: NodeFetch[_])(
       auth: Authorize
   ): List[FailedAuthorization] = {
     authorize(
@@ -69,7 +69,7 @@ private[lf] object CheckAuthorization {
     )
   }
 
-  private[lf] def authorizeLookupByKey(lbk: NodeLookupByKey[_, _])(
+  private[lf] def authorizeLookupByKey(lbk: NodeLookupByKey[_])(
       auth: Authorize,
   ): List[FailedAuthorization] = {
     authorize(
@@ -86,20 +86,10 @@ private[lf] object CheckAuthorization {
   private[lf] def authorizeExercise(ex: ExercisesContext)(
       auth: Authorize,
   ): List[FailedAuthorization] = {
-    val controllersDifferFromActors = ex.controllers != ex.actingParties
     authorize(
       passIf = ex.actingParties.nonEmpty,
       failWith = FailedAuthorization.NoControllers(ex.templateId, ex.choiceId, ex.optLocation),
     ) ++
-      authorize(
-        passIf = !controllersDifferFromActors,
-        failWith = FailedAuthorization.ActorMismatch(
-          templateId = ex.templateId,
-          choiceId = ex.choiceId,
-          optLocation = ex.optLocation,
-          givenActors = ex.actingParties,
-        ),
-      ) ++
       authorize(
         passIf = ex.actingParties subsetOf auth.authParties,
         failWith = FailedAuthorization.ExerciseMissingAuthorization(

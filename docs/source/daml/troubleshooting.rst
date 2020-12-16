@@ -4,9 +4,6 @@
 Troubleshooting
 ###############
 
-.. contents::
-    :local:
-
 .. _faqs-multi-obligables:
 
 Error: "<X> is not authorized to commit an update"

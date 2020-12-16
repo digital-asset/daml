@@ -3,22 +3,26 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
-import com.daml.ledger.participant.state.kvutils.DamlKvutils
+import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, configurationStateKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theDefaultConfig}
 import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
+import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Err}
+import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
+import com.daml.ledger.participant.state.v1.{Configuration, TimeModel}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
-import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
+import org.mockito.MockitoSugar
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.slf4j.{Logger, LoggerFactory}
 
 class CommitterSpec
-    extends WordSpec
+    extends AnyWordSpec
     with TableDrivenPropertyChecks
     with Matchers
     with MockitoSugar {
@@ -184,6 +188,57 @@ class CommitterSpec
     }
   }
 
+  "getCurrentConfiguration" should {
+    "return configuration in case there is one available on the ledger" in {
+      val inputState = Map(configurationStateKey -> Some(aConfigurationStateValue))
+      val commitContext = createCommitContext(recordTime = None, inputState)
+
+      val (Some(actualConfigurationEntry), actualConfiguration) =
+        Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
+
+      actualConfigurationEntry should be(aConfigurationStateValue.getConfigurationEntry)
+      actualConfiguration should be(aConfig)
+    }
+
+    "return default configuration in case there is no configuration on the ledger" in {
+      val inputState = Map(configurationStateKey -> None)
+      val commitContext = createCommitContext(recordTime = None, inputState)
+
+      val (actualConfigurationEntry, actualConfiguration) =
+        Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
+
+      actualConfigurationEntry should not be defined
+      actualConfiguration should be(theDefaultConfig)
+    }
+
+    "throw in case configuration key is not declared in the input" in {
+      val commitContext = createCommitContext(recordTime = None, Map.empty)
+
+      assertThrows[Err.MissingInputState] {
+        Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
+      }
+    }
+
+    "return no configuration entry in case decoding of configuration fails" in {
+      // Create a configuration with an unsupported generation number.
+      val invalidConfigurationEntry = DamlStateValue.newBuilder
+        .setConfigurationEntry(
+          DamlConfigurationEntry.newBuilder
+            .setConfiguration(LedgerConfiguration.newBuilder.setGeneration(123456))
+        )
+        .build
+      val commitContext = createCommitContext(
+        recordTime = None,
+        Map(configurationStateKey -> Some(invalidConfigurationEntry)))
+
+      val (actualConfigurationEntry, actualConfiguration) =
+        Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
+
+      actualConfigurationEntry should not be defined
+      actualConfiguration should be(theDefaultConfig)
+    }
+  }
+
   private val aRecordTime = Timestamp(100)
   private val aDamlSubmission = DamlSubmission.getDefaultInstance
   private val aLogEntry = DamlLogEntry.newBuilder
@@ -199,6 +254,11 @@ class CommitterSpec
         .setSubmissionId("an ID")
         .setParticipantId("a participant"))
     .build
+  private val aConfig: Configuration = Configuration(
+    generation = 1,
+    timeModel = TimeModel.reasonableDefault,
+    maxDeduplicationTime = Duration.ofMinutes(1),
+  )
 
   private def newMetrics() = new Metrics(new MetricRegistry)
 
@@ -212,4 +272,14 @@ class CommitterSpec
 
     override protected val metrics: Metrics = newMetrics()
   }
+
+  private def aConfigurationStateValue: DamlStateValue =
+    DamlStateValue.newBuilder
+      .setConfigurationEntry(
+        DamlConfigurationEntry.newBuilder
+          .setConfiguration(Configuration.encode(aConfig))
+      )
+      .build
+
+  private def createLogger(): Logger = LoggerFactory.getLogger(this.getClass)
 }

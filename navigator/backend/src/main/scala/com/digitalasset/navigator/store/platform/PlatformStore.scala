@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
-import akka.pattern.ask
+import akka.pattern.{ask, pipe}
 import akka.stream.Materializer
 import akka.util.Timeout
 import com.daml.grpc.GrpcException
@@ -26,6 +26,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.client.services.testing.time.StaticTime
 import com.daml.lf.data.Ref
 import com.daml.navigator.ApplicationInfo
+import com.daml.navigator.config.UserConfig
 import com.daml.navigator.model._
 import com.daml.navigator.store.Store._
 import com.daml.navigator.time._
@@ -36,7 +37,7 @@ import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.{Failure, Random, Success, Try}
 
@@ -70,11 +71,11 @@ object PlatformStore {
 
   case class StateConnected(
       ledgerClient: LedgerClient,
-      parties: List[PartyState],
+      parties: Map[String, PartyState],
       staticTime: Option[StaticTime],
       time: TimeProviderWithType
   )
-  case class StateInitial(parties: List[PartyState])
+  case class StateInitial(parties: Map[String, PartyState])
   case class StateFailed(error: Throwable)
 }
 
@@ -98,7 +99,7 @@ class PlatformStore(
   private val system = context.system
 
   implicit val s: Scheduler = system.scheduler
-  import scala.concurrent.ExecutionContext.Implicits.global
+  implicit val ec: ExecutionContext = system.dispatcher
   implicit val materializer: Materializer = Materializer(system)
   implicit val esf: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
@@ -126,15 +127,13 @@ class PlatformStore(
   // ----------------------------------------------------------------------------------------------
   // Messages
   // ----------------------------------------------------------------------------------------------
-  override def receive: Receive = connecting(StateInitial(List.empty[PartyState]))
+  override def receive: Receive = connecting(StateInitial(Map.empty[String, PartyState]))
 
   def connecting(state: StateInitial): Receive = {
     case Connected(Success(value)) =>
       context.become(
         connected(StateConnected(value.ledgerClient, state.parties, value.staticTime, value.time)))
       unstashAll
-
-      state.parties.foreach(party => startPartyActor(value.ledgerClient, party))
 
     case Connected(Failure(e)) =>
       // Connection failed even after several retries - not sure how to recover from this
@@ -155,9 +154,39 @@ class PlatformStore(
   }
 
   def connected(state: StateConnected): Receive = {
-    case Subscribe(party) =>
-      startPartyActor(state.ledgerClient, party)
-      context.become(connected(state.copy(parties = party :: state.parties)))
+    case UpdateParties =>
+      state.ledgerClient.partyManagementClient
+        .listKnownParties()
+        .map(UpdatedParties(_))
+        .pipeTo(self)
+      ()
+    case UpdatedParties(details) =>
+      details.foreach { partyDetails =>
+        if (partyDetails.isLocal) {
+          val displayName = partyDetails.displayName match {
+            case Some(value) => value
+            case None => partyDetails.party
+          }
+          self ! Subscribe(
+            displayName,
+            UserConfig(
+              party = ApiTypes.Party(partyDetails.party),
+              role = None,
+              useDatabase = false))
+        } else {
+          log.debug(s"Ignoring non-local party ${partyDetails.party}")
+        }
+      }
+
+    case Subscribe(displayName, config) =>
+      if (!state.parties.contains(displayName)) {
+        log.info(s"Starting actor for $displayName")
+        val partyState = new PartyState(config)
+        startPartyActor(state.ledgerClient, partyState)
+        context.become(connected(state.copy(parties = state.parties + (displayName -> partyState))))
+      } else {
+        log.debug(s"Actor for $displayName is already running")
+      }
 
     case CreateContract(party, templateId, value) =>
       createContract(state.time.time.getCurrentTime, party, templateId, value, sender)
@@ -185,17 +214,22 @@ class PlatformStore(
       val snd = sender
 
       Future
-        .traverse(state.parties)(ps => {
-          val result = for {
-            ref <- context.child(childName(ps))
-            pi <- Try(
-              (ref ? GetPartyActorInfo)
-                .mapTo[PartyActorInfo]
-                .recover { case _ => PartyActorUnresponsive(ps.name) }
-            ).toOption
-          } yield pi
-          result.getOrElse(Future.successful(PartyActorUnresponsive(ps.name)))
-        })
+        .traverse(state.parties.toList) {
+          case (p, ps) => {
+            val result = for {
+              ref <- context.child(childName(ps.name))
+              pi <- Try(
+                (ref ? GetPartyActorInfo)
+                  .mapTo[PartyActorInfo]
+                  .map(PartyActorRunning(_): PartyActorResponse)
+                  .recover { case _ => PartyActorUnresponsive }
+              ).toOption
+            } yield pi
+            result
+              .getOrElse(Future.successful(PartyActorUnresponsive))
+              .map(actorInfo => (p, actorInfo))
+          }
+        }
         .andThen {
           case Success(actorStatus) =>
             snd ! ApplicationStateConnected(
@@ -205,7 +239,7 @@ class PlatformStore(
               applicationId,
               state.ledgerClient.ledgerId.unwrap,
               state.time,
-              actorStatus
+              actorStatus.toMap
             )
           case Failure(error) =>
             log.error(error.getMessage)
@@ -216,7 +250,7 @@ class PlatformStore(
               applicationId,
               state.ledgerClient.ledgerId.unwrap,
               state.time,
-              List.empty
+              Map.empty
             )
         }
       ()
@@ -238,13 +272,13 @@ class PlatformStore(
   // ----------------------------------------------------------------------------------------------
   // Helpers
   // ----------------------------------------------------------------------------------------------
-  private def childName(party: PartyState): String =
-    "party-" + URLEncoder.encode(ApiTypes.Party.unwrap(party.name), "UTF-8")
+  private def childName(party: ApiTypes.Party): String =
+    "party-" + URLEncoder.encode(ApiTypes.Party.unwrap(party), "UTF-8")
 
-  private def startPartyActor(ledgerClient: LedgerClient, party: PartyState): ActorRef = {
+  private def startPartyActor(ledgerClient: LedgerClient, state: PartyState): ActorRef = {
     context.actorOf(
-      PlatformSubscriber.props(ledgerClient, party, applicationId, token),
-      childName(party))
+      PlatformSubscriber.props(ledgerClient, state, applicationId, token),
+      childName(state.name))
   }
 
   private def sslContext: Option[SslContext] =
@@ -421,7 +455,7 @@ class PlatformStore(
     // Each party has its own command completion stream.
     // Forward the request to the party actor, so that it can be tracked.
     context
-      .child(childName(party))
+      .child(childName(party.name))
       .foreach(child => child ! PlatformSubscriber.SubmitCommand(command, sender))
   }
 

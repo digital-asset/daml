@@ -16,7 +16,7 @@ import com.daml.ledger.{TransactionId, WorkflowId}
   * Depending on where the contract came from, other metadata may be available.
   */
 private[platform] sealed abstract class Contract {
-  def id: Value.ContractId
+  def id: ContractId
 
   def contract: ContractInst[VersionedValue[ContractId]]
 

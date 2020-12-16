@@ -40,6 +40,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
+import com.daml.metrics.{SpanAttribute, Spans}
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -75,7 +76,11 @@ private[platform] final class LedgerBackedIndexService(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] =
     between(startExclusive, endInclusive)(
-      (from, to) =>
+      (from, to) => {
+        from.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString))
+        to.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString))
         ledger
           .transactionTrees(
             startExclusive = from,
@@ -84,6 +89,7 @@ private[platform] final class LedgerBackedIndexService(
             verbose = verbose,
           )
           .map(_._2)
+      }
     )
 
   override def transactions(
@@ -93,7 +99,11 @@ private[platform] final class LedgerBackedIndexService(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
     between(startExclusive, endInclusive)(
-      (from, to) =>
+      (from, to) => {
+        from.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString))
+        to.foreach(offset =>
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString))
         ledger
           .flatTransactions(
             startExclusive = from,
@@ -102,6 +112,7 @@ private[platform] final class LedgerBackedIndexService(
             verbose = verbose,
           )
           .map(_._2)
+      }
     )
 
   // Returns a function that memoizes the current end
@@ -197,11 +208,11 @@ private[platform] final class LedgerBackedIndexService(
     ledger.getLfPackage(packageId)
 
   override def lookupActiveContract(
-      submitter: Ref.Party,
+      readers: Set[Party],
       contractId: ContractId,
   )(implicit loggingContext: LoggingContext)
     : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
-    ledger.lookupContract(contractId, submitter)
+    ledger.lookupContract(contractId, readers)
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId])(
       implicit loggingContext: LoggingContext,
@@ -209,10 +220,10 @@ private[platform] final class LedgerBackedIndexService(
     ledger.lookupMaximumLedgerTime(ids)
 
   override def lookupContractKey(
-      submitter: Party,
+      readers: Set[Party],
       key: GlobalKey,
   )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
-    ledger.lookupKey(key, submitter)
+    ledger.lookupKey(key, readers)
 
   // PartyManagementService
   override def getParticipantId()(implicit loggingContext: LoggingContext): Future[ParticipantId] =
@@ -296,17 +307,17 @@ private[platform] final class LedgerBackedIndexService(
   /** Deduplicate commands */
   override def deduplicateCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
-    ledger.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil)
+    ledger.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil)
 
   override def stopDeduplicatingCommand(
       commandId: CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Unit] =
-    ledger.stopDeduplicatingCommand(commandId, submitter)
+    ledger.stopDeduplicatingCommand(commandId, submitters)
 
   /** Participant pruning command */
   override def prune(pruneUpToInclusive: Offset)(

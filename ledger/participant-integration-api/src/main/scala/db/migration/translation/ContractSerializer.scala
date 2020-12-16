@@ -31,11 +31,13 @@ private[migration] object ContractSerializer extends ContractSerializer {
 
   override def deserializeContractInstance(stream: InputStream)
     : Either[ValueCoder.DecodeError, ContractInst[VersionedValue[ContractId]]] =
-    TransactionCoder
-      .decodeContractInstance[ContractId](
-        ValueCoder.CidDecoder,
-        TransactionOuterClass.ContractInstance.parseFrom(
-          Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT))
-      )
+    ValueSerializer.handleDeprecatedValueVersions(
+      TransactionCoder
+        .decodeVersionedContractInstance[ContractId](
+          ValueCoder.CidDecoder,
+          TransactionOuterClass.ContractInstance.parseFrom(
+            Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT))
+        )
+    )
 
 }

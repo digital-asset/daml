@@ -12,18 +12,22 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.api.util.TimeProvider.UTC
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.SessionJsonProtocol._
-import com.daml.navigator.config.{Arguments, Config, UserConfig}
+import com.daml.navigator.config.{Arguments, UserConfig}
 import com.daml.navigator.model.PartyState
 import com.daml.navigator.store.Store.{
   ApplicationStateConnected,
   ApplicationStateConnecting,
   ApplicationStateFailed,
-  ApplicationStateInfo
+  ApplicationStateInfo,
+  PartyActorRunning,
+  PartyActorStarted
 }
 import com.daml.navigator.time.TimeProviderType.Static
 import com.daml.navigator.time.TimeProviderWithType
 import com.typesafe.scalalogging.LazyLogging
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.syntax.tag._
 import spray.json._
 
@@ -31,7 +35,7 @@ import scala.concurrent.Future
 import scala.util.Success
 
 class ServerTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with ScalatestRouteTest
     with LazyLogging
@@ -40,9 +44,9 @@ class ServerTest
   val userId = "userId"
   val role = "role"
   val party = ApiTypes.Party("party")
-  val password = "password"
-  val user = User(userId, new PartyState(party, false), Some(role), true)
-  val userConfig = UserConfig(Some(password), new PartyState(party, false), Some(role))
+  val userConfig = UserConfig(party, Some(role), false)
+  val partyState = new PartyState(userConfig)
+  val user = User(userId, partyState, Some(role), true)
 
   val userJson = JsObject(
     "id" -> JsString(userId),
@@ -63,7 +67,6 @@ class ServerTest
     NavigatorBackend.getRoute(
       system = ActorSystem("da-ui-backend-test"),
       arguments = Arguments.default,
-      config = new Config(users = Map(userId -> userConfig)),
       graphQL = DefaultGraphQLHandler(Set.empty, None),
       info = TestInfoHandler,
       getAppState = () => Future.successful(state)
@@ -78,7 +81,7 @@ class ServerTest
         "n/a",
         "0",
         TimeProviderWithType(UTC, Static),
-        List.empty))
+        Map(userId -> PartyActorRunning(PartyActorStarted(partyState)))))
 
   private[this] val unauthorized =
     route(
@@ -128,7 +131,7 @@ class ServerTest
 
   it should "respond with the Session when already signed-in" in withCleanSessions {
     val sessionId = "session-id-value"
-    Session.open(sessionId, userId, userConfig)
+    Session.open(sessionId, userId, userConfig, user.party)
     Get("/api/session/") ~> Cookie("session-id" -> sessionId) ~> connected ~> check {
       Unmarshal(response.entity).to[String].value.map(_.map(_.parseJson)) shouldEqual Some(
         Success((sessionJson)))
@@ -136,7 +139,7 @@ class ServerTest
   }
 
   "SelectMode POST /api/session/" should "allow to SignIn with an existing user" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId, None)) ~> connected ~> check {
+    Post("/api/session/", LoginRequest(userId)) ~> connected ~> check {
       Unmarshal(response.entity).to[String].value.map(_.map(_.parseJson)) shouldEqual Some(
         Success((sessionJson)))
       val sessionId = sessionCookie()
@@ -145,7 +148,7 @@ class ServerTest
   }
 
   it should "forbid to SignIn with a non existing user" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId + " ", None)) ~> connected ~> check {
+    Post("/api/session/", LoginRequest(userId + " ")) ~> connected ~> check {
       responseAs[SignIn] shouldEqual SignIn(
         method = SignInSelect(userIds = Set(userId)),
         Some(InvalidCredentials))
@@ -153,32 +156,30 @@ class ServerTest
   }
 
   it should "forbid to SignIn with when unauthorized and report the error" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId, None)) ~> unauthorized ~> check {
+    Post("/api/session/", LoginRequest(userId)) ~> unauthorized ~> check {
       responseAs[SignIn] shouldEqual SignIn(
-        method = SignInSelect(userIds = Set(userId)),
+        method = SignInSelect(userIds = Set()),
         Some(InvalidCredentials))
     }
   }
 
   it should "forbid to SignIn with when it's impossible to connect to the ledger" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId, None)) ~> failed ~> check {
-      responseAs[SignIn] shouldEqual SignIn(
-        method = SignInSelect(userIds = Set(userId)),
-        Some(Unknown))
+    Post("/api/session/", LoginRequest(userId)) ~> failed ~> check {
+      responseAs[SignIn] shouldEqual SignIn(method = SignInSelect(userIds = Set()), Some(Unknown))
     }
   }
 
   it should "forbid to SignIn with when still connecting to a ledger" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId, None)) ~> connecting ~> check {
+    Post("/api/session/", LoginRequest(userId)) ~> connecting ~> check {
       responseAs[SignIn] shouldEqual SignIn(
-        method = SignInSelect(userIds = Set(userId)),
+        method = SignInSelect(userIds = Set()),
         Some(NotConnected))
     }
   }
 
   "SelectMode DELETE /api/session/" should "delete a given Session when signed-in" in withCleanSessions {
     val sessionId = "session-id-value-2"
-    Session.open(sessionId, userId, userConfig)
+    Session.open(sessionId, userId, userConfig, user.party)
     Delete("/api/session/") ~> Cookie("session-id", sessionId) ~> connected ~> check {
       Session.current(sessionId) shouldBe None
     }

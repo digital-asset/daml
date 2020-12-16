@@ -74,17 +74,31 @@ jobs:
       - git_sha
     variables:
       fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
-      pr_commit: $[ dependencies.git_sha.outputs['out.branch'] ]
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
+      pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
       demands: assignment -equals default
     steps:
       - checkout: self
+      - template: ci/bash-lib.yml
+        parameters:
+          var_name: bash-lib
       - bash: |
           set -euo pipefail
-          git checkout $(pr_commit)
-          ci/check-changelog.sh $(fork_sha)
+          source $(bash-lib)
+          git checkout $(branch_sha)
+          if ci/check-changelog.sh $(fork_sha); then
+              exit 0
+          else
+              user=$(user_slack_handle $(branch_sha))
+              if [ "$user" != "" ]; then
+                  tell_slack "<@${user}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> is missing a changelog entry." \
+                         "$(Slack.team-daml-ci)"
+              fi
+              exit 1
+          fi
 
   - template: ci/da-ghc-lib/compile.yml
     parameters:
@@ -134,6 +148,7 @@ jobs:
     timeoutInMinutes: 360
     pool:
       name: macOS-pool
+      demands: assignment -equals default
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
@@ -198,6 +213,46 @@ jobs:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
+  - job: Linux_scala_2_13
+    dependsOn:
+      - da_ghc_lib
+    timeoutInMinutes: 360
+    pool:
+      name: 'linux-pool'
+      demands: assignment -equals default
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - bash: |
+          source dev-env/lib/ensure-nix
+          ci/dev-env-push.py
+        displayName: 'Push Developer Environment build results'
+        condition: eq(variables['System.PullRequest.IsFork'], 'False')
+        env:
+          # to upload to the Nix cache
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+          NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
+
+      - bash: ci/configure-bazel.sh
+        displayName: 'Configure Bazel'
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
+          # to upload to the bazel cache
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          bazel build --config scala_2_13 //libs-scala/...
+          # gatling-utils tests fail with a ClassNotFoundException for scala.collection.SeqLike
+          bazel test --config scala_2_13 -- //libs-scala/... -//libs-scala/gatling-utils/...
+        displayName: 'Build'
+      - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
+      - template: ci/report-end.yml
+
   - job: compatibility_ts_libs
     dependsOn:
       - da_ghc_lib
@@ -239,6 +294,7 @@ jobs:
     timeoutInMinutes: 360
     pool:
       name: macOS-pool
+      demands: assignment -equals default
     steps:
       - template: ci/report-start.yml
       - template: ci/clear-shared-segments-macos.yml
@@ -516,7 +572,7 @@ jobs:
           curl -XPOST \
                -i \
                -H 'Content-Type: application/json' \
-               --data "{\"text\":\"<@${pr_handler}> Release \`$(release_tag)\` is ready for testing. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
+               --data "{\"text\":\"<@${pr_handler}> Release \`$(release_tag)\` is ready for testing. See <https://github.com/digital-asset/daml/blob/master/release/RELEASE.md|release instructions>. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
                $(Slack.team-daml)
       - template: ci/tell-slack-failed.yml
         parameters:
@@ -562,32 +618,16 @@ jobs:
             fi
         done
 
-        AUTH="$(get_gh_auth_header)"
-
         trap "git checkout $(branch_sha)" EXIT
         git checkout origin/master
-        BRANCH=update-compat-versions-for-$(release_tag)
-        # if this is a rerun, branch might already exist
-        git branch -D $BRANCH || true
-        git checkout -b $BRANCH
         cp .bazelrc compatibility/
         compatibility/update-versions.sh
-        # Note that maven_install.json might be unchanged but
-        # git add is happy about that.
         git add compatibility/versions.bzl compatibility/maven_install.json
-        git -c user.name="Azure Pipelines DAML Build" \
-            -c user.email="support@digitalasset.com" \
-            commit \
-            -m "$(printf "update compat versions for $(release_tag)\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
-        git push origin $BRANCH:$BRANCH
-        curl -H "Content-Type: application/json" \
-             -H "$AUTH" \
-             --silent \
-             --fail \
-             --include \
-             --location \
-             -d "{\"title\": \"update compat versions for $(release_tag)\", \"head\": \"$BRANCH\", \"base\": \"master\"}" \
-             https://api.github.com/repos/digital-asset/daml/pulls
+
+        BRANCH=update-compat-versions-for-$(release_tag)-$(Build.BuildId)
+        TITLE="update compat versions for $(release_tag)"
+        open_pr "$BRANCH" "$TITLE"
+
         setvar "branch" "$BRANCH"
       name: out
 
@@ -621,6 +661,7 @@ jobs:
       - compatibility_macos
       - compatibility_linux
       - compatibility_windows
+      - Linux_scala_2_13
     pool:
       name: "linux-pool"
       demands: assignment -equals default
@@ -637,6 +678,10 @@ jobs:
       Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
       Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
       Windows.status: $[ dependencies.Windows.result ]
+      Linux_scala_2_13.start: $[ dependencies.Linux_scala_2_13.outputs['start.time'] ]
+      Linux_scala_2_13.machine: $[ dependencies.Linux_scala_2_13.outputs['start.machine'] ]
+      Linux_scala_2_13.end: $[ dependencies.Linux_scala_2_13.outputs['end.time'] ]
+      Linux_scala_2_13.status: $[ dependencies.Linux_scala_2_13.result ]
       release.start: $[ dependencies.release.outputs['start.time'] ]
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]
@@ -797,7 +842,19 @@ jobs:
           # the PR. Hence the `|| echo ""`.
           PR_HANDLER=$(head -1 release/rotation | awk '{print $1}')
 
-          tell_slack "<@${PR_HANDLER}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/${PR}|#${PR}> has completed with status $(status). See <https://github.com/digital-asset/daml/blob/master/release/RELEASE.md|RELEASE.md> for what to do next."
+          case "$(status)" in
+            Succeeded*)
+              msg="has succeeded! Next step is to approve & merge."
+              ;;
+            Failed*)
+              msg="has failed. Please investigate."
+              ;;
+            *)
+              # Should not be reached, but who knows?
+              msg="has completed with status $(status). See <https://github.com/digital-asset/daml/blob/master/release/RELEASE.md|RELEASE.md> for what to do next."
+              ;;
+            esac
+          tell_slack "<@${PR_HANDLER}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/${PR}|#${PR}> $msg"
 
   - job: notify_user
     condition: and(eq(variables['Build.Reason'], 'PullRequest'), not(canceled()))
@@ -805,38 +862,25 @@ jobs:
       - git_sha
       - collect_build_data
       - check_for_release
+      - check_changelog_entry
     pool:
       name: 'linux-pool'
       demands: assignment -equals default
     variables:
       pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
-      status: $[ dependencies.collect_build_data.result ]
+      build_status: $[ dependencies.collect_build_data.result ]
+      changelog_status: $[ dependencies.check_changelog_entry.result ]
     steps:
+      - template: ci/bash-lib.yml
+        parameters:
+          var_name: bash-lib
       - bash: |
           set -euo pipefail
+          source $(bash-lib)
 
-          tell_slack() {
-              local MESSAGE=$1
-              local USER_ID=$2
-              curl -XPOST \
-                   -i \
-                   -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<@${USER_ID}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has completed with status ${MESSAGE}.\"}" \
-                   $(Slack.team-daml-ci)
-          }
-
-          EMAIL=$(git log -n 1 --format=%ae $(branch_sha))
-          user_registered() {
-              cat ci/slack_user_ids | grep $EMAIL
-          }
-
-          user_id() {
-              echo $(cat ci/slack_user_ids | grep $EMAIL | awk '{print $2}')
-          }
-
-          if user_registered; then
-              tell_slack "$(status)" "$(user_id)"
-          else
-              echo "User $(user_id) did not opt in for notifications."
+          user=$(user_slack_handle $(branch_sha))
+          if [ "$user" != "" ]; then
+              tell_slack "<@${user}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has completed with status $(build_status) (changelog: $(changelog_status))." \
+                         "$(Slack.team-daml-ci)"
           fi

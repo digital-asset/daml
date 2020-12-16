@@ -4,9 +4,10 @@
 package com.daml.platform.server.util.context
 
 import com.daml.ledger.api.v1.trace_context.TraceContext
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TraceContextConversionsTest extends WordSpec with Matchers {
+class TraceContextConversionsTest extends AnyWordSpec with Matchers {
 
   private val sut = TraceContextConversions
 

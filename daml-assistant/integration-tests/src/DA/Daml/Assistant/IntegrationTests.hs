@@ -501,7 +501,7 @@ damlStartTests getDamlStart =
                       (fail "No start process stdin handle")
                       (\h -> hPutChar h 'r' >> hFlush h)
                       startStdin
-                  threadDelay 20000000
+                  threadDelay 40_000_000
                   initialRequest <-
                       parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
                   let queryRequest =

@@ -17,6 +17,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import io.grpc.netty.GrpcSslContexts
 import io.netty.handler.ssl.SslContext
 import pureconfig._
+import pureconfig.generic.auto._
 
 import scala.util.Try
 
@@ -54,7 +55,7 @@ object LedgerClientConfig {
   }
 
   def create(config: Config = ConfigFactory.load()): Try[LedgerClientConfig] = {
-    wrapError(loadConfig[LedgerClientConfig](config, "ledger-client"))
+    wrapError(ConfigSource.fromConfig(config).at("ledger-client").load[LedgerClientConfig])
   }
 
   private def wrapError[T](

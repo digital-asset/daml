@@ -1,21 +1,15 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:java.bzl", "da_java_proto_library")
+load("//bazel_tools:proto.bzl", "proto_jars")
 
-proto_library(
+proto_jars(
     name = "ledger_configuration_proto",
     srcs = ["com/daml/ledger/participant/state/ledger_configuration.proto"],
-    strip_import_prefix = "/ledger/participant-state/protobuf",
+    maven_artifact_prefix = "participant-state-ledger-configuration",
+    maven_group = "com.daml",
     visibility = ["//ledger/participant-state:__subpackages__"],
     deps = [
         "@com_google_protobuf//:duration_proto",
     ],
-)
-
-da_java_proto_library(
-    name = "ledger_configuration_java_proto",
-    tags = ["maven_coordinates=com.daml:participant-state-ledger-configuration-java-proto:__VERSION__"],
-    visibility = ["//ledger:__subpackages__"],
-    deps = [":ledger_configuration_proto"],
 )

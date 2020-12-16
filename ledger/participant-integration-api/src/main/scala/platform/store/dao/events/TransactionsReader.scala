@@ -5,9 +5,10 @@ package com.daml.platform.store.dao.events
 
 import java.sql.Connection
 
-import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
+import akka.{Done, NotUsed}
+import com.daml
+import com.daml.ledger.api.TraceIdentifiers
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.TreeEvent
@@ -17,14 +18,17 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{DatabaseMetrics, Metrics, Timed}
+import com.daml.metrics._
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
+import io.opentelemetry.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /**
   * @param dispatcher Executes the queries prepared by this object
@@ -67,7 +71,13 @@ private[dao] final class TransactionsReader(
       filter: FilterRelation,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-
+    val span =
+      ParticipantTracer
+        .spanBuilder("com.daml.platform.store.dao.events.TransactionsReader.getFlatTransactions")
+        .setNoParent()
+        .setAttribute(SpanAttribute.OffsetFrom.key, startExclusive.toHexString)
+        .setAttribute(SpanAttribute.OffsetTo.key, endInclusive.toHexString)
+        .startSpan()
     logger.debug(s"getFlatTransactions($startExclusive, $endInclusive, $filter, $verbose)")
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
@@ -75,7 +85,7 @@ private[dao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
       logger.debug(s"getFlatTransactions query($range)")
       QueryNonPruned.executeSqlOrThrow(
-        EventsTable
+        EventsTableFlatEvents
           .preparePagedGetFlatTransactions(sqlFunctions)(
             range = EventsRange(range.startExclusive._2, range.endInclusive._2),
             filter = filter,
@@ -95,7 +105,7 @@ private[dao] final class TransactionsReader(
             verbose,
             dbMetrics.getFlatTransactions,
             query,
-            nextPageRange[Event](requestedRange.endInclusive)
+            nextPageRange[Event](requestedRange.endInclusive),
           )(requestedRange)
         })
         .mapMaterializedValue(_ => NotUsed)
@@ -105,6 +115,12 @@ private[dao] final class TransactionsReader(
         val response = EventsTable.Entry.toGetTransactionsResponse(events)
         response.map(r => offsetFor(r) -> r)
       }
+      .wireTap(_ match {
+        case (_, response) =>
+          response.transactions.foreach(txn =>
+            span.addEvent(daml.metrics.Event("transaction", TraceIdentifiers.fromTransaction(txn))))
+      })
+      .watchTermination()(endSpanOnTermination(span))
   }
 
   def lookupFlatTransactionById(
@@ -112,10 +128,12 @@ private[dao] final class TransactionsReader(
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] = {
     val query =
-      EventsTable.prepareLookupFlatTransactionById(sqlFunctions)(transactionId, requestingParties)
+      EventsTableFlatEvents.prepareLookupFlatTransactionById(sqlFunctions)(
+        transactionId,
+        requestingParties)
     dispatcher
       .executeSql(dbMetrics.lookupFlatTransactionById) { implicit connection =>
-        query.asVectorOf(EventsTable.rawFlatEventParser)
+        query.asVectorOf(EventsTableFlatEvents.rawFlatEventParser)
       }
       .flatMap(
         rawEvents =>
@@ -133,7 +151,13 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext)
     : Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-
+    val span =
+      ParticipantTracer
+        .spanBuilder("com.daml.platform.store.dao.events.TransactionsReader.getTransactionTrees")
+        .setNoParent()
+        .setAttribute(SpanAttribute.OffsetFrom.key, startExclusive.toHexString)
+        .setAttribute(SpanAttribute.OffsetTo.key, endInclusive.toHexString)
+        .startSpan()
     logger.debug(
       s"getTransactionTrees($startExclusive, $endInclusive, $requestingParties, $verbose)")
 
@@ -142,11 +166,11 @@ private[dao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
       logger.debug(s"getTransactionTrees query($range)")
       QueryNonPruned.executeSqlOrThrow(
-        EventsTable
+        EventsTableTreeEvents
           .preparePagedGetTransactionTrees(sqlFunctions)(
             eventsRange = EventsRange(range.startExclusive._2, range.endInclusive._2),
             requestingParties = requestingParties,
-            pageSize = pageSize,
+            pageSize = pageSize
           )
           .executeSql,
         range.startExclusive._1,
@@ -162,7 +186,7 @@ private[dao] final class TransactionsReader(
             verbose,
             dbMetrics.getTransactionTrees,
             query,
-            nextPageRange[TreeEvent](requestedRange.endInclusive)
+            nextPageRange[TreeEvent](requestedRange.endInclusive),
           )(requestedRange)
         })
         .mapMaterializedValue(_ => NotUsed)
@@ -172,6 +196,13 @@ private[dao] final class TransactionsReader(
         val response = EventsTable.Entry.toGetTransactionTreesResponse(events)
         response.map(r => offsetFor(r) -> r)
       }
+      .wireTap(_ match {
+        case (_, response) =>
+          response.transactions.foreach(txn =>
+            span.addEvent(
+              daml.metrics.Event("transaction", TraceIdentifiers.fromTransactionTree(txn))))
+      })
+      .watchTermination()(endSpanOnTermination(span))
   }
 
   def lookupTransactionTreeById(
@@ -179,10 +210,12 @@ private[dao] final class TransactionsReader(
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] = {
     val query =
-      EventsTable.prepareLookupTransactionTreeById(sqlFunctions)(transactionId, requestingParties)
+      EventsTableTreeEvents.prepareLookupTransactionTreeById(sqlFunctions)(
+        transactionId,
+        requestingParties)
     dispatcher
       .executeSql(dbMetrics.lookupTransactionTreeById) { implicit connection =>
-        query.asVectorOf(EventsTable.rawTreeEventParser)
+        query.asVectorOf(EventsTableTreeEvents.rawTreeEventParser)
       }
       .flatMap(
         rawEvents =>
@@ -198,7 +231,12 @@ private[dao] final class TransactionsReader(
       filter: FilterRelation,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
-
+    val span =
+      ParticipantTracer
+        .spanBuilder("com.daml.platform.store.dao.events.TransactionsReader.getActiveContracts")
+        .setNoParent()
+        .setAttribute(SpanAttribute.Offset.key, activeAt.toHexString)
+        .startSpan()
     logger.debug(s"getActiveContracts($activeAt, $filter, $verbose)")
 
     val requestedRangeF: Future[EventsRange[(Offset, Long)]] = getAcsEventSeqIdRange(activeAt)
@@ -206,7 +244,7 @@ private[dao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => { implicit connection: Connection =>
       logger.debug(s"getActiveContracts query($range)")
       QueryNonPruned.executeSqlOrThrow(
-        EventsTable
+        EventsTableFlatEvents
           .preparePagedGetActiveContracts(sqlFunctions)(
             range = range,
             filter = filter,
@@ -226,13 +264,18 @@ private[dao] final class TransactionsReader(
             verbose,
             dbMetrics.getActiveContracts,
             query,
-            nextPageRange[Event](requestedRange.endInclusive)
+            nextPageRange[Event](requestedRange.endInclusive),
           )(requestedRange)
         })
         .mapMaterializedValue(_ => NotUsed)
 
     groupContiguous(events)(by = _.transactionId)
       .mapConcat(EventsTable.Entry.toGetActiveContractsResponse)
+      .wireTap(response => {
+        span.addEvent(
+          com.daml.metrics.Event("contract", Map((SpanAttribute.Offset.key, response.offset))))
+      })
+      .watchTermination()(endSpanOnTermination(span))
   }
 
   private def nextPageRange[E](endEventSeqId: (Offset, Long))(
@@ -303,4 +346,15 @@ private[dao] final class TransactionsReader(
         )
       }
     }
+
+  private def endSpanOnTermination[Mat, Out](span: Span)(mat: Mat, done: Future[Done]): Mat = {
+    done.onComplete {
+      case Failure(exception) =>
+        span.recordException(exception)
+        span.end()
+      case Success(_) =>
+        span.end()
+    }
+    mat
+  }
 }

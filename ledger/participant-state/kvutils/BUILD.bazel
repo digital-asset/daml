@@ -1,6 +1,7 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//bazel_tools:proto.bzl", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
@@ -14,7 +15,7 @@ load(
     "//ledger/participant-state/kvutils/tools:integrity_test.bzl",
     "integrity_test",
 )
-load("//bazel_tools:java.bzl", "da_java_proto_library")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_library(
@@ -25,25 +26,25 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
-    exports = [":daml_kvutils_java_proto"],
+    exports = [":daml_kvutils_proto_java"],
     deps = [
-        ":daml_kvutils_java_proto",
+        ":daml_kvutils_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//daml-lf/transaction:transaction_java_proto",
-        "//daml-lf/transaction:value_java_proto",
+        "//daml-lf/transaction:transaction_proto_java",
+        "//daml-lf/transaction:value_proto_java",
         "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-state",
-        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
+        "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
@@ -67,19 +68,19 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        ":daml_kvutils_java_proto",
+        ":daml_kvutils_proto_java",
         ":kvutils",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/encoder",
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction",
-        "//daml-lf/transaction:transaction_java_proto",
-        "//daml-lf/transaction:value_java_proto",
+        "//daml-lf/transaction:transaction_proto_java",
+        "//daml-lf/transaction:value_proto_java",
         "//daml-lf/transaction-test-lib",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
@@ -97,6 +98,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_mockito_mockito_scala_2_12",
         "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
@@ -116,12 +118,12 @@ da_scala_test_suite(
     resources = glob(["src/test/resources/*"]),
     silent_annotations = True,
     deps = [
-        ":daml_kvutils_java_proto",
+        ":daml_kvutils_proto_java",
         ":kvutils",
         ":kvutils-tests-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/encoder",
         "//daml-lf/engine",
@@ -129,8 +131,8 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction",
-        "//daml-lf/transaction:transaction_java_proto",
-        "//daml-lf/transaction:value_java_proto",
+        "//daml-lf/transaction:transaction_proto_java",
+        "//daml-lf/transaction:value_proto_java",
         "//daml-lf/transaction-test-lib",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
@@ -139,7 +141,7 @@ da_scala_test_suite(
         "//ledger/ledger-api-health",
         "//ledger/metrics",
         "//ledger/participant-state",
-        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
+        "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -147,6 +149,7 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_mockito_mockito_scala_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
@@ -154,26 +157,24 @@ da_scala_test_suite(
     ],
 )
 
-proto_library(
+proto_jars(
     name = "daml_kvutils_proto",
     srcs = ["src/main/protobuf/daml_kvutils.proto"],
-    strip_import_prefix = "src/main/protobuf/",
-    deps = [
+    maven_artifact_prefix = "participant-state-kvutils",
+    maven_group = "com.daml",
+    proto_deps = [
         "//daml-lf/archive:daml_lf_dev_archive_proto",
         "//daml-lf/transaction:transaction_proto",
         "//daml-lf/transaction:value_proto",
         "//ledger/participant-state/protobuf:ledger_configuration_proto",
+    ],
+    strip_import_prefix = "src/main/protobuf",
+    visibility = ["//visibility:public"],
+    deps = [
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
         "@com_google_protobuf//:timestamp_proto",
     ],
-)
-
-da_java_proto_library(
-    name = "daml_kvutils_java_proto",
-    tags = ["maven_coordinates=com.daml:participant-state-kvutils-java-proto:__VERSION__"],
-    visibility = ["//ledger/participant-state/kvutils:__subpackages__"],
-    deps = [":daml_kvutils_proto"],
 )
 
 REFERENCE_LEDGER_EXPORT_NAME = "reference-ledger-export"
@@ -201,6 +202,7 @@ client_server_build(
         "--contract-id-seeding=testing-weak",
         "--participant participant-id=%s,port=%d" % (REFERENCE_LEDGER_EXPORT_NAME, REFERENCE_LEDGER_EXPORT_PORT),
     ],
+    visibility = [":__subpackages__"],
 ) if not is_windows else None
 
 # Test for checking the integrity of the ledger export produced above.

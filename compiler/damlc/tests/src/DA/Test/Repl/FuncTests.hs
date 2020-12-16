@@ -338,6 +338,13 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "y"
           , matchOutput "NameCollision {field = 42}"
           ]
+    , testInteraction' "long type"
+      -- Test types which will result in line breaks when prettyprinted
+          [ input "let y = ReplTest.NameCollision \"eau\""
+          , input "let x = \\f g h -> f (g (h (ReplTest.NameCollision \"a\"))) (g (ReplTest.NameCollision \"b\")) : Script ()"
+          , input "1"
+          , matchOutput "1"
+          ]
     ]
   where
     testInteraction' testName steps =

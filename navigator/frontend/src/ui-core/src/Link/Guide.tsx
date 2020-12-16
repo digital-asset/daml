@@ -10,7 +10,7 @@ prevents default in favour of an \`onClick\` handler.`;
 
 // Define type for exported IconGuide component such that clients can specialise
 // it.
-export default () => (
+export default (): JSX.Element => (
   <Section
     title="Single-page application links"
     description={description}

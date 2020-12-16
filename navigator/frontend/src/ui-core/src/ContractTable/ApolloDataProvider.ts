@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { DocumentNode } from 'graphql';
 import {
   ApolloClient,
   ObservableQuery,
-  Subscription,
-} from 'react-apollo';
+  ObservableSubscription,
+} from '@apollo/client';
+import { DocumentNode } from 'graphql';
 import {
   ContractsResult,
   ContractTableConfig,
@@ -16,16 +16,17 @@ import {
 
 export class ApolloDataProvider<C extends ContractTableConfig>
   implements DataProvider<C> {
-
-  client: ApolloClient;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: ApolloClient<any>;
   query: DocumentNode;
   observableQuery: ObservableQuery<{}>;
-  querySubscription?: Subscription;
+  querySubscription?: ObservableSubscription;
   createVariables: (config: ContractTableConfig) => {};
   dataToContractsResult: (data: {}) => ContractsResult;
 
   constructor(
-    client: ApolloClient,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    client: ApolloClient<any>,
     query: DocumentNode,
     createVariables: (config: ContractTableConfig) => {},
     dataToContractsResult: (data: {}) => ContractsResult,
@@ -39,7 +40,7 @@ export class ApolloDataProvider<C extends ContractTableConfig>
     this.stopCacheWatcher = this.stopCacheWatcher.bind(this);
   }
 
-  fetchData(config: ContractTableConfig, onResult: ResultCallback) {
+  fetchData(config: ContractTableConfig, onResult: ResultCallback): void {
     this.client.query<{}>({
       query: this.query,
       variables: this.createVariables(config),
@@ -51,7 +52,7 @@ export class ApolloDataProvider<C extends ContractTableConfig>
     });
   }
 
-  startCacheWatcher(config: ContractTableConfig, onResult: ResultCallback) {
+  startCacheWatcher(config: ContractTableConfig, onResult: ResultCallback): void {
     this.stopCacheWatcher();
     this.observableQuery = this.client.watchQuery<{}>({
       fetchPolicy: 'cache-only',
@@ -60,12 +61,12 @@ export class ApolloDataProvider<C extends ContractTableConfig>
     });
     const next = () => {
       onResult(this.dataToContractsResult(
-        this.observableQuery.currentResult().data));
+        this.observableQuery.getCurrentResult().data));
     };
     this.querySubscription = this.observableQuery.subscribe({ next });
   }
 
-  stopCacheWatcher() {
+  stopCacheWatcher(): void {
     if (this.querySubscription) {
       this.querySubscription.unsubscribe();
       this.querySubscription = undefined;

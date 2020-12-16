@@ -1,88 +1,88 @@
 transactions:
-mustFailAt 'Alice' [Test:88]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:88]
 
-mustFailAt 'Alice' [Test:92]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:92]
 
-mustFailAt 'Alice' [Test:96]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:96]
 
-mustFailAt 'Alice' [Test:100]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:100]
 
-TX #4 1970-01-01T00:00:00Z [Test:108]
-#4:0
+TX #4 1970-01-01T00:00:00Z [Test:108] version: 10
+#4:0 version: 10
 │   known to (since): Alice (#4), Bob (#4)
 └─> create Test:X@XXXXXXXX
-    with: { p = 'Alice', p2 = 'Bob' } value-version: 6
+    with: { p = 'Alice', p2 = 'Bob' }
 
 pass -100000000
 
-mustFailAt 'Bob' [Test:110]
+mustFailAt actAs: {'Bob'} readAs: {} [Test:110]
 
-TX #7 1969-12-31T23:58:20Z [Test:115]
-#7:0
+TX #7 1969-12-31T23:58:20Z [Test:115] version: 10
+#7:0 version: 10
 │   known to (since): Alice (#7)
 └─> create Test:TwoParties@XXXXXXXX
-    with: { p = 'Alice', p2 = 'Alice' } value-version: 6
+    with: { p = 'Alice', p2 = 'Alice' }
 
-mustFailAt 'Bob' [Test:116]
+mustFailAt actAs: {'Bob'} readAs: {} [Test:116]
 
-mustFailAt 'Alice' [Test:123]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:123]
 
-TX #10 1969-12-31T23:58:20Z [Test:128]
-#10:0
+TX #10 1969-12-31T23:58:20Z [Test:128] version: 10
+#10:0 version: 10
 │   archived by #11:0
 │   referenced by #11:0
 │   known to (since): Alice (#10), Bob (#10)
 └─> create Test:ToTwoParties@XXXXXXXX
-    with: { p = 'Alice', p2 = 'Bob' } value-version: 6
+    with: { p = 'Alice', p2 = 'Bob' }
 
-TX #11 1969-12-31T23:58:20Z [Test:129]
-#11:0
+TX #11 1969-12-31T23:58:20Z [Test:129] version: 10
+#11:0 version: 10
 │   known to (since): Alice (#11), Bob (#11)
 └─> Bob exercises Convert:Test:ToTwoParties@XXXXXXXX on 00059653cdb8e866d69fac4d5bd0f62bbdaba4c36b01c438b86351fbdbf2cab8b0
-    with {  } value-version: 6
+    with {  }
     children:
-    #11:1
+    #11:1 version: 10
     │   known to (since): Alice (#11), Bob (#11)
     └─> create Test:TwoParties@XXXXXXXX
-        with: { p = 'Alice', p2 = 'Bob' } value-version: 6
+        with: { p = 'Alice', p2 = 'Bob' }
 
-mustFailAt 'Bob' [Test:130]
+mustFailAt actAs: {'Bob'} readAs: {} [Test:130]
 
-TX #13 1969-12-31T23:58:20Z [Test:134]
-#13:0
+TX #13 1969-12-31T23:58:20Z [Test:134] version: 10
+#13:0 version: 10
 │   known to (since): Alice (#13)
 └─> create Test:NoCtrls@XXXXXXXX
-    with: { p = 'Alice', xs = [] } value-version: 6
+    with: { p = 'Alice', xs = [] }
 
-mustFailAt 'Alice' [Test:135]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:135]
 
-mustFailAt 'Alice' [Test:139]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:139]
 
-TX #16 1969-12-31T23:58:20Z [Test:144]
-#16:0
+TX #16 1969-12-31T23:58:20Z [Test:144] version: 10
+#16:0 version: 10
 │   known to (since): Alice (#16), Bob (#16)
 └─> create Test:X@XXXXXXXX
-    with: { p = 'Alice', p2 = 'Bob' } value-version: 6
+    with: { p = 'Alice', p2 = 'Bob' }
 
-mustFailAt 'Alice' [Test:145]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:145]
 
-TX #18 1969-12-31T23:58:20Z [Test:151]
-#18:0
+TX #18 1969-12-31T23:58:20Z [Test:151] version: 10
+#18:0 version: 10
 │   known to (since): Alice (#18)
 └─> create Test:Recursive@XXXXXXXX
-    with: { p = 'Alice' } value-version: 6
+    with: { p = 'Alice' }
 
-mustFailAt 'Alice' [Test:154]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:154]
 
-mustFailAt 'Alice' [Test:340]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:340]
 
-TX #21 1969-12-31T23:58:20Z [Test:345]
-#21:0
+TX #21 1969-12-31T23:58:20Z [Test:345] version: 10
+#21:0 version: 10
 │   known to (since): Alice (#21)
 └─> create Test:NestingLimitExercise@XXXXXXXX
-    with: { p = 'Alice' } value-version: 6
+    with: { p = 'Alice' }
 
-mustFailAt 'Alice' [Test:346]
+mustFailAt actAs: {'Alice'} readAs: {} [Test:346]
 
 active contracts:
    00067f889bdf49aa670596cab1a5907d75596d971df3477087c88ca86f281cee85, 009097ab3d05b0538d961df2cb88558e4cd1947514d2f2c275363a3dc81e07b6aa, 00945c0656f04cdd9f6a85cb466acb0edcd75ea0f618362e83b92164c4cee523e9, 00a5627208a832b7d951562d793cb1c9e48b3459603d2543b48656ea3ac2debf41, 00b088958fd751f2560e4728ff54fb29c3270f3bb2de0d9bf5d1677504fe1e5388, 00d34fd9f2c2e66e6d68c344f1bec486f1c5624a4268bae020e2584a1ad411d65d, 00e52b332d66bbf5ac835144e35bf339a7ab319e505e005d1ddd9aed313764dd51

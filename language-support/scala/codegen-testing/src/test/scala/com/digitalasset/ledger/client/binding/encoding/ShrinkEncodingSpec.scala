@@ -3,10 +3,10 @@
 
 package com.daml.ledger.client.binding.encoding
 import com.daml.ledger.client.binding.{Primitive => P}
-import org.scalatest.WordSpec
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
-class ShrinkEncodingSpec extends WordSpec with GeneratorDrivenPropertyChecks {
+class ShrinkEncodingSpec extends AnyWordSpec with ScalaCheckDrivenPropertyChecks {
 
   "ShrinkEncoding.primitive.valueParty should not generate \\u0000, PostgreSQL does not like them" in forAll(
     GenEncoding.primitive.valueParty) { p: P.Party =>

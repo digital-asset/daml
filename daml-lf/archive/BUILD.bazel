@@ -1,9 +1,10 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
-load("//bazel_tools:proto.bzl", "proto_gen")
+load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
+load("//bazel_tools:pom_file.bzl", "pom_file")
+load("//bazel_tools:proto.bzl", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
@@ -11,16 +12,16 @@ load(
     "da_scala_test_suite",
     "lf_scalacopts",
 )
+load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "LF_VERSIONS", "lf_version_package")
 load(
     "//rules_daml:daml.bzl",
     "daml_compile",
     "daml_compile_with_dalf",
 )
-load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
 load(":archive.bzl", "mangle_for_java")
-load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "LF_VERSIONS", "lf_version_package")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 [
     [
@@ -33,68 +34,18 @@ load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "LF_VERSIONS", "lf_v
                 ),
             ]),
         ),
-        proto_library(
+        proto_jars(
             name = "daml_lf_%s_archive_proto" % version,
             srcs = [":daml_lf_%s_archive_proto_srcs" % version],
-            strip_import_prefix = "src/main/protobuf/",
-            visibility = ["//:__subpackages__"],
-        ),
-        proto_gen(
-            name = "daml_lf_%s_archive_java_proto_srcs" % version,
-            srcs = [":daml_lf_%s_archive_proto" % version],
-            plugin_name = "java",
-            visibility = ["//visibility:public"],
-        ),
-        java_library(
-            name = "daml_lf_%s_archive_java_proto" % version,
-            srcs = [":daml_lf_%s_archive_java_proto_srcs" % version],
-            tags = ["maven_coordinates=com.daml:daml-lf-%s-archive-java-proto:__VERSION__" % version],
-            visibility = ["//visibility:public"],
-            deps = ["@maven//:com_google_protobuf_protobuf_java"],
-        ),
-        pom_file(
-            name = "daml_lf_%s_archive_java_proto_pom" % version,
-            target = "daml_lf_%s_archive_java_proto" % version,
-            visibility = ["//visibility:public"],
-        ),
-        javadoc_library(
-            name = "daml_lf_%s_archive_java_proto_javadoc" % version,
-            srcs = ["daml_lf_%s_archive_java_proto" % version],
-            root_packages = [
+            javadoc_root_packages = [
                 "com.{package}.daml_lf_{version}".format(
                     package = lf_version_package(version),
                     version = mangle_for_java(version),
                 ),
             ],
-            visibility = ["//visibility:public"],
-            deps = ["@maven//:com_google_protobuf_protobuf_java"],
-        ) if not is_windows else None,
-        genrule(
-            name = "daml_lf_%s_archive_proto_zip" % version,
-            srcs = [":daml_lf_%s_archive_proto_srcs" % version],
-            outs = ["daml_lf_%s_archive_proto_zip.zip" % version],
-            cmd = """
-                DESTDIR=protobuf/com/{package}/daml_lf_{version};
-                MAPPINGS=()
-                for src in $(SRCS); do
-                    MAPPINGS+=("$$DESTDIR/$$(basename $$src)=$$src")
-                done
-                $(rootpath @bazel_tools//tools/zip:zipper) cC "$@" "$${{MAPPINGS[@]}}"
-            """.format(
-                package = lf_version_package(version),
-                version = mangle_for_java(version),
-            ),
-            tools = ["@bazel_tools//tools/zip:zipper"],
-            visibility = ["//visibility:public"],
-        ),
-        pkg_tar(
-            name = "daml_lf_%s_archive_proto_tarball" % version,
-            srcs = [":daml_lf_%s_archive_proto_srcs" % version],
-            extension = "tar.gz",
-            package_dir = "com/{package}/daml_lf_{version}".format(
-                package = lf_version_package(version),
-                version = mangle_for_java(version),
-            ),
+            maven_artifact_prefix = "daml-lf-%s-archive" % version,
+            maven_group = "com.daml",
+            strip_import_prefix = "src/main/protobuf",
             visibility = ["//visibility:public"],
         ),
     ]
@@ -148,7 +99,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-archive-reader:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        ":daml_lf_dev_archive_java_proto",
+        ":daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -172,18 +123,20 @@ da_scala_test_suite(
     ],
     scalacopts = lf_scalacopts,
     deps = [
-        ":daml_lf_1.6_archive_java_proto",
-        ":daml_lf_1.7_archive_java_proto",
-        ":daml_lf_1.8_archive_java_proto",
+        ":daml_lf_1.6_archive_proto_java",
+        ":daml_lf_1.7_archive_proto_java",
+        ":daml_lf_1.8_archive_proto_java",
         ":daml_lf_archive_reader",
-        ":daml_lf_dev_archive_java_proto",
+        ":daml_lf_dev_archive_proto_java",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//daml-lf/transaction",
         "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
     ],
@@ -197,14 +150,16 @@ da_scala_test_suite(
     ],
     scalacopts = lf_scalacopts,
     deps = [
-        ":daml_lf_1.6_archive_java_proto",
-        ":daml_lf_1.7_archive_java_proto",
-        ":daml_lf_1.8_archive_java_proto",
+        ":daml_lf_1.6_archive_proto_java",
+        ":daml_lf_1.7_archive_proto_java",
+        ":daml_lf_1.8_archive_proto_java",
         ":daml_lf_archive_reader",
-        ":daml_lf_dev_archive_java_proto",
+        ":daml_lf_dev_archive_proto_java",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
     ],
 )
 
@@ -220,7 +175,7 @@ da_scala_binary(
     main_class = "com.daml.lf.archive.DecodeMain",
     deps = [
         ":daml_lf_archive_reader",
-        ":daml_lf_dev_archive_java_proto",
+        ":daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",

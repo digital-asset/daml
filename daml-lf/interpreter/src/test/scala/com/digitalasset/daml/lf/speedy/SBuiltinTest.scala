@@ -16,10 +16,11 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.{Value}
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{FreeSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.freespec.AnyFreeSpec
 
 import scala.language.implicitConversions
-class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks {
+class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
 
   import SBuiltinTest._
 

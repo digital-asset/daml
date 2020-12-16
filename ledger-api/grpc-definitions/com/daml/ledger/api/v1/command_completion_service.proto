@@ -64,11 +64,14 @@ message CompletionStreamRequest {
   string application_id = 2;
 
   // Non-empty list of parties whose data should be included.
+  // Only completions of commands for which at least one of the ``act_as`` parties is in the given set of parties
+  // will be visible in the stream.
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   repeated string parties = 3;
 
   // This field indicates the minimum offset for completions. This can be used to resume an earlier completion stream.
+  // This offset is exclusive: the response will only contain commands whose offset is strictly greater than this.
   // Optional, if not set the ledger uses the current ledger end offset instead.
   LedgerOffset offset = 4;
 }

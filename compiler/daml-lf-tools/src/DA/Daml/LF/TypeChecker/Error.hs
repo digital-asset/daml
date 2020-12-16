@@ -28,6 +28,7 @@ data Context
   | ContextDefDataType !Module !DefDataType
   | ContextTemplate !Module !Template !TemplatePart
   | ContextDefValue !Module !DefValue
+  | ContextDefException !Module !DefException
 
 data TemplatePart
   = TPWhole
@@ -45,6 +46,7 @@ data SerializabilityRequirement
   | SRChoiceRes
   | SRKey
   | SRDataType
+  | SRExceptionArg
 
 -- | Reason why a type is not serializable.
 data UnserializabilityReason
@@ -99,6 +101,10 @@ data Error
   | EExpectedScenarioType  !Type
   | EExpectedSerializableType !SerializabilityRequirement !Type !UnserializabilityReason
   | EExpectedAnyType !Type
+  | EExpectedExceptionType !Type
+  | EExpectedExceptionTypeHasNoParams !ModuleName !TypeConName
+  | EExpectedExceptionTypeIsRecord !ModuleName !TypeConName
+  | EExpectedExceptionTypeIsNotTemplate !ModuleName !TypeConName
   | ETypeConMismatch       !(Qualified TypeConName) !(Qualified TypeConName)
   | EExpectedDataType      !Type
   | EExpectedListType      !Type
@@ -126,6 +132,7 @@ contextLocation = \case
   ContextDefDataType _ d -> dataLocation d
   ContextTemplate _ t _  -> tplLocation t
   ContextDefValue _ v    -> dvalLocation v
+  ContextDefException _ e -> exnLocation e
 
 errorLocation :: Error -> Maybe SourceLoc
 errorLocation = \case
@@ -143,6 +150,8 @@ instance Show Context where
       "template " <> show (moduleName m) <> "." <> show (tplTypeCon t) <> " " <> show p
     ContextDefValue m v ->
       "value " <> show (moduleName m) <> "." <> show (fst $ dvalBinder v)
+    ContextDefException m e ->
+      "exception " <> show (moduleName m) <> "." <> show (exnName e)
 
 instance Show TemplatePart where
   show = \case
@@ -162,6 +171,7 @@ instance Pretty SerializabilityRequirement where
     SRChoiceRes -> "choice result"
     SRDataType -> "serializable data type"
     SRKey -> "template key"
+    SRExceptionArg -> "exception argument"
 
 instance Pretty UnserializabilityReason where
   pPrint = \case
@@ -303,6 +313,14 @@ instance Pretty Error where
       ]
     EExpectedAnyType foundType ->
       "expected a type containing neither type variables nor quantifiers, but found: " <> pretty foundType
+    EExpectedExceptionType foundType ->
+      "expected an exception type, but found: " <> pretty foundType
+    EExpectedExceptionTypeHasNoParams modName exnName ->
+      "exception type must not have type parameters: " <> pretty modName <> "." <> pretty exnName
+    EExpectedExceptionTypeIsRecord modName exnName ->
+      "exception type must be a record type: " <> pretty modName <> "." <> pretty exnName
+    EExpectedExceptionTypeIsNotTemplate modName exnName ->
+      "exception type must not be a template: " <> pretty modName <> "." <> pretty exnName
     EImpredicativePolymorphism typ ->
       vcat
       [ "impredicative polymorphism is not supported:"
@@ -349,6 +367,8 @@ instance Pretty Context where
       hsep [ "template", pretty (moduleName m) <> "." <>  pretty (tplTypeCon t), string (show p) ]
     ContextDefValue m v ->
       hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
+    ContextDefException m e ->
+      hsep [ "exception", pretty (moduleName m) <> "." <> pretty (exnName e) ]
 
 toDiagnostic :: DiagnosticSeverity -> Error -> Diagnostic
 toDiagnostic sev err = Diagnostic

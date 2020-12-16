@@ -37,7 +37,8 @@ sys.path.extend(map(os.path.abspath, glob.glob('packages/*')))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-  'sphinx.ext.autodoc'
+    'sphinx.ext.extlinks',
+    'sphinx_copybutton'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -54,7 +55,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'DAML SDK'
-copyright = u'2016-2018 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.  Any unauthorized use, duplication or distribution is strictly prohibited'
+copyright = u'© Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.'
 author = u'Digital Asset'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -96,7 +97,9 @@ html_theme_path = ['..']
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-  'collapse_navigation': False
+  'collapse_navigation': False,
+  'index_page_boxes': True,
+  'pdf_download': True
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,

@@ -7,7 +7,8 @@ package speedy
 
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.concurrent.ScalaFutures
 
 class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {

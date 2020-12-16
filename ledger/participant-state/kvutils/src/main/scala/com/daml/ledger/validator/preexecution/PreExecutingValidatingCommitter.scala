@@ -3,18 +3,22 @@
 
 package com.daml.ledger.validator.preexecution
 
-import java.time.Instant
-
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Bytes, Fingerprint}
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.ledger.validator.LedgerStateOperations.Value
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.caching.{
   CacheUpdatePolicy,
   CachingDamlLedgerStateReaderWithFingerprints
 }
-import com.daml.ledger.validator.{LedgerStateAccess, StateKeySerializationStrategy}
+import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
+import com.daml.ledger.validator.{
+  LedgerStateAccess,
+  LedgerStateOperationsReaderAdapter,
+  StateKeySerializationStrategy
+}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration._
@@ -22,68 +26,78 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /**
-  * A pre-executing validating committer based on [[LedgerStateAccess]] (that does not provide fingerprints
-  * alongside values), parametric in the logic that produces a fingerprint given a value.
+  * A pre-executing validating committer based on [[LedgerStateAccess]] (that does not provide
+  * fingerprints alongside values), parametric in the logic that produces a fingerprint given a
+  * value.
   *
-  * @param now                      The record time provider.
-  * @param keySerializationStrategy The key serializer used for state keys.
-  * @param validator                The pre-execution validator.
-  * @param valueToFingerprint       The logic that produces a fingerprint given a value.
-  * @param postExecutionFinalizer   The post-execution finalizer that will also perform conflicts detection and
-  *                                 time bounds checks.
-  * @param stateValueCache          The cache instance for state values.
-  * @param cacheUpdatePolicy         The caching policy for values.
-  * @tparam LogResult type of the offset used for a log entry.
+  * @param keySerializationStrategy      The key serializer used for state keys.
+  * @param validator                     The pre-execution validator.
+  * @param valueToFingerprint            The logic that produces a fingerprint given a value.
+  * @param postExecutionConflictDetector The post-execution conflict detector.
+  * @param postExecutionFinalizer        The post-execution finalizer.
+  * @param stateValueCache               The cache instance for state values.
+  * @param cacheUpdatePolicy             The caching policy for values.
   */
-class PreExecutingValidatingCommitter[LogResult](
-    now: () => Instant,
+class PreExecutingValidatingCommitter[WriteSet](
     keySerializationStrategy: StateKeySerializationStrategy,
-    validator: PreExecutingSubmissionValidator[RawKeyValuePairsWithLogEntry],
+    validator: PreExecutingSubmissionValidator[ReadSet, WriteSet],
     valueToFingerprint: Option[Value] => Fingerprint,
-    postExecutionFinalizer: PostExecutionFinalizer[LogResult],
+    postExecutionConflictDetector: PostExecutionConflictDetector[
+      Key,
+      (Option[Value], Fingerprint),
+      ReadSet,
+      WriteSet,
+    ],
+    postExecutionFinalizer: PostExecutionFinalizer[ReadSet, WriteSet],
     stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
-    cacheUpdatePolicy: CacheUpdatePolicy,
+    cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
 ) {
+
+  private val logger = ContextualizedLogger.get(getClass)
 
   /**
     * Pre-executes and then commits a submission.
     */
-  def commit(
+  def commit[LogResult](
       correlationId: String,
       submissionEnvelope: Bytes,
       submittingParticipantId: ParticipantId,
       ledgerStateAccess: LedgerStateAccess[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
-    // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
-    ledgerStateAccess.inTransaction { ledgerStateOperations =>
-      for {
-        preExecutionOutput <- validator
-          .validate(
+    LoggingContext.newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
+      // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
+      ledgerStateAccess.inTransaction { ledgerStateOperations =>
+        val stateReader = new LedgerStateOperationsReaderAdapter(ledgerStateOperations)
+          .mapValues(value => value -> valueToFingerprint(value))
+        val cachingStateReader = CachingDamlLedgerStateReaderWithFingerprints(
+          stateValueCache,
+          cacheUpdatePolicy,
+          stateReader,
+          keySerializationStrategy,
+        )
+        for {
+          preExecutionOutput <- validator.validate(
             submissionEnvelope,
-            correlationId,
             submittingParticipantId,
-            CachingDamlLedgerStateReaderWithFingerprints(
-              stateValueCache,
-              cacheUpdatePolicy,
-              new LedgerStateReaderWithFingerprintsFromValues(
-                ledgerStateOperations,
-                valueToFingerprint),
-              keySerializationStrategy,
-            )
+            cachingStateReader,
           )
-        submissionResult <- retry {
-          case PostExecutionFinalizer.ConflictDetectedException => true
-        } { (_, _) =>
-          postExecutionFinalizer.conflictDetectAndFinalize(
-            now,
+          _ <- retry {
+            case _: ConflictDetectedException =>
+              logger.error("Conflict detected during post-execution. Retrying...")
+              true
+          } { (_, _) =>
+            postExecutionConflictDetector.detectConflicts(preExecutionOutput, stateReader)
+          }.transform {
+            case Failure(_: ConflictDetectedException) =>
+              logger.error("Too many conflicts detected during post-execution. Giving up.")
+              Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
+            case result => result
+          }
+          submissionResult <- postExecutionFinalizer.finalizeSubmission(
             preExecutionOutput,
             ledgerStateOperations)
-        }.transform {
-          case Failure(PostExecutionFinalizer.ConflictDetectedException) =>
-            Success(SubmissionResult.Acknowledged) // But it will simply be dropped.
-          case result => result
-        }
-      } yield submissionResult
+        } yield submissionResult
+      }
     }
 
   private[this] def retry: PartialFunction[Throwable, Boolean] => RetryStrategy =

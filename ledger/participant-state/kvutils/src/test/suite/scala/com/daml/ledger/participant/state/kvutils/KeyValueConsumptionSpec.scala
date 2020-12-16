@@ -20,9 +20,10 @@ import com.google.protobuf.Empty
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
 import org.scalatest.prop.Tables.Table
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class KeyValueConsumptionSpec extends WordSpec with Matchers {
+class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
   private val aLogEntryId = DamlLogEntryId.getDefaultInstance
   private val aLogEntryWithoutRecordTime = DamlLogEntry.newBuilder
     .setPackageUploadEntry(DamlPackageUploadEntry.getDefaultInstance)
@@ -266,7 +267,7 @@ class KeyValueConsumptionSpec extends WordSpec with Matchers {
 
   private def someSubmitterInfo: DamlSubmitterInfo =
     DamlSubmitterInfo.newBuilder
-      .setSubmitter("a submitter")
+      .addSubmitters("a submitter")
       .setApplicationId("test")
       .setCommandId("a command ID")
       .setDeduplicateUntil(com.google.protobuf.Timestamp.getDefaultInstance)

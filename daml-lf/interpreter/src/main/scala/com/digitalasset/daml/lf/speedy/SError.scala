@@ -29,7 +29,9 @@ object SError {
   /** Operation is only supported in on-ledger mode but was
     * called in off-ledger mode.
     */
-  final case class SRequiresOnLedger(operation: String) extends SError
+  final case class SRequiresOnLedger(operation: String) extends SError {
+    override def toString = s"Requires on-ledger mode: " + operation
+  }
 
   def crash[A](reason: String): A =
     throw SErrorCrash(reason)
@@ -127,7 +129,8 @@ object SError {
   final case class ScenarioErrorContractNotVisible(
       coid: ContractId,
       templateId: Identifier,
-      committer: Party,
+      actAs: Set[Party],
+      readAs: Set[Party],
       observers: Set[Party],
   ) extends SErrorScenario
 
@@ -137,7 +140,8 @@ object SError {
   final case class ScenarioErrorContractKeyNotVisible(
       coid: ContractId,
       key: GlobalKey,
-      committer: Party,
+      actAs: Set[Party],
+      readAs: Set[Party],
       stakeholders: Set[Party],
   ) extends SErrorScenario
 

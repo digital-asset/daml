@@ -77,6 +77,10 @@ object TransactionIndexing {
     private val disclosure = Map.newBuilder[NodeId, Set[Party]]
     private val visibility = Vector.newBuilder[(ContractId, Set[Party])]
 
+    for (contractId <- blinding.divulgence.keys) {
+      addDivulgence(contractId)
+    }
+
     private def addEventAndDisclosure(event: (NodeId, Node)): Unit = {
       events += event
       disclosure += ((event._1, blinding.disclosure(event._1)))
@@ -116,8 +120,6 @@ object TransactionIndexing {
           } else {
             addStakeholders(nodeId, Set.empty)
           }
-        case (_, fetch: Fetch) =>
-          addDivulgence(fetch.coid)
         case _ =>
           () // ignore anything else
       }
@@ -125,7 +127,7 @@ object TransactionIndexing {
     }
 
     private def visibility(contracts: Iterable[DivulgedContract]): WitnessRelation[ContractId] =
-      Relation(
+      Relation.from(
         contracts.map(c => c.contractId -> blinding.divulgence.getOrElse(c.contractId, Set.empty)),
       )
 
@@ -144,7 +146,7 @@ object TransactionIndexing {
       val netCreates = created.filterNot(c => archived(c.coid))
       val netArchives = archived.filterNot(allCreatedContractIds)
       val netDivulgedContracts = divulgedContracts.filterNot(c => allContractIds(c.contractId))
-      val netTransactionVisibility = Relation(visibility.result()).filterKeys(!archived(_))
+      val netTransactionVisibility = Relation.from(visibility.result()).filterKeys(!archived(_))
       val netVisibility = Relation.union(netTransactionVisibility, visibility(netDivulgedContracts))
       TransactionIndexing(
         transaction = TransactionInfo(

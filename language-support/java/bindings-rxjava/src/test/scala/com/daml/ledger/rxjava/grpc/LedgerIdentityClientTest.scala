@@ -7,9 +7,10 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TestConfiguration}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
-final class LedgerIdentityClientTest extends FlatSpec with Matchers with AuthMatchers {
+final class LedgerIdentityClientTest extends AnyFlatSpec with Matchers with AuthMatchers {
 
   val ledgerServices = new LedgerServices("ledger-identity-service-ledger")
 

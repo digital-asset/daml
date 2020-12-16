@@ -1,14 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import { FetchResult, gql } from '@apollo/client';
+import { QueryControls, withMutation, withQuery } from '@apollo/client/react/hoc';
 import { Dispatch } from '@da/ui-core';
 import { DamlLfValue } from '@da/ui-core/lib/api/DamlLfValue';
 import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
 import * as React from 'react';
-import { gql, graphql, OptionProps, QueryProps as RAQueryProps } from 'react-apollo';
 import { connect } from 'react-redux';
-import { compose } from 'redux';
 import {
+  CreateContract,
   CreateContractVariables,
   TemplateInstance,
   TemplateInstance_node_Template,
@@ -16,7 +17,6 @@ import {
 } from '../../api/Queries';
 import { pathToAction } from '../../routes';
 import { contracts as dashboardRoute } from '../../routes';
-import { Connect } from '../../types';
 import * as App from '../app';
 import TemplateComponent from './TemplateComponent';
 
@@ -59,12 +59,12 @@ type ReduxProps = {
 }
 
 interface MutationProps {
-  //tslint:disable-next-line:no-any
-  create(templateId: string, argument: DamlLfValue): Promise<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  create?(templateId: string, argument: DamlLfValue): Promise<FetchResult<CreateContract>>;
 }
 
 interface QueryProps {
-  data: RAQueryProps & TemplateInstance;
+  data: QueryControls & TemplateInstance;
 }
 
 type Props = OwnProps & ReduxProps & MutationProps & QueryProps;
@@ -82,9 +82,14 @@ class Component extends React.Component<Props, {}> {
     if (create && dispatch && argument) {
       dispatch(toSelf(setLoading(true)));
       create(id, argument)
-        .then(({ data }) => {
-          dispatch(toWatcher(LedgerWatcher.registerCommand(data.create)));
-          dispatch(pathToAction(dashboardRoute.render({})));
+        .then(({ data, errors }) => {
+          if (data) {
+            dispatch(toWatcher(LedgerWatcher.registerCommand(data.create)));
+            dispatch(pathToAction(dashboardRoute.render({})));
+          } else {
+            dispatch(toSelf(setLoading(false)));
+            dispatch(toSelf(setError(`Received no data from create: ${errors}`)));
+          }
         }).catch((error: Error) => {
           dispatch(toSelf(setLoading(false)));
           dispatch(toSelf(setError(error.message)));
@@ -94,9 +99,12 @@ class Component extends React.Component<Props, {}> {
 
   render() {
     const { state, data } = this.props;
-    if (data.loading) { return <p>Loading</p>; }
-    else if (data.node === null) {
+    if (data.loading) {
+      return <p>Loading</p>;
+    } else if (data.node === null) {
       return <p>Could not find template {state.id}</p>;
+    } else if (data.node.__typename !== 'Template') {
+      return <p>Expected Template node but got {data.node.__typename}</p>;
     } else {
       const template = data.node;
 
@@ -110,7 +118,7 @@ class Component extends React.Component<Props, {}> {
       );
     }
   }
-};
+}
 
 const query = gql`
   query TemplateInstance($templateId: ID!) {
@@ -137,25 +145,19 @@ const mutation = gql`
  * - the contract data fetched from the GraphQL API
  */
 
-const withMutation: Connect<MutationProps, OwnProps> =
-  graphql(mutation, {
-    props: ({ mutate }: OptionProps<OwnProps, QueryProps>) => ({
-      create: (templateId: string, argument: DamlLfValue) =>
-        (mutate && mutate({ variables: { templateId, argument } as CreateContractVariables })),
-    }),
+const _withMutation =
+  withMutation<OwnProps, CreateContract, CreateContractVariables, MutationProps>(mutation, {
+    props: ({ mutate }) => ({
+      create: mutate && ((templateId: string, argument: DamlLfValue) =>
+        mutate({ variables: { templateId, argument } })
+    )}),
   });
 
-const withQuery: Connect<QueryProps, OwnProps & MutationProps> =
-  graphql(query, {
-    options: ({ state: { id } }: OwnProps & MutationProps) =>
-      ({ variables: { templateId: id } as TemplateInstanceVariables }),
+const _withQuery =
+  withQuery<OwnProps & MutationProps, TemplateInstance, TemplateInstanceVariables, QueryProps>(query, {
+    options: ({ state: { id } }) =>
+      ({ variables: { templateId: id } }),
   });
 
-const withRedux: Connect<ReduxProps, OwnProps & QueryProps & MutationProps> =
-  connect();
-
-export const UI = compose(
-  withMutation,
-  withQuery,
-  withRedux,
-)(Component);
+export const UI: React.ComponentClass<OwnProps> =
+  _withMutation(_withQuery(connect()(Component)));

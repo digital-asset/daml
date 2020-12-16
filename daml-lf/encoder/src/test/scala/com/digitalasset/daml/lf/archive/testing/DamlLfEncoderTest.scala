@@ -10,13 +10,14 @@ import com.daml.lf.archive.{Dar, UniversalArchiveReader}
 import com.daml.lf.data.Ref.{DottedName, PackageId}
 import com.daml.daml_lf_dev.DamlLf
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 
 class DamlLfEncoderTest
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
     with BazelRunfiles {
@@ -63,7 +64,7 @@ class DamlLfEncoderTest
 
         dar shouldBe 'success
 
-        val findModules = dar.toOption.toList.flatMap(getModules).toSet
+        val findModules = dar.toOption.toList.flatMap(getNonEmptyModules).toSet
 
         findModules shouldBe expectedModules
       }
@@ -73,7 +74,7 @@ class DamlLfEncoderTest
 
   private val preInternalizationVersions = List.range(0, 7).map(_.toString).toSet
 
-  private def getModules(dar: Dar[(PackageId, DamlLf.ArchivePayload)]) = {
+  private def getNonEmptyModules(dar: Dar[(PackageId, DamlLf.ArchivePayload)]) = {
     for {
       pkgWithId <- dar.main +: dar.dependencies
       (_, pkg) = pkgWithId
@@ -82,13 +83,18 @@ class DamlLfEncoderTest
       dottedNames = pkg.getDamlLf1.getInternedDottedNamesList.asScala.map(
         _.getSegmentsInternedStrList.asScala.map(internedStrings(_))
       )
-      segments <- pkg.getDamlLf1.getModulesList.asScala.map(
-        mod =>
+      segments <- pkg.getDamlLf1.getModulesList.asScala.map {
+        case mod
+            if mod.getSynonymsCount != 0 ||
+              mod.getDataTypesCount != 0 ||
+              mod.getValuesCount != 0 ||
+              mod.getTemplatesCount != 0 =>
           if (preInternalizationVersions(version))
             mod.getNameDname.getSegmentsList.asScala
           else
             dottedNames(mod.getNameInternedDname)
-      )
+
+      }
     } yield DottedName.assertFromSegments(segments)
   }
 

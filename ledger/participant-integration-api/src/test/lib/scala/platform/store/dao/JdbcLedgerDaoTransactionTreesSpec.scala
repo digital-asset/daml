@@ -17,6 +17,8 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest._
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 
@@ -32,7 +34,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (_, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(transactionId = "WRONG", Set(tx.submittingParty.get))
+        .lookupTransactionTreeById(transactionId = "WRONG", tx.actAs.toSet)
     } yield {
       result shouldBe None
     }
@@ -52,11 +54,11 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (offset, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(tx.transactionId, Set(tx.submittingParty.get))
+        .lookupTransactionTreeById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
-          val (nodeId, createNode: NodeCreate.WithTxValue[ContractId]) =
+          val (nodeId, createNode: NodeCreate[ContractId]) =
             tx.transaction.nodes.head
           transaction.commandId shouldBe tx.commandId.get
           transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -67,7 +69,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           val created = transaction.eventsById.values.loneElement.getCreated
           transaction.rootEventIds.loneElement shouldEqual created.eventId
           created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
-          created.witnessParties should contain only tx.submittingParty.get
+          created.witnessParties should contain only (tx.actAs: _*)
           created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
           created.contractKey shouldBe None
           created.createArguments shouldNot be(None)
@@ -84,11 +86,11 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       (_, create) <- store(singleCreate)
       (offset, exercise) <- store(singleExercise(nonTransient(create).loneElement))
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(exercise.transactionId, Set(exercise.submittingParty.get))
+        .lookupTransactionTreeById(exercise.transactionId, exercise.actAs.toSet)
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
-          val (nodeId, exerciseNode: NodeExercises.WithTxValue[NodeId, ContractId]) =
+          val (nodeId, exerciseNode: NodeExercises[NodeId, ContractId]) =
             exercise.transaction.nodes.head
           transaction.commandId shouldBe exercise.commandId.get
           transaction.offset shouldBe ApiOffset.toApiString(offset)
@@ -99,7 +101,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           val exercised = transaction.eventsById.values.loneElement.getExercised
           transaction.rootEventIds.loneElement shouldEqual exercised.eventId
           exercised.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
-          exercised.witnessParties should contain only exercise.submittingParty.get
+          exercised.witnessParties should contain only (exercise.actAs: _*)
           exercised.contractId shouldBe exerciseNode.targetCoid.coid
           exercised.templateId shouldNot be(None)
           exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
@@ -116,18 +118,18 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (offset, tx) <- store(fullyTransient)
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(tx.transactionId, Set(tx.submittingParty.get))
+        .lookupTransactionTreeById(tx.transactionId, tx.actAs.toSet)
     } yield {
       inside(result.value.transaction) {
         case Some(transaction) =>
           val (createNodeId, createNode) =
             tx.transaction.nodes.collectFirst {
-              case (nodeId, node: NodeCreate.WithTxValue[ContractId]) =>
+              case (nodeId, node: NodeCreate[ContractId]) =>
                 nodeId -> node
             }.get
           val (exerciseNodeId, exerciseNode) =
             tx.transaction.nodes.collectFirst {
-              case (nodeId, node: NodeExercises.WithTxValue[NodeId, ContractId]) =>
+              case (nodeId, node: NodeExercises[NodeId, ContractId]) =>
                 nodeId -> node
             }.get
 
@@ -150,7 +152,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             .getExercised
 
           created.eventId shouldBe EventId(transaction.transactionId, createNodeId).toLedgerString
-          created.witnessParties should contain only tx.submittingParty.get
+          created.witnessParties should contain only (tx.actAs: _*)
           created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
           created.contractKey shouldBe None
           created.createArguments shouldNot be(None)
@@ -160,7 +162,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           created.templateId shouldNot be(None)
 
           exercised.eventId shouldBe EventId(transaction.transactionId, exerciseNodeId).toLedgerString
-          exercised.witnessParties should contain only tx.submittingParty.get
+          exercised.witnessParties should contain only (tx.actAs: _*)
           exercised.contractId shouldBe exerciseNode.targetCoid.coid
           exercised.templateId shouldNot be(None)
           exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties

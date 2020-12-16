@@ -17,7 +17,9 @@ import com.daml.platform.sandbox.cli.CommonCliSpecBase._
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
-import org.scalatest.{Assertion, Matchers, WordSpec}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.JavaConverters._
 
@@ -25,7 +27,7 @@ abstract class CommonCliSpecBase(
     protected val cli: SandboxCli,
     protected val requiredArgs: Array[String] = Array.empty,
     protected val expectedDefaultConfig: Option[SandboxConfig] = None,
-) extends WordSpec
+) extends AnyWordSpec
     with Matchers {
 
   private val defaultConfig = expectedDefaultConfig.getOrElse(cli.defaultConfig)
@@ -108,6 +110,14 @@ abstract class CommonCliSpecBase(
       checkOption(
         Array("--pem", pem),
         _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, None, Some(new File(pem)), None))))
+    }
+
+    "set certificate revocation checks property" in {
+      checkOption(
+        Array("--cert-revocation-checking", "true"),
+        _.copy(tlsConfig = Some(
+          TlsConfiguration(enabled = true, None, None, None, enableCertRevocationChecking = true)))
+      )
     }
 
     "parse the eager package loading flag when given" in {

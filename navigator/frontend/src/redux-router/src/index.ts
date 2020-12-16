@@ -28,20 +28,16 @@ export interface RouterOptions<S> {
 
 export type RouterMiddleware<S> = (options: RouterOptions<S>) => Middleware;
 
-export function middleware<S>(options: RouterOptions<S>): Middleware {
+export function middleware<S>(options: RouterOptions<S>): Middleware<{}, S> {
   const { stateToUrl, urlToAction } = options;
-  return <S2>({ dispatch, getState }: MiddlewareAPI<S2>): (next: Dispatch<S>) => Dispatch<S> => {
-    // Dispatch an action for the initial URL so that the reducer can set the
-    // initial state correctly.
-    dispatch(urlToAction(window.location.pathname));
-
+  return ({ dispatch, getState }: MiddlewareAPI<Dispatch, S>): (next: Dispatch) => Dispatch => {
     // Install URL change listener. This dispatches an action whenever a URL is
     // popped from the browser history.
     window.onpopstate = (_: PopStateEvent) => {
       dispatch(urlToAction(window.location.pathname));
     };
 
-    return (next: Dispatch<S2>) => ((action: Action) => {
+    return (next: Dispatch) => ((action: Action) => {
       // If this is a router action, we capture it and dispatch the action
       // corresponding to the specified URL. We then get the URL for the new
       // state and push or replace this onto the browser history. If it's not a
@@ -49,12 +45,12 @@ export function middleware<S>(options: RouterOptions<S>): Middleware {
       const returnValue = next(action);
       // Middleware typings are not very good in Redux 3,
       // We know that S and S2 are the same type.
-      // tslint:disable-next-line:no-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const url = stateToUrl(getState() as any as S);
       if (window.location.pathname !== url) {
         window.history.pushState({}, '', url);
       }
       return returnValue;
-    }) as Dispatch<S2>;
+    }) as Dispatch;
   };
 }

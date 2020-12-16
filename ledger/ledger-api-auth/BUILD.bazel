@@ -19,7 +19,7 @@ da_scala_library(
     runtime_deps = [],
     deps = [
         "//daml-lf/data",
-        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-service/jwt",
         "//ledger/ledger-api-common",
         "@maven//:com_auth0_java_jwt",
@@ -53,6 +53,7 @@ da_scala_test_suite(
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
     ],
 )
 

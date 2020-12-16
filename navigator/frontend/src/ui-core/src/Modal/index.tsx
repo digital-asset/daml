@@ -57,7 +57,7 @@ export default class Modal extends React.Component<Props, {}> {
     super(props);
   }
 
-  render() {
+  render(): JSX.Element {
     const {
       content,
       isOpen,

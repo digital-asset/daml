@@ -12,7 +12,8 @@ import com.daml.platform.server.api.services.grpc.GrpcHealthServiceSpec._
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Second, Span}
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.duration.DurationInt
 
@@ -194,6 +195,7 @@ final class GrpcHealthServiceSpec
             servingResponse,
           ))
       }
+      succeed
     }
 
     "observe changes in a single component's health" in {
@@ -253,6 +255,7 @@ final class GrpcHealthServiceSpec
         responseObserver.elements should be(
           Vector(servingResponse, notServingResponse, servingResponse))
       }
+      succeed
     }
   }
 

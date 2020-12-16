@@ -6,6 +6,7 @@ package com.daml.ledger.client.binding.retrying
 import java.time.Instant
 
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.binding.log.Labels.{
   ERROR_CODE,
   ERROR_DETAILS,
@@ -41,19 +42,21 @@ object RetryLogger extends LazyLogging {
     )
   }
 
-  private def format(request: SubmitRequest, status: Status): String =
+  private def format(request: SubmitRequest, status: Status): String = {
+    val effectiveActAs = request.commands.map(c => CommandsValidator.effectiveSubmitters(c).actAs)
     format(
       (BIM, request.commands.map(_.commandId)),
-      (PARTY, request.commands.map(_.party)),
+      (ACT_AS, effectiveActAs),
       (WORKFLOW_ID, request.commands.map(_.workflowId)),
       (ERROR_CODE, status.code),
       (ERROR_MESSAGE, status.message),
       (ERROR_DETAILS, status.details.mkString(","))
     )
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable", "org.wartremover.warts.Any"))
   private def format(fs: (String, Any)*): String = fs.map(f => s"${f._1} = ${f._2}").mkString(", ")
 
-  private val PARTY = "party"
+  private val ACT_AS = "act-as"
   private val BIM = "bim"
 }

@@ -13,7 +13,10 @@ Getting started
 
    Installing the SDK <getting-started/installation>
    Building Your App <getting-started/index>
+   getting-started/app-architecture
+   getting-started/first-feature
    getting-started/testing
+   Cheat Sheet <https://docs.daml.com/cheat-sheet>
 
 Writing DAML
 ------------
@@ -24,6 +27,7 @@ Writing DAML
 
    daml/intro/0_Intro.rst
    daml/reference/index
+   daml/stdlib/index
    daml/testing-scenarios
    daml/troubleshooting
    /daml/patterns
@@ -36,13 +40,12 @@ Building applications
    :maxdepth: 2
 
    app-dev/app-arch
-   daml2js/index
    app-dev/bindings-ts/index
    json-api/index
    DAML Script <daml-script/index>
    DAML REPL <daml-repl/index>
    upgrade/index
-   app-dev/authentication
+   app-dev/authorization
    app-dev/ledger-api
 
 Deploying to DAML ledgers
@@ -56,6 +59,15 @@ Deploying to DAML ledgers
    deploy/generic_ledger
    deploy/ledger-topologies
 
+Operating DAML
+--------------
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+
+   ops/index
+
 Developer Tools
 ---------------
 
@@ -67,6 +79,7 @@ Developer Tools
    daml/daml-studio
    tools/sandbox
    tools/navigator/index
+   tools/codegen
 
 Background concepts
 -------------------
@@ -77,6 +90,9 @@ Background concepts
 
    concepts/glossary
    concepts/ledger-model/index
+   concepts/identity-and-package-management
+   concepts/time
+   concepts/local-ledger
 
 Examples
 --------
@@ -85,7 +101,7 @@ Examples
    :titlesonly:
    :maxdepth: 2
 
-   examples/examples
+   Examples <https://daml.com/examples>
 
 Early Access Features
 ---------------------
@@ -99,6 +115,8 @@ Early Access Features
    daml-integration-kit/index
    triggers/index
    tools/visual
+   tools/trigger-service
+   concepts/interoperability
 
 DAML Ecosystem
 --------------

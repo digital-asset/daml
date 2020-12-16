@@ -7,8 +7,9 @@ import com.daml.lf.CompiledPackages
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, SubmittedTransaction, Transaction => Tx}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, SubmittedTransaction}
 import com.daml.lf.speedy.SError._
+import com.daml.lf.value.Value
 
 /** The result from small-step evaluation.
   * If the result is not Done or Continue, then the machine
@@ -33,7 +34,7 @@ object SResult {
       // Callback to signal that the contract was not present
       // or visible. Returns true if this was recoverable.
       cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Tx.Value[ContractId]] => Unit,
+      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
   ) extends SResult
 
   /** Machine needs a definition that was not present when the machine was

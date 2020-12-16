@@ -443,7 +443,7 @@ private[lf] object SBuiltin {
       val func = args.get(0)
       val init = args.get(1)
       val list = args.get(2).asInstanceOf[SList].list
-      machine.pushKont(KFoldl(func, list, machine.frame, machine.actuals, machine.env.size))
+      machine.pushKont(KFoldl(machine, func, list))
       machine.returnValue = init
     }
   }
@@ -485,23 +485,14 @@ private[lf] object SBuiltin {
       val list = args.get(2)
       if (func.arity - func.actuals.size >= 2) {
         val array = list.asInstanceOf[SList].list.toImmArray
-        machine.pushKont(
-          KFoldr(func, array, array.length, machine.frame, machine.actuals, machine.env.size))
+        machine.pushKont(KFoldr(machine, func, array, array.length))
         machine.returnValue = init
       } else {
         val stack = list.asInstanceOf[SList].list
         stack.pop match {
           case None => machine.returnValue = init
           case Some((head, tail)) =>
-            machine.pushKont(
-              KFoldr1Map(
-                func,
-                tail,
-                FrontStack.empty,
-                init,
-                machine.frame,
-                machine.actuals,
-                machine.env.size))
+            machine.pushKont(KFoldr1Map(machine, func, tail, FrontStack.empty, init))
             machine.enterApplication(func, Array(SEValue(head)))
         }
       }
@@ -702,6 +693,13 @@ private[lf] object SBuiltin {
         case x =>
           crash(s"Cons onto non-list: $x")
       }
+    }
+  }
+
+  /** $cons :: a -> List a -> List a */
+  final case object SBCons extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+      SList(args.get(0) +: args.get(1).asInstanceOf[SList].list)
     }
   }
 
@@ -936,7 +934,7 @@ private[lf] object SBuiltin {
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
-  ) extends OnLedgerBuiltin(8) {
+  ) extends OnLedgerBuiltin(7) {
 
     override protected final def execute(
         args: util.ArrayList[SValue],
@@ -948,16 +946,12 @@ private[lf] object SBuiltin {
         case SContractId(coid) => coid
         case v => crash(s"expected contract id, got: $v")
       }
-      val optActors = args.get(2) match {
-        case SOptional(optValue) => optValue.map(extractParties)
-        case v => crash(s"expect optional parties, got: $v")
-      }
-      val sigs = extractParties(args.get(3))
-      val templateObservers = extractParties(args.get(4))
-      val ctrls = extractParties(args.get(5))
-      val choiceObservers = extractParties(args.get(6))
+      val sigs = extractParties(args.get(2))
+      val templateObservers = extractParties(args.get(3))
+      val ctrls = extractParties(args.get(4))
+      val choiceObservers = extractParties(args.get(5))
 
-      val mbKey = extractOptionalKeyWithMaintainers(args.get(7))
+      val mbKey = extractOptionalKeyWithMaintainers(args.get(6))
       val auth = machine.auth
 
       onLedger.ptx = onLedger.ptx
@@ -968,10 +962,9 @@ private[lf] object SBuiltin {
           choiceId = choiceId,
           optLocation = machine.lastLocation,
           consuming = consuming,
-          actingParties = optActors.getOrElse(ctrls),
+          actingParties = ctrls,
           signatories = sigs,
           stakeholders = sigs union templateObservers,
-          controllers = ctrls,
           choiceObservers = choiceObservers,
           mbKey = mbKey,
           byKey = byKey,
@@ -1273,9 +1266,7 @@ private[lf] object SBuiltin {
           throw SpeedyHungry(SResultScenarioInsertMustFail(committerOld, commitLocationOld))
 
         case SBool(false) =>
-          ptxOld.finish(
-            machine.compiledPackages.packageLanguageVersion,
-          ) match {
+          ptxOld.finish match {
             case PartialTransaction.CompleteTransaction(tx) =>
               // Transaction finished successfully. It might still
               // fail when committed, so tell the scenario runner to
@@ -1296,10 +1287,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger): Unit =
-      onLedger.ptx
-        .finish(
-          machine.compiledPackages.packageLanguageVersion,
-        ) match {
+      onLedger.ptx.finish match {
         case PartialTransaction.CompleteTransaction(tx) =>
           throw SpeedyHungry(
             SResultScenarioCommit(
@@ -1641,7 +1629,7 @@ private[lf] object SBuiltin {
               .toValue
               .ensureNoCid
               .left
-              .map(coid => s"Unexpected contract id in key: $coid")
+              .map(coid => s"Contract IDs are not supported in contract keys: $coid")
           } yield
             Node.KeyWithMaintainers(
               key = keyVal,

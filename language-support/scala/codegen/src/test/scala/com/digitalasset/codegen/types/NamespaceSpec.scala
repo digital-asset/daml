@@ -3,15 +3,21 @@
 
 package com.daml.codegen.types
 
-import org.scalatest.{WordSpec, Matchers, Inside}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import scalaz.std.anyVal._
 import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.bifunctor._
 
-class NamespaceSpec extends WordSpec with Matchers with Inside with GeneratorDrivenPropertyChecks {
+class NamespaceSpec
+    extends AnyWordSpec
+    with Matchers
+    with Inside
+    with ScalaCheckDrivenPropertyChecks {
   "fromHierarchy" should {
     "be lossless for keysets" in forAll { m: Map[List[Int], Int] =>
       NamespaceSpec

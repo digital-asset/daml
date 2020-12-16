@@ -5,9 +5,10 @@ import { ChildProcess, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
-import Ledger, { Event, Stream } from  '@daml/ledger';
+import Ledger, { Event, Stream, PartyInfo } from  '@daml/ledger';
 import { Int, emptyMap, Map } from '@daml/types';
 import pEvent from 'p-event';
+import _ from 'lodash';
 
 import * as buildAndLint from '@daml.js/build-and-lint-1.0.0'
 
@@ -507,4 +508,63 @@ test('stream close behaviour', async () => {
     'after close',
     'close',
   ]);
+});
+
+test('party API', async () => {
+  const p = (id: string): PartyInfo => ({identifier: id, displayName: id, isLocal: true});
+  const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
+  const parties = await ledger.getParties([ALICE_PARTY, "unknown"]);
+  expect(parties).toEqual([p("Alice"), null]);
+  const rev = await ledger.getParties(["unknown", ALICE_PARTY]);
+  expect(rev).toEqual([null, p("Alice")]);
+
+  const allParties = await ledger.listKnownParties();
+  expect(_.sortBy(allParties, [(p: PartyInfo) => p.identifier])).toEqual([p("Alice"), p("Bob")]);
+
+  const newParty1 = await ledger.allocateParty({});
+  const newParty2 = await ledger.allocateParty({displayName: "Carol"});
+  await ledger.allocateParty({displayName: "Dave", identifierHint: "Dave"});
+
+  const allPartiesAfter = (await ledger.listKnownParties()).map((pi) => pi.identifier);
+
+  expect(_.sortBy(allPartiesAfter)).toEqual(_.sortBy(["Alice", "Bob", "Dave", newParty1.identifier, newParty2.identifier]));
+
+});
+
+test('package API', async () => {
+  // expect().toThrow does not seem to work with async thunk
+  const expectFail = async <T>(p: Promise<T>): Promise<void> => {
+    try {
+      await p;
+      expect(true).toBe(false);
+    } catch (exc) {
+      expect(exc.status).toBe(500);
+      expect(exc.errors.length).toBe(1);
+    }
+  };
+  const ledger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
+
+  const packagesBefore = await ledger.listPackages();
+
+  expect(packagesBefore).toEqual(expect.arrayContaining([buildAndLint.packageId]));
+  expect(packagesBefore.length > 1).toBe(true);
+
+  const nonSense = Uint8Array.from([1, 2, 3, 4]);
+
+  await expectFail(ledger.uploadDarFile(nonSense));
+
+  const upDar = await fs.readFile(getEnv('UPLOAD_DAR'));
+  // throws on error
+  await ledger.uploadDarFile(upDar);
+
+  const packagesAfter = await ledger.listPackages();
+
+  expect(packagesAfter).toEqual(expect.arrayContaining([buildAndLint.packageId]));
+  expect(packagesAfter.length > packagesBefore.length).toBe(true);
+  expect(packagesAfter).toEqual(expect.arrayContaining(packagesBefore));
+
+  await expectFail(ledger.getPackage("non-sense"));
+
+  const downSuc = await ledger.getPackage(buildAndLint.packageId);
+  expect(downSuc.byteLength > 0).toBe(true);
 });

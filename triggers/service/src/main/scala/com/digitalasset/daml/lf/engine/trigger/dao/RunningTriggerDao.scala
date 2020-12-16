@@ -6,6 +6,7 @@ package com.daml.lf.engine.trigger.dao
 import java.io.Closeable
 import java.util.UUID
 
+import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.lf.archive.Dar
@@ -18,6 +19,10 @@ trait RunningTriggerDao extends Closeable {
   def addRunningTrigger(t: RunningTrigger)(implicit ec: ExecutionContext): Future[Unit]
   def getRunningTrigger(triggerInstance: UUID)(
       implicit ec: ExecutionContext): Future[Option[RunningTrigger]]
+  def updateRunningTriggerToken(
+      triggerInstance: UUID,
+      accessToken: AccessToken,
+      refreshToken: Option[RefreshToken])(implicit ec: ExecutionContext): Future[Unit]
   def removeRunningTrigger(triggerInstance: UUID)(implicit ec: ExecutionContext): Future[Boolean]
   def listRunningTriggers(party: Party)(implicit ec: ExecutionContext): Future[Vector[UUID]]
   def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)])(

@@ -1,16 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-  ChoicesButton,
-  Dispatch,
-  WithRedux,
-} from '@da/ui-core';
+import { ChoicesButton } from '@da/ui-core';
 import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
 import * as Session from '@da/ui-core/lib/session';
 import { CellRenderParams, ColumnConfig } from '@da/ui-core/lib/Table';
 import * as React from 'react';
-import { connect } from 'react-redux';
+import { connect, ConnectedComponent } from 'react-redux';
+import { ThunkDispatch } from 'redux-thunk';
 import Link from '../../components/Link';
 import { ConfigInterface, ConfigType } from '../../config';
 import * as Routes from '../../routes';
@@ -80,7 +77,7 @@ export interface StateTemplateContracts {
 
 export interface State {
   id: string;
-  state: StateLoading | StateUnknownId | StateContracts |  StateTemplates | StateTemplateContracts;
+  state: StateLoading | StateUnknownId | StateContracts |  StateTemplates | StateTemplateContracts;
 }
 
 export const init = (id: string): State => ({
@@ -139,7 +136,7 @@ interface OwnProps {
 }
 
 interface DispatchProps {
-  dispatch: Dispatch<Action>;
+  dispatch: ThunkDispatch<App.State, undefined, App.Action>;
 }
 
 type Props = DispatchProps & OwnProps;
@@ -153,7 +150,7 @@ function initContracts(d: ConfigInterface.TableViewSourceContracts) {
     count: d.count || defaultState.count,
     sort: d.sort || defaultState.sort,
   };
-};
+}
 
 function getInitialViewState(view: ConfigInterface.CustomView) {
   const source = view.source;
@@ -173,19 +170,19 @@ function findCustomView(config: ConfigType, id: string)
 }
 
 function createColumns(config: ConfigType, viewId: string)
-  // tslint:disable-next-line: no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   : ColumnConfig<any, any>[] {
   const view = findCustomView(config, viewId);
   return view ? view.columns.map((col, index) => ({
-    key: col.key || '',
+    key: col.key || '',
     title: col.title || '',
     sortable: col.sortable || true,
     width: col.width || 50,
-    weight: col.weight || 1,
+    weight: col.weight || 1,
     alignment: col.alignment || 'left',
-    // tslint:disable-next-line: no-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     extractCellData: (rowData: any) => rowData,
-    // tslint:disable-next-line: no-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     createCell: (props: CellRenderParams<any, any>) => {
       try {
         if (typeof col.createCell !== 'function') {
@@ -208,7 +205,7 @@ function createColumns(config: ConfigType, viewId: string)
               )}
             />
           );
-          // tslint:disable-next-line: no-any
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           default: throw new Error(`Unknown cell type ${(cell as any).type}`);
         }
       }
@@ -221,7 +218,7 @@ function createColumns(config: ConfigType, viewId: string)
 }
 
 interface ComponentState {
-  // tslint:disable-next-line: no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   columns: ColumnConfig<any, any>[];
 }
 
@@ -246,7 +243,7 @@ class Component extends React.Component<Props, ComponentState> {
     }
   }
 
-  componentWillReceiveProps(nextProps: Props) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props) {
     if (
       this.props.state.id !== nextProps.state.id ||
       this.props.config !== nextProps.config
@@ -281,7 +278,7 @@ class Component extends React.Component<Props, ComponentState> {
         <p>Loading...</p>
       );
       case 'unknown-id': return (
-        <p>Unknown custom view with id '{id}'</p>
+        <p>Unknown custom view with id &apos;{id}&apos;</p>
       )
       case 'contracts': return (
         <Contracts.UI
@@ -311,6 +308,4 @@ class Component extends React.Component<Props, ComponentState> {
   }
 }
 
-const withRedux: WithRedux<Props> = connect();
-
-export const UI = withRedux(Component);
+export const UI: ConnectedComponent<typeof Component, OwnProps> = connect()(Component);

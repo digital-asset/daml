@@ -94,7 +94,7 @@ private[services] final class TrackerMap(retentionPeriod: FiniteDuration)(
 
 private[services] object TrackerMap {
 
-  final case class Key(application: String, party: String)
+  final case class Key(application: String, parties: Set[String])
 
   sealed trait AsyncResourceState[+T <: AutoCloseable]
   final case object Waiting extends AsyncResourceState[Nothing]

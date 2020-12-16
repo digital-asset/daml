@@ -111,6 +111,19 @@ object IdString {
   import Ref.{Name, Party}
   implicit def `Name order instance`: Order[Name] = Order fromScalaOrdering Name.ordering
   implicit def `Party order instance`: Order[Party] = Order fromScalaOrdering Party.ordering
+
+  private[data] def asciiCharsToRejectionArray(s: Iterable[Char]): Array[Boolean] = {
+    val array = Array.fill(0x80)(true)
+    s.foreach { c =>
+      val i = c.toInt
+      assert(i < 0x80)
+      array(i) = false
+    }
+    array
+  }
+
+  private[data] val letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  private[data] val digits = "0123456789"
 }
 
 private sealed abstract class StringModuleImpl extends StringModule[String] {
@@ -121,10 +134,13 @@ private sealed abstract class StringModuleImpl extends StringModule[String] {
 
   final val Array: ArrayFactory[T] = new ArrayFactory[T]
 
-  def fromString(str: String): Either[String, String]
-
-  final def assertFromString(s: String): String =
-    assertRight(fromString(s))
+  def fromString(str: String): Either[String, String] =
+    try {
+      Right(assertFromString(str))
+    } catch {
+      case err: IllegalArgumentException =>
+        Left(err.getMessage)
+    }
 
   final implicit val ordering: Ordering[String] =
     _ compareTo _
@@ -137,12 +153,11 @@ private object HexStringModuleImpl extends StringModuleImpl with HexStringModule
 
   private val baseEncode = BaseEncoding.base16().lowerCase()
 
-  override def fromString(str: String): Either[String, String] =
-    Either.cond(
-      baseEncode.canDecode(str),
-      str,
-      s"cannot parse HexString $str"
-    )
+  override def assertFromString(str: String): String =
+    if (baseEncode.canDecode(str))
+      str
+    else
+      throw new IllegalArgumentException(s"cannot parse HexString $str")
 
   override def encode(a: Bytes): T = {
     val writer = new StringWriter()
@@ -153,6 +168,7 @@ private object HexStringModuleImpl extends StringModuleImpl with HexStringModule
 
   override def decode(a: T): Bytes =
     Bytes.fromInputStream(baseEncode.decodingStream(new StringReader(a)))
+
 }
 
 private final class MatchingStringModule(description: String, string_regex: String)
@@ -161,11 +177,12 @@ private final class MatchingStringModule(description: String, string_regex: Stri
   private val regex = string_regex.r
   private val pattern = regex.pattern
 
-  override def fromString(s: String): Either[String, T] =
-    Either.cond(
-      pattern.matcher(s).matches(),
-      s,
-      s"""$description "$s" does not match regex "$regex"""")
+  @throws[IllegalArgumentException]
+  override def assertFromString(str: String): String =
+    if (pattern.matcher(str).matches())
+      str
+    else
+      throw new IllegalArgumentException(s"""$description "$str" does not match regex "$regex"""")
 
 }
 
@@ -181,20 +198,30 @@ private final class MatchingStringModule(description: String, string_regex: Stri
   */
 private final class ConcatenableMatchingStringModule(
     description: String,
-    extraAllowedChars: Char => Boolean,
+    extraAllowedChars: String,
     maxLength: Int = Int.MaxValue,
 ) extends StringModuleImpl
     with ConcatenableStringModule[String, String] {
 
-  override def fromString(s: String): Either[String, T] =
-    if (s.isEmpty)
-      Left(s"""$description is empty""")
-    else if (s.length > maxLength)
-      Left(s"""$description is too long""")
-    else
-      s.find(c => c > 0x7f || !(c.isLetterOrDigit || extraAllowedChars(c)))
-        .fold[Either[String, T]](Right(s))(c =>
-          Left(s"""non expected character 0x${c.toInt.toHexString} in $description "$s""""))
+  private val disallowedChar =
+    IdString.asciiCharsToRejectionArray(IdString.letters ++ IdString.digits ++ extraAllowedChars)
+
+  @throws[IllegalArgumentException]
+  override def assertFromString(s: String) = {
+    if (s.length == 0)
+      throw new IllegalArgumentException(s"""$description is empty""")
+    if (s.length > maxLength)
+      throw new IllegalArgumentException(s"""$description is too long""")
+    var i = 0
+    while (i < s.length) {
+      val c = s(i).toInt
+      if (c > 0x7f || disallowedChar(c))
+        throw new IllegalArgumentException(
+          s"""non expected character 0x${s(i).toInt.toHexString} in $description "$s"""")
+      i += 1
+    }
+    s
+  }
 
   override def fromLong(i: Long): T = i.toString
 
@@ -224,14 +251,38 @@ private[data] final class IdStringImpl extends IdString {
   //
   // In a language like C# you'll need to use some other unicode char for `$`.
   override type Name = String
-  override val Name: StringModule[Name] =
-    new MatchingStringModule("DAML LF Name", """[A-Za-z\$_][A-Za-z0-9\$_]*""")
+  override val Name: StringModule[Name] = new StringModuleImpl {
+
+    private[this] val disallowedFirstChar =
+      IdString.asciiCharsToRejectionArray(IdString.letters ++ "$_")
+    private[this] val disallowedOtherChar =
+      IdString.asciiCharsToRejectionArray(IdString.letters ++ IdString.digits ++ "$_")
+
+    @throws[IllegalArgumentException]
+    override def assertFromString(s: String) = {
+      if (s.length == 0)
+        throw new IllegalArgumentException("DAML LF Name is empty")
+      val c = s(0).toInt
+      if (c > 0x7f || disallowedFirstChar(c))
+        throw new IllegalArgumentException(
+          s"""non expected first character 0x${c.toHexString} in DAML LF Name "$s"""")
+      var i = 1
+      while (i < s.length) {
+        val c = s(i).toInt
+        if (c > 0x7f || disallowedOtherChar(c))
+          throw new IllegalArgumentException(
+            s"""non expected non first character 0x${c.toHexString} in DAML LF Name "$s"""")
+        i += 1
+      }
+      s
+    }
+  }
 
   /** Package names are non-empty US-ASCII strings built from letters, digits, minus and underscore.
     */
   override type PackageName = String
   override val PackageName: ConcatenableStringModule[PackageName, HexString] =
-    new ConcatenableMatchingStringModule("DAML LF Package Name", "-_".contains(_))
+    new ConcatenableMatchingStringModule("DAML LF Package Name", "-_")
 
   /** Package versions are non-empty strings consisting of segments of digits (without leading zeros)
       separated by dots.
@@ -246,13 +297,13 @@ private[data] final class IdStringImpl extends IdString {
     */
   override type Party = String
   override val Party: ConcatenableStringModule[Party, HexString] =
-    new ConcatenableMatchingStringModule("DAML LF Party", ":-_ ".contains(_), 255)
+    new ConcatenableMatchingStringModule("DAML LF Party", ":-_ ", 255)
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
     * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
   override type PackageId = String
   override val PackageId: ConcatenableStringModule[PackageId, HexString] =
-    new ConcatenableMatchingStringModule("DAML LF Package ID", "-_ ".contains(_))
+    new ConcatenableMatchingStringModule("DAML LF Package ID", "-_ ")
 
   /**
     * Used to reference to leger objects like contractIds, ledgerIds,
@@ -262,7 +313,7 @@ private[data] final class IdStringImpl extends IdString {
   // We allow space because the navigator's applicationId used it.
   override type LedgerString = String
   override val LedgerString: ConcatenableStringModule[LedgerString, HexString] =
-    new ConcatenableMatchingStringModule("DAML LF Ledger String", "._:-#/ ".contains(_), 255)
+    new ConcatenableMatchingStringModule("DAML LF Ledger String", "._:-#/ ", 255)
 
   override type ParticipantId = String
   override val ParticipantId = LedgerString

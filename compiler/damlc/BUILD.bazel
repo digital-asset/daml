@@ -23,6 +23,7 @@ da_haskell_binary(
         "@static_asset_d3plus//:js/d3plus.min.js",
         ghc_pkg,
         "//compiler/damlc:ghcversion",
+        "//compiler/damlc:hpp",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/repl-service/server:repl_service_jar",
@@ -46,7 +47,18 @@ genrule(
         echo > $(OUTS)
     """,
     tools = [],
-    visibility = ["__pkg__"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "hpp",
+    srcs = ["@stackage-exe//hpp"],
+    outs = ["hpp"],
+    cmd = """
+        cp $(location @stackage-exe//hpp) $(OUTS)
+    """,
+    tools = [],
+    visibility = ["//visibility:public"],
 )
 
 # damlc without runfiles. We use that to build the daml-prim and daml-stdlib
@@ -63,6 +75,7 @@ da_haskell_binary(
     ] if is_windows else [],
     data = [
         "//compiler/damlc:ghcversion",
+        "//compiler/damlc:hpp",
         "//compiler/damlc/stable-packages",
     ],
     hackage_deps = [
@@ -81,6 +94,8 @@ package_app(
     resources = [
         ":daml-base-anchors.json",
         ":ghc-pkg-dist",
+        "//compiler/damlc:ghcversion",
+        "//compiler/damlc:hpp",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
@@ -108,7 +123,7 @@ da_haskell_library(
     name = "damlc-lib",
     srcs = glob(["lib/**/*.hs"]),
     extra_srcs = [
-        "//compiler/daml-licenses/licenses:licensing.md",
+        "//:NOTICES",
     ],
     hackage_deps = [
         "data-default",
@@ -220,12 +235,10 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-prim \
             --format=Json \
-            --cpp $(location @stackage-exe//hpp) \
             $(locations //compiler/damlc/daml-prim-src)
     """,
     tools = [
         "//compiler/damlc",
-        "@stackage-exe//hpp",
     ],
     visibility = ["//visibility:public"],
 )
@@ -239,12 +252,10 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-stdlib \
             --format=Json \
-            --cpp $(location @stackage-exe//hpp) \
             $(locations //compiler/damlc/daml-stdlib-src)
     """,
     tools = [
         "//compiler/damlc",
-        "@stackage-exe//hpp",
     ],
     visibility = ["//visibility:public"],
 )

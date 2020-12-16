@@ -13,7 +13,6 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
-import com.daml.lf.transaction.VersionTimeline
 import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
 import org.slf4j.LoggerFactory
 
@@ -62,13 +61,13 @@ private[lf] object Compiler {
 
   object Config {
     val Default = Config(
-      allowedLanguageVersions = VersionTimeline.stableLanguageVersions,
+      allowedLanguageVersions = LanguageVersion.StableVersions,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
     )
     val Dev = Config(
-      allowedLanguageVersions = VersionTimeline.devLanguageVersions,
+      allowedLanguageVersions = LanguageVersion.DevVersions,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
@@ -396,10 +395,12 @@ private[lf] final class Compiler(
       case ECons(_, front, tail) =>
         // TODO(JM): Consider emitting SEValue(SList(...)) for
         // constant lists?
-        SEApp(
-          SEBuiltin(SBConsMany(front.length)),
-          front.iterator.map(compile).toArray :+ compile(tail),
-        )
+        val args = (front.iterator.map(compile) ++ Seq(compile(tail))).toArray
+        if (front.length == 1) {
+          SEApp(SEBuiltin(SBCons), args)
+        } else {
+          SEApp(SEBuiltin(SBConsMany(front.length)), args)
+        }
       case ENone(_) =>
         SEValue.None
       case ESome(_, body) =>
@@ -682,12 +683,11 @@ private[lf] final class Compiler(
         compileEmbedExpr(e)
       case UpdateCreate(tmplId, arg) =>
         CreateDefRef(tmplId)(compile(arg))
-      case UpdateExercise(tmplId, chId, cidE, actorsE, argE) =>
+      case UpdateExercise(tmplId, chId, cidE, argE) =>
         compileExercise(
           tmplId = tmplId,
           contractId = compile(cidE),
           choiceId = chId,
-          optActors = actorsE.map(compile),
           argument = compile(argE),
         )
       case UpdateExerciseByKey(tmplId, chId, keyE, argE) =>
@@ -880,7 +880,6 @@ private[lf] final class Compiler(
       tmpl: Template,
       choice: TemplateChoice,
   )(
-      actorsPos: Position,
       choiceArgPos: Position,
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
@@ -892,7 +891,6 @@ private[lf] final class Compiler(
         SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
           svar(choiceArgPos),
           svar(cidPos),
-          svar(actorsPos),
           compile(tmpl.signatories),
           compile(tmpl.observers), //
           {
@@ -929,10 +927,9 @@ private[lf] final class Compiler(
     //       <retValue> = [update] <token>
     //       _ = $endExercise[tmplId] <retValue>
     //   in <retValue>
-    topLevelFunction(ChoiceDefRef(tmplId, choice.name), 4) {
-      case List(actorsPos, cidPos, choiceArgPos, tokenPos) =>
+    topLevelFunction(ChoiceDefRef(tmplId, choice.name), 3) {
+      case List(cidPos, choiceArgPos, tokenPos) =>
         compileChoiceBody(tmplId, tmpl, choice)(
-          actorsPos,
           choiceArgPos,
           cidPos,
           None,
@@ -956,12 +953,11 @@ private[lf] final class Compiler(
     //       <retValue> = <updateE> <token>
     //       _ = $endExercise[tmplId] <retValue>
     //   in  <retValue>
-    topLevelFunction(ChoiceByKeyDefRef(tmplId, choice.name), 4) {
-      case List(actorsPos, keyPos, choiceArgPos, tokenPos) =>
+    topLevelFunction(ChoiceByKeyDefRef(tmplId, choice.name), 3) {
+      case List(keyPos, choiceArgPos, tokenPos) =>
         let(encodeKeyWithMaintainers(keyPos, tmplKey)) { keyWithMPos =>
           let(SBUFetchKey(tmplId)(svar(keyWithMPos))) { cidPos =>
             compileChoiceBody(tmplId, tmpl, choice)(
-              actorsPos,
               choiceArgPos,
               cidPos,
               Some(keyWithMPos),
@@ -1400,18 +1396,13 @@ private[lf] final class Compiler(
       choiceId: ChoiceName,
       // actors are only present when compiling old LF update expressions;
       // they are computed from the controllers in newer versions
-      optActors: Option[SExpr],
       argument: SExpr,
   ): SExpr =
     // Translates 'A does exercise by key  Choice with <params>'
     // into:
     // SomeTemplate$SomeChoice <actorsE> <cidE> <argE>
     withEnv { _ =>
-      val actors: SExpr = optActors match {
-        case None => SEValue.None
-        case Some(actors) => SBSome(actors)
-      }
-      ChoiceDefRef(tmplId, choiceId)(actors, contractId, argument)
+      ChoiceDefRef(tmplId, choiceId)(contractId, argument)
     }
 
   private[this] def compileExerciseByKey(
@@ -1424,7 +1415,7 @@ private[lf] final class Compiler(
     // into:
     // ChoiceByKeyDefRef(tmplId, choiceId) <actors> <key> <arg>
     withEnv { _ =>
-      ChoiceByKeyDefRef(tmplId, choiceId)(SEValue.None, key, argument)
+      ChoiceByKeyDefRef(tmplId, choiceId)(key, argument)
     }
 
   private[this] def compileCreateAndExercise(
@@ -1440,7 +1431,6 @@ private[lf] final class Compiler(
             tmplId = tmplId,
             contractId = svar(cidPos),
             choiceId = choiceId,
-            optActors = None,
             argument = SEValue(choiceArg),
           ),
           svar(tokenPos)
@@ -1505,7 +1495,6 @@ private[lf] final class Compiler(
         tmplId = templateId,
         contractId = SEValue(contractId),
         choiceId = choiceId,
-        optActors = None,
         argument = SEValue(argument),
       )
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>

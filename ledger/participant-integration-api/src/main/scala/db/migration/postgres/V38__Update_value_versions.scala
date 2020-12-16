@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform
-package db.migration.postgres
+package db.migration
+package postgres
 
 import java.sql.{Connection, ResultSet}
 
@@ -13,7 +14,7 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
 
   import com.daml.lf
   import lf.value.Value.ContractId
-  import store.serialization.ValueSerializer
+  import translation.ValueSerializer
 
   private[this] type Value = lf.value.Value.VersionedValue[ContractId]
 

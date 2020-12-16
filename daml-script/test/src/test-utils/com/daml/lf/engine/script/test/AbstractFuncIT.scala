@@ -10,6 +10,8 @@ import com.daml.lf.engine.script.RunnerConfig
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import spray.json.{JsNumber, JsObject, JsString}
 
 abstract class AbstractFuncIT

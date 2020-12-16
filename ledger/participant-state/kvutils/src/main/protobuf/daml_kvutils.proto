@@ -133,7 +133,7 @@ message DamlLogEntryId {
 }
 
 message DamlSubmitterInfo {
-  string submitter = 1;
+  repeated string submitters = 1;
   string command_id = 2;
   string application_id = 3;
   reserved 4; // was maximum_record_time
@@ -173,7 +173,7 @@ message DamlTransactionEntry {
   // The time used to derive contract ids
   google.protobuf.Timestamp submission_time = 6;
 
-  // The pre-computed transaction blinding information. Optional.
+  // The pre-computed transaction blinding information.
   DamlTransactionBlindingInfo blinding_info = 7;
 }
 
@@ -393,7 +393,7 @@ message DamlStateValue {
 }
 
 message DamlCommandDedupKey {
-  string submitter = 1;
+  repeated string submitters = 1;
   reserved 2; // was application_id
   string command_id = 3;
 }

@@ -27,8 +27,8 @@ trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
         new ThreadFactoryBuilder()
           .setDaemon(true)
           .setNameFormat(s"$actorSystemName-thread-pool-worker-%d")
-          .setUncaughtExceptionHandler((thread, _) =>
-            logger.error(s"got an uncaught exception on thread: ${thread.getName}"))
+          .setUncaughtExceptionHandler((thread, e) =>
+            logger.error(s"got an uncaught exception on thread: ${thread.getName}", e))
           .build()))
 
   protected implicit lazy val system: ActorSystem =

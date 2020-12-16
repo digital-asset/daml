@@ -11,8 +11,10 @@ import test.ValueGenerators.{coidGen, idGen, nameGen}
 import test.TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
 import com.daml.scalatest.Unnatural
 import org.scalacheck.{Arbitrary, Gen, Shrink}
-import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
-import org.scalatest.{FreeSpec, Inside, Matchers}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatestplus.scalacheck.{Checkers, ScalaCheckPropertyChecks}
 import scalaz.{Order, Tag}
 import scalaz.std.anyVal._
 import scalaz.syntax.functor._
@@ -22,12 +24,11 @@ import scalaz.scalacheck.ScalaCheckBinding._
 import shapeless.syntax.singleton._
 
 class ValueSpec
-    extends FreeSpec
+    extends AnyFreeSpec
     with Matchers
     with Inside
     with Checkers
-    with GeneratorDrivenPropertyChecks
-    with TableDrivenPropertyChecks {
+    with ScalaCheckPropertyChecks {
   import ValueSpec._
 
   "serialize" - {
@@ -56,10 +57,10 @@ class ValueSpec
     "does not bump version when" - {
 
       "ensureNoCid is used " in {
-        val value = VersionedValue[ContractId](ValueVersions.minVersion, ValueUnit)
+        val value = VersionedValue[ContractId](ValueVersion.minVersion, ValueUnit)
         val contract = ContractInst(tmplId, value, "agreed")
-        value.ensureNoCid.map(_.version) shouldBe Right(ValueVersions.minVersion)
-        contract.ensureNoCid.map(_.arg.version) shouldBe Right(ValueVersions.minVersion)
+        value.ensureNoCid.map(_.version) shouldBe Right(ValueVersion.minVersion)
+        contract.ensureNoCid.map(_.arg.version) shouldBe Right(ValueVersion.minVersion)
 
       }
 

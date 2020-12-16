@@ -5,7 +5,7 @@ import * as React from 'react';
 import { Section } from '../Guide';
 import Strong from '../Strong';
 
-export default () => (
+export default (): JSX.Element => (
   <Section
     title="Show text in bold"
     description="This component shows text with **strong** emphasis."

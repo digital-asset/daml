@@ -9,7 +9,7 @@
 // In the future, we may decide to use another library to implement
 // this component.
 import * as _ from 'lodash';
-import * as Moment from 'moment';
+import Moment from 'moment';
 import * as React from 'react';
 import Button from '../Button';
 import UntypedIcon from '../Icon';
@@ -119,7 +119,7 @@ const Day = ({ i, w, d, f, ...props }: DayProps) => {
 };
 
 export interface Props {
-  moment: Moment.Moment | undefined;
+  moment: Moment.Moment | undefined;
   defaultMoment: Moment.Moment;
   onChange(moment: Moment.Moment): void;
 }
@@ -181,7 +181,7 @@ export default class Calendar extends React.Component<Props, State> {
     this.nextMonth = this.nextMonth.bind(this);
   }
 
-  componentWillReceiveProps(nextProps: Props) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props): void {
     if (isValid(this.props.moment) && isValid(nextProps.moment) &&
       !this.props.moment.isSame(nextProps.moment)) {
         this.setState({displayMoment: nextProps.moment})
@@ -190,7 +190,7 @@ export default class Calendar extends React.Component<Props, State> {
     }
   }
 
-  selectDate(i: number, w: number) {
+  selectDate(i: number, w: number): void {
     const prevMonth = w === 0 && i > 7;
     const nextMonth = w >= 4 && i <= 14;
     const m = Moment(this.state.displayMoment);
@@ -205,21 +205,21 @@ export default class Calendar extends React.Component<Props, State> {
     m.date(i);
 
     this.props.onChange(m);
-  };
+  }
 
-  prevMonth() {
+  prevMonth(): void {
     const result = Moment(this.state.displayMoment);
     result.subtract(1, 'month');
     this.setState({displayMoment: result});
-  };
+  }
 
-  nextMonth() {
+  nextMonth(): void {
     const result = Moment(this.state.displayMoment);
     result.add(1, 'month');
     this.setState({displayMoment: result});
-  };
+  }
 
-  render() {
+  render(): JSX.Element {
     const m = this.state.displayMoment;
     const displayDate =
       isSameMonth(this.props.moment, this.state.displayMoment) ?
@@ -231,9 +231,9 @@ export default class Calendar extends React.Component<Props, State> {
     const d2 = m.clone().date(1).day();
     const d3 = m.clone().endOf('month').date();
     const days = [
-      // tslint:disable-next-line:restrict-plus-operands -- false positive
+      // eslint-disable-next-line @typescript-eslint/restrict-plus-operands, , ,
       ..._.range(d1 - d2 + 1, d1 + 1),
-      // tslint:disable-next-line:restrict-plus-operands -- false positive
+      // eslint-disable-next-line @typescript-eslint/restrict-plus-operands
       ..._.range(1, d3 + 1),
       ..._.range(1, 42 - d3 - d2 + 1),
     ];

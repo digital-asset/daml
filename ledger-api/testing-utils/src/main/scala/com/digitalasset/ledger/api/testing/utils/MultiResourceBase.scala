@@ -5,6 +5,7 @@ package com.daml.ledger.api.testing.utils
 
 import org.scalatest.AsyncTestSuite
 
+import scala.collection.compat._
 import scala.collection.immutable
 
 trait MultiResourceBase[FixtureId, TestContext]
@@ -31,7 +32,7 @@ trait MultiResourceBase[FixtureId, TestContext]
 case class MultiResource[FixtureId, TestContext](resources: Map[FixtureId, Resource[TestContext]])
     extends Resource[Map[FixtureId, () => TestContext]] {
   override lazy val value: Map[FixtureId, () => TestContext] =
-    resources.mapValues(r => () => r.value)
+    resources.view.mapValues(r => () => r.value).toMap
   override def setup(): Unit = resources.foreach(_._2.setup())
   override def close(): Unit = resources.foreach(_._2.close())
 }

@@ -36,6 +36,13 @@ private[sql] final class Cli(
         config.copy(jdbcUrl = getEnv(env).orElse(
           throw new IllegalArgumentException(s"The '$env' environment variable is undefined."))))
 
+    parser
+      .opt[String]("sql-backend-jdbcurl")
+      .optional()
+      .text(
+        s"The JDBC connection URL to a Postgres database containing the username and password as well. If present, $Name will use the database to persist its data.")
+      .action((url, config) => config.copy(jdbcUrl = Some(url)))
+
     // Ideally we would set the relevant options to `required()`, but it doesn't seem to work.
     // Even when the value is provided, it still reports that it's missing. Instead, we check the
     // configuration afterwards.

@@ -66,25 +66,27 @@ object TypeOrdering extends Ordering[Type] {
   }
 
   private[this] val builtinTypeIdx =
+    // must be in the same order as declared in the archive protobuf
+    // no need to be overly careful though since we have a test enforcing this
     List(
       Ast.BTUnit,
       Ast.BTBool,
       Ast.BTInt64,
       Ast.BTText,
-      Ast.BTNumeric,
       Ast.BTTimestamp,
-      Ast.BTDate,
       Ast.BTParty,
-      Ast.BTContractId,
-      Ast.BTArrow,
-      Ast.BTOptional,
       Ast.BTList,
+      Ast.BTUpdate,
+      Ast.BTScenario,
+      Ast.BTDate,
+      Ast.BTContractId,
+      Ast.BTOptional,
+      Ast.BTArrow,
       Ast.BTTextMap,
-      Ast.BTGenMap,
+      Ast.BTNumeric,
       Ast.BTAny,
       Ast.BTTypeRep,
-      Ast.BTUpdate,
-      Ast.BTScenario
+      Ast.BTGenMap,
     ).zipWithIndex.toMap
 
   private[this] def typeRank(typ: Ast.Type): Int =

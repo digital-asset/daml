@@ -535,7 +535,9 @@ class Runner(
       val f: Future[Empty] = client.commandClient
         .submitSingleCommand(req)
       f.map(_ => None).recover {
-        case s: StatusRuntimeException =>
+        case s: StatusRuntimeException if s.getStatus != io.grpc.Status.UNAUTHENTICATED =>
+          // Do not capture UNAUTHENTICATED errors.
+          // The access token may be expired, let the trigger runner handle token refresh.
           Some(SingleCommandFailure(req.getCommands.commandId, s))
         // any other error will cause the trigger's stream to fail
       }

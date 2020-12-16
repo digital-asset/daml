@@ -4,9 +4,11 @@
 package com.daml.lf.data
 
 import com.daml.lf.data.Ref.{DottedName, Identifier, LedgerString, PackageId, Party, QualifiedName}
-import org.scalatest.{EitherValues, FreeSpec, Matchers}
+import org.scalatest.EitherValues
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 
-class RefTest extends FreeSpec with Matchers with EitherValues {
+class RefTest extends AnyFreeSpec with Matchers with EitherValues {
 
   "DottedName.string" - {
     "rejects bad segments" - {

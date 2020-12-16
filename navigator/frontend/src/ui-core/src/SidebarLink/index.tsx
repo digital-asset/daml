@@ -52,7 +52,7 @@ const Count = styled.span`
   min-height: 1.75rem;
 `;
 
-export function makeSidebarLink<P extends {}>(Link: React.ComponentClass<P>) {
+export function makeSidebarLink<P>(Link: React.ComponentType<P>): StyledComponent<React.FC<Props & P>, ThemeInterface, Props & P> {
 
   // First create the component with the required API. This uses the Link
   // component as the outer wrapper.
@@ -60,7 +60,7 @@ export function makeSidebarLink<P extends {}>(Link: React.ComponentClass<P>) {
   const A = (props: Props & P) => {
     // The no-any is a hack because of a TypeScript issue
     // (https://github.com/Microsoft/TypeScript/pull/13288)
-    // tslint:disable-next-line:no-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { title, icon, count, isActive, ...params } = props as any;
     const iconEl = icon ? <MainIcon name={icon} /> : null;
     const countEl = count !== undefined ? <Count>{count}</Count> : null;
@@ -99,4 +99,4 @@ export function makeSidebarLink<P extends {}>(Link: React.ComponentClass<P>) {
 
   // And return the styled version.
   return B;
-};
+}

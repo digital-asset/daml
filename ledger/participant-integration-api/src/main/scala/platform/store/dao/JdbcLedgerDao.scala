@@ -34,6 +34,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer.{CurrentOffset, OffsetStep}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
@@ -210,7 +211,7 @@ private class JdbcLedgerDao(
         |""".stripMargin)
 
   override def storeConfigurationEntry(
-      offset: Offset,
+      offsetStep: OffsetStep,
       recordedAt: Instant,
       submissionId: String,
       configuration: Configuration,
@@ -241,7 +242,7 @@ private class JdbcLedgerDao(
             rejectionReason
         }
 
-      ParametersTable.updateLedgerEnd(offset)
+      ParametersTable.updateLedgerEnd(offsetStep)
       val configurationBytes = Configuration.encode(configuration).toByteArray
       val typ = if (finalRejectionReason.isEmpty) {
         acceptType
@@ -252,7 +253,7 @@ private class JdbcLedgerDao(
       Try({
         SQL_INSERT_CONFIGURATION_ENTRY
           .on(
-            "ledger_offset" -> offset,
+            "ledger_offset" -> offsetStep.offset,
             "recorded_at" -> recordedAt,
             "submission_id" -> submissionId,
             "typ" -> typ,
@@ -288,21 +289,21 @@ private class JdbcLedgerDao(
         |""".stripMargin)
 
   override def storePartyEntry(
-      offset: Offset,
+      offsetStep: OffsetStep,
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
       if (enableAsyncCommits) {
         queries.enableAsyncCommit
       }
-      ParametersTable.updateLedgerEnd(offset)
+      ParametersTable.updateLedgerEnd(offsetStep)
 
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
           Try({
             SQL_INSERT_PARTY_ENTRY_ACCEPT
               .on(
-                "ledger_offset" -> offset,
+                "ledger_offset" -> offsetStep.offset,
                 "recorded_at" -> recordTime,
                 "submission_id" -> submissionIdOpt,
                 "party" -> partyDetails.party,
@@ -314,7 +315,7 @@ private class JdbcLedgerDao(
               .on(
                 "party" -> partyDetails.party,
                 "display_name" -> partyDetails.displayName,
-                "ledger_offset" -> offset,
+                "ledger_offset" -> offsetStep.offset,
                 "is_local" -> partyDetails.isLocal
               )
               .execute()
@@ -329,7 +330,7 @@ private class JdbcLedgerDao(
         case PartyLedgerEntry.AllocationRejected(submissionId, recordTime, reason) =>
           SQL_INSERT_PARTY_ENTRY_REJECT
             .on(
-              "ledger_offset" -> offset,
+              "ledger_offset" -> offsetStep.offset,
               "recorded_at" -> recordTime,
               "submission_id" -> submissionId,
               "rejection_reason" -> reason
@@ -407,10 +408,10 @@ private class JdbcLedgerDao(
     }
   }
 
-  override def lookupKey(key: GlobalKey, forParty: Party)(
+  override def lookupKey(key: GlobalKey, forParties: Set[Party])(
       implicit loggingContext: LoggingContext,
   ): Future[Option[ContractId]] =
-    contractsReader.lookupContractKey(forParty, key)
+    contractsReader.lookupContractKey(forParties, key)
 
   override def prepareTransactionInsert(
       submitterInfo: Option[SubmitterInfo],
@@ -439,7 +440,7 @@ private class JdbcLedgerDao(
       recordTime: Instant,
       rejectionReason: RejectionReason,
   )(implicit connection: Connection): Unit = {
-    stopDeduplicatingCommandSync(domain.CommandId(info.commandId), info.singleSubmitterOrThrow())
+    stopDeduplicatingCommandSync(domain.CommandId(info.commandId), info.actAs)
     prepareRejectionInsert(info, offset, recordTime, rejectionReason).execute()
     ()
   }
@@ -450,7 +451,7 @@ private class JdbcLedgerDao(
       transactionId: TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
-      offset: Offset,
+      offsetStep: OffsetStep,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
@@ -474,16 +475,15 @@ private class JdbcLedgerDao(
           Timed.value(
             metrics.daml.index.db.storeTransactionDbMetrics.insertCompletion,
             submitterInfo
-              .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
+              .map(prepareCompletionInsert(_, offsetStep.offset, transactionId, recordTime))
               .foreach(_.execute())
           )
-        }
-        for (reason <- error; info <- submitterInfo) {
-          handleError(offset, info, recordTime, reason)
+        } else {
+          submitterInfo.foreach(handleError(offsetStep.offset, _, recordTime, error.get))
         }
         Timed.value(
           metrics.daml.index.db.storeTransactionDbMetrics.updateLedgerEnd,
-          ParametersTable.updateLedgerEnd(offset)
+          ParametersTable.updateLedgerEnd(offsetStep)
         )
         Ok
       }
@@ -491,7 +491,7 @@ private class JdbcLedgerDao(
   override def storeRejection(
       submitterInfo: Option[SubmitterInfo],
       recordTime: Instant,
-      offset: Offset,
+      offsetStep: OffsetStep,
       reason: RejectionReason,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher.executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
@@ -499,9 +499,9 @@ private class JdbcLedgerDao(
         queries.enableAsyncCommit
       }
       for (info <- submitterInfo) {
-        handleError(offset, info, recordTime, reason)
+        handleError(offsetStep.offset, info, recordTime, reason)
       }
-      ParametersTable.updateLedgerEnd(offset)
+      ParametersTable.updateLedgerEnd(offsetStep)
       Ok
     }
 
@@ -516,9 +516,9 @@ private class JdbcLedgerDao(
             entry match {
               case tx: LedgerEntry.Transaction =>
                 val submitterInfo =
-                  for (submitter <- tx.submittingParty; appId <- tx.applicationId;
-                    cmdId <- tx.commandId)
-                    yield SubmitterInfo.withSingleSubmitter(submitter, appId, cmdId, Instant.EPOCH)
+                  for (appId <- tx.applicationId;
+                    actAs <- if (tx.actAs.isEmpty) None else Some(tx.actAs); cmdId <- tx.commandId)
+                    yield SubmitterInfo(actAs, appId, cmdId, Instant.EPOCH)
                 prepareTransactionInsert(
                   submitterInfo = submitterInfo,
                   workflowId = tx.workflowId,
@@ -532,20 +532,16 @@ private class JdbcLedgerDao(
                 submitterInfo
                   .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
                   .foreach(_.execute())
-              case LedgerEntry.Rejection(recordTime, commandId, applicationId, submitter, reason) =>
+              case LedgerEntry.Rejection(recordTime, commandId, applicationId, actAs, reason) =>
                 val _ = prepareRejectionInsert(
-                  submitterInfo = SubmitterInfo.withSingleSubmitter(
-                    submitter,
-                    applicationId,
-                    commandId,
-                    Instant.EPOCH),
+                  submitterInfo = SubmitterInfo(actAs, applicationId, commandId, Instant.EPOCH),
                   offset = offset,
                   recordTime = recordTime,
                   reason = toParticipantRejection(reason),
                 ).execute()
             }
         }
-        ParametersTable.updateLedgerEnd(newLedgerEnd)
+        ParametersTable.updateLedgerEnd(CurrentOffset(newLedgerEnd))
     }
 
   private def toParticipantRejection(reason: domain.RejectionReason): RejectionReason =
@@ -573,9 +569,9 @@ private class JdbcLedgerDao(
 
   override def lookupActiveOrDivulgedContract(
       contractId: ContractId,
-      forParty: Party,
+      forParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[ContractInst]] =
-    contractsReader.lookupActiveContract(forParty, contractId)
+    contractsReader.lookupActiveContract(forParties, contractId)
 
   private val SQL_SELECT_ALL_PARTIES =
     SQL("select party, display_name, ledger_offset, explicit, is_local from parties")
@@ -667,16 +663,16 @@ private class JdbcLedgerDao(
         |""".stripMargin)
 
   override def storePackageEntry(
-      offset: Offset,
+      offsetStep: OffsetStep,
       packages: List[(Archive, PackageDetails)],
-      optEntry: Option[PackageLedgerEntry]
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
+      optEntry: Option[PackageLedgerEntry])(
+      implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
       implicit connection =>
         if (enableAsyncCommits) {
           queries.enableAsyncCommit
         }
-        ParametersTable.updateLedgerEnd(offset)
+        ParametersTable.updateLedgerEnd(offsetStep)
 
         if (packages.nonEmpty) {
           val uploadId = optEntry.map(_.submissionId).getOrElse(UUID.randomUUID().toString)
@@ -687,7 +683,7 @@ private class JdbcLedgerDao(
           case PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime) =>
             SQL_INSERT_PACKAGE_ENTRY_ACCEPT
               .on(
-                "ledger_offset" -> offset,
+                "ledger_offset" -> offsetStep.offset,
                 "recorded_at" -> recordTime,
                 "submission_id" -> submissionId,
               )
@@ -695,7 +691,7 @@ private class JdbcLedgerDao(
           case PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason) =>
             SQL_INSERT_PACKAGE_ENTRY_REJECT
               .on(
-                "ledger_offset" -> offset,
+                "ledger_offset" -> offsetStep.offset,
                 "recorded_at" -> recordTime,
                 "submission_id" -> submissionId,
                 "rejection_reason" -> reason
@@ -775,17 +771,24 @@ private class JdbcLedgerDao(
 
   private def deduplicationKey(
       commandId: domain.CommandId,
-      submitter: Ref.Party,
-  ): String = commandId.unwrap + "%" + submitter
+      submitters: List[Ref.Party],
+  ): String = {
+    val submitterPart =
+      if (submitters.length == 1)
+        submitters.head
+      else
+        submitters.sorted(Ordering.String).distinct.mkString("%")
+    commandId.unwrap + "%" + submitterPart
+  }
 
   override def deduplicateCommand(
       commandId: domain.CommandId,
-      submitter: Ref.Party,
+      submitters: List[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
     dbDispatcher.executeSql(metrics.daml.index.db.deduplicateCommandDbMetrics) { implicit conn =>
-      val key = deduplicationKey(commandId, submitter)
+      val key = deduplicationKey(commandId, submitters)
       // Insert a new deduplication entry, or update an expired entry
       val updated = SQL(queries.SQL_INSERT_COMMAND)
         .on(
@@ -828,9 +831,11 @@ private class JdbcLedgerDao(
       |where deduplication_key = {deduplicationKey}
     """.stripMargin)
 
-  private[this] def stopDeduplicatingCommandSync(commandId: domain.CommandId, submitter: Party)(
-      implicit conn: Connection): Unit = {
-    val key = deduplicationKey(commandId, submitter)
+  private[this] def stopDeduplicatingCommandSync(
+      commandId: domain.CommandId,
+      submitters: List[Party],
+  )(implicit conn: Connection): Unit = {
+    val key = deduplicationKey(commandId, submitters)
     SQL_DELETE_COMMAND
       .on("deduplicationKey" -> key)
       .execute()
@@ -839,11 +844,11 @@ private class JdbcLedgerDao(
 
   override def stopDeduplicatingCommand(
       commandId: domain.CommandId,
-      submitter: Party,
+      submitters: List[Party],
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.stopDeduplicatingCommandDbMetrics) {
       implicit conn =>
-        stopDeduplicatingCommandSync(commandId, submitter)
+        stopDeduplicatingCommandSync(commandId, submitters)
     }
 
   private val SQL_UPDATE_MOST_RECENT_PRUNING = SQL(
@@ -889,7 +894,7 @@ private class JdbcLedgerDao(
     ContractsReader(dbDispatcher, dbType, metrics, lfValueTranslationCache)(executionContext)
 
   override val completions: CommandCompletionsReader =
-    new CommandCompletionsReader(dbDispatcher, metrics, executionContext)
+    new CommandCompletionsReader(dbDispatcher, dbType, metrics, executionContext)
 
   private val postCommitValidation =
     if (performPostCommitValidation)

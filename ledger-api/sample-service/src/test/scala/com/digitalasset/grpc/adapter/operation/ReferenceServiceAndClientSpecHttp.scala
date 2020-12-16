@@ -5,11 +5,13 @@ package com.daml.grpc.adapter.operation
 
 import com.daml.grpc.adapter.client.ReferenceClientCompatibilityCheck
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import java.net.InetSocketAddress
 
 class ReferenceServiceAndClientHttpSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with BeforeAndAfterAll
     with ScalaFutures

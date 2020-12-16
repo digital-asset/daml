@@ -5,7 +5,7 @@ package com.daml.buildinfo
 
 import java.io.{BufferedReader, InputStreamReader}
 
-import scala.collection.JavaConverters.asScalaIteratorConverter
+import scala.jdk.CollectionConverters._
 
 object BuildInfo {
   val Version: String =

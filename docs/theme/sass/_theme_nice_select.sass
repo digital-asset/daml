@@ -1,4 +1,4 @@
-$font_size: 24pt !default
+$font_size: 20pt !default
 $font_size_small: 12px !default
 
 $input_border_radius: 5px !default
@@ -26,7 +26,7 @@ $arrow_color: $gray !default
   float: left
   font-family: inherit
   font-size: $font_size
-  font-weight: bold
+  font-weight: $weight-body
   height: $input_height
   line-height: $input_height + 1
   outline: none
@@ -118,25 +118,25 @@ $arrow_color: $gray !default
   .option
     font-size: 16px
     cursor: pointer
-    font-weight: 400
+    font-weight: $weight-title
     line-height: $input_height - 2
     list-style: none
     min-height: $input_height - 2
     outline: none
     padding-right: $dropdown_padding + 52px
     text-align: left
-    color: $blue
+    color: $text-dark
     padding-left: 40px
     &:hover, &.focus, &.selected.focus
       border-left: 5px solid $header-line
       padding-left: 35px
-      background: $version-switch-hover
+      color: $text-medium
     &.disabled
       background-color: transparent
       color: $gray
       cursor: default
     &:active
-      font-weight: bold
+      color: $text-medium
 
 // Use display instead of opacity for IE <= 10
 .no-csspointerevents .nice-select

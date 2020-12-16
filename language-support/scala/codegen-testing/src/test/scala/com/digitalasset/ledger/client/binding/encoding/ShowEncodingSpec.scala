@@ -5,11 +5,12 @@ package com.daml.ledger.client.binding.encoding
 
 import com.daml.ledger.client.binding.encoding.{LfTypeEncodingSpec => t}
 import com.daml.ledger.client.binding.{Primitive => P}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.Show
 import scalaz.syntax.show._
 
-class ShowEncodingSpec extends WordSpec with Matchers {
+class ShowEncodingSpec extends AnyWordSpec with Matchers {
 
   val alice = P.Party("Alice")
 

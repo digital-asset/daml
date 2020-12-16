@@ -10,10 +10,13 @@ import akka.http.scaladsl.model._
 import akka.util.ByteString
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import java.io.File
+import java.time.{Duration => JDuration}
 import java.util.UUID
 
 import akka.http.scaladsl.model.Uri.Query
 import org.scalatest._
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.concurrent.Eventually
 
 import scala.concurrent.Future
@@ -24,6 +27,7 @@ import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.commands._
 import com.daml.ledger.api.v1.command_service._
+import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
@@ -58,7 +62,7 @@ trait AbstractTriggerServiceTest
   protected val testPkgId = dar.main._1
   override protected val damlPackages: List[File] = List(darPath)
 
-  private def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
+  protected def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
     val req = SubmitAndWaitRequest(
       Some(
         Commands(
@@ -75,12 +79,12 @@ trait AbstractTriggerServiceTest
   protected override def actorSystemName = testId
 
   protected val alice: Party = Tag("Alice")
-  // This party is used by the test that queries the ACS.
-  // To avoid mixing this up with the other tests, we use a separate
-  // party.
-  protected val aliceAcs: Party = Tag("Alice_acs")
   protected val bob: Party = Tag("Bob")
   protected val eve: Party = Tag("Eve")
+  // These parties are used by tests that query the ACS.
+  // To avoid mixing this up with the other tests, we use a separate party.
+  protected val aliceAcs: Party = Tag("Alice_acs")
+  protected val aliceExp: Party = Tag("Alice_exp")
 
   def startTrigger(
       uri: Uri,
@@ -138,7 +142,7 @@ trait AbstractTriggerServiceTest
       uri = uri.withPath(Uri.Path(s"/v1/packages")),
       entity = multipartForm.toEntity
     )
-    Http().singleRequest(req)
+    httpRequestFollow(req)
   }
 
   def responseBodyToString(resp: HttpResponse): Future[String] = {
@@ -173,6 +177,18 @@ trait AbstractTriggerServiceTest
     } yield triggerIds
   }
 
+  def getActiveContracts(
+      client: LedgerClient,
+      party: Party,
+      template: Identifier): Future[Seq[CreatedEvent]] = {
+    val filter = TransactionFilter(
+      Map(party.unwrap -> Filters(Some(InclusiveFilters(Seq(template))))))
+    client.activeContractSetClient
+      .getActiveContracts(filter)
+      .runWith(Sink.seq)
+      .map(acsPages => acsPages.flatMap(_.activeContracts))
+  }
+
   def assertTriggerIds(uri: Uri, party: Party, expected: Vector[UUID]): Future[Assertion] =
     for {
       resp <- listTriggers(uri, party)
@@ -180,7 +196,7 @@ trait AbstractTriggerServiceTest
     } yield assert(result == expected)
 
   def assertTriggerStatus[A](triggerInstance: UUID, pred: Vector[String] => A)(
-      implicit A: CompatAssertion[A]): Future[Assertion] =
+      implicit A: CompatAssertion[A]): Assertion =
     eventually {
       A(pred(getTriggerStatus(triggerInstance).map(_._2)))
     }
@@ -266,18 +282,10 @@ trait AbstractTriggerServiceTest
       client <- sandboxClient(
         ApiTypes.ApplicationId("my-app-id"),
         actAs = List(ApiTypes.Party(aliceAcs.unwrap)))
-      filter = TransactionFilter(
-        List(
-          (
-            aliceAcs.unwrap,
-            Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
       // Make sure that no contracts exist initially to guard against accidental
       // party reuse.
-      acs <- client.activeContractSetClient
-        .getActiveContracts(filter)
-        .runWith(Sink.seq)
-        .map(acsPages => acsPages.flatMap(_.activeContracts))
-      _ = acs shouldBe Vector()
+      _ <- getActiveContracts(client, aliceAcs, Identifier(testPkgId, "TestTrigger", "B"))
+        .map(_ shouldBe Vector())
       // Start the trigger
       resp <- startTrigger(
         uri,
@@ -302,12 +310,8 @@ trait AbstractTriggerServiceTest
       }
       // Query ACS until we see a B contract
       _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
-        for {
-          acs <- client.activeContractSetClient
-            .getActiveContracts(filter)
-            .runWith(Sink.seq)
-            .map(acsPages => acsPages.flatMap(_.activeContracts))
-        } yield assert(acs.length == 1)
+        getActiveContracts(client, aliceAcs, Identifier(testPkgId, "TestTrigger", "B"))
+          .map(_.length shouldBe 1)
       }
       // Read completions to make sure we set the right app id.
       r <- client.commandClient
@@ -426,7 +430,7 @@ trait AbstractTriggerServiceTest
 
 object AbstractTriggerServiceTest {
   import org.scalactic.Prettifier, org.scalactic.source.Position
-  import Assertions.{assert, assertionsHelper}
+  import Assertions.assert
 
   sealed trait CompatAssertion[-A] {
     def apply(a: A): Assertion
@@ -512,12 +516,11 @@ trait AbstractTriggerServiceTestAuthMiddleware
     extends AbstractTriggerServiceTest
     with AuthMiddlewareFixture {
 
-  override protected val authParties = Some(Set(alice, aliceAcs, bob))
-
   behavior of "authenticated service"
 
   it should "forbid a non-authorized party to start a trigger" in withTriggerService(List(dar)) {
     uri: Uri =>
+      authServer.revokeParty(eve)
       for {
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", eve)
         _ <- resp.status shouldBe StatusCodes.Forbidden
@@ -526,6 +529,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
 
   it should "forbid a non-authorized party to list triggers" in withTriggerService(Nil) {
     uri: Uri =>
+      authServer.revokeParty(eve)
       for {
         resp <- listTriggers(uri, eve)
         _ <- resp.status shouldBe StatusCodes.Forbidden
@@ -557,6 +561,103 @@ trait AbstractTriggerServiceTestAuthMiddleware
         _ = deleteCookies()
         resp <- stopTrigger(uri, triggerId, alice)
         _ <- resp.status shouldBe StatusCodes.Forbidden
+      } yield succeed
+  }
+
+  it should "forbid a non-authorized user to upload a DAR" in withTriggerService(Nil) { uri: Uri =>
+    authServer.revokeAdmin()
+    for {
+      resp <- uploadDar(uri, darPath) // same dar as in initialization
+      _ <- resp.status shouldBe StatusCodes.Forbidden
+    } yield succeed
+  }
+
+  it should "request a fresh token after expiry on user request" in withTriggerService(Nil) {
+    uri: Uri =>
+      for {
+        resp <- listTriggers(uri, alice)
+        _ <- resp.status shouldBe StatusCodes.OK
+        // Expire old token and test the trigger service transparently requests a new token.
+        _ = authClock.fastForward(
+          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
+        resp <- listTriggers(uri, alice)
+        _ <- resp.status shouldBe StatusCodes.OK
+      } yield succeed
+  }
+
+  it should "refresh a token after expiry on the server side" in withTriggerService(List(dar)) {
+    uri: Uri =>
+      for {
+        client <- sandboxClient(
+          ApiTypes.ApplicationId("exp-app-id"),
+          actAs = List(ApiTypes.Party(aliceExp.unwrap)))
+        // Make sure that no contracts exist initially to guard against accidental
+        // party reuse.
+        _ <- getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
+          .map(_ shouldBe Vector())
+        // Start the trigger
+        resp <- startTrigger(
+          uri,
+          s"$testPkgId:TestTrigger:trigger",
+          aliceExp,
+          Some(ApplicationId("exp-app-id")))
+        triggerId <- parseTriggerId(resp)
+
+        // Expire old token and test that the trigger service requests a new token during trigger start-up.
+        // TODO[AH] Here we want to test token expiry during QueryingACS.
+        //   For now the test relies on timing. Find a way to enforce expiry during QueryingACS.
+        _ = authClock.fastForward(
+          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
+
+        // Trigger is running, create an A contract
+        createACommand = { v: Long =>
+          Command().withCreate(
+            CreateCommand(
+              templateId = Some(Identifier(testPkgId, "TestTrigger", "A")),
+              createArguments = Some(
+                Record(
+                  None,
+                  Seq(
+                    RecordField(value = Some(Value().withParty(aliceExp.unwrap))),
+                    RecordField(value = Some(Value().withInt64(v))))))
+            ))
+        }
+        _ <- submitCmd(client, aliceExp.unwrap, createACommand(7))
+        // Query ACS until we see a B contract
+        _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
+          getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
+            .map(_.length shouldBe 1)
+        }
+
+        // Expire old token and test that the trigger service requests a new token during running trigger.
+        _ = authClock.fastForward(
+          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
+
+        // Create another A contract
+        _ <- submitCmd(client, aliceExp.unwrap, createACommand(42))
+        // Query ACS until we see a second B contract
+        _ <- RetryStrategy.constant(5, 1.seconds) { (_, _) =>
+          getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
+            .map(_.length shouldBe 2)
+        }
+
+        // Read completions to make sure we set the right app id.
+        r <- client.commandClient
+          .completionSource(List(aliceExp.unwrap), LedgerOffset(Boundary(LEDGER_BEGIN)))
+          .collect({
+            case CompletionStreamElement.CompletionElement(completion)
+                if !completion.transactionId.isEmpty =>
+              completion
+          })
+          .take(1)
+          .runWith(Sink.seq)
+        _ = r.length shouldBe 1
+        status <- triggerStatus(uri, triggerId)
+        _ = status.status shouldBe StatusCodes.OK
+        body <- responseBodyToString(status)
+        _ = body shouldBe s"""{"result":{"party":"Alice_exp","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
+        resp <- stopTrigger(uri, triggerId, aliceExp)
+        _ <- assert(resp.status.isSuccess)
       } yield succeed
   }
 }

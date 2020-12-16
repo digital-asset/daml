@@ -5,7 +5,9 @@ package com.daml.http
 
 import HttpServiceTestFixture.UseTls
 import akka.http.scaladsl.model.{StatusCodes, Uri}
-import org.scalatest.{Assertion, AsyncFreeSpec, Inside, Matchers}
+import org.scalatest.{Assertion, Inside}
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
 import spray.json.{JsArray, JsObject}
 
 import scala.concurrent.Future

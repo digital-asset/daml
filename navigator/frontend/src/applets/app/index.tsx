@@ -4,11 +4,10 @@
 import { defaultTheme, Dispatch, ThemeInterface, ThemeProvider } from '@da/ui-core';
 import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
 import * as Session from '@da/ui-core/lib/session';
-import { ApolloAction } from 'apollo-client/actions';
 import * as React from 'react';
-import { ApolloClient } from 'react-apollo';
-import { connect } from 'react-redux';
+import { connect, ConnectedComponent } from 'react-redux';
 import { Action as ReduxAction } from 'redux';
+import { ThunkAction } from 'redux-thunk';
 import Frame from '../../components/Frame';
 import {
   ConfigType,
@@ -18,8 +17,7 @@ import {
   EvalConfigResult,
 } from '../../config';
 import * as Either from '../../config/either';
-import logoUrl = require('../../images/logo-large.png');
-import { Connect } from '../../types';
+import logoUrl from '../../images/logo-large.png';
 import * as ConfigSource from '../configsource';
 import * as Page from '../page';
 
@@ -28,8 +26,7 @@ export type Action
   | { type: 'TO_PAGE', action: Page.Action }
   | { type: 'TO_WATCHER', action: LedgerWatcher.Action }
   | { type: 'TO_CONFIG', action: ConfigSource.Action }
-  | { type: 'RESET_APP' }
-  | ApolloAction
+  | { type: 'RESET_APP' }
 
 export const toPage = (action: Page.Action): Action =>
   ({ type: 'TO_PAGE', action });
@@ -46,26 +43,20 @@ export const toConfig = (action: ConfigSource.Action): Action =>
 export const resetApp = (): Action =>
   ({ type: 'RESET_APP' });
 
-export const initSession = () => Session.init(toSession);
-export const initConfig = () => ConfigSource.reload(toConfig);
-
-export type ApolloState = {};
-export type ApolloReducer = (state?: ApolloState, action?: ReduxAction) => {};
+export const initSession = (): ThunkAction<void, void, undefined, Action> => Session.init(toSession);
+export const initConfig = (): ThunkAction<void, State, undefined, Action> => ConfigSource.reload(toConfig);
 
 export interface State {
-  apollo: ApolloState;
   session: Session.State;
   page: Page.State;
   watcher: LedgerWatcher.State;
   configSource: ConfigSource.State;
 }
 
-export function makeReducer(client: ApolloClient) {
-  const apollo = client.reducer() as ApolloReducer;
+export function makeReducer() {
   return function reduce(state?: State, anyAction?: ReduxAction): State {
     if (state === undefined || anyAction === undefined) {
       return {
-        apollo: apollo(state, anyAction),
         session: Session.reduce(),
         page: Page.reduce(),
         watcher: LedgerWatcher.reduce(),
@@ -106,7 +97,7 @@ export function makeReducer(client: ApolloClient) {
           configSource: ConfigSource.reduce(state.configSource, action.action),
         };
       default:
-        return { ...state, apollo: apollo(state.apollo, action) };
+        return state;
     }
   }
 }
@@ -141,14 +132,14 @@ class Component extends React.Component<Props, ComponentState> {
     };
   }
 
-  componentWillReceiveProps(nextProps: Props) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props) {
     // Fast skip if neither session nor config source have changed
     if (
       nextProps.state.session !== this.props.state.session ||
       nextProps.state.configSource !== this.props.state.configSource
     ) {
 
-      this.setState<'config' | 'theme'>(this.computeStateFromSession(nextProps));
+      this.setState<'config' | 'theme'>(this.computeStateFromSession(nextProps));
     }
   }
 
@@ -167,7 +158,7 @@ class Component extends React.Component<Props, ComponentState> {
           config: Either.left<Error, ConfigType>(new Error(configSource.result.error)),
           theme: defaultTheme,
         };
-      case 'loaded':
+      case 'loaded': {
         // Got config source, try to parse and evaluate it (caching results)
         const source = configSource.result.source;
         const {result, cache: newCache} = evalConfigCached(user, source, configCache);
@@ -176,6 +167,7 @@ class Component extends React.Component<Props, ComponentState> {
           configCache: newCache,
           theme: result.type === 'right' ? {...defaultTheme, ...result.value.theme} : defaultTheme,
         };
+      }
     }
   }
 
@@ -250,13 +242,7 @@ class Component extends React.Component<Props, ComponentState> {
       return <p>Unknown session or config type</p>;
     }
   }
-};
+}
 
-const withRedux: Connect<ReduxProps, OwnProps> =
-  connect(
-    (state) => ({ state }),
-    (dispatch) => ({ dispatch }),
-  );
-
-
-export const UI = withRedux(Component);
+export const UI: ConnectedComponent<typeof Component, OwnProps> =
+  connect((state) => ({state}), (dispatch) => ({dispatch}))(Component);

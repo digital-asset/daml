@@ -9,6 +9,14 @@ steps:
     set -euo pipefail
     TMP=$(mktemp)
     cat > $TMP <<'END'
+    escape_slack() {
+      local r
+      r="$1"
+      r="${r//&/&amp;}"
+      r="${r//>/&gt;}"
+      r="${r//</&lt;}"
+      echo "$r"
+    }
     get_gh_auth_header() {
         # Credentials are persisted in a different way on GCP and Azure nodes.
         if header=$(git config 'http.https://github.com/digital-asset/daml.extraheader'); then
@@ -20,6 +28,39 @@ steps:
             # url instead of as a separate header. The format is
             # https://username:password@github.com/:user/:repo.git
             echo "Authorization: basic $(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev | tr -d '\n' | base64 -w0)"
+        fi
+    }
+    open_pr() {
+      local branch title
+      branch="$1"
+      title="$2"
+      git branch -D $branch || true
+      git checkout -b $branch
+      git -c user.name="Azure Pipelines DAML Build" \
+          -c user.email="support@digitalasset.com" \
+          commit \
+          -m "$(printf "$title\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
+      git push origin $branch:$branch
+      jq -n --arg title "$title" \
+            --arg branch "$branch" \
+            '{"title": $title, "head": $branch, "base": "master"}' \
+        | curl -H "Content-Type: application/json" \
+               -H "$(get_gh_auth_header)" \
+               --fail \
+               --silent \
+               --include \
+               --location \
+               -d @- \
+               https://api.github.com/repos/digital-asset/daml/pulls
+    }
+    user_slack_handle() {
+        local email sha
+        sha=$1
+        email=$(git log -n 1 --format=%ae $sha)
+        if cat ci/slack_user_ids | grep $email >/dev/null 2>&1; then
+            echo $(cat ci/slack_user_ids | grep $email | awk '{print $2}')
+        else
+            echo ""
         fi
     }
     tell_slack() {

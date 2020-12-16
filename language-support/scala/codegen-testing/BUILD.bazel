@@ -12,7 +12,7 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
         # Plugins have to be specified as JARs.
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     visibility = [
         "//visibility:public",
@@ -44,7 +44,7 @@ da_scala_library(
     srcs = testing_utils,
     plugins = [
         # Plugins have to be specified as JARs.
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     visibility = [
         "//visibility:public",
@@ -57,6 +57,7 @@ da_scala_library(
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
@@ -79,6 +80,7 @@ da_scala_test_suite(
         "@maven//:org_apache_commons_commons_text",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

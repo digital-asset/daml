@@ -67,7 +67,7 @@ here. The default prefix is \`icon-\` but this can be customised by setting the
 // it.
 export type IconGuideType<T> = React.StatelessComponent<IconGuideProps<T>>;
 
-export default ({ names }: IconGuideProps<string>) => (
+export default ({ names }: IconGuideProps<string>): JSX.Element => (
   <Section
     title="Icons"
     description={description}

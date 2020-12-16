@@ -1,6 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import { ApolloClient } from '@apollo/client';
+import { withApollo } from '@apollo/client/react/hoc';
 import { ParameterForm, styled, Truncate } from '@da/ui-core';
 import * as DamlLfValueF from '@da/ui-core/lib/api/DamlLfValue';
 import { DamlLfValue } from '@da/ui-core/lib/api/DamlLfValue';
@@ -8,7 +10,6 @@ import {
   default as ParameterDataProvider,
 } from '@da/ui-core/lib/ParameterForm/ApolloDataProvider';
 import * as React from 'react';
-import { ApolloClient, withApollo } from 'react-apollo';
 import { Template } from '.'
 
 const Wrapper = styled.div`
@@ -38,18 +39,22 @@ interface Props {
   isLoading: boolean;
   onSubmit(e: React.MouseEvent<HTMLButtonElement>, argument?: DamlLfValue): void;
   error?: string;
-  client: ApolloClient;
 }
 
 interface Local {
   argument: DamlLfValue;
 }
 
-class Component extends React.Component<Props, Local> {
+interface ApolloProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: ApolloClient<any>
+}
+
+class Component extends React.Component<Props & ApolloProps, Local> {
 
   private paramDataProvider: ParameterDataProvider;
 
-  constructor(props: Props) {
+  constructor(props: Props & ApolloProps) {
     super(props);
     this.paramDataProvider = new ParameterDataProvider(props.client);
     this.state = {
@@ -78,4 +83,4 @@ class Component extends React.Component<Props, Local> {
   }
 }
 
-export default withApollo(Component);
+export default withApollo<Props>(Component);

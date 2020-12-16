@@ -10,7 +10,7 @@ const description = `The \`Breadcrumbs\` component accepts any type of elements
 as children and will separate each by a divider.
 `;
 
-export default () => (
+export default (): JSX.Element => (
   <Section
     title="Example breadcrumbs"
     description={description}
@@ -22,7 +22,7 @@ export default () => (
       </Breadcrumbs>
       <Breadcrumbs>
         You can
-        <Button onClick={() => { ; }} type="main">
+        <Button onClick={() => { return; }} type="main">
           put
         </Button>
         <em>anything</em>

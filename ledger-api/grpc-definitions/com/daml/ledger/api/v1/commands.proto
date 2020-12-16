@@ -41,10 +41,13 @@ message Commands {
   // Required
   string command_id = 4;
 
-  // Party on whose behalf the command should be executed. It is up to the server to verify that the
-  // authorisation can be granted and that the connection has been authenticated for that party.
+  // Party on whose behalf the command should be executed.
+  // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
+  // to act on behalf of the given party.
   // Must be a valid PartyIdString (as described in ``value.proto``).
-  // Required
+  // Deprecated in favor of the ``act_as`` field. If both are set, then the effective list of parties on whose
+  // behalf the command should be executed is the union of all parties listed in ``party`` and ``act_as``.
+  // Optional
   string party = 5;
 
   reserved 6; // was ledger_effective_time
@@ -54,7 +57,8 @@ message Commands {
   // Required
   repeated Command commands = 8;
 
-  // The length of the time window during which all commands with the same party and command ID will be deduplicated.
+  // The length of the time window during which all commands with the same ``act_as`` parties and
+  // the same command ID will be deduplicated.
   // Duplicate commands submitted before the end of this window return an ALREADY_EXISTS error.
   // Optional
   google.protobuf.Duration deduplication_time = 9;
@@ -71,6 +75,26 @@ message Commands {
   // Must not be set at the same time as min_ledger_time_abs.
   // Optional
   google.protobuf.Duration min_ledger_time_rel = 11;
+
+  // Set of parties on whose behalf the command should be executed.
+  // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
+  // to act on behalf of each of the given parties.
+  // This field supersedes the ``party`` field. The effective set of parties on whose behalf the command
+  // should be executed is the union of all parties listed in ``party`` and ``act_as``, which must be non-empty.
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // Optional
+  repeated string act_as = 12;
+
+  // Set of parties on whose behalf (in addition to all parties listed in ``act_as``) contracts can be retrieved.
+  // This affects DAML operations such as ``fetch``, ``fetchByKey``, ``lookupByKey``, ``exercise``, and ``exerciseByKey``.
+  // Note: A participant node of a DAML network can host multiple parties. Each contract present on the participant
+  // node is only visible to a subset of these parties. A command can only use contracts that are visible to at least
+  // one of the parties in ``act_as`` or ``read_as``. This visibility check is independent from the DAML authorization
+  // rules for fetch operations.
+  // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
+  // to read contract data on behalf of each of the given parties.
+  // Optional
+  repeated string read_as = 13;
 }
 
 // A command can either create a new contract or exercise a choice on an existing contract.

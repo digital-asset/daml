@@ -13,12 +13,14 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.platform.sandbox.config.SandboxConfig
 import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class TlsSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Suite
     with SuiteResourceManagementAroundAll
     with ExtractorFixture

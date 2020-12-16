@@ -1,25 +1,30 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { AdvanceTime, Button, Dispatch, NavBar, ThunkAction } from '@da/ui-core';
+import { ApolloClient } from '@apollo/client';
+import { withApollo } from '@apollo/client/react/hoc';
+import { AdvanceTime, Button, Dispatch, NavBar } from '@da/ui-core';
 import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
 import * as Session from '@da/ui-core/lib/session';
 import * as React from 'react';
-import { connect } from 'react-redux';
+import { connect, ConnectedComponent } from 'react-redux';
+import { AnyAction } from 'redux';
+import { ThunkAction } from 'redux-thunk'
 import styled from 'styled-components';
 import * as App from '../applets/app';
-import logoUrl = require('../images/logo-large.png');
+import logoUrl from '../images/logo-large.png';
 import { about } from '../routes';
 import { Icon } from './Icon';
 import Link from './Link';
 
-function signOut(toSession: (action: Session.Action) => App.Action) {
-  return Session.signOut(toSession, ((dispatch) => {
-    dispatch({ type: 'APOLLO_STORE_RESET', observableQueryIds: [] });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function signOut<S>(client: ApolloClient<any>, toSession: (action: Session.Action) => App.Action) {
+  return Session.signOut<S, App.Action>(toSession, ((dispatch: Dispatch<App.Action>) => {
+    client.resetStore();
     dispatch(App.resetApp());
   // Session.signOut signature can't handle ThunkAction
-  // tslint:disable-next-line
-  }) as ThunkAction<void, App.State> as any);
+  // eslint-disable-next-line
+  }) as ThunkAction<void, App.State, undefined, AnyAction> as any);
 }
 
 interface ReduxProps {
@@ -31,7 +36,8 @@ interface OwnProps {
   user: Session.User;
   watcher: LedgerWatcher.State;
 }
-type Props = ReduxProps & OwnProps;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Props = ReduxProps & OwnProps & { client: ApolloClient<any> };
 
 const InlineDiv = styled.div`
   display: inline;
@@ -80,12 +86,13 @@ const Component = ({
   user,
   dispatch,
   watcher,
+  client,
 }: Props) => (
   <NavBar logo={<Logo/>}>
     <InlineDiv>
       <Button
         type="nav-transparent"
-        onClick={() => { dispatch(signOut(toSession)); }}
+        onClick={() => { dispatch(signOut(client, toSession)); }}
       >
         <LeftIcon name="user" />
         {user.id}
@@ -102,6 +109,6 @@ const Component = ({
   </NavBar>
 );
 
-export default connect<void, ReduxProps, OwnProps>(
-  null, (dispatch) => ({ dispatch }),
-)(Component);
+const C: ConnectedComponent<React.ComponentClass<OwnProps & ReduxProps>, OwnProps> =
+  connect()(withApollo<OwnProps & ReduxProps>(Component));
+export default C;

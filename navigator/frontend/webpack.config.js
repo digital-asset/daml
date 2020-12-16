@@ -4,8 +4,8 @@
 const fs = require('fs');
 const path = require('path');
 const webpack = require("webpack");
+const ESLintPlugin = require('eslint-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const FaviconsWebpackPlugin = require('favicons-webpack-plugin');
 const TsConfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 const CaseSensitivePathsPlugin = require('case-sensitive-paths-webpack-plugin');
 
@@ -21,7 +21,7 @@ const APP_NAME = 'Navigator';
  * ├── src
  * │   └── (typescript source files)
  * ├── tsconfig.json
- * ├── tslint.json
+ * ├── .eslintrc.js
  * ├── .modernizrrc
  * ├── webpack.config.json
  * └── package.json
@@ -74,28 +74,11 @@ module.exports = (env) => {
   var plugins = [
     new HtmlWebpackPlugin({
       title: APP_NAME,
-      template: 'src/index.html'
+      template: 'src/index.html',
+      favicon: './src/images/favicon.png',
     }),
-    new FaviconsWebpackPlugin({
-      logo: './src/images/favicon.png',
-      prefix: 'icons-[hash]/',
-      inject: true, // into HtmlWebpackPlugin
-      background: '#fff',
-      title: APP_NAME,
-      icons: {
-        android: false,
-        appleIcon: true,
-        appleStartup: true,
-        coast: false,
-        favicons: true,
-        firefox: true,
-        opengraph: false,
-        twitter: false,
-        yandex: false,
-        windows: false
-      }
-    }),
-  ]
+    new ESLintPlugin({emitError: true, extensions: ["js", "ts", "tsx"]}),
+  ];
 
   if (paths_case_check === 'true') {
     plugins.push(new CaseSensitivePathsPlugin())
@@ -129,14 +112,6 @@ module.exports = (env) => {
         {
           test: /\.modernizrrc$/,
           loader: "modernizr-loader!json-loader",
-        },
-        {
-          test: /\.tsx?$/,
-          enforce: 'pre',
-          loader: 'tslint-loader',
-          options: {
-            emitErrors: true,
-          }
         },
         {
           test: /\.tsx?$/,

@@ -70,11 +70,16 @@ private[state] object Conversions {
   }
 
   def commandDedupKey(subInfo: DamlSubmitterInfo): DamlStateKey = {
+    val sortedUniqueSubmitters =
+      if (subInfo.getSubmittersCount == 1)
+        subInfo.getSubmittersList
+      else
+        subInfo.getSubmittersList.asScala.distinct.sorted.asJava
     DamlStateKey.newBuilder
       .setCommandDedup(
         DamlCommandDedupKey.newBuilder
           .setCommandId(subInfo.getCommandId)
-          .setSubmitter(subInfo.getSubmitter)
+          .addAllSubmitters(sortedUniqueSubmitters)
           .build
       )
       .build
@@ -118,7 +123,7 @@ private[state] object Conversions {
 
   def buildSubmitterInfo(subInfo: SubmitterInfo): DamlSubmitterInfo =
     DamlSubmitterInfo.newBuilder
-      .setSubmitter(subInfo.singleSubmitterOrThrow())
+      .addAllSubmitters((subInfo.actAs: List[String]).asJava)
       .setApplicationId(subInfo.applicationId)
       .setCommandId(subInfo.commandId)
       .setDeduplicateUntil(
@@ -126,8 +131,8 @@ private[state] object Conversions {
       .build
 
   def parseSubmitterInfo(subInfo: DamlSubmitterInfo): SubmitterInfo =
-    SubmitterInfo.withSingleSubmitter(
-      submitter = Party.assertFromString(subInfo.getSubmitter),
+    SubmitterInfo(
+      actAs = subInfo.getSubmittersList.asScala.toList.map(Party.assertFromString),
       applicationId = LedgerString.assertFromString(subInfo.getApplicationId),
       commandId = LedgerString.assertFromString(subInfo.getCommandId),
       deduplicateUntil = parseTimestamp(subInfo.getDeduplicateUntil).toInstant,
@@ -196,7 +201,7 @@ private[state] object Conversions {
     assertDecode(
       "ContractInstance",
       TransactionCoder
-        .decodeContractInstance(ValueCoder.CidDecoder, coinst)
+        .decodeVersionedContractInstance(ValueCoder.CidDecoder, coinst)
     )
 
   def encodeContractInstance(coinst: Value.ContractInst[VersionedValue[Value.ContractId]])
@@ -252,8 +257,8 @@ private[state] object Conversions {
       }.toMap
     )
 
-  private def encodeParties(parties: Iterable[Party]): List[String] =
-    parties.asInstanceOf[Set[String]].toList.sorted
+  private def encodeParties(parties: Set[Party]): List[String] =
+    (parties.toList: List[String]).sorted
 
   private def encodeDisclosureEntry(disclosureEntry: (NodeId, Set[Party])): DisclosureEntry =
     DisclosureEntry.newBuilder

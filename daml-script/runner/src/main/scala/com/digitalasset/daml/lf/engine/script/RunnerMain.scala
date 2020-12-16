@@ -106,6 +106,10 @@ object RunnerMain {
           _ <- Future {
             config.outputFile.foreach { outputFile =>
               val jsVal = LfValueCodec.apiValueToJsValue(result.toValue)
+              val outDir = outputFile.getParentFile()
+              if (outDir != null) {
+                val _ = Files.createDirectories(outDir.toPath())
+              }
               Files.write(outputFile.toPath, Seq(jsVal.prettyPrint).asJava)
             }
           }

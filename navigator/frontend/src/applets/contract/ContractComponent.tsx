@@ -12,7 +12,7 @@ import { DamlLfValue } from '@da/ui-core/lib/api/DamlLfValue';
 import * as React from 'react';
 import Link, {OwnProps} from '../../components/Link';
 import * as Routes from '../../routes';
-import { Contract } from './';
+import { Contract } from './';
 import Exercise from './Exercise';
 
 const Wrapper = styled.div`
@@ -52,8 +52,10 @@ interface ActiveLinkProps extends OwnProps {
   isActive: boolean;
 }
 
-const ActiveLink = (props: ActiveLinkProps) => (
-  <Link {...props} />
+const ActiveLink: React.FC<ActiveLinkProps> = (props) => (
+  <Link {...props}>
+    {props.children}
+  </Link>
 );
 
 const ChoiceLink = styled(ActiveLink)`
@@ -98,7 +100,7 @@ interface Props {
   exercise(e: React.MouseEvent<HTMLButtonElement>, argument?: DamlLfValue): void;
 }
 
-export default (props: Props) => {
+export default (props: Props): JSX.Element => {
   const { contract, choice, exercise, choiceLoading, error } = props;
   const choices = contract.template.choices;
   const isArchived = contract.archiveEvent !== null;
@@ -127,7 +129,7 @@ export default (props: Props) => {
         key={name}
         route={Routes.contract}
         params={{id: encodeURIComponent(contract.id), choice: name}}
-        isActive={isActive || !isAnyActive}
+        isActive={isActive || !isAnyActive}
       >
         {name}
       </ChoiceLink>
@@ -173,4 +175,4 @@ export default (props: Props) => {
       </Content>
     </Wrapper>
   );
-}
+};

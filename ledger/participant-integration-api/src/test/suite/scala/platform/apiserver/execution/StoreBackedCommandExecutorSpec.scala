@@ -10,16 +10,19 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ResultDone}
-import com.daml.lf.transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.transaction.{SubmittedTransaction, Transaction}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito.when
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
-class StoreBackedCommandExecutorSpec extends AsyncWordSpec with MockitoSugar with Matchers {
+class StoreBackedCommandExecutorSpec
+    extends AsyncWordSpec
+    with Matchers
+    with MockitoSugar
+    with ArgumentMatchersSugar {
 
   private val emptyTransactionMetadata = Transaction.Metadata(
     submissionSeed = None,
@@ -32,9 +35,14 @@ class StoreBackedCommandExecutorSpec extends AsyncWordSpec with MockitoSugar wit
   "execute" should {
     "add interpretation time to result" in {
       val mockEngine = mock[Engine]
-      when(mockEngine.submit(any[com.daml.lf.command.Commands], any[ParticipantId], any[Hash]))
+      when(
+        mockEngine.submit(
+          any[Set[Ref.Party]],
+          any[com.daml.lf.command.Commands],
+          any[ParticipantId],
+          any[Hash]))
         .thenReturn(
-          ResultDone[(Transaction.SubmittedTransaction, Transaction.Metadata)](
+          ResultDone[(SubmittedTransaction, Transaction.Metadata)](
             (TransactionBuilder.EmptySubmitted, emptyTransactionMetadata)
           )
         )
@@ -49,6 +57,8 @@ class StoreBackedCommandExecutorSpec extends AsyncWordSpec with MockitoSugar wit
       when(mockLfCommands.ledgerEffectiveTime).thenReturn(Time.Timestamp.now())
       when(mockDomainCommands.workflowId).thenReturn(None)
       when(mockDomainCommands.commands).thenReturn(mockLfCommands)
+      when(mockDomainCommands.actAs).thenReturn(Set.empty[Ref.Party])
+      when(mockDomainCommands.readAs).thenReturn(Set.empty[Ref.Party])
 
       LoggingContext.newLoggingContext { implicit context =>
         instance.execute(mockDomainCommands, Hash.hashPrivateKey("a key")).map { actual =>

@@ -59,7 +59,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
           createArgument = serialized.createArgumentsByContract(create.coid),
           ledgerEffectiveTime = Some(tx.ledgerEffectiveTime),
           stakeholders = create.stakeholders,
-          key = create.key.map(convert(create.templateId, _))
+          key = create.versionedKey.map(convert(create.templateId, _))
         )
     val divulgedInserts =
       for {
@@ -77,7 +77,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
     val inserts = localInserts.toVector ++ divulgedInserts.toVector
     ContractsTable.Executables(
       deleteContracts = batch(deleteContractQuery, deletes),
-      insertContracts = batch(insertContractQuery, inserts)
+      insertContracts = batch(insertContractQuery, inserts),
     )
   }
 

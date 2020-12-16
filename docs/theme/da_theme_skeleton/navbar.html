@@ -4,12 +4,14 @@
 <div class="navbar">
     <h1><img src="{{ pathto('_static/images/DAML_Logo_Blue.svg', 1) }}"></h1>
     <div class="navbar-menu">
-        <ul>
-            {%- if url_root == './' %}
-            {%- set addClass = 'landing ' %}
-            {% endif %}
-            <li class="{{addClass}}documentation active"><a href="#">Documentation</a></li>
-            <li><a href="https://www.digitalasset.com">Digital Asset</a></li>
-        </ul>
+        <div class="da-menu-item da-menu-depth-1" role="menu">
+            <a href="https://www.daml.com/" role="menuitem" class="da-menu-link">Developers</a>
+        </div>
+        <div class="da-menu-item da-menu-depth-1" role="menu">
+            <a href="https://www.digitalasset.com/products" role="menuitem" class="da-menu-link">Products</a>
+        </div>
+        <div class="da-menu-item da-menu-depth-1" role="menu">
+            <a href="https://www.digitalasset.com" role="menuitem" class="da-menu-link">Company</a>
+        </div>
     </div>
 </div>

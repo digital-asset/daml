@@ -1,11 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import { gql } from '@apollo/client';
+import { QueryControls } from '@apollo/client/react/hoc';
 import {
   ContractTableConfig,
 } from '@da/ui-core';
 import { DocumentNode } from 'graphql';
-import { gql, QueryProps } from 'react-apollo';
 import {
   ContractsQuery,
   ContractsQuery_contracts_edges_node,
@@ -62,7 +63,7 @@ export function makeQueryVariables(config: ContractTableConfig): ContractsQueryV
   };
 }
 
-export function dataToRows(data: QueryProps & ContractsQuery) {
+export function dataToRows(data: QueryControls & ContractsQuery): { contracts: Contract[], totalCount: number } {
   if (data.loading || data.error) {
     return { contracts: [], totalCount: 0 }
   } else {

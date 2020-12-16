@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ApolloClient, gql } from 'react-apollo';
+import { ApolloClient, gql } from '@apollo/client';
 import * as DamlLfTypeF from '../api/DamlLfType';
 import { DamlLfDefDataType, DamlLfIdentifier } from '../api/DamlLfType';
 import {
@@ -59,9 +59,11 @@ query ParameterFormTypeQuery($id: ID!) {
 
 export default class ApolloDataProvider implements ContractIdProvider, TypeProvider {
 
-  readonly client: ApolloClient;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly client: ApolloClient<any>;
 
-  constructor(client: ApolloClient) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructor(client: ApolloClient<any>) {
     this.client = client;
   }
 
@@ -89,7 +91,7 @@ export default class ApolloDataProvider implements ContractIdProvider, TypeProvi
     });
   }
 
-  fetchType(id: DamlLfIdentifier, onResult: (id: DamlLfIdentifier, result: DamlLfDefDataType | undefined) => void) {
+  fetchType(id: DamlLfIdentifier, onResult: (id: DamlLfIdentifier, result: DamlLfDefDataType | undefined) => void): void {
     this.client.query<ParameterFormTypeQuery>({
       query: typeQuery,
       variables: {

@@ -29,12 +29,12 @@ trait SubmitAndWaitDummyCommand extends TestCommands { self: ServiceCallWithMain
     service(token).submitAndWait(dummySubmitAndWaitRequest)
 
   protected def submitAndWaitForTransaction(token: Option[String]): Future[Empty] =
-    service(token).submitAndWait(dummySubmitAndWaitRequest)
+    service(token).submitAndWaitForTransaction(dummySubmitAndWaitRequest).map(_ => Empty())
 
   protected def submitAndWaitForTransactionId(token: Option[String]): Future[Empty] =
-    service(token).submitAndWait(dummySubmitAndWaitRequest)
+    service(token).submitAndWaitForTransactionId(dummySubmitAndWaitRequest).map(_ => Empty())
 
   protected def submitAndWaitForTransactionTree(token: Option[String]): Future[Empty] =
-    service(token).submitAndWait(dummySubmitAndWaitRequest)
+    service(token).submitAndWaitForTransactionTree(dummySubmitAndWaitRequest).map(_ => Empty())
 
 }

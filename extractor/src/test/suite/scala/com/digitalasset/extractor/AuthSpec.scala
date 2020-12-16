@@ -23,7 +23,8 @@ import com.daml.lf.data.Ref.Party
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
 import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.daml.timer.Delayed
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.slf4j.LoggerFactory
 import scalaz.{OneAnd, \/}
 

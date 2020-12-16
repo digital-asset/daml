@@ -9,6 +9,7 @@ import anorm.SqlParser.byteArray
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
+import com.daml.platform.indexer.{IncrementalOffsetStep, CurrentOffset, OffsetStep}
 import com.daml.platform.store.Conversions.{OffsetToStatement, ledgerString, offset, participantId}
 import com.daml.scalautil.Statement.discard
 
@@ -72,11 +73,32 @@ private[dao] object ParametersTable {
   def getInitialLedgerEnd(connection: Connection): Option[Offset] =
     SelectLedgerEnd.as(LedgerEndParser.single)(connection)
 
-  def updateLedgerEnd(ledgerEnd: Offset)(implicit connection: Connection): Unit =
-    discard(
-      SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where (#$LedgerEndColumnName is null or #$LedgerEndColumnName < $ledgerEnd)"
-        .execute()
-    )
+  /**
+    * Updates the ledger end.
+    *
+    * When provided with a (previous, current) ledger end tuple ([[IncrementalOffsetStep]],
+    * the update is performed conditioned by the match between the persisted ledger end and the
+    * provided previous ledger end.
+    *
+    * This mechanism is used to protect callers that cannot provide strong durability guarantees
+    * ([[JdbcLedgerDao]] when used with asynchronous commits on PostgreSQL).
+    *
+    * @param offsetStep The offset step.
+    * @param connection The SQL connection.
+    */
+  def updateLedgerEnd(offsetStep: OffsetStep)(implicit connection: Connection): Unit =
+    offsetStep match {
+      case CurrentOffset(ledgerEnd) =>
+        discard(
+          SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where (#$LedgerEndColumnName is null or #$LedgerEndColumnName < $ledgerEnd)"
+            .execute())
+      case IncrementalOffsetStep(previousOffset, ledgerEnd) =>
+        val sqlStatement =
+          SQL"update #$TableName set #$LedgerEndColumnName = $ledgerEnd where #$LedgerEndColumnName = $previousOffset"
+        if (sqlStatement.executeUpdate() == 0) {
+          throw LedgerEndUpdateError(previousOffset)
+        }
+    }
 
   def updateConfiguration(configuration: Array[Byte])(
       implicit connection: Connection,
@@ -88,4 +110,7 @@ private[dao] object ParametersTable {
       LedgerEndAndConfigurationParser.single
     )(connection)
 
+  case class LedgerEndUpdateError(expected: Offset)
+      extends RuntimeException(
+        s"Could not update ledger end. Previous ledger end does not match expected ${expected.toHexString}")
 }

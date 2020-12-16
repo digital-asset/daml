@@ -35,7 +35,7 @@ object Consume {
   import scalaz.Free
   import scalaz.std.scalaFuture._
 
-  type FCC[T, V] = Free[Consume[T, ?], V]
+  type FCC[T, V] = Free[Consume[T, *], V]
   type Description = source.Position
   final case class Listen[-T, +V](f: T => V, desc: Description) extends Consume[T, V]
   final case class Drain[S, -T, +V](init: S, next: (S, T) => S, out: S => V) extends Consume[T, V]
@@ -76,7 +76,7 @@ object Consume {
                 s"unexpected element $t, script already terminated with $v")))
         go(steps, false)
       }
-      .mapMaterializedValue(_.flatMap(_.foldMap(Lambda[Consume[T, ?] ~> Future] {
+      .mapMaterializedValue(_.flatMap(_.foldMap(Lambda[Consume[T, *] ~> Future] {
         case Listen(_, desc) =>
           Future.failed(new IllegalStateException(
             s"${describe(desc)}: script terminated early, expected another value"))
@@ -84,8 +84,8 @@ object Consume {
         case Emit(run) => run
       })))
 
-  implicit def `consume functor`[T](implicit ec: ExecutionContext): Functor[Consume[T, ?]] =
-    new Functor[Consume[T, ?]] {
+  implicit def `consume functor`[T](implicit ec: ExecutionContext): Functor[Consume[T, *]] =
+    new Functor[Consume[T, *]] {
       override def map[A, B](fa: Consume[T, A])(f: A => B): Consume[T, B] = fa match {
         case Listen(g, desc) => Listen(g andThen f, desc)
         case Drain(init, next, out) => Drain(init, next, out andThen f)
@@ -96,7 +96,7 @@ object Consume {
   private def describe(d: Description) = s"${d.fileName}:${d.lineNumber}"
 
   implicit final class `Consume Ops`[T, V](private val steps: FCC[T, V]) extends AnyVal {
-    def withFilter(p: V => Boolean)(implicit pos: source.Position): Free[Consume[T, ?], V] =
+    def withFilter(p: V => Boolean)(implicit pos: source.Position): Free[Consume[T, *], V] =
       steps flatMap { v =>
         if (p(v)) Free point v
         else

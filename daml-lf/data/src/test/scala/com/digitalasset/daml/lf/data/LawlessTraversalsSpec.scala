@@ -5,14 +5,16 @@ package com.daml.lf.data
 
 import ImmArray.ImmArraySeq
 
-import org.scalatest.{Inside, Matchers, WordSpec}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 class LawlessTraversalsSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with Inside
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
   import LawlessTraversals._
 
   "traverseEitherStrictly" should {

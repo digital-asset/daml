@@ -3,10 +3,11 @@
 
 package com.daml.ledger.client.binding
 
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ValueSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+class ValueSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
   import ValueGen._
 
   "Value" should {

@@ -6,11 +6,12 @@ package encoding
 
 import com.daml.ledger.client.binding.{Primitive => P}
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import com.github.ghik.silencer.silent
 
 @silent(" exer .* is never used") // testing typechecking only
-class ExerciseOnSpec extends WordSpec with Matchers {
+class ExerciseOnSpec extends AnyWordSpec with Matchers {
   import ExerciseOnSpec._
 
   val owner: P.Party = P.Party("owner")
@@ -26,7 +27,7 @@ class ExerciseOnSpec extends WordSpec with Matchers {
 
     "select an instance, even if singleton type" in {
       def exer(id: Sth.ContractId) =
-        Sth.`Sth syntax`[id.type](id).exerciseFoo(owner)
+        Sth.`Sth syntax`(id).exerciseFoo(owner)
     }
 
     "still select an instance if imported" in {

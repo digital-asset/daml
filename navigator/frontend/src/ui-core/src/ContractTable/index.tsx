@@ -1,8 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import cx = require('classnames');
-import deepEqual = require('deep-equal');
+import cx from 'classnames';
+import deepEqual from 'deep-equal';
 import * as React from 'react';
 import {
   AutoSizer,
@@ -47,7 +47,7 @@ export interface RowInfo {
   removedAt?: Date;
 }
 
-// tslint:disable-next-line no-any
+// eslint-disable-next-line  @typescript-eslint/no-explicit-any
 export type ContractColumn<T, R = any> = ColumnConfig<T, R>;
 
 interface RowClassProps<C> {
@@ -166,18 +166,18 @@ export default class ContractTable<C extends ContractTableConfig>
     this.scheduleReload = this.scheduleReload.bind(this);
   }
 
-  componentDidMount() {
+  componentDidMount(): void {
     this.reload(true);
   }
 
-  componentWillUnmount() {
+  componentWillUnmount(): void {
     this.props.dataProvider.stopCacheWatcher();
     this.unregisterContracts();
     if (this.reloadTimer) { clearTimeout(this.reloadTimer); }
     if (this.rerenderTimer) { clearTimeout(this.rerenderTimer); }
   }
 
-  componentDidUpdate(prevProps: Props<C>, _prevState: State) {
+  componentDidUpdate(prevProps: Props<C>): void {
     const { config, dataProvider } = this.props;
     if (!deepEqual(prevProps.config, config)) {
       if (config.isFrozen) {
@@ -207,7 +207,7 @@ export default class ContractTable<C extends ContractTableConfig>
    * flush==false: update data, keep metadata.
    * flush==true: replace data, flush metadata.
    */
-  reload(flush: boolean) {
+  reload(flush: boolean): void {
     const { dataProvider, config } = this.props;
     this.setState({ isLoading: true });
     dataProvider.fetchData(config, (contractsResult) => {
@@ -231,7 +231,7 @@ export default class ContractTable<C extends ContractTableConfig>
    * Merges the current list of contracts with the list that was just loaded
    * from the server and updates the metadata.
    */
-  updateContracts(newContracts: RowData[]) {
+  updateContracts(newContracts: RowData[]): void {
     const updatedContracts: RowData[] = [];
     const now = new Date();
     // Maps ID to list index for the current rows
@@ -293,7 +293,7 @@ export default class ContractTable<C extends ContractTableConfig>
     return info;
   }
 
-  registerContracts() {
+  registerContracts(): void {
     if (this.props.config.isFrozen) {
       const contractIds = this.contracts
         .filter((c) => this.getRowInfo(c).removedAt === undefined)
@@ -306,7 +306,7 @@ export default class ContractTable<C extends ContractTableConfig>
     }
   }
 
-  unregisterContracts() {
+  unregisterContracts(): void {
     if (this.props.onUnregisterContracts) {
       this.props.onUnregisterContracts(this.componentId);
     }
@@ -315,11 +315,11 @@ export default class ContractTable<C extends ContractTableConfig>
   /**
    * Poll query every n seconds.
    */
-  scheduleReload() {
+  scheduleReload(): void {
     if (!this.state.isLoading) {
       // If we're not loading, schedule reload after clearing existing one.
       if (this.reloadTimer) { clearTimeout(this.reloadTimer); }
-      this.reloadTimer = setTimeout(() => {
+      this.reloadTimer = window.setTimeout(() => {
         this.reload(false);
       }, DEFAULT_POLL_INTERVAL);
     }
@@ -329,7 +329,7 @@ export default class ContractTable<C extends ContractTableConfig>
    * Find the row that has to be updated first and set a timeout. When the
    * timeout expires, rerender the table and do the same again.
    */
-  scheduleRerender() {
+  scheduleRerender(): void {
     if (this.rerenderTimer) { clearTimeout(this.rerenderTimer); }
     let oldest = -1;
     const now = new Date().getTime();
@@ -348,7 +348,7 @@ export default class ContractTable<C extends ContractTableConfig>
       }
     }
     if (oldest >= 0) {
-      this.rerenderTimer = setTimeout(() => {
+      this.rerenderTimer = window.setTimeout(() => {
         this.rerenderTimer = undefined;
         this.table.recomputeRowHeights(0);
         this.forceUpdate();
@@ -357,14 +357,13 @@ export default class ContractTable<C extends ContractTableConfig>
     }
   }
 
-  onScroll(height: number, y: number) {
+  onScroll(height: number, y: number): void {
     const count = this.contracts.length;
     if (y > count * this.rowHeight - height && count < this.totalCount) {
       const newCount = Math.min(count + this.fetchIncrement, this.totalCount);
       if (this.props.onConfigChange) {
         this.props.onConfigChange({
-          //tslint:disable-next-line:no-any (becuase of TypeScript bug)
-          ...this.props.config as any,
+          ...this.props.config,
           count: newCount,
         });
       }

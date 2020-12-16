@@ -1,11 +1,7 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- The first line of a DAML file is a pragma telling the compiler the language
--- version to use.
-
--- A DAML file defines a module. The second line of a DAML file gives the
--- module a name.
+-- A DAML file defines a module.
 module Token where
 
 -- Contract Templates define a type of contract that can exist on the ledger,

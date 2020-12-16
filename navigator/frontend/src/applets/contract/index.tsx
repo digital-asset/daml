@@ -1,20 +1,19 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import { gql } from '@apollo/client';
+import { withMutation, withQuery } from '@apollo/client/react/hoc';
 import { Dispatch } from '@da/ui-core';
 import { DamlLfValue } from '@da/ui-core/lib/api/DamlLfValue';
 import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
 import * as React from 'react';
-import { gql, graphql } from 'react-apollo';
 import { connect } from 'react-redux';
-import { compose } from 'redux';
 import {
   ContractDetailsById,
   ContractDetailsById_node_Contract,
   ContractDetailsByIdVariables,
   ContractExercise,
 } from '../../api/Queries';
-import { Connect } from '../../types';
 import * as App from '../app';
 import ContractComponent from './ContractComponent';
 
@@ -66,7 +65,7 @@ interface QueryProps {
 }
 interface MutationProps {
   exercise?(contractId: string, choiceId: string, argument?: DamlLfValue):
-    //tslint:disable-next-line:no-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Promise<any>;
 }
 
@@ -80,7 +79,7 @@ class Component extends React.Component<Props, {}> {
     this.gotoParent = this.gotoParent.bind(this);
   }
 
-  componentWillUnmount(): void { this.gotoParent = () => { ; }; }
+  componentWillUnmount(): void { this.gotoParent = () => { return; }; }
 
   /**
    * This component deals with displaying a form for exercising a choice and
@@ -104,7 +103,7 @@ class Component extends React.Component<Props, {}> {
     // It is meant to be used in the asynchronous exercise function.
     const { toSelf, dispatch } = this.props;
     dispatch(toSelf(setChoice()));
-  };
+  }
 
   exercise(e: React.MouseEvent<HTMLButtonElement>, argument?: DamlLfValue): void {
     e.preventDefault();
@@ -145,7 +144,7 @@ class Component extends React.Component<Props, {}> {
       );
     }
   }
-};
+}
 
 const query = gql`
   query ContractDetailsById($id: ID!) {
@@ -186,28 +185,28 @@ const mutation = gql`
 // generally confusing to say the least, but works out with a bit of care and
 // thinking about the ordering and what each connect function adds.
 
-const withMutation: Connect<MutationProps, OwnProps> =
-  graphql<ContractExercise, OwnProps>(mutation, {
-    props: ({ mutate }) => ({
-      exercise: (contractId: string, choiceId: string, argument?: DamlLfValue) =>
-        (mutate && mutate({ variables: { contractId, choiceId, argument } })),
-    }),
-  });
+const _withMutation =
+  withMutation<OwnProps, ContractExercise, {}, MutationProps>(mutation,
+    {
+      props: ({mutate}): MutationProps => ({
+        exercise: mutate && ((contractId: string, choiceId: string, argument?: DamlLfValue) =>
+          mutate({variables: { contractId, choiceId, argument}})
+      )}),
+    },
+    );
 
-const withQuery: Connect<QueryProps, OwnProps & MutationProps> =
-  graphql<ContractDetailsById, OwnProps & MutationProps>(query, {
-    props: ({ data }) => ({
-      isLoading: data ? data.loading : false,
-      contract: data ? data.node : null,
-    }),
+const _withQuery =
+  withQuery<OwnProps & MutationProps, ContractDetailsById, ContractDetailsByIdVariables, QueryProps>(query, {
+    props: ({ data }) => {
+      const node = data?.node;
+      const contract = (node && node.__typename === 'Contract') ? node : null;
+      return {
+        isLoading: data ? data.loading : false,
+        contract,
+      }
+    },
     options: ({ state: { id } }: OwnProps) => ({ variables: { id } as ContractDetailsByIdVariables}),
   });
 
-const withRedux: Connect<ReduxProps, OwnProps & QueryProps & MutationProps> =
-  connect();
-
-export const UI = compose(
-  withMutation,
-  withQuery,
-  withRedux,
-)(Component);
+export const UI: React.ComponentClass<OwnProps> =
+  _withMutation(_withQuery(connect()(Component)));

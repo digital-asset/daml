@@ -19,12 +19,12 @@ import scala.concurrent.Future
   */
 trait ContractStore {
   def lookupActiveContract(
-      submitter: Ref.Party,
+      readers: Set[Ref.Party],
       contractId: ContractId
   )(implicit loggingContext: LoggingContext)
     : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
 
-  def lookupContractKey(submitter: Party, key: GlobalKey)(
+  def lookupContractKey(readers: Set[Party], key: GlobalKey)(
       implicit loggingContext: LoggingContext,
   ): Future[Option[ContractId]]
 

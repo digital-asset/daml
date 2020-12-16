@@ -4,11 +4,7 @@
 Reference: choices
 ##################
 
-This page gives reference information on choices:
-
-.. contents:: :local:
-
-For information on the high-level structure of a choice, see :doc:`structure`.
+This page gives reference information on choices. For information on the high-level structure of a choice, see :doc:`structure`.
 
 ``choice`` first or ``controller`` first
 ****************************************
@@ -107,8 +103,9 @@ Preconsuming choices
 
 - ``preconsuming`` keyword. Optional.
 - Makes a choice pre-consuming: the contract is archived before the body of the exercise is executed.
+- The create arguments of the contract can still be used in the body of the exercise, but cannot be fetched by its contract id.
 - The archival behavior is analogous to the *consuming* default behavior.
-- Unlike what happens the in *consuming* behavior, though, only the controllers and signatories of the contract see all consequences of the action. If the choice archives the contract, other stakeholders merely see an archive action.
+- Only the controllers and signatories of the contract see all consequences of the action. Other stakeholders merely see an archive action.
 - Can be thought as a non-consuming choice that implicitly archives the contract before anything else happens
 
 Postconsuming choices
@@ -128,8 +125,8 @@ Postconsuming choices
 
 - ``postconsuming`` keyword. Optional.
 - Makes a choice post-consuming: the contract is archived after the body of the exercise is executed.
-- The contract can still be used in the body of the exercise.
-- Only the controllers and signatories of the contract see all consequences of the action. If the choice archives the contract, other stakeholders merely see an archive action.
+- The create arguments of the contract can still be used in the body of the exercise as well as the contract id for fetching it.
+- Only the controllers and signatories of the contract see all consequences of the action. Other stakeholders merely see an archive action.
 - Can be thought as a non-consuming choice that implicitly archives the contract after the choice has been exercised
 
 Non-consuming choices
@@ -149,7 +146,7 @@ Non-consuming choices
 
 - ``nonconsuming`` keyword. Optional.
 - Makes a choice non-consuming: that is, exercising the choice does not archive the contract.
-- Only the controllers and signatories of the contract see all consequences of the action. If the choice archives the contract, other stakeholders merely see an archive action.
+- Only the controllers and signatories of the contract see all consequences of the action.
 - Useful in the many situations when you want to be able to exercise a choice more than once.
 
 .. _daml-ref-return-type:

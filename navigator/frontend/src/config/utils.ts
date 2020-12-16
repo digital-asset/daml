@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// tslint:disable-next-line no-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function catchToError(e: any): Error {
   if (e instanceof Error) {
     return e;
@@ -11,7 +11,7 @@ export function catchToError(e: any): Error {
   }
 }
 
-// tslint:disable-next-line no-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function catchToString(e: any): string {
   if (e instanceof Error) {
     return e.message;
@@ -21,13 +21,14 @@ export function catchToString(e: any): string {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/ban-types
 export function loadExportedFunction<F extends Function>(
-  // tslint:disable-next-line no-any
+  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   exports: any,
   name: string,
   args: string[],
   defaultResult: F,
-) {
+): F {
   if (!(name in exports)) {
     if (defaultResult) {
       return defaultResult;

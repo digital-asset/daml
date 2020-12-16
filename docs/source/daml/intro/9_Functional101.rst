@@ -30,7 +30,7 @@ The previous chapters of this introduction to DAML have mostly covered the struc
 
 When comparing DAML to Haskell it's worth noting:
 
--   Haskell is a lazy language, which allows you to write things like ``head [1..]``, meaning "take the first element of an infinite list". DAML by contrast is strict. Expressions are fully evaluated, which means it it not possible to work with infinite data structures.
+-   Haskell is a lazy language, which allows you to write things like ``head [1..]``, meaning "take the first element of an infinite list". DAML by contrast is strict. Expressions are fully evaluated, which means it is not possible to work with infinite data structures.
 - DAML has a ``with`` syntax for records, and dot syntax for record field access, neither of which present in Haskell. But DAML supports Haskell's curly brace record notation.
 - DAML has a number of Haskell compiler extensions active by default.
 - DAML doesn't support all features of Haskell's type system. For example, there are no existential types or GADTs.
@@ -85,9 +85,9 @@ And this is indeed what happens. We can define a different version of ``incremen
   :start-after: -- INCREMENT2_BEGIN
   :end-before: -- INCREMENT2_END
 
-If you try this out in your IDE, you'll see that the compiler infers type ``Int -> Int`` again. It can do so because the literal ``1 : Int``.
+If you try this out in your IDE, you'll see that the compiler infers type ``Int -> Int`` again. It can do so because of the literal ``1 : Int``.
 
-So if we have a function ``f : a -> b -> c -> d`` and a value ``valA : a``, we get ``f valA : b -> c -> d`` ie we can apply the function argument by argument. If we also had ``valB : b``, we have ``f valA valB : c -> d``. What this tells you is that function *application* is left associative: ``f valA valB == (f valA) valB``.
+So if we have a function ``f : a -> b -> c -> d`` and a value ``valA : a``, we get ``f valA : b -> c -> d``, ie we can apply the function argument by argument. If we also had ``valB : b``, we would have ``f valA valB : c -> d``. What this tells you is that function *application* is left associative: ``f valA valB == (f valA) valB``.
 
 Infix Functions
 ...............
@@ -115,7 +115,7 @@ If we want to partially apply an infix operation we can also do that as follows:
 
 .. note::
 
-  While function application is left associative by default, infix operators can be declared left or right associative and given a precedence. Good examples are the boolean operations ``&&`` and ``||``, which are declared right associative with precedences 3, and 2, respectively. This allows you to write ``False && True || True && True`` and get value ``True``. See section 4.4.2 of `the Haskell 98 report <https://www.haskell.org/onlinereport/decls.html>`_ for more on fixities. 
+  While function application is left associative by default, infix operators can be declared left or right associative and given a precedence. Good examples are the boolean operations ``&&`` and ``||``, which are declared right associative with precedences 3, and 2, respectively. This allows you to write ``True || True && False`` and get value ``True``. See section 4.4.2 of `the Haskell 98 report <https://www.haskell.org/onlinereport/decls.html>`_ for more on fixities. 
 
 Type Constraints
 ................
@@ -499,4 +499,4 @@ Lastly, you'll have noticed that in some cases we used ``mapA_``, not ``mapA``. 
 Next up
 -------
 
-You now know the basics of functions and control flow, both in pure and Action contexts. The Chapter 8 example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the the DAML Standard Library. It provides functions and typeclasses for many common circumstances and in :doc:`10_StdLib`, you'll get an overview of the library and learn how to search and browse it.
+You now know the basics of functions and control flow, both in pure and Action contexts. The Chapter 8 example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the DAML Standard Library. It provides functions and typeclasses for many common circumstances and in :doc:`10_StdLib`, you'll get an overview of the library and learn how to search and browse it.

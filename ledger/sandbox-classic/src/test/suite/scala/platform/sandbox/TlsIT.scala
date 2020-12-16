@@ -16,7 +16,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SandboxFixture
-import org.scalatest.AsyncWordSpec
+import org.scalatest.wordspec.AsyncWordSpec
 
 class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManagementAroundAll {
 

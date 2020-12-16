@@ -1,6 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import { ApolloClient } from '@apollo/client';
+import { withApollo } from '@apollo/client/react/hoc';
 import {
   ParameterForm,
   Strong,
@@ -12,7 +14,6 @@ import {
   default as ParameterDataProvider,
 } from '@da/ui-core/lib/ParameterForm/ApolloDataProvider';
 import * as React from 'react';
-import { ApolloClient, withApollo } from 'react-apollo';
 import { SubHeader } from './ContractComponent';
 
 interface Props {
@@ -22,7 +23,8 @@ interface Props {
   error?: string;
   onSubmit(e: React.MouseEvent<HTMLButtonElement>, argument?: DamlLfValue): void;
   className?: string;
-  client: ApolloClient;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: ApolloClient<any>;
 }
 
 interface Local {
@@ -39,7 +41,7 @@ class Component extends React.Component<Props, Local> {
     this.state = { argument: DamlLfValueF.initialValue(props.parameter) };
   }
 
-  componentWillReceiveProps(nextProps: Props) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props) {
     // If the choice changes, re-initialize the argument
     // (trying to reuse as much argument values as possible).
     if (this.props.choice !== nextProps.choice) {
@@ -66,4 +68,4 @@ class Component extends React.Component<Props, Local> {
   }
 }
 
-export default withApollo(Component);
+export default withApollo<Omit<Props, 'client'>>(Component);

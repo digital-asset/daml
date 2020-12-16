@@ -5,7 +5,7 @@ package com.daml.http
 
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.ws.{Message, UpgradeToWebSocket}
+import akka.http.scaladsl.model.ws.{Message, WebSocketUpgrade}
 import akka.stream.scaladsl.Flow
 import com.daml.jwt.domain.Jwt
 import com.typesafe.scalalogging.StrictLogging
@@ -22,7 +22,7 @@ object WebsocketEndpoints {
   private[http] val wsProtocol: String = "daml.ws.auth"
 
   private def findJwtFromSubProtocol(
-      upgradeToWebSocket: UpgradeToWebSocket,
+      upgradeToWebSocket: WebSocketUpgrade,
   ): Unauthorized \/ Jwt = {
     upgradeToWebSocket.requestedProtocols
       .collectFirst {
@@ -33,7 +33,7 @@ object WebsocketEndpoints {
 
   private def preconnect(
       decodeJwt: ValidateJwt,
-      req: UpgradeToWebSocket,
+      req: WebSocketUpgrade,
       subprotocol: String,
   ) =
     for {
@@ -56,7 +56,7 @@ class WebsocketEndpoints(
     case req @ HttpRequest(GET, Uri.Path("/v1/stream/query"), _, _, _) =>
       Future.successful(
         (for {
-          upgradeReq <- req.header[UpgradeToWebSocket] \/> InvalidUserInput(
+          upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> InvalidUserInput(
             s"Cannot upgrade client's connection to websocket",
           )
           _ = logger.info(s"GOT $wsProtocol")
@@ -75,7 +75,7 @@ class WebsocketEndpoints(
     case req @ HttpRequest(GET, Uri.Path("/v1/stream/fetch"), _, _, _) =>
       Future.successful(
         (for {
-          upgradeReq <- req.header[UpgradeToWebSocket] \/> InvalidUserInput(
+          upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> InvalidUserInput(
             s"Cannot upgrade client's connection to websocket",
           )
           payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
@@ -93,7 +93,7 @@ class WebsocketEndpoints(
   def handleWebsocketRequest[A: WebSocketService.StreamQueryReader](
       jwt: Jwt,
       jwtPayload: domain.JwtPayload,
-      req: UpgradeToWebSocket,
+      req: WebSocketUpgrade,
       protocol: String,
   ): HttpResponse = {
     val handler: Flow[Message, Message, _] =

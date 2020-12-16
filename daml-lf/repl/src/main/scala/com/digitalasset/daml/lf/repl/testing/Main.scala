@@ -22,7 +22,6 @@ import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
 
-import com.daml.lf.transaction.VersionTimeline
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
 import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, StringsCompleter}
@@ -85,7 +84,7 @@ object Repl {
 
   val defaultCompilerConfig: Compiler.Config =
     Compiler.Config(
-      allowedLanguageVersions = VersionTimeline.stableLanguageVersions,
+      allowedLanguageVersions = LV.StableVersions,
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,
@@ -93,7 +92,7 @@ object Repl {
 
   val devCompilerConfig: Compiler.Config =
     defaultCompilerConfig.copy(
-      allowedLanguageVersions = VersionTimeline.devLanguageVersions
+      allowedLanguageVersions = LV.DevVersions,
     )
 
   private val nextSeed =
@@ -196,15 +195,15 @@ object Repl {
     private val seed = nextSeed()
 
     val (inputValueVersion, outputTransactionVersions) =
-      if (compilerConfig.allowedLanguageVersions.contains(LV(LV.Major.V1, LV.Minor.Dev)))
+      if (compilerConfig.allowedLanguageVersions.contains(LV.v1_dev))
         (
-          value.ValueVersions.DevOutputVersions,
-          transaction.TransactionVersions.DevOutputVersions,
+          value.ValueVersion.DevOutputVersions,
+          transaction.TransactionVersion.DevVersions,
         )
       else
         (
-          value.ValueVersions.StableOutputVersions,
-          transaction.TransactionVersions.StableOutputVersions,
+          value.ValueVersion.StableOutputVersions,
+          transaction.TransactionVersion.StableVersions,
         )
 
     def run(expr: Expr): (

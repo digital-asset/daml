@@ -7,11 +7,13 @@ da_scala_binary(
     name = "compiler_plugin",
     srcs = glob(["*.scala"]),
     main_class = "com.daml.protoc.plugins.scalapb.ScalaPbCompilerPlugin",
+    scala_deps = [
+        "@maven//:com_thesamet_scalapb_compilerplugin",
+        "@maven//:com_thesamet_scalapb_protoc_bridge",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_thesamet_scalapb_compilerplugin_2_12",
-        "@maven//:com_thesamet_scalapb_protoc_bridge_2_12",
     ],
 )
 

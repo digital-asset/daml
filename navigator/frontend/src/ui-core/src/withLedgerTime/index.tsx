@@ -1,38 +1,22 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import * as Moment from 'moment';
-import * as React from 'react';
 import {
   ApolloClient,
-  ApolloError,
   ApolloQueryResult,
   gql,
-  NetworkStatus,
-  QueryProps,
-  Subscription,
-  withApollo,
-} from 'react-apollo';
+  ObservableSubscription,
+} from '@apollo/client';
+import { withApollo } from '@apollo/client/react/hoc';
+import Moment from 'moment';
+import * as React from 'react';
 import { TimeType } from '../api/OpaqueTypes';
 import { LedgerTimeQuery } from '../api/Queries';
-import { Connect } from '../types';
 import { utcStringToMoment } from '../util';
-
-// Not exported by the apollo library
-interface ApolloCurrentResult<T> {
-  data: T | {};
-  loading: boolean;
-  networkStatus: NetworkStatus;
-  error?: ApolloError;
-  partial?: boolean;
-};
 
 // ------------------------------------------------------------------------------------------------
 // Props
 // ------------------------------------------------------------------------------------------------
-interface QueryData extends QueryProps {
-  ledgerTime: LedgerTimeResult;
-}
 
 export interface LedgerTimeResult {
   id: string;
@@ -41,7 +25,7 @@ export interface LedgerTimeResult {
 }
 
 export type LedgerTime = {
-  value: Moment.Moment | undefined;
+  value: Moment.Moment | undefined;
   readonly: boolean;
 }
 
@@ -50,7 +34,8 @@ export interface InnerProps {
 }
 
 export interface ApolloProps {
-  client: ApolloClient;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: ApolloClient<any>;
 }
 
 export interface State {
@@ -63,7 +48,7 @@ export interface State {
 // GraphQL query
 // ------------------------------------------------------------------------------------------------
 
-function getCurrentTime(state: State): Moment.Moment | undefined {
+function getCurrentTime(state: State): Moment.Moment | undefined {
   switch (state.timeType) {
     case 'static': return state.ledgerTime;
     case 'wallclock': return Moment.utc();
@@ -92,8 +77,8 @@ function getUpdateInterval(timeType: TimeType | undefined) {
   }
 }
 
-function resultToState(qr: ApolloQueryResult<QueryData> | ApolloCurrentResult<QueryData>): State {
-  const qd = qr.data as QueryData;
+function resultToState(qr: ApolloQueryResult<LedgerTimeQuery>): State {
+  const qd = qr.data; // .data as QueryData;
   if (qd && qd.ledgerTime) {
     return {
       ledgerTime: utcStringToMoment(qd.ledgerTime.time),
@@ -125,13 +110,13 @@ export const timeQuery = gql`
  * Note: this does not implement any loading or error handling. If the ledger time is not
  * (yet) available for any reason, its value will be undefined.
  */
-export default function withLedgerTime<P extends {}>(C: React.ComponentType<InnerProps & P>)
+export default function withLedgerTime<P>(C: React.ComponentType<InnerProps & P>)
   : React.ComponentType<P> {
 
   type Props = P & ApolloProps;
   class Component extends React.Component<Props, State> {
     private timeoutId: number | undefined = undefined;
-    private querySubscription: Subscription | undefined = undefined;
+    private querySubscription: ObservableSubscription | undefined = undefined;
 
     constructor(props: Props) {
       super(props);
@@ -153,12 +138,12 @@ export default function withLedgerTime<P extends {}>(C: React.ComponentType<Inne
 
     startCacheWatcher() {
       this.stopCacheWatcher();
-      const observableQuery = this.props.client.watchQuery<QueryData>({
+      const observableQuery = this.props.client.watchQuery<LedgerTimeQuery>({
         fetchPolicy: 'cache-only',
         query: timeQuery,
       });
       const next = () => {
-        const qr = observableQuery.currentResult();
+        const qr = observableQuery.getCurrentResult();
         const newState = resultToState(qr);
         this.setState(newState);
         this.scheduleUpdate(getUpdateInterval(newState.timeType));
@@ -182,7 +167,7 @@ export default function withLedgerTime<P extends {}>(C: React.ComponentType<Inne
 
     scheduleUpdate(interval: number) {
       if (interval < Infinity) {
-        this.timeoutId = setTimeout(() => {
+        this.timeoutId = window.setTimeout(() => {
           this.forceUpdate();
           this.scheduleUpdate(interval);
         }, interval);
@@ -200,7 +185,7 @@ export default function withLedgerTime<P extends {}>(C: React.ComponentType<Inne
     }
 
     render() {
-      // tslint:disable-next-line:no-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const {...rest} = this.props as any;
       const ledgerTime: LedgerTime = {
         value: getCurrentTime(this.state),
@@ -211,5 +196,5 @@ export default function withLedgerTime<P extends {}>(C: React.ComponentType<Inne
     }
   }
 
-  return (withApollo as Connect<ApolloProps, P>)(Component);
+  return withApollo<P>(Component) as React.ComponentClass<P>;
 }

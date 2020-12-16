@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import deepEqual = require('deep-equal');
+import deepEqual from 'deep-equal';
 import * as React from 'react';
 import {
   AutoSizer,
@@ -39,7 +39,7 @@ export function renderActionBar<
   readonly title?: string,
   readonly actionRowContent?: React.ReactNode;
   onConfigChange?(config: C): void,
-}) {
+}): JSX.Element {
   const {
     actionRowContent,
     title,
@@ -116,7 +116,7 @@ export default class DataTable<
   // Life cycle and data loading
   // --------------------------------------------------------------------------
 
-  componentWillReceiveProps(nextProps: Props<C, R, D>) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props<C, R, D>): void {
     if (!deepEqual(this.props, nextProps)) {
       this.setState(this.extractRowData(nextProps));
     }
@@ -133,7 +133,7 @@ export default class DataTable<
     return result;
   }
 
-  onScroll(height: number, y: number) {
+  onScroll(height: number, y: number): void {
     if (
       y > length * this.rowHeight - height &&
       length < this.state.totalCount
@@ -142,8 +142,7 @@ export default class DataTable<
         this.state.totalCount);
       if (this.props.onConfigChange) {
         this.props.onConfigChange({
-          //tslint:disable-next-line:no-any (becuase of TypeScript bug)
-          ...this.props.config as any,
+          ...this.props.config,
           count,
         });
       }

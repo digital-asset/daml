@@ -265,8 +265,10 @@ TO configure IntelliJ to use this JDK:
 3. Press the _plus_ button and select "Add JDK".
 4. Choose the _dev-env/jdk_ directory.
 5. Name it "DAML JDK" or something similar.
-6. Open _Project Settings_ →  _Project_.
-7. Select the DAML JDK from the _Project SDK_ list.
+6. Ensure there's sources attached under the _Sourcepath_ tab. If not, add them.
+   Press the _plus_ button and select _dev-env/jdk/lib/openjdk/src.zip_.
+7. Open _Project Settings_ →  _Project_.
+8. Select the DAML JDK from the _Project SDK_ list.
 
 ### Overview over Bazel IntelliJ Integration
 
@@ -350,6 +352,17 @@ Scala test-cases. Please refer to the [issue tracker][rerun_failed_tests_issue]
 for details.
 
 [rerun_failed_tests_issue]: https://github.com/bazelbuild/intellij/issues/446
+
+### Troubleshooting
+
+#### 'tools.dade-exec-nix-tool' not found
+
+If you get the error
+```
+error: attribute 'dade-exec-nix-tool' in selection path 'tools.dade-exec-nix-tool' not found
+```
+in the bazel console during project import, try starting IntelliJ from the root
+of the `daml` repository by calling `idea .`.
 
 ## Bazel Command Reference
 
@@ -976,7 +989,9 @@ resolution and import the required artifacts into the Bazel build.
 
 The resolved versions are pinned in the file `maven_install.json`. Execute
 `bazel run @unpinned_maven//:pin` when you wish to update or add a new
-dependency. See [`rules_jvm_external`][rules_jvm_external] for details.
+dependency. You also need to run this a second time to update the deps for 2.13
+`DAML_SCALA_VERSION=2.13.3 bazel run @unpinned_maven//:pin`.
+See [`rules_jvm_external`][rules_jvm_external] for details.
 
 [rules_jvm_external]: https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 

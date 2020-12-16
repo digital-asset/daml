@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
+import akka.actor.ActorSystem
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.ContentTypeResolver.Default
-import akka.http.scaladsl.server.{Directives, RoutingLog}
-import akka.http.scaladsl.settings.{ParserSettings, RoutingSettings}
-import akka.stream.Materializer
+import akka.http.scaladsl.server.{Directives}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
 
@@ -15,21 +14,14 @@ import scala.concurrent.Future
 
 object StaticContentEndpoints {
   def all(config: StaticContentConfig)(
-      implicit
-      routingSettings: RoutingSettings,
-      parserSettings: ParserSettings,
-      materializer: Materializer,
-      routingLog: RoutingLog): HttpRequest PartialFunction Future[HttpResponse] =
+      implicit asys: ActorSystem,
+  ): HttpRequest PartialFunction Future[HttpResponse] =
     new StaticContentRouter(config)
 }
 
 private class StaticContentRouter(config: StaticContentConfig)(
-    implicit
-    routingSettings: RoutingSettings,
-    parserSettings: ParserSettings,
-    materializer: Materializer,
-    routingLog: RoutingLog)
-    extends PartialFunction[HttpRequest, Future[HttpResponse]]
+    implicit asys: ActorSystem,
+) extends PartialFunction[HttpRequest, Future[HttpResponse]]
     with StrictLogging {
 
   private val pathPrefix: Uri.Path = Uri.Path("/" + config.prefix)
@@ -38,7 +30,7 @@ private class StaticContentRouter(config: StaticContentConfig)(
   logger.warn("DO NOT USE StaticContentRouter IN PRODUCTION, CONSIDER SETTING UP REVERSE PROXY!!!")
 
   private val fn =
-    akka.http.scaladsl.server.Route.asyncHandler(
+    akka.http.scaladsl.server.Route.toFunction(
       Directives.rawPathPrefix(Slash ~ config.prefix)(
         Directives.getFromDirectory(config.directory.getAbsolutePath)
       ))

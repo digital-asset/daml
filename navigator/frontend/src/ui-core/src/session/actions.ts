@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as Redux from 'redux';
-import { Dispatch, ThunkAction } from '../types';
+import { ThunkAction } from 'redux-thunk';
+import { Dispatch } from '../types';
 import {
   Action,
   AuthFailure,
@@ -48,7 +49,7 @@ function handleSessionResponse<A extends Redux.Action>(
 }
 
 // Async action creators
-function init<A extends Redux.Action>(to: To<A>): ThunkAction<void> {
+function init<A extends Redux.Action>(to: To<A>): ThunkAction<void, void, undefined, A> {
   return (dispatch) => {
     fetch(sessionUrl, { credentials: 'include' })
       // TODO(NAV-14): Add better error handling here
@@ -57,28 +58,27 @@ function init<A extends Redux.Action>(to: To<A>): ThunkAction<void> {
   };
 }
 
-function signIn<A extends Redux.Action>(
+function signIn<S, A extends Redux.Action>(
   to: To<A>,
   userId: UserId,
-  password?: string,
-): ThunkAction<void> {
+): ThunkAction<void, S, undefined, A> {
   return (dispatch) => {
     dispatch(to({ type: 'AUTHENTICATING' }));
     fetch(sessionUrl, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, password }),
+      body: JSON.stringify({ userId }),
     })
       .then((res: Response) => (res.json() as Promise<ServerResponse>))
       .then(handleSessionResponse(to, dispatch));
   };
 }
 
-function signOut<A extends Redux.Action>(
+function signOut<S, A extends Redux.Action>(
   to: To<A>,
   resetStoreAction: A,
-): ThunkAction<void> {
+): ThunkAction<void, S, undefined, A> {
   return (dispatch) => {
     dispatch(to({ type: 'UNAUTHENTICATING' }));
     // Empty out store on logout to avoid stale caches.

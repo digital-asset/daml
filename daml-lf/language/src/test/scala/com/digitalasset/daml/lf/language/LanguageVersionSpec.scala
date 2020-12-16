@@ -3,18 +3,20 @@
 
 package com.daml.lf.language
 
-import com.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
+import com.daml.lf.language.{LanguageVersion => LV}
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class LanguageVersionSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   "LanguageVersion.ordering order as expected" in {
 
     val versionInOrder = List(
-      LV(LVM.V1, "0"),
-      LV(LVM.V1, "1"),
-      LV(LVM.V1, "2"),
+      LV(LV.Major.V1, LV.Minor("6")),
+      LV(LV.Major.V1, LV.Minor("7")),
+      LV(LV.Major.V1, LV.Minor("8")),
+      LV(LV.Major.V1, LV.Minor("dev")),
     )
 
     val versionRank = versionInOrder.zipWithIndex.toMap
@@ -25,7 +27,7 @@ class LanguageVersionSpec extends WordSpec with Matchers with TableDrivenPropert
       v1 =>
         forEvery(versions)(
           v2 =>
-            LV.ordering
+            LV.Ordering
               .compare(v1, v2)
               .signum shouldBe (versionRank(v1) compareTo versionRank(v2)).signum))
 

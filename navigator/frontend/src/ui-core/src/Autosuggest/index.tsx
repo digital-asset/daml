@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
-import * as Input from 'react-autosuggest';
+import Input from 'react-autosuggest';
 import { StyledTextInput } from '../Input';
 import styled, { hardcodedStyle } from '../theme';
 
@@ -81,31 +81,31 @@ export default class Autosuggest<R>
     this.onChange = this.onChange.bind(this);
   }
 
-  componentWillUnmount() {
+  componentWillUnmount(): void {
     clearTimeout(this.delayTimer);
   }
 
-  onSuggestionClearRequested() {
+  onSuggestionClearRequested(): void {
     this.setState({ suggestions: [] });
   }
 
-  onSuggestionFetchRequested({ value }: { value: string }) {
+  onSuggestionFetchRequested({ value }: { value: string }): void {
     clearTimeout(this.delayTimer);
-    this.delayTimer = setTimeout(() => {
+    this.delayTimer = window.setTimeout(() => {
       this.props.onFetchSuggestions(value, (suggestions: R[]) => {
         this.setState({ suggestions });
       });
     }, this.props.debounceTime || DEBOUNCE_TIME_DEFAULT);
   }
 
-  onChange(_event: {}, { newValue }: { newValue: string}) {
+  onChange(_event: {}, { newValue }: { newValue: string}): void {
     this.setState({ value: newValue });
     if (this.props.onChange) {
       this.props.onChange(newValue);
     }
   }
 
-  render() {
+  render(): JSX.Element {
     const { disabled, placeholder } = this.props;
     const { value, suggestions } = this.state;
     const inputProps = {
@@ -122,7 +122,7 @@ export default class Autosuggest<R>
         renderSuggestion={this.props.renderSuggestion}
         inputProps={inputProps}
         shouldRenderSuggestions={() => true}
-        // tslint:disable-next-line:no-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         renderInputComponent={(inputComponentProps: any) => {
           const { ref, ...otherInputComponentProps } = inputComponentProps;
           const refCallback = (input: HTMLInputElement) => ref(input);
@@ -137,7 +137,7 @@ export default class Autosuggest<R>
           ); }
         }
         renderSuggestionsContainer={
-          ({containerProps, children}: {containerProps: {}, children: {}[]}) =>
+          ({containerProps, children}) =>
           (
             <SuggestionsContainer {...containerProps} >
               {children}

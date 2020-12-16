@@ -182,6 +182,13 @@ applySubstInExpr subst@Subst{..} = \case
         (applySubstInExpr subst e)
     ETypeRep t -> ETypeRep
         (applySubstInType subst t)
+    EMakeAnyException t e1 e2 -> EMakeAnyException
+        (applySubstInType subst t)
+        (applySubstInExpr subst e1)
+        (applySubstInExpr subst e2)
+    EFromAnyException t e -> EFromAnyException
+        (applySubstInType subst t)
+        (applySubstInExpr subst e)
     EUpdate u -> EUpdate
         (applySubstInUpdate subst u)
     EScenario s -> EScenario
@@ -226,12 +233,11 @@ applySubstInUpdate subst = \case
     UCreate templateName e -> UCreate
         templateName
         (applySubstInExpr subst e)
-    UExercise templateName choiceName e1 e2M e3 -> UExercise
+    UExercise templateName choiceName e1 e2 -> UExercise
         templateName
         choiceName
         (applySubstInExpr subst e1)
-        (applySubstInExpr subst <$> e2M)
-        (applySubstInExpr subst e3)
+        (applySubstInExpr subst e2)
     UExerciseByKey templateName choiceName e1 e2 -> UExerciseByKey
         templateName
         choiceName
@@ -250,6 +256,12 @@ applySubstInUpdate subst = \case
     UFetchByKey (RetrieveByKey templateName e) -> UFetchByKey $ RetrieveByKey
         templateName
         (applySubstInExpr subst e)
+    UTryCatch t e1 x e2 ->
+        substWithBoundExprVar subst x $ \subst' x' -> UTryCatch
+            (applySubstInType subst t)
+            (applySubstInExpr subst e1)
+            x'
+            (applySubstInExpr subst' e2)
 
 applySubstInScenario :: Subst -> Scenario -> Scenario
 applySubstInScenario subst = \case

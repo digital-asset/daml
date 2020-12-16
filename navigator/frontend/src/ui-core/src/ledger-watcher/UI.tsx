@@ -1,13 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+import { ApolloClient } from '@apollo/client';
+import { withApollo } from '@apollo/client/react/hoc';
 import * as React from 'react';
-import {
-  ApolloClient,
-  withApollo,
-} from 'react-apollo';
 import { connect } from 'react-redux';
-import { AnyAction, compose } from 'redux';
+import { AnyAction } from 'redux';
 import { Set } from 'typescript-collections';
 import Watcher, {
   Action,
@@ -16,7 +14,7 @@ import Watcher, {
   WatchedCommand,
 } from '.';
 import styled from '../theme';
-import { Connect, Dispatch } from '../types';
+import { Dispatch } from '../types';
 import { createIcon, fadeTime } from './icons';
 
 // TODO: with ES6, just pass an array to the Set constructor.
@@ -46,7 +44,8 @@ export interface OwnProps<A extends Action> {
 }
 
 export interface ApolloProps {
-  client: ApolloClient;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: ApolloClient<any>;
 }
 
 export interface ReduxProps<A extends Action> {
@@ -65,7 +64,7 @@ interface ComponentState {
 // After the fade out time has passed, they can be removed from the oldCommands
 // list as well, to prevent drawing an increasing number of invisible icons.
 function canRemove(cmd: WatchedCommand, now: number) {
-  // tslint:disable-next-line:restrict-plus-operands -- false positive
+  // eslint-disable-next-line @typescript-eslint/restrict-plus-operands
   const maxTime = MAX_COMMAND_AGE + fadeTime;
   return cmd.result && (now - cmd.result.processedAt.getTime()) > maxTime;
 }
@@ -88,7 +87,7 @@ class Component<A extends Action>
     }
   }
 
-  componentWillReceiveProps(nextProps: Props<A>) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props<A>) {
     const nextCommands = nextProps.watcher.commands;
     const commands = this.props.watcher.commands;
     const oldCommands = this.state.oldCommands;
@@ -131,16 +130,5 @@ class Component<A extends Action>
   }
 }
 
-const _withApollo: Connect<ApolloProps, OwnProps<AnyAction>>
-  = withApollo;
-
-const withRedux: Connect<
-  ReduxProps<AnyAction>,
-  OwnProps<AnyAction> & ApolloProps
->
-  = connect();
-
-export const UI = compose(
-  _withApollo,
-  withRedux,
-)(Component);
+export const UI: React.ComponentClass<OwnProps<AnyAction>>
+  = withApollo<OwnProps<AnyAction>>(connect()(Component));

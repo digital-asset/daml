@@ -27,14 +27,14 @@ private[kvutils] class PartyAllocationCommitter(
       s"Party allocation rejected, $msg, correlationId=${partyAllocationEntry.getSubmissionId}")
 
   private val authorizeSubmission: Step = (ctx, partyAllocationEntry) => {
-    if (ctx.getParticipantId == partyAllocationEntry.getParticipantId) {
+    if (ctx.participantId == partyAllocationEntry.getParticipantId) {
       StepContinue(partyAllocationEntry)
     } else {
       val msg =
-        s"participant id ${partyAllocationEntry.getParticipantId} did not match authenticated participant id ${ctx.getParticipantId}"
+        s"participant id ${partyAllocationEntry.getParticipantId} did not match authenticated participant id ${ctx.participantId}"
       rejectionTraceLog(msg, partyAllocationEntry)
       reject(
-        ctx.getRecordTime,
+        ctx.recordTime,
         partyAllocationEntry,
         _.setParticipantNotAuthorized(
           ParticipantNotAuthorized.newBuilder
@@ -52,7 +52,7 @@ private[kvutils] class PartyAllocationCommitter(
       val msg = s"party string '$party' invalid"
       rejectionTraceLog(msg, partyAllocationEntry)
       reject(
-        ctx.getRecordTime,
+        ctx.recordTime,
         partyAllocationEntry,
         _.setInvalidName(
           Invalid.newBuilder
@@ -71,7 +71,7 @@ private[kvutils] class PartyAllocationCommitter(
       val msg = s"party already exists party='$party'"
       rejectionTraceLog(msg, partyAllocationEntry)
       reject(
-        ctx.getRecordTime,
+        ctx.recordTime,
         partyAllocationEntry,
         _.setAlreadyExists(AlreadyExists.newBuilder.setDetails(msg))
       )
@@ -80,14 +80,14 @@ private[kvutils] class PartyAllocationCommitter(
 
   private val deduplicateSubmission: Step = (ctx, partyAllocationEntry) => {
     val submissionKey =
-      partyAllocationDedupKey(ctx.getParticipantId, partyAllocationEntry.getSubmissionId)
+      partyAllocationDedupKey(ctx.participantId, partyAllocationEntry.getSubmissionId)
     if (ctx.get(submissionKey).isEmpty) {
       StepContinue(partyAllocationEntry)
     } else {
       val msg = s"duplicate submission='${partyAllocationEntry.getSubmissionId}'"
       rejectionTraceLog(msg, partyAllocationEntry)
       reject(
-        ctx.getRecordTime,
+        ctx.recordTime,
         partyAllocationEntry,
         _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
       )
@@ -107,20 +107,20 @@ private[kvutils] class PartyAllocationCommitter(
       DamlStateValue.newBuilder
         .setParty(
           DamlPartyAllocation.newBuilder
-            .setParticipantId(ctx.getParticipantId)
+            .setParticipantId(ctx.participantId)
         )
         .build
     )
 
     ctx.set(
-      partyAllocationDedupKey(ctx.getParticipantId, partyAllocationEntry.getSubmissionId),
+      partyAllocationDedupKey(ctx.participantId, partyAllocationEntry.getSubmissionId),
       DamlStateValue.newBuilder
         .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
         .build
     )
 
     val successLogEntry = buildLogEntryWithOptionalRecordTime(
-      ctx.getRecordTime,
+      ctx.recordTime,
       _.setPartyAllocationEntry(partyAllocationEntry))
     if (ctx.preExecute) {
       setOutOfTimeBoundsLogEntry(partyAllocationEntry, ctx)

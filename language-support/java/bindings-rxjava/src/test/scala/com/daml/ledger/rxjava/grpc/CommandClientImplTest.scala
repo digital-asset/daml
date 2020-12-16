@@ -18,13 +18,15 @@ import com.daml.ledger.api.v1.command_service.{
 }
 import com.google.protobuf.empty.Empty
 import io.reactivex.Single
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
 class CommandClientImplTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with AuthMatchers
     with OptionValues

@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.Done
 import akka.actor.ActorSystem
 
-import scala.collection.breakOut
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -34,7 +33,7 @@ class AkkaExecutionSequencerPool(
 
   def closeAsync(): Future[Unit] = {
     implicit val ec: ExecutionContext = system.dispatcher
-    val eventuallyClosed: Future[Seq[Done]] = Future.sequence(pool.map(_.closeAsync)(breakOut))
+    val eventuallyClosed: Future[Seq[Done]] = Future.sequence(pool.view.map(_.closeAsync).toSeq)
     Future.firstCompletedOf(
       Seq(
         system.whenTerminated.map(_ => ()), //  Cut it short if the ActorSystem stops.

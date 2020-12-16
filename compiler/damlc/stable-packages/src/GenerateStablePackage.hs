@@ -97,6 +97,7 @@ ghcTypes = package version1_6 $ NM.singleton Module
   , moduleDataTypes = NM.fromList [dataOrdering]
   , moduleValues = NM.empty
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["GHC", "Types"]
@@ -118,6 +119,7 @@ ghcPrim = package version1_6 $ NM.singleton Module
   , moduleDataTypes = NM.fromList [dataVoid]
   , moduleValues = NM.fromList [valVoid]
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["GHC", "Prim"]
@@ -152,6 +154,7 @@ daTypes = package version1_6 $ NM.singleton Module
   , moduleSynonyms = NM.empty
   , moduleDataTypes = types
   , moduleValues = values
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Types"]
@@ -197,6 +200,7 @@ ghcTuple = package version1_6 $ NM.singleton Module
   , moduleSynonyms = NM.empty
   , moduleDataTypes = types
   , moduleValues = values
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["GHC", "Tuple"]
@@ -220,6 +224,7 @@ daInternalTemplate = package version1_6 $ NM.singleton Module
   , moduleDataTypes = types
   , moduleValues = NM.fromList []
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Internal", "Template"]
@@ -237,6 +242,7 @@ daInternalAny = package version1_7 $ NM.singleton Module
   , moduleDataTypes = types
   , moduleValues = NM.empty
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Internal", "Any"]
@@ -260,6 +266,7 @@ daTimeTypes = package version1_6 $ NM.singleton Module
   , moduleDataTypes = types
   , moduleValues = values
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Time", "Types"]
@@ -283,6 +290,7 @@ daNonEmptyTypes = package version1_6 $ NM.singleton Module
   , moduleDataTypes = types
   , moduleValues = values
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "NonEmpty", "Types"]
@@ -310,6 +318,7 @@ daDateTypes = package version1_6 $ NM.singleton Module
   , moduleDataTypes = types
   , moduleValues = NM.empty
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Date", "Types"]
@@ -350,6 +359,7 @@ daSemigroupTypes = package version1_6 $ NM.singleton Module
   , moduleDataTypes = types
   , moduleValues = values
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Semigroup", "Types"]
@@ -376,6 +386,7 @@ daMonoidTypes = package version1_6 $ NM.singleton Module
   , moduleDataTypes = types
   , moduleValues = values
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Monoid", "Types"]
@@ -417,6 +428,7 @@ daValidationTypes nonEmptyPkgId = package version1_6 $ NM.singleton Module
   , moduleDataTypes = types
   , moduleValues = values
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     nonEmptyModName = mkModName ["DA", "NonEmpty", "Types"]
@@ -448,6 +460,7 @@ daLogicTypes = package version1_6 $ NM.singleton Module
   , moduleDataTypes = types
   , moduleValues = values
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Logic", "Types"]
@@ -483,6 +496,7 @@ daInternalDown = package version1_6 $ NM.singleton Module
   , moduleDataTypes = types
   , moduleValues = values
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Internal", "Down"]
@@ -506,6 +520,7 @@ daInternalErased = package version1_6 $ NM.singleton Module
   , moduleDataTypes = types
   , moduleValues = NM.empty
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Internal", "Erased"]
@@ -523,6 +538,7 @@ daInternalPromotedText = package version1_6 $ NM.singleton Module
   , moduleDataTypes = types
   , moduleValues = NM.empty
   , moduleTemplates = NM.empty
+  , moduleExceptions = NM.empty
   }
   where
     modName = mkModName ["DA", "Internal", "PromotedText"]

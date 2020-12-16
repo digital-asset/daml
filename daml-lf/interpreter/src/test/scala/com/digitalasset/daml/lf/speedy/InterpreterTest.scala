@@ -13,12 +13,13 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
 import org.slf4j.LoggerFactory
 
 import scala.language.implicitConversions
 
-class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 

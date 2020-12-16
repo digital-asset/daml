@@ -9,7 +9,7 @@ import { makeSidebarLink } from './index';
 
 const SidebarItem = makeSidebarLink(Link);
 
-function logClick() { console.log('CLICK!'); };
+function logClick() { console.log('CLICK!'); }
 
 const Wrapper = styled.div`
   max-width: ${ hardcodedStyle.sidebarWidth };
@@ -20,7 +20,7 @@ const OuterWrapper = styled.div`
   background: ${({theme}) => theme.documentBackground };
 `;
 
-export default () => (
+export default (): JSX.Element => (
   <Section
     title="Sidebar navigation links"
     description="Link styles for the navigation sidebar"

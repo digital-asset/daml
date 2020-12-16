@@ -7,7 +7,8 @@ package test
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.scalatest.AsyncForAll
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.std.boolean._
 
 import scala.collection.immutable.Seq

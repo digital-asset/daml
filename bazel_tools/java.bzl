@@ -26,11 +26,8 @@ def _java_home_runtime_impl(ctx):
 
 java_home_runtime = repository_rule(
     implementation = _java_home_runtime_impl,
+    doc = "Define a `java_runtime` pointing to the JAVA_HOME environment variable.",
 )
-"""Define a java_runtime pointing to the JAVA_HOME environment variable."""
-
-def _wrap_rule(rule, name = "", **kwargs):
-    rule(name = name, **kwargs)
 
 def da_java_library(
         name,
@@ -79,28 +76,8 @@ def da_java_library(
             root_packages = root_packages,
         )
 
-def da_java_binary(name, **kwargs):
-    _wrap_rule(native.java_binary, name, **kwargs)
-    pom_file(
-        name = name + "_pom",
-        target = ":" + name,
-        visibility = ["//visibility:public"],
-    )
-
-    # Create empty javadoc JAR for uploading deploy jars to Maven Central
-    pkg_empty_zip(
-        name = name + "_javadoc",
-        out = name + "_javadoc.jar",
-    )
-
-    # Create empty src JAR for uploading deploy jars to Maven Central
-    pkg_empty_zip(
-        name = name + "_src",
-        out = name + "_src.jar",
-    )
-
 def da_java_proto_library(name, **kwargs):
-    _wrap_rule(native.java_proto_library, name, **kwargs)
+    native.java_proto_library(name = name, **kwargs)
     pom_file(
         name = name + "_pom",
         target = ":" + name,
@@ -108,10 +85,9 @@ def da_java_proto_library(name, **kwargs):
     )
 
     # Create empty javadoc JAR for uploading proto jars to Maven Central
+    # we don't need to create an empty zip for sources, because java_proto_library
+    # creates a sources jar as a side effect automatically
     pkg_empty_zip(
         name = name + "_javadoc",
         out = name + "_javadoc.jar",
     )
-
-    # we don't need to create an empty zip for sources, because java_proto_library
-    # creates a sources jar as a side effect automatically

@@ -51,6 +51,9 @@ trait SandboxRequiringAuthorization {
   protected def readWriteToken(party: String): AuthServiceJWTPayload =
     emptyToken.copy(actAs = List(party))
 
+  protected def multiPartyToken(actAs: List[String], readAs: List[String]): AuthServiceJWTPayload =
+    emptyToken.copy(actAs = actAs, readAs = readAs)
+
   protected def expiringIn(t: Duration, p: AuthServiceJWTPayload): AuthServiceJWTPayload =
     p.copy(exp = Option(Instant.now().plusNanos(t.toNanos)))
 

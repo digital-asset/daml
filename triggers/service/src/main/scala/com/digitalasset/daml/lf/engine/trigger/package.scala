@@ -12,7 +12,6 @@ import com.daml.platform.services.time.TimeProviderType
 
 import akka.http.scaladsl.model.Uri
 import scala.concurrent.duration.FiniteDuration
-import scalaz.{@@, Tag}
 
 package trigger {
 
@@ -20,12 +19,7 @@ package trigger {
   case object NoAuth extends AuthConfig
   final case class AuthMiddleware(uri: Uri) extends AuthConfig
 
-  object Tagged {
-    sealed trait AccessTokenTag
-    type AccessToken = String @@ AccessTokenTag
-    val AccessToken = Tag.of[AccessTokenTag]
-  }
-  import Tagged._
+  import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
   import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 
   case class LedgerConfig(
@@ -47,6 +41,7 @@ package trigger {
       triggerName: Identifier,
       triggerParty: Party,
       triggerApplicationId: ApplicationId,
-      triggerToken: Option[AccessToken],
+      triggerAccessToken: Option[AccessToken],
+      triggerRefreshToken: Option[RefreshToken],
   )
 }

@@ -6,11 +6,12 @@ package com.daml.ledger.javaapi.data
 import java.util.Collections
 
 import com.daml.ledger.api.v1.ValueOuterClass
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
 import collection.JavaConverters._
 
-class RecordSpec extends FlatSpec with Matchers {
+class RecordSpec extends AnyFlatSpec with Matchers {
 
   behavior of "Record.fromProto"
 

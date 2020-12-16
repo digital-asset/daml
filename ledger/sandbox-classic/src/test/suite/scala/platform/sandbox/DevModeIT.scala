@@ -20,7 +20,9 @@ import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.ports.Port
 import com.google.protobuf
-import org.scalatest.{AsyncWordSpec, Inside, Matchers}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.util.{Failure, Success}
 

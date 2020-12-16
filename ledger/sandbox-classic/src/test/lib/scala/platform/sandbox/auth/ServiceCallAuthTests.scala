@@ -15,7 +15,9 @@ import com.daml.platform.sandbox.SandboxRequiringAuthorization
 import com.daml.platform.sandbox.services.SandboxFixture
 import io.grpc.Status
 import io.grpc.stub.AbstractStub
-import org.scalatest.{Assertion, AsyncFlatSpec, Matchers}
+import org.scalatest.Assertion
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 import scala.util.control.NonFatal
@@ -41,6 +43,9 @@ trait ServiceCallAuthTests
 
   protected def expectUnauthenticated(f: Future[Any]): Future[Assertion] =
     expectFailure(f, Status.Code.UNAUTHENTICATED)
+
+  protected def expectUnimplemented(f: Future[Any]): Future[Assertion] =
+    expectFailure(f, Status.Code.UNIMPLEMENTED)
 
   protected def expectFailure(f: Future[Any], code: Status.Code): Future[Assertion] =
     f.failed.collect {

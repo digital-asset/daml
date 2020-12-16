@@ -13,12 +13,12 @@ import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.configuration.FluentConfiguration
 import org.flywaydb.core.internal.resource.LoadableResource
 import org.flywaydb.core.internal.scanner.{LocationScannerCache, ResourceNameCache, Scanner}
-import org.scalatest.Matchers._
-import org.scalatest.WordSpec
+import org.scalatest.matchers.should.Matchers._
+import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
-abstract class AbstractImmutableMigrationsSpec extends WordSpec {
+abstract class AbstractImmutableMigrationsSpec extends AnyWordSpec {
   protected def migrationsResourcePath: String
   protected def migrationsMinSize: Int
   protected def hashMigrationsScriptPath: String

@@ -29,7 +29,9 @@ import com.google.rpc.code._
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}

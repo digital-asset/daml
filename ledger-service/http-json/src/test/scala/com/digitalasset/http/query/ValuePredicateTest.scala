@@ -13,17 +13,20 @@ import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, ValueAdd
 
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalactic.source
-import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
-import org.scalatest.{Inside, Matchers, WordSpec}
+import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.Order
 import spray.json._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class ValuePredicateTest
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with Inside
-    with GeneratorDrivenPropertyChecks
+    with ScalaCheckDrivenPropertyChecks
     with TableDrivenPropertyChecks {
   import ValuePredicateTest._
   type Cid = V.ContractId

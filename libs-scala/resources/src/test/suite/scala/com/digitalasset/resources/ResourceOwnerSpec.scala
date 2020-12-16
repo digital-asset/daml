@@ -11,7 +11,8 @@ import com.daml.resources.FailingResourceOwner.FailingResourceFailedToOpen
 import com.daml.resources.{Resource => AbstractResource}
 import com.daml.timer.Delayed
 import com.github.ghik.silencer.silent
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt

@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ApolloClient } from 'apollo-client';
+import { ApolloClient } from '@apollo/client';
 import gql from 'graphql-tag';
 import {
   CommandResultsQuery,
@@ -230,7 +230,8 @@ class Watcher {
   contractsTimer: number;
   commandsTimer: number;
   constructor(
-    private client: ApolloClient,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private client: ApolloClient<any>,
     private getWatcherState: () => State,
     private dispatch: (action: Action) => void) {
     this.start = this.start.bind(this);
@@ -240,9 +241,9 @@ class Watcher {
   }
 
   start(): void {
-    this.contractsTimer = setTimeout(this.processContracts,
+    this.contractsTimer = window.setTimeout(this.processContracts,
       CONTRACTS_POLL_INTERVAL);
-    this.commandsTimer = setTimeout(this.processCommands,
+    this.commandsTimer = window.setTimeout(this.processCommands,
       COMMANDS_POLL_INTERVAL);
   }
 
@@ -264,7 +265,7 @@ class Watcher {
         console.error('Error fetching contract archiving updates:', err);
       });
     }
-    this.contractsTimer = setTimeout(this.processContracts,
+    this.contractsTimer = window.setTimeout(this.processContracts,
       CONTRACTS_POLL_INTERVAL);
   }
 
@@ -299,15 +300,15 @@ class Watcher {
         });
       }
     }
-    this.commandsTimer = setTimeout(this.processCommands,
+    this.commandsTimer = window.setTimeout(this.processCommands,
       COMMANDS_POLL_INTERVAL);
   }
 }
 
 function parseCommand(node: CommandResultsQuery_nodes): WatchedCommand {
-  if (node.__typename === 'CreateCommand' || node.__typename === 'ExerciseCommand') {
+  if (node.__typename === 'CreateCommand' || node.__typename === 'ExerciseCommand') {
     return { commandId: node.id, result: parseCommandResult(node.status) };
-  } else {
+  } else {
     return { commandId: node.id, result: undefined };
   }
 }

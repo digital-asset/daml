@@ -31,7 +31,7 @@ export default class SelectGuide extends React.Component<{}, State> {
     };
   }
 
-  render() {
+  render(): JSX.Element {
     return (
       <Section
         title="Select"

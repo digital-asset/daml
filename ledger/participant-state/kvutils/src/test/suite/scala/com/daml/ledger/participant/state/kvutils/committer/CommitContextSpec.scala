@@ -8,13 +8,13 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
-import com.daml.ledger.participant.state.kvutils.{DamlStateMap, TestHelpers}
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.kvutils.committer.CommitContextSpec._
+import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err, TestHelpers}
 import com.daml.lf.data.Time
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class CommitContextSpec extends WordSpec with Matchers {
+class CommitContextSpec extends AnyWordSpec with Matchers {
   "get" should {
     "check output first" in {
       val context = newInstance(inputs = newDamlStateMap(aKey -> anotherValue))
@@ -46,7 +46,57 @@ class CommitContextSpec extends WordSpec with Matchers {
 
     "throw in case key cannot be found" in {
       val context = newInstance()
-      assertThrows[MissingInputState](context.get(aKey))
+      assertThrows[Err.MissingInputState](context.get(aKey))
+      context.getAccessedInputKeys shouldBe Set.empty
+    }
+  }
+
+  "read" should {
+    "return input key and record its access" in {
+      val context =
+        newInstance(inputs = newDamlStateMap(aKey -> aValue, anotherKey -> anotherValue))
+
+      context.read(aKey) shouldBe Some(aValue)
+      context.getAccessedInputKeys shouldBe Set(aKey)
+    }
+
+    "record key as accessed even if it is not available in the input" in {
+      val context = newInstance(inputs = Map(aKey -> None))
+
+      context.read(aKey) shouldBe None
+      context.getAccessedInputKeys shouldBe Set(aKey)
+    }
+
+    "throw in case key cannot be found" in {
+      val context = newInstance()
+      assertThrows[Err.MissingInputState](context.read(aKey))
+      context.getAccessedInputKeys shouldBe Set.empty
+    }
+  }
+
+  "collectInputs" should {
+    "return keys matching the predicate and mark all inputs as accessed" in {
+      val expectedKey1 = aKeyWithContractId("a1")
+      val expectedKey2 = aKeyWithContractId("a2")
+      val expected = Map(
+        expectedKey1 -> Some(aValue),
+        expectedKey2 -> None
+      )
+      val inputs = expected ++ Map(aKeyWithContractId("b") -> Some(aValue))
+      val context = newInstance(inputs = inputs)
+
+      context.collectInputs {
+        case (key, _) if key.getContractId.startsWith("a") => key
+      }.toSet shouldBe expected.keys
+      context.getAccessedInputKeys shouldBe inputs.keys
+    }
+
+    "return no keys and mark all inputs as accessed for a predicate producing empty output" in {
+      val context =
+        newInstance(inputs = newDamlStateMap(aKey -> aValue, anotherKey -> anotherValue))
+
+      context.collectInputs { case _ if false => () } shouldBe empty
+      context.getAccessedInputKeys shouldBe Set(aKey, anotherKey)
     }
   }
 
@@ -103,10 +153,14 @@ class CommitContextSpec extends WordSpec with Matchers {
       context.preExecute shouldBe true
     }
   }
+}
 
-  private val aKey: DamlStateKey = DamlStateKey.newBuilder.setContractId("contract ID 1").build
-  private val anotherKey: DamlStateKey =
-    DamlStateKey.newBuilder.setContractId("contract ID 2").build
+object CommitContextSpec {
+  private def aKeyWithContractId(id: String): DamlStateKey =
+    DamlStateKey.newBuilder.setContractId(id).build
+
+  private val aKey: DamlStateKey = aKeyWithContractId("contract ID 1")
+  private val anotherKey: DamlStateKey = aKeyWithContractId("contract ID 2")
   private val aValue: DamlStateValue = DamlStateValue.newBuilder
     .setParty(DamlPartyAllocation.newBuilder.setDisplayName("a party name"))
     .build
@@ -114,17 +168,10 @@ class CommitContextSpec extends WordSpec with Matchers {
     .setParty(DamlPartyAllocation.newBuilder.setDisplayName("another party name"))
     .build
 
-  private class TestCommitContext(
-      override val getRecordTime: Option[Time.Timestamp],
-      override val inputs: DamlStateMap)
-      extends CommitContext {
-    override def getParticipantId: ParticipantId = TestHelpers.mkParticipantId(1)
-  }
-
   private def newInstance(
       recordTime: Option[Time.Timestamp] = Some(Time.Timestamp.now()),
       inputs: DamlStateMap = Map.empty) =
-    new TestCommitContext(recordTime, inputs)
+    CommitContext(inputs, recordTime, TestHelpers.mkParticipantId(1))
 
   private def newDamlStateMap(keyAndValues: (DamlStateKey, DamlStateValue)*): DamlStateMap =
     (for ((key, value) <- keyAndValues)

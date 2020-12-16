@@ -88,11 +88,11 @@ class DemoDataProvider implements DataProvider<ContractTableConfig> {
     });
   }
 
-  startCacheWatcher(_config: ContractTableConfig, _onResult: ResultCallback) {
+  startCacheWatcher(_config: ContractTableConfig, _onResult: ResultCallback): void {
     // empty
   }
 
-  stopCacheWatcher() {
+  stopCacheWatcher(): void {
     // empty
   }
 
@@ -134,7 +134,7 @@ const columns: ContractColumn<RowData, string>[] = [
   },
 ];
 
-function createTextCell({cellData}: {cellData: string | number}){
+function createTextCell({cellData}: {cellData: string | number}){
   return (<span>{cellData}</span>);
 }
 
@@ -170,7 +170,7 @@ export default class ContractTableGuide extends React.Component<{}, State> {
     this.onConfigChange = this.onConfigChange.bind(this);
   }
 
-  render() {
+  render(): JSX.Element {
     return (
       <Section
         title="Contract table"
@@ -214,7 +214,7 @@ export default class ContractTableGuide extends React.Component<{}, State> {
             actionRowContent={[
               <TableActionBarSideMargin key="left" />,
               <TableActionBarTitle key="title">Custom header</TableActionBarTitle>,
-              <TableActionBarButton key="button1" onClick={() => { ; }}>
+              <TableActionBarButton key="button1" onClick={() => { return; }}>
                 Action
               </TableActionBarButton>,
             ]}
@@ -235,7 +235,7 @@ export default class ContractTableGuide extends React.Component<{}, State> {
     );
   }
 
-  onConfigChange(config: ContractTableConfig) {
+  onConfigChange(config: ContractTableConfig): void {
     this.setState({ config });
   }
 }

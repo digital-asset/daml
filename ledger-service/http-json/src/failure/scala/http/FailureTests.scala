@@ -5,7 +5,8 @@ package com.daml.http
 
 import akka.http.javadsl.model.ws.PeerClosedConnectionException
 import akka.http.scaladsl.model.{StatusCodes, Uri}
-import akka.stream.scaladsl.Sink
+import akka.stream.{KillSwitches, UniqueKillSwitch}
+import akka.stream.scaladsl.{Keep, Sink}
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
@@ -16,6 +17,8 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.timer.RetryStrategy
 import eu.rekawek.toxiproxy.model.ToxicDirection
 import org.scalatest._
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.concurrent.Eventually
 import scalaz.\/
 import scalaz.syntax.show._
@@ -102,7 +105,6 @@ final class FailureTests
         body.compactPrint,
         headersWithParties(List(p.unwrap)))
       _ = status shouldBe StatusCodes.ServiceUnavailable
-      _ = println(output.toString)
       _ = output shouldBe "The server was not able to produce a timely response to your request.\r\nPlease try again in a short while!"
       _ = proxy.toxics().get("timeout").remove()
       (status, _) <- postCreateCommand(
@@ -118,7 +120,6 @@ final class FailureTests
         body.compactPrint,
         headersWithParties(List(p.unwrap)))
       _ = status shouldBe StatusCodes.ServiceUnavailable
-      _ = println(output.toString)
       _ = output shouldBe "The server was not able to produce a timely response to your request.\r\nPlease try again in a short while!"
     } yield succeed
   }
@@ -298,7 +299,8 @@ final class FailureTests
 
     def respAfter(
         offset: domain.Offset,
-        accountCid: domain.ContractId): Sink[JsValue, Future[Unit]] = {
+        accountCid: domain.ContractId,
+        stop: UniqueKillSwitch): Sink[JsValue, Future[Unit]] = {
       val dslSyntax = Consume.syntax[JsValue]
       import dslSyntax._
       Consume.interpret(
@@ -306,6 +308,7 @@ final class FailureTests
           ContractDelta(Vector((ctId, _)), Vector(), Some(newOffset)) <- readOne
           _ = ctId shouldBe accountCid.unwrap
           _ = newOffset.unwrap should be > offset.unwrap
+          _ = stop.shutdown
           _ <- drain
         } yield ()
       )
@@ -323,8 +326,8 @@ final class FailureTests
       r <- (singleClientQueryStream(
         jwtForParties(List(p.unwrap), List(), ledgerId().unwrap),
         uri,
-        query,
-        keepOpen = true) via parseResp runWith respBefore(cid)).transform(x => Success(x))
+        query
+      ) via parseResp runWith respBefore(cid)).transform(x => Success(x))
       _ = inside(r) {
         case Failure(e: PeerClosedConnectionException) =>
           e.closeCode shouldBe 1011
@@ -339,11 +342,13 @@ final class FailureTests
         headers = headersWithParties(List(p.unwrap)))
       cid = getContractId(getResult(r))
       _ = status shouldBe 'success
-      _ <- singleClientQueryStream(
+      (stop, source) = singleClientQueryStream(
         jwtForParties(List(p.unwrap), List(), ledgerId().unwrap),
         uri,
         query,
-        Some(offset)) via parseResp runWith respAfter(offset, cid)
+        Some(offset)
+      ).viaMat(KillSwitches.single)(Keep.right).preMaterialize()
+      _ <- source via parseResp runWith respAfter(offset, cid, stop)
     } yield succeed
 
   }

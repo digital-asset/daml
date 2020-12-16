@@ -4,15 +4,15 @@
 // Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 // All rights reserved.
 
-import { Dispatch, styled, ThunkAction } from '@da/ui-core';
+import { Dispatch, styled } from '@da/ui-core';
 import * as React from 'react';
-import { connect } from 'react-redux';
-import { compose } from 'redux';
-import { Connect } from '../../types';
+import { connect, ConnectedComponent } from 'react-redux';
+import { AnyAction } from 'redux';
+import { ThunkAction, ThunkDispatch } from 'redux-thunk';
 import * as App from '../app';
 
 // The backend returns an opaque JSON object
-export type Info = Object
+export type Info = Record<string, unknown>
 
 export type Action
   = { type: 'SET_BACKENDINFO_RESULT', info: Info }
@@ -29,7 +29,7 @@ export const setBackendInfoFetchError = (error: string): Action =>
 
 export type BackendInfoResult
   = {type: 'none'}
-  | {type: 'loading'}
+  | {type: 'loading'}
   | {type: 'loaded', info: Info}
   | {type: 'fetch-error', error: string}
   ;
@@ -38,7 +38,7 @@ export interface State {
   backendInfo: BackendInfoResult;
 }
 
-export type ToSelf = (action: Action | ThunkAction<void>) => App.Action;
+export type ToSelf = (action: Action | ThunkAction<void, App.State, undefined, Action>) => App.Action;
 
 export function init(): State {
   return {
@@ -46,7 +46,7 @@ export function init(): State {
   };
 }
 
-export function reloadBackendInfo(toSelf: ToSelf): ThunkAction<void> {
+export function reloadBackendInfo(toSelf: ToSelf): ThunkAction<void, App.State, undefined, AnyAction> {
   return (dispatch) => {
     dispatch(toSelf(setBackendInfoLoading()));
 
@@ -65,14 +65,14 @@ export function reloadBackendInfo(toSelf: ToSelf): ThunkAction<void> {
   };
 }
 
-function handleBackendInfoResponse(to: ToSelf, dispatch: Dispatch<Action>) {
-  return (source: Object): void => {
+function handleBackendInfoResponse(to: ToSelf, dispatch: ThunkDispatch<App.State, undefined, App.Action>) {
+  return (source: Record<string, unknown>): void => {
     dispatch(to(setBackendInfoResult(source)));
   };
 }
 
-function handleBackendInfoFetchError(to: ToSelf, dispatch: Dispatch<Action>) {
-  // tslint:disable-next-line no-any
+function handleBackendInfoFetchError(to: ToSelf, dispatch: ThunkDispatch<App.State, undefined, App.Action>) {
+  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   return (reason: any) => {
     if (reason instanceof Error) {
       // Log to console to show error call stack
@@ -152,8 +152,6 @@ class Component extends React.Component<Props, {}> {
       </Wrapper>
     );
   }
-};
+}
 
-const withRedux: Connect<ReduxProps, OwnProps> = connect();
-
-export const UI = compose(withRedux)(Component);
+export const UI: ConnectedComponent<typeof Component, OwnProps> = connect()(Component);

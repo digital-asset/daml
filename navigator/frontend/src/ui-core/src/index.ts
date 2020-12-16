@@ -17,7 +17,6 @@ export { default as ChoicesButton } from './ChoicesButton';
 export { default as NavBar } from './NavBar';
 export { default as Frame } from './Frame';
 export { default as Truncate } from './Truncate';
-export { default as withExercise } from './withExercise';
 export { default as withLedgerTime } from './withLedgerTime';
 export {
   default as styled,
@@ -42,9 +41,7 @@ export {
 } from './DataTable';
 export { ApolloDataProvider } from './ContractTable/ApolloDataProvider';
 export {
-  ThunkAction,
   Dispatch,
-  WithRedux,
   WithGraphQL,
 } from './types';
 export {

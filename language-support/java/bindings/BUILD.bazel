@@ -11,19 +11,10 @@ load("//bazel_tools:java.bzl", "da_java_library")
 
 proto_gen(
     name = "ledger-api-java",
-    srcs = ["//ledger-api/grpc-definitions:protos"],
+    srcs = ["//ledger-api/grpc-definitions:ledger_api_proto"],
     plugin_name = "java",
     visibility = [
         "//visibility:public",
-    ],
-    deps = [
-        "@com_github_googleapis_googleapis//google/rpc:status_proto",
-        "@com_google_protobuf//:any_proto",
-        "@com_google_protobuf//:descriptor_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:wrappers_proto",
     ],
 )
 
@@ -51,20 +42,11 @@ java_library(
 
 proto_gen(
     name = "ledger-api-java-grpc",
-    srcs = ["//ledger-api/grpc-definitions:protos"],
+    srcs = ["//ledger-api/grpc-definitions:ledger_api_proto"],
     plugin_exec = "@io_grpc_grpc_java//compiler:grpc_java_plugin",
     plugin_name = "java-grpc",
     visibility = [
         "//visibility:public",
-    ],
-    deps = [
-        "@com_github_googleapis_googleapis//google/rpc:status_proto",
-        "@com_google_protobuf//:any_proto",
-        "@com_google_protobuf//:descriptor_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:wrappers_proto",
     ],
 )
 
@@ -126,6 +108,7 @@ da_scala_test_suite(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
     ],
 )
 

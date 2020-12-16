@@ -16,7 +16,12 @@ import org.junit.runners.Suite;
         RecordTest.class,
         VariantTest.class,
         SerializableTest.class,
-        TemplateMethodTest.class
+        TemplateMethodTest.class,
+        ListTest.class,
+        MapTest.class,
+        OptionalTest.class,
+        ParametrizedContractIdTest.class,
+        ContractKeysTest.class
 })
 public class AllGenericTests {
 }

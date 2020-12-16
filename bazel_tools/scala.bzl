@@ -16,6 +16,7 @@ load(
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix", "scala_version_suffix")
 
 # This file defines common Scala compiler flags and plugins used throughout
 # this repository. The initial set of flags is taken from the ledger-client
@@ -26,7 +27,26 @@ load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 # Use the macros `da_scala_*` defined in this file, instead of the stock rules
 # `scala_*` from `rules_scala` in order for these default flags to take effect.
 
-common_scalacopts = [
+version_specific = {
+    "2.12": [
+        # these two flags turn on source-incompatible enhancements that are always
+        # on in Scala 2.13.  Despite the naming, though, the most impactful and
+        # 2.13-like change is -Ypartial-unification.  -Xsource:2.13 only turns on
+        # some minor, but in one specific case (scala/bug#10283) essential bug fixes
+        "-Xsource:2.13",
+        "-Ypartial-unification",
+        # adapted args is a deprecated feature:
+        # `def foo(a: (A, B))` can be called with `foo(a, b)`.
+        # properly it should be `foo((a,b))`
+        "-Yno-adapted-args",
+        "-Xlint:unsound-match",
+        "-Xlint:by-name-right-associative",  # will never be by-name if used correctly
+        "-Xfuture",
+        "-language:higherKinds",
+    ],
+}
+
+common_scalacopts = version_specific.get(scala_major_version, []) + [
     # doesn't allow advance features of the language without explict import
     # (higherkinds, implicits)
     "-feature",
@@ -39,19 +59,11 @@ common_scalacopts = [
     "-unchecked",
     # warn if using deprecated stuff
     "-deprecation",
-    "-Xfuture",
-    # these two flags turn on source-incompatible enhancements that are always
-    # on in Scala 2.13.  Despite the naming, though, the most impactful and
-    # 2.13-like change is -Ypartial-unification.  -Xsource:2.13 only turns on
-    # some minor, but in one specific case (scala/bug#10283) essential bug fixes
-    "-Xsource:2.13",
-    "-Ypartial-unification",
     # better error reporting for pureconfig
     "-Xmacro-settings:materialize-derivations",
     "-Xfatal-warnings",
     # catch missing string interpolators
     "-Xlint:missing-interpolator",
-    "-Xlint:by-name-right-associative",  # will never be by-name if used correctly
     "-Xlint:constant",  # / 0
     "-Xlint:doc-detached",  # floating Scaladoc comment
     "-Xlint:inaccessible",  # method uses invisible types
@@ -61,31 +73,34 @@ common_scalacopts = [
     "-Xlint:poly-implicit-overload",  # implicit conversions don't mix with overloads
     "-Xlint:private-shadow",  # name shadowing
     "-Xlint:type-parameter-shadow",  # name shadowing
-    "-Xlint:unsound-match",
-    # adapted args is a deprecated feature:
-    # `def foo(a: (A, B))` can be called with `foo(a, b)`.
-    # properly it should be `foo((a,b))`
-    "-Yno-adapted-args",
     "-Ywarn-dead-code",
     # Warn about implicit conversion between numerical types
     "-Ywarn-numeric-widen",
     # Gives a warning for functions declared as returning Unit, but the body returns a value
     "-Ywarn-value-discard",
-    "-Ywarn-unused-import",
+    "-Ywarn-unused:imports",
     "-Ywarn-unused",
 ]
 
 plugin_deps = [
-    "@maven//:org_wartremover_wartremover_2_12_12",
+    "@maven//:org_wartremover_wartremover_{}".format(scala_version_suffix),
 ]
 
 common_plugins = [
-    "@maven//:org_wartremover_wartremover_2_12_12",
+    "@maven//:org_wartremover_wartremover_{}".format(scala_version_suffix),
 ]
+
+version_specific_warts = {
+    "2.12": [
+        # On 2.13, this also triggers in string interpolation
+        # https://github.com/wartremover/wartremover/issues/447
+        "StringPlusAny",
+    ],
+}
 
 plugin_scalacopts = [
     "-Xplugin-require:wartremover",
-] + ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
+] + ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in version_specific_warts.get(scala_major_version, []) + [
     # This lists all wartremover linting passes.
     # "Any",
     "AnyVal",
@@ -116,7 +131,6 @@ plugin_scalacopts = [
     # "Recursion",
     "Return",
     "Serializable",
-    "StringPlusAny",
     # "Throw",
     # "ToString",
     # "TraversableOps",
@@ -139,8 +153,8 @@ default_compile_arguments = {
     "unused_dependency_checker_mode": "error",
 }
 
-silencer_plugin = "@maven//:com_github_ghik_silencer_plugin_2_12_12"
-silencer_lib = "@maven//:com_github_ghik_silencer_lib_2_12_12"
+silencer_plugin = "@maven//:com_github_ghik_silencer_plugin_{}".format(scala_version_suffix)
+silencer_lib = "@maven//:com_github_ghik_silencer_lib_{}".format(scala_version_suffix)
 
 default_initial_heap_size = "128m"
 default_max_heap_size = "1g"
@@ -183,8 +197,11 @@ def _wrap_rule(
         plugins = [],
         generated_srcs = [],  # hiding from the underlying rule
         deps = [],
+        scala_deps = [],
+        versioned_scala_deps = {},
         silent_annotations = False,
         **kwargs):
+    deps = deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
     if silent_annotations:
         scalacopts = ["-P:silencer:checkUnused"] + scalacopts
         plugins = [silencer_plugin] + plugins
@@ -468,7 +485,9 @@ Arguments:
   doctitle: title for Scalaadoc's index.html. Typically the name of the library
 """
 
-def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scalacopts = [], generated_srcs = [], silent_annotations = False, **kwargs):
+def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], generated_srcs = [], silent_annotations = False, **kwargs):
+    deps = deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
+
     # Limit execution to Linux and MacOS
     if is_windows == False:
         if silent_annotations:
@@ -502,7 +521,10 @@ def da_scala_library(name, **kwargs):
     arguments = _set_compile_jvm_flags(arguments)
     _wrap_rule(scala_library, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
-    _create_scaladoc_jar(name = name, **arguments)
+
+    # We get scaladoc from nix in version 2.12 atm.
+    if scala_major_version == "2.12":
+        _create_scaladoc_jar(name = name, **arguments)
 
     if "tags" in arguments:
         for tag in arguments["tags"]:

@@ -87,6 +87,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     * The resulting transaction is annotated with packages required to validate it.
     */
   def submit(
+      submitters: Set[Party],
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
@@ -98,7 +99,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         case (processedCmds, globalCids) =>
           interpretCommands(
             validating = false,
-            submitters = Set(cmds.submitter),
+            submitters = submitters,
             commands = processedCmds,
             ledgerTime = cmds.ledgerEffectiveTime,
             submissionTime = submissionTime,
@@ -137,7 +138,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     */
   def reinterpret(
       submitters: Set[Party],
-      node: GenNode.WithTxValue[NodeId, Value.ContractId],
+      node: GenNode[NodeId, Value.ContractId],
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
@@ -161,7 +162,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     } yield (tx, meta)
 
   def replay(
-      submitter: Party,
+      submitters: Set[Party],
       tx: SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
@@ -173,7 +174,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       (commands, globalCids) = commandsWithCids
       result <- interpretCommands(
         validating = true,
-        submitters = Set(submitter),
+        submitters = submitters,
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
@@ -199,7 +200,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     *  @param ledgerEffectiveTime time when the transaction is claimed to be submitted
     */
   def validate(
-      submitter: Party,
+      submitters: Set[Party],
       tx: SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
@@ -209,7 +210,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     //reinterpret
     for {
       result <- replay(
-        submitter,
+        submitters,
         tx,
         ledgerEffectiveTime,
         participantId,
@@ -352,9 +353,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       }
     }
 
-    onLedger.ptx.finish(
-      compiledPackages.packageLanguageVersion,
-    ) match {
+    onLedger.ptx.finish match {
       case PartialTransaction.CompleteTransaction(tx) =>
         val meta = Tx.Metadata(
           submissionSeed = None,
@@ -468,11 +467,11 @@ object Engine {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
-        case create: NodeCreate[_, _] => makeDesc("create", create.coinst.template, None)
-        case exercise: NodeExercises[_, _, _] =>
+        case create: NodeCreate[_] => makeDesc("create", create.coinst.template, None)
+        case exercise: NodeExercises[_, _] =>
           makeDesc("exercise", exercise.templateId, Some(exercise.choiceId.toString))
-        case fetch: NodeFetch[_, _] => makeDesc("fetch", fetch.templateId, None)
-        case lookup: NodeLookupByKey[_, _] => makeDesc("lookup", lookup.templateId, None)
+        case fetch: NodeFetch[_] => makeDesc("fetch", fetch.templateId, None)
+        case lookup: NodeLookupByKey[_] => makeDesc("lookup", lookup.templateId, None)
       }
     } else {
       s"compound:${tx.roots.length}"

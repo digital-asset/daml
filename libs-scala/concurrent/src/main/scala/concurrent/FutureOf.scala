@@ -3,7 +3,7 @@
 
 package com.daml.concurrent
 
-import scala.language.{higherKinds, implicitConversions}
+import scala.language.implicitConversions
 import scala.{concurrent => sc}
 import scala.util.Try
 
@@ -20,7 +20,7 @@ sealed abstract class FutureOf {
     * `ready` and `result` methods, which are mostly useless.
     */
   type T[-EC, +A] <: sc.Awaitable[A]
-  private[concurrent] def subst[F[_[+ _]], EC](ff: F[sc.Future]): F[T[EC, +?]]
+  private[concurrent] def subst[F[_[+ _]], EC](ff: F[sc.Future]): F[T[EC, +*]]
 }
 
 /** Instances and methods for `FutureOf`. You should not import these; instead,
@@ -37,7 +37,7 @@ object FutureOf {
     with MonadError[F, Throwable]
     with Catchable[F]
 
-  implicit def `future Instance`[EC: ExecutionContext]: ScalazF[Future[EC, +?]] =
+  implicit def `future Instance`[EC: ExecutionContext]: ScalazF[Future[EC, +*]] =
     Instance subst [ScalazF, EC] implicitly
 
   implicit def `future Semigroup`[A: Semigroup, EC: ExecutionContext]: Semigroup[Future[EC, A]] = {
@@ -57,8 +57,8 @@ object FutureOf {
     (Instance subst [K, Nothing] identity)(f)
   }
 
-  def swapExecutionContext[L, R]: Future[L, ?] <~> Future[R, ?] =
-    Instance.subst[Lambda[`t[+_]` => t <~> Future[R, ?]], L](
+  def swapExecutionContext[L, R]: Future[L, *] <~> Future[R, *] =
+    Instance.subst[Lambda[`t[+_]` => t <~> Future[R, *]], L](
       Instance.subst[Lambda[`t[+_]` => sc.Future <~> t], R](implicitly[sc.Future <~> sc.Future]))
 
   /** Common methods like `map` and `flatMap` are not provided directly; instead,
@@ -108,7 +108,7 @@ object FutureOf {
 
     def transform[B](s: A => B, f: Throwable => Throwable)(
         implicit ec: ExecutionContext[EC]): Future[EC, B] =
-      self.removeExecutionContext transform (s, f)
+      self.removeExecutionContext.transform(s, f)
 
     def foreach[U](f: A => U)(implicit ec: ExecutionContext[EC]): Unit =
       self.removeExecutionContext foreach f

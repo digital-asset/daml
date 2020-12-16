@@ -138,7 +138,7 @@ cmdLicense :: Mod CommandFields Command
 cmdLicense =
     command "license" $ info (helper <*> pure execLicense) $
        progDesc
-        "Show the licensing information!"
+        "License information for open-source projects included in DAML Connect."
     <> fullDesc
 
 cmdCompile :: Int -> Mod CommandFields Command
@@ -424,7 +424,7 @@ execLicense =
   where
     effect = B.putStr licenseData
     licenseData :: B.ByteString
-    licenseData = $(embedFile "compiler/daml-licenses/licenses/licensing.md")
+    licenseData = $(embedFile "NOTICES")
 
 execIde :: Telemetry
         -> Debug
@@ -583,6 +583,8 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
             initPackageDb opts initPkgDb
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
                 putStrLn $ "Compiling " <> T.unpack (LF.unPackageName pName) <> " to a DAR."
+                let warnings = checkPkgConfig pkgConfig
+                unless (null warnings) $ putStrLn $ unlines warnings
                 loggerH <- getLogger opts "package"
                 withDamlIdeState
                     opts

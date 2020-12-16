@@ -22,7 +22,7 @@ resource "google_compute_instance_template" "hoogle" {
   name_prefix  = "hoogle-"
   machine_type = "n1-standard-1"
   tags         = ["hoogle"]
-  labels       = "${local.labels}"
+  labels       = "${local.machine-labels}"
 
   disk {
     boot         = true

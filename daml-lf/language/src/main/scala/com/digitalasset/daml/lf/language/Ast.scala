@@ -440,9 +440,8 @@ object Ast {
       templateId: TypeConName,
       choice: ChoiceName,
       cidE: Expr,
-      actorsE: Option[Expr],
-      argE: Expr)
-      extends Update
+      argE: Expr,
+  ) extends Update
   final case class UpdateExerciseByKey(
       templateId: TypeConName,
       choice: ChoiceName,
@@ -652,7 +651,7 @@ object Ast {
         returnType: Type,
         update: E
     ): GenTemplateChoice[E] =
-      new GenTemplateChoice(
+      GenTemplateChoice(
         name,
         consuming,
         controllers,

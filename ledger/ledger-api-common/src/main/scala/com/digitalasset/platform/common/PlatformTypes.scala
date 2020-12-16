@@ -4,36 +4,35 @@
 package com.daml.platform.common
 
 import com.daml.lf.transaction.{Node => N}
-import com.daml.lf.{transaction => T}
 import com.daml.lf.{engine => E}
 import com.daml.lf.data.Ref
 import scala.collection.breakOut
 
 object PlatformTypes {
 
-  type GenNode[Nid, Cid] = N.GenNode.WithTxValue[Nid, Cid]
+  type GenNode[Nid, Cid] = N.GenNode[Nid, Cid]
 
-  type NodeCreate[Cid] = N.NodeCreate.WithTxValue[Cid]
+  type NodeCreate[Cid] = N.NodeCreate[Cid]
   val NodeCreate: N.NodeCreate.type = N.NodeCreate
 
-  type NodeLookupByKey[Cid] = N.NodeLookupByKey.WithTxValue[Cid]
+  type NodeLookupByKey[Cid] = N.NodeLookupByKey[Cid]
   val NodeLookupByKey: N.NodeLookupByKey.type = N.NodeLookupByKey
 
-  type NodeFetch[Cid] = N.NodeFetch.WithTxValue[Cid]
+  type NodeFetch[Cid] = N.NodeFetch[Cid]
   val NodeFetch: N.NodeFetch.type = N.NodeFetch
 
-  type NodeExercises[Nid, Cid] = N.NodeExercises.WithTxValue[Nid, Cid]
+  type NodeExercises[Nid, Cid] = N.NodeExercises[Nid, Cid]
   val NodeExercises: N.NodeExercises.type = N.NodeExercises
 
-  type Event[Nid, Cid] = E.Event[Nid, Cid, T.Transaction.Value[Cid]]
+  type Event[Nid, Cid] = E.Event[Nid, Cid]
 
-  type Events[Nid, Cid] = E.Event.Events[Nid, Cid, T.Transaction.Value[Cid]]
+  type Events[Nid, Cid] = E.Event.Events[Nid, Cid]
   val Events: E.Event.Events.type = E.Event.Events
 
-  type CreateEvent[Cid] = E.CreateEvent[Cid, T.Transaction.Value[Cid]]
+  type CreateEvent[Cid] = E.CreateEvent[Cid]
   val CreateEvent: E.CreateEvent.type = E.CreateEvent
 
-  type ExerciseEvent[Nid, Cid] = E.ExerciseEvent[Nid, Cid, T.Transaction.Value[Cid]]
+  type ExerciseEvent[Nid, Cid] = E.ExerciseEvent[Nid, Cid]
   val ExerciseEvent: E.ExerciseEvent.type = E.ExerciseEvent
 
   def packageId(str: String): Ref.PackageId = Ref.PackageId.assertFromString(str)

@@ -25,7 +25,6 @@ import DA.Daml.LF.Ast.Recursive
 import qualified DA.Daml.LF.Ast.Type as Type
 
 import Data.Functor.Foldable (cata)
-import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import Safe (findJust)
@@ -102,6 +101,8 @@ freeVarsStep = \case
     EToAnyF t e -> freeVarsInType t <> e
     EFromAnyF t e -> freeVarsInType t <> e
     ETypeRepF t -> freeVarsInType t
+    EMakeAnyExceptionF t e1 e2 -> freeVarsInType t <> e1 <> e2
+    EFromAnyExceptionF t e -> freeVarsInType t <> e
 
   where
 
@@ -129,13 +130,14 @@ freeVarsStep = \case
         UPureF t e -> freeVarsInType t <> e
         UBindF b e -> goBinding b e
         UCreateF _ e -> e
-        UExerciseF _ _ e1 e2M e3 -> e1 <> fromMaybe mempty e2M <> e3
+        UExerciseF _ _ e1 e2 -> e1 <> e2
         UExerciseByKeyF _ _ e1 e2 -> e1 <> e2
         UFetchF _ e -> e
         UGetTimeF -> mempty
         UEmbedExprF t e -> freeVarsInType t <> e
         UFetchByKeyF r -> retrieveByKeyFKey r
         ULookupByKeyF r -> retrieveByKeyFKey r
+        UTryCatchF t e1 x e2 -> freeVarsInType t <> e1 <> bindExprVar x e2
 
     goScenario :: ScenarioF FreeVars -> FreeVars
     goScenario = \case

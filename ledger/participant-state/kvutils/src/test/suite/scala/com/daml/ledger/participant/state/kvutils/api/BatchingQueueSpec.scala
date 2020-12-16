@@ -8,12 +8,11 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito
-import org.mockito.Mockito._
+import org.mockito.{Mockito, MockitoSugar}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -41,13 +40,13 @@ class BatchingQueueSpec
         throw new RuntimeException("kill the queue")
       }
 
-      queue.alive should be(true)
+      queue.state should be(RunningBatchingQueueState.Alive)
       for {
         res <- queue.offer(correlatedSubmission)
       } yield {
         res should be(SubmissionResult.Acknowledged)
         eventually {
-          queue.alive should be(false)
+          queue.state should be(RunningBatchingQueueState.Failed)
         }
       }
     }
@@ -62,10 +61,10 @@ class BatchingQueueSpec
       ).run { _ =>
         Future.unit
       }
-      queue.alive should be(true)
-      queue.close()
-      eventually {
-        queue.alive should be(false)
+      queue.state should be(RunningBatchingQueueState.Alive)
+      val wait = queue.stop()
+      wait.map { _ =>
+        queue.state should be(RunningBatchingQueueState.Complete)
       }
     }
 
@@ -116,7 +115,7 @@ class BatchingQueueSpec
         res1 should be(SubmissionResult.Acknowledged)
         res2 should be(SubmissionResult.Acknowledged)
         batches should contain only (Seq(correlatedSubmission1), Seq(correlatedSubmission2))
-        queue.alive should be(true)
+        queue.state should be(RunningBatchingQueueState.Alive)
       }
     }
 
@@ -188,7 +187,7 @@ class BatchingQueueSpec
         res1 should be(SubmissionResult.Acknowledged)
         res2 should be(SubmissionResult.Acknowledged)
         batches.reverse should contain only (Seq(correlatedSubmission1), Seq(correlatedSubmission2))
-        queue.alive should be(true)
+        queue.state should be(RunningBatchingQueueState.Alive)
       }
     }
   }

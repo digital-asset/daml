@@ -3,9 +3,10 @@
 
 package com.daml.scalautil
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class StatementSpec extends FlatSpec with Matchers {
+class StatementSpec extends AnyFlatSpec with Matchers {
   import com.daml.scalatest.Equalz._
   import scalaz.std.anyVal._
 

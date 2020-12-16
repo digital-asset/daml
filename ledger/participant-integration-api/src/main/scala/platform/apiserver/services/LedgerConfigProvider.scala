@@ -7,7 +7,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
 import akka.stream.scaladsl.{Keep, RestartSource, Sink}
-import akka.stream.{KillSwitches, Materializer, UniqueKillSwitch}
+import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
 import akka.{Done, NotUsed}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.v1.{
   Configuration,
   SubmissionId,
   SubmissionResult,
-  WriteService
+  WriteConfigService
 }
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
@@ -37,7 +37,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
   */
 private[apiserver] final class LedgerConfigProvider private (
     index: IndexConfigManagementService,
-    optWriteService: Option[WriteService],
+    optWriteService: Option[WriteConfigService],
     timeProvider: TimeProvider,
     config: LedgerConfiguration,
     materializer: Materializer,
@@ -106,9 +106,11 @@ private[apiserver] final class LedgerConfigProvider private (
       Some(
         RestartSource
           .withBackoff(
-            minBackoff = 1.seconds,
-            maxBackoff = 30.seconds,
-            randomFactor = 0.1,
+            RestartSettings(
+              minBackoff = 1.seconds,
+              maxBackoff = 30.seconds,
+              randomFactor = 0.1,
+            )
           ) { () =>
             index
               .configurationEntries(state.get._1)
@@ -128,7 +130,7 @@ private[apiserver] final class LedgerConfigProvider private (
     ()
   }
 
-  private[this] def submitInitialConfig(writeService: WriteService): Future[Unit] = {
+  private[this] def submitInitialConfig(writeService: WriteConfigService): Future[Unit] = {
     // There are several reasons why the change could be rejected:
     // - The participant is not authorized to set the configuration
     // - There already is a configuration, it just didn't appear in the index yet
@@ -177,7 +179,7 @@ private[apiserver] final class LedgerConfigProvider private (
 private[apiserver] object LedgerConfigProvider {
   def owner(
       index: IndexConfigManagementService,
-      optWriteService: Option[WriteService],
+      optWriteService: Option[WriteConfigService],
       timeProvider: TimeProvider,
       config: LedgerConfiguration,
   )(

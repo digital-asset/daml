@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
 import { Overlay } from 'react-overlays';
 import styled from '../theme';
 import Tooltip from '../Tooltip';
@@ -53,7 +52,7 @@ export type PopoverPosition =
   Placement
   | 'inline';
 
-// tslint:disable-next-line no-any
+// eslint-disable-next-line  @typescript-eslint/no-explicit-any
 export type AnyReactElement = React.ReactElement<any>;
 
 export interface Props {
@@ -81,9 +80,8 @@ export interface Props {
 const defaultMargin = 6;
 
 export default class Popover extends React.Component<Props, {}> {
-  private target: React.ReactInstance | null = null;
-  private targetNode: Node | null = null;
-  private contentNode: Node | null = null;
+  private target: React.RefObject<HTMLElement> = React.createRef();
+  private contentNode: React.RefObject<HTMLDivElement> = React.createRef();
   private onClickDocument: (e: MouseEvent) => void
     = (e) => this.handleDocumentClick(e);
 
@@ -91,37 +89,32 @@ export default class Popover extends React.Component<Props, {}> {
     super(props);
   }
 
-  componentDidMount() {
+  componentDidMount(): void {
     document.addEventListener('click', this.onClickDocument, true);
   }
 
-  componentWillUnmount() {
+  componentWillUnmount(): void {
     document.removeEventListener('click', this.onClickDocument, true);
   }
 
-  handleDocumentClick(e: MouseEvent) {
+  handleDocumentClick(e: MouseEvent): void {
     if (
-      (!this.targetNode || !this.targetNode.contains(e.target as Node)) &&
-      (!this.contentNode || !this.contentNode.contains(e.target as Node)) &&
+      (!this.target.current || !this.target.current.contains(e.target as Node)) &&
+      (!this.contentNode.current || !this.contentNode.current.contains(e.target as Node)) &&
       this.props.isOpen
     ) {
       this.onInteraction('outside');
     }
   }
 
-  cloneTarget(target: JSX.Element | undefined) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cloneTarget(target: JSX.Element | undefined): React.FunctionComponentElement<any> | null {
     if (target === undefined) {
       return null;
     }
     else {
       return React.cloneElement(target, {
-        ref: (c: React.ReactInstance ) => {
-          this.target = c;
-          this.targetNode = c ? ReactDOM.findDOMNode(c) : null;
-          if (target.props.ref) {
-            target.props.ref(c);
-          }
-        },
+        ref: this.target,
         onClick: (e: React.MouseEvent<HTMLElement>) => {
           if (target.props.onClick) {
             target.props.onClick(e);
@@ -149,14 +142,14 @@ export default class Popover extends React.Component<Props, {}> {
     }
   }
 
-  onInteraction(type: InteractionType) {
+  onInteraction(type: InteractionType): void {
     if (this.props.onInteraction) {
       const isOpen = this.props.isOpen;
       this.props.onInteraction(type, this.getNextState(type, isOpen));
     }
   }
 
-  render() {
+  render(): JSX.Element {
     const {
       arrow = true,
       content,
@@ -176,9 +169,7 @@ export default class Popover extends React.Component<Props, {}> {
                 placement={'bottom'}
                 arrow={arrow}
                 margin={margin}
-                ref={(c) => {
-                  this.contentNode = c ? ReactDOM.findDOMNode(c) : null;
-                }}
+                ref={this.contentNode}
                 onClick={() => this.onInteraction('content')}
               >
                 {content}
@@ -188,26 +179,24 @@ export default class Popover extends React.Component<Props, {}> {
         ) : (
           <Overlay
             show={isOpen}
-            //tslint:disable-next-line:no-any -- library typings are not up to date
-            placement={position as any}
+            placement={position}
             container={document.body}
-            target={() => this.target ? ReactDOM.findDOMNode(this.target) : null}
-            shouldUpdatePosition={true}
+            target={this.target}
           >
-            <PositionContainer>
+            {({props}) =>
+            (
+            <PositionContainer {...props}>
               <Tooltip
-                //tslint:disable-next-line:no-any -- library typings are not up to date
-                placement={position as any}
+                placement={position}
                 arrow={arrow}
                 margin={margin}
-                ref={(c) => {
-                  this.contentNode = c ? ReactDOM.findDOMNode(c) : null;
-                }}
+                ref={this.contentNode}
                 onClick={() => this.onInteraction('content')}
               >
                 {content}
               </Tooltip>
             </PositionContainer>
+            )}
           </Overlay>
         )}
       </Wrapper>

@@ -22,15 +22,18 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.metrics.Metrics
-import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito.{times, verify, when}
-import org.scalatest.mockito.MockitoSugar._
-import org.scalatest.{Assertion, Matchers, WordSpec}
+import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.Future
 
-class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
+class KeyValueParticipantStateWriterSpec
+    extends AnyWordSpec
+    with Matchers
+    with MockitoSugar
+    with ArgumentMatchersSugar {
   "participant state writer" should {
     "submit a transaction" in {
       val transactionCaptor = captor[Bytes]
@@ -47,7 +50,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
         TransactionBuilder.EmptySubmitted,
         anInterpretationCost)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Bytes], any[CommitMetadata])
       verifyEnvelope(transactionCaptor.getValue)(_.hasTransactionEntry)
       correlationIdCaptor.getValue should be(expectedCorrelationId)
       val actualCommitMetadata = metadataCaptor.getValue
@@ -64,7 +67,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Bytes], any[CommitMetadata])
       verifyEnvelope(packageUploadCaptor.getValue)(_.hasPackageUploadEntry)
       val actualCommitMetadata = metadataCaptor.getValue
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -79,7 +82,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Bytes], any[CommitMetadata])
       verifyEnvelope(configurationCaptor.getValue)(_.hasConfigurationSubmission)
       val actualCommitMetadata = metadataCaptor.getValue
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -94,7 +97,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Bytes], any[CommitMetadata])
       verifyEnvelope(partyAllocationCaptor.getValue)(_.hasPartyAllocationEntry)
       val actualCommitMetadata = metadataCaptor.getValue
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -110,6 +113,8 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 }
 
 object KeyValueParticipantStateWriterSpec {
+
+  import MockitoSugar._
 
   private val aParty = Ref.Party.assertFromString("aParty")
 

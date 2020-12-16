@@ -4,7 +4,7 @@
 DAML-LF Value Specification
 ===========================
 
-**version 5, 29 May 2019**
+**version 6, 10 Dec 2020**
 
 The DAML-LF language includes ways to define *data types*,
 specifications of structure, and includes rules by which a restricted
@@ -146,18 +146,18 @@ Version history
 This table lists every version of this specification in ascending order
 (oldest first).
 
+Support for value versions 1 to 5 was dropped on 2020-12-10.
+This breaking change does not impact ledgers created with SDK 1.0.0 or
+later.
+
+
 +--------------------+-----------------+
 | Version identifier | Date introduced |
 +====================+=================+
-|                  1 |      2018-12-13 |
 +--------------------+-----------------+
-|                  2 |      2019-01-25 |
+|                  6 |      2019-11-07 |
 +--------------------+-----------------+
-|                  3 |      2019-02-14 |
-+--------------------+-----------------+
-|                  4 |      2019-03-27 |
-+--------------------+-----------------+
-|                  5 |      2019-05-29 |
+|                dev |      2019-11-07 |
 +--------------------+-----------------+
 
 message VersionedValue
@@ -192,15 +192,15 @@ interpreted only according to a single version of this specification.
 message Value
 ^^^^^^^^^^^^^
 
-*since version 1*
+*since version 6*
  
 An actual DAML-LF *serializable value*.
 
-As of version 1, may be any one of these:
+As of version 6, may be any one of these:
 
 * `message Record`_ record
 * `message Variant`_ variant
-* ``string`` `field contract_id`_
+* `message ContractId`_ contract_id_struct
 * `message List`_ list
 * ``sint64`` int64
 * ``string`` `field numeric`_
@@ -210,49 +210,19 @@ As of version 1, may be any one of these:
 * ``bool`` bool
 * ``Empty`` `field unit`_
 * ``int32`` `field date`_
+* `message Optional`_ optional
+* `message Map`_ map
+* `message Enum`_ enum
+* `message Numeric`_ numeric
 
 ``Value`` is recursive by virtue of occurrences in some of the above
 cases, e.g. ``list`` contains any number of ``Value``. The maximum depth
 of nested ``Value``, including the outermost, is 100; any more yields an
 invalid value.
 
-*since version 2*
+*since version dev*
 
-As of version 2, may be any one of the above, or this:
-
-* `message Optional`_ optional
-
-*since version 3*
-
-As of version 3, may be any one of the above *except for* `field
-contract_id`_, which is no longer allowed.  Instead, the value may be
-this:
-
-* `message ContractId`_ contract_id_struct
-
-*since version 4*
-
-As of version 4, may be any one of the above, or this:
-
-* `message Map`_ map
-
-*since version 5*
-
-As of version 5, may be any one of the above, or this:
-
-* `message Enum`_ enum
-
-*since version 6*
-
-As of version 6, may be any one of the above *except for* `field
-decimal`_, which is no longer allowed.  Instead, the value may be
-this:
-
-* `message Numeric`_ numeric
-
-*since version 7*
-
-As of version 7, may be any one of the above, or this:
+As of version dev, may be any one of the above, or this:
 
 * `message GenMap`_ gen_map
 
@@ -260,37 +230,12 @@ As of version 7, may be any one of the above, or this:
 field contract_id
 ~~~~~~~~~~~~~~~~~
 
-*since version 1*
+*since version 6*
 
 Its text must be a valid contract ID.
 
 field numeric
 ~~~~~~~~~~~~~
-
-*since version 1*
-
-Expresses a number in [–(10³⁸–1)÷10¹⁰, (10³⁸–1)÷10¹⁰] with a precision
-38 and a scale 10 digits.  In other words, in base-10, a number with
-28 digits before the decimal point and up to 10 after the decimal
-point.  A leading sign, `+` or `-`, may be optionally included.  In
-regular expression terms::
-
-  [+-]?[0-9]{1,28}(\.[0-9]{1,10})?
-
-Any value that does not conform, either by being outside the range or
-having too many decimal digits or for any other reason, must be
-rejected as an invalid message; consumers must not round, overflow, or
-otherwise try to compensate for "bad" input when reading decimal
-fields.  As such, value producers should take care to properly format
-these decimals.
-
-It may seem strange that the value specification uses ``string`` here
-rather than a protobuf-supported numeric type; however, none of
-protobuf's numeric types have the proper precision for this field.
-
-Note the field was named `decimal` in SDK 0.13.26 or earlier.
-
-*since version 6*
 
 Expresses a signed number that can be represented in base-10 without
 loss of precision with at most 38 digits and with a scale between 0
@@ -312,11 +257,10 @@ fields.  As such, value producers should take care to properly format
 these decimals.
 
 
-
 field timestamp
 ~~~~~~~~~~~~~~~
 
-*since version 1*
+*since version 6*
 
 The number of microseconds since 1970-01-01T00:00:00Z, with that epoch
 being 0.  The allowed range is 0001-01-01T00:00:00Z to
@@ -327,7 +271,7 @@ rejected with error by conforming consumers.
 field party
 ~~~~~~~~~~~
 
-*since version 1*
+*since version 6*
 
 A party identifier; unlike arbitrary text, this will be interpreted
 with respect to the ledger under consideration by whatever command
@@ -338,7 +282,7 @@ from '\32' to '\127').
 field unit
 ~~~~~~~~~~
 
-*since version 1*
+*since version 6*
 
 While ``Empty`` contains no information, conforming consumers are
 permitted to expect this member of `message Value`_ to be chosen
@@ -351,7 +295,7 @@ false, empty text) in such cases.
 field date
 ~~~~~~~~~~
 
-*since version 1*
+*since version 6*
 
 The number of days since 1970-01-01, with that epoch being 0.  The
 allowed range is 0001-01-01 to 9999-12-31, inclusive; while ``int32``
@@ -361,7 +305,7 @@ be rejected with error by conforming consumers.
 message Record
 ^^^^^^^^^^^^^^
 
-*since version 1*
+*since version 6*
 
 The core primitive for combining `message Value`_ of different type into
 a single value.
@@ -374,7 +318,7 @@ As of version 1, these fields are included:
 field record_id
 ~~~~~~~~~~~~~~~
 
-*since version 1*
+*since version 6*
 
 The fully-qualified `message Identifier`_ of the DAML-LF record type.
 It may be omitted.
@@ -382,7 +326,7 @@ It may be omitted.
 field fields
 ~~~~~~~~~~~~
 
-*since version 1*
+*since version 6*
 
 Zero or more `message RecordField`_ values.
 
@@ -404,11 +348,11 @@ the fields in the correct order.
 message RecordField
 ^^^^^^^^^^^^^^^^^^^
 
-*since version 1*
+*since version 6*
 
 One of `field fields`_.
 
-As of version 1, these fields are included:
+As of version 6, these fields are included:
 
 * ``string`` label
 * `message Value`_ value
@@ -427,7 +371,7 @@ supplied in all cases.
 message Identifier
 ^^^^^^^^^^^^^^^^^^
 
-*since version 1*
+*since version 6*
 
 A reference to a DAML-LF record or variant type.
 
@@ -459,12 +403,12 @@ we restrict each component as follows:
 message Variant
 ^^^^^^^^^^^^^^^
 
-*since version 1*
+*since version 6*
 
 The core primitive for injecting `message Value`_ of different type into
 a single type at runtime.
 
-As of version 1, these fields are included:
+As of version 6, these fields are included:
 
 * `message Identifier`_ `field variant_id`_
 * ``string`` `field constructor`_
@@ -479,7 +423,7 @@ variant type.  Alternative encodings are not permitted.
 field variant_id
 ~~~~~~~~~~~~~~~~
 
-*since version 1*
+*since version 6*
 
 The fully-qualified `message Identifier`_ of the DAML-LF variant type.
 It may be omitted.
@@ -487,7 +431,7 @@ It may be omitted.
 field constructor
 ~~~~~~~~~~~~~~~~~
 
-*since version 1*
+*since version 6*
 
 The name of the variant alternative selected for this variant value.
 Required.
@@ -502,11 +446,11 @@ or ``"R"``; any other ``constructor`` yields an invalid Value.
 message ContractId
 ^^^^^^^^^^^^^^^^^^
 
-*since version 3*
+*since version 6*
 
 A reference to a contract, either absolute or relative.
 
-As of version 3, these fields are included:
+As of version 6, these fields are included:
 
 * ``string`` contract_id
 * ``bool`` relative
@@ -521,11 +465,11 @@ otherwise, this is a relative contract ID.
 message List
 ^^^^^^^^^^^^
 
-*since version 1*
+*since version 6*
 
 A homogenous list of values.
 
-As of version 1, these fields are included:
+As of version 6, these fields are included:
 
 * repeated `message Value`_ elements
 
@@ -534,7 +478,7 @@ Every member of ``elements`` must conform to the same type.
 message Optional
 ^^^^^^^^^^^^^^^^
 
-*since version 2*
+*since version 6*
 
 An optional value (equivalent to Scala's ``Option`` or Haskell's
 ``Maybe``).
@@ -553,11 +497,11 @@ The ``value`` field is optional, embodying the semantics of the
 message Map.Entry
 ^^^^^^^^^^^^^^^^^
 
-*since version 4*
+*since version 6*
 
 A map entry (key-value pair) used to build `message Map`_.
 
-As of version 4, these fields are included:
+As of version 6, these fields are included:
 
 * string key
 
@@ -568,7 +512,7 @@ Both ``key`` and ``value`` are required.
 message Map
 ^^^^^^^^^^^
 
-*since version 4*
+*since version 6*
 
 A homogeneous map where keys are strings.
 
@@ -583,7 +527,7 @@ Entries may occur in arbitrary order.
 message Enum
 ^^^^^^^^^^^^
 
-*since version 5*
+*since version 6*
 
 An Enum value, a specialized form of variant without argument.
 
@@ -599,11 +543,11 @@ of the enum type to which this ``message Enum`` conforms.
 message GenMap.Entry
 ^^^^^^^^^^^^^^^^^
 
-*since version 7*
+*since version dev*
 
 A map entry (key-value pair) used to build `message GenMap`_.
 
-As of version 7, these fields are included:
+As of version dev, these fields are included:
 
 * `message Value`_  key
 
@@ -614,7 +558,7 @@ Both ``key`` and ``value`` are required.
 message GenMap
 ^^^^^^^^^^^
 
-*since version 7*
+*since version dev*
 
 A map where keys and values are homogeneous.
 

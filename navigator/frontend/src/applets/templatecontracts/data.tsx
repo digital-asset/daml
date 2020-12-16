@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 
+import { gql } from '@apollo/client';
+import { QueryControls } from '@apollo/client/react/hoc';
 import { DocumentNode } from 'graphql';
-import { gql, QueryProps } from 'react-apollo';
 import { State, TableConfig } from '.';
 import {
   ContractsByTemplateParamQuery,
@@ -95,7 +96,7 @@ export function makeParamQueryVariables<
   };
 }
 
-export function dataToRows(data: QueryProps & ContractsByTemplateQuery) {
+export function dataToRows(data: QueryControls & ContractsByTemplateQuery): {contracts: Contract[], totalCount: number} {
   if (data.loading || data.error) {
     return { contracts: [], totalCount: 0 }
   } else if (data.node && data.node.__typename === 'Template') {

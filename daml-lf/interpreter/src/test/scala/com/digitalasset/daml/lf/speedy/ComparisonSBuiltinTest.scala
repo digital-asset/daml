@@ -11,9 +11,10 @@ import com.daml.lf.speedy.SResult.SResultError
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.value.Value.ContractId
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   import com.daml.lf.testing.parser.Implicits.{defaultParserParameters => _, _}
 
@@ -127,21 +128,21 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
               e"type_rep @Int64",
               e"type_rep @Text",
               e"type_rep @Timestamp",
-              e"type_rep @Date",
               e"type_rep @Party",
+              e"type_rep @Date",
               e"type_rep @Any",
               e"type_rep @TypeRep",
               e"type_rep @Mod:Template",
             ),
           t"Mod:TypRep" ->
             List(
-              e"type_rep @(Numeric 0)",
-              e"type_rep @(ContractId Mod:Template)",
-              e"type_rep @(Option Mod:Template)",
               e"type_rep @(List Mod:Template)",
-              e"type_rep @(TextMap Mod:Template)",
               e"type_rep @(Update Mod:Template)",
               e"type_rep @(Scenario Mod:Template)",
+              e"type_rep @(ContractId Mod:Template)",
+              e"type_rep @(Option Mod:Template)",
+              e"type_rep @(TextMap Mod:Template)",
+              e"type_rep @(Numeric 0)",
               e"type_rep @(Mod:Box Mod:Template)",
             ),
           t"Mod:TypRep" ->
@@ -178,10 +179,10 @@ class ComparisonSBuiltinTest extends WordSpec with Matchers with TableDrivenProp
             ),
           t"Mod:TypeRep" ->
             List(
-              e"type_rep @(Option Unit)",
-              e"type_rep @(Option Int64)",
               e"type_rep @(List Unit)",
               e"type_rep @(List Int64)",
+              e"type_rep @(Option Unit)",
+              e"type_rep @(Option Int64)",
             ),
           t"Mod:TypeRep" ->
             List(

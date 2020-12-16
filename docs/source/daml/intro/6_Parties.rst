@@ -19,7 +19,7 @@ In this section you will learn about DAML's authorization rules and how to devel
 Preventing IOU revocation
 -------------------------
 
-The ``SimpleIou`` contract from :doc:`4_Transformations` and :doc:`5_Restrictions` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it again after receiving the goods. Bob would have a record of such actions, but would have to resort to off-ledger means to get his money back.
+The ``SimpleIou`` contract from :doc:`4_Transformations` and :doc:`5_Restrictions` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it after receiving the goods. Bob would have a record of such actions, but would have to resort to off-ledger means to get his money back.
 
 .. literalinclude:: daml/daml-intro-6/Parties.daml
   :language: daml
@@ -155,12 +155,13 @@ The authorizers of transactions are:
 An authorization example
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The final transaction in the script of the source file for this section is authorized as follows, ignoring fetches:
+Consider the transaction from the script above where Bob sends an ``Iou`` to Charlie using a ``Send_Iou`` conctract.
+It is authorized as follows, ignoring fetches:
 
 - Bob submits the transaction so he's the authorizer on the root transaction.
 - The root transaction has a single action, which is to exercise ``Send_Iou`` on a ``IouSender`` contract with Bob as ``sender`` and Charlie as ``receiver``. Since the controller of that choice is the ``sender``, Bob is the required authorizer.
 - The consequences of the ``Send_Iou`` action are authorized by its actors, Bob, as well as signatories of the contract on which the action was taken. That's Charlie in this case, so the consequences are  authorized by both Bob and Charlie.
-- The consequences contain a single action, which is a ``Mutual_Exercise`` with Charlie as ``newOwner`` on an ``Iou`` with ``issuer`` alice and ``owner`` Bob. The required authorizers of the action are the ``owner``, Bob, and the ``newOwner``, Charlie, which matches the parent's authorizers.
+- The consequences contain a single action, which is a ``Mutual_Transfer`` with Charlie as ``newOwner`` on an ``Iou`` with ``issuer`` Alice and ``owner`` Bob. The required authorizers of the action are the ``owner``, Bob, and the ``newOwner``, Charlie, which matches the parent's authorizers.
 - The consequences of ``Mutual_Transfer`` are authorized by the actors (Bob and Charlie), as well as the signatories on the Iou (Alice and Bob).
 - The single action on the consequences, the creation of an Iou with ``issuer`` Alice and ``owner`` Charlie has required authorizers Alice and Charlie, which is a proper subset of the parent's authorizers.
 

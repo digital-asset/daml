@@ -10,14 +10,14 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer.TransactionCommitter._
-import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, TimeModel}
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Blinding, Engine}
+import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{
   BlindingInfo,
@@ -25,7 +25,10 @@ import com.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
+  ReplayNodeMismatch,
   SubmittedTransaction,
+  TransactionOuterClass,
+  VersionedTransaction,
   Transaction => Tx
 }
 import com.daml.lf.value.Value
@@ -61,34 +64,29 @@ private[kvutils] class TransactionCommitter(
     DamlTransactionEntrySummary(submission.getTransactionEntry)
 
   override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
-    "authorize_submitter" -> authorizeSubmitter,
+    "authorize_submitter" -> authorizeSubmitters,
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
     "deduplicate" -> deduplicateCommand,
     "validate_ledger_time" -> validateLedgerTime,
     "validate_contract_keys" -> validateContractKeys,
     "validate_model_conformance" -> validateModelConformance,
-    "blind" -> blind
+    "blind" -> blind,
+    "trim_unnecessary_nodes" -> trimUnnecessaryNodes,
+    "build_final_log_entry" -> buildFinalLogEntry,
   )
 
-  private def contractIsActiveAndVisibleToSubmitter(
+  private def contractIsActive(
       transactionEntry: DamlTransactionEntrySummary,
       contractState: DamlContractState,
   ): Boolean = {
-    val locallyDisclosedTo = contractState.getLocallyDisclosedToList.asScala
-    val divulgedTo = contractState.getDivulgedToList.asScala
-    val isVisible = locallyDisclosedTo.contains(transactionEntry.submitter) || divulgedTo.contains(
-      transactionEntry.submitter)
-    val isActive = {
-      val activeAt = Option(contractState.getActiveAt).map(parseTimestamp)
-      !contractState.hasArchivedAt && activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
-    }
-    isVisible && isActive
+    val activeAt = Option(contractState.getActiveAt).map(parseTimestamp)
+    !contractState.hasArchivedAt && activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
   }
 
   /** Reject duplicate commands
     */
   private[committer] def deduplicateCommand: Step = (commitContext, transactionEntry) => {
-    commitContext.getRecordTime
+    commitContext.recordTime
       .map { recordTime =>
         val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
         val dedupEntry = commitContext.get(dedupKey)
@@ -100,7 +98,7 @@ private[kvutils] class TransactionCommitter(
           logger.trace(
             s"Transaction rejected, duplicate command, correlationId=${transactionEntry.commandId}")
           reject(
-            commitContext.getRecordTime,
+            commitContext.recordTime,
             DamlTransactionRejectionEntry.newBuilder
               .setSubmitterInfo(transactionEntry.submitterInfo)
               .setDuplicateCommand(Duplicate.newBuilder.setDetails(""))
@@ -125,40 +123,56 @@ private[kvutils] class TransactionCommitter(
   }
 
   /** Authorize the submission by looking up the party allocation and verifying
-    * that the submitting party is indeed hosted by the submitting participant.
+    * that all of the submitting parties are indeed hosted by the submitting participant.
     */
-  private def authorizeSubmitter: Step = (commitContext, transactionEntry) => {
-    commitContext.get(partyStateKey(transactionEntry.submitter)) match {
-      case Some(partyAllocation) =>
-        if (partyAllocation.getParty.getParticipantId == commitContext.getParticipantId)
+  private[committer] def authorizeSubmitters: Step = (commitContext, transactionEntry) => {
+    def rejection(reason: RejectionReason) =
+      reject[DamlTransactionEntrySummary](
+        commitContext.recordTime,
+        buildRejectionLogEntry(transactionEntry, reason))
+
+    @scala.annotation.tailrec
+    def authorizeAll(submitters: List[Party]): StepResult[DamlTransactionEntrySummary] =
+      submitters match {
+        case Nil =>
           StepContinue(transactionEntry)
-        else
-          reject(
-            commitContext.getRecordTime,
-            buildRejectionLogEntry(
-              transactionEntry,
+        case submitter :: others =>
+          authorize(submitter) match {
+            case Some(rejection) =>
+              rejection
+            case None =>
+              authorizeAll(others)
+          }
+      }
+
+    def authorize(submitter: Party): Option[StepResult[DamlTransactionEntrySummary]] =
+      commitContext.get(partyStateKey(submitter)) match {
+        case Some(partyAllocation)
+            if partyAllocation.getParty.getParticipantId == commitContext.participantId =>
+          None
+        case Some(_) =>
+          Some(
+            rejection(
               RejectionReason.SubmitterCannotActViaParticipant(
-                s"Party '${transactionEntry.submitter}' not hosted by participant ${commitContext.getParticipantId}")
-            )
-          )
-      case None =>
-        reject(
-          commitContext.getRecordTime,
-          buildRejectionLogEntry(
-            transactionEntry,
-            RejectionReason.PartyNotKnownOnLedger(
-              s"Submitting party '${transactionEntry.submitter}' not known"))
-        )
-    }
+                s"Party '$submitter' not hosted by participant ${commitContext.participantId}")
+            ))
+        case None =>
+          Some(
+            rejection(
+              RejectionReason.PartyNotKnownOnLedger(s"Submitting party '$submitter' not known")
+            ))
+      }
+
+    authorizeAll(transactionEntry.submitters)
   }
 
   /** Validate ledger effective time and the command's time-to-live. */
   private[committer] def validateLedgerTime: Step =
     (commitContext, transactionEntry) => {
-      val (_, config) = getCurrentConfiguration(defaultConfig, commitContext.inputs, logger)
+      val (_, config) = getCurrentConfiguration(defaultConfig, commitContext, logger)
       val timeModel = config.timeModel
 
-      commitContext.getRecordTime match {
+      commitContext.recordTime match {
         case Some(recordTime) =>
           val givenLedgerTime = transactionEntry.ledgerEffectiveTime.toInstant
 
@@ -167,7 +181,7 @@ private[kvutils] class TransactionCommitter(
             .fold(
               reason =>
                 reject(
-                  commitContext.getRecordTime,
+                  commitContext.recordTime,
                   buildRejectionLogEntry(
                     transactionEntry,
                     RejectionReason.InvalidLedgerTime(reason))),
@@ -210,44 +224,96 @@ private[kvutils] class TransactionCommitter(
         // which are not evidenced in the transaction itself and hence the contract key state is
         // not included in the inputs.
         lazy val knownKeys: Map[DamlContractKey, Value.ContractId] =
-          commitContext.inputs.collect {
+          commitContext.collectInputs {
             case (key, Some(value))
-                if value.hasContractState
-                  && value.getContractState.hasContractKey
-                  && contractIsActiveAndVisibleToSubmitter(
-                    transactionEntry,
-                    value.getContractState) =>
+                if value.getContractState.hasContractKey
+                  && contractIsActive(transactionEntry, value.getContractState) =>
               value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
           }
 
-        engine
-          .validate(
-            transactionEntry.submitter,
-            SubmittedTransaction(transactionEntry.transaction),
-            transactionEntry.ledgerEffectiveTime,
-            commitContext.getParticipantId,
-            transactionEntry.submissionTime,
-            transactionEntry.submissionSeed,
-          )
-          .consume(
-            lookupContract(transactionEntry, commitContext.inputs),
-            lookupPackage(transactionEntry, commitContext.inputs),
-            lookupKey(commitContext.inputs, knownKeys),
-          )
-          .fold(
-            err =>
-              reject[DamlTransactionEntrySummary](
-                commitContext.getRecordTime,
-                buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.msg))),
-            _ => StepContinue[DamlTransactionEntrySummary](transactionEntry)
-          )
+        try {
+          engine
+            .validate(
+              transactionEntry.submitters.toSet,
+              SubmittedTransaction(transactionEntry.transaction),
+              transactionEntry.ledgerEffectiveTime,
+              commitContext.participantId,
+              transactionEntry.submissionTime,
+              transactionEntry.submissionSeed,
+            )
+            .consume(
+              lookupContract(transactionEntry, commitContext),
+              lookupPackage(transactionEntry, commitContext),
+              lookupKey(commitContext, knownKeys),
+            )
+            .fold(
+              err =>
+                reject[DamlTransactionEntrySummary](
+                  commitContext.recordTime,
+                  buildRejectionLogEntry(transactionEntry, rejectionReasonForValidationError(err))),
+              _ => StepContinue[DamlTransactionEntrySummary](transactionEntry)
+            )
+        } catch {
+          case err: Err.MissingInputState =>
+            logger.warn("Exception during model conformance validation.", err)
+            reject(
+              commitContext.recordTime,
+              buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.getMessage)))
+        }
       })
+
+  private[committer] def rejectionReasonForValidationError(
+      validationError: com.daml.lf.engine.Error): RejectionReason = {
+    def disputed: RejectionReason = RejectionReason.Disputed(validationError.msg)
+
+    def resultIsCreatedInTx(
+        tx: VersionedTransaction[NodeId, ContractId],
+        result: Option[Value.ContractId]): Boolean =
+      result.exists { contractId =>
+        tx.nodes.exists {
+          case (nodeId @ _, create: Node.NodeCreate[_]) => create.coid == contractId
+          case _ => false
+        }
+      }
+
+    validationError match {
+      case ReplayMismatch(
+          ReplayNodeMismatch(recordedTx, recordedNodeId, replayedTx, replayedNodeId)) =>
+        // If the problem is that a key lookup has changed and the results do not involve contracts created in this transaction,
+        // then it's a consistency problem.
+
+        (recordedTx.nodes(recordedNodeId), replayedTx.nodes(replayedNodeId)) match {
+          case (
+              Node.NodeLookupByKey(
+                recordedTemplateId,
+                recordedOptLocation @ _,
+                recordedKey,
+                recordedResult,
+                recordedVersion,
+              ),
+              Node.NodeLookupByKey(
+                replayedTemplateId,
+                replayedOptLocation @ _,
+                replayedKey,
+                replayedResult,
+                replayedVersion,
+              ))
+              if recordedVersion == replayedVersion &&
+                recordedTemplateId == replayedTemplateId && recordedKey == replayedKey
+                && !resultIsCreatedInTx(recordedTx, recordedResult)
+                && !resultIsCreatedInTx(replayedTx, replayedResult) =>
+            RejectionReason.Inconsistent(validationError.msg)
+          case _ => disputed
+        }
+      case _ => disputed
+    }
+  }
 
   /** Validate the submission's conformance to the DAML model */
   private[committer] def blind: Step =
     (commitContext, transactionEntry) => {
       val blindingInfo = Blinding.blind(transactionEntry.transaction)
-      buildFinalResult(
+      setDedupEntryAndUpdateContractState(
         commitContext,
         transactionEntry.copy(
           submission = transactionEntry.submission.toBuilder
@@ -257,22 +323,75 @@ private[kvutils] class TransactionCommitter(
       )
     }
 
+  /**
+    * Removes `Fetch` and `LookupByKey` nodes from the transactionEntry.
+    */
+  private[committer] def trimUnnecessaryNodes: Step = (_, transactionEntry) => {
+    val transaction = transactionEntry.submission.getTransaction
+    val nodes = transaction.getNodesList.asScala
+    val nodesToKeep = nodes.iterator.collect {
+      case node if node.hasCreate || node.hasExercise => node.getNodeId
+    }.toSet
+
+    val filteredRoots = transaction.getRootsList.asScala.filter(nodesToKeep)
+
+    def stripUnnecessaryNodes(node: TransactionOuterClass.Node) =
+      if (node.hasExercise) {
+        val exerciseNode = node.getExercise
+        val keptChildren = exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
+        val newExerciseNode = exerciseNode.toBuilder
+          .clearChildren()
+          .addAllChildren(keptChildren.asJavaCollection)
+          .build()
+
+        node.toBuilder
+          .setExercise(newExerciseNode)
+          .build()
+      } else {
+        node
+      }
+
+    val filteredNodes = nodes
+      .collect {
+        case node if nodesToKeep(node.getNodeId) => stripUnnecessaryNodes(node)
+      }
+
+    val newTransaction = transaction
+      .newBuilderForType()
+      .addAllRoots(filteredRoots.asJavaCollection)
+      .addAllNodes(filteredNodes.asJavaCollection)
+      .setVersion(transaction.getVersion)
+      .build()
+
+    val newTransactionEntry = transactionEntry.submission.toBuilder
+      .setTransaction(newTransaction)
+      .build()
+
+    StepContinue(DamlTransactionEntrySummary(newTransactionEntry))
+  }
+
+  /**
+    * Builds the log entry as the final step.
+    */
+  private def buildFinalLogEntry: Step =
+    (commitContext, transactionEntry) => StepStop(buildLogEntry(transactionEntry, commitContext))
+
   private def validateContractKeys: Step = (commitContext, transactionEntry) => {
-    val damlState = commitContext.inputs
-      .collect { case (k, Some(v)) => k -> v } ++ commitContext.getOutputs
+    val damlState = commitContext.collectInputs {
+      case (key, Some(value)) if key.hasContractKey => key -> value
+    } ++ commitContext.getOutputs
     val startingKeys = damlState.collect {
       case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty => k
     }.toSet
-    validateContractKeyUniqueness(commitContext.getRecordTime, transactionEntry, startingKeys) match {
+    validateContractKeyUniqueness(commitContext.recordTime, transactionEntry, startingKeys) match {
       case StepContinue(transactionEntry) =>
         validateContractKeyCausalMonotonicity(
-          commitContext.getRecordTime,
+          commitContext.recordTime,
           transactionEntry,
           startingKeys,
           damlState)
       case err => err
     }
-
   }
 
   private def validateContractKeyUniqueness(
@@ -281,20 +400,16 @@ private[kvutils] class TransactionCommitter(
       keys: Set[DamlStateKey]): StepResult[DamlTransactionEntrySummary] = {
     val allUnique = transactionEntry.transaction
       .fold((true, keys)) {
-        case (
-            (allUnique, existingKeys),
-            (_, exe: Node.NodeExercises.WithTxValue[NodeId, Value.ContractId]))
+        case ((allUnique, existingKeys), (_, exe: Node.NodeExercises[NodeId, Value.ContractId]))
             if exe.key.isDefined && exe.consuming =>
           val stateKey = Conversions.globalKeyToStateKey(
-            GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
+            GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key)))
           (allUnique, existingKeys - stateKey)
 
-        case ((allUnique, existingKeys), (_, create: Node.NodeCreate.WithTxValue[Value.ContractId]))
+        case ((allUnique, existingKeys), (_, create: Node.NodeCreate[Value.ContractId]))
             if create.key.isDefined =>
           val stateKey = Conversions.globalKeyToStateKey(
-            GlobalKey(
-              create.coinst.template,
-              Conversions.forceNoContractIds(create.key.get.key.value)))
+            GlobalKey(create.coinst.template, Conversions.forceNoContractIds(create.key.get.key)))
 
           (allUnique && !existingKeys.contains(stateKey), existingKeys + stateKey)
 
@@ -309,7 +424,7 @@ private[kvutils] class TransactionCommitter(
         recordTime,
         buildRejectionLogEntry(
           transactionEntry,
-          RejectionReason.Disputed("DuplicateKey: Contract Key not unique")))
+          RejectionReason.Inconsistent("DuplicateKey: Contract Key not unique")))
 
   }
 
@@ -359,15 +474,15 @@ private[kvutils] class TransactionCommitter(
       StepContinue(transactionEntry)
     else
       reject(
-        commitContext.getRecordTime,
+        commitContext.recordTime,
         buildRejectionLogEntry(
           transactionEntry,
           RejectionReason.PartyNotKnownOnLedger("Not all parties known"))
       )
   }
 
-  /** All checks passed. Produce the log entry and contract state updates. */
-  private def buildFinalResult(
+  /** Produce the log entry and contract state updates. */
+  private def setDedupEntryAndUpdateContractState(
       commitContext: CommitContext,
       transactionEntry: DamlTransactionEntrySummary,
       blindingInfo: BlindingInfo
@@ -387,7 +502,7 @@ private[kvutils] class TransactionCommitter(
 
     metrics.daml.kvutils.committer.transaction.accepts.inc()
     logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
-    StepStop(buildLogEntry(transactionEntry, commitContext))
+    StepContinue(transactionEntry)
   }
 
   private def updateContractState(
@@ -405,7 +520,7 @@ private[kvutils] class TransactionCommitter(
         blindingInfo.disclosure(cid2nid(decodeContractId(key.getContractId)))
       cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
       cs.setContractInstance(
-        Conversions.encodeContractInstance(createNode.coinst)
+        Conversions.encodeContractInstance(createNode.versionedCoinst)
       )
       createNode.key.foreach { keyWithMaintainers =>
         cs.setContractKey(
@@ -413,10 +528,11 @@ private[kvutils] class TransactionCommitter(
             GlobalKey
               .build(
                 createNode.coinst.template,
-                keyWithMaintainers.key.value
+                keyWithMaintainers.key
               )
               .fold(
-                _ => throw Err.InvalidSubmission("Unexpected contract id in contract key."),
+                _ =>
+                  throw Err.InvalidSubmission("Contract IDs are not supported in contract keys."),
                 identity))
         )
       }
@@ -468,7 +584,7 @@ private[kvutils] class TransactionCommitter(
       commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
     }
     buildLogEntryWithOptionalRecordTime(
-      commitContext.getRecordTime,
+      commitContext.recordTime,
       _.setTransactionEntry(transactionEntry.submission))
   }
 
@@ -496,20 +612,20 @@ private[kvutils] class TransactionCommitter(
   // an input to a transaction, we do not need to verify the inputs separately.
   private def lookupContract(
       transactionEntry: DamlTransactionEntrySummary,
-      inputState: DamlStateMap)(
+      commitContext: CommitContext)(
       coid: Value.ContractId,
   ): Option[Value.ContractInst[Value.VersionedValue[Value.ContractId]]] = {
     val stateKey = contractIdToStateKey(coid)
     for {
-      // Fetch the state of the contract so that activeness and visibility can be checked.
+      // Fetch the state of the contract so that activeness can be checked.
       // There is the possibility that the reinterpretation of the transaction yields a different
       // result in a LookupByKey than the original transaction. This means that the contract state data for the
       // contractId pointed to by that contractKey might not have been preloaded into the input state map.
       // This is not a problem because after the transaction reinterpretation, we compare the original
       // transaction with the reinterpreted one, and the LookupByKey node will not match.
       // Additionally, all contract keys are checked to uphold causal monotonicity.
-      contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState))
-      if contractIsActiveAndVisibleToSubmitter(transactionEntry, contractState)
+      contractState <- commitContext.read(stateKey).map(_.getContractState)
+      if contractIsActive(transactionEntry, contractState)
       contract = Conversions.decodeContractInstance(contractState.getContractInstance)
     } yield contract
   }
@@ -519,13 +635,12 @@ private[kvutils] class TransactionCommitter(
   // the DAML state entry at `DamlStateKey(packageId = pkgId)`.
   private def lookupPackage(
       transactionEntry: DamlTransactionEntrySummary,
-      inputState: DamlStateMap,
+      commitContext: CommitContext,
   )(pkgId: PackageId): Option[Ast.Package] = {
     val stateKey = packageStateKey(pkgId)
     for {
-      value <- inputState
-        .get(stateKey)
-        .flatten
+      value <- commitContext
+        .read(stateKey)
         .orElse {
           logger.warn(
             s"Lookup package failed, package not found, packageId=$pkgId correlationId=${transactionEntry.commandId}")
@@ -555,7 +670,7 @@ private[kvutils] class TransactionCommitter(
   }
 
   private def lookupKey(
-      inputState: DamlStateMap,
+      commitContext: CommitContext,
       knownKeys: Map[DamlContractKey, Value.ContractId],
   )(key: GlobalKeyWithMaintainers): Option[Value.ContractId] = {
     // we don't check whether the contract is active or not, because in we might not have loaded it earlier.
@@ -571,7 +686,7 @@ private[kvutils] class TransactionCommitter(
     //    contract keys respect causal monotonicity.
     val stateKey = Conversions.globalKeyToStateKey(key.globalKey)
     val contractId = for {
-      stateValue <- inputState.get(stateKey).flatten
+      stateValue <- commitContext.read(stateKey)
       if stateValue.getContractKeyState.getContractId.nonEmpty
     } yield decodeContractId(stateValue.getContractKeyState.getContractId)
 
@@ -629,15 +744,16 @@ private[kvutils] class TransactionCommitter(
         .map(v => v.getNumber -> metrics.daml.kvutils.committer.transaction.rejection(v.name()))
         .toMap
   }
+
 }
 
 private[kvutils] object TransactionCommitter {
-
   case class DamlTransactionEntrySummary(submission: DamlTransactionEntry) {
     val ledgerEffectiveTime: Timestamp = parseTimestamp(submission.getLedgerEffectiveTime)
     val submitterInfo: DamlSubmitterInfo = submission.getSubmitterInfo
     val commandId: String = submitterInfo.getCommandId
-    val submitter: Party = Party.assertFromString(submitterInfo.getSubmitter)
+    val submitters: List[Party] =
+      submitterInfo.getSubmittersList.asScala.toList.map(Party.assertFromString)
     lazy val transaction: Tx.Transaction = Conversions.decodeTransaction(submission.getTransaction)
     val submissionTime: Timestamp = Conversions.parseTimestamp(submission.getSubmissionTime)
     val submissionSeed: crypto.Hash = Conversions.parseHash(submission.getSubmissionSeed)

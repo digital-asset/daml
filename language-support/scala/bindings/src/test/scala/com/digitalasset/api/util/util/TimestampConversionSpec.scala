@@ -11,14 +11,15 @@ import TimestampConversion._
 import org.scalacheck.Gen
 import org.scalacheck.Prop
 import Prop.exists
-import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.{Checkers, ScalaCheckDrivenPropertyChecks}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 class TimestampConversionSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with Checkers
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
   import TimestampConversionSpec._
 
   "instantToMicros" when {

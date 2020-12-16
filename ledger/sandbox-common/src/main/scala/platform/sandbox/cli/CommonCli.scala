@@ -138,6 +138,19 @@ class CommonCli(name: LedgerName) {
             .fold(Some(TlsConfiguration(enabled = true, None, None, None, clientAuth)))(c =>
               Some(c.copy(clientAuth = clientAuth)))))
 
+      opt[Boolean]("cert-revocation-checking")
+        .optional()
+        .text(
+          "TLS: enable/disable certificate revocation checks with the OCSP. Disabled by default.")
+        .action(
+          (checksEnabled, config) =>
+            config.copy(
+              tlsConfig = config.tlsConfig
+                .fold(
+                  Some(TlsConfiguration.Empty.copy(enableCertRevocationChecking = checksEnabled)))(
+                  config => Some(config.copy(enableCertRevocationChecking = checksEnabled)))
+          ))
+
       opt[Int]("max-inbound-message-size")
         .optional()
         .action((x, c) => c.copy(maxInboundMessageSize = x))
@@ -152,12 +165,6 @@ class CommonCli(name: LedgerName) {
       opt[String]("jdbcurl")
         .optional()
         .text("This flag is deprecated -- please use --sql-backend-jdbcurl.")
-        .action((url, config) => config.copy(jdbcUrl = Some(url)))
-
-      opt[String]("sql-backend-jdbcurl")
-        .optional()
-        .text(
-          s"The JDBC connection URL to a Postgres database containing the username and password as well. If present, $name will use the database to persist its data.")
         .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
       opt[String]("log-level")

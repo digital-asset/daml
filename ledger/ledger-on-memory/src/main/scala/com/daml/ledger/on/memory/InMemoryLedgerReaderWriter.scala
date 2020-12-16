@@ -106,8 +106,10 @@ object InMemoryLedgerReaderWriter {
         // We need to generate batched submissions for the validator in order to improve throughput.
         // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
         // in-memory committer.
-        ledgerWriter = newLoggingContext { implicit loggingContext =>
-          BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
+        ledgerWriter <- newLoggingContext { implicit loggingContext =>
+          ResourceOwner
+            .forCloseable(() => BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter))
+            .acquire()
         }
       } yield createKeyValueLedger(readerWriter, ledgerWriter)
   }
@@ -235,19 +237,15 @@ object InMemoryLedgerReaderWriter {
     val commitStrategy = new LogAppenderPreExecutingCommitStrategy(keySerializationStrategy)
     val valueToFingerprint: Option[Value] => Fingerprint =
       _.getOrElse(FingerprintPlaceholder)
-    val validator = new PreExecutingSubmissionValidator[RawKeyValuePairsWithLogEntry](
-      keyValueCommitting,
-      metrics,
-      keySerializationStrategy,
-      commitStrategy)
+    val validator = new PreExecutingSubmissionValidator(keyValueCommitting, metrics, commitStrategy)
     val committer = new PreExecutingValidatingCommitter(
-      () => timeProvider.getCurrentTime,
       keySerializationStrategy,
       validator,
       valueToFingerprint,
-      new PostExecutionFinalizer[Index](valueToFingerprint),
+      FingerprintAwarePostExecutionConflictDetector,
+      new RawPostExecutionFinalizer(now = timeProvider.getCurrentTime _),
       stateValueCache = stateValueCacheForPreExecution,
-      ImmutablesOnlyCacheUpdatePolicy
+      ImmutablesOnlyCacheUpdatePolicy,
     )
     locally {
       implicit val executionContext: ExecutionContext = materializer.executionContext

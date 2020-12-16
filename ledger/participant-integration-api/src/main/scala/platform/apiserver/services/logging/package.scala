@@ -24,6 +24,10 @@ package object logging {
     "parties" -> StructuredArguments.toString(parties.toArray)
   private[services] def party(party: String): (String, String) =
     "parties" -> StructuredArguments.toString(Array(party))
+  private[services] def actAs(parties: Iterable[String]): (String, String) =
+    "actAs" -> StructuredArguments.toString(parties.toArray)
+  private[services] def readAs(parties: Iterable[String]): (String, String) =
+    "readAs" -> StructuredArguments.toString(parties.toArray)
   private[services] def startExclusive(o: LedgerOffset): (String, String) =
     "startExclusive" -> offsetValue(o)
   private[services] def endInclusive(o: Option[LedgerOffset]): (String, String) =
@@ -60,8 +64,6 @@ package object logging {
     "submissionId" -> id
   private[services] def submittedAt(t: Instant): (String, String) =
     "submittedAt" -> t.toString
-  private[services] def submitter(party: String): (String, String) =
-    "submitter" -> party
   private[services] def transactionId(id: TransactionId): (String, String) =
     "transactionId" -> id.unwrap
   private[services] def workflowId(id: WorkflowId): (String, String) =
@@ -70,11 +72,11 @@ package object logging {
     val context =
       Map(
         commandId(cmds.commandId),
-        party(cmds.submitter),
         deduplicateUntil(cmds.deduplicateUntil),
         applicationId(cmds.applicationId),
         submittedAt(cmds.submittedAt),
-        submitter(cmds.submitter),
+        actAs(cmds.actAs),
+        readAs(cmds.readAs)
       )
     cmds.workflowId.fold(context)(context + workflowId(_))
   }

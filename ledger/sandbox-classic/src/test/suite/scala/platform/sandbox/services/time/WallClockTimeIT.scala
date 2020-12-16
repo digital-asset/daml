@@ -17,7 +17,8 @@ import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag.ToTagOps
 
 final class WallClockTimeIT

@@ -4,17 +4,33 @@
 package com.daml.ledger.participant.state.kvutils.app
 
 import com.daml.ledger.participant.state.v1.ParticipantId
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scopt.OptionParser
 
-final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
+final class ConfigSpec extends AnyFlatSpec with Matchers with OptionValues {
 
   private val dumpIndexMetadataCommand = "dump-index-metadata"
   private val participantOption = "--participant"
   private val participantId: ParticipantId = ParticipantId.assertFromString("dummy-participant")
   private val fixedParticipantSubOptions = s"participant-id=$participantId,port=123"
+
   private val jdbcUrlSubOption = "server-jdbc-url"
   private val jdbcUrlEnvSubOption = "server-jdbc-url-env"
+  private val jdbcEnvVar = "JDBC_ENV_VAR"
+
+  private val certRevocationChecking = "--cert-revocation-checking"
+
+  object TestJdbcValues {
+    val jdbcFromCli = "command-line-jdbc"
+    val jdbcFromEnv = "env-jdbc"
+  }
+
+  private val minimalValidOptions = List(
+    participantOption,
+    s"$fixedParticipantSubOptions,$jdbcUrlSubOption=${TestJdbcValues.jdbcFromCli}")
+
   private def configParser(
       parameters: Seq[String],
       getEnvVar: String => Option[String] = (_ => None)): Option[Config[Unit]] =
@@ -41,28 +57,37 @@ final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
   it should "get the jdbc string from the command line argument when provided" in {
     val jdbcFromCli = "command-line-jdbc"
     val config = configParser(
-      Seq(participantOption, s"$fixedParticipantSubOptions,$jdbcUrlSubOption=$jdbcFromCli"))
+      Seq(
+        participantOption,
+        s"$fixedParticipantSubOptions,$jdbcUrlSubOption=${TestJdbcValues.jdbcFromCli}"))
       .getOrElse(fail())
     config.participants.head.serverJdbcUrl should be(jdbcFromCli)
   }
 
   it should "get the jdbc string from the environment when provided" in {
-    val jdbcEnvVar = "JDBC_ENV_VAR"
-    val jdbcFromEnv = "env-jdbc"
     val config = configParser(
       Seq(participantOption, s"$fixedParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar"),
-      { case `jdbcEnvVar` => Some(jdbcFromEnv) }
-    ).getOrElse(fail())
-    config.participants.head.serverJdbcUrl should be(jdbcFromEnv)
+      { case `jdbcEnvVar` => Some(TestJdbcValues.jdbcFromEnv) }
+    ).getOrElse(parsingFailure())
+    config.participants.head.serverJdbcUrl should be(TestJdbcValues.jdbcFromEnv)
   }
 
   it should "return the default when env variable not provided" in {
-    val jdbcEnvVar = "JDBC_ENV_VAR"
     val defaultJdbc = ParticipantConfig.defaultIndexJdbcUrl(participantId)
     val config = configParser(
       Seq(participantOption, s"$fixedParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar")
-    ).getOrElse(fail())
+    ).getOrElse(parsingFailure())
+
     config.participants.head.serverJdbcUrl should be(defaultJdbc)
   }
 
+  it should "get the certificate revocation checking parameter when provided" in {
+    val config =
+      configParser(parameters = minimalValidOptions ++ List(s"$certRevocationChecking", "true"))
+        .getOrElse(parsingFailure())
+
+    config.tlsConfig.value.enableCertRevocationChecking should be(true)
+  }
+
+  private def parsingFailure(): Nothing = fail("Config parsing failed.")
 }

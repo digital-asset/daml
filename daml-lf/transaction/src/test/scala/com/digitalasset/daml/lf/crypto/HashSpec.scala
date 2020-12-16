@@ -8,14 +8,15 @@ import com.daml.lf.data.{Decimal, Numeric, Ref, SortedLookupList, Time}
 import com.daml.lf.value.test.TypedValueGenerators.{RNil, ValueAddend => VA}
 import com.daml.lf.value.Value._
 import com.daml.lf.value.Value
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import shapeless.record.{Record => HRecord}
 import shapeless.syntax.singleton._
 import shapeless.{Coproduct => HSum}
 
 import scala.language.implicitConversions
 
-class HashSpec extends WordSpec with Matchers {
+class HashSpec extends AnyWordSpec with Matchers {
 
   @com.github.ghik.silencer.silent("dead code following this construct")
   private implicit val ordNo: scalaz.Order[Nothing] = (a, _) => a // principle of explosion

@@ -91,18 +91,18 @@ Each DAML ledger has a policy on the allowed difference between LT and RT called
 
 ``getTime`` is an action that gets the LT from the ledger. In the above example, that time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18.
 
-Consider the following example: Suppose that the ledger had a skew of 10 seconds. At 17:59:55, Alice submits a transaction to redeem an Iou. One second later, the transaction is assigned a LET of 17:59:56, but then takes 10 seconds to commit and is recorded on the ledger at 18:00:06. Even though it was committed after business hours, it would be a valid transaction and be committed successfully as ``getTime`` will return 17:59:56 so ``hrs == 17``. Since the RT is 18:00:06, ``LT - RT <= 10 seconds`` and the transaction won't be rejected.
+Consider the following example: Suppose that the ledger had a skew of 10 seconds. At 17:59:55, Alice submits a transaction to redeem an Iou. One second later, the transaction is assigned a LT of 17:59:56, but then takes 10 seconds to commit and is recorded on the ledger at 18:00:06. Even though it was committed after business hours, it would be a valid transaction and be committed successfully as ``getTime`` will return 17:59:56 so ``hrs == 17``. Since the RT is 18:00:06, ``LT - RT <= 10 seconds`` and the transaction won't be rejected.
 
 Time therefore has to be considered slightly fuzzy in DAML, with the fuzziness depending on the skew parameter.
 
 For details, see :ref:`Background concepts - time <time>`.
 
-Time in scenarios
-~~~~~~~~~~~~~~~~~
+Time in test scripts
+~~~~~~~~~~~~~~~~~~~~
 
-In scenarios, record and ledger time are always equal. You can set them using the following functions:
+For tests, you can set time using the following functions:
 
-- ``setTime``, which set the ledger time to the given time.
+- ``setTime``, which sets the ledger time to the given time.
 - ``passTime``, which takes a ``RelTime`` (a relative time) and moves the ledger by that much.
 
 Time on ledgers
@@ -118,7 +118,7 @@ On a distributed DAML ledger, there are no guarantees that ledger time or record
 Actions and ``do`` blocks
 -------------------------
 
-You have come across ``do`` blocks and ``<-`` notations in two contexts by now: ``Scenario`` and ``Update``. Both of these are examples of an ``Action``, also called a *Monad* in functional programming. You can construct ``Actions`` conveniently using ``do`` notation.
+You have come across ``do`` blocks and ``<-`` notations in two contexts by now: ``Script`` and ``Update``. Both of these are examples of an ``Action``, also called a *Monad* in functional programming. You can construct ``Actions`` conveniently using ``do`` notation.
 
 Understanding ``Actions`` and ``do`` blocks is therefore crucial to being able to construct correct contract models and test them, so this section will explain them in some detail.
 
@@ -152,13 +152,11 @@ You can always write a recipe using just pen and paper, but you can't cook it up
 Expressions like ``getTime``, ``allocateParty party``, ``passTime time``, ``submit party commands``, ``create contract`` and ``exercise choice`` should make more sense in that light. For example:
 
 - ``getTime : Update Time`` is the recipe for an empty transaction that also happens to return a value of type ``Time``.
-- ``passTime (days 10) : Script ()`` is a recipe for a transaction that doesn't submit any transactions, but has the side-effect of changing the LET of the test ledger. It returns ``()``, also called ``Unit`` and can be thought of as a zero-tuple.
+- ``passTime (days 10) : Script ()`` is a recipe for a transaction that doesn't submit any transactions, but has the side-effect of changing the LT of the test ledger. It returns ``()``, also called ``Unit`` and can be thought of as a zero-tuple.
 - ``create iou : Update (ContractId Iou)``, where ``iou : Iou`` is a recipe for a transaction consisting of a single ``create`` action, and returns the contract id of the created contract if successful.
 - ``submit alice (createCmd iou) : Script (ContractId Iou)`` is a recipe for a script in which Alice sends the command ``createCmd iou`` to the ledger which produces a transaction and a return value of type ``ContractId Iou`` and returns that back to Alice.
 
-Any DAML ledger knows how to perform actions of type ``Update a``. Only some know how to run DAML Scripts, meaning they can perform actions of type ``Script a``.
-
-``Commands`` on the other hand is a bit more restricted than
+``Commands`` is a bit more restricted than
 ``Script`` and ``Update`` as it represents a list of independent
 commands sent to the ledger. You can still use ``do`` blocks but if
 you have more than one command in a single ``do`` block you need to
@@ -207,7 +205,7 @@ Not only are ``Update`` and ``Script`` examples of ``Action``, they are both exa
 
 Each has a special action ``abort txt`` that represents failure, and that takes on type ``Update ()`` or ``Script ()`` depending on context .
 
-Transactions and scenarios succeed or fail *atomically* as a whole. So an occurrence of an ``abort`` action will always fail the **entire** evaluation of the current ``Script`` or ``Update``.
+Transactions succeed or fail *atomically* as a whole. Scripts on the other hand do not fail atomically: while each ``submit`` is atomic, if a ``submit`` succeeded and the script fails later, the effects of that ``submit`` will still be applied to the ledger.
 
 The last expression in the ``do`` block of the ``Redeem`` choice is a pattern matching expression on ``dow``. It has type ``Update ()`` and is either an ``abort`` or ``return`` depending on the day of week. So during the week, it's a no-op and on weekends, it's the special failure action. Thanks to the atomicity of transactions, no transaction can ever make use of the ``Redeem`` choice on weekends, because it fails the entire transaction.
 
@@ -234,7 +232,7 @@ You can't play any ``CoinGame`` game on pen and paper as you don't have a coin, 
 
 The ``game`` expression is a ``CoinGame`` in which a coin is flipped three times. If all three tosses return ``Heads``, the result is ``"Win"``, or else ``"Loss"``.
 
-In a ``Scenario`` context you can get a ``Coin`` using the ``getCoin`` action, which uses the LET to calculate a seed, and play the game.
+In a ``Script`` context you can get a ``Coin`` using the ``getCoin`` action, which uses the LT to calculate a seed, and play the game.
 
 *Somehow* the ``Coin`` is threaded through the various actions. If you want to look through the looking glass and understand in-depth what's going on, you can look at the source file to see how the ``CoinGame`` action is implemented, though be warned that the implementation uses a lot of DAML features we haven't introduced yet in this introduction.
 
@@ -243,7 +241,7 @@ More generally, if you want to learn more about Actions (aka Monads), we recomme
 Errors
 ------
 
-Above, you've learnt about ``assertMsg`` and ``abort``, which represent (potentially) failing actions. Actions only have an effect when they are performed, so the following scenario succeeds or fails depending on the value of ``abortScenario``:
+Above, you've learnt about ``assertMsg`` and ``abort``, which represent (potentially) failing actions. Actions only have an effect when they are performed, so the following script succeeds or fails depending on the value of ``abortScript``:
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml
   :language: daml
@@ -266,7 +264,7 @@ This is a useful pattern if we need to be able to handle the error case, but it 
   :start-after: -- ERROR_POW_BEGIN
   :end-before: -- ERROR_POW_END
 
-The big downside to this is that even unused errors cause failures. The following scenario will fail, because ``failingComputation`` is evaluated:
+The big downside to this is that even unused errors cause failures. The following script will fail, because ``failingComputation`` is evaluated:
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml
   :language: daml

@@ -94,7 +94,9 @@ html_theme_path = ['../../theme']
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-  'collapse_navigation': False
+  'collapse_navigation': False,
+  'index_page_boxes': True,
+  'pdf_download': True
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -105,7 +107,7 @@ html_static_path = []
 # Don't show "powered by sphinx"
 html_show_sphinx = False
 
-html_show_copyright = False
+html_show_copyright = True
 
 # Don't display the link to the sources
 html_show_sourcelink = False

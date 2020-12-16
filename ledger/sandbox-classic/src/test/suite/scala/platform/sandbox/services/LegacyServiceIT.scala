@@ -46,7 +46,9 @@ import com.daml.ledger.api.v1.transaction_service.{GetLedgerEndRequest, Transact
 import io.grpc
 import io.grpc._
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Assertion, AsyncWordSpec, Inside, Matchers}
+import org.scalatest.{Assertion, Inside}
+import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.util.{Failure, Success, Try}
 

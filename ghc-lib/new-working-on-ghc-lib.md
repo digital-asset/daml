@@ -65,3 +65,90 @@ Once you have the GHC patch you want to incorporate into the DAML repo, here's t
 3. Run the pin command on linux or mac `bazel run @stackage-unpinned//:pin` and commit those changes as well
 
 4. Before merging the PR, the pin command will also have to be run on windows, and those changes committed as well. You will need access to a windows machine for that: `ad-hoc.sh windows create`
+
+
+### Working on an `add-hoc` windows machine
+
+1. First time, clone the `daml-language-ad-hoc` repo: (On following times, just pull for any updates to the scripts)
+```
+git clone git@github.com:DACH-NY/daml-language-ad-hoc.git
+cd daml-language-ad-hoc
+direnv allow
+```
+
+2. Create a new windows machine:
+```
+./ad-hoc.sh create windows
+```
+
+3. When the script complete, note the IP and Password.
+
+4. Wait at least 10 minutes before trying to remotely connect to the windows machine, or else it may not inialize correctly. Really, I am not kidding. This advice is from Gary!
+
+5. Connect to the remote desktop on the windows machine using:
+```
+remmina
+```
+
+6. Set the connection parameters. Best to record in a profile, so less work when reconnecting, or when making future connections:
+
+    - set "Server" field with the _IP_.
+    - set "User name" field with "u"
+    - set "User password" field with the _Password_.
+    - set "Resolution" to something sensible, i.e. 1400x1050
+    - set "Colour depth" to "RemoteFX"
+
+7. Ensure VPN is on. Connect using the profile, accepting the certificate.
+
+8. On the remote desktop of the windows machine, start a command prompt. Run `bash`:
+```
+C:\Users\u> bash
+```
+
+9. Generate an ssh key, and add it to your github account:
+```
+ssh-keygen
+cat .ssh/id_rsa.pub
+```
+
+10. Clone the daml repo:
+```
+git clone git@github.com:digital-asset/daml.git
+cd daml
+```
+
+11. Run a bash script: Ignore final error: `ci/configure-bazel.sh: line 83: IS_FORK: unbound variable`
+```
+ci/configure-bazel.sh
+```
+
+12. Edit a powershell script: Remove all calls to the bazel function at the end of the file:
+```
+vi build.ps1
+```
+
+13. Run the powershell script. It uses `Scoop` to install stuff. Takes about 5 minutes. Say "yes" to a couple of popup dialogues. Then stay in `powershell`:
+```
+$ powershell
+PS C:\Users\u\daml> .\build.ps1
+```
+
+14. Run the bazel command. That's what we came here to do! Takes 5 minutes of so.
+```
+bazel run @stackage-unpinned//:pin
+```
+
+15. Commit the change, and push upstream:
+```
+git add .\stackage_snapshot_windows.json
+git config user.email "you@example.com""
+git config user.name "Your Name"
+git commit -m 'update snapshot after pin on windows'
+git push
+```
+
+16. After confirming a successful build on CI, find the name of your windows ah-hoc machine, and destroy it:
+```
+./ad-hoc.sh list
+./ad-hoc.sh kill <the-name-of-today's-windows-machine>
+```

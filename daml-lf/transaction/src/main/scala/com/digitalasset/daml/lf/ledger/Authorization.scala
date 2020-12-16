@@ -48,13 +48,6 @@ object FailedAuthorization {
       requiredParties: Set[Party],
   ) extends FailedAuthorization
 
-  final case class ActorMismatch(
-      templateId: Identifier,
-      choiceId: ChoiceName,
-      optLocation: Option[Location],
-      givenActors: Set[Party],
-  ) extends FailedAuthorization
-
   final case class NoSignatories(
       templateId: Identifier,
       optLocation: Option[Location],

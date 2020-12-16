@@ -26,9 +26,13 @@ import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.entries.LedgerEntry
-import com.daml.platform.store.serialization.{KeyHasher, ValueSerializer}
+import com.daml.platform.store.serialization.KeyHasher
 import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
-import com.daml.platform.db.migration.translation.{ContractSerializer, TransactionSerializer}
+import com.daml.platform.db.migration.translation.{
+  ContractSerializer,
+  TransactionSerializer,
+  ValueSerializer
+}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 
@@ -353,7 +357,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
           ledgerEffectiveTime,
           transactionId,
           workflowId,
-          tx.submittingParty,
+          tx.actAs,
           transaction,
           mappedDisclosure,
           divulgence,
@@ -448,7 +452,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
         Some(commandId),
         transactionId,
         Some(applicationId),
-        Some(submitter),
+        List(submitter),
         workflowId,
         effectiveAt.toInstant,
         recordedAt.toInstant,
@@ -472,7 +476,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
         offset) =>
       val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
       offset -> LedgerEntry
-        .Rejection(recordedAt.toInstant, commandId, applicationId, submitter, rejectionReason)
+        .Rejection(recordedAt.toInstant, commandId, applicationId, List(submitter), rejectionReason)
     case invalidRow =>
       sys.error(s"invalid ledger entry for offset: ${invalidRow.offset}. database row: $invalidRow")
   }

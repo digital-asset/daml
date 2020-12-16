@@ -4,6 +4,7 @@
 {# TEMPLATE VAR SETTINGS #}
 {%- set url_root = pathto('', 1) %}
 {%- if url_root == '#' %}{% set url_root = '' %}{% endif %}
+{%- set is_index = theme_index_page_boxes and url_root == './' %}
 {%- if not embedded and docstitle %}
 {%- set titlesuffix = " &mdash; "|safe + docstitle|e %}
 {%- else %}
@@ -106,7 +107,7 @@
   {%- endif %}
   {%- endblock %}
   {%- block extrahead %} {% endblock %}
-  {%- if url_root == './' %}
+  {%- if is_index %}
   <style>
     .wy-nav-content {
       max-width: initial;
@@ -145,7 +146,6 @@
       <div class="wy-side-scroll">
 
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          <i data-toggle="wy-nav-top" class="fa fa-times"><span class="wy-menu-vertical-title">Digital Asset</span></i>
           {% block menu %}
           {#
           The singlehtml builder doesn't handle this toctree call when the
@@ -164,38 +164,38 @@
           <div class="local-toc">{{ toc }}</div>
           {% endif %}
           {% endblock %}
+          {% if theme_pdf_download %}
           <div class="pdf-download"><a href="{{ pathto('_downloads/DigitalAssetSDK.pdf', 1) }}" download>Download as PDF</a></div>
+          {% endif %}
         </div>
       </div>
     </nav>
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      {# MOBILE NAV, TRIGGLES SIDE NAV ON TOGGLE #}
-      <nav class="wy-nav-top" aria-label="top navigation">
-        {% block mobile_nav %}
-        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-        <a href="{{ pathto(master_doc) }}">{{ project }}</a>
-        {% endblock %}
-      </nav>
-      {%- if url_root == './' %}
+      {%- if is_index %}
       {% set addClass = ' landing' %}
       {% endif %}
       <div class="topbar fixed">
+        {# MOBILE NAV, TRIGGLES SIDE NAV ON TOGGLE #}
+        <nav class="wy-nav-top" aria-label="top navigation">
+          {% block mobile_nav %}
+          <i data-toggle="wy-nav-top" class="wy-nav-top-toggle"></i>
+          {% endblock %}
+        </nav>
         {% include "navbar.html" %}
 
         <div class="version {{addClass}}">
-          {%- if url_root == './' %}
-          <span class="hide-mobile">Documentation Version&nbsp;</span> <span class="version_switcher_placeholder"></span>
+          {%- if is_index %}
+          <span class="hide-tablet">Documentation&nbsp;</span><span class="hide-mobile">Version&nbsp;</span><span class="version_switcher_placeholder"></span>
           {% else %}
-          <span class="hide-mobile">Version&nbsp;</span> <span class="version_switcher_placeholder"></span>
+          <span class="hide-mobile">Version&nbsp;</span><span class="version_switcher_placeholder"></span>
           {% endif %}
         </div>
 
 
         {% include "searchinput.html" %}
 
-        {%- if url_root != './' %}
+        {%- if not is_index %}
           {% include "onthispage.html" %}
         {% endif %}
 
@@ -210,7 +210,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             {%- block document %}
             <div itemprop="articleBody">
-              {%- if url_root == './' and activePage != 'search.html' %}
+              {%- if is_index and activePage != 'search.html' %}
                 {% include "boxes.html" %}
               {% else %}
                 {% block body %}
@@ -222,7 +222,7 @@
               {% block comments %}{% endblock %}
             </div>
             {% endif%}
-            {% if url_root != './' %}
+            {% if  not is_index %}
               {% include "footer.html" %}
             {% endif %}
           </div>
@@ -260,7 +260,7 @@
     {% endif %}
   {% endif %}
 
-  {%- if url_root != './' %}
+  {%- if not is_index %}
   <div id="inpageContent"></div>
   {% else %}
   <div id="inpageContent" style="display: none;"></div>

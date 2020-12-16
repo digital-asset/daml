@@ -20,12 +20,12 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
 
   private def serializeCreateArgOrThrow(node: Create): Array[Byte] =
     serialize(
-      value = node.coinst.arg,
+      value = node.versionedCoinst.arg,
       errorContext = cantSerialize(attribute = "create argument", forContract = node.coid),
     )
 
   private def serializeNullableKeyOrThrow(node: Create): Option[Array[Byte]] =
-    node.key.map(
+    node.versionedKey.map(
       k =>
         serialize(
           value = k.key,
@@ -34,12 +34,12 @@ private[v29_fix_participant_events] object V29EventsTableInsert {
 
   private def serializeExerciseArgOrThrow(node: Exercise): Array[Byte] =
     serialize(
-      value = node.chosenValue,
+      value = node.versionedChosenValue,
       errorContext = cantSerialize(attribute = "exercise argument", forContract = node.targetCoid),
     )
 
   private def serializeNullableExerciseResultOrThrow(node: Exercise): Option[Array[Byte]] =
-    node.exerciseResult.map(exerciseResult =>
+    node.versionedExerciseResult.map(exerciseResult =>
       serialize(
         value = exerciseResult,
         errorContext = cantSerialize(attribute = "exercise result", forContract = node.targetCoid),
