@@ -485,13 +485,13 @@ enum BuiltinFunction {
   APPEND_TEXT = 24;
 
   ERROR = 25;
-  ANY_EXCEPTION_MESSAGE = 138;      // *Available in versions >= 1.dev*
-  MAKE_GENERAL_ERROR = 139;         // *Available in versions >= 1.dev*
-  GENERAL_ERROR_MESSAGE = 140;      // *Available in versions >= 1.dev*
-  MAKE_ARITHMETIC_ERROR = 141;      // *Available in versions >= 1.dev*
-  ARITHMETIC_ERROR_MESSAGE = 142;   // *Available in versions >= 1.dev*
-  MAKE_CONTRACT_ERROR = 143;        // *Available in versions >= 1.dev*
-  CONTRACT_ERROR_MESSAGE = 144;     // *Available in versions >= 1.dev*
+  ANY_EXCEPTION_MESSAGE = 137;      // *Available in versions >= 1.dev*
+  MAKE_GENERAL_ERROR = 138;         // *Available in versions >= 1.dev*
+  GENERAL_ERROR_MESSAGE = 139;      // *Available in versions >= 1.dev*
+  MAKE_ARITHMETIC_ERROR = 140;      // *Available in versions >= 1.dev*
+  ARITHMETIC_ERROR_MESSAGE = 141;   // *Available in versions >= 1.dev*
+  MAKE_CONTRACT_ERROR = 142;        // *Available in versions >= 1.dev*
+  CONTRACT_ERROR_MESSAGE = 143;     // *Available in versions >= 1.dev*
 
   LEQ_INT64 = 33;         // *Available in versions < 1.dev*
   LEQ_DECIMAL = 34;       // *Available in versions < 1.7*
@@ -579,7 +579,7 @@ enum BuiltinFunction {
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
 
-  // Next id is 145. 144 is CONTRACT_ERROR_MESSAGE.
+  // Next id is 144. 143 is CONTRACT_ERROR_MESSAGE.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
