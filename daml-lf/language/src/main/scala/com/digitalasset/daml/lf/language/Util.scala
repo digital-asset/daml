@@ -88,7 +88,7 @@ object Util {
   // A package undefined w.r.t. the function `packages` is treated as a sink.
   def dependenciesInTopologicalOrder(
       pkgIds: List[Ref.PackageId],
-      packages: Ref.PackageId PartialFunction Package,
+      packages: PartialFunction[Ref.PackageId, Package],
   ): List[Ref.PackageId] = {
 
     @tailrec

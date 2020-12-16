@@ -7,7 +7,7 @@ import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.marker.MapEntriesAppendingMarker
 import org.slf4j.Marker
 
-import scala.collection.JavaConverters.mapAsJavaMapConverter
+import scala.jdk.CollectionConverters._
 
 object LoggingContext {
 

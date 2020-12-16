@@ -26,19 +26,19 @@ class SimulationLogSpec extends AnyFlatSpec with Matchers with TypeCheckedTriple
     SimulationLog.fromFile(requiredResource(s"$simulationLog/$fileName.txt"))
 
   it should "fail if file does not exist" in {
-    SimulationLog.fromFile(new File("DOES-NOT-EXIST-OgUzdJsvKHc9TtfNiLXA")) shouldBe 'left
+    SimulationLog.fromFile(new File("DOES-NOT-EXIST-OgUzdJsvKHc9TtfNiLXA")) shouldBe Symbol("left")
   }
 
   it should "fail if no RUN entry" in {
-    resultFor("no-run") shouldBe 'left
+    resultFor("no-run") shouldBe Symbol("left")
   }
 
   it should "fail if no USER entry" in {
-    resultFor("no-user") shouldBe 'left
+    resultFor("no-user") shouldBe Symbol("left")
   }
 
   it should "fail if multiple RUN entries" in {
-    resultFor("multiple-run") shouldBe 'left
+    resultFor("multiple-run") shouldBe Symbol("left")
   }
 
   it should "return correct result for minimal log" in {

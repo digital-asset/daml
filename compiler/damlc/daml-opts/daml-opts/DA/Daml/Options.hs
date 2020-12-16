@@ -23,6 +23,7 @@ module DA.Daml.Options
     , dataDependableExtensions
     ) where
 
+import Control.Applicative ((<|>))
 import Control.Exception
 import Control.Exception.Safe (handleIO)
 import Control.Concurrent.Extra
@@ -290,6 +291,9 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
     -- data-dependencies to work, except for putting them into the files used
     -- for reconstructing the interfaces, which we already do
   , TypeOperators, UndecidableInstances
+    -- TypeOperators implies ExplicitNamespaces, hence warning on the latter
+    -- would be silly
+  , ExplicitNamespaces
     -- there's no way for our users to actually use this and listing it here
     -- removes a lot of warning from out stdlib, script and trigger builds
     -- NOTE: This should not appear on any list of extensions that are
@@ -353,8 +357,8 @@ wOptsUnset =
 
 newtype GhcVersionHeader = GhcVersionHeader FilePath
 
-adjustDynFlags :: Options -> GhcVersionHeader -> FilePath -> DynFlags -> DynFlags
-adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir dflags
+adjustDynFlags :: Options -> GhcVersionHeader -> FilePath -> Maybe FilePath -> DynFlags -> DynFlags
+adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir defaultCppPath dflags
   =
   -- Generally, the lexer's "haddock mode" is disabled (`Haddock
   -- False` is the default option. In this case, we run the lexer in
@@ -387,7 +391,7 @@ adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir dflag
   where
     apply f xs d = foldl' f d xs
     alterSettings f d = d { settings = f (settings d) }
-    addCppFlags = case optCppPath of
+    addCppFlags = case optCppPath <|> defaultCppPath of
         Nothing -> id
         Just cppPath -> alterSettings $ \s -> s
             { sPgm_P = (cppPath, [])
@@ -430,7 +434,21 @@ setImports :: [FilePath] -> DynFlags -> DynFlags
 setImports paths dflags = dflags { importPaths = paths }
 
 locateGhcVersionHeader :: IO GhcVersionHeader
-locateGhcVersionHeader = GhcVersionHeader <$> locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
+locateGhcVersionHeader = GhcVersionHeader <$> do
+    resourcesDir <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
+    isDirectory <- doesDirectoryExist resourcesDir
+    let path | isDirectory = resourcesDir </> "ghcversion.h"
+             | otherwise = resourcesDir
+    pure path
+
+locateCppPath :: IO (Maybe FilePath)
+locateCppPath = do
+    resourcesDir <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "hpp")
+    isDirectory <- doesDirectoryExist resourcesDir
+    let path | isDirectory = resourcesDir </> "hpp"
+             | otherwise = resourcesDir
+    exists <- doesFileExist path
+    pure (guard exists >> Just path)
 
 -- | Configures the @DynFlags@ for this session to DAML-1.2
 --  compilation:
@@ -443,7 +461,8 @@ setupDamlGHC :: GhcMonad m => Maybe NormalizedFilePath -> Options -> m ()
 setupDamlGHC mbProjectRoot options@Options{..} = do
   tmpDir <- liftIO getTemporaryDirectory
   versionHeader <- liftIO locateGhcVersionHeader
-  modifyDynFlags $ adjustDynFlags options versionHeader tmpDir
+  defaultCppPath <- liftIO locateCppPath
+  modifyDynFlags $ adjustDynFlags options versionHeader tmpDir defaultCppPath
 
   unless (null optGhcCustomOpts) $ do
     damlDFlags <- getSessionDynFlags

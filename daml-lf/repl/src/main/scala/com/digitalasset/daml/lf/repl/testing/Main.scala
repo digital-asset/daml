@@ -198,12 +198,12 @@ object Repl {
       if (compilerConfig.allowedLanguageVersions.contains(LV.v1_dev))
         (
           value.ValueVersion.DevOutputVersions,
-          transaction.TransactionVersion.DevOutputVersions,
+          transaction.TransactionVersion.DevVersions,
         )
       else
         (
           value.ValueVersion.StableOutputVersions,
-          transaction.TransactionVersion.StableOutputVersions,
+          transaction.TransactionVersion.StableVersions,
         )
 
     def run(expr: Expr): (

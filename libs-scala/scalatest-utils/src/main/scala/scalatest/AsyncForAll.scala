@@ -23,7 +23,7 @@ trait AsyncForAll {
       .getOrElse(sys error "random Gen failed")
 
     implicit val assertionMonoid: Monoid[Future[Assertion]] =
-      Monoid liftMonoid (Applicative[Future], Monoid instance ((_, result) => result, succeed))
+      Monoid.liftMonoid(Applicative[Future], Monoid.instance((_, result) => result, succeed))
     runs foldMap { a =>
       f(a) recoverWith {
         case ae: TestFailedException =>

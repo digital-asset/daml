@@ -49,10 +49,10 @@ object AkkaExecutionSequencer {
     system match {
       case extendedSystem: ExtendedActorSystem =>
         new AkkaExecutionSequencer(
-          extendedSystem.systemActorOf(Props[RunnableSequencingActor], name))(
+          extendedSystem.systemActorOf(Props[RunnableSequencingActor](), name))(
           Timeout.durationToTimeout(terminationTimeout))
       case _ =>
-        new AkkaExecutionSequencer(system.actorOf(Props[RunnableSequencingActor], name))(
+        new AkkaExecutionSequencer(system.actorOf(Props[RunnableSequencingActor](), name))(
           Timeout.durationToTimeout(terminationTimeout))
 
     }

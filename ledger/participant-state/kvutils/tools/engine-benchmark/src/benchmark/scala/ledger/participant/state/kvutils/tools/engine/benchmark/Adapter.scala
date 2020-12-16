@@ -102,7 +102,7 @@ private[benchmark] final class Adapter(
     }
     pkgIds.toSeq match {
       case Seq(pkgId) => Right(id.copy(packageId = pkgId))
-      case Seq() => Left(s"no package foud for ${id.qualifiedName}")
+      case Seq() => Left(s"no package found for ${id.qualifiedName}")
       case _ => Left(s"2 or more packages found for ${id.qualifiedName}")
     }
   }

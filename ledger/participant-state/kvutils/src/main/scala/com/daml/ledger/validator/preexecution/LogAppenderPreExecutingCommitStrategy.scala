@@ -3,9 +3,15 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId}
-import com.daml.ledger.participant.state.kvutils.{Bytes, DamlKvutils, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlLogEntry,
+  DamlLogEntryId,
+  DamlStateKey,
+  DamlStateValue
+}
+import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, Fingerprint, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 import com.daml.ledger.validator.{
   StateKeySerializationStrategy,
   StateSerializationStrategy,
@@ -17,13 +23,35 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class LogAppenderPreExecutingCommitStrategy(
     keySerializationStrategy: StateKeySerializationStrategy,
-) extends PreExecutingCommitStrategy[RawKeyValuePairsWithLogEntry] {
+) extends PreExecutingCommitStrategy[
+      DamlStateKey,
+      (Option[DamlStateValue], Fingerprint),
+      ReadSet,
+      RawKeyValuePairsWithLogEntry,
+    ] {
   private val stateSerializationStrategy = new StateSerializationStrategy(keySerializationStrategy)
+
+  override def generateReadSet(
+      fetchedInputs: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
+      accessedKeys: Set[DamlStateKey],
+  ): ReadSet =
+    accessedKeys
+      .map { key =>
+        val (_, fingerprint) =
+          fetchedInputs.getOrElse(key, throw new KeyNotPresentInInputException(key))
+        key -> fingerprint
+      }
+      .map {
+        case (damlKey, fingerprint) =>
+          keySerializationStrategy.serializeStateKey(damlKey) -> fingerprint
+      }
+      .toVector
+      .sortBy(_._1.asReadOnlyByteBuffer)
 
   override def generateWriteSets(
       participantId: ParticipantId,
       logEntryId: DamlLogEntryId,
-      inputState: Map[DamlKvutils.DamlStateKey, Option[DamlKvutils.DamlStateValue]],
+      inputState: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
       preExecutionResult: KeyValueCommitting.PreExecutionResult,
   )(implicit executionContext: ExecutionContext)
     : Future[PreExecutionCommitResult[RawKeyValuePairsWithLogEntry]] = {

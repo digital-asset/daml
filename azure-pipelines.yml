@@ -216,12 +216,6 @@ jobs:
   - job: Linux_scala_2_13
     dependsOn:
       - da_ghc_lib
-      - check_for_release
-    variables:
-      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     timeoutInMinutes: 360
     pool:
       name: 'linux-pool'
@@ -229,11 +223,6 @@ jobs:
     steps:
       - template: ci/report-start.yml
       - checkout: self
-      - bash: |
-          set -euo pipefail
-          git checkout $(release_sha)
-        name: checkout_release
-        condition: eq(variables.is_release, 'true')
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - bash: |
@@ -255,10 +244,10 @@ jobs:
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
-          bazel test --config scala_2_13 //libs-scala/ports/...
+          bazel build --config scala_2_13 //libs-scala/...
+          # gatling-utils tests fail with a ClassNotFoundException for scala.collection.SeqLike
+          bazel test --config scala_2_13 -- //libs-scala/... -//libs-scala/gatling-utils/...
         displayName: 'Build'
-        env:
-          DAML_SDK_RELEASE_VERSION: $(release_tag)
       - template: ci/tell-slack-failed.yml
         parameters:
           trigger_sha: '$(trigger_sha)'

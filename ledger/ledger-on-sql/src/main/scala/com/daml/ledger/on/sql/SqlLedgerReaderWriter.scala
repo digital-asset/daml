@@ -9,7 +9,7 @@ import java.util.concurrent.Executors
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
-import com.daml.caching.Cache
+import com.daml.caching.{Cache, ConcurrentCache}
 import com.daml.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
@@ -90,7 +90,7 @@ object SqlLedgerReaderWriter {
       engine: Engine,
       jdbcUrl: String,
       resetOnStartup: Boolean,
-      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
+      stateValueCache: ConcurrentCache[Bytes, DamlStateValue] = Cache.none,
       timeProvider: TimeProvider = DefaultTimeProvider,
       seedService: SeedService,
   )(implicit loggingContext: LoggingContext)

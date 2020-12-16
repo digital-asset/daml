@@ -15,7 +15,7 @@ import com.daml.testing.postgresql.PostgresAround._
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters.asScalaBufferConverter
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -149,7 +149,7 @@ trait PostgresAround {
     "UNICODE",
     "-A",
     "trust",
-    dataDir.toString.replaceAllLiterally("\\", "/"),
+    dataDir.toString.replace("\\", "/"),
   )
 
   private def createConfigFile(configPath: Path): Unit = {
@@ -232,7 +232,7 @@ trait PostgresAround {
   }
 
   private def readLogs(): Seq[String] =
-    Try(paths.map(paths => Files.readAllLines(paths.logFile).asScala).getOrElse(Seq.empty))
+    Try(paths.map(paths => Files.readAllLines(paths.logFile).asScala.toSeq).getOrElse(Seq.empty))
       .getOrElse(Seq.empty)
 
   private def deleteRecursively(tempDir: Path): Unit =

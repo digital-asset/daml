@@ -11,6 +11,7 @@ import java.io.File
 import scalaz._
 import Scalaz._
 
+import scala.collection.compat._
 import scala.collection.immutable.ListMap
 
 import com.daml.gatling.stats.util.NonEmptySyntax._
@@ -241,7 +242,7 @@ object SimulationLog {
       simulation <- processSimulation(scenarios)(rowsByType.getOrElse("RUN", List.empty))
     } yield simulation
 
-  private def groupRowsByType(fileContent: String) =
+  private def groupRowsByType(fileContent: String): String \/ Map[String, List[Seq[String]]] =
     \/.fromTryCatchNonFatal {
       fileContent
         .split('\n')
@@ -249,7 +250,9 @@ object SimulationLog {
         .collect { case rowType +: fields => rowType -> fields }
         .toList
         .groupBy(_._1)
+        .view
         .mapValues(_.map(_._2))
+        .toMap
     }.leftMap(_.getMessage)
 
   def processScenarios(requestsByUser: Map[Int, Seq[RequestStats]])(
@@ -260,10 +263,12 @@ object SimulationLog {
         .collect { case Seq(label, userId, "START", _*) => userId -> label }
         .foldRight(Map.empty[String, ScenarioStats]) {
           case ((userId, label), result) =>
-            val requestsByType = requestsByUser
+            val requestsByType: Map[String, RequestTypeStats] = requestsByUser
               .getOrElse(userId.toInt, Seq.empty)
               .groupBy(_.requestLabel)
+              .view
               .mapValues(RequestTypeStats.fromRequestStats)
+              .toMap
             val s = result.getOrElse(label, ScenarioStats(label))
             result + (label -> s.copy(
               maxUsers = s.maxUsers + 1,

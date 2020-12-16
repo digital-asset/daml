@@ -4,11 +4,12 @@
 package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 package object reading {
 
-  type LedgerStateReader = StateReader[LedgerStateOperations.Key, LedgerStateOperations.Value]
+  type LedgerStateReader = StateReader[Key, Option[Value]]
 
-  type DamlLedgerStateReader = StateReader[DamlStateKey, DamlStateValue]
+  type DamlLedgerStateReader = StateReader[DamlStateKey, Option[DamlStateValue]]
 
 }

@@ -4,6 +4,7 @@
 package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlContractState,
   DamlLogEntry,
   DamlPartyAllocationRejectionEntry,
   DamlStateKey,
@@ -12,11 +13,17 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, `Bytes Ordering`}
 import com.daml.ledger.validator.StateKeySerializationStrategy
-import com.daml.ledger.validator.TestHelper.{aLogEntry, aLogEntryId, aParticipantId}
+import com.daml.ledger.validator.TestHelper.{
+  aLogEntry,
+  aLogEntryId,
+  aParticipantId,
+  allDamlStateKeyTypes
+}
 import com.daml.ledger.validator.preexecution.LogAppenderPreExecutingCommitStrategySpec._
+import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers.any
-import org.mockito.invocation.InvocationOnMock
 import org.mockito.MockitoSugar
+import org.mockito.invocation.InvocationOnMock
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -24,13 +31,40 @@ final class LogAppenderPreExecutingCommitStrategySpec
     extends AsyncWordSpec
     with Matchers
     with MockitoSugar {
+
+  "generateReadSet" should {
+    "generate a read set" in {
+      val contractIdStateKey = DamlStateKey.newBuilder.setContractId("a contract ID").build
+      val contractIdStateValue =
+        DamlStateValue.newBuilder.setContractState(DamlContractState.newBuilder).build
+      val fingerprint = ByteString.copyFromUtf8("fingerprint")
+
+      val mockStateKeySerializationStrategy = newMockStateKeySerializationStrategy
+      val instance = new LogAppenderPreExecutingCommitStrategy(mockStateKeySerializationStrategy)
+
+      instance.generateReadSet(
+        fetchedInputs = Map(contractIdStateKey -> ((Some(contractIdStateValue), fingerprint))),
+        accessedKeys = Set(contractIdStateKey),
+      ) should be(
+        Seq(mockStateKeySerializationStrategy.serializeStateKey(contractIdStateKey) -> fingerprint))
+    }
+
+    "throw in case an input key is declared in the read set but not fetched as input" in {
+      val mockStateKeySerializationStrategy = newMockStateKeySerializationStrategy
+      val instance = new LogAppenderPreExecutingCommitStrategy(mockStateKeySerializationStrategy)
+
+      assertThrows[IllegalStateException](
+        instance
+          .generateReadSet(
+            fetchedInputs = Map.empty,
+            accessedKeys = allDamlStateKeyTypes.toSet
+          )
+      )
+    }
+  }
+
   "generateWriteSets" should {
     "serialize keys according to strategy" in {
-      val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]
-      when(mockStateKeySerializationStrategy.serializeStateKey(any[DamlStateKey]()))
-        .thenAnswer((invocation: InvocationOnMock) =>
-          invocation.getArgument[DamlStateKey](0).getContractIdBytes)
-
       val logEntryId = aLogEntryId()
       val expectedLogEntryKey = logEntryId.toByteString
       val preExecutionResult = PreExecutionResult(
@@ -41,6 +75,8 @@ final class LogAppenderPreExecutingCommitStrategySpec
         minimumRecordTime = None,
         maximumRecordTime = None
       )
+
+      val mockStateKeySerializationStrategy = newMockStateKeySerializationStrategy
       val instance = new LogAppenderPreExecutingCommitStrategy(mockStateKeySerializationStrategy)
 
       instance.generateWriteSets(aParticipantId, logEntryId, Map.empty, preExecutionResult).map {
@@ -57,6 +93,14 @@ final class LogAppenderPreExecutingCommitStrategySpec
           actual.involvedParticipants shouldBe Set.empty
       }
     }
+  }
+
+  private def newMockStateKeySerializationStrategy = {
+    val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]
+    when(mockStateKeySerializationStrategy.serializeStateKey(any[DamlStateKey]()))
+      .thenAnswer((invocation: InvocationOnMock) =>
+        invocation.getArgument[DamlStateKey](0).getContractIdBytes)
+    mockStateKeySerializationStrategy
   }
 }
 

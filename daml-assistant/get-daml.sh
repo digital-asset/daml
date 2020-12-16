@@ -18,15 +18,42 @@
 
 set -eu
 readonly SWD="$PWD"
-readonly TMPDIR="$(mktemp -d)"
+readonly INSTALL_MINSIZE=1000000
+if [ -z $TEMPDIR ]; then
+  readonly TMPDIR="$(mktemp -d)"
+else
+  readonly TMPDIR=$TEMPDIR
+fi
 cd $TMPDIR
+
+# Don't remove user specified temporary directory on cleanup.
+rmTmpDir() {
+  if [ -z $TEMPDIR ]; then
+    rm -rf $TMPDIR
+  else
+    echo "You may now remove the DAML installation files from $TEMPDIR"
+  fi
+}
 
 cleanup() {
   echo "$(tput setaf 3)FAILED TO INSTALL!$(tput sgr 0)"
   cd $SWD
-  rm -rf $TMPDIR
+  rmTmpDir
 }
 trap cleanup EXIT
+
+
+#
+# Check that the temporary directory has enough space for the installation
+#
+if [ "$(df $TMPDIR | tail -1 | awk '{print $4}')" -lt $INSTALL_MINSIZE ]; then
+    echo "Not enough disk space available to extract DAML SDK in $TMPDIR."
+    echo ""
+    echo "You can specify an alternative extraction directory by"
+    echo "setting the TEMPDIR environment variable."
+    exit 1
+fi
+
 
 #
 # Check if curl and tar are available.
@@ -117,4 +144,4 @@ fi
 trap - EXIT
 echo "$(tput setaf 3)Successfully installed DAML.$(tput sgr 0)"
 cd $SWD
-rm -rf $TMPDIR
+rmTmpDir

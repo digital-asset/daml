@@ -10,5 +10,6 @@ package object preexecution {
   /**
     * Produces the record time on the participant for updates originating from pre-executed submissions.
     */
-  type TimeUpdatesProvider = () => Option[Timestamp]
+  type TimeUpdatesProvider =
+    () => Option[Timestamp]
 }

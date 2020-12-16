@@ -555,7 +555,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       )
     }
 
-    private[this] def decodeChoice(
+    private[archive] def decodeChoice(
         tpl: DottedName,
         lfChoice: PLF.TemplateChoice): TemplateChoice = {
       val (v, t) = decodeBinder(lfChoice.getArgBinder)
@@ -579,10 +579,13 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         name = chName,
         consuming = lfChoice.getConsuming,
         controllers = decodeExpr(lfChoice.getControllers, s"$tpl:$chName:controller"),
-        choiceObservers =
-          if (lfChoice.hasObservers)
-            Some(decodeExpr(lfChoice.getObservers, s"$tpl:$chName:observers"))
-          else None,
+        choiceObservers = if (lfChoice.hasObservers) {
+          assertSince(LV.Features.choiceObservers, "TemplateChoice.observers")
+          Some(decodeExpr(lfChoice.getObservers, s"$tpl:$chName:observers"))
+        } else {
+          assertUntil(LV.Features.choiceObservers, "missing TemplateChoice.observers")
+          None
+        },
         selfBinder = selfBinder,
         argBinder = v -> t,
         returnType = decodeType(lfChoice.getRetType),

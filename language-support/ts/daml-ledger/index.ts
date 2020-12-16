@@ -8,6 +8,22 @@ import WebSocket from 'isomorphic-ws';
 import _ from 'lodash';
 
 /**
+ * The result of a ``query`` against the ledger.
+ *
+ * Note: this is meant to be used by @daml/react.
+ *
+ * @typeparam T The contract template type of the query.
+ * @typeparam K The contract key type of the query.
+ * @typeparam I The template id type.
+ */
+export type QueryResult<T extends object, K, I extends string> = {
+  /** Contracts matching the query. */
+  contracts: readonly CreateEvent<T, K, I>[];
+  /** Indicator for whether the query is executing. */
+  loading: boolean;
+}
+
+/**
  * Full information about a Party.
  *
  */

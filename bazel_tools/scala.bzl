@@ -42,6 +42,7 @@ version_specific = {
         "-Xlint:unsound-match",
         "-Xlint:by-name-right-associative",  # will never be by-name if used correctly
         "-Xfuture",
+        "-language:higherKinds",
     ],
 }
 
@@ -152,8 +153,8 @@ default_compile_arguments = {
     "unused_dependency_checker_mode": "error",
 }
 
-silencer_plugin = "@maven//:com_github_ghik_silencer_plugin_2_12_12"
-silencer_lib = "@maven//:com_github_ghik_silencer_lib_2_12_12"
+silencer_plugin = "@maven//:com_github_ghik_silencer_plugin_{}".format(scala_version_suffix)
+silencer_lib = "@maven//:com_github_ghik_silencer_lib_{}".format(scala_version_suffix)
 
 default_initial_heap_size = "128m"
 default_max_heap_size = "1g"
