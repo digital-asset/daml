@@ -41,7 +41,8 @@ import scala.util.{Failure, Success}
 object WebSocketService {
   import util.ErrorOps._
 
-  private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
+  private type CompiledQueries =
+    Map[domain.TemplateId.RequiredPkg, (ValuePredicate, LfV => Boolean)]
 
   private final case class StreamPredicate[+Positive](
       resolved: Set[domain.TemplateId.RequiredPkg],
@@ -189,18 +190,18 @@ object WebSocketService {
           }
         val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
           q.get(a.templateId).flatMap { preds =>
-            preds.collect(Function unlift { case (p, ix) => p(a.payload) option ix })
+            preds.collect(Function unlift { case ((_, p), ix) => p(a.payload) option ix })
           }
         }
+        // TODO SC this yields the wrong matchedQueries indices
+        def dbQueries = q.toSeq.flatMap {
+          case (tpid, nel) => nel.toVector.map { case ((vp, _), _) => (tpid, vp.toSqlWhereClause) }
+        }
 
-        StreamPredicate(
-          resolved,
-          unresolved,
-          fn,
-          parties =>
-            implicit lh =>
-              dbbackend.ContractDao
-                .selectContractsMultiTemplate(parties, sys.error("TODO queries")))
+        StreamPredicate(resolved, unresolved, fn, { parties => implicit lh =>
+          dbbackend.ContractDao
+            .selectContractsMultiTemplate(parties, dbQueries)
+        })
       }
 
       private def prepareFilters(
@@ -209,7 +210,8 @@ object WebSocketService {
           lookupType: ValuePredicate.TypeLookup
       ): CompiledQueries =
         ids.iterator.map { tid =>
-          (tid, ValuePredicate.fromTemplateJsObject(queryExpr, tid, lookupType).toFunPredicate)
+          val vp = ValuePredicate.fromTemplateJsObject(queryExpr, tid, lookupType)
+          (tid, (vp, vp.toFunPredicate))
         }.toMap
 
       override def renderCreatedMetadata(p: Positive) =
