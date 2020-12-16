@@ -7,12 +7,12 @@ import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.{Bytes, Fingerprint}
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.validator.LedgerStateOperations.Value
+import com.daml.ledger.validator.RawToDamlLedgerStateReaderAdapter.deserializeDamlStateValue
 import com.daml.ledger.validator.caching.{
   CacheUpdatePolicy,
   CachingDamlLedgerStateReaderWithFingerprints
 }
-import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
 import com.daml.ledger.validator.{
   LedgerStateAccess,
   LedgerStateOperationsReaderAdapter,
@@ -38,7 +38,7 @@ import scala.util.{Failure, Success}
   * @param stateValueCache               The cache instance for state values.
   * @param cacheUpdatePolicy             The caching policy for values.
   */
-class PreExecutingValidatingCommitter[WriteSet](
+class PreExecutingValidatingCommitter[ReadSet, WriteSet](
     keySerializationStrategy: StateKeySerializationStrategy,
     validator: PreExecutingSubmissionValidator[
       (Option[DamlStateValue], Fingerprint),
@@ -47,8 +47,8 @@ class PreExecutingValidatingCommitter[WriteSet](
     ],
     valueToFingerprint: Option[Value] => Fingerprint,
     postExecutionConflictDetector: PostExecutionConflictDetector[
-      Key,
-      (Option[Value], Fingerprint),
+      DamlStateKey,
+      Fingerprint,
       ReadSet,
       WriteSet,
     ],
@@ -72,12 +72,12 @@ class PreExecutingValidatingCommitter[WriteSet](
       // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
       ledgerStateAccess.inTransaction { ledgerStateOperations =>
         val stateReader = new LedgerStateOperationsReaderAdapter(ledgerStateOperations)
-          .mapValues(value => value -> valueToFingerprint(value))
+          .contramapKeys(keySerializationStrategy.serializeStateKey)
+          .mapValues(value => value.map(deserializeDamlStateValue) -> valueToFingerprint(value))
         val cachingStateReader = CachingDamlLedgerStateReaderWithFingerprints(
           stateValueCache,
           cacheUpdatePolicy,
           stateReader,
-          keySerializationStrategy,
         )
         for {
           preExecutionOutput <- validator.validate(
@@ -90,7 +90,11 @@ class PreExecutingValidatingCommitter[WriteSet](
               logger.error("Conflict detected during post-execution. Retrying...")
               true
           } { (_, _) =>
-            postExecutionConflictDetector.detectConflicts(preExecutionOutput, stateReader)
+            val fingerprintStateReader = cachingStateReader.mapValues(_._2)
+            postExecutionConflictDetector.detectConflicts(
+              preExecutionOutput,
+              fingerprintStateReader,
+            )
           }.transform {
             case Failure(_: ConflictDetectedException) =>
               logger.error("Too many conflicts detected during post-execution. Giving up.")

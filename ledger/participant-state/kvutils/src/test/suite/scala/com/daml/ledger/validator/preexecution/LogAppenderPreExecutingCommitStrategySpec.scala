@@ -45,8 +45,7 @@ final class LogAppenderPreExecutingCommitStrategySpec
       instance.generateReadSet(
         fetchedInputs = Map(contractIdStateKey -> ((Some(contractIdStateValue), fingerprint))),
         accessedKeys = Set(contractIdStateKey),
-      ) should be(
-        Seq(mockStateKeySerializationStrategy.serializeStateKey(contractIdStateKey) -> fingerprint))
+      ) should be(Map(contractIdStateKey -> fingerprint))
     }
 
     "throw in case an input key is declared in the read set but not fetched as input" in {

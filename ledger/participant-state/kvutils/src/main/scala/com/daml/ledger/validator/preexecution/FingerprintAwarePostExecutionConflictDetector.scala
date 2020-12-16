@@ -3,30 +3,27 @@
 
 package com.daml.ledger.validator.preexecution
 
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
 import com.daml.ledger.participant.state.kvutils.Fingerprint
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
+import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.FingerprintedReadSet
 import com.daml.ledger.validator.reading.StateReader
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object FingerprintAwarePostExecutionConflictDetector
     extends PostExecutionConflictDetector[
-      Key,
-      (Option[Value], Fingerprint),
-      ReadSet,
-      RawKeyValuePairsWithLogEntry,
+      DamlStateKey,
+      Fingerprint,
+      FingerprintedReadSet,
+      Any,
     ] {
   override def detectConflicts(
-      preExecutionOutput: PreExecutionOutput[ReadSet, RawKeyValuePairsWithLogEntry],
-      ledgerStateOperations: StateReader[Key, (Option[Value], Fingerprint)],
+      preExecutionOutput: PreExecutionOutput[FingerprintedReadSet, Any],
+      reader: StateReader[DamlStateKey, Fingerprint],
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
-    val keys = preExecutionOutput.readSet.map(_._1)
-    ledgerStateOperations.read(keys).map { values =>
-      val preExecutionFingerprints = preExecutionOutput.readSet.map(_._2)
-      val currentFingerprints = values.map(_._2)
-      val hasConflict = preExecutionFingerprints != currentFingerprints
-      if (hasConflict) {
+    val (keys, preExecutionFingerprints) = preExecutionOutput.readSet.unzip
+    reader.read(keys).map { currentFingerprints =>
+      if (preExecutionFingerprints != currentFingerprints) {
         throw new ConflictDetectedException
       }
     }

@@ -30,6 +30,7 @@ import com.daml.ledger.validator.batch.{
   ConflictDetection
 }
 import com.daml.ledger.validator.caching.ImmutablesOnlyCacheUpdatePolicy
+import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.FingerprintedReadSet
 import com.daml.ledger.validator.preexecution._
 import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidateAndCommit}
 import com.daml.lf.engine.Engine
@@ -239,15 +240,16 @@ object InMemoryLedgerReaderWriter {
     val valueToFingerprint: Option[Value] => Fingerprint =
       _.getOrElse(FingerprintPlaceholder)
     val validator = new PreExecutingSubmissionValidator(keyValueCommitting, commitStrategy, metrics)
-    val committer = new PreExecutingValidatingCommitter(
-      keySerializationStrategy,
-      validator,
-      valueToFingerprint,
-      FingerprintAwarePostExecutionConflictDetector,
-      new RawPostExecutionFinalizer(now = timeProvider.getCurrentTime _),
-      stateValueCache = stateValueCacheForPreExecution,
-      ImmutablesOnlyCacheUpdatePolicy,
-    )
+    val committer =
+      new PreExecutingValidatingCommitter[FingerprintedReadSet, RawKeyValuePairsWithLogEntry](
+        keySerializationStrategy,
+        validator,
+        valueToFingerprint,
+        FingerprintAwarePostExecutionConflictDetector,
+        new RawPostExecutionFinalizer(now = timeProvider.getCurrentTime _),
+        stateValueCache = stateValueCacheForPreExecution,
+        ImmutablesOnlyCacheUpdatePolicy,
+      )
     locally {
       implicit val executionContext: ExecutionContext = materializer.executionContext
 

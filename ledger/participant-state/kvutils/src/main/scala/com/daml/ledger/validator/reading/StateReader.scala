@@ -11,7 +11,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @tparam Key   The type of the key expected.
   * @tparam Value The type of the value returned.
   */
-trait StateReader[Key, Value] {
+trait StateReader[-Key, +Value] {
   self =>
 
   /**
