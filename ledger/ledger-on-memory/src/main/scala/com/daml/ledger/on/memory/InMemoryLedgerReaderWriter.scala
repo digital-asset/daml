@@ -72,13 +72,17 @@ final class InMemoryLedgerReaderWriter private[memory] (
 object InMemoryLedgerReaderWriter {
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
+  type BatchingStateValueCache = Cache[DamlStateKey, DamlStateValue]
+
+  type PreExecutionStateValueCache = Cache[DamlStateKey, (DamlStateValue, Fingerprint)]
+
   final class BatchingOwner(
       ledgerId: LedgerId,
       batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       participantId: ParticipantId,
       metrics: Metrics,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
+      stateValueCache: BatchingStateValueCache = Cache.none,
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
       engine: Engine,
@@ -121,7 +125,7 @@ object InMemoryLedgerReaderWriter {
       batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
+      stateValueCache: BatchingStateValueCache = Cache.none,
       metrics: Metrics,
       engine: Engine,
   )(implicit materializer: Materializer)
@@ -152,8 +156,7 @@ object InMemoryLedgerReaderWriter {
       keySerializationStrategy: StateKeySerializationStrategy,
       metrics: Metrics,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      stateValueCacheForPreExecution: Cache[DamlStateKey, (DamlStateValue, Fingerprint)] =
-        Cache.none,
+      stateValueCacheForPreExecution: PreExecutionStateValueCache = Cache.none,
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
       engine: Engine,
@@ -191,7 +194,7 @@ object InMemoryLedgerReaderWriter {
       state: InMemoryState,
       metrics: Metrics,
       timeProvider: TimeProvider,
-      stateValueCache: Cache[DamlStateKey, DamlStateValue],
+      stateValueCache: BatchingStateValueCache,
       ledgerDataExporter: LedgerDataExporter,
   )(implicit materializer: Materializer): ValidateAndCommit = {
     val validator = BatchedSubmissionValidator[Index](
@@ -234,7 +237,7 @@ object InMemoryLedgerReaderWriter {
       state: InMemoryState,
       metrics: Metrics,
       timeProvider: TimeProvider,
-      stateValueCacheForPreExecution: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
+      stateValueCacheForPreExecution: PreExecutionStateValueCache,
   )(implicit materializer: Materializer): ValidateAndCommit = {
     val commitStrategy = new LogAppenderPreExecutingCommitStrategy(keySerializationStrategy)
     val valueToFingerprint: Option[Value] => Fingerprint =
