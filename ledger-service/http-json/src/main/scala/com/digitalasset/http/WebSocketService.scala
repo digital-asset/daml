@@ -444,13 +444,13 @@ class WebSocketService(
                   shiftedPrefix,
                   Terminates.Never)
                 .via(convertFilterContracts(fn))
-                .via(emitOffsetTicksAndFilterOutEmptySteps)
-                .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
               prefiltered.map(StepAndErrors(Seq.empty, _)) ++ liveFiltered
         })
         .mapMaterializedValue { _: Future[NotUsed] =>
           NotUsed
         }
+        .via(emitOffsetTicksAndFilterOutEmptySteps)
+        .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => \/-(wsMessage(jsv)))
