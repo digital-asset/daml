@@ -946,13 +946,17 @@ class DecodeV1Spec
         val decoder = moduleDecoder(version, stringTable)
 
         decoder.decodeChoice(templateName, protoChoiceWithoutObservers)
-        a[ParseError] should be thrownBy decoder
-          .decodeChoice(templateName, protoChoiceWithObservers)
+        a[ParseError] should be thrownBy (
+          decoder
+            .decodeChoice(
+              templateName,
+              protoChoiceWithObservers)
+          )
 
       }
     }
 
-    "accept choice with or without observers if lv version >= 1.dev" in {
+    "reject choice without observers if lv version >= 1.dev" in {
 
       val unitTyp = DamlLf1.Type.newBuilder().setInterned(0).build()
 
@@ -976,7 +980,11 @@ class DecodeV1Spec
 
         val decoder = moduleDecoder(version, stringTable, ImmArraySeq.empty, typeTable)
 
-        decoder.decodeChoice(templateName, protoChoiceWithoutObservers)
+        a[ParseError] should be thrownBy (
+          decoder.decodeChoice(
+            templateName,
+            protoChoiceWithoutObservers)
+        )
         decoder.decodeChoice(templateName, protoChoiceWithObservers)
       }
     }
