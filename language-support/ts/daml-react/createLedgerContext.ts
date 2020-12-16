@@ -3,7 +3,9 @@
 
 import React, {useContext, useEffect, useMemo, useState } from 'react';
 import { ContractId,Party, Template } from '@daml/types';
-import Ledger, { CreateEvent, Query, Stream, StreamCloseEvent } from '@daml/ledger';
+import Ledger, { CreateEvent, Query, Stream, StreamCloseEvent, QueryResult } from '@daml/ledger';
+
+export { QueryResult } from '@daml/ledger';
 
 /**
  * @internal
@@ -24,20 +26,6 @@ export type LedgerProps = {
   wsBaseUrl?: string;
   party: Party;
   reconnectThreshold?: number;
-}
-
-/**
- * The result of a ``query`` against the ledger.
- *
- * @typeparam T The contract template type of the query.
- * @typeparam K The contract key type of the query.
- * @typeparam I The template id type.
- */
-export type QueryResult<T extends object, K, I extends string> = {
-  /** Contracts matching the query. */
-  contracts: readonly CreateEvent<T, K, I>[];
-  /** Indicator for whether the query is executing. */
-  loading: boolean;
 }
 
 /**
