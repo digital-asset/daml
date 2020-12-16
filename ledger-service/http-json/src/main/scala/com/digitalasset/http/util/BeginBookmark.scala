@@ -17,6 +17,11 @@ private[http] sealed abstract class BeginBookmark[+Off] extends Product with Ser
       case LedgerBegin => LedgerOffset(Boundary(LedgerBoundary.LEDGER_BEGIN))
     }
 
+  def map[B](f: Off => B): BeginBookmark[B] = this match {
+    case AbsoluteBookmark(offset) => AbsoluteBookmark(f(offset))
+    case LedgerBegin => LedgerBegin
+  }
+
   def toOption: Option[Off] = this match {
     case AbsoluteBookmark(offset) => Some(offset)
     case LedgerBegin => None

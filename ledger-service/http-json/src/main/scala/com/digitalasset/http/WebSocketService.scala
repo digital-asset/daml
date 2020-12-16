@@ -283,7 +283,7 @@ object WebSocketService {
           case Some(k) => if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
         }
       }
-      StreamPredicate(q.keySet, unresolved, fn, parties => sys.error("TODO alt path"))
+      StreamPredicate(q.keySet, unresolved, fn, _ /*parties*/ => _ => sys.error("TODO alt path"))
     }
 
     override def renderCreatedMetadata(p: Unit) = Map.empty
@@ -422,13 +422,13 @@ class WebSocketService(
               case (dao, fetch) =>
                 val tx = for {
                   bookmark <- fetch.fetchAndPersist(jwt, parties, resolved.toList)
-                  mdContracts <- dbQuery(parties)(implicitly[LogHandler])
+                  mdContracts <- dbQuery(parties)(dao.logHandler)
                   // TODO SC: save bookmark here, loop if fail
                 } yield
                   (
                     Source.single(mdContracts).map(ContractStreamStep.Acs(_)) ++ Source.single(
-                      ContractStreamStep.LiveBegin(bookmark)),
-                    Some(bookmark))
+                      ContractStreamStep.LiveBegin(bookmark.map(_.toDomain))),
+                    bookmark.toOption map (term => domain.StartingOffset(term.toDomain)))
                 dao.transact(tx).unsafeToFuture()
             },
             Future.successful((Source.empty, offPrefix))
