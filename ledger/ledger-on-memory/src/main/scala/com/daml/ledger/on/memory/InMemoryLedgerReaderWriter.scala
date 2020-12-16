@@ -245,7 +245,7 @@ object InMemoryLedgerReaderWriter {
         keySerializationStrategy,
         validator,
         valueToFingerprint,
-        FingerprintAwarePostExecutionConflictDetector,
+        new EqualityBasedPostExecutionConflictDetector,
         new RawPostExecutionFinalizer(now = timeProvider.getCurrentTime _),
         stateValueCache = stateValueCacheForPreExecution,
         ImmutablesOnlyCacheUpdatePolicy,
