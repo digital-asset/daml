@@ -583,6 +583,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           assertSince(LV.Features.choiceObservers, "TemplateChoice.observers")
           Some(decodeExpr(lfChoice.getObservers, s"$tpl:$chName:observers"))
         } else {
+          assertUntil(LV.Features.choiceObservers, "missing TemplateChoice.observers")
           None
         },
         selfBinder = selfBinder,
