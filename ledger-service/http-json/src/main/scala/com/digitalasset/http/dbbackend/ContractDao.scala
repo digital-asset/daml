@@ -100,7 +100,7 @@ object ContractDao {
       parties: OneAnd[Set, domain.Party],
       predicates: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)],
   )(implicit log: LogHandler)
-    : ConnectionIO[Vector[(NonEmptyList[Int], domain.ActiveContract[JsValue])]] = {
+    : ConnectionIO[Vector[(domain.ActiveContract[JsValue], NonEmptyList[Int])]] = {
     import doobie.postgres.implicits._, cats.syntax.traverse._, cats.instances.vector._
     for {
       stIdSeq <- predicates.zipWithIndex.toVector.traverse {
@@ -119,7 +119,7 @@ object ContractDao {
         case Seq() => Vector.empty
         case Seq(alreadyUnique) =>
           alreadyUnique map { dbc =>
-            (NonEmptyList(dbc.templateId), toDomain(tidLookup(dbc.templateId))(dbc))
+            (toDomain(tidLookup(dbc.templateId))(dbc), NonEmptyList(dbc.templateId))
           }
         case potentialMultiMatches =>
           potentialMultiMatches.view.flatten
@@ -128,8 +128,8 @@ object ContractDao {
             .map { dbcs =>
               val dbc +: dups = dbcs.toSeq // always non-empty due to groupBy
               (
-                NonEmptyList.nels(dbc, dups: _*).map(_.templateId),
-                toDomain(tidLookup(dbc.templateId))(dbc))
+                toDomain(tidLookup(dbc.templateId))(dbc),
+                NonEmptyList.nels(dbc, dups: _*).map(_.templateId))
             }
             .toVector
       }

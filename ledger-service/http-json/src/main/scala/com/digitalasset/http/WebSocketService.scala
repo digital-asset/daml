@@ -49,7 +49,7 @@ object WebSocketService {
       unresolved: Set[domain.TemplateId.OptionalPkg],
       fn: domain.ActiveContract[LfV] => Option[Positive],
       dbQuery: OneAnd[Set, domain.Party] => LogHandler => ConnectionIO[
-        Vector[(Positive, domain.ActiveContract[JsValue])]],
+        _ <: Vector[(domain.ActiveContract[JsValue], Positive)]],
   )
 
   private def withOptPrefix[I, L](prefix: I => Option[L]): Flow[I, (Option[L], I), NotUsed] =
