@@ -1281,7 +1281,7 @@ message TemplateChoice {
   Expr controllers = 3;
 
   // The additional informees of the choice. They have type `List Party`.
-  Expr observers = 11; // *Available in versions >= 1.dev*
+  Expr observers = 11; // *Mandatory in versions >= 1.dev*
 
   // Name to which the choice argument is bound and its type.
   VarWithType arg_binder = 4;
