@@ -249,6 +249,7 @@ decodeDefException LF1.DefException{..} =
   DefException
     <$> traverse decodeLocation defExceptionLocation
     <*> decodeDottedNameId TypeConName defExceptionNameInternedDname
+    <*> mayDecode "exceptionMessage" defExceptionMessage decodeExpr
 
 decodeDefDataType :: LF1.DefDataType -> Decode DefDataType
 decodeDefDataType LF1.DefDataType{..} =
@@ -441,7 +442,6 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionAPPEND_TEXT    -> BEAppendText
 
   LF1.BuiltinFunctionERROR          -> BEError
-  LF1.BuiltinFunctionTHROW -> BEThrow
   LF1.BuiltinFunctionANY_EXCEPTION_MESSAGE -> BEAnyExceptionMessage
   LF1.BuiltinFunctionGENERAL_ERROR_MESSAGE -> BEGeneralErrorMessage
   LF1.BuiltinFunctionARITHMETIC_ERROR_MESSAGE -> BEArithmeticErrorMessage
@@ -604,13 +604,16 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     return (EFromAny type' expr)
   LF1.ExprSumTypeRep typ ->
     ETypeRep <$> decodeType typ
-  LF1.ExprSumMakeAnyException LF1.Expr_MakeAnyException {..} -> EMakeAnyException
-    <$> mayDecode "expr_MakeAnyExceptionType" expr_MakeAnyExceptionType decodeType
-    <*> mayDecode "expr_MakeAnyExceptionMessage" expr_MakeAnyExceptionMessage decodeExpr
-    <*> mayDecode "expr_MakeAnyExceptionExpr" expr_MakeAnyExceptionExpr decodeExpr
+  LF1.ExprSumToAnyException LF1.Expr_ToAnyException {..} -> EToAnyException
+    <$> mayDecode "expr_ToAnyExceptionType" expr_ToAnyExceptionType decodeType
+    <*> mayDecode "expr_ToAnyExceptionExpr" expr_ToAnyExceptionExpr decodeExpr
   LF1.ExprSumFromAnyException LF1.Expr_FromAnyException {..} -> EFromAnyException
     <$> mayDecode "expr_FromAnyExceptionType" expr_FromAnyExceptionType decodeType
     <*> mayDecode "expr_FromAnyExceptionExpr" expr_FromAnyExceptionExpr decodeExpr
+  LF1.ExprSumThrow LF1.Expr_Throw {..} -> EThrow
+    <$> mayDecode "expr_ThrowReturnType" expr_ThrowReturnType decodeType
+    <*> mayDecode "expr_ThrowExceptionType" expr_ThrowExceptionType decodeType
+    <*> mayDecode "expr_ThrowExceptionExpr" expr_ThrowExceptionExpr decodeExpr
 
 decodeUpdate :: LF1.Update -> Decode Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case

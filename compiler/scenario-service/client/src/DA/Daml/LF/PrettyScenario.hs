@@ -653,7 +653,6 @@ prettyNode Node{..}
     meta p       = text "│  " <-> p
     archivedSC = annotateSC PredicateSC -- Magenta
 
-
 prettyPartialTransaction :: PartialTransaction -> M (Doc SyntaxClass)
 prettyPartialTransaction PartialTransaction{..} = do
   world <- askWorld
