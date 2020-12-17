@@ -15,15 +15,18 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time.Timestamp
 import org.slf4j.LoggerFactory
 
+import scala.collection.generic.CanBuildFrom
 import scala.collection.mutable
 
 /** Commit context provides access to state inputs, commit parameters (e.g. record time) and
   * allows committer to set state outputs.
   */
-private[kvutils] trait CommitContext {
+private[kvutils] case class CommitContext(
+    private val inputs: DamlStateMap,
+    recordTime: Option[Timestamp],
+    participantId: ParticipantId,
+) {
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
-
-  def inputs: DamlStateMap
 
   // NOTE(JM): The outputs must be iterable in deterministic order, hence we
   // keep track of insertion order.
@@ -41,18 +44,34 @@ private[kvutils] trait CommitContext {
   // pre-execution.
   var outOfTimeBoundsLogEntry: Option[DamlLogEntry] = None
 
-  def getRecordTime: Option[Timestamp]
-  def getParticipantId: ParticipantId
+  def preExecute: Boolean = recordTime.isEmpty
 
-  def preExecute: Boolean = getRecordTime.isEmpty
-
-  /** Retrieve value from output state, or if not found, from input state. */
+  /** Retrieve value from output state, or if not found, from input state.
+    * Throws an exception if the key is not found in either. */
   def get(key: DamlStateKey): Option[DamlStateValue] =
     outputs.get(key).orElse {
       val value = inputs.getOrElse(key, throw Err.MissingInputState(key))
       accessedInputKeys += key
       value
     }
+
+  /** Reads key from input state.
+    * Throws an exception if the key is not specified in the input state. */
+  def read(key: DamlStateKey): Option[DamlStateValue] = {
+    val value = inputs.getOrElse(key, throw Err.MissingInputState(key))
+    accessedInputKeys += key
+    value
+  }
+
+  /** Generates a collection from the inputs as determined by a partial function.
+    * Records all keys in the input as being accessed. */
+  def collectInputs[B, That](
+      partialFunction: PartialFunction[(DamlStateKey, Option[DamlStateValue]), B])(
+      implicit bf: CanBuildFrom[Map[DamlStateKey, Option[DamlStateValue]], B, That]): That = {
+    val result = inputs.collect(partialFunction)
+    inputs.keys.foreach(accessedInputKeys.add)
+    result
+  }
 
   /** Set a value in the output state. */
   def set(key: DamlStateKey, value: DamlStateValue): Unit = {

@@ -116,7 +116,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
   "trimUnnecessaryNodes" should {
     "remove `Fetch` and `LookupByKey` nodes from transaction tree" in {
-      val context = new FakeCommitContext(recordTime = None)
+      val context = createCommitContext(recordTime = None)
 
       instance.trimUnnecessaryNodes(context, aRichTransactionTreeSummary) match {
         case StepContinue(logEntry) =>
@@ -143,7 +143,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
   "deduplicateCommand" should {
     "continue if record time is not available" in {
-      val context = new FakeCommitContext(recordTime = None)
+      val context = createCommitContext(recordTime = None)
 
       val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -156,7 +156,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     "continue if record time is available but no deduplication entry could be found" in {
       val inputs = Map(dedupKey -> None)
       val context =
-        new FakeCommitContext(recordTime = Some(aRecordTime), inputs = inputs)
+        createCommitContext(recordTime = Some(aRecordTime), inputs = inputs)
 
       val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -170,7 +170,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       val dedupValue = newDedupValue(aRecordTime)
       val inputs = Map(dedupKey -> Some(dedupValue))
       val context =
-        new FakeCommitContext(recordTime = Some(aRecordTime.addMicros(1)), inputs = inputs)
+        createCommitContext(recordTime = Some(aRecordTime.addMicros(1)), inputs = inputs)
 
       val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -187,7 +187,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         val dedupValue = newDedupValue(deduplicationTime)
         val inputs = Map(dedupKey -> Some(dedupValue))
         val context =
-          new FakeCommitContext(recordTime = Some(recordTime), inputs = inputs)
+          createCommitContext(recordTime = Some(recordTime), inputs = inputs)
 
         val actual = instance.deduplicateCommand(context, aTransactionEntrySummary)
 
@@ -259,7 +259,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
       for (ledgerEffectiveTime <- Iterable(lowerBound, upperBound)) {
         val context =
-          new FakeCommitContext(recordTime = Some(recordTime), inputs = inputWithDeclaredConfig)
+          createCommitContext(recordTime = Some(recordTime), inputs = inputWithDeclaredConfig)
         val transactionEntrySummary = DamlTransactionEntrySummary(
           aDamlTransactionEntry.toBuilder
             .setLedgerEffectiveTime(
@@ -279,7 +279,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
     "mark config key as accessed in context" in {
       val commitContext =
-        new FakeCommitContext(recordTime = None, inputWithTimeModelAndCommandDeduplication)
+        createCommitContext(recordTime = None, inputWithTimeModelAndCommandDeduplication)
 
       val _ = instance.validateLedgerTime(commitContext, aTransactionEntrySummary)
 
@@ -289,7 +289,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
   "buildLogEntry" should {
     "set record time in log entry when it is available" in {
-      val context = new FakeCommitContext(recordTime = Some(theRecordTime))
+      val context = createCommitContext(recordTime = Some(theRecordTime))
 
       val actual = instance.buildLogEntry(aTransactionEntrySummary, context)
 
@@ -300,7 +300,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     }
 
     "skip setting record time in log entry when it is not available" in {
-      val context = new FakeCommitContext(recordTime = None)
+      val context = createCommitContext(recordTime = None)
 
       val actual = instance.buildLogEntry(aTransactionEntrySummary, context)
 
@@ -310,7 +310,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     }
 
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
-      val context = new FakeCommitContext(recordTime = None)
+      val context = createCommitContext(recordTime = None)
 
       val _ = instance.buildLogEntry(aTransactionEntrySummary, context)
 
@@ -324,7 +324,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     }
 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
-      val context = new FakeCommitContext(recordTime = Some(aRecordTime))
+      val context = createCommitContext(recordTime = Some(aRecordTime))
 
       val _ = instance.buildLogEntry(aTransactionEntrySummary, context)
 
@@ -335,7 +335,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
   "blind" should {
     "always set blindingInfo" in {
-      val context = new FakeCommitContext(recordTime = None)
+      val context = createCommitContext(recordTime = None)
 
       val actual = instance.blind(context, aTransactionEntrySummary)
 
@@ -473,12 +473,10 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     new TransactionCommitter(theDefaultConfig, mock[Engine], metrics, inStaticTimeMode = false)
 
   private def contextWithTimeModelAndEmptyCommandDeduplication() =
-    new FakeCommitContext(
-      recordTime = None,
-      inputs = inputWithTimeModelAndEmptyCommandDeduplication)
+    createCommitContext(recordTime = None, inputs = inputWithTimeModelAndEmptyCommandDeduplication)
 
   private def contextWithTimeModelAndCommandDeduplication() =
-    new FakeCommitContext(recordTime = None, inputs = inputWithTimeModelAndCommandDeduplication)
+    createCommitContext(recordTime = None, inputs = inputWithTimeModelAndCommandDeduplication)
 
   private def newDedupValue(deduplicationTime: Timestamp): DamlStateValue =
     DamlStateValue.newBuilder
