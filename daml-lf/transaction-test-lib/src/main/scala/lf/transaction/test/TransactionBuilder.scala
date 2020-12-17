@@ -270,7 +270,7 @@ object TransactionBuilder {
                   ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit | ValueNumeric(_) =>
                 go(currentVersion, values)
               case ValueOptional(x) =>
-                go(currentVersion, x.fold(value, _ +: values))
+                go(currentVersion, x.fold(values)(_ +: values))
               case ValueTextMap(map) =>
                 go(currentVersion, map.values ++: values)
               case ValueEnum(_, _) =>
