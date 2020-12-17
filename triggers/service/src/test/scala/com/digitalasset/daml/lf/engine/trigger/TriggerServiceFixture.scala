@@ -212,6 +212,7 @@ trait AuthMiddlewareFixture
             .withAuthority(oauth.localAddress.getHostString, oauth.localAddress.getPort)
           middlewareConfig = MiddlewareConfig(
             port = Port.Dynamic,
+            callbackUri = None,
             oauthAuth = uri.withPath(Path./("authorize")),
             oauthToken = uri.withPath(Path./("token")),
             clientId = "oauth-middleware-id",
