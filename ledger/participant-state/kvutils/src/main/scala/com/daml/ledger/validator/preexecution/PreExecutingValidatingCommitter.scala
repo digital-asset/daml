@@ -38,7 +38,7 @@ class PreExecutingValidatingCommitter[ReadSet, WriteSet, LogResult](
     ],
     postExecutionConflictDetector: PostExecutionConflictDetector[
       DamlStateKey,
-      Fingerprint,
+      (Option[DamlStateValue], Fingerprint),
       ReadSet,
       WriteSet,
     ],
@@ -72,11 +72,7 @@ class PreExecutingValidatingCommitter[ReadSet, WriteSet, LogResult](
               logger.error("Conflict detected during post-execution. Retrying...")
               true
           } { (_, _) =>
-            val fingerprintStateReader = stateReader.mapValues(_._2)
-            postExecutionConflictDetector.detectConflicts(
-              preExecutionOutput,
-              fingerprintStateReader,
-            )
+            postExecutionConflictDetector.detectConflicts(preExecutionOutput, stateReader)
           }.transform {
             case Failure(_: ConflictDetectedException) =>
               logger.error("Too many conflicts detected during post-execution. Giving up.")

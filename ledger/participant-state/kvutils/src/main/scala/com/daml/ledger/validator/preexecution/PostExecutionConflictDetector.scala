@@ -12,8 +12,14 @@ import scala.concurrent.{ExecutionContext, Future}
   * pre-execution pipeline.
   */
 trait PostExecutionConflictDetector[StateKey, StateValue, -ReadSet, -WriteSet] {
+  self =>
 
   /**
+    * Re-reads the current state of the ledger and ensures that the state has not changed compared
+    * to the pre-execution read set.
+    *
+    * If there is a conflict, throws a [[ConflictDetectedException]].
+    *
     * @param preExecutionOutput The output from the pre-execution stage.
     * @param reader             The operations that can access actual ledger storage as part of a transaction.
     * @param executionContext   The execution context for ledger state operations.
@@ -23,4 +29,24 @@ trait PostExecutionConflictDetector[StateKey, StateValue, -ReadSet, -WriteSet] {
       preExecutionOutput: PreExecutionOutput[ReadSet, WriteSet],
       reader: StateReader[StateKey, StateValue],
   )(implicit executionContext: ExecutionContext): Future[Unit]
+
+  /**
+    * Transforms the reader to widen the state value, allowing it to handle any value that can be
+    * converted to `StateValue`.
+    *
+    * This is an instance of a "contravariant functor", in which the mapping is backwards, because
+    * the values are used as input to the conflict detection.
+    *
+    * @tparam NewStateValue The new state value type.
+    * @return A new conflict detector that transforms after reading, before detecting conflicts.
+    */
+  def contramapValues[NewStateValue](transformValue: NewStateValue => StateValue)
+    : PostExecutionConflictDetector[StateKey, NewStateValue, ReadSet, WriteSet] =
+    new PostExecutionConflictDetector[StateKey, NewStateValue, ReadSet, WriteSet] {
+      override def detectConflicts(
+          preExecutionOutput: PreExecutionOutput[ReadSet, WriteSet],
+          reader: StateReader[StateKey, NewStateValue],
+      )(implicit executionContext: ExecutionContext): Future[Unit] =
+        self.detectConflicts(preExecutionOutput, reader.mapValues(transformValue))
+    }
 }

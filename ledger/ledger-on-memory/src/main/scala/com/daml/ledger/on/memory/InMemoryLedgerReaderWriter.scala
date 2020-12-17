@@ -255,7 +255,8 @@ object InMemoryLedgerReaderWriter {
         transformStateReader =
           transformStateReader(keySerializationStrategy, stateValueCacheForPreExecution),
         validator = validator,
-        postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector,
+        postExecutionConflictDetector =
+          new EqualityBasedPostExecutionConflictDetector().contramapValues(_._2),
         postExecutionFinalizer = new RawPostExecutionFinalizer(now = timeProvider.getCurrentTime _),
       )
     locally {
