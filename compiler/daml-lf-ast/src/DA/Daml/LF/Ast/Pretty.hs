@@ -525,7 +525,7 @@ instance Pretty DefException where
   pPrintPrec lvl _prec (DefException mbLoc tycon msg) =
     withSourceLoc lvl mbLoc
       $ (keyword_ "exception" <-> pPrint tycon <-> "where")
-      $$ nest 2 ("message =" <-> pPrintPrec lvl 0 msg)
+      $$ nest 2 ("message" <-> pPrintPrec lvl 0 msg)
 
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =
