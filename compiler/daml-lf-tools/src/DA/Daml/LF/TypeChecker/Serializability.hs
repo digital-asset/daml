@@ -101,8 +101,8 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         BTArrow -> Left URFunction
         BTNumeric -> Left URNumeric -- 'Numeric' is used as a higher-kinded type constructor.
         BTAny -> Left URAny
-        BTTypeRep -> Left URTypeRep
         BTAnyException -> Left URAnyException
+        BTTypeRep -> Left URTypeRep
         BTGeneralError -> noConditions
         BTArithmeticError -> noConditions
         BTContractError -> noConditions
