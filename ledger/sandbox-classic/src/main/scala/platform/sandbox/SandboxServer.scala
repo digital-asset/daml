@@ -32,7 +32,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver._
-import com.daml.platform.configuration.PartyConfiguration
+import com.daml.platform.configuration.{InvalidConfigException, PartyConfiguration}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
@@ -141,18 +141,27 @@ final class SandboxServer(
 ) extends AutoCloseable {
 
   private[this] val engine = {
-    val engineConfig =
-      (
+    val engineConfig = {
+      val baseConfig =
         if (config.seeding.isEmpty) {
-          EngineConfig.Legacy
-        } else if (config.devMode)
-          EngineConfig.Dev
-        else
-          EngineConfig.Stable
-      ).copy(
+          if (config.devMode) {
+            throw new InvalidConfigException(
+              s""""${Seeding.NoSeedingModeName}" contract IDs seeding mode is not compatible with development mode""")
+          } else {
+            EngineConfig.Legacy
+          }
+        } else {
+          if (config.devMode) {
+            EngineConfig.Dev
+          } else {
+            EngineConfig.Stable
+          }
+        }
+      baseConfig.copy(
         profileDir = config.profileDir,
         stackTraceMode = config.stackTraces,
       )
+    }
     getEngine(engineConfig)
   }
 
@@ -212,13 +221,16 @@ final class SandboxServer(
         engine
           .preloadPackage(pkgId, pkg)
           .consume(
-            { _ =>
+            pcs = { _ =>
               sys.error("Unexpected request of contract")
             },
-            packageStore.getLfPackageSync, { _ =>
+            packages = packageStore.getLfPackageSync,
+            keys = { _ =>
               sys.error("Unexpected request of contract key")
             }
           )
+          .left
+          .foreach(err => sys.error(err.detailMsg))
       }
     }
     config.scenario match {
@@ -379,6 +391,14 @@ final class SandboxServer(
         logger.withoutContext.warn(
           """|Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use DAML Script instead. Using scenarios in DAML Studio will continue to work as expected.
              |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin)
+      }
+      if (config.seeding.isEmpty) {
+        logger.withoutContext.warn(
+          s"""|${Seeding.NoSeedingModeName} contract IDs seeding mode is not compatible with LF 1.11 languages or later. 
+              |A ledger stared with ${Seeding.NoSeedingModeName} contract IDs seeding will refuse to load LF 1.11 language or later. 
+              |Use the option '--contract-id-seeding=strong' to set up the contract IDs seeding mode and allow loading of any stable LF languages. 
+              |""".stripMargin
+        )
       }
       apiServer
     }

@@ -284,7 +284,7 @@ class CommonCli(name: LedgerName) {
       .opt[String]("contract-id-seeding")
       .optional()
       .text(
-        s"""Set the seeding mode of contract IDs. Possible values are $allSeedingModeNames. Default is "$defaultSeedingModeName".""")
+        s"""Set the seeding mode of contract IDs. Possible values are $allSeedingModeNames. "$defaultSeedingModeName" mode is not compatible with development mode. Default is "$defaultSeedingModeName".""")
       .validate(
         v =>
           Either.cond(
