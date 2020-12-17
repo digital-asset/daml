@@ -167,7 +167,7 @@ class ValueCoderSpec
   }
 
   def testRoundTrip(version: TransactionVersion, value: Value[ContractId]): Assertion = {
-    val recovered = ValueCoder decodeValue (
+    val recovered = ValueCoder.decodeValue(
       ValueCoder.CidDecoder,
       version,
       assertRight(ValueCoder.encodeValue[ContractId](ValueCoder.CidEncoder, version, value)),

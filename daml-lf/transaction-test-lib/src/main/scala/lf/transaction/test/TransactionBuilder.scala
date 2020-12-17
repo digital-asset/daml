@@ -267,12 +267,10 @@ object TransactionBuilder {
               case ValueVariant(_, _, arg) => go(currentVersion, arg +: values)
               case ValueList(vs) => go(currentVersion, vs.toImmArray ++: values)
               case ValueContractId(_) | ValueInt64(_) | ValueText(_) | ValueTimestamp(_) |
-                  ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit =>
-                go(currentVersion, values)
-              case ValueNumeric(_) =>
+                  ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit | ValueNumeric(_) =>
                 go(currentVersion, values)
               case ValueOptional(x) =>
-                go(currentVersion, ImmArray(x.toList) ++: values)
+                go(currentVersion, x.fold(value, _ +: values))
               case ValueTextMap(map) =>
                 go(currentVersion, map.values ++: values)
               case ValueEnum(_, _) =>
