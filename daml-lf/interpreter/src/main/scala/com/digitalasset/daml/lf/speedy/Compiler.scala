@@ -547,7 +547,7 @@ private[lf] final class Compiler(
               BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
               BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
-          case BThrow | BMakeGeneralError | BMakeArithmeticError | BMakeContractError |
+          case BMakeGeneralError | BMakeArithmeticError | BMakeContractError |
               BAnyExceptionMessage | BGeneralErrorMessage | BArithmeticErrorMessage |
               BContractErrorMessage =>
             // TODO https://github.com/digital-asset/daml/issues/8020
