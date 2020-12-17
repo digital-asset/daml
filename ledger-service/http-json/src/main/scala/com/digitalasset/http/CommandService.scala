@@ -143,6 +143,7 @@ class CommandService(
       jwtPayload.applicationId,
       commandId,
       jwtPayload.actAs,
+      jwtPayload.readAs,
       command
     )
   }

@@ -5,6 +5,8 @@ package com.daml.http.util
 
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
+import scalaz.NonEmptyList
+import scalaz.syntax.foldable._
 import scalaz.syntax.tag._
 
 object Commands {
@@ -65,14 +67,24 @@ object Commands {
       ledgerId: lar.LedgerId,
       applicationId: lar.ApplicationId,
       commandId: lar.CommandId,
-      party: lar.Party,
+      actAs: NonEmptyList[lar.Party],
+      readAs: List[lar.Party],
       command: lav1.commands.Command.Command
   ): lav1.command_service.SubmitAndWaitRequest = {
     val commands = lav1.commands.Commands(
       ledgerId = ledgerId.unwrap,
       applicationId = applicationId.unwrap,
       commandId = commandId.unwrap,
-      party = party.unwrap,
+      // We set party for backwards compatibility. The
+      // ledger takes the union of party and actAs so
+      // talking to a ledger that supports multi-party submissions does exactly what we want.
+      // When talking to an older ledger, single-party submissions
+      // will succeed just fine. Multi-party submissions will set party
+      // but you will get an authorization error if you try to use authorization
+      // from the parties in the tail.
+      party = actAs.head.unwrap,
+      actAs = lar.Party.unsubst(actAs.toList),
+      readAs = lar.Party.unsubst(readAs),
       commands = Seq(lav1.commands.Command(command))
     )
     lav1.command_service.SubmitAndWaitRequest(Some(commands))
