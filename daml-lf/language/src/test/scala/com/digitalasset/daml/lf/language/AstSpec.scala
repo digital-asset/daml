@@ -52,10 +52,10 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       agreementText = eText,
       choices = Map.empty,
       observers = eParties,
-      key = None
+      key = None,
     )
-    def exception = Exception(
-      message = eText
+    def exception = DefException(
+      message = eText,
     )
     val recordDef = DDataType(true, ImmArray.empty, DataRecord(ImmArray.empty))
     val variantDef = DDataType(true, ImmArray.empty, DataVariant(ImmArray.empty))

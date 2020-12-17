@@ -196,7 +196,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     private def decodeModuleWithName(lfModule: PLF.Module, moduleName: ModuleName) = {
       val defs = mutable.ArrayBuffer[(DottedName, Definition)]()
       val templates = mutable.ArrayBuffer[(DottedName, Template)]()
-      val exceptions = mutable.ArrayBuffer[(DottedName, Exception)]()
+      val exceptions = mutable.ArrayBuffer[(DottedName, DefException)]()
 
       if (versionIsOlderThan(LV.Features.typeSynonyms)) {
         assertEmpty(lfModule.getSynonymsList, "Module.synonyms")
@@ -599,8 +599,8 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     private[lf] def decodeException(
         exceptionName: DottedName,
         lfException: PLF.DefException,
-    ): Exception =
-      Exception(decodeExpr(lfException.getMessage, s"$exceptionName:message"))
+    ): DefException =
+      DefException(decodeExpr(lfException.getMessage, s"$exceptionName:message"))
 
     private[lf] def decodeKind(lfKind: PLF.Kind): Kind =
       lfKind.getSumCase match {

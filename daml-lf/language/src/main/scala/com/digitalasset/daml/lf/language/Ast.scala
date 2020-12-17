@@ -701,21 +701,21 @@ object Ast {
   type TemplateChoiceSignature = GenTemplateChoice[Unit]
   object TemplateChoiceSignature extends GenTemplateChoiceCompanion[Unit]
 
-  sealed case class GenException[E](message: E)
+  final case class GenDefException[E](message: E)
 
-  sealed class GenExceptionCompanion[E] {
-    def apply(message: E): GenException[E] =
-      GenException(message)
+  sealed class GenDefExceptionCompanion[E] {
+    def apply(message: E): GenDefException[E] =
+      GenDefException(message)
 
-    def unapply(arg: GenException[E]): Option[E] =
-      GenException.unapply(arg)
+    def unapply(arg: GenDefException[E]): Option[E] =
+      GenDefException.unapply(arg)
   }
 
-  type Exception = GenException[Expr]
-  object Exception extends GenExceptionCompanion[Expr]
+  type DefException = GenDefException[Expr]
+  object DefException extends GenDefExceptionCompanion[Expr]
 
-  type ExceptionSignature = GenException[Unit]
-  val ExceptionSignature = GenException(())
+  type DefExceptionSignature = GenDefException[Unit]
+  val DefExceptionSignature = GenDefException(())
 
   case class FeatureFlags(
       forbidPartyLiterals: Boolean // If set to true, party literals are not allowed to appear in daml-lf packages.
@@ -746,7 +746,7 @@ object Ast {
       name: ModuleName,
       definitions: Map[DottedName, GenDefinition[E]],
       templates: Map[DottedName, GenTemplate[E]],
-      exceptions: Map[DottedName, GenException[E]],
+      exceptions: Map[DottedName, GenDefException[E]],
       featureFlags: FeatureFlags
   ) extends NoCopy
 
@@ -759,7 +759,7 @@ object Ast {
         name: ModuleName,
         definitions: Iterable[(DottedName, GenDefinition[E])],
         templates: Iterable[(DottedName, GenTemplate[E])],
-        exceptions: Iterable[(DottedName, GenException[E])],
+        exceptions: Iterable[(DottedName, GenDefException[E])],
         featureFlags: FeatureFlags
     ): GenModule[E] = {
 
@@ -782,7 +782,7 @@ object Ast {
         ModuleName,
         Map[DottedName, GenDefinition[E]],
         Map[DottedName, GenTemplate[E]],
-        Map[DottedName, GenException[E]],
+        Map[DottedName, GenDefException[E]],
         FeatureFlags)] =
       GenModule.unapply(arg)
   }
