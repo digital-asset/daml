@@ -65,6 +65,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "Arrow" -> BTArrow,
         "Option" -> BTOptional,
         "TextMap" -> BTTextMap,
+        "AnyException" -> BTAnyException,
+        "GeneralError" -> BTGeneralError,
+        "ArithmeticError" -> BTArithmeticError,
+        "ContractError" -> BTContractError,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltinType) =>
@@ -219,6 +223,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "GREATER" -> BGreater,
         "GREATER_EQ" -> BGreaterEq,
         "COERCE_CONTRACT_ID" -> BCoerceContractId,
+        "MAKE_GENERAL_ERROR" -> BMakeGeneralError,
+        "MAKE_ARITHMETIC_ERROR" -> BMakeArithmeticError,
+        "MAKE_CONTRACT_ERROR" -> BMakeContractError,
+        "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
+        "GENERAL_ERROR_MESSAGE" -> BGeneralErrorMessage,
+        "ARITHMETIC_ERROR_MESSAGE" -> BArithmeticErrorMessage,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>
@@ -297,6 +307,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           ECase(
             e"e",
             ImmArray(CaseAlt(CPPrimCon(PCTrue), e"False"), CaseAlt(CPPrimCon(PCFalse), e"True"))),
+        "to_any_exception @Mod:E exception" ->
+          EToAnyException(E, e"exception"),
+        "from_any_exception @Mod:E anyException" ->
+          EFromAnyException(E, e"anyException"),
+        "throw @Unit @Mod:E exception" ->
+          EThrow(TUnit, E, e"exception")
       )
 
       forEvery(testCases)((stringToParse, expectedExp) =>
@@ -360,6 +376,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           UpdateGetTime,
         "uembed_expr @tau e" ->
           UpdateEmbedExpr(t"tau", e"e"),
+        "try @tau body catch err -> handler err" ->
+          UpdateTryCatch(t"tau", e"body", n"err", e"handler err")
       )
 
       forEvery(testCases)((stringToParse, expectedUpdate) =>
@@ -602,18 +620,25 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
   }
 
   private val keywords = Table(
+    "Cons",
+    "Nil",
+    "Some",
+    "None",
     "forall",
     "let",
     "in",
     "with",
     "case",
     "of",
-    "sbind",
-    "ubind",
-    "create",
-    "fetch",
-    "exercise",
     "to",
+    "to_any",
+    "from_any",
+    "type_rep",
+    "loc",
+    "to_any_exception",
+    "from_any_exception",
+    "throw",
+    "catch",
   )
 
   private val modName = DottedName.assertFromString("Mod")
@@ -623,6 +648,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
 
   private val T: TTyCon = TTyCon(qualify("T"))
   private val R: TTyCon = TTyCon(qualify("R"))
+  private val E: TTyCon = TTyCon(qualify("E"))
   private val RIntBool = TypeConApp(R.tycon, ImmArray(t"Int64", t"Bool"))
   private val α: TVar = TVar(n"a")
   private val β: TVar = TVar(n"b")
