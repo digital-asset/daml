@@ -246,15 +246,18 @@ object InMemoryLedgerReaderWriter {
   )(implicit materializer: Materializer): ValidateAndCommit = {
     val commitStrategy = new LogAppenderPreExecutingCommitStrategy(keySerializationStrategy)
     val validator = new PreExecutingSubmissionValidator(keyValueCommitting, commitStrategy, metrics)
-    val committer =
-      new PreExecutingValidatingCommitter[FingerprintedReadSet, RawKeyValuePairsWithLogEntry](
-        transformStateReader =
-          transformStateReader(keySerializationStrategy, stateValueCacheForPreExecution),
-        validator = validator,
-        postExecutionConflictDetector =
-          new EqualityBasedPostExecutionConflictDetector().contramapValues(_._2),
-        postExecutionFinalizer = new RawPostExecutionFinalizer(now = timeProvider.getCurrentTime _),
-      )
+    val committer = new PreExecutingValidatingCommitter[
+      (Option[DamlStateValue], Fingerprint),
+      FingerprintedReadSet,
+      RawKeyValuePairsWithLogEntry,
+    ](
+      transformStateReader =
+        transformStateReader(keySerializationStrategy, stateValueCacheForPreExecution),
+      validator = validator,
+      postExecutionConflictDetector =
+        new EqualityBasedPostExecutionConflictDetector().contramapValues(_._2),
+      postExecutionFinalizer = new RawPostExecutionFinalizer(now = timeProvider.getCurrentTime _),
+    )
     locally {
       implicit val executionContext: ExecutionContext = materializer.executionContext
 

@@ -3,8 +3,8 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.{Bytes, Fingerprint}
+import com.daml.ledger.participant.state.kvutils.Bytes
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.reading.StateReader
@@ -26,19 +26,19 @@ import scala.util.{Failure, Success}
   * @param postExecutionConflictDetector The post-execution conflict detector.
   * @param postExecutionFinalizer        The post-execution finalizer.
   */
-class PreExecutingValidatingCommitter[ReadSet, WriteSet](
+class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
     transformStateReader: StateReader[Key, Option[Value]] => StateReader[
       DamlStateKey,
-      (Option[DamlStateValue], Fingerprint),
+      StateValue,
     ],
     validator: PreExecutingSubmissionValidator[
-      (Option[DamlStateValue], Fingerprint),
+      StateValue,
       ReadSet,
       WriteSet,
     ],
     postExecutionConflictDetector: PostExecutionConflictDetector[
       DamlStateKey,
-      (Option[DamlStateValue], Fingerprint),
+      StateValue,
       ReadSet,
       WriteSet,
     ],
