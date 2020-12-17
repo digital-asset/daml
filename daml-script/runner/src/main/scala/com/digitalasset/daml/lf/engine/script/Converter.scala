@@ -18,7 +18,6 @@ import com.daml.lf.data.{FrontStack, FrontStackCons, Ref, Struct, Time}
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
-import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
@@ -499,7 +498,7 @@ object Converter {
 
   def toIfaceType(
       ctx: QualifiedName,
-      astTy: Ast.Type,
+      astTy: Type,
   ): Either[String, iface.Type] =
     InterfaceReader.toIfaceType(ctx, astTy) match {
       case -\/(e) => Left(e.toString)

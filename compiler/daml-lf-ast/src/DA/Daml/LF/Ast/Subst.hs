@@ -182,12 +182,15 @@ applySubstInExpr subst@Subst{..} = \case
         (applySubstInExpr subst e)
     ETypeRep t -> ETypeRep
         (applySubstInType subst t)
-    EMakeAnyException t e1 e2 -> EMakeAnyException
+    EToAnyException t e -> EToAnyException
         (applySubstInType subst t)
-        (applySubstInExpr subst e1)
-        (applySubstInExpr subst e2)
+        (applySubstInExpr subst e)
     EFromAnyException t e -> EFromAnyException
         (applySubstInType subst t)
+        (applySubstInExpr subst e)
+    EThrow t1 t2 e -> EThrow
+        (applySubstInType subst t1)
+        (applySubstInType subst t2)
         (applySubstInExpr subst e)
     EUpdate u -> EUpdate
         (applySubstInUpdate subst u)

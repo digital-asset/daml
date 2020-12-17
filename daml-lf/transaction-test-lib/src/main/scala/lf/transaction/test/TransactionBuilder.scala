@@ -5,12 +5,13 @@ package com.daml.lf
 package transaction
 package test
 
-import com.daml.lf.data.{BackStack, ImmArray, Ref}
+import com.daml.lf.data.{BackStack, FrontStack, FrontStackCons, ImmArray, Ref}
 import com.daml.lf.transaction.{Transaction => Tx}
-import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.value.Value.{ContractId, ContractInst, VersionedValue}
 import com.daml.lf.value.{Value => LfValue}
 
 import scala.Ordering.Implicits.infixOrderingOps
+import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 
 final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion = _ =>
@@ -74,14 +75,11 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
 
   def newCid: ContractId = ContractId.V1(newHash())
 
-  private[this] def pkgValVersion(pkgId: Ref.PackageId) =
-    TransactionVersion.assignValueVersion(pkgTxVersion(pkgId))
-
   def versionContract(contract: ContractInst[Value]): ContractInst[TxValue] =
-    ContractInst.map1[Value, TxValue](versionValue(contract.template))(contract)
+    ContractInst.map1[Value, TxValue](transactionValue(contract.template))(contract)
 
-  private[this] def versionValue(templateId: Ref.TypeConName): Value => TxValue =
-    value.Value.VersionedValue(pkgValVersion(templateId.packageId), _)
+  private[this] def transactionValue(templateId: Ref.TypeConName): Value => TxValue =
+    value.Value.VersionedValue(pkgTxVersion(templateId.packageId), _)
 
   def create(
       id: String,
@@ -246,5 +244,74 @@ object TransactionBuilder {
     )
   val EmptySubmitted: SubmittedTransaction = SubmittedTransaction(Empty)
   val EmptyCommitted: CommittedTransaction = CommittedTransaction(Empty)
+
+  def assignVersion[Cid](
+      v0: Value,
+      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.StableVersions
+  ): Either[String, TransactionVersion] = {
+    @tailrec
+    def go(
+        currentVersion: TransactionVersion,
+        values0: FrontStack[Value],
+    ): Either[String, TransactionVersion] = {
+      import LfValue._
+      if (currentVersion >= supportedVersions.max) {
+        Right(currentVersion)
+      } else {
+        values0 match {
+          case FrontStack() => Right(currentVersion)
+          case FrontStackCons(value, values) =>
+            value match {
+              // for things supported since version 1, we do not need to check
+              case ValueRecord(_, fs) => go(currentVersion, fs.map(v => v._2) ++: values)
+              case ValueVariant(_, _, arg) => go(currentVersion, arg +: values)
+              case ValueList(vs) => go(currentVersion, vs.toImmArray ++: values)
+              case ValueContractId(_) | ValueInt64(_) | ValueText(_) | ValueTimestamp(_) |
+                  ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit | ValueNumeric(_) =>
+                go(currentVersion, values)
+              case ValueOptional(x) =>
+                go(currentVersion, x.fold(values)(_ +: values))
+              case ValueTextMap(map) =>
+                go(currentVersion, map.values ++: values)
+              case ValueEnum(_, _) =>
+                go(currentVersion, values)
+              // for things added after version 10, we raise the minimum if present
+              case ValueGenMap(entries) =>
+                val newValues = entries.iterator.foldLeft(values) {
+                  case (acc, (key, value)) => key +: value +: acc
+                }
+                go(currentVersion max TransactionVersion.minGenMap, newValues)
+            }
+        }
+      }
+    }
+
+    go(supportedVersions.min, FrontStack(v0)) match {
+      case Right(inferredVersion) if supportedVersions.max < inferredVersion =>
+        Left(s"inferred version $inferredVersion is not supported")
+      case res =>
+        res
+    }
+
+  }
+  @throws[IllegalArgumentException]
+  def assertAssignVersion(
+      v0: Value,
+      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
+  ): TransactionVersion =
+    data.assertRight(assignVersion(v0, supportedVersions))
+
+  def asVersionedValue(
+      value: Value,
+      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
+  ): Either[String, TxValue] =
+    assignVersion(value, supportedVersions).map(VersionedValue(_, value))
+
+  @throws[IllegalArgumentException]
+  def assertAsVersionedValue(
+      value: Value,
+      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
+  ): TxValue =
+    data.assertRight(asVersionedValue(value, supportedVersions))
 
 }

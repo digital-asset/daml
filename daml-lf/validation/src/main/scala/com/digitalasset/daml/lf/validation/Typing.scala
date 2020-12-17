@@ -30,6 +30,9 @@ private[validation] object Typing {
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
       KArrow(KStar, KStar)
     case BTArrow | BTGenMap => KArrow(KStar, KArrow(KStar, KStar))
+    case BTAnyException | BTArithmeticError | BTContractError | BTGeneralError =>
+      // TODO https://github.com/digital-asset/daml/issues/8020
+      sys.error("exceptions not supported")
   }
 
   private def typeOfPrimLit(lit: PrimLit): Type = lit match {
@@ -854,6 +857,9 @@ private[validation] object Typing {
       case UpdateLookupByKey(retrieveByKey) =>
         checkByKey(retrieveByKey.templateId, retrieveByKey.key)
         TUpdate(TOptional(TContractId(TTyCon(retrieveByKey.templateId))))
+      case UpdateTryCatch(_, _, _, _) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("exception not supported")
     }
 
     private def typeOfCommit(typ: Type, party: Expr, update: Expr): Type = {
@@ -984,6 +990,9 @@ private[validation] object Typing {
       case ETypeRep(typ) =>
         checkAnyType(typ)
         TTypeRep
+      case EThrow(_, _, _) | EFromAnyException(_, _) | EToAnyException(_, _) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("exception not supported")
     }
 
     def checkExpr(expr: Expr, typ0: Type): Type = {

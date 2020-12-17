@@ -485,14 +485,13 @@ enum BuiltinFunction {
   APPEND_TEXT = 24;
 
   ERROR = 25;
-  THROW = 137;                      // *Available in versions >= 1.dev*
-  ANY_EXCEPTION_MESSAGE = 138;      // *Available in versions >= 1.dev*
-  MAKE_GENERAL_ERROR = 139;         // *Available in versions >= 1.dev*
-  GENERAL_ERROR_MESSAGE = 140;      // *Available in versions >= 1.dev*
-  MAKE_ARITHMETIC_ERROR = 141;      // *Available in versions >= 1.dev*
-  ARITHMETIC_ERROR_MESSAGE = 142;   // *Available in versions >= 1.dev*
-  MAKE_CONTRACT_ERROR = 143;        // *Available in versions >= 1.dev*
-  CONTRACT_ERROR_MESSAGE = 144;     // *Available in versions >= 1.dev*
+  ANY_EXCEPTION_MESSAGE = 137;      // *Available in versions >= 1.dev*
+  MAKE_GENERAL_ERROR = 138;         // *Available in versions >= 1.dev*
+  GENERAL_ERROR_MESSAGE = 139;      // *Available in versions >= 1.dev*
+  MAKE_ARITHMETIC_ERROR = 140;      // *Available in versions >= 1.dev*
+  ARITHMETIC_ERROR_MESSAGE = 141;   // *Available in versions >= 1.dev*
+  MAKE_CONTRACT_ERROR = 142;        // *Available in versions >= 1.dev*
+  CONTRACT_ERROR_MESSAGE = 143;     // *Available in versions >= 1.dev*
 
   LEQ_INT64 = 33;         // *Available in versions < 1.dev*
   LEQ_DECIMAL = 34;       // *Available in versions < 1.7*
@@ -580,7 +579,7 @@ enum BuiltinFunction {
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
 
-  // Next id is 145. 144 is CONTRACT_ERROR_MESSAGE.
+  // Next id is 144. 143 is CONTRACT_ERROR_MESSAGE.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
@@ -880,17 +879,15 @@ message Expr {
 
   // Wrap an exception value in AnyException
   // *Available in versions >= 1.dev*
-  message MakeAnyException {
+  message ToAnyException {
     // type of argument. Must be an exception type.
     Type type = 1;
     // argument
     Expr expr = 2;
-    // error message
-    Expr message = 3;
   }
 
   // Extract the given exception type from AnyException or return None on type-mismatch
-  // *Available in versions >= 1.7*
+  // *Available in versions >= 1.dev*
   message FromAnyException {
     // type that should be extracted. Must be an exception type.
     Type type = 1;
@@ -898,6 +895,16 @@ message Expr {
     Expr expr = 2;
   }
 
+  // Throw an exception.
+  // *Available in versions >= 1.dev*
+  message Throw {
+    // Overall type of the "throw" expression.
+    Type return_type = 1;
+    // Type of exception to throw. Must be an exception type.
+    Type exception_type = 2;
+    // Value of type "exception_type".
+    Expr exception_expr = 3;
+  }
 
   // Location of the expression in the DAML code source.
   // Optional
@@ -997,13 +1004,17 @@ message Expr {
     // *Available in versions >= 1.7*
     Type type_rep = 32;
 
-    // Wrap an arbitrary exception into an AnyException ('ExpMakeAnyException').
+    // Wrap an arbitrary exception into an AnyException ('ExpToAnyException').
     // *Available in versions >= 1.dev*
-    MakeAnyException make_any_exception = 33;
+    ToAnyException to_any_exception = 33;
 
     // Extract an arbitrary exception from an AnyException ('ExpFromAnyException').
     // *Available in versions >= 1.dev*
     FromAnyException from_any_exception = 34;
+
+    // Throw an exception ('ExpThrow').
+    // *Available in versions >= 1.dev*
+    Throw throw = 35;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*
@@ -1418,6 +1429,7 @@ message DefException {
   // *Must be a valid interned dotted name*
   int32 name_interned_dname = 1;
   Location location = 2;
+  Expr message = 3;
 }
 
 // Data type definition

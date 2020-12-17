@@ -145,3 +145,4 @@ steps:
     END
     echo "##vso[task.setvariable variable=${{parameters.var_name}}]$TMP"
   displayName: install Bash lib
+  condition: always()

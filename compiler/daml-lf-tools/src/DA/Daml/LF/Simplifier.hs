@@ -83,7 +83,6 @@ safetyStep = \case
       BEUnit              -> Safe 0
       BEBool _            -> Safe 0
       BEError             -> Safe 0
-      BEThrow -> Safe 0
       BEAnyExceptionMessage -> Safe 1
       BEGeneralErrorMessage -> Safe 1
       BEArithmeticErrorMessage -> Safe 1
@@ -216,12 +215,13 @@ safetyStep = \case
     | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
   ETypeRepF _ -> Safe 0
-  EMakeAnyExceptionF _ s1 s2
-    | Safe _ <- min s1 s2 -> Safe 0
+  EToAnyExceptionF _ s
+    | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
   EFromAnyExceptionF _ s
     | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
+  EThrowF _ _ _ -> Unsafe
 
 isTypeClassDictionary :: DefValue -> Bool
 isTypeClassDictionary DefValue{..}

@@ -22,6 +22,7 @@ import com.daml.lf.transaction.{
   VersionedTransaction,
   Transaction => Tx
 }
+import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{NodeId => _, _}
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
@@ -249,8 +250,8 @@ object ValueGenerators {
   def versionedValueGen: Gen[VersionedValue[ContractId]] =
     for {
       value <- valueGen
-      minVersion = ValueVersion.assertAssignVersion(value)
-      version <- valueVersionGen(minVersion)
+      minVersion = TransactionBuilder.assertAssignVersion(value)
+      version <- transactionVersionGen(minVersion)
     } yield VersionedValue(version, value)
 
   private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
@@ -289,7 +290,7 @@ object ValueGenerators {
     */
   val malformedCreateNodeGen: Gen[NodeCreate[Value.ContractId]] = {
     for {
-      version <- transactionVersionGen
+      version <- transactionVersionGen()
       coid <- coidGen
       coinst <- contractInstanceGen
       signatories <- genNonEmptyParties
@@ -300,7 +301,7 @@ object ValueGenerators {
 
   val fetchNodeGen: Gen[NodeFetch[ContractId]] = {
     for {
-      version <- transactionVersionGen
+      version <- transactionVersionGen()
       coid <- coidGen
       templateId <- idGen
       actingParties <- genNonEmptyParties
@@ -324,7 +325,7 @@ object ValueGenerators {
   /** Makes exercise nodes with some random child IDs. */
   val danglingRefExerciseNodeGen: Gen[NodeExercises[NodeId, Value.ContractId]] = {
     for {
-      version <- transactionVersionGen
+      version <- transactionVersionGen()
       targetCoid <- coidGen
       templateId <- idGen
       choiceId <- nameGen
@@ -465,8 +466,8 @@ object ValueGenerators {
   def noDanglingRefGenVersionedTransaction: Gen[VersionedTransaction[NodeId, ContractId]] = {
     for {
       tx <- noDanglingRefGenTransaction
-      txVer <- transactionVersionGen
-      nodeVersionGen = transactionVersionGen.filterNot(_ < txVer)
+      txVer <- transactionVersionGen()
+      nodeVersionGen = transactionVersionGen().filterNot(_ < txVer)
       nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, GenNode[NodeId, ContractId]])) {
         case (acc, (nodeId, node)) =>
           for {
@@ -500,14 +501,10 @@ object ValueGenerators {
     Gen.frequency((1, Gen.const("")), (10, g))
   }
 
-  def valueVersionGen(minVersion: ValueVersion = ValueVersion.minVersion): Gen[ValueVersion] =
-    Gen.oneOf(ValueVersion.acceptedVersions.filterNot(_ < minVersion).toSeq)
-
-  def unsupportedValueVersionGen: Gen[ValueVersion] =
-    stringVersionGen.map(ValueVersion(_)).filterNot(ValueVersion.acceptedVersions.contains)
-
-  def transactionVersionGen: Gen[TransactionVersion] =
-    Gen.oneOf(TransactionVersion.Values)
+  def transactionVersionGen(
+      minVersion: TransactionVersion = TransactionVersion.minVersion,
+  ): Gen[TransactionVersion] =
+    Gen.oneOf(TransactionVersion.All.filterNot(_ < minVersion))
 
   object Implicits {
     implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)

@@ -478,6 +478,15 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .map(extractContracts)
       .map(_.head)
 
+  def create[T](
+      actAs: List[Party],
+      readAs: List[Party],
+      template: Template[T],
+  ): Future[Primitive.ContractId[T]] =
+    submitAndWaitForTransaction(submitAndWaitRequest(actAs, readAs, template.create.command))
+      .map(extractContracts)
+      .map(_.head)
+
   def createAndGetTransactionId[T](
       party: Party,
       template: Template[T],
@@ -493,6 +502,13 @@ private[testtool] final class ParticipantTestContext private[participant] (
       exercise: Party => Primitive.Update[T],
   ): Future[TransactionTree] =
     submitAndWaitForTransactionTree(submitAndWaitRequest(party, exercise(party).command))
+
+  def exercise[T](
+      actAs: List[Party],
+      readAs: List[Party],
+      exercise: => Primitive.Update[T],
+  ): Future[TransactionTree] =
+    submitAndWaitForTransactionTree(submitAndWaitRequest(actAs, readAs, exercise.command))
 
   def exerciseForFlatTransaction[T](
       party: Party,
@@ -538,6 +554,20 @@ private[testtool] final class ParticipantTestContext private[participant] (
       ),
     )
 
+  def submitRequest(actAs: List[Party], readAs: List[Party], commands: Command*): SubmitRequest =
+    new SubmitRequest(
+      Some(
+        new Commands(
+          ledgerId = ledgerId,
+          applicationId = applicationId,
+          commandId = nextCommandId(),
+          actAs = Party.unsubst(actAs),
+          readAs = Party.unsubst(readAs),
+          commands = commands,
+        ),
+      ),
+    )
+
   def submitRequest(party: Party, commands: Command*): SubmitRequest =
     new SubmitRequest(
       Some(
@@ -546,6 +576,23 @@ private[testtool] final class ParticipantTestContext private[participant] (
           applicationId = applicationId,
           commandId = nextCommandId(),
           party = party.unwrap,
+          commands = commands,
+        ),
+      ),
+    )
+
+  def submitAndWaitRequest(
+      actAs: List[Party],
+      readAs: List[Party],
+      commands: Command*): SubmitAndWaitRequest =
+    new SubmitAndWaitRequest(
+      Some(
+        new Commands(
+          ledgerId = ledgerId,
+          applicationId = applicationId,
+          commandId = nextCommandId(),
+          actAs = Party.unsubst(actAs),
+          readAs = Party.unsubst(readAs),
           commands = commands,
         ),
       ),

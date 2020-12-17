@@ -20,6 +20,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.JavaConverters._
+import scala.util.{Failure, Success, Try}
 
 class DecodeV1Spec
     extends AnyWordSpec
@@ -28,17 +29,17 @@ class DecodeV1Spec
     with OptionValues
     with ScalaCheckPropertyChecks {
 
+  // TODO https://github.com/digital-asset/daml/issues/8020
+  //  Add test for
+  //   - MakeAnyException
+  //   - FromAnyException
+  //   - UpdateTryCatch
+
   "The entries of primTypeInfos correspond to Protobuf DamlLf1.PrimType" in {
 
     (Set(
       DamlLf1.PrimType.UNRECOGNIZED,
       DamlLf1.PrimType.DECIMAL,
-      // FIXME: https://github.com/digital-asset/daml/issues/8020
-      // exception type should be in DecodeV1.builtinTypeInfos
-      DamlLf1.PrimType.ANY_EXCEPTION,
-      DamlLf1.PrimType.GENERAL_ERROR,
-      DamlLf1.PrimType.ARITHMETIC_ERROR,
-      DamlLf1.PrimType.CONTRACT_ERROR,
     ) ++
       DecodeV1.builtinTypeInfos.map(_.proto)) shouldBe
       DamlLf1.PrimType.values().toSet
@@ -101,7 +102,7 @@ class DecodeV1Spec
     }
   }
 
-  "decodeType" should {
+  "uncheckedDecodeType" should {
 
     import DamlLf1.PrimType._
 
@@ -118,7 +119,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(testCases) { natType =>
-          an[ParseError] shouldBe thrownBy(decoder.decodeType(natType))
+          an[ParseError] shouldBe thrownBy(decoder.uncheckedDecodeType(natType))
         }
       }
     }
@@ -171,7 +172,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(decimalTestCases) { (input, expectedOutput) =>
-          decoder.decodeType(input) shouldBe expectedOutput
+          decoder.uncheckedDecodeType(input) shouldBe expectedOutput
         }
       }
     }
@@ -180,7 +181,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(numericTestCases) { (input, _) =>
-          a[ParseError] shouldBe thrownBy(decoder.decodeType(input))
+          a[ParseError] shouldBe thrownBy(decoder.uncheckedDecodeType(input))
         }
       }
     }
@@ -198,7 +199,7 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
         forEvery(decimalTestCases) { (input, _) =>
-          a[ParseError] shouldBe thrownBy(decoder.decodeType(input))
+          a[ParseError] shouldBe thrownBy(decoder.uncheckedDecodeType(input))
         }
       }
     }
@@ -206,11 +207,11 @@ class DecodeV1Spec
     "reject Any if version < 1.7" in {
       forEveryVersionSuchThat(_ < LV.Features.anyType) { version =>
         val decoder = moduleDecoder(version)
-        a[ParseError] shouldBe thrownBy(decoder.decodeType(buildPrimType(ANY)))
+        a[ParseError] shouldBe thrownBy(decoder.uncheckedDecodeType(buildPrimType(ANY)))
       }
     }
 
-    "accept Any if 1.7 <= version >= 1.dev and " in {
+    "accept Any if version >= 1.7" in {
       forEveryVersionSuchThat(_ >= LV.Features.anyType) { version =>
         val decoder = moduleDecoder(version)
         decoder.uncheckedDecodeType(buildPrimType(ANY)) shouldBe TAny
@@ -258,11 +259,11 @@ class DecodeV1Spec
       forEveryVersionSuchThat(_ < LV.Features.internedStrings) { version =>
         val decoder = moduleDecoder(version)
         forEvery(negativeTestCases) { fieldNames =>
-          decoder.decodeType(buildTStructWithoutInterning(fieldNames))
+          decoder.uncheckedDecodeType(buildTStructWithoutInterning(fieldNames))
         }
         forEvery(positiveTestCases) { fieldNames =>
           a[ParseError] shouldBe thrownBy(
-            decoder.decodeType(buildTStructWithoutInterning(fieldNames)))
+            decoder.uncheckedDecodeType(buildTStructWithoutInterning(fieldNames)))
         }
       }
 
@@ -277,6 +278,34 @@ class DecodeV1Spec
         }
       }
     }
+
+    s"translate exception types iff version >= ${LV.Features.exceptions}" in {
+      val exceptionBuiltinTypes = Table(
+        "builtin types",
+        DamlLf1.PrimType.ANY_EXCEPTION -> Ast.BTAnyException,
+        DamlLf1.PrimType.ARITHMETIC_ERROR -> Ast.BTArithmeticError,
+        DamlLf1.PrimType.CONTRACT_ERROR -> Ast.BTContractError,
+        DamlLf1.PrimType.GENERAL_ERROR -> Ast.BTGeneralError,
+      )
+
+      forEveryVersion { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(exceptionBuiltinTypes) {
+          case (proto, bType) =>
+            val result = Try(decoder.uncheckedDecodeType(buildPrimType(proto)))
+
+            if (version >= LV.Features.exceptions)
+              result shouldBe Success(Ast.TBuiltin(bType))
+            else
+              inside(result) {
+                case Failure(error) => error shouldBe a[ParseError]
+              }
+        }
+      }
+    }
+  }
+
+  "decodeType" should {
 
     "reject non interned type for LF >= 1.dev" in {
 
@@ -646,7 +675,7 @@ class DecodeV1Spec
       }
     }
 
-    "reject numeric decimal if version >= 1.dev" in {
+    s"reject numeric decimal if version >= ${LV.Features.numeric}" in {
 
       forEveryVersionSuchThat(_ >= LV.Features.numeric) { version =>
         val decoder = moduleDecoder(version)
@@ -654,7 +683,7 @@ class DecodeV1Spec
       }
     }
 
-    "translate comparison builtins as is if version < 1.9" in {
+    s"translate comparison builtins as is if version < ${LV.Features.genComparison}" in {
 
       forEveryVersionSuchThat(_ < LV.Features.genComparison) { version =>
         val decoder = moduleDecoder(version)
@@ -665,7 +694,7 @@ class DecodeV1Spec
       }
     }
 
-    "reject comparison builtins as is if version >= 1.9" in {
+    s"reject comparison builtins as is if version >= ${LV.Features.genComparison}" in {
 
       forEveryVersionSuchThat(_ < LV.Features.genComparison) { version =>
         val decoder = moduleDecoder(version)
@@ -675,7 +704,7 @@ class DecodeV1Spec
       }
     }
 
-    "translate generic comparison builtins as is if version >= 1.9" in {
+    s"translate generic comparison builtins as is if version >= ${LV.Features.genComparison}" in {
       forEveryVersionSuchThat(_ >= LV.Features.genComparison) { version =>
         val decoder = moduleDecoder(version)
         forEvery(genericComparisonBuiltinCases) { (proto, scala) =>
@@ -684,7 +713,7 @@ class DecodeV1Spec
       }
     }
 
-    "translate generic comparison builtins as is if version < 1.9" in {
+    s"translate generic comparison builtins as is if version < ${LV.Features.genComparison}" in {
       forEveryVersionSuchThat(_ < LV.Features.genComparison) { version =>
         val decoder = moduleDecoder(version)
         forEvery(genericComparisonBuiltinCases) { (proto, _) =>
@@ -693,7 +722,7 @@ class DecodeV1Spec
       }
     }
 
-    "translate contract id text conversions as is if version >= 1.9" in {
+    s"translate contract id text conversions as is if version >= ${LV.Features.contractIdTextConversions}" in {
       forEveryVersionSuchThat(_ >= LV.Features.contractIdTextConversions) { version =>
         val decoder = moduleDecoder(version)
         forEvery(contractIdTextConversionCases) { (proto, scala) =>
@@ -702,7 +731,7 @@ class DecodeV1Spec
       }
     }
 
-    "reject contract id text conversions if version < 1.9" in {
+    s"reject contract id text conversions if version < ${LV.Features.contractIdTextConversions}" in {
       forEveryVersionSuchThat(_ < LV.Features.contractIdTextConversions) { version =>
         val decoder = moduleDecoder(version)
         forEvery(contractIdTextConversionCases) { (proto, _) =>
@@ -710,6 +739,41 @@ class DecodeV1Spec
         }
       }
     }
+
+    s"translate exception builtins as is iff version >= ${LV.Features.exceptions}" in {
+      val exceptionBuiltinCases = Table(
+        "exception builtins" -> "expected output",
+        DamlLf1.BuiltinFunction.MAKE_GENERAL_ERROR ->
+          Ast.EBuiltin(Ast.BMakeGeneralError),
+        DamlLf1.BuiltinFunction.MAKE_ARITHMETIC_ERROR ->
+          Ast.EBuiltin(Ast.BMakeArithmeticError),
+        DamlLf1.BuiltinFunction.MAKE_CONTRACT_ERROR ->
+          Ast.EBuiltin(Ast.BMakeContractError),
+        DamlLf1.BuiltinFunction.ANY_EXCEPTION_MESSAGE ->
+          Ast.EBuiltin(Ast.BAnyExceptionMessage),
+        DamlLf1.BuiltinFunction.GENERAL_ERROR_MESSAGE ->
+          Ast.EBuiltin(Ast.BGeneralErrorMessage),
+        DamlLf1.BuiltinFunction.ARITHMETIC_ERROR_MESSAGE ->
+          Ast.EBuiltin(Ast.BArithmeticErrorMessage),
+        DamlLf1.BuiltinFunction.CONTRACT_ERROR_MESSAGE ->
+          Ast.EBuiltin(Ast.BContractErrorMessage),
+      )
+
+      forEveryVersion { version =>
+        val decoder = moduleDecoder(version)
+        forEvery(exceptionBuiltinCases) { (proto, scala) =>
+          val result = Try(decoder.decodeExpr(toProtoExpr(proto), "test"))
+
+          if (version >= LV.Features.exceptions)
+            result shouldBe Success(scala)
+          else
+            inside(result) {
+              case Failure(error) => error shouldBe a[ParseError]
+            }
+        }
+      }
+    }
+
   }
 
   "decodeModuleRef" should {

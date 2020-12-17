@@ -236,7 +236,6 @@ data BuiltinExpr
 
   -- Exceptions
   | BEError                      -- :: ∀a. Text -> a
-  | BEThrow                      -- :: ∀a. AnyException -> a
   | BEAnyExceptionMessage        -- :: AnyException -> Text
   | BEGeneralErrorMessage        -- :: GeneralError -> Text
   | BEArithmeticErrorMessage     -- :: ArithmeticError -> Text
@@ -516,15 +515,20 @@ data Expr
     }
   | ETypeRep !Type
   -- | Construct an 'AnyException' value from a value of an exception type.
-  | EMakeAnyException
-    { makeAnyExceptionType :: !Type
-    , makeAnyExceptionMessage :: !Expr
-    , makeAnyExceptionValue :: !Expr
+  | EToAnyException
+    { toAnyExceptionType :: !Type
+    , toAnyExceptionValue :: !Expr
     }
   -- | Convert 'AnyException' back to its underlying value, if possible.
   | EFromAnyException
     { fromAnyExceptionType :: !Type
     , fromAnyExceptionValue :: !Expr
+    }
+  -- | Throw an exception.
+  | EThrow
+    { throwReturnType :: !Type
+    , throwExceptionType :: !Type
+    , throwExceptionValue :: !Expr
     }
   -- | Update expression.
   | EUpdate !Update
@@ -831,6 +835,7 @@ data Template = Template
 data DefException = DefException
   { exnLocation :: !(Maybe SourceLoc)
   , exnName :: !TypeConName
+  , exnMessage :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Show)
 

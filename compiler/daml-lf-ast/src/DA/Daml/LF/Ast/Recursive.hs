@@ -46,8 +46,9 @@ data ExprF expr
   | EToAnyF !Type !expr
   | EFromAnyF !Type !expr
   | ETypeRepF !Type
-  | EMakeAnyExceptionF !Type !expr !expr
+  | EToAnyExceptionF !Type !expr
   | EFromAnyExceptionF !Type !expr
+  | EThrowF !Type !Type !expr
   deriving (Foldable, Functor, Traversable)
 
 data BindingF expr = BindingF !(ExprVarName, Type) !expr
@@ -186,8 +187,9 @@ instance Recursive Expr where
     EToAny a b  -> EToAnyF a b
     EFromAny a b -> EFromAnyF a b
     ETypeRep a -> ETypeRepF a
-    EMakeAnyException a b c -> EMakeAnyExceptionF a b c
+    EToAnyException a b -> EToAnyExceptionF a b
     EFromAnyException a b -> EFromAnyExceptionF a b
+    EThrow a b c -> EThrowF a b c
 
 instance Corecursive Expr where
   embed = \case
@@ -218,5 +220,6 @@ instance Corecursive Expr where
     EToAnyF a b  -> EToAny a b
     EFromAnyF a b -> EFromAny a b
     ETypeRepF a -> ETypeRep a
-    EMakeAnyExceptionF a b c -> EMakeAnyException a b c
+    EToAnyExceptionF a b -> EToAnyException a b
     EFromAnyExceptionF a b -> EFromAnyException a b
+    EThrowF a b c -> EThrow a b c

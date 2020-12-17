@@ -7,6 +7,7 @@ package value
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.data._
+import com.daml.lf.transaction.TransactionVersion
 import data.ScalazEqual._
 
 import scala.annotation.tailrec
@@ -202,7 +203,7 @@ object Value extends CidContainer1[Value] {
     */
   val MAXIMUM_NESTING: Int = 100
 
-  final case class VersionedValue[+Cid](version: ValueVersion, value: Value[Cid])
+  final case class VersionedValue[+Cid](version: TransactionVersion, value: Value[Cid])
       extends CidContainer[VersionedValue[Cid]] {
 
     override protected def self: this.type = this

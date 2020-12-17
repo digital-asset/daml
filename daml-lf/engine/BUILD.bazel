@@ -52,6 +52,7 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_storm_enroute_scalameter_core_2_12",
         "@maven//:org_scalatest_scalatest_2_12",

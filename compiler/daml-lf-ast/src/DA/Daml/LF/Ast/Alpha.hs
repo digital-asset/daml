@@ -196,13 +196,20 @@ alphaExpr' env = \case
     ETypeRep t1 -> \case
         ETypeRep t2 -> alphaType' env t1 t2
         _ -> False
-    EMakeAnyException t1 e1a e1b -> \case
-        EMakeAnyException t2 e2a e2b -> alphaType' env t1 t2
-            && alphaExpr' env e1a e2a
-            && alphaExpr' env e1b e2b
+    EToAnyException t1 e1 -> \case
+        EToAnyException t2 e2
+            -> alphaType' env t1 t2
+            && alphaExpr' env e1 e2
         _ -> False
     EFromAnyException t1 e1 -> \case
-        EFromAnyException t2 e2 -> alphaType' env t1 t2
+        EFromAnyException t2 e2
+            -> alphaType' env t1 t2
+            && alphaExpr' env e1 e2
+        _ -> False
+    EThrow t1a t1b e1 -> \case
+        EThrow t2a t2b e2
+            -> alphaType' env t1a t2a
+            && alphaType' env t1b t2b
             && alphaExpr' env e1 e2
         _ -> False
     EUpdate u1 -> \case

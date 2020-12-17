@@ -413,6 +413,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             DottedName.assertFromSegments(ImmArray("Color").toSeq) -> enumDef
           ),
           templates = List.empty,
+          exceptions = List.empty,
           featureFlags = FeatureFlags.default
         )))
 
@@ -433,13 +434,13 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         DValue(t"Int64 -> Int64", true, e"""\(x: Int64) -> ERROR @INT64 "not implemented"""", false)
 
       parseModules(p) shouldBe Right(
-        List(
-          Module(
-            name = modName,
-            definitions = List(DottedName.assertFromString("fact") -> valDef),
-            templates = List.empty,
-            featureFlags = FeatureFlags.default
-          )))
+        List(Module(
+          name = modName,
+          definitions = List(DottedName.assertFromString("fact") -> valDef),
+          templates = List.empty,
+          exceptions = List.empty,
+          featureFlags = FeatureFlags.default
+        )))
 
     }
 
@@ -528,6 +529,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             name = modName,
             definitions = List(name -> recDef),
             templates = List(name -> template),
+            exceptions = List.empty,
             featureFlags = FeatureFlags.default
           )))
 
@@ -574,6 +576,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             name = modName,
             definitions = List(name -> recDef),
             templates = List(name -> template),
+            exceptions = List.empty,
             featureFlags = FeatureFlags.default,
           )))
 

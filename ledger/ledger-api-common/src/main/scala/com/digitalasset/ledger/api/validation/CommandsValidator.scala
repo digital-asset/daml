@@ -205,20 +205,11 @@ object CommandsValidator {
     def actAsMustNotBeEmpty(effectiveActAs: Set[Ref.Party]) =
       Either.cond(effectiveActAs.nonEmpty, (), missingField("party or act_as"))
 
-    // Temporary check to reject all multi-party submissions until they are implemented
-    // Note: when removing this method, also remove the call to `actAs.head` in validateCommands()
-    def requireSingleSubmitter(actAs: Set[Ref.Party], readAs: Set[Ref.Party]) =
-      if (actAs.size > 1 || readAs.nonEmpty)
-        Left(unimplemented("Multi-party submissions are not supported"))
-      else
-        Right(())
-
     val submitters = effectiveSubmitters(commands)
     for {
       actAs <- requireParties(submitters.actAs)
       readAs <- requireParties(submitters.readAs)
       _ <- actAsMustNotBeEmpty(actAs)
-      _ <- requireSingleSubmitter(actAs, readAs)
     } yield Submitters(actAs, readAs)
   }
 }

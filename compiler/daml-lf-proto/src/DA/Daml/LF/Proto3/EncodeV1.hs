@@ -517,7 +517,6 @@ encodeBuiltinExpr = \case
     BESha256Text -> builtin P.BuiltinFunctionSHA256_TEXT
 
     BEError -> builtin P.BuiltinFunctionERROR
-    BEThrow -> builtin P.BuiltinFunctionTHROW
     BEAnyExceptionMessage -> builtin P.BuiltinFunctionANY_EXCEPTION_MESSAGE
     BEGeneralErrorMessage -> builtin P.BuiltinFunctionGENERAL_ERROR_MESSAGE
     BEArithmeticErrorMessage -> builtin P.BuiltinFunctionARITHMETIC_ERROR_MESSAGE
@@ -673,15 +672,19 @@ encodeExpr' = \case
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
     ETypeRep ty -> do
         expr . P.ExprSumTypeRep <$> encodeType' ty
-    EMakeAnyException ty msg val -> do
-        expr_MakeAnyExceptionType <- encodeType ty
-        expr_MakeAnyExceptionMessage <- encodeExpr msg
-        expr_MakeAnyExceptionExpr <- encodeExpr val
-        pureExpr $ P.ExprSumMakeAnyException P.Expr_MakeAnyException{..}
+    EToAnyException ty val -> do
+        expr_ToAnyExceptionType <- encodeType ty
+        expr_ToAnyExceptionExpr <- encodeExpr val
+        pureExpr $ P.ExprSumToAnyException P.Expr_ToAnyException{..}
     EFromAnyException ty val -> do
         expr_FromAnyExceptionType <- encodeType ty
         expr_FromAnyExceptionExpr <- encodeExpr val
         pureExpr $ P.ExprSumFromAnyException P.Expr_FromAnyException{..}
+    EThrow ty1 ty2 val -> do
+        expr_ThrowReturnType <- encodeType ty1
+        expr_ThrowExceptionType <- encodeType ty2
+        expr_ThrowExceptionExpr <- encodeExpr val
+        pureExpr $ P.ExprSumThrow P.Expr_Throw{..}
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr
@@ -856,6 +859,7 @@ encodeDefException :: DefException -> Encode P.DefException
 encodeDefException DefException{..} = do
     defExceptionNameInternedDname <- encodeDottedNameId unTypeConName exnName
     defExceptionLocation <- traverse encodeSourceLoc exnLocation
+    defExceptionMessage <- encodeExpr exnMessage
     pure P.DefException{..}
 
 encodeTemplate :: Template -> Encode P.DefTemplate

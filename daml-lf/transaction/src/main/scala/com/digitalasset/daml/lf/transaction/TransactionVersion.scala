@@ -6,7 +6,7 @@ package transaction
 
 import com.daml.lf.data.ImmArray
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.value.{Value, ValueVersion}
+import com.daml.lf.value.Value
 
 import scala.collection.immutable.HashMap
 
@@ -22,21 +22,28 @@ object TransactionVersion {
   case object V10 extends TransactionVersion("10", 10)
   case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
-  val Values = List(V10, VDev)
+  val All = List(V10, VDev)
 
   private[lf] implicit val Ordering: scala.Ordering[TransactionVersion] = scala.Ordering.by(_.index)
 
-  private[this] val stringMapping = Values.iterator.map(v => v.protoValue -> v).toMap
+  private[this] val stringMapping = All.iterator.map(v => v.protoValue -> v).toMap
 
   def fromString(vs: String): Either[String, TransactionVersion] =
-    stringMapping.get(vs).toRight(s"Unsupported transaction version $vs")
+    stringMapping.get(vs) match {
+      case Some(value) => Right(value)
+      case None =>
+        Left(s"Unsupported transaction version '$vs'")
+    }
 
   def assertFromString(vs: String): TransactionVersion =
     data.assertRight(fromString(vs))
 
-  val minVersion = Values.min
-  private[transaction] val minChoiceObservers = VDev
-  private[transaction] val minNodeVersion = VDev
+  val minVersion: TransactionVersion = All.min
+  def maxVersion: TransactionVersion = VDev
+
+  private[lf] val minGenMap = VDev
+  private[lf] val minChoiceObservers = VDev
+  private[lf] val minNodeVersion = VDev
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._
@@ -45,13 +52,6 @@ object TransactionVersion {
       v1_7 -> V10,
       v1_8 -> V10,
       v1_dev -> VDev,
-    )
-  }
-
-  private[lf] val assignValueVersion: TransactionVersion => ValueVersion = {
-    Map(
-      V10 -> ValueVersion("6"),
-      VDev -> ValueVersion("dev"),
     )
   }
 
