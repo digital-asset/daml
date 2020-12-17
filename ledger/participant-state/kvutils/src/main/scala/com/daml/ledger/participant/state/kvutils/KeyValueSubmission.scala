@@ -50,7 +50,7 @@ class KeyValueSubmission(metrics: Metrics) {
       DamlSubmission.newBuilder
         .addInputDamlState(commandDedupKey(encodedSubInfo))
         .addInputDamlState(configurationStateKey)
-        .addInputDamlState(partyStateKey(submitterInfo.singleSubmitterOrThrow()))
+        .addAllInputDamlState(submitterInfo.actAs.map(partyStateKey).asJava)
         .addAllInputDamlState(inputDamlStateFromTx.asJava)
         .setTransactionEntry(
           DamlTransactionEntry.newBuilder

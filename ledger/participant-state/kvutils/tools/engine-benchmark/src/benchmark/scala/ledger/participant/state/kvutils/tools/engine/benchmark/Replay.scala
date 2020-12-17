@@ -41,15 +41,7 @@ final case class TxEntry(
     ledgerTime: Time.Timestamp,
     submissionTime: Time.Timestamp,
     submissionSeed: crypto.Hash,
-) {
-  // Note: this method will be removed when the entire kvutils code base
-  // supports multi-party submissions
-  def singleSubmitterOrThrow(): Ref.Party =
-    if (submitters.length == 1)
-      submitters.head
-    else
-      sys.error("Multi-party submissions are not supported")
-}
+)
 
 final case class BenchmarkState(
     name: String,

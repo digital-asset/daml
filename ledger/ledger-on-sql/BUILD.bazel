@@ -269,6 +269,20 @@ da_scala_test_suite(
             ],
         ),
         conformance_test(
+            name = "conformance-test-multi-party-submission-{}".format(db["name"]),
+            ports = [6865],
+            server = ":conformance-test-{}-bin".format(db["name"]),
+            server_args = [
+                "--contract-id-seeding=testing-weak",
+                "--participant participant-id=conformance-test,port=6865",
+            ] + db.get("conformance_test_server_args", []),
+            tags = db.get("conformance_test_tags", []),
+            test_tool_args = db.get("conformance_test_tool_args", []) + [
+                "--verbose",
+                "--include=MultiPartySubmissionIT",
+            ],
+        ),
+        conformance_test(
             name = "benchmark-performance-envelope-{}".format(db["name"]),
             ports = [6865],
             server = ":conformance-test-{}-bin".format(db["name"]),

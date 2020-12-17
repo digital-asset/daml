@@ -86,8 +86,8 @@ class TransactionTimeModelComplianceIT
   private[this] def publishTxAt(ledger: Ledger, ledgerTime: Instant, commandId: String) = {
     val dummyTransaction = TransactionBuilder.EmptySubmitted
 
-    val submitterInfo = SubmitterInfo.withSingleSubmitter(
-      submitter = Ref.Party.assertFromString("submitter"),
+    val submitterInfo = SubmitterInfo(
+      actAs = List(Ref.Party.assertFromString("submitter")),
       applicationId = Ref.LedgerString.assertFromString("appId"),
       commandId = Ref.LedgerString.assertFromString(commandId + UUID.randomUUID().toString),
       deduplicateUntil = Instant.EPOCH
@@ -114,7 +114,7 @@ class TransactionTimeModelComplianceIT
           Some(offset),
           None,
           com.daml.ledger.api.domain.ApplicationId(submitterInfo.applicationId),
-          Set(submitterInfo.singleSubmitterOrThrow())
+          submitterInfo.actAs.toSet,
         )
         .filter(_._2.completions.head.commandId == submitterInfo.commandId)
         .runWith(Sink.head)

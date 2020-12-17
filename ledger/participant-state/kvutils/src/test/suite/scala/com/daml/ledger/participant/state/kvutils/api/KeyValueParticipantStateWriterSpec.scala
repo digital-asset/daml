@@ -146,8 +146,8 @@ object KeyValueParticipantStateWriterSpec {
   }
 
   private def submitterInfo(recordTime: Timestamp, party: Ref.Party, commandId: String) =
-    SubmitterInfo.withSingleSubmitter(
-      submitter = party,
+    SubmitterInfo(
+      actAs = List(party),
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
       deduplicateUntil = recordTime.addMicros(Duration.ofDays(1).toNanos / 1000).toInstant,
