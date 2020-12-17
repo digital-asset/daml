@@ -504,7 +504,7 @@ object ValueGenerators {
   def transactionVersionGen(
       minVersion: TransactionVersion = TransactionVersion.minVersion,
   ): Gen[TransactionVersion] =
-    Gen.oneOf(TransactionVersion.Values.filterNot(_ < minVersion))
+    Gen.oneOf(TransactionVersion.All.filterNot(_ < minVersion))
 
   object Implicits {
     implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)

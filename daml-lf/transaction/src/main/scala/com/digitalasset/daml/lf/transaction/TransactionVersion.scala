@@ -22,11 +22,11 @@ object TransactionVersion {
   case object V10 extends TransactionVersion("10", 10)
   case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
-  val Values = List(V10, VDev)
+  val All = List(V10, VDev)
 
   private[lf] implicit val Ordering: scala.Ordering[TransactionVersion] = scala.Ordering.by(_.index)
 
-  private[this] val stringMapping = Values.iterator.map(v => v.protoValue -> v).toMap
+  private[this] val stringMapping = All.iterator.map(v => v.protoValue -> v).toMap
 
   def fromString(vs: String): Either[String, TransactionVersion] =
     stringMapping.get(vs) match {
@@ -38,7 +38,7 @@ object TransactionVersion {
   def assertFromString(vs: String): TransactionVersion =
     data.assertRight(fromString(vs))
 
-  val minVersion: TransactionVersion = Values.min
+  val minVersion: TransactionVersion = All.min
   def maxVersion: TransactionVersion = VDev
 
   private[lf] val minGenMap = VDev
