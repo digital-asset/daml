@@ -355,8 +355,7 @@ actAsNonEmpty ps = case toParties ps of
 -- authorized by `actAs`. Fetched contracts must be visible to at least
 -- one party in the union of actAs and readAs.
 --
--- Early access: This is only supported in DAML Studio. Support over
--- the gRPC API and the JSON API will follow.
+-- Early access: This is not yet supported over the JSON API.
 submitMulti : HasCallStack => [Party] -> [Party] -> Commands a -> Script a
 submitMulti actAs readAs cmds =
     lift $ Free $ fmap pure $ Submit $ SubmitCmd with
@@ -370,8 +369,7 @@ submitMulti actAs readAs cmds =
 -- | `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds`
 -- but fails when `submitMulti` succeeds and the other way around.
 --
--- Early access: This is only supported in DAML Studio. Support over
--- the gRPC API and the JSON API will follow.
+-- Early access: This is not yet supported over the JSON API.
 submitMultiMustFail : HasCallStack => [Party] -> [Party] -> Commands a -> Script ()
 submitMultiMustFail actAs readAs cmds =
     lift $ Free $ fmap pure $ SubmitMustFail $ SubmitMustFailCmd with
