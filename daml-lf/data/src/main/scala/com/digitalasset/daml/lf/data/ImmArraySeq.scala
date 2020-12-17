@@ -3,12 +3,11 @@
 
 package com.daml.lf.data
 
-import ScalazEqual.{equalBy}
+import ScalazEqual.equalBy
 
 import scalaz.{Applicative, Equal, Foldable, Traverse}
 
-import scala.collection.StrictOptimizedSeqFactory
-import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, StrictOptimizedSeqOps}
+import scala.collection.compat.immutable.ArraySeq
 
 /** Note: we define this purely to be able to write `toSeq`.
   *
@@ -16,14 +15,7 @@ import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, StrictOptimizedSe
   * to expose a `Seq`, and you also need to use implicits that refer to the
   * specific types, such as the traverse instance.
   */
-final class ImmArraySeq[+A](array: ImmArray[A])
-    extends AbstractSeq[A]
-    with IndexedSeq[A]
-    with IndexedSeqOps[A, ImmArraySeq, ImmArraySeq[A]]
-    with StrictOptimizedSeqOps[A, ImmArraySeq, ImmArraySeq[A]]
-    with scala.collection.IterableFactoryDefaults[A, ImmArraySeq] {
-
-  override def iterableFactory: scala.collection.SeqFactory[ImmArraySeq] = ImmArraySeq
+final class ImmArraySeq[+A](array: ImmArray[A]) extends AbstractImmArraySeq[A](array) {
 
   // TODO make this faster by implementing as many methods as possible.
   override def iterator: Iterator[A] = array.iterator
@@ -39,19 +31,13 @@ final class ImmArraySeq[+A](array: ImmArray[A])
   override def init: ImmArraySeq[A] = new ImmArraySeq(array.init)
   override def slice(from: Int, to: Int): ImmArraySeq[A] =
     new ImmArraySeq(array.relaxedSlice(from, to))
-  override def copyToArray[B >: A](xs: Array[B], dstStart: Int, dstLen: Int): Int =
-    array.copyToArray(xs, dstStart, dstLen)
+
   def toImmArray: ImmArray[A] = array
 }
 
-object ImmArraySeq extends StrictOptimizedSeqFactory[ImmArraySeq] {
-  def empty[A] = ImmArray.empty.toSeq
-  def from[E](it: IterableOnce[E]) = (ImmArray.newBuilder ++= it).result().toSeq
-  def newBuilder[A] = ImmArray.newBuilder.mapResult(_.toSeq)
-
+object ImmArraySeq extends ImmArraySeqCompanion {
   implicit val `immArraySeq Traverse instance`: Traverse[ImmArraySeq] = new Traverse[ImmArraySeq]
   with Foldable.FromFoldr[ImmArraySeq] {
-    // import Implicits._
     override def map[A, B](fa: ImmArraySeq[A])(f: A => B) = fa.toImmArray.map(f).toSeq
     override def foldLeft[A, B](fa: ImmArraySeq[A], z: B)(f: (B, A) => B) =
       fa.foldLeft(z)(f)
@@ -65,8 +51,10 @@ object ImmArraySeq extends StrictOptimizedSeqFactory[ImmArraySeq] {
     }
   }
 
-  implicit def `immArraySeq Equal instance`[A: Equal]: Equal[ImmArraySeq[A]] = {
+  implicit def `immArraySeq Equal instance`[A: Equal]: Equal[ImmArraySeq[A]] =
     equalBy(_.toImmArray, true)
-  }
 
+  // Here only for 2.12 (harmless in 2.13); placed in ImmArraySeqCompanion the
+  // implicit gets in an unwinnable fight with IndexedSeq's version
+  override implicit def canBuildFrom[A]: Factory[A] = super.canBuildFrom
 }
