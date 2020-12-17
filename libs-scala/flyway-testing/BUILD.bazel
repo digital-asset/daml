@@ -6,11 +6,16 @@ load("//bazel_tools:scala.bzl", "da_scala_library")
 da_scala_library(
     name = "flyway-testing",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
     tags = ["maven_coordinates=com.daml:flyway-testing:__VERSION__"],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     visibility = ["//visibility:public"],
     deps = [
         "@maven//:org_flywaydb_flyway_core",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )

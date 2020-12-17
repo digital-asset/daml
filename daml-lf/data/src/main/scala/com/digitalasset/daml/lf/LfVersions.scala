@@ -7,13 +7,16 @@ import scalaz.NonEmptyList
 
 abstract class LfVersions[V](versionsAscending: NonEmptyList[V])(protoValue: V => String) {
 
-  protected val maxVersion: V = versionsAscending.last
+  final protected val maxVersion: V = versionsAscending.last
 
-  private[lf] val acceptedVersions: List[V] = versionsAscending.list.toList
+  final private[lf] val acceptedVersions: List[V] = versionsAscending.list.toList
 
-  private val acceptedVersionsMap: Map[String, V] =
+  private[this] val acceptedVersionsMap: Map[String, V] =
     acceptedVersions.iterator.map(v => (protoValue(v), v)).toMap
 
   private[lf] def isAcceptedVersion(version: String): Option[V] = acceptedVersionsMap.get(version)
+
+  final protected def mkOrdering: Ordering[V] =
+    scala.Ordering.by(versionsAscending.stream.zipWithIndex.toMap)
 
 }

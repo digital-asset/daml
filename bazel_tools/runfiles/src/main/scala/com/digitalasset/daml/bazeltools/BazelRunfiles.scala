@@ -27,7 +27,7 @@ trait BazelRunfiles {
       val workspacePathString = MainWorkspacePath
         .resolve(path)
         .toString
-        .replaceAllLiterally("\\", "/")
+        .replace("\\", "/")
       val runfilePath = Option(Runfiles.create.rlocation(workspacePathString))
       Paths.get(runfilePath.getOrElse(throw new IllegalArgumentException(path.toString)))
     } else

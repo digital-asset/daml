@@ -370,10 +370,9 @@ private[validation] object Typing {
           checkType(paramType, KStar)
           checkType(returnType, KStar)
           introExprVar(param, paramType).checkExpr(controllers, TParties)
-          choiceObservers.foreach {
-            introExprVar(param, paramType)
-              .checkExpr(_, TParties) // FIXME #7709, be conditional on: supportsContractObservers
-          }
+          choiceObservers.foreach(
+            introExprVar(param, paramType).checkExpr(_, TParties)
+          )
           introExprVar(selfBinder, TContractId(TTyCon(tplName)))
             .introExprVar(param, paramType)
             .checkExpr(update, TUpdate(returnType))

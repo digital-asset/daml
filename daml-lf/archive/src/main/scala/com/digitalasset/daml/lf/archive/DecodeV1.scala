@@ -16,6 +16,7 @@ import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 import com.google.protobuf.CodedInputStream
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.JavaConverters._
 import scala.collection.{breakOut, mutable}
 
@@ -554,7 +555,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       )
     }
 
-    private[this] def decodeChoice(
+    private[archive] def decodeChoice(
         tpl: DottedName,
         lfChoice: PLF.TemplateChoice): TemplateChoice = {
       val (v, t) = decodeBinder(lfChoice.getArgBinder)
@@ -578,10 +579,13 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         name = chName,
         consuming = lfChoice.getConsuming,
         controllers = decodeExpr(lfChoice.getControllers, s"$tpl:$chName:controller"),
-        choiceObservers =
-          if (lfChoice.hasObservers)
-            Some(decodeExpr(lfChoice.getObservers, s"$tpl:$chName:observers"))
-          else None,
+        choiceObservers = if (lfChoice.hasObservers) {
+          assertSince(LV.Features.choiceObservers, "TemplateChoice.observers")
+          Some(decodeExpr(lfChoice.getObservers, s"$tpl:$chName:observers"))
+        } else {
+          assertUntil(LV.Features.choiceObservers, "missing TemplateChoice.observers")
+          None
+        },
         selfBinder = selfBinder,
         argBinder = v -> t,
         returnType = decodeType(lfChoice.getRetType),
@@ -1277,7 +1281,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
   }
 
   private def versionIsOlderThan(minVersion: LV): Boolean =
-    LV.ordering.lt(languageVersion, minVersion)
+    languageVersion < minVersion
 
   private def toPackageId(s: String, description: => String): PackageId = {
     assertUntil(LV.Features.internedStrings, description)

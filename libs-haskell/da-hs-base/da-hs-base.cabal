@@ -1,7 +1,7 @@
 cabal-version: 2.4
 name: da-hs-base
 build-type: Simple
-version: 0.1.4.0
+version: 0.1.8.0
 synopsis: Kitchen sink package for common functionality shared between packages
 license: Apache-2.0
 author: Digital Asset
@@ -39,6 +39,7 @@ library
       optparse-applicative,
       pretty,
       random,
+      safe,
       safe-exceptions,
       stm,
       tar-conduit,
@@ -55,6 +56,8 @@ library
     exposed-modules:
       Control.Lens.Ast
       Control.Lens.MonoTraversal
+      DA.Directory
+      DA.PortFile
       DA.Pretty
       DA.Service.Logger
       -- DA.Service.Logger.Impl.GCP imports SdkVersion build artefact
@@ -65,11 +68,13 @@ library
       Data.NameMap
       Data.Semigroup.FixedPoint
       Data.Text.Extended
+      Data.Vector.Extended
       Options.Applicative.Extended
       Orphans.Lib_pretty
       Test.Tasty.Extended
       Text.PrettyPrint.Annotated.Extended
     default-extensions:
+      BangPatterns
       DeriveDataTypeable
       DeriveGeneric
       FlexibleContexts

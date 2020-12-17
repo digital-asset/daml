@@ -192,7 +192,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 }
               case Some(labeledRecords) =>
                 recordFlds.map {
-                  case ((lbl, typ)) =>
+                  case (lbl, typ) =>
                     labeledRecords
                       .get(lbl)
                       .fold(fail(s"Missing record label $lbl for record $typeRecordId")) { v =>

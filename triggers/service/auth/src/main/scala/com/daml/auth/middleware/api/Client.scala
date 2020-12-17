@@ -58,10 +58,8 @@ class Client(config: Client.Config) {
     *
     * A route for the [[callbackHandler]] must be configured.
     */
-  def authorize(claims: Request.Claims)(
-      implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Client.AuthorizeResult] = {
-    auth(claims)(ec, system).flatMap {
+  def authorize(claims: Request.Claims): Directive1[Client.AuthorizeResult] = {
+    auth(claims).flatMap {
       // Authorization successful - pass token to continuation
       case Some(authorization) => provide(Client.Authorized(authorization))
       // Authorization failed - login and retry on callback request.
@@ -78,7 +76,7 @@ class Client(config: Client.Config) {
                 }
               val callback: Response.Login => Route = {
                 case Response.LoginSuccess =>
-                  auth(claims)(ec, system) {
+                  auth(claims) {
                     case None => continue(Client.Unauthorized)
                     case Some(authorization) => continue(Client.Authorized(authorization))
                   }
@@ -99,11 +97,13 @@ class Client(config: Client.Config) {
     *
     * @return `None` if the request was denied otherwise `Some` access and optionally refresh token.
     */
-  def auth(claims: Request.Claims)(
-      implicit ec: ExecutionContext,
-      system: ActorSystem): Directive1[Option[Response.Authorize]] =
-    extract(_.request.headers[headers.Cookie]).flatMap { cookies =>
-      onSuccess(requestAuth(claims, cookies))
+  def auth(claims: Request.Claims): Directive1[Option[Response.Authorize]] =
+    extractExecutionContext.flatMap { implicit ec =>
+      extractActorSystem.flatMap { implicit system =>
+        extract(_.request.headers[headers.Cookie]).flatMap { cookies =>
+          onSuccess(requestAuth(claims, cookies))
+        }
+      }
     }
 
   /**

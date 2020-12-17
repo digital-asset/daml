@@ -14,14 +14,11 @@ import com.daml.lf.transaction.Node.{
   NodeExercises,
   NodeFetch
 }
-import com.daml.lf.transaction.VersionTimeline.Implicits._
 import com.daml.lf.transaction.{
   BlindingInfo,
   GenTransaction,
   NodeId,
   TransactionVersion,
-  TransactionVersions,
-  VersionTimeline,
   VersionedTransaction,
   Transaction => Tx
 }
@@ -29,6 +26,7 @@ import com.daml.lf.value.Value.{NodeId => _, _}
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.HashMap
 import scalaz.syntax.apply._
 import scalaz.scalacheck.ScalaCheckBinding._
@@ -251,7 +249,7 @@ object ValueGenerators {
   def versionedValueGen: Gen[VersionedValue[ContractId]] =
     for {
       value <- valueGen
-      minVersion = ValueVersions.assertAssignVersion(value)
+      minVersion = ValueVersion.assertAssignVersion(value)
       version <- valueVersionGen(minVersion)
     } yield VersionedValue(version, value)
 
@@ -465,11 +463,10 @@ object ValueGenerators {
   }
 
   def noDanglingRefGenVersionedTransaction: Gen[VersionedTransaction[NodeId, ContractId]] = {
-    import VersionTimeline.Implicits._
     for {
       tx <- noDanglingRefGenTransaction
       txVer <- transactionVersionGen
-      nodeVersionGen = transactionVersionGen.filter(v => !(txVer precedes v))
+      nodeVersionGen = transactionVersionGen.filterNot(_ < txVer)
       nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, GenNode[NodeId, ContractId]])) {
         case (acc, (nodeId, node)) =>
           for {
@@ -503,19 +500,14 @@ object ValueGenerators {
     Gen.frequency((1, Gen.const("")), (10, g))
   }
 
-  def valueVersionGen(minVersion: ValueVersion = ValueVersions.minVersion): Gen[ValueVersion] =
-    Gen.oneOf(ValueVersions.acceptedVersions.filterNot(_ precedes minVersion).toSeq)
+  def valueVersionGen(minVersion: ValueVersion = ValueVersion.minVersion): Gen[ValueVersion] =
+    Gen.oneOf(ValueVersion.acceptedVersions.filterNot(_ < minVersion).toSeq)
 
   def unsupportedValueVersionGen: Gen[ValueVersion] =
-    stringVersionGen.map(ValueVersion).filter(x => !ValueVersions.acceptedVersions.contains(x))
+    stringVersionGen.map(ValueVersion(_)).filterNot(ValueVersion.acceptedVersions.contains)
 
   def transactionVersionGen: Gen[TransactionVersion] =
-    Gen.oneOf(TransactionVersions.acceptedVersions)
-
-  def unsupportedTransactionVersionGen: Gen[TransactionVersion] =
-    stringVersionGen
-      .map(TransactionVersion)
-      .filter(x => !TransactionVersions.acceptedVersions.contains(x))
+    Gen.oneOf(TransactionVersion.Values)
 
   object Implicits {
     implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)

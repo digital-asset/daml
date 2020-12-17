@@ -7,7 +7,6 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageMajorVersion.V1
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.daml.lf.testing.parser.{AstRewriter, ParserParameters}
@@ -25,7 +24,7 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
   val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters(
       pkgId,
-      LanguageVersion(V1, LanguageVersion.Minor("8"))
+      LanguageVersion.StableVersions.max
     )
 
   "Encode and Decode" should {

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.caching
-import com.daml.ledger.participant.state.kvutils.DamlKvutils
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
 
 /**
   * Cache update policy that allows writing to-be-committed packages back to the cache and read
@@ -13,10 +13,10 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils
   * Specifically, packages are content-addressed hence may be cached without consistency issues,
   * whereas party allocations must be only cached once they are available on the ledger.
   */
-object ImmutablesOnlyCacheUpdatePolicy extends CacheUpdatePolicy {
-  override def shouldCacheOnWrite(key: DamlKvutils.DamlStateKey): Boolean =
+object ImmutablesOnlyCacheUpdatePolicy extends CacheUpdatePolicy[DamlStateKey] {
+  override def shouldCacheOnWrite(key: DamlStateKey): Boolean =
     key.getPackageId.nonEmpty
 
-  override def shouldCacheOnRead(key: DamlKvutils.DamlStateKey): Boolean =
+  override def shouldCacheOnRead(key: DamlStateKey): Boolean =
     key.getPackageId.nonEmpty || key.getParty.nonEmpty
 }

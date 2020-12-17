@@ -7,9 +7,11 @@ package testing
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.language.implicitConversions
@@ -662,6 +664,14 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       setString(name, b.setNameStr, b.setNameInternedStr)
       b.setConsuming(choice.consuming)
       b.setControllers(choice.controllers)
+      choice.choiceObservers match {
+        case Some(value) =>
+          assertUntil(LV.Features.choiceObservers, "TemplateChoice.observer")
+          b.setObservers(value)
+        case None if languageVersion >= LV.Features.choiceObservers =>
+          b.setObservers(ENil(AstUtil.TParty))
+        case _ =>
+      }
       b.setArgBinder(choice.argBinder._1 -> choice.argBinder._2)
       b.setRetType(choice.returnType)
       b.setUpdate(choice.update)
@@ -726,11 +736,15 @@ private[daml] class EncodeV1(minor: LV.Minor) {
   }
 
   private def versionIsOlderThan(minVersion: LV): Boolean =
-    LV.ordering.lt(languageVersion, minVersion)
+    languageVersion < minVersion
 
   private def assertSince(minVersion: LV, description: String): Unit =
     if (versionIsOlderThan(minVersion))
       throw EncodeError(s"$description is not supported by DAML-LF 1.$minor")
+
+  private def assertUntil(minVersion: LV, description: String): Unit =
+    if (versionIsOlderThan(minVersion))
+      throw EncodeError(s"non empty $description is not supported by DAML-LF 1.$minor")
 
 }
 

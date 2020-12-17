@@ -49,6 +49,7 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_netty_netty_handler",
+        "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
         "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
     ],
 )

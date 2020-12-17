@@ -884,13 +884,13 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
     , simpleImportTest "Using TypeOperators extension"
         -- This test checks that we reconstruct type operators properly.
         [ "{-# LANGUAGE TypeOperators #-}"
-        , "module Lib where"
+        , "module Lib (type (:+:) (..), type (+)) where"
         , "data a :+: b = (:+:){left: a, right:  b}"
         , "type a + b = a :+: b"
         ]
         [ "{-# LANGUAGE TypeOperators #-}"
         , "module Main where"
-        , "import Lib"
+        , "import Lib (type (:+:) (..), type (+))"
         , "colonPlus: Bool :+: Int"
         , "colonPlus = True :+: 1"
         , "onlyPlus: Int + Bool"

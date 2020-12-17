@@ -6,6 +6,10 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala
 da_scala_library(
     name = "rs-grpc-akka",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
     tags = ["maven_coordinates=com.daml:rs-grpc-akka:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -13,8 +17,6 @@ da_scala_library(
     deps = [
         "//ledger-api/rs-grpc-bridge",
         "//libs-scala/concurrent",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_reactivestreams_reactive_streams",
     ],

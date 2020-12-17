@@ -34,7 +34,7 @@ trait LedgerStateAccess[LogResult] {
   *
   * @tparam LogResult type of the offset used for a log entry
   */
-trait LedgerStateOperations[LogResult] {
+trait LedgerStateOperations[+LogResult] {
 
   /**
     * Reads value of a single key from the backing store.

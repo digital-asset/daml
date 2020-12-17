@@ -6,12 +6,12 @@ package value
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.daml.lf.transaction.VersionTimeline.SpecifiedVersion
-import com.daml.lf.transaction.VersionTimeline.Implicits._
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value._
 import com.daml.lf.value.{ValueOuterClass => proto}
 import com.google.protobuf
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.JavaConverters._
 
 /**
@@ -22,32 +22,36 @@ object ValueCoder {
   import Value.MAXIMUM_NESTING
 
   /**
-    * Error type for signalling errors occuring during decoding serialized values
+    * Error type for signalling errors occurring during decoding serialized values
     * @param errorMessage description
     */
   final case class DecodeError(errorMessage: String)
 
   object DecodeError extends (String => DecodeError) {
-    private[lf] def apply(version: SpecifiedVersion, isTooOldFor: String): DecodeError =
-      DecodeError(s"${version.showsVersion} is too old to support $isTooOldFor")
+    private[lf] def apply(version: TransactionVersion, isTooOldFor: String): DecodeError =
+      DecodeError(s"transaction version ${version.protoValue} is too old to support $isTooOldFor")
+    private[lf] def apply(version: ValueVersion, isTooOldFor: String): DecodeError =
+      DecodeError(s"value version ${version.protoValue} is too old to support $isTooOldFor")
   }
 
   /**
-    * Error type for signalling errors occuring during encoding values
+    * Error type for signalling errors occurring during encoding values
     * @param errorMessage description
     */
   final case class EncodeError(errorMessage: String)
 
   object EncodeError extends (String => EncodeError) {
-    private[lf] def apply(version: SpecifiedVersion, isTooOldFor: String): EncodeError =
-      EncodeError(s"${version.showsVersion} is too old to support $isTooOldFor")
+    private[lf] def apply(version: TransactionVersion, isTooOldFor: String): EncodeError =
+      EncodeError(s"transaction version ${version.protoValue} is too old to support $isTooOldFor")
+    private[lf] def apply(version: ValueVersion, isTooOldFor: String): EncodeError =
+      EncodeError(s"value version ${version.protoValue} is too old to support $isTooOldFor")
   }
 
   abstract class EncodeCid[-Cid] private[lf] {
     private[lf] def encode(contractId: Cid): proto.ContractId
   }
 
-  @deprecated("use CidEndocer", since = "1.1.2")
+  @deprecated("use CidEncoder", since = "1.1.2")
   val AbsCidDecoder = CidEncoder
 
   object CidEncoder extends EncodeCid[ContractId] {
@@ -126,7 +130,7 @@ object ValueCoder {
     } yield Identifier(pkgId, QualifiedName(module, name))
 
   private def decodeVersion(vs: String): Either[DecodeError, ValueVersion] =
-    ValueVersions
+    ValueVersion
       .isAcceptedVersion(vs)
       .fold[Either[DecodeError, ValueVersion]](Left(DecodeError(s"Unsupported value version $vs")))(
         v => Right(v),
@@ -161,7 +165,7 @@ object ValueCoder {
 
   /**
     * Serializes [[Value]] to protobuf, library decides which [[ValueVersion]] to assign.
-    * See [[ValueVersions.assignVersion]].
+    * See [[ValueVersion.assignVersion]].
     *
     * @param value value to be written
     * @param encodeCid a function to stringify contractIds (it's better to be invertible)
@@ -173,7 +177,7 @@ object ValueCoder {
       value: Value[Cid],
       supportedVersions: VersionRange[ValueVersion],
   ): Either[EncodeError, proto.VersionedValue] =
-    ValueVersions
+    ValueVersion
       .assignVersion(value, supportedVersions)
       .fold(
         err => Left(EncodeError(err)),
@@ -224,7 +228,7 @@ object ValueCoder {
         )
 
     def assertSince(minVersion: ValueVersion, description: => String) =
-      if (valueVersion precedes minVersion)
+      if (valueVersion < minVersion)
         throw Err(s"$description is not supported by value version $valueVersion")
 
     def go(nesting: Int, protoValue: proto.Value): Value[Cid] = {
@@ -339,7 +343,7 @@ object ValueCoder {
             ValueTextMap(map)
 
           case proto.Value.SumCase.GEN_MAP =>
-            assertSince(ValueVersions.minGenMap, "Value.SumCase.MAP")
+            assertSince(ValueVersion.minGenMap, "Value.SumCase.MAP")
             val genMap = protoValue.getGenMap.getEntriesList.asScala.map(entry =>
               go(newNesting, entry.getKey) -> go(newNesting, entry.getValue))
             ValueGenMap(ImmArray(genMap))
@@ -374,7 +378,7 @@ object ValueCoder {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
     def assertSince(minVersion: ValueVersion, description: => String) =
-      if (valueVersion precedes minVersion)
+      if (valueVersion < minVersion)
         throw Err(s"$description is not supported by value version $valueVersion")
 
     def go(nesting: Int, v: Value[Cid]): proto.Value = {
@@ -465,7 +469,7 @@ object ValueCoder {
             builder.setMap(protoMap).build()
 
           case ValueGenMap(entries) =>
-            assertSince(ValueVersions.minGenMap, "Value.SumCase.MAP")
+            assertSince(ValueVersion.minGenMap, "Value.SumCase.MAP")
             val protoMap = proto.GenMap.newBuilder()
             entries.foreach {
               case (key, value) =>
@@ -498,7 +502,7 @@ object ValueCoder {
   private[value] def valueToBytes[Cid](
       encodeCid: EncodeCid[Cid],
       v: Value[Cid],
-      supportedVersions: VersionRange[ValueVersion] = ValueVersions.DevOutputVersions,
+      supportedVersions: VersionRange[ValueVersion] = ValueVersion.DevOutputVersions,
   ): Either[EncodeError, Array[Byte]] =
     encodeVersionedValue(encodeCid, v, supportedVersions).map(_.toByteArray)
 

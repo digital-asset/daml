@@ -3,21 +3,21 @@
 
 package com.daml.caching
 
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatest.concurrent.Eventually
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Second, Span}
+import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.util.Random
 
-trait CacheEvictionSpecBase
-    extends CacheBehaviorSpecBase
+trait ConcurrentCacheEvictionSpecBase
+    extends ConcurrentCacheBehaviorSpecBase
     with AnyWordSpecLike
     with Matchers
     with Eventually {
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(scaled(Span(1, Second)))
 
-  protected def newLargeCache(): Cache[Integer, String]
+  protected def newLargeCache(): ConcurrentCache[Integer, String]
 
   name should {
     "evict values eventually, once the limit has been reached" in {
@@ -25,7 +25,7 @@ trait CacheEvictionSpecBase
       val values = Iterator.continually[Integer](Random.nextInt).take(1000).toSet.toVector
 
       values.foreach { value =>
-        cache.get(value, _.toString)
+        cache.getOrAcquire(value, _.toString)
       }
 
       // The cache may not evict straight away. We should keep trying.

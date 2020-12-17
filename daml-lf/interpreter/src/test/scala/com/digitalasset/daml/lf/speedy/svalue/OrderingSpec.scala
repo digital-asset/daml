@@ -9,7 +9,7 @@ import com.daml.lf.data.{FrontStack, Ref}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr.{SEApp, SEMakeClo, SEImportValue, SELocA}
-import com.daml.lf.value.{Value}
+import com.daml.lf.value.Value
 import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.{cidV0Gen, comparableCoidsGen}
 import com.daml.lf.PureCompiledPackages

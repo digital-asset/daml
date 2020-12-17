@@ -3,6 +3,8 @@
 
 package com.daml.lf.language
 
+import com.daml.lf.VersionRange
+
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
   def pretty: String = s"${major.pretty}.${minor.toProtoIdentifier}"
 }
@@ -19,15 +21,10 @@ object LanguageVersion {
 
   val default: LanguageVersion = defaultV1
 
-  final val ordering: Ordering[LanguageVersion] =
-    (left, right) =>
-      (left, right) match {
-        case (LanguageVersion(leftMajor, leftMinor), LanguageVersion(rightMajor, rightMinor))
-            if leftMajor == rightMajor =>
-          leftMajor.minorVersionOrdering.compare(leftMinor, rightMinor)
-        case (LanguageVersion(leftMajor, _), LanguageVersion(rightMajor, _)) =>
-          LanguageMajorVersion.ordering.compare(leftMajor, rightMajor)
-    }
+  implicit val Ordering: scala.Ordering[LanguageVersion] = {
+    case (LanguageVersion(Major.V1, leftMinor), LanguageVersion(Major.V1, rightMinor)) =>
+      Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
+  }
 
   private[lf] val List(v1_6, v1_7, v1_8, v1_dev) =
     Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
@@ -50,6 +47,7 @@ object LanguageVersion {
     val contractIdTextConversions = v1_dev
     val exerciseByKey = v1_dev
     val internedTypes = v1_dev
+    val choiceObservers = v1_dev
     val exceptions = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.
@@ -59,5 +57,11 @@ object LanguageVersion {
     val unstable = v1_dev
 
   }
+
+  private[lf] val StableVersions: VersionRange[LanguageVersion] =
+    VersionRange(min = v1_6, max = v1_8)
+
+  private[lf] val DevVersions: VersionRange[LanguageVersion] =
+    StableVersions.copy(max = v1_dev)
 
 }

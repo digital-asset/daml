@@ -30,7 +30,6 @@ import com.daml.lf.engine.script.{
   IdeClient,
   Participants
 }
-import com.daml.lf.transaction.VersionTimeline
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -52,7 +51,7 @@ object Context {
 
   private val compilerConfig =
     Compiler.Config(
-      allowedLanguageVersions = VersionTimeline.devLanguageVersions,
+      allowedLanguageVersions = LanguageVersion.DevVersions,
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,

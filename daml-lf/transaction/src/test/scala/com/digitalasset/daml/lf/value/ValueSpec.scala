@@ -57,10 +57,10 @@ class ValueSpec
     "does not bump version when" - {
 
       "ensureNoCid is used " in {
-        val value = VersionedValue[ContractId](ValueVersions.minVersion, ValueUnit)
+        val value = VersionedValue[ContractId](ValueVersion.minVersion, ValueUnit)
         val contract = ContractInst(tmplId, value, "agreed")
-        value.ensureNoCid.map(_.version) shouldBe Right(ValueVersions.minVersion)
-        contract.ensureNoCid.map(_.arg.version) shouldBe Right(ValueVersions.minVersion)
+        value.ensureNoCid.map(_.version) shouldBe Right(ValueVersion.minVersion)
+        contract.ensureNoCid.map(_.arg.version) shouldBe Right(ValueVersion.minVersion)
 
       }
 

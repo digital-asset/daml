@@ -325,6 +325,7 @@ renderTemplateNamespace TemplateNamespace{..} = T.unlines $ concat
     , [ "  export type CreateEvent = damlLedger.CreateEvent" <> tParams [tnsName, tK, tI]
       , "  export type ArchiveEvent = damlLedger.ArchiveEvent" <> tParams [tnsName, tI]
       , "  export type Event = damlLedger.Event" <> tParams [tnsName, tK, tI]
+      , "  export type QueryResult = damlLedger.QueryResult" <> tParams [tnsName, tK, tI]
       , "}"
       ]
     ]

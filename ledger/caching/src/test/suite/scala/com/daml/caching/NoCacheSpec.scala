@@ -7,10 +7,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import org.scalatest.wordspec.AnyWordSpec
 
-class NoCacheSpec extends AnyWordSpec with CacheBehaviorSpecBase {
+class NoCacheSpec extends AnyWordSpec with ConcurrentCacheBehaviorSpecBase {
   override protected lazy val name: String = "a non-existent cache"
 
-  override protected def newCache(): Cache[Integer, String] =
+  override protected def newCache(): ConcurrentCache[Integer, String] =
     Cache.none
 
   "a non-existent cache" should {
@@ -23,10 +23,10 @@ class NoCacheSpec extends AnyWordSpec with CacheBehaviorSpecBase {
         value.toString
       }
 
-      cache.get(1, compute)
-      cache.get(1, compute)
-      cache.get(1, compute)
-      cache.get(2, compute)
+      cache.getOrAcquire(1, compute)
+      cache.getOrAcquire(1, compute)
+      cache.getOrAcquire(1, compute)
+      cache.getOrAcquire(2, compute)
 
       counter.get() should be(4)
     }
@@ -35,7 +35,7 @@ class NoCacheSpec extends AnyWordSpec with CacheBehaviorSpecBase {
       val cache = Cache.none[Integer, String]
 
       cache.getIfPresent(7) should be(None)
-      cache.get(7, _.toString) should be("7")
+      cache.getOrAcquire(7, _.toString) should be("7")
       cache.getIfPresent(7) should be(None)
     }
 
@@ -52,7 +52,7 @@ class NoCacheSpec extends AnyWordSpec with CacheBehaviorSpecBase {
         value.toString
       }
 
-      cache.get(7, compute) should be("7")
+      cache.getOrAcquire(7, compute) should be("7")
       counter.get() should be(1)
     }
   }

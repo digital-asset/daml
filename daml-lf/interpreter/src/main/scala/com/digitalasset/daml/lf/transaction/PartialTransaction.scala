@@ -14,8 +14,7 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   SubmittedTransaction,
-  TransactionVersion,
-  TransactionVersions,
+  TransactionVersion => TxVersion,
   Transaction => Tx
 }
 import com.daml.lf.value.Value
@@ -114,7 +113,7 @@ private[lf] object PartialTransaction {
   )
 
   def initial(
-      pkg2TxVersion: Ref.PackageId => TransactionVersion,
+      pkg2TxVersion: Ref.PackageId => TxVersion,
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
   ) = PartialTransaction(
@@ -161,7 +160,7 @@ private[lf] object PartialTransaction {
   *              locally archived contract ids will succeed wrongly.
   */
 private[lf] case class PartialTransaction(
-    packageToTransactionVersion: Ref.PackageId => TransactionVersion,
+    packageToTransactionVersion: Ref.PackageId => TxVersion,
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
     nodes: HashMap[NodeId, PartialTransaction.Node],
@@ -230,7 +229,7 @@ private[lf] case class PartialTransaction(
     if (context.exeContext.isEmpty && aborted.isEmpty) {
       CompleteTransaction(
         SubmittedTransaction(
-          TransactionVersions.asVersionedTransaction(context.children.toImmArray, nodes)
+          TxVersion.asVersionedTransaction(context.children.toImmArray, nodes)
         )
       )
     } else

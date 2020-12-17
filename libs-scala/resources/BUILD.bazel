@@ -2,17 +2,21 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test_suite")
+load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_library(
     name = "resources",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+    srcs = glob(["src/main/scala/**/*.scala"]) + glob(["src/main/{}/**/*.scala".format(scala_major_version)]),
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_java8_compat",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
     tags = ["maven_coordinates=com.daml:resources:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         "//libs-scala/contextualized-logging",
-        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
     ],
 )
 
@@ -30,6 +34,9 @@ da_scala_library(
 da_scala_test_suite(
     name = "resources-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
     silent_annotations = True,
     deps = [
         ":resources",

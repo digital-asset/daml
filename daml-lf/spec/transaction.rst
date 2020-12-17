@@ -472,6 +472,11 @@ The ``controllers`` field must be empty. Software needing to fill in
 data structures that demand both actors and controllers must use
 the ``actors`` field as the controllers.
 
+As version dev, these fields are included:
+
+* repeated ``string`` observers
+
+Every element of ``observers`` is a party identifier.
 
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^

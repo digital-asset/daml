@@ -20,6 +20,7 @@ import           Data.Functor.Identity
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
 import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromMaybe)
 import qualified Data.NameMap as NM
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
@@ -878,12 +879,21 @@ encodeTemplateKey TemplateKey{..} = do
     defTemplate_DefKeyMaintainers <- encodeExpr tplKeyMaintainers
     pure P.DefTemplate_DefKey{..}
 
+encodeChoiceObservers :: Maybe Expr -> Encode (Just P.Expr)
+encodeChoiceObservers chcObservers = do
+  EncodeEnv{..} <- get
+  -- The choice-observers field is mandatory when supported. So, when choice-observers are
+  -- not syntactically explicit, we generate an empty-party-list expression here.
+  if version `supports` featureChoiceObservers
+  then encodeExpr (fromMaybe (ENil TParty) chcObservers)
+  else traverse encodeExpr' chcObservers
+
 encodeTemplateChoice :: TemplateChoice -> Encode P.TemplateChoice
 encodeTemplateChoice TemplateChoice{..} = do
     templateChoiceName <- encodeName unChoiceName chcName
     let templateChoiceConsuming = chcConsuming
     templateChoiceControllers <- encodeExpr chcControllers
-    templateChoiceObservers <- traverse encodeExpr' chcObservers
+    templateChoiceObservers <- encodeChoiceObservers chcObservers
     templateChoiceSelfBinder <- encodeName unExprVarName chcSelfBinder
     templateChoiceArgBinder <- Just <$> encodeExprVarWithType chcArgBinder
     templateChoiceRetType <- encodeType chcReturnType

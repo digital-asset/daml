@@ -6,54 +6,71 @@ package transaction
 
 import com.daml.lf.data.ImmArray
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.value.{Value, ValueVersion, ValueVersions}
+import com.daml.lf.value.{Value, ValueVersion}
 
 import scala.collection.immutable.HashMap
 
-final case class TransactionVersion(protoValue: String)
+sealed abstract class TransactionVersion private (val protoValue: String, private val index: Int)
+    extends Product
+    with Serializable
 
 /**
   * Currently supported versions of the DAML-LF transaction specification.
   */
-object TransactionVersions
-    extends LfVersions(versionsAscending = VersionTimeline.ascendingVersions[TransactionVersion])(
-      _.protoValue,
-    ) {
+object TransactionVersion {
 
-  import VersionTimeline._
-  import VersionTimeline.Implicits._
+  case object V10 extends TransactionVersion("10", 10)
+  case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
-  private[lf] val List(v10, vDev) = acceptedVersions
+  val Values = List(V10, VDev)
 
-  val minVersion = v10
-  private[transaction] val minChoiceObservers = vDev
-  private[transaction] val minNodeVersion = vDev
+  private[lf] implicit val Ordering: scala.Ordering[TransactionVersion] = scala.Ordering.by(_.index)
 
-  // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
-  private[lf] val StableOutputVersions: VersionRange[TransactionVersion] =
-    VersionRange(v10, v10)
+  private[this] val stringMapping = Values.iterator.map(v => v.protoValue -> v).toMap
 
-  private[lf] val DevOutputVersions: VersionRange[TransactionVersion] =
-    StableOutputVersions.copy(max = acceptedVersions.last)
+  def fromString(vs: String): Either[String, TransactionVersion] =
+    stringMapping.get(vs).toRight(s"Unsupported transaction version $vs")
 
-  private[lf] val Empty: VersionRange[TransactionVersion] =
-    VersionRange(acceptedVersions.last, acceptedVersions.head)
+  def assertFromString(vs: String): TransactionVersion =
+    data.assertRight(fromString(vs))
 
-  private[lf] def assignValueVersion(nodeVersion: TransactionVersion): ValueVersion =
-    latestWhenAllPresent(ValueVersions.acceptedVersions.head, nodeVersion)
+  val minVersion = Values.min
+  private[transaction] val minChoiceObservers = VDev
+  private[transaction] val minNodeVersion = VDev
 
-  private[lf] def assignNodeVersion(langVersion: LanguageVersion): TransactionVersion =
-    VersionTimeline.latestWhenAllPresent(TransactionVersions.minVersion, langVersion)
+  private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
+    import LanguageVersion._
+    Map(
+      v1_6 -> V10,
+      v1_7 -> V10,
+      v1_8 -> V10,
+      v1_dev -> VDev,
+    )
+  }
+
+  private[lf] val assignValueVersion: TransactionVersion => ValueVersion = {
+    Map(
+      V10 -> ValueVersion("6"),
+      VDev -> ValueVersion("dev"),
+    )
+  }
 
   private[lf] def asVersionedTransaction(
       roots: ImmArray[NodeId],
       nodes: HashMap[NodeId, Node.GenNode[NodeId, Value.ContractId]],
   ): VersionedTransaction[NodeId, Value.ContractId] = {
+    import scala.Ordering.Implicits.infixOrderingOps
 
-    val txVersion = roots.iterator.foldLeft(TransactionVersions.minVersion)((acc, nodeId) =>
-      VersionTimeline.maxVersion(acc, nodes(nodeId).version))
+    val txVersion = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
+      acc max nodes(nodeId).version)
 
     VersionedTransaction(txVersion, nodes, roots)
   }
+
+  private[lf] val StableVersions: VersionRange[TransactionVersion] =
+    LanguageVersion.StableVersions.map(assignNodeVersion)
+
+  private[lf] val DevVersions: VersionRange[TransactionVersion] =
+    LanguageVersion.DevVersions.map(assignNodeVersion)
 
 }

@@ -17,6 +17,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.JavaConverters._
 
 class TransactionCoderSpec
@@ -26,16 +27,14 @@ class TransactionCoderSpec
     with EitherAssertions
     with ScalaCheckPropertyChecks {
 
-  import VersionTimeline.Implicits._
-
   import com.daml.lf.value.test.ValueGenerators._
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  import TransactionVersions.{v10, vDev}
+  import TransactionVersion.{V10, VDev}
 
-  private[this] val transactionVersions = Table("transaction version", v10, vDev)
+  private[this] val transactionVersions = Table("transaction version", V10, VDev)
 
   "encode-decode" should {
 
@@ -173,18 +172,17 @@ class TransactionCoderSpec
     "succeed with encoding under later version if succeeded under earlier version" in {
       def overrideNodeVersions[Nid, Cid](tx: GenTransaction[Nid, Cid]) = {
         tx.copy(nodes = tx.nodes.transform((_, node) =>
-          node.updateVersion(TransactionVersions.minVersion)))
+          node.updateVersion(TransactionVersion.minVersion)))
       }
 
       forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
         forAll(transactionVersionGen, transactionVersionGen, minSuccessful(20)) {
           (txVer1, txVer2) =>
-            import VersionTimeline.Implicits._
             import scalaz.std.tuple._
             import scalaz.syntax.bifunctor._
             whenever(txVer1 != txVer2) {
               val orderedVers @ (txvMin, txvMax) =
-                if (txVer2 precedes txVer1) (txVer2, txVer1) else (txVer1, txVer2)
+                if (txVer2 < txVer1) (txVer2, txVer1) else (txVer1, txVer2)
               inside(
                 orderedVers umap (
                     txVer =>
@@ -198,8 +196,8 @@ class TransactionCoderSpec
               ) {
                 case (Left(EncodeError(minMsg)), maxEnc) =>
                   // fuzzy sort of "failed because of the version override" test
-                  minMsg should include(txvMin.toString)
-                  maxEnc.left foreach (_.errorMessage should include(txvMax.toString))
+                  minMsg should include(txvMin.protoValue)
+                  maxEnc.left foreach (_.errorMessage should include(txvMax.protoValue))
                 case (Right(encWithMin), Right(encWithMax)) =>
                   inside(
                     (encWithMin, encWithMax) umap (TransactionCoder
@@ -223,31 +221,30 @@ class TransactionCoderSpec
 
     "transactions decoding should fail when unsupported transaction version received" in
       forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
-        forAll(unsupportedTransactionVersionGen, minSuccessful(20)) {
-          badTxVer: TransactionVersion =>
-            TransactionVersions.acceptedVersions.contains(badTxVer) shouldEqual false
-
+        forAll(stringVersionGen, minSuccessful(20)) { badTxVer =>
+          whenever(TransactionVersion.fromString(badTxVer).isLeft) {
             val encodedTxWithBadTxVer: proto.Transaction = assertRight(
               TransactionCoder
                 .encodeTransactionWithCustomVersion(
                   TransactionCoder.NidEncoder,
                   ValueCoder.CidEncoder,
                   VersionedTransaction(
-                    badTxVer,
-                    tx.nodes.mapValues(_.updateVersion(badTxVer)),
+                    TransactionVersion.VDev,
+                    tx.nodes.mapValues(_.updateVersion(TransactionVersion.VDev)),
                     tx.roots),
                 ),
-            )
+            ).toBuilder.setVersion(badTxVer).build()
 
-            encodedTxWithBadTxVer.getVersion shouldEqual badTxVer.protoValue
+            encodedTxWithBadTxVer.getVersion shouldEqual badTxVer
 
             TransactionCoder.decodeTransaction(
               TransactionCoder.NidDecoder,
               ValueCoder.CidDecoder,
               encodedTxWithBadTxVer,
             ) shouldEqual Left(
-              DecodeError(s"Unsupported transaction version ${badTxVer.protoValue}"),
+              DecodeError(s"Unsupported transaction version $badTxVer"),
             )
+          }
         }
       }
 
@@ -267,7 +264,7 @@ class TransactionCoderSpec
           signatories = Set(Party.assertFromString("alice")),
           stakeholders = Set(Party.assertFromString("alice"), Party.assertFromString("bob")),
           key = None,
-          version = TransactionVersions.minVersion,
+          version = TransactionVersion.minVersion,
         )
 
       forEvery(transactionVersions) { version =>
@@ -302,10 +299,10 @@ class TransactionCoderSpec
 
   "encodeVersionedNode" should {
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7709
+    // FIXME: https://github.com/digital-asset/daml/issues/7139
     // replace all occurrences of "dev" by "11", once "11" is released
     "fail iff try to encode choice observers in version < dev" in {
-      val normalize = minimalistNode(v10)
+      val normalize = minimalistNode(V10)
 
       forAll(danglingRefExerciseNodeGen, minSuccessful(10)) { node =>
         val shouldFail = node.choiceObservers.nonEmpty
@@ -323,7 +320,7 @@ class TransactionCoderSpec
               ValueCoder.CidEncoder,
               txVersion,
               NodeId(0),
-              normalized.updateVersion(v10),
+              normalized.updateVersion(V10),
             )
 
           result.isLeft shouldBe shouldFail
@@ -357,18 +354,18 @@ class TransactionCoderSpec
   "decodeVersionedNode" should {
 
     """ignore field version if enclosing Transaction message is of version 10""" in {
-      val normalize = minimalistNode(v10)
+      val normalize = minimalistNode(V10)
 
       forAll(danglingRefGenNode, Gen.asciiStr, minSuccessful(10)) {
         case ((nodeId, node), str) =>
-          val normalizedNode = normalize(node.updateVersion(v10))
+          val normalizedNode = normalize(node.updateVersion(V10))
 
           val Right(encoded) = for {
             encoded <- TransactionCoder
               .encodeNode(
                 TransactionCoder.NidEncoder,
                 ValueCoder.CidEncoder,
-                v10,
+                V10,
                 nodeId,
                 normalizedNode
               )
@@ -377,20 +374,20 @@ class TransactionCoderSpec
           TransactionCoder.decodeVersionedNode(
             TransactionCoder.NidDecoder,
             ValueCoder.CidDecoder,
-            v10,
+            V10,
             encoded,
           ) shouldBe Right(nodeId -> normalizedNode)
       }
     }
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7709
+    // FIXME: https://github.com/digital-asset/daml/issues/7139
     // enable the test when we have more that one version newer than 10
     "fail if try to decode a node in a version newer than the enclosing Transaction message version" ignore {
 
       forAll(
         danglingRefGenNode,
-        transactionVersionGen.filter(_ != v10),
-        transactionVersionGen.filter(_ != v10),
+        transactionVersionGen.filter(_ != V10),
+        transactionVersionGen.filter(_ != V10),
         minSuccessful(10)) {
         case ((nodeId, node), version1, version2) =>
           whenever(version1 != version2) {
@@ -417,10 +414,10 @@ class TransactionCoderSpec
       }
     }
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7709
+    // FIXME: https://github.com/digital-asset/daml/issues/7139
     // replace all occurrences of "dev" by "11", once "11" is released
     "ignore field observers in version < dev" in {
-      val normalize = minimalistNode(v10)
+      val normalize = minimalistNode(V10)
 
       forAll(
         Arbitrary.arbInt.arbitrary,
@@ -429,7 +426,7 @@ class TransactionCoderSpec
         minSuccessful(50),
       ) { (nodeIdx, node, strings) =>
         val nodeId = NodeId(nodeIdx)
-        val normalizedNode = normalize(node).updateVersion(v10)
+        val normalizedNode = normalize(node).updateVersion(V10)
 
         val Right(encoded) =
           for {
@@ -437,7 +434,7 @@ class TransactionCoderSpec
               .encodeNode(
                 TransactionCoder.NidEncoder,
                 ValueCoder.CidEncoder,
-                v10,
+                V10,
                 nodeId,
                 normalizedNode,
               )
@@ -507,10 +504,10 @@ class TransactionCoderSpec
         before: TransactionVersion,
         f: GenNode[NodeId, ContractId] => GenNode[NodeId, ContractId],
     ): GenNode[NodeId, ContractId] => GenNode[NodeId, ContractId] = {
-      if (txvMin precedes before) f else identity
+      if (txvMin < before) f else identity
     }
 
-    condApply(TransactionVersions.minChoiceObservers, withoutChoiceObservers)
+    condApply(TransactionVersion.minChoiceObservers, withoutChoiceObservers)
       .compose(withoutByKeyFlag[NodeId, ContractId])
 
   }
@@ -538,11 +535,11 @@ class TransactionCoderSpec
         before: TransactionVersion,
         f: GenNode[NodeId, ContractId] => GenNode[NodeId, ContractId],
     ): GenNode[NodeId, ContractId] => GenNode[NodeId, ContractId] =
-      if (txvMin precedes before) f else identity
+      if (txvMin < before) f else identity
 
     nodesWithout(
       nodes,
-      condApply(TransactionVersions.minChoiceObservers, withoutChoiceObservers)
+      condApply(TransactionVersion.minChoiceObservers, withoutChoiceObservers)
         .compose(withoutByKeyFlag[NodeId, ContractId]),
     )
   }
@@ -563,7 +560,7 @@ class TransactionCoderSpec
     nodes.mapValues(_.updateVersion(version))
 
   private[this] def inIncreasingOrder(version1: TransactionVersion, version2: TransactionVersion) =
-    if (version1 precedes version2)
+    if (version1 < version2)
       (version1, version2)
     else
       (version2, version1)

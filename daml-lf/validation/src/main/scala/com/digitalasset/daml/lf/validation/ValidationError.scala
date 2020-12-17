@@ -8,6 +8,8 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
 
+import scala.Ordering.Implicits.infixOrderingOps
+
 sealed abstract class LookupError extends Product with Serializable {
   def pretty: String
 }
@@ -408,10 +410,9 @@ final case class EModuleVersionDependencies(
     depPkgId: PackageId,
     dependencyLangVersion: LanguageVersion,
 ) extends ValidationError {
-  import com.daml.lf.transaction.VersionTimeline.Implicits._
 
   assert(pkgId != depPkgId)
-  assert(pkgLangVersion precedes dependencyLangVersion)
+  assert(pkgLangVersion < dependencyLangVersion)
 
   override protected def prettyInternal: String =
     s"package $pkgId using version $pkgLangVersion depends on package $depPkgId using newer version $dependencyLangVersion"

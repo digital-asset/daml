@@ -14,6 +14,7 @@ da_haskell_library(
         "base",
         "containers",
         "ghc-lib-parser",
+        "regex-tdfa",
         "safe-exceptions",
         "text",
         "yaml",

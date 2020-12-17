@@ -8,14 +8,13 @@ import com.daml.lf.data.{BackStack, Ref}
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.daml.lf.data.Ref.{Name, Party}
 import com.daml.lf.transaction.Node._
-import VersionTimeline.Implicits._
 import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.google.protobuf.ProtocolStringList
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.JavaConverters._
-
 import scala.collection.immutable.HashMap
 
 object TransactionCoder {
@@ -146,7 +145,7 @@ object TransactionCoder {
       nodeId: Nid,
       node: GenNode[Nid, Cid],
   ): Either[EncodeError, TransactionOuterClass.Node] =
-    if (enclosingVersion precedes node.version)
+    if (enclosingVersion < node.version)
       Left(EncodeError(
         s"A transaction of version $enclosingVersion cannot contain nodes of newer version (${node.version}"))
     else {
@@ -199,8 +198,8 @@ object TransactionCoder {
         case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
           for {
             _ <- Either.cond(
-              test =
-                !((node.version precedes TransactionVersions.minChoiceObservers) && ne.choiceObservers.nonEmpty),
+              test = ne.version >= TransactionVersion.minChoiceObservers ||
+                ne.choiceObservers.isEmpty,
               right = (),
               left = EncodeError(node.version, isTooOldFor = "non-empty choice-observers")
             )
@@ -277,12 +276,12 @@ object TransactionCoder {
       protoNode: TransactionOuterClass.Node,
   ): Either[DecodeError, (Nid, GenNode[Nid, Cid])] =
     for {
-      version <- if (enclosingVersion precedes TransactionVersions.minNodeVersion) {
+      version <- if (enclosingVersion < TransactionVersion.minNodeVersion) {
         Right(enclosingVersion)
       } else {
         decodeVersion(protoNode.getVersion) match {
           case Right(nodeVersion) =>
-            if (enclosingVersion precedes nodeVersion)
+            if (enclosingVersion < nodeVersion)
               Left(DecodeError(
                 s"A transaction of version $enclosingVersion cannot contain node of newer version (${protoNode.getVersion})"))
             else
@@ -365,7 +364,7 @@ object TransactionCoder {
           actingParties <- toPartySet(protoExe.getActorsList)
           signatories <- toPartySet(protoExe.getSignatoriesList)
           stakeholders <- toPartySet(protoExe.getStakeholdersList)
-          choiceObservers <- if (version precedes TransactionVersions.minChoiceObservers) {
+          choiceObservers <- if (version < TransactionVersion.minChoiceObservers) {
             Right(Set.empty[Party])
           } else {
             toPartySet(protoExe.getObserversList)
@@ -465,17 +464,13 @@ object TransactionCoder {
   }
 
   def decodeVersion(vs: String): Either[DecodeError, TransactionVersion] =
-    TransactionVersions
-      .isAcceptedVersion(vs)
-      .fold[Either[DecodeError, TransactionVersion]](
-        Left(DecodeError(s"Unsupported transaction version $vs")),
-      )(v => Right(v))
+    TransactionVersion.fromString(vs).left.map(DecodeError)
 
   /**
     * Reads a [[VersionedTransaction]] from protobuf and checks if
     * [[TransactionVersion]] passed in the protobuf is currently supported.
     *
-    * Supported transaction versions configured in [[TransactionVersions]].
+    * Supported transaction versions configured in [[TransactionVersion]].
     *
     * @param protoTx protobuf encoded transaction
     * @param decodeNid node id decoding function
@@ -594,7 +589,7 @@ object TransactionCoder {
           actingParties_ <- toPartySet(protoExe.getActorsList)
           signatories_ <- toPartySet(protoExe.getSignatoriesList)
           stakeholders_ <- toPartySet(protoExe.getStakeholdersList)
-          choiceObservers_ <- if (txVersion precedes TransactionVersions.minChoiceObservers)
+          choiceObservers_ <- if (txVersion < TransactionVersion.minChoiceObservers)
             Right(Set.empty[Party])
           else
             toPartySet(protoExe.getObserversList)

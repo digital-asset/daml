@@ -3,15 +3,13 @@
 
 package com.daml.lf
 
-import com.daml.lf.transaction.VersionTimeline
+import scala.Ordering.Implicits.infixOrderingOps
 
 /**
   * [[VersionRange]] represents a range of versions of
   * [[com.daml.lf.language.LanguageVersion]],
   * [[com.daml.lf.transaction.TransactionVersion]], or
   * [[com.daml.lf.value.ValueVersion]].
-  *
-  * The order of versions is specified by [[VersionTimeline]].
   *
   * @param min the minimal version included in the range.
   * @param max the maximal version included in the range.
@@ -22,24 +20,20 @@ import com.daml.lf.transaction.VersionTimeline
 final case class VersionRange[V](
     min: V,
     max: V,
-)(implicit ev: VersionTimeline.SubVersion[V]) {
-  import VersionTimeline._
-  import VersionTimeline.Implicits._
+)(implicit ordering: Ordering[V]) {
 
-  def intersect(that: VersionRange[V])(
-      implicit ev: VersionTimeline.SubVersion[V]): VersionRange[V] =
+  require(min <= max)
+
+  def intersect(that: VersionRange[V]): VersionRange[V] =
     VersionRange(
-      min = maxVersion(this.min, that.min),
-      max = minVersion(this.max, that.max)
+      min = this.min max that.min,
+      max = this.max min that.max,
     )
 
-  def isEmpty: Boolean =
-    max precedes min
-
-  def nonEmpty: Boolean =
-    !isEmpty
+  def map[W](f: V => W)(implicit ordering: Ordering[W]) =
+    VersionRange(f(min), f(max))
 
   def contains(v: V): Boolean =
-    !((max precedes v) || (v precedes min))
+    min <= v && v <= max
 
 }

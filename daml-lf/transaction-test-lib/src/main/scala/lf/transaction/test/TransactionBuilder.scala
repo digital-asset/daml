@@ -8,12 +8,13 @@ package test
 import com.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
-import com.daml.lf.value.{ValueVersions, Value => LfValue}
+import com.daml.lf.value.{Value => LfValue}
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.HashMap
 
 final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion = _ =>
-  TransactionVersions.minVersion) {
+  TransactionVersion.minVersion) {
 
   import TransactionBuilder._
 
@@ -54,8 +55,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
   }
 
   def build(): Tx.Transaction = ids.synchronized {
-    import VersionTimeline.Implicits._
-
+    import TransactionVersion.Ordering
     val finalNodes = nodes.transform {
       case (nid, exe: TxExercise) =>
         exe.copy(children = children(nid).toImmArray)
@@ -63,13 +63,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
         node
     }
     val finalRoots = roots.toImmArray
-    val nodesVersions =
-      finalRoots.iterator
-        .map(n => finalNodes(n).version: VersionTimeline.SpecifiedVersion)
-        .toSeq
-    val txVersion =
-      VersionTimeline
-        .latestWhenAllPresent(TransactionVersions.StableOutputVersions.min, nodesVersions: _*)
+    val txVersion = finalRoots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
+      acc max finalNodes(nodeId).version)
     VersionedTransaction(txVersion, finalNodes, finalRoots)
   }
 
@@ -79,12 +74,8 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
 
   def newCid: ContractId = ContractId.V1(newHash())
 
-  private[this] def pkgValVersion(pkgId: Ref.PackageId) = {
-    import VersionTimeline.Implicits._
-    VersionTimeline.latestWhenAllPresent(
-      ValueVersions.StableOutputVersions.min,
-      pkgTxVersion(pkgId))
-  }
+  private[this] def pkgValVersion(pkgId: Ref.PackageId) =
+    TransactionVersion.assignValueVersion(pkgTxVersion(pkgId))
 
   def versionContract(contract: ContractInst[Value]): ContractInst[TxValue] =
     ContractInst.map1[Value, TxValue](versionValue(contract.template))(contract)
@@ -122,10 +113,11 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       consuming: Boolean,
       actingParties: Set[String],
       argument: Value,
+      choiceObservers: Set[String] = Set.empty,
       byKey: Boolean = true,
   ): Exercise =
     Exercise(
-      choiceObservers = Set.empty, //FIXME #7709: take observers as argument (pref no default value)
+      choiceObservers = choiceObservers.map(Ref.Party.assertFromString),
       targetCoid = contract.coid,
       templateId = contract.coinst.template,
       choiceId = Ref.ChoiceName.assertFromString(choice),
@@ -201,20 +193,13 @@ object TransactionBuilder {
   private val KeyWithMaintainers = Node.KeyWithMaintainers
 
   def apply(): TransactionBuilder =
-    TransactionBuilder(TransactionVersions.StableOutputVersions.min)
+    TransactionBuilder(TransactionVersion.StableVersions.min)
 
   def apply(txVersion: TransactionVersion): TransactionBuilder =
     new TransactionBuilder(_ => txVersion)
 
   def apply(pkgLangVersion: Ref.PackageId => language.LanguageVersion): TransactionBuilder = {
-    def pkgTxVersion(pkgId: Ref.PackageId) = {
-      import VersionTimeline.Implicits._
-      VersionTimeline.latestWhenAllPresent(
-        TransactionVersions.StableOutputVersions.min,
-        pkgLangVersion(pkgId)
-      )
-    }
-    new TransactionBuilder(pkgTxVersion)
+    new TransactionBuilder(pkgId => TransactionVersion.assignNodeVersion(pkgLangVersion(pkgId)))
   }
 
   def record(fields: (String, String)*): Value =
@@ -255,7 +240,7 @@ object TransactionBuilder {
   // not valid transactions.
   val Empty: Tx.Transaction =
     VersionedTransaction(
-      TransactionVersions.StableOutputVersions.min,
+      TransactionVersion.minNodeVersion,
       HashMap.empty,
       ImmArray.empty,
     )
