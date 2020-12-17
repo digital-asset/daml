@@ -6,6 +6,8 @@ package com.daml.platform.store.dao
 import akka.stream.scaladsl.Source
 import anorm.{BatchSql, NamedParameter}
 
+import scala.collection.mutable
+
 /**
   * Type aliases used throughout the package
   */
@@ -57,18 +59,21 @@ package object events {
     source
       .statefulMapConcat(() => {
         var previousSegmentKey: K = null.asInstanceOf[K]
+        val currentSegment = mutable.Buffer[A]()
         entry =>
           {
             val keyForEntry = by(entry)
-            val entryWithSplit = entry -> (keyForEntry != previousSegmentKey)
-            previousSegmentKey = keyForEntry
-            List(entryWithSplit)
+            if (keyForEntry != previousSegmentKey) {
+              val result = currentSegment.toVector
+              currentSegment.clear()
+              previousSegmentKey = keyForEntry
+              List(result)
+            } else {
+              currentSegment += entry
+              Nil
+            }
           }
       })
-      .splitWhen(_._2)
-      .map(_._1)
-      .fold(Vector.empty[A])(_ :+ _)
-      .mergeSubstreams
 
   // Dispatches the call to either function based on the cardinality of the input
   // This is mostly designed to route requests to queries specialized for single/multi-party subs
