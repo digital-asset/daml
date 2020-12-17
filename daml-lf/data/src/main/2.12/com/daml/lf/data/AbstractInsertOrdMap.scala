@@ -4,19 +4,19 @@
 package com.daml.lf.data
 
 import scala.collection.generic.{CanBuildFrom, ImmutableMapFactory}
-import scala.collection.immutable.{AbstractMap, HashMap, Map}
+import scala.collection.immutable.{AbstractMap, Map}
 
-abstract class AbstractInsertOrdMap[K, +V] protected (
-    hashMap: HashMap[K, V]
-) extends AbstractMap[K, V]
+abstract class AbstractInsertOrdMap[K, +V]
+    extends AbstractMap[K, V]
     with Map[K, V]
     with MapKOps[K, V, InsertOrdMap[K, +*]] { this: InsertOrdMap[K, V] =>
 
   // we really want `abstract override` here but can't do it
   override def empty: InsertOrdMap[K, V] = InsertOrdMap.empty
 
-  override final def -(k: K): InsertOrdMap[K, V] =
-    InsertOrdMap.unsafeConstruct(keys.filter(_ != k), hashMap - k)
+  protected def removed(k: K): InsertOrdMap[K, V]
+
+  override final def -(k: K): InsertOrdMap[K, V] = removed(k)
 
 }
 

@@ -4,18 +4,14 @@
 package com.daml.lf.data
 
 import scala.collection.{MapFactory, MapFactoryDefaults}
-import scala.collection.immutable.{AbstractMap, Iterable, HashMap, StrictOptimizedMapOps}
+import scala.collection.immutable.{AbstractMap, Iterable, StrictOptimizedMapOps}
 import scala.collection.mutable.ReusableBuilder
 
-abstract class AbstractInsertOrdMap[K, +V] protected (
-    hashMap: HashMap[K, V]
-) extends AbstractMap[K, V]
+abstract class AbstractInsertOrdMap[K, +V]
+    extends AbstractMap[K, V]
     with StrictOptimizedMapOps[K, V, InsertOrdMap, InsertOrdMap[K, V]]
     with MapFactoryDefaults[K, V, InsertOrdMap, Iterable] { this: InsertOrdMap[K, V] =>
   override final def mapFactory: MapFactory[InsertOrdMap] = InsertOrdMap
-
-  override final def removed(k: K): InsertOrdMap[K, V] =
-    InsertOrdMap.unsafeConstruct(keys.filter(_ != k), hashMap - k)
 
 }
 

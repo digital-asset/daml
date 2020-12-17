@@ -20,7 +20,7 @@ import scala.collection.immutable.{HashMap, Queue}
 final class InsertOrdMap[K, +V] private (
     override val keys: Queue[K],
     hashMap: HashMap[K, V]
-) extends AbstractInsertOrdMap[K, V](hashMap) {
+) extends AbstractInsertOrdMap[K, V] {
 
   override def empty: InsertOrdMap[K, V] = InsertOrdMap.empty[K, V]
 
@@ -39,6 +39,8 @@ final class InsertOrdMap[K, +V] private (
     updated(key, value)
   }
 
+  override def removed(k: K): InsertOrdMap[K, V] =
+    new InsertOrdMap(keys.filter(_ != k), hashMap - k)
 }
 
 object InsertOrdMap extends InsertOrdMapCompanion {
@@ -46,11 +48,6 @@ object InsertOrdMap extends InsertOrdMapCompanion {
   private val Empty: InsertOrdMap[Unit, Nothing] = new InsertOrdMap(Queue.empty, HashMap.empty)
 
   def empty[K, V]: InsertOrdMap[K, V] = Empty.asInstanceOf[InsertOrdMap[K, V]]
-
-  private[data] def unsafeConstruct[K, V](
-      keys: Queue[K],
-      hashMap: HashMap[K, V]
-  ): InsertOrdMap[K, V] = new InsertOrdMap(keys, hashMap)
 
   // Here only for 2.12 (harmless in 2.13); placed in InsertOrdMapCompanion the
   // implicit gets in an unwinnable fight with Map's version
