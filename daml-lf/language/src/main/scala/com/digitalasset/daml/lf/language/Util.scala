@@ -178,7 +178,7 @@ object Util {
             case (_, typeSyn: DTypeSyn) => typeSyn
           },
           templates = templates.transform((_, template) => toSignature(template)),
-          exceptions = exceptions.transform((_, _) => ExceptionSignature.Singleton),
+          exceptions = exceptions.transform((_, _) => ExceptionSignature),
           featureFlags = featureFlags,
         )
     }

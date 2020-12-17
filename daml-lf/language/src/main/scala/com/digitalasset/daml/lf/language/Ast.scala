@@ -5,7 +5,6 @@ package com.daml.lf.language
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
-import com.github.ghik.silencer.silent
 
 object Ast {
   //
@@ -716,13 +715,7 @@ object Ast {
   object Exception extends GenExceptionCompanion[Expr]
 
   type ExceptionSignature = GenException[Unit]
-  object ExceptionSignature {
-    val Singleton: ExceptionSignature = GenException(())
-    def apply(): ExceptionSignature = Singleton
-
-    @silent("parameter value arg in method unapply is never used")
-    def unapply(arg: ExceptionSignature): Option[Unit] = Some(())
-  }
+  val ExceptionSignature = GenException(())
 
   case class FeatureFlags(
       forbidPartyLiterals: Boolean // If set to true, party literals are not allowed to appear in daml-lf packages.
