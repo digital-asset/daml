@@ -11,9 +11,7 @@ import Control.Monad
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
-import qualified Data.HashMap.Strict as HashMap
 import Data.List.Extra
-import qualified Data.Map as Map
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T

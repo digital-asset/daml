@@ -42,13 +42,11 @@ import qualified Web.JWT as JWT
 import qualified Data.Aeson as A
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
-import qualified Data.Text.Lazy as TL
 
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util hiding (fromMaybeM)
-import qualified DA.Ledger as L
 
 findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
 findDamlProjectRoot = findAscendantWithFile projectConfigName
