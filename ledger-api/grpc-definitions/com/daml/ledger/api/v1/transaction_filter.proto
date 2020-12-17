@@ -31,7 +31,7 @@ message Filters {
   InclusiveFilters inclusive = 1;
 }
 
-// If no internal fields are set, no data will be returned.
+// If no internal fields are set, no filters will be applied.
 message InclusiveFilters {
 
   // A collection of templates.
