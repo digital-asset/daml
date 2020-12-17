@@ -63,7 +63,7 @@ object TransactionCoder {
       cidEncoder: ValueCoder.EncodeCid[Cid],
       value: VersionedValue[Cid],
   ): Either[EncodeError, ValueOuterClass.VersionedValue] =
-    ValueCoder.encodeVersionedValueWithCustomVersion(cidEncoder, value)
+    ValueCoder.encodeVersionedValue(cidEncoder, value)
 
   def decodeValue[Cid](
       cidDecoder: ValueCoder.DecodeCid[Cid],

@@ -16,7 +16,7 @@ private[platform] object ValueSerializer {
       errorContext: => String,
   ): Array[Byte] =
     ValueCoder
-      .encodeVersionedValueWithCustomVersion(ValueCoder.CidEncoder, value)
+      .encodeVersionedValue(ValueCoder.CidEncoder, value)
       .fold(error => sys.error(s"$errorContext (${error.errorMessage})"), _.toByteArray)
 
   private def deserializeValueHelper(

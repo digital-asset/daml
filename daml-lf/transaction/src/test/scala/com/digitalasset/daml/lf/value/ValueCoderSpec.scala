@@ -6,8 +6,8 @@ package com.daml.lf.value
 import com.daml.lf.EitherAssertions
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value._
-import com.daml.lf.value.ValueCoder.DecodeError
 import com.daml.lf.value.{ValueOuterClass => proto}
 import org.scalacheck.Shrink
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -25,13 +25,6 @@ class ValueCoderSpec
 
   implicit val noStringShrink: Shrink[String] = Shrink.shrinkAny[String]
 
-  private[this] val lastDecimalVersion = ValueVersion("5")
-
-  private[this] val firstNumericVersion = ValueVersion("6")
-
-  private[this] val defaultValueVersion = ValueVersion.acceptedVersions.lastOption getOrElse sys
-    .error("there are no allowed versions! impossible! but could it be?")
-
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000)
 
@@ -39,38 +32,14 @@ class ValueCoderSpec
     "do Int" in {
       forAll("Int64 (Long) invariant") { i: Long =>
         val value = ValueInt64(i)
-        testRoundTrip(value)
+        testRoundTrip(TransactionVersion.minVersion, value)
       }
     }
 
     "do Bool" in {
       forAll("Bool invariant") { b: Boolean =>
         val value = ValueBool(b)
-        testRoundTrip(value)
-      }
-    }
-
-    "do Decimal" in {
-      forAll("Decimal (BigDecimal) invariant") { d: BigDecimal =>
-        // we are filtering on decimals invariant under string conversion
-        whenever(Decimal.fromBigDecimal(d).isRight) {
-          val Right(dec) = Decimal.fromBigDecimal(d)
-          val value = ValueNumeric(dec)
-          val recoveredDecimal = ValueCoder.decodeValue[ContractId](
-            ValueCoder.CidDecoder,
-            lastDecimalVersion,
-            assertRight(
-              ValueCoder
-                .encodeValue[ContractId](ValueCoder.CidEncoder, lastDecimalVersion, value),
-            ),
-          ) match {
-            case Right(ValueNumeric(d)) => d
-            case x => fail(s"should have got a decimal back, got $x")
-          }
-          Numeric.toUnscaledString(value.value) shouldEqual Numeric.toUnscaledString(
-            recoveredDecimal,
-          )
-        }
+        testRoundTrip(TransactionVersion.minVersion, value)
       }
     }
 
@@ -85,10 +54,13 @@ class ValueCoderSpec
             val value = ValueNumeric(dec)
             val recoveredDecimal = ValueCoder.decodeValue[ContractId](
               ValueCoder.CidDecoder,
-              firstNumericVersion,
+              TransactionVersion.minVersion,
               assertRight(
                 ValueCoder
-                  .encodeValue[ContractId](ValueCoder.CidEncoder, firstNumericVersion, value),
+                  .encodeValue[ContractId](
+                    ValueCoder.CidEncoder,
+                    TransactionVersion.minVersion,
+                    value),
               ),
             ) match {
               case Right(ValueNumeric(x)) => x
@@ -104,98 +76,77 @@ class ValueCoderSpec
     "do Text" in {
       forAll("Text (String) invariant") { t: String =>
         val value = ValueText(t)
-        testRoundTrip(value)
+        testRoundTrip(TransactionVersion.minVersion, value)
       }
     }
 
     "do Party" in {
       forAll(party) { p: Party =>
         val value = ValueParty(p)
-        testRoundTrip(value)
+        testRoundTrip(TransactionVersion.minVersion, value)
       }
     }
 
     "do TimeStamp" in {
       forAll(timestampGen) { t: Time.Timestamp => // TODO: fails with Longs
-        testRoundTrip(ValueTimestamp(t))
+        testRoundTrip(TransactionVersion.minVersion, ValueTimestamp(t))
       }
     }
 
     "do Date" in {
       forAll(dateGen) { d: Time.Date =>
-        testRoundTrip(ValueDate(d))
+        testRoundTrip(TransactionVersion.minVersion, ValueDate(d))
       }
     }
 
     "do ContractId" in {
       forAll(coidValueGen) { v: Value[ContractId] =>
-        testRoundTrip(v)
+        testRoundTrip(TransactionVersion.minVersion, v)
       }
     }
 
-    "do ContractId V0 in any ValueVersion" in forAll(coidValueGen, valueVersionGen())(
-      testRoundTripWithVersion
-    )
-
-    "do ContractId in any ValueVersion" in forAll(
-      coidValueGen,
-      valueVersionGen(ValueVersion.minContractIdV1))(
+    "do ContractId V0 in any ValueVersion" in forAll(coidValueGen, transactionVersionGen())(
       testRoundTripWithVersion
     )
 
     "do lists" in {
       forAll(valueListGen) { v: ValueList[ContractId] =>
-        testRoundTrip(v)
+        testRoundTrip(TransactionVersion.minVersion, v)
       }
     }
 
     "do optionals" in {
       forAll(valueOptionalGen) { v: ValueOptional[ContractId] =>
-        testRoundTrip(v)
+        testRoundTrip(TransactionVersion.minVersion, v)
       }
     }
 
     "do maps" in {
       forAll(valueMapGen) { v: ValueTextMap[ContractId] =>
-        testRoundTrip(v)
+        testRoundTrip(TransactionVersion.minVersion, v)
       }
     }
 
     "do genMaps" in {
       forAll(valueGenMapGen) { v: ValueGenMap[ContractId] =>
-        testRoundTrip(v)
+        testRoundTrip(TransactionVersion.minGenMap, v)
       }
     }
 
     "do variant" in {
       forAll(variantGen) { v: ValueVariant[ContractId] =>
-        testRoundTrip(v)
+        testRoundTrip(TransactionVersion.minVersion, v)
       }
     }
 
     "do record" in {
       forAll(recordGen) { v: ValueRecord[ContractId] =>
-        testRoundTrip(v)
+        testRoundTrip(TransactionVersion.minVersion, v)
       }
     }
 
     "do unit" in {
-      val recovered = ValueCoder.decodeValue(
-        ValueCoder.CidDecoder,
-        defaultValueVersion,
-        assertRight(
-          ValueCoder.encodeValue[ContractId](ValueCoder.CidEncoder, defaultValueVersion, ValueUnit),
-        ),
-      )
-      val fromToBytes = ValueCoder.valueFromBytes(
-        ValueCoder.CidDecoder,
-        ValueCoder
-          .valueToBytes(ValueCoder.CidEncoder, ValueUnit)
-          .toOption
-          .get,
-      )
-      Right(ValueUnit) shouldEqual fromToBytes
-      recovered shouldEqual Right(ValueUnit)
+      testRoundTrip(TransactionVersion.minVersion, ValueUnit)
     }
 
     "do identifier" in {
@@ -204,81 +155,45 @@ class ValueCoderSpec
       }
     }
 
-    "do identifier with supported override version" in forAll(idGen, valueVersionGen()) { (i, _) =>
-      val ei = ValueCoder.encodeIdentifier(i)
-      ValueCoder.decodeIdentifier(ei) shouldEqual Right(i)
+    "do identifier with supported override version" in forAll(idGen, transactionVersionGen()) {
+      (i, _) =>
+        val ei = ValueCoder.encodeIdentifier(i)
+        ValueCoder.decodeIdentifier(ei) shouldEqual Right(i)
     }
 
     "do versioned value with supported override version" in forAll(versionedValueGen) {
       case VersionedValue(version, value) => testRoundTripWithVersion(value, version)
     }
-
-    "do versioned value with assigned version" in forAll(valueGen) { v: Value[ContractId] =>
-      testRoundTripWithVersion(v, ValueVersion.assertAssignVersion(v))
-    }
-
-    "versioned value should pass serialization if unsupported override version provided" in
-      forAll(valueGen, unsupportedValueVersionGen) {
-        (value: Value[ContractId], badVer: ValueVersion) =>
-          ValueVersion.acceptedVersions.contains(badVer) shouldBe false
-
-          val actual: proto.VersionedValue = assertRight(
-            ValueCoder
-              .encodeVersionedValueWithCustomVersion(
-                ValueCoder.CidEncoder,
-                VersionedValue(badVer, value),
-              ),
-          )
-
-          actual.getVersion shouldEqual badVer.protoValue
-      }
-
-    "versioned value should fail deserialization if version is not supported" in
-      forAll(valueGen, unsupportedValueVersionGen) {
-        (value: Value[ContractId], badVer: ValueVersion) =>
-          ValueVersion.acceptedVersions.contains(badVer) shouldBe false
-
-          val protoWithUnsupportedVersion: proto.VersionedValue =
-            assertRight(
-              ValueCoder.encodeVersionedValueWithCustomVersion(
-                ValueCoder.CidEncoder,
-                VersionedValue(badVer, value),
-              ),
-            )
-          protoWithUnsupportedVersion.getVersion shouldEqual badVer.protoValue
-
-          val actual: Either[DecodeError, VersionedValue[ContractId]] =
-            ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, protoWithUnsupportedVersion)
-
-          actual shouldEqual Left(DecodeError(s"Unsupported value version ${badVer.protoValue}"))
-      }
   }
 
-  def testRoundTrip(value: Value[ContractId]): Assertion = {
+  def testRoundTrip(version: TransactionVersion, value: Value[ContractId]): Assertion = {
     val recovered = ValueCoder.decodeValue(
       ValueCoder.CidDecoder,
-      defaultValueVersion,
-      assertRight(
-        ValueCoder.encodeValue[ContractId](ValueCoder.CidEncoder, defaultValueVersion, value)),
+      version,
+      assertRight(ValueCoder.encodeValue[ContractId](ValueCoder.CidEncoder, version, value)),
     )
+    val bytes =
+      assertRight(
+        ValueCoder.encodeVersionedValue(
+          ValueCoder.CidEncoder,
+          VersionedValue(version, value),
+        )
+      ).toByteArray
+
     val fromToBytes = ValueCoder.valueFromBytes(
       ValueCoder.CidDecoder,
-      assertRight(
-        ValueCoder
-          .valueToBytes[ContractId](ValueCoder.CidEncoder, value)),
+      bytes,
     )
     Right(value) shouldEqual recovered
     Right(value) shouldEqual fromToBytes
   }
 
-  def testRoundTripWithVersion(value0: Value[ContractId], version: ValueVersion): Assertion = {
-    ValueVersion.acceptedVersions.contains(version) shouldBe true
-
+  def testRoundTripWithVersion(
+      value0: Value[ContractId],
+      version: TransactionVersion): Assertion = {
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder
-        .encodeVersionedValueWithCustomVersion(
-          ValueCoder.CidEncoder,
-          VersionedValue(version, value0)),
+        .encodeVersionedValue(ValueCoder.CidEncoder, VersionedValue(version, value0)),
     )
     val decoded: VersionedValue[ContractId] = assertRight(
       ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encoded),

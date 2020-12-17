@@ -17,7 +17,7 @@ private[migration] object ValueSerializer {
 
   private[translation] object DeprecatedValueVersionsError {
     val DeprecatedValueVersions = Set("1", "2", "3", "4", "5")
-    val UnsupportedErrorMessage = """Unsupported value version (\d)""".r
+    val UnsupportedErrorMessage = """Unsupported transaction version '(\d)'""".r
 
     def unapply[X](arg: Either[ValueCoder.DecodeError, X]): Option[String] =
       arg match {

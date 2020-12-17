@@ -3,13 +3,12 @@
 
 package com.daml.lf.speedy
 
-import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
-import com.daml.lf.value.{Value, ValueVersion}
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.ScenarioLedger
 
@@ -108,14 +107,6 @@ object SError {
       coid: ContractId,
       expected: TypeConName,
       actual: TypeConName,
-  ) extends SErrorDamlException
-
-  /** We tried to fetch data with disallowed value version --
-    *  see <https://github.com/digital-asset/daml/issues/5164>
-    */
-  final case class DamlEDisallowedInputValueVersion(
-      allowed: VersionRange[ValueVersion],
-      actual: ValueVersion,
   ) extends SErrorDamlException
 
   /** There was an authorization failure during execution. */
