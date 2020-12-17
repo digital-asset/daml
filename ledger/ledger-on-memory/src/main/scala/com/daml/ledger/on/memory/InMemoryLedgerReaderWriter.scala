@@ -247,11 +247,7 @@ object InMemoryLedgerReaderWriter {
     val commitStrategy = new LogAppenderPreExecutingCommitStrategy(keySerializationStrategy)
     val validator = new PreExecutingSubmissionValidator(keyValueCommitting, commitStrategy, metrics)
     val committer =
-      new PreExecutingValidatingCommitter[
-        FingerprintedReadSet,
-        RawKeyValuePairsWithLogEntry,
-        Index,
-      ](
+      new PreExecutingValidatingCommitter[FingerprintedReadSet, RawKeyValuePairsWithLogEntry](
         transformStateReader =
           transformStateReader(keySerializationStrategy, stateValueCacheForPreExecution),
         validator = validator,

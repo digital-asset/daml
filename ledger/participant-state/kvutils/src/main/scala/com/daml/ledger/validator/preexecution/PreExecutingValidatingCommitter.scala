@@ -26,7 +26,7 @@ import scala.util.{Failure, Success}
   * @param postExecutionConflictDetector The post-execution conflict detector.
   * @param postExecutionFinalizer        The post-execution finalizer.
   */
-class PreExecutingValidatingCommitter[ReadSet, WriteSet, LogResult](
+class PreExecutingValidatingCommitter[ReadSet, WriteSet](
     transformStateReader: StateReader[Key, Option[Value]] => StateReader[
       DamlStateKey,
       (Option[DamlStateValue], Fingerprint),
@@ -54,7 +54,7 @@ class PreExecutingValidatingCommitter[ReadSet, WriteSet, LogResult](
       correlationId: String,
       submissionEnvelope: Bytes,
       submittingParticipantId: ParticipantId,
-      ledgerStateAccess: LedgerStateAccess[LogResult],
+      ledgerStateAccess: LedgerStateAccess[Any],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
     LoggingContext.newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
       // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
