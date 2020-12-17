@@ -428,7 +428,6 @@ object Ast {
   final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
 
   // Exceptions
-  final case object BThrow extends BuiltinFunction(1) // : ∀a. AnyException → a
   final case object BMakeGeneralError extends BuiltinFunction(1) // Text → GeneralError
   final case object BMakeArithmeticError extends BuiltinFunction(1) // Text → ArithmeticError
   final case object BMakeContractError extends BuiltinFunction(1) // Text → ContractError
