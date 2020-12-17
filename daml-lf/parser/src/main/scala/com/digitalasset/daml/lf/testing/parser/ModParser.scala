@@ -41,10 +41,13 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     Id("module") ~! tags(modTags) ~ dottedName ~ `{` ~ rep(definition <~ `;`) <~ `}` ^^ {
       case _ ~ modTag ~ modName ~ _ ~ defs =>
         val (definitions, templates) = split(defs)
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        //  support exceptions
+        val exceptions = List.empty
         val flags = FeatureFlags(
           forbidPartyLiterals = modTag(noPartyLitsTag)
         )
-        Module(modName, definitions, templates, flags)
+        Module(modName, definitions, templates, exceptions, flags)
     }
 
   private lazy val definition: Parser[Def] =

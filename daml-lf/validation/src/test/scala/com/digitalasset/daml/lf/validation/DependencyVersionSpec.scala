@@ -42,6 +42,7 @@ class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks w
               false)
         },
         Map.empty,
+        Map.empty,
         FeatureFlags.default
       )
 

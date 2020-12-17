@@ -78,6 +78,10 @@ class TypeSpec extends AnyWordSpec with Matchers {
           case Pkg.BTArrow => sys.error("cannot use arrow in interface type")
           case Pkg.BTAny => sys.error("cannot use any in interface type")
           case Pkg.BTTypeRep => sys.error("cannot use type representation in interface type")
+          case Pkg.BTAnyException | Pkg.BTArithmeticError | Pkg.BTContractError |
+              Pkg.BTGeneralError =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            sys.error("exception not supported")
         }
       case Pkg.TTyCon(tycon) => TypeCon(TypeConName(tycon), args.toImmArray.toSeq)
       case Pkg.TNat(_) => sys.error("cannot use nat type in interface type")

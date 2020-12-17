@@ -377,6 +377,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setLookupByKey(rbk)
         case UpdateEmbedExpr(typ, body) =>
           builder.setEmbedExpr(PLF.Update.EmbedExpr.newBuilder().setType(typ).setBody(body))
+        case UpdateTryCatch(_, _, _, _) =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          //  support exceptions
+          sys.error("exceptions not supported")
       }
       builder.build()
     }

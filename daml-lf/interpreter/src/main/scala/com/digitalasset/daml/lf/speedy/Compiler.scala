@@ -429,6 +429,9 @@ private[lf] final class Compiler(
         SBFromAny(ty)(compile(e))
       case ETypeRep(typ) =>
         SEValue(STypeRep(typ))
+      case EThrow(_, _, _) | EFromAnyException(_, _) | EToAnyException(_, _) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("exceptions not supported")
     }
 
   @inline
@@ -544,6 +547,11 @@ private[lf] final class Compiler(
               BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
               BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
+          case BMakeGeneralError | BMakeArithmeticError | BMakeContractError |
+              BAnyExceptionMessage | BGeneralErrorMessage | BArithmeticErrorMessage |
+              BContractErrorMessage =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            sys.error("exception not supported")
         })
     }
 
@@ -698,6 +706,9 @@ private[lf] final class Compiler(
         LookupByKeyDefRef(templateId)(compile(key))
       case UpdateFetchByKey(RetrieveByKey(templateId, key)) =>
         FetchByKeyDefRef(templateId)(compile(key))
+      case UpdateTryCatch(_, _, _, _) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("exceptions not supported")
     }
 
   @tailrec
