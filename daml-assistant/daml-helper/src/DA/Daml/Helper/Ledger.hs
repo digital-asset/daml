@@ -366,7 +366,8 @@ reset args =
              T.unpack $
              tokenFor
                [TL.toStrict $ L.unParty p | p <- parties]
-               (TL.toStrict $ L.unLedgerId ledgerId)) $ do
+               (TL.toStrict $ L.unLedgerId ledgerId)
+               "ledger-reset") $ do
             activeContracts <-
               L.getActiveContracts
                 ledgerId

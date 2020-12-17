@@ -61,7 +61,7 @@ main = do
         ] $ defaultMain (tests tmpDir))
 
 hardcodedToken :: T.Text
-hardcodedToken = tokenFor ["Alice"] "MyLedger"
+hardcodedToken = tokenFor ["Alice"] "MyLedger" "AssistantIntegrationTests"
 
 authorizationHeaders :: RequestHeaders
 authorizationHeaders = [("Authorization", "Bearer " <> T.encodeUtf8 hardcodedToken)]

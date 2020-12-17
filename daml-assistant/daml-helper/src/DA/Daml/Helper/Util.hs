@@ -202,8 +202,8 @@ waitForHttpServer sleep url headers = do
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)
 
-tokenFor :: [T.Text] -> T.Text -> T.Text
-tokenFor parties ledgerId =
+tokenFor :: [T.Text] -> T.Text -> T.Text -> T.Text
+tokenFor parties ledgerId applicationId =
   JWT.encodeSigned
     (JWT.HMACSecret "secret")
     mempty
@@ -217,6 +217,7 @@ tokenFor parties ledgerId =
                   [ ("actAs", A.toJSON parties)
                   , ("readAs", A.toJSON parties)
                   , ("ledgerId", A.String ledgerId)
+                  , ("applicationId", A.String applicationId)
                   ])
             ]
       }
