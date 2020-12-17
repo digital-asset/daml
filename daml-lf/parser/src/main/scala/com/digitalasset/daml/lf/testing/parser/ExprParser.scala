@@ -20,6 +20,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   lazy val expr0: Parser[Expr] =
     literal ^^ EPrimLit |
       primCon ^^ EPrimCon |
+      scenario ^^ EScenario |
+      update ^^ EUpdate |
       eList |
       eOption |
       eRecCon |
@@ -41,8 +43,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       fullIdentifier ^^ EVal |
       (id ^? builtinFunctions) ^^ EBuiltin |
       caseOf |
-      scenario ^^ EScenario |
-      update ^^ EUpdate |
       id ^^ EVar |
       `(` ~> expr <~ `)`
 
