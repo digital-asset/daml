@@ -428,7 +428,7 @@ version: 0.1.0
 dependencies:
   - daml-stdlib
   - daml-prim
-#build-options: ["--ghc-option", "-Werror"]
+build-options: ["--ghc-option", "-Werror"]
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-test-indirect.dar)
       rm -rf $$TMP_DIR
@@ -461,7 +461,7 @@ dependencies:
   - daml-stdlib
   - daml-prim
   - repl-test-indirect.dar
-#build-options: ["--ghc-option", "-Werror"]
+build-options: ["--ghc-option", "-Werror"]
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-test.dar)
       rm -rf $$TMP_DIR
@@ -489,7 +489,7 @@ version: 0.1.0
 dependencies:
   - daml-stdlib
   - daml-prim
-#build-options: ["--ghc-option", "-Werror"]
+build-options: ["--ghc-option", "-Werror"]
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-test-two.dar)
       rm -rf $$TMP_DIR
@@ -524,7 +524,7 @@ dependencies:
 data-dependencies:
   - repl-test.dar
   - repl-test-two.dar
-#build-options: ["--ghc-option", "-Werror"]
+build-options: ["--ghc-option", "-Werror"]
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-multi-test.dar)
       rm -rf $$TMP_DIR
