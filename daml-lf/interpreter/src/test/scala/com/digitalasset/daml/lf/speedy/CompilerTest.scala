@@ -40,7 +40,7 @@ class CompilerTest extends AnyWordSpec with Matchers {
 
     "handle 10k commands" in {
 
-      val cmds = ImmArraySeq
+      val cmds = ImmArray.ImmArraySeq
         .fill(10 * 1000)(
           Command.Create(
             recordCon,

@@ -4,7 +4,7 @@
 package com.daml.codegen
 package lf
 
-import com.daml.lf.data.ImmArraySeq
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.iface.{DataType, DefDataType}
 

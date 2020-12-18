@@ -72,7 +72,7 @@ object SortedLookupList extends SortedLookupListInstances {
     }
 
   def apply[X](entries: Map[String, X]): SortedLookupList[X] = {
-    new SortedLookupList[X](entries.to(ImmArraySeq).sorted(EntryOrdering).toImmArray)
+    new SortedLookupList[X](entries.to(ImmArray.ImmArraySeq).sorted(EntryOrdering).toImmArray)
   }
 
   def Empty: SortedLookupList[Nothing] = new SortedLookupList(ImmArray.empty)

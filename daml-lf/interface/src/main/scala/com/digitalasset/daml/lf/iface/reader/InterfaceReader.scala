@@ -12,7 +12,7 @@ import scalaz.syntax.traverse._
 import scalaz.std.list._
 import scalaz.std.option._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
-import com.daml.lf.data.ImmArraySeq
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.{Util => AstUtil}

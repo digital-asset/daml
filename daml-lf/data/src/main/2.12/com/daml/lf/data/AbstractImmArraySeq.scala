@@ -13,6 +13,8 @@ import scala.collection.generic.{
 }
 import scala.collection.{IndexedSeqLike, IndexedSeqOptimized, mutable}
 
+import ImmArray.ImmArraySeq
+
 abstract class AbstractImmArraySeq[+A](array: ImmArray[A])
     extends IndexedSeq[A]
     with GenericTraversableTemplate[A, ImmArraySeq]

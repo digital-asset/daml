@@ -4,7 +4,7 @@
 package com.daml
 package codegen
 
-import com.daml.lf.data.ImmArraySeq
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.iface._
 import com.daml.lf.value.test.ValueGenerators.idGen

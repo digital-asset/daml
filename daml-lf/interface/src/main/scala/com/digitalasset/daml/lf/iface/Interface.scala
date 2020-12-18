@@ -6,7 +6,7 @@ package iface
 
 import java.{util => j}
 
-import com.daml.lf.data.ImmArraySeq
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.daml.lf.iface.reader.Errors
 import com.daml.daml_lf_dev.DamlLf

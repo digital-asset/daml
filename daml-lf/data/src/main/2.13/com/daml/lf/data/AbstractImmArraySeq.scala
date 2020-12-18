@@ -6,6 +6,8 @@ package com.daml.lf.data
 import scala.collection.StrictOptimizedSeqFactory
 import scala.collection.immutable.{AbstractSeq, IndexedSeqOps, StrictOptimizedSeqOps}
 
+import ImmArray.ImmArraySeq
+
 abstract class AbstractImmArraySeq[+A](array: ImmArray[A])
     extends AbstractSeq[A]
     with IndexedSeq[A]

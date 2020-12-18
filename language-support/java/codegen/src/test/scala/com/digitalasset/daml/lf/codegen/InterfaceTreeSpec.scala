@@ -3,7 +3,8 @@
 
 package com.daml.lf.codegen
 
-import com.daml.lf.data.{ImmArray, ImmArraySeq}
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{DottedName, QualifiedName, PackageId}
 import com.daml.lf.iface.{DefDataType, Interface, InterfaceType, Record, Variant}
 import org.scalatest.matchers.should.Matchers

@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import com.daml.lf.data.ImmArraySeq
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.http.ErrorMessages.cannotResolveTemplateId
 import com.daml.http.domain.{
   ActiveContract,

@@ -5,7 +5,7 @@ package com.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
 import com.daml.lf.codegen.backend.java.{JavaEscaper}
-import com.daml.lf.data.ImmArraySeq
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface._
 import com.squareup.javapoet._

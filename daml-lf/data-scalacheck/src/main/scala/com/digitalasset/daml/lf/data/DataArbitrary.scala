@@ -25,7 +25,7 @@ object DataArbitrary {
       } yield if (min >= max) ImmArray(Seq()) else ImmArray(raw).strictSlice(min, max)
     }
 
-  implicit def `arb ImmArraySeq`[A: Arbitrary]: Arbitrary[ImmArraySeq[A]] =
+  implicit def `arb ImmArraySeq`[A: Arbitrary]: Arbitrary[ImmArray.ImmArraySeq[A]] =
     Arbitrary(arbitrary[ImmArray[A]] map (_.toSeq))
 
   private[this] sealed trait APS

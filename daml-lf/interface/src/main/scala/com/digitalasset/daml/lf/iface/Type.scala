@@ -5,7 +5,7 @@ package com.daml.lf.iface
 
 import java.{util => j}
 
-import com.daml.lf.data.ImmArraySeq
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.{Numeric, Ref}
 import com.daml.lf.data.Ref.Identifier
 import scalaz.Monoid

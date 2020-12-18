@@ -9,6 +9,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
 
+import ImmArray.ImmArraySeq
+
 class ImmArrayTest extends AnyFlatSpec with Matchers with FlatSpecCheckLaws {
   import DataArbitrary._
   import ImmArraySeq._
