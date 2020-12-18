@@ -79,7 +79,10 @@ final class LedgerClient private (
   override def close(): Unit =
     channel match {
       case channel: ManagedChannel =>
-        val _ = channel.shutdown().awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
+        // This includes closing active connections.
+        channel.shutdownNow()
+        channel.awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
+        ()
       case _ => // do nothing
     }
 }

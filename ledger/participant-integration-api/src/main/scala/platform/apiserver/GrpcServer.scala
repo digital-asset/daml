@@ -5,6 +5,7 @@ package com.daml.platform.apiserver
 
 import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeUnit.SECONDS
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -64,7 +65,17 @@ private[apiserver] object GrpcServer {
             throw new UnableToBind(desiredPort, e.getCause)
         }
         server
-      })(server => Future(server.shutdown().awaitTermination()))
+      })(server =>
+        Future {
+          // Phase 1, initialize shutdown, but wait for termination.
+          // If the shutdown has been initiated by the reset service, this gives the service time to gracefully complete the request.
+          server.shutdown()
+          server.awaitTermination(1, TimeUnit.SECONDS)
+
+          // Phase 2: Now cut off all remaining connections.
+          server.shutdownNow()
+          server.awaitTermination()
+      })
     }
   }
 
