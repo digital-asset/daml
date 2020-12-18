@@ -877,7 +877,7 @@ class JsonLedgerClient(
       new RuntimeException("setTime is not supported when running DAML Script over the JSON API."))
   }
 
-  // Check that the parties in the token are a superset of the given parties.
+  // Check that the parties in the token match the given parties.
   private def validateTokenParties(parties: OneAnd[Set, Ref.Party], what: String): Future[Unit] = {
     import scalaz.std.string._
     val tokenParties = Set(tokenPayload.readAs ++ tokenPayload.actAs: _*)
