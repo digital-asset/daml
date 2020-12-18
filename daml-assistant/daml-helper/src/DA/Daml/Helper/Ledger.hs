@@ -391,7 +391,6 @@ reset args =
                     , aid = L.ApplicationId "hotreload"
                     , cid = L.CommandId "reset"
                     , actAs = parties
-                    , readAs = parties
                     , dedupTime = Nothing
                     , minLeTimeAbs = Nothing
                     , minLeTimeRel = Nothing
