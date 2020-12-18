@@ -45,6 +45,7 @@ ScriptExample:queryParties SUCCESS
 ScriptExample:test SUCCESS
 ScriptTest:failingTest FAILURE (com.daml.lf.speedy.SError$DamlEUserError)
 ScriptTest:listKnownPartiesTest SUCCESS
+ScriptTest:multiPartySubmission SUCCESS
 ScriptTest:partyIdHintTest SUCCESS
 ScriptTest:sleepTest SUCCESS
 ScriptTest:test0 SUCCESS
