@@ -16,7 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   * @tparam LogResult type of the offset used for a log entry
   */
-trait LedgerStateAccess[LogResult] {
+trait LedgerStateAccess[+LogResult] {
 
   /**
     * Performs read and write operations on the backing store in a single atomic transaction.
