@@ -366,13 +366,14 @@ To run DAML script against the JSON API you have to pass the ``--json-api`` para
    against a ledger that doesn't verify authorization. The section on
    :ref:`authorization <daml-script-auth>` describes how to specify
    the tokens.
-#. The tokens must contain exactly one party in ``actAs`` and/or
-   ``readAs``. This party will be used for ``submit`` and
-   ``query``. Passing a party as the argument to ``submit`` and
-   ``query`` that is different from the party in the token is an
-   error.
+#. The parties used for command submissions and queries must match the
+   parties specified in the token exactly.  For command submissions
+   that means ``actAs`` and ``readAs`` must match exactly what you
+   specified whereas for queries the union of ``actAs`` and ``readAs``
+   must match the parties specified in the query.
 #. If you use multiple parties within your DAML Script, you need to
-   specify one token per party.
+   specify one token per party or every submission and query must
+   specify all parties of the multi-party token.
 #. ``getTime`` will always return the Unix epoch in static time mode
    since the time service is not exposed via the JSON API.
 #. ``setTime`` is not supported and will throw a runtime error.
