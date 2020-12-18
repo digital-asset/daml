@@ -142,23 +142,18 @@ final class SandboxServer(
 
   private[this] val engine = {
     val engineConfig = {
-      remy.log(" *** ")
       val baseConfig =
         if (config.seeding.isEmpty) {
           if (config.devMode) {
-            remy.log("1")
             throw new InvalidConfigException(
               s""""${Seeding.NoSeedingModeName}" contract IDs seeding mode is not compatible with development mode""")
           } else {
-            remy.log("2")
             EngineConfig.Legacy
           }
         } else {
           if (config.devMode) {
-            remy.log("3")
             EngineConfig.Dev
           } else {
-            remy.log("4")
             EngineConfig.Stable
           }
         }
