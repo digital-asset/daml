@@ -468,7 +468,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         """
         module Mod {
 
-          record Person = { person: Party, name: Text } ;
+          record @serializable Person = { person: Party, name: Text } ;
 
           template (this : Person) =  {
             precondition True,
@@ -536,7 +536,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         )
 
       val recDef = DDataType(
-        false,
+        true,
         ImmArray.empty,
         DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text"))
       )
@@ -599,6 +599,38 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           )))
 
     }
+  }
+  "parses exception definition" in {
+
+    val p =
+      """
+          module Mod {
+
+            record @serializable Exception = { message: Text } ;
+
+            exception Exception = {
+              message \(e: Mod:Exception) -> Mod:Exception {message} e
+            } ;
+          }
+      """
+
+    val recDef = DDataType(
+      true,
+      ImmArray.empty,
+      DataRecord(ImmArray(n"message" -> TText))
+    )
+    val name = DottedName.assertFromString("Exception")
+    val exception = DefException(e"""\(e: Mod:Exception) -> Mod:Exception {message} e""")
+    parseModules(p) shouldBe Right(
+      List(
+        Module(
+          name = modName,
+          definitions = List(name -> recDef),
+          templates = List.empty,
+          exceptions = List(name -> exception),
+          featureFlags = FeatureFlags.default
+        )))
+
   }
 
   "parses location annotations" in {
