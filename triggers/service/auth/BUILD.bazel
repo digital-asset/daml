@@ -33,6 +33,7 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//language-support/scala/bindings",
+        "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_http_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",

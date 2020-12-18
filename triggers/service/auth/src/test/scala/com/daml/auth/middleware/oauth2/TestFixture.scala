@@ -36,6 +36,7 @@ trait TestFixture
   self: Suite =>
   protected val ledgerId: String = "test-ledger"
   protected val jwtSecret: String = "secret"
+  protected val maxAuthCallbacks: Long = 1000
   protected val middlewareCallbackUri: Option[Uri] = None
   lazy protected val clock: AdjustableClock = suiteResource.value._1
   lazy protected val server: OAuthServer = suiteResource.value._2
@@ -49,6 +50,8 @@ trait TestFixture
           middlewareBinding.localAddress.getHostName,
           middlewareBinding.localAddress.getPort),
       callbackUri = Uri("http://localhost/CALLBACK"),
+      maxAuthCallbacks = 1000,
+      authCallbackTimeout = FiniteDuration(1, duration.MINUTES),
       maxHttpEntityUploadSize = 4194304,
       httpEntityUploadTimeout = FiniteDuration(1, duration.MINUTES)
     ))
