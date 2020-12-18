@@ -22,7 +22,7 @@ main() {
   if [ "" = "$baseline_perf" ]; then exit 1; fi
 
   # undo patch
-  git reset --hard
+  git reset --hard >&2
   git checkout $current >&2
   local current_perf=$(measure)
   if [ "" = "$current_perf" ]; then exit 1; fi
