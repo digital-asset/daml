@@ -364,45 +364,38 @@ reset args = do
         parties <- map L.party <$> L.listKnownParties
         unless (null parties) $ do
           ledgerId <- L.getLedgerIdentity
-          L.setToken
-            (L.Token $
-             T.unpack $
-             tokenFor
-               [TL.toStrict $ L.unParty p | p <- parties]
-               (TL.toStrict $ L.unLedgerId ledgerId)
-               "ledger-reset") $ do
-            activeContracts <-
-              L.getActiveContracts
-                ledgerId
-                (TransactionFilter $
-                 Map.fromList [(L.unParty p, Just $ Filters Nothing) | p <- parties])
-                (L.Verbosity False)
-            let cmds =
-                  L.Commands
-                    { coms =
-                        [ L.ExerciseCommand
-                          { tid = tid
-                          , cid = cid
-                          , choice = L.Choice "Archive"
-                          , arg = L.VRecord $ L.Record Nothing []
-                          }
-                        | (_offset, _mbWid, events) <- activeContracts
-                        , L.CreatedEvent {cid, tid} <- events
-                        ]
-                    , lid = ledgerId
-                    , wid = Nothing
-                    , aid = L.ApplicationId "ledger-reset"
-                    , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
-                    , actAs = parties
-                    , readAs = []
-                    , dedupTime = Nothing
-                    , minLeTimeAbs = Nothing
-                    , minLeTimeRel = Nothing
-                    }
-            errOrEmpty <- L.submit cmds
-            case errOrEmpty of
-              Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
-              Right () -> pure ()
+          activeContracts <-
+            L.getActiveContracts
+              ledgerId
+              (TransactionFilter $
+               Map.fromList [(L.unParty p, Just $ Filters Nothing) | p <- parties])
+              (L.Verbosity False)
+          let cmds =
+                L.Commands
+                  { coms =
+                      [ L.ExerciseCommand
+                        { tid = tid
+                        , cid = cid
+                        , choice = L.Choice "Archive"
+                        , arg = L.VRecord $ L.Record Nothing []
+                        }
+                      | (_offset, _mbWid, events) <- activeContracts
+                      , L.CreatedEvent {cid, tid} <- events
+                      ]
+                  , lid = ledgerId
+                  , wid = Nothing
+                  , aid = L.ApplicationId "ledger-reset"
+                  , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
+                  , actAs = parties
+                  , readAs = []
+                  , dedupTime = Nothing
+                  , minLeTimeAbs = Nothing
+                  , minLeTimeRel = Nothing
+                  }
+          errOrEmpty <- L.submit cmds
+          case errOrEmpty of
+            Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
+            Right () -> pure ()
     HttpJson ->
       fail
         "The reset command is currently not available for the HTTP JSON API. Please use the gRPC API."
