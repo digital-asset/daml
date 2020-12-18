@@ -357,7 +357,6 @@ runLedgerReset flags = do
 
 reset :: LedgerArgs -> IO ()
 reset args = do
-  cmdId <- UUID.nextRandom
   case api args of
     Grpc ->
       runWithLedgerArgs args $ do
@@ -370,32 +369,35 @@ reset args = do
               (TransactionFilter $
                Map.fromList [(L.unParty p, Just $ Filters Nothing) | p <- parties])
               (L.Verbosity False)
-          let cmds =
-                L.Commands
-                  { coms =
-                      [ L.ExerciseCommand
-                        { tid = tid
-                        , cid = cid
-                        , choice = L.Choice "Archive"
-                        , arg = L.VRecord $ L.Record Nothing []
-                        }
-                      | (_offset, _mbWid, events) <- activeContracts
-                      , L.CreatedEvent {cid, tid} <- events
-                      ]
-                  , lid = ledgerId
-                  , wid = Nothing
-                  , aid = L.ApplicationId "ledger-reset"
-                  , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
-                  , actAs = parties
-                  , readAs = []
-                  , dedupTime = Nothing
-                  , minLeTimeAbs = Nothing
-                  , minLeTimeRel = Nothing
-                  }
-          errOrEmpty <- L.submit cmds
-          case errOrEmpty of
-            Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
-            Right () -> pure ()
+          let chunks = chunksOf 100 activeContracts
+          forM_ chunks $ \chunk -> do
+            cmdId <- liftIO UUID.nextRandom
+            let cmds =
+                  L.Commands
+                    { coms =
+                        [ L.ExerciseCommand
+                          { tid = tid
+                          , cid = cid
+                          , choice = L.Choice "Archive"
+                          , arg = L.VRecord $ L.Record Nothing []
+                          }
+                        | (_offset, _mbWid, events) <- chunk
+                        , L.CreatedEvent {cid, tid} <- events
+                        ]
+                    , lid = ledgerId
+                    , wid = Nothing
+                    , aid = L.ApplicationId "ledger-reset"
+                    , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
+                    , actAs = parties
+                    , readAs = []
+                    , dedupTime = Nothing
+                    , minLeTimeAbs = Nothing
+                    , minLeTimeRel = Nothing
+                    }
+            errOrEmpty <- L.submit cmds
+            case errOrEmpty of
+              Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
+              Right () -> pure ()
     HttpJson ->
       fail
         "The reset command is currently not available for the HTTP JSON API. Please use the gRPC API."
