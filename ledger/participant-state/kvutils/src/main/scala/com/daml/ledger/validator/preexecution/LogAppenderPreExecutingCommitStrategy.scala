@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, Fingerprint, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
+import com.daml.ledger.validator.preexecution.LogAppenderPreExecutingCommitStrategy.FingerprintedReadSet
 import com.daml.ledger.validator.{
   StateKeySerializationStrategy,
   StateSerializationStrategy,
@@ -26,7 +26,7 @@ final class LogAppenderPreExecutingCommitStrategy(
 ) extends PreExecutingCommitStrategy[
       DamlStateKey,
       (Option[DamlStateValue], Fingerprint),
-      ReadSet,
+      FingerprintedReadSet,
       RawKeyValuePairsWithLogEntry,
     ] {
   private val stateSerializationStrategy = new StateSerializationStrategy(keySerializationStrategy)
@@ -34,19 +34,12 @@ final class LogAppenderPreExecutingCommitStrategy(
   override def generateReadSet(
       fetchedInputs: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
       accessedKeys: Set[DamlStateKey],
-  ): ReadSet =
-    accessedKeys
-      .map { key =>
-        val (_, fingerprint) =
-          fetchedInputs.getOrElse(key, throw new KeyNotPresentInInputException(key))
-        key -> fingerprint
-      }
-      .map {
-        case (damlKey, fingerprint) =>
-          keySerializationStrategy.serializeStateKey(damlKey) -> fingerprint
-      }
-      .toVector
-      .sortBy(_._1.asReadOnlyByteBuffer)
+  ): FingerprintedReadSet =
+    accessedKeys.view.map { key =>
+      val (_, fingerprint) =
+        fetchedInputs.getOrElse(key, throw new KeyNotPresentInInputException(key))
+      key -> fingerprint
+    }.toMap
 
   override def generateWriteSets(
       participantId: ParticipantId,
@@ -91,4 +84,8 @@ final class LogAppenderPreExecutingCommitStrategy(
       logEntry: DamlLogEntry,
   )(implicit executionContext: ExecutionContext): Future[(Bytes, Bytes)] =
     Future(logEntryId -> Envelope.enclose(logEntry))
+}
+
+object LogAppenderPreExecutingCommitStrategy {
+  type FingerprintedReadSet = Map[DamlStateKey, Fingerprint]
 }

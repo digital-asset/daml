@@ -6,9 +6,6 @@ package com.daml.ledger.validator.caching
 import com.daml.caching.{Cache, Weight}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.Fingerprint
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.RawToDamlLedgerStateReaderAdapter.deserializeDamlStateValue
-import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.reading.StateReader
 import com.google.protobuf.MessageLite
 
@@ -21,9 +18,8 @@ object CachingDamlLedgerStateReaderWithFingerprints {
 
   def apply(
       cache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
-      cachingPolicy: CacheUpdatePolicy[DamlStateKey],
-      ledgerStateReaderWithFingerprints: StateReader[Key, (Option[Value], Fingerprint)],
-      keySerializationStrategy: StateKeySerializationStrategy,
+      cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
+      delegate: StateReader[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
   ): StateReader[DamlStateKey, (Option[DamlStateValue], Fingerprint)] =
     new CachingStateReader[DamlStateKey, (Option[DamlStateValue], Fingerprint)](
       cache = cache.mapValues(
@@ -35,12 +31,7 @@ object CachingDamlLedgerStateReaderWithFingerprints {
           case (Some(value), fingerprint) => Some((value, fingerprint))
         }
       ),
-      shouldCache = cachingPolicy.shouldCacheOnRead,
-      delegate = ledgerStateReaderWithFingerprints
-        .contramapKeys(keySerializationStrategy.serializeStateKey)
-        .mapValues {
-          case (valueMaybe, fingerprint) =>
-            valueMaybe.map(deserializeDamlStateValue) -> fingerprint
-        },
+      shouldCache = cacheUpdatePolicy.shouldCacheOnRead,
+      delegate = delegate,
     )
 }

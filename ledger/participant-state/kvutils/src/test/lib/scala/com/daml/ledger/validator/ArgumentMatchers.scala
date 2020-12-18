@@ -13,11 +13,11 @@ trait ArgumentMatchers {
 
   def anyExecutionContext: ExecutionContext = any[ExecutionContext]
 
-  def seqOf[T](size: Int): Seq[T] =
-    argThat[Seq[T]](new ArgumentMatcher[Seq[T]] {
-      override def matches(argument: Seq[T]): Boolean = argument.size == size
+  def iterableOf[T](size: Int): Iterable[T] =
+    argThat[Iterable[T]](new ArgumentMatcher[Iterable[T]] {
+      override def matches(argument: Iterable[T]): Boolean = argument.size == size
 
-      override def toString: String = s"seq of size $size"
+      override def toString: String = s"iterable of size $size"
     })
 }
 

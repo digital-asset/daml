@@ -11,7 +11,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @tparam Key   The type of the key expected.
   * @tparam Value The type of the value returned.
   */
-trait StateReader[Key, Value] {
+trait StateReader[-Key, +Value] {
   self =>
 
   /**
@@ -20,7 +20,7 @@ trait StateReader[Key, Value] {
     * @param keys list of keys to look up
     * @return values corresponding to the requested keys, in the same order as requested
     */
-  def read(keys: Seq[Key])(implicit executionContext: ExecutionContext): Future[Seq[Value]]
+  def read(keys: Iterable[Key])(implicit executionContext: ExecutionContext): Future[Seq[Value]]
 
   /**
     * Create a new StateReader that transforms the keys before reading.
@@ -35,7 +35,7 @@ trait StateReader[Key, Value] {
   def contramapKeys[NewKey](f: NewKey => Key): StateReader[NewKey, Value] =
     new StateReader[NewKey, Value] {
       override def read(
-          keys: Seq[NewKey]
+          keys: Iterable[NewKey]
       )(implicit executionContext: ExecutionContext): Future[Seq[Value]] =
         self.read(keys.map(f))
     }
@@ -50,7 +50,7 @@ trait StateReader[Key, Value] {
   def mapValues[NewValue](f: Value => NewValue): StateReader[Key, NewValue] =
     new StateReader[Key, NewValue] {
       override def read(
-          keys: Seq[Key]
+          keys: Iterable[Key]
       )(implicit executionContext: ExecutionContext): Future[Seq[NewValue]] =
         self.read(keys).map(_.map(f))
     }
