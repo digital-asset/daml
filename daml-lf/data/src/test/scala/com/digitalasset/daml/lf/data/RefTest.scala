@@ -13,31 +13,31 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
   "DottedName.string" - {
     "rejects bad segments" - {
       "digit at the start" in {
-        DottedName.fromString("9test") shouldBe Symbol("left")
+        DottedName.fromString("9test") shouldBe a[Left[_, _]]
       }
 
       "bad symbols" in {
-        DottedName.fromString("test%") shouldBe Symbol("left")
-        DottedName.fromString("test-") shouldBe Symbol("left")
-        DottedName.fromString("test@") shouldBe Symbol("left")
+        DottedName.fromString("test%") shouldBe a[Left[_, _]]
+        DottedName.fromString("test-") shouldBe a[Left[_, _]]
+        DottedName.fromString("test@") shouldBe a[Left[_, _]]
       }
 
       "unicode" in {
-        DottedName.fromString("à") shouldBe Symbol("left")
-        DottedName.fromString("ਊ") shouldBe Symbol("left")
+        DottedName.fromString("à") shouldBe a[Left[_, _]]
+        DottedName.fromString("ਊ") shouldBe a[Left[_, _]]
       }
 
       "colon" in {
-        DottedName.fromString("foo:bar") shouldBe Symbol("left")
+        DottedName.fromString("foo:bar") shouldBe a[Left[_, _]]
       }
     }
 
     "rejects empty segments" in {
-      DottedName.fromString(".") shouldBe Symbol("left")
-      DottedName.fromString(".foo.") shouldBe Symbol("left")
-      DottedName.fromString(".foo") shouldBe Symbol("left")
-      DottedName.fromString("foo.") shouldBe Symbol("left")
-      DottedName.fromString("foo..bar") shouldBe Symbol("left")
+      DottedName.fromString(".") shouldBe a[Left[_, _]]
+      DottedName.fromString(".foo.") shouldBe a[Left[_, _]]
+      DottedName.fromString(".foo") shouldBe a[Left[_, _]]
+      DottedName.fromString("foo.") shouldBe a[Left[_, _]]
+      DottedName.fromString("foo..bar") shouldBe a[Left[_, _]]
     }
 
     "accepts good segments" - {
@@ -71,16 +71,16 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
 
   "QualifiedName.fromString" - {
     "rejects no colon" in {
-      QualifiedName.fromString("foo") shouldBe Symbol("left")
+      QualifiedName.fromString("foo") shouldBe a[Left[_, _]]
     }
 
     "rejects multiple colons" in {
-      QualifiedName.fromString("foo:bar:baz") shouldBe Symbol("left")
+      QualifiedName.fromString("foo:bar:baz") shouldBe a[Left[_, _]]
     }
 
     "rejects empty dotted names" in {
-      QualifiedName.fromString(":bar") shouldBe Symbol("left")
-      QualifiedName.fromString("bar:") shouldBe Symbol("left")
+      QualifiedName.fromString(":bar") shouldBe a[Left[_, _]]
+      QualifiedName.fromString("bar:") shouldBe a[Left[_, _]]
     }
 
     "accepts valid qualified names" in {
@@ -158,20 +158,20 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
     def makeString(c: Char): String = s"the character $c is not US-ASCII"
 
     "rejects the empty string" in {
-      PackageId.fromString("") shouldBe Symbol("left")
-      Party.fromString("") shouldBe Symbol("left")
-      LedgerString.fromString("") shouldBe Symbol("left")
+      PackageId.fromString("") shouldBe a[Left[_, _]]
+      Party.fromString("") shouldBe a[Left[_, _]]
+      LedgerString.fromString("") shouldBe a[Left[_, _]]
     }
 
     "treats US-ASCII characters as expected" in {
       for (c <- '\u0001' to '\u007f') {
         val s = makeString(c)
-        PackageId.fromString(s) shouldBe (if (packageIdChars.contains(c)) Symbol("right")
-                                          else Symbol("left"))
-        Party.fromString(s) shouldBe (if (partyIdChars.contains(c)) Symbol("right")
-                                      else Symbol("left"))
-        LedgerString.fromString(s) shouldBe (if (ledgerStringChars.contains(c)) Symbol("right")
-                                             else Symbol("left"))
+        PackageId.fromString(s) shouldBe (if (packageIdChars.contains(c)) a[Right[_, _]]
+                                          else a[Left[_, _]])
+        Party.fromString(s) shouldBe (if (partyIdChars.contains(c)) a[Right[_, _]]
+                                      else a[Left[_, _]])
+        LedgerString.fromString(s) shouldBe (if (ledgerStringChars.contains(c)) a[Right[_, _]]
+                                             else a[Left[_, _]])
       }
     }
 
@@ -179,29 +179,29 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
 
       val negativeTestCase = makeString('a')
 
-      PackageId.fromString(negativeTestCase) shouldBe Symbol("right")
-      Party.fromString(negativeTestCase) shouldBe Symbol("right")
-      LedgerString.fromString(negativeTestCase) shouldBe Symbol("right")
+      PackageId.fromString(negativeTestCase) shouldBe a[Right[_, _]]
+      Party.fromString(negativeTestCase) shouldBe a[Right[_, _]]
+      LedgerString.fromString(negativeTestCase) shouldBe a[Right[_, _]]
 
       for (c <- '\u0080' to '\u00ff') {
         val positiveTestCase = makeString(c)
-        PackageId.fromString(positiveTestCase) shouldBe Symbol("left")
-        Party.fromString(positiveTestCase) shouldBe Symbol("left")
-        LedgerString.fromString(positiveTestCase) shouldBe Symbol("left")
+        PackageId.fromString(positiveTestCase) shouldBe a[Left[_, _]]
+        Party.fromString(positiveTestCase) shouldBe a[Left[_, _]]
+        LedgerString.fromString(positiveTestCase) shouldBe a[Left[_, _]]
       }
       for (positiveTestCase <- List(
           "español",
           "東京",
           "Λ (τ : ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → (( e @τ ))"
         )) {
-        Party.fromString(positiveTestCase) shouldBe Symbol("left")
-        PackageId.fromString(positiveTestCase) shouldBe Symbol("left")
+        Party.fromString(positiveTestCase) shouldBe a[Left[_, _]]
+        PackageId.fromString(positiveTestCase) shouldBe a[Left[_, _]]
       }
     }
 
     "reject too long string" in {
-      Party.fromString("p" * 255) shouldBe Symbol("right")
-      Party.fromString("p" * 256) shouldBe Symbol("left")
+      Party.fromString("p" * 255) shouldBe a[Right[_, _]]
+      Party.fromString("p" * 256) shouldBe a[Left[_, _]]
     }
   }
 
@@ -210,9 +210,9 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
       val negativeTestCase = "a" * 255
       val positiveTestCase1 = "a" * 256
       val positiveTestCase2 = "a" * 500
-      LedgerString.fromString(negativeTestCase) shouldBe Symbol("right")
-      LedgerString.fromString(positiveTestCase1) shouldBe Symbol("left")
-      LedgerString.fromString(positiveTestCase2) shouldBe Symbol("left")
+      LedgerString.fromString(negativeTestCase) shouldBe a[Right[_, _]]
+      LedgerString.fromString(positiveTestCase1) shouldBe a[Left[_, _]]
+      LedgerString.fromString(positiveTestCase2) shouldBe a[Left[_, _]]
     }
   }
 
