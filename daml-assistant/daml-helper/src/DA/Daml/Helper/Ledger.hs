@@ -22,8 +22,8 @@ module DA.Daml.Helper.Ledger (
 
 import Control.Exception (SomeException(..), catch)
 import Control.Lens (toListOf)
-import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Extra hiding (fromMaybeM)
+import Control.Monad.IO.Class (liftIO)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
 import Data.Aeson.Text
@@ -39,6 +39,8 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
+import qualified Data.UUID as UUID
+import qualified Data.UUID.V4 as UUID
 import GHC.Generics
 import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
 import Network.HTTP.Simple
@@ -354,7 +356,8 @@ runLedgerReset flags = do
   reset args
 
 reset :: LedgerArgs -> IO ()
-reset args =
+reset args = do
+  cmdId <- UUID.nextRandom
   case api args of
     Grpc ->
       runWithLedgerArgs args $ do
@@ -388,9 +391,10 @@ reset args =
                         ]
                     , lid = ledgerId
                     , wid = Nothing
-                    , aid = L.ApplicationId "hotreload"
-                    , cid = L.CommandId "reset"
+                    , aid = L.ApplicationId "ledger-reset"
+                    , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
                     , actAs = parties
+                    , readAs = []
                     , dedupTime = Nothing
                     , minLeTimeAbs = Nothing
                     , minLeTimeRel = Nothing

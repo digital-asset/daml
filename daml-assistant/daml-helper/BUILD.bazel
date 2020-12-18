@@ -40,6 +40,7 @@ da_haskell_library(
         "typed-process",
         "unordered-containers",
         "utf8-string",
+        "uuid",
         "vector",
         "yaml",
     ],
