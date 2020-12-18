@@ -157,7 +157,9 @@ later.
 +--------------------+-----------------+
 |                  6 |      2019-11-07 |
 +--------------------+-----------------+
-|                dev |      2019-11-07 |
+|       11 (preview) |      2019-12-14 |
++--------------------+-----------------+
+|                dev |      2019-12-14 |
 +--------------------+-----------------+
 
 message VersionedValue
@@ -220,9 +222,9 @@ cases, e.g. ``list`` contains any number of ``Value``. The maximum depth
 of nested ``Value``, including the outermost, is 100; any more yields an
 invalid value.
 
-*since version dev*
+*since version 11*
 
-As of version dev, may be any one of the above, or this:
+As of version 11, may be any one of the above, or this:
 
 * `message GenMap`_ gen_map
 
@@ -543,11 +545,11 @@ of the enum type to which this ``message Enum`` conforms.
 message GenMap.Entry
 ^^^^^^^^^^^^^^^^^
 
-*since version dev*
+*since version 11*
 
 A map entry (key-value pair) used to build `message GenMap`_.
 
-As of version dev, these fields are included:
+As of version 11, these fields are included:
 
 * `message Value`_  key
 
@@ -558,7 +560,7 @@ Both ``key`` and ``value`` are required.
 message GenMap
 ^^^^^^^^^^^
 
-*since version dev*
+*since version 11*
 
 A map where keys and values are homogeneous.
 

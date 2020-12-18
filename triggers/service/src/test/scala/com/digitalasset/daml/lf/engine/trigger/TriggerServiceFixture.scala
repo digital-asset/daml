@@ -253,7 +253,6 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     timeProviderType = Some(TimeProviderType.Static),
     authService = authService,
     ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
-    seeding = None,
   )
 
   protected lazy val sandboxServer: SandboxServer = resource.value._1

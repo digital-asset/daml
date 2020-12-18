@@ -64,19 +64,25 @@ object EngineConfig {
     allowedLanguageVersions = LanguageVersion.StableVersions
   )
 
-  private[this] def toDev(config: EngineConfig): EngineConfig =
-    config.copy(allowedLanguageVersions = LanguageVersion.DevVersions)
-
   /**
     * Recommended production configuration.
     */
   def Stable: EngineConfig = Lenient
 
   /**
+    * Configuration if legacy contract ID is used.
+    */
+  def Legacy: EngineConfig =
+    Lenient.copy(
+      allowedLanguageVersions = LanguageVersion.StableVersions.copy(max = LanguageVersion.v1_8))
+
+  /**
     * Development configuration, should not be used in PROD.  Allowed
     * the same input and output versions as [[Lenient]] plus the
     * development versions.
     */
-  val Dev: EngineConfig = toDev(Lenient)
+  val Dev: EngineConfig = new EngineConfig(
+    allowedLanguageVersions = LanguageVersion.DevVersions
+  )
 
 }

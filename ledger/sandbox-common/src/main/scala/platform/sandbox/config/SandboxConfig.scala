@@ -95,7 +95,7 @@ object SandboxConfig {
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,
       stackTraces = true,
-      devMode = true,
+      devMode = false,
       managementServiceTimeout = DefaultManagementServiceTimeout,
     )
 

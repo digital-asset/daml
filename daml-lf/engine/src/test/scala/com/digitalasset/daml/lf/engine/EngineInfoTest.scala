@@ -10,16 +10,19 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
 
   "EngineInfo" should {
 
-    val Seq(engineInfoStable, engineInfoDev) =
-      Seq(EngineConfig.Stable, EngineConfig.Dev).map(new EngineInfo(_))
+    val Seq(engineInfoLegacy, engineInfoStable, engineInfoDev) =
+      Seq(EngineConfig.Legacy, EngineConfig.Stable, EngineConfig.Dev).map(new EngineInfo(_))
 
     "show supported LF, Transaction and Value versions" in {
+
+      engineInfoLegacy.show shouldBe
+        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8"
 
       engineInfoStable.show shouldBe
         "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8"
 
       engineInfoDev.show shouldBe
-        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.dev"
+        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.dev"
     }
 
     "toString returns the same value as show" in {

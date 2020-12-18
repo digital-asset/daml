@@ -192,8 +192,16 @@ Version: 1.8
 
   + **Rename** ``Map`` to ``TextMap``.
 
-Version: 1.dev
-..............
+Version: 1.11 (preview)
+.......................
+
+(version 1.11 is not frozen and may still change, do not use in production)
+
+* Introduction date:
+
+    2020-12-14
+
+* Description:
 
   + **Add** generic equality builtin.
 
@@ -206,6 +214,9 @@ Version: 1.dev
   + **Add** `exercise_by_key` Update.
 
   + **Add** choice observers.
+
+Version: 1.dev
+..............
 
   + **Add** exception handling.
 
@@ -531,7 +542,7 @@ Then we can define our kinds, types, and expressions::
        |  'List'                                    -- BTyList
        |  'Optional'                                -- BTyOptional
        |  'TextMap'                                 -- BTTextMap: map with string keys
-       |  'GenMap'                                  -- BTGenMap: map with general value keys [DAML-LF ≥ 1.dev]
+       |  'GenMap'                                  -- BTGenMap: map with general value keys [DAML-LF ≥ 1.11]
        |  'ContractId'                              -- BTyContractId
        |  'Any'                                     -- BTyAny [DAML-LF ≥ 1.7]
        |  'TypeRep'                                 -- BTTypeRep [DAML-LF ≥ 1.7]
@@ -586,7 +597,7 @@ Then we can define our kinds, types, and expressions::
        |  'None' @τ                                 -- ExpOptionalNone: Empty Optional
        |  'Some' @τ e                               -- ExpOptionalSome: Non-empty Optional
        |  [t₁ ↦ e₁; …; tₙ ↦ eₙ]                     -- ExpTextMap
-       | 〚e₁ ↦ e₁; …; eₙ ↦ eₙ'〛                    -- ExpGenMap [DAML-LF ≥ 1.dev]
+       | 〚e₁ ↦ e₁; …; eₙ ↦ eₙ'〛                    -- ExpGenMap [DAML-LF ≥ 1.11]
        | 'to_any' @τ e                              -- ExpToAny: Wrap a value of the given type in Any [DAML-LF ≥ 1.7]
        | 'from_any' @τ e                            -- ExpToAny: Extract a value of the given from Any or return None [DAML-LF ≥ 1.7]
        | 'type_rep' @τ                              -- ExpToTypeRep: A type representation [DAML-LF ≥ 1.7]
@@ -615,7 +626,7 @@ Then we can define our kinds, types, and expressions::
        |  'fetch' @Mod:T e                          -- UpdateFetch
        |  'exercise' @Mod:T Ch e₁ e₂ e₃             -- UpdateExercise
        |  'exercise_without_actors' @Mod:T Ch e₁ e₂ -- UpdateExerciseWithoutActors
-       |  'exercise_by_key' @Mod:T Ch e₁ e₂         -- UpdateExerciseByKey
+       |  'exercise_by_key' @Mod:T Ch e₁ e₂         -- UpdateExerciseByKey [DAML-LF ≥ 1.11]
        |  'get_time'                                -- UpdateGetTime
        |  'fetch_by_key' @τ e                       -- UpdateFecthByKey
        |  'lookup_by_key' @τ e                      -- UpdateLookUpByKey
@@ -3194,7 +3205,7 @@ updates.
   ``'False'`` otherwise. The function raises a runtime error if the
   arguments are incomparable.
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.11*]
 
   Formally the builtin function ``LESS_EQ`` semantics is defined by
   the following rules. Note the rules assume ``LESS_EQ`` is fully
@@ -3367,7 +3378,7 @@ updates.
   ``'False'`` otherwise. The function raises a runtime error if the
   arguments are incomparable.
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.11*]
 
   Formally the function is defined as a shortcut for the function::
 
@@ -3381,7 +3392,7 @@ updates.
   argument is equal to the second argument, ``'False'`` otherwise. The
   function raises a runtime error if the arguments are incomparable.
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.11*]
 
   Formally the function is defined as a shortcut for the function::
 
@@ -3391,7 +3402,7 @@ updates.
 	            'True' → 'GREATER_EQ' @α x y
 		'|' 'False' → 'False'
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.11*]
 
 * ``LESS : ∀ (α:*). α → α → 'Bool'``
 
@@ -3400,7 +3411,7 @@ updates.
   otherwise. The function raises a runtime error if the arguments are
   incomparable.
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.11*]
 
   Formally the function is defined as a shortcut for the function::
 
@@ -3417,7 +3428,7 @@ updates.
   otherwise. The function raises a runtime error if the arguments are
   incomparable.
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.11*]
 
   Formally the function is defined as a shortcut for the function::
 
@@ -3435,7 +3446,7 @@ Boolean functions
   Returns ``'True'`` if the two booleans are syntactically equal,
   ``False`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 Int64 functions
 ~~~~~~~~~~~~~~~
@@ -3497,7 +3508,7 @@ Int64 functions
   Returns ``'True'`` if the first integer is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 * ``TO_TEXT_INT64 : 'Int64' → 'Text'``
 
@@ -3585,7 +3596,7 @@ Numeric functions
   ``'False'`` otherwise.  The scale of the inputs is given by the type
   parameter `α`.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 * ``TO_TEXT_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Text'``
 
@@ -3649,7 +3660,7 @@ String functions
   Returns ``'True'`` if the first string is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 * ``TO_TEXT_TEXT : 'Text' → 'Text'``
 
@@ -3697,7 +3708,7 @@ Timestamp functions
   Returns ``'True'`` if the first timestamp is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 * ``TO_TEXT_TIMESTAMP : 'Timestamp' → 'Text'``
 
@@ -3759,7 +3770,7 @@ Date functions
   Returns ``'True'`` if the first date is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 * ``TO_TEXT_DATE : 'Date' → 'Text'``
 
@@ -3803,7 +3814,7 @@ Party functions
   Returns ``'True'`` if the first party is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 * ``TO_QUOTED_TEXT_PARTY : 'Party' → 'Text'``
 
@@ -3834,8 +3845,6 @@ ContractId functions
   Returns ``'True'`` if the first contact id is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in versions < 1.dev*]
-
 * ``COERCE_CONTRACT_ID  : ∀ (α : ⋆) (β : ⋆) . 'ContractId' α → 'ContractId' β``
 
   Returns the given contract ID unchanged at a different type.
@@ -3845,7 +3854,7 @@ ContractId functions
   Always returns ``None`` in ledger code. This function is only useful
   for off-ledger code which is not covered by this specification.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
 List functions
 ~~~~~~~~~~~~~~
@@ -3922,7 +3931,7 @@ ordered by keys according to the comparison function ``LESS``.
 
   Returns an empty generic map.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
 * ``GENMAP_INSERT : ∀ α. ∀ β.  α → β → 'GenMap' α β → 'GenMap' α β``
 
@@ -3933,7 +3942,7 @@ ordered by keys according to the comparison function ``LESS``.
   on keys. This raises a runtime error if it tries to compare
   incomparable values.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
   Formally the builtin function ``GENMAP_INSERT`` semantics is defined
   by the following rules. ::
@@ -3974,7 +3983,7 @@ ordered by keys according to the comparison function ``LESS``.
   ``EQUAL`` to test key equality. This raises a runtime error if it
   try to compare incomparable values.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
   Formally the builtin function ``GENMAP_LOOKUP`` semantics is defined
   by the following rules. ::
@@ -4003,7 +4012,7 @@ ordered by keys according to the comparison function ``LESS``.
   map, the original map is returned.  This raises a runtime error if it
   try to compare incomparable values.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
   Formally the builtin function ``GENMAP_DELETE`` semantics is defined
   by the following rules. ::
@@ -4027,7 +4036,7 @@ ordered by keys according to the comparison function ``LESS``.
   Get the list of keys in the map. The keys are returned in the order
   they appear in the map.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
   Formally the builtin function ``GENMAP_KEYS`` semantics is defined
   by the following rules. ::
@@ -4045,7 +4054,7 @@ ordered by keys according to the comparison function ``LESS``.
   Get the list of values in the map. The values are returned in the
   order they appear in the map (i.e. sorted by key).
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
   Formally the builtin function ``GENMAP_VALUES`` semantics is defined
   by the following rules. ::
@@ -4062,7 +4071,7 @@ ordered by keys according to the comparison function ``LESS``.
 
   Return the number of elements in the map.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
 Type Representation function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -4121,7 +4130,7 @@ Error functions
 
 * ``THROW : ∀ (α : ⋆) . 'AnyException' → α``
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.11*]
 
   Throws an ``'AnyException'``. See the evaluation rule ``EvExpThrow`` for
   precise semantics.
@@ -4301,31 +4310,6 @@ objects only dynamically using the builtin functions prefixed by
 `TEXTMAP_` or `'GENMAP_'`
 
 
-Serialization changes since version 1.6
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-As explained in `Version history`_ section, DAML-LF programs are
-accompanied by a number version. This enables the DAML-LF
-deserialization process to interpret different versions of the
-language in a backward compatibility way. During deserialization, any
-encoding that does not follow the minor version provided is rejected.
-Below we list, in chronological order, all the changes that have been
-introduced to the serialization format since version 1.6
-
-
-Choice observers
-................
-
-[*Available in versions >= 1.dev*]
-
-An optional `observer` expression may be attached to a flexible
-choice. This allows the specification of additional parties to whom
-the sub-transaction is disclosed.
-
-The type checker will reject any DAML-LF < 1.dev program which
-includes choice observers.
-
-
 Validation
 ~~~~~~~~~~
 
@@ -4361,6 +4345,18 @@ validation phases can be distinguished.
 An engine compliant with the present specification must accept loading a
 package if and only if the latter of these two validation passes.
 
+
+
+Serialization changes since version 1.6
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As explained in `Version history`_ section, DAML-LF programs are
+accompanied by a number version. This enables the DAML-LF
+deserialization process to interpret different versions of the
+language in a backward compatibility way. During deserialization, any
+encoding that does not follow the minor version provided is rejected.
+Below we list, in chronological order, all the changes that have been
+introduced to the serialization format since version 1.6
 
 
 String Interning
@@ -4515,17 +4511,68 @@ type representation.
 The deserialization process will reject any DAML-LF 1.6 program using
 this data structure.
 
+Generic Equality/Order
+......................
+
+[*Available in versions >= 1.11*]
+
+The deserialization process will reject any DAML-LF 1.8 (or earlier)
+program using the following builtin functions ``EQUAL``, ``LESS_EQ``,
+``LESS``, ``GREATER_EQ``, ``GREATER``
+
+The deserialization process will reject any DAML-LF 1.11 (or latter)
+program using the following builtin functions , ``EQUAL_INT64``,
+``EQUAL_NUMERIC``, ``EQUAL_TEXT``, ``EQUAL_TIMESTAMP``,
+``EQUAL_DATE``, ``EQUAL_PARTY``, ``EQUAL_BOOL``,
+``EQUAL_CONTRACT_ID``, ``EQUAL_TYPE_REP`` ``LEQ_INT64``,
+``LEQ_NUMERIC``, ``LEQ_TEXT``, ``LEQ_TIMESTAMP``, ``LEQ_DATE``,
+``LEQ_PARTY``, ``LESS_INT64``, ``LESS_NUMERIC``, ``LESS_TEXT``,
+``LESS_TIMESTAMP``, ``LESS_DATE``, ``LESS_PARTY``, ``GEQ_INT64``,
+``GEQ_NUMERIC``, ``GEQ_TEXT``, ``GEQ_TIMESTAMP``, ``GEQ_DATE``,
+``GEQ_PARTY``, ``GREATER_INT64``, ``GREATER_NUMERIC``,
+``GREATER_TEXT``, ``GREATER_TIMESTAMP``, ``GREATER_DATE``,
+``GREATER_PARTY``.
+
 Generic Map
 ............
 
-[*Available in versions >= 1.dev*]
+[*Available in versions >= 1.11*]
 
-The deserialization process will reject any DAML-LF 1.7 (or earlier)
-program using the builtin type ``GENMAP`` or the functions
+The deserialization process will reject any DAML-LF 1.8 (or earlier)
+program using the builtin type ``GENMAP`` or the builtin functions
 ``GENMAP_EMPTY``, ``GENMAP_INSERT``, ``GENMAP_LOOKUP``,
 ``GENMAP_DELETE``, ``GENMAP_KEYS``, ``GENMAP_VALUES``,
 ``GENMAP_SIZE``.
 
+exercise_by_key
+...............
+
+[*Available in versions >= 1.11*]
+
+The deserialization process will reject any DAML-LF 1.8 (or earlier)
+program using the field ``exercise_by_key`` in the ``Update`` message.
+
+TO_TEXT_CONTRACT_ID
+...................
+
+
+[*Available in versions >= 1.11*]
+
+The deserialization process will reject any DAML-LF 1.8 (or earlier)
+program using the builtin function ``TO_TEXT_CONTRACT_ID``.
+
+Choice observers
+................
+
+[*Available in versions >= 1.11*]
+
+An optional `observer` expression may be attached to a flexible
+choice. This allows the specification of additional parties to whom
+the sub-transaction is disclosed.
+
+The deserialization process will reject any DAML-LF 1.8 (or earlier)
+program using the field ``observers`` in the ``TemplateChoice``
+message.
 
 Exception
 .........

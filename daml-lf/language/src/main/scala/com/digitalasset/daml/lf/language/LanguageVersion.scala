@@ -26,7 +26,7 @@ object LanguageVersion {
       Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
   }
 
-  private[lf] val List(v1_6, v1_7, v1_8, v1_dev) =
+  private[lf] val List(v1_6, v1_7, v1_8, v1_11, v1_dev) =
     Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
 
   object Features {
@@ -41,13 +41,13 @@ object LanguageVersion {
     val typeRep = v1_7
     val typeSynonyms = v1_8
     val packageMetadata = v1_8
-    val genComparison = v1_dev
-    val genMap = v1_dev
-    val scenarioMustFailAtMsg = v1_dev
-    val contractIdTextConversions = v1_dev
-    val exerciseByKey = v1_dev
-    val internedTypes = v1_dev
-    val choiceObservers = v1_dev
+    val genComparison = v1_11
+    val genMap = v1_11
+    val scenarioMustFailAtMsg = v1_11
+    val contractIdTextConversions = v1_11
+    val exerciseByKey = v1_11
+    val internedTypes = v1_11
+    val choiceObservers = v1_11
     val exceptions = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.

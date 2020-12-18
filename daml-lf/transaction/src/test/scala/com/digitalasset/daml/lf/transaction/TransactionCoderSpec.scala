@@ -32,9 +32,9 @@ class TransactionCoderSpec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  import TransactionVersion.{V10, VDev}
+  import TransactionVersion.{V10, V11, VDev}
 
-  private[this] val transactionVersions = Table("transaction version", V10, VDev)
+  private[this] val transactionVersions = Table("transaction version", V10, V11, VDev)
 
   "encode-decode" should {
 
@@ -299,9 +299,7 @@ class TransactionCoderSpec
 
   "encodeVersionedNode" should {
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7139
-    // replace all occurrences of "dev" by "11", once "11" is released
-    "fail iff try to encode choice observers in version < dev" in {
+    "fail iff try to encode choice observers in version < 11" in {
       val normalize = minimalistNode(V10)
 
       forAll(danglingRefExerciseNodeGen, minSuccessful(10)) { node =>
@@ -418,9 +416,7 @@ class TransactionCoderSpec
       }
     }
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7139
-    // replace all occurrences of "dev" by "11", once "11" is released
-    "ignore field observers in version < dev" in {
+    "ignore field observers in version < 11" in {
       val normalize = minimalistNode(V10)
 
       forAll(
