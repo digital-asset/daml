@@ -9,9 +9,9 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, Fingerprint, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.preexecution.LogAppenderPreExecutingCommitStrategy.FingerprintedReadSet
+import com.daml.ledger.validator.preexecution.RawPreExecutingCommitStrategy.{InputState, ReadSet}
 import com.daml.ledger.validator.{
   StateKeySerializationStrategy,
   StateSerializationStrategy,
@@ -21,30 +21,30 @@ import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LogAppenderPreExecutingCommitStrategy(
+final class RawPreExecutingCommitStrategy(
     keySerializationStrategy: StateKeySerializationStrategy,
 ) extends PreExecutingCommitStrategy[
       DamlStateKey,
-      (Option[DamlStateValue], Fingerprint),
-      FingerprintedReadSet,
+      Option[DamlStateValue],
+      ReadSet,
       RawKeyValuePairsWithLogEntry,
     ] {
   private val stateSerializationStrategy = new StateSerializationStrategy(keySerializationStrategy)
 
   override def generateReadSet(
-      fetchedInputs: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
+      fetchedInputs: InputState,
       accessedKeys: Set[DamlStateKey],
-  ): FingerprintedReadSet =
+  ): Map[DamlStateKey, Option[DamlStateValue]] =
     accessedKeys.view.map { key =>
-      val (_, fingerprint) =
+      val value =
         fetchedInputs.getOrElse(key, throw new KeyNotPresentInInputException(key))
-      key -> fingerprint
+      key -> value
     }.toMap
 
   override def generateWriteSets(
       participantId: ParticipantId,
       logEntryId: DamlLogEntryId,
-      inputState: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
+      inputState: InputState,
       preExecutionResult: KeyValueCommitting.PreExecutionResult,
   )(implicit executionContext: ExecutionContext)
     : Future[PreExecutionCommitResult[RawKeyValuePairsWithLogEntry]] = {
@@ -86,6 +86,7 @@ final class LogAppenderPreExecutingCommitStrategy(
     Future(logEntryId -> Envelope.enclose(logEntry))
 }
 
-object LogAppenderPreExecutingCommitStrategy {
-  type FingerprintedReadSet = Map[DamlStateKey, Fingerprint]
+object RawPreExecutingCommitStrategy {
+  type InputState = Map[DamlStateKey, Option[DamlStateValue]]
+  type ReadSet = Map[DamlStateKey, Option[DamlStateValue]]
 }

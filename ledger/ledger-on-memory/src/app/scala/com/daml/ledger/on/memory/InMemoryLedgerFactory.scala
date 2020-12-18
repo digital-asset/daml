@@ -14,13 +14,12 @@ import com.daml.ledger.participant.state.kvutils.app.batch.BatchingLedgerWriterC
 import com.daml.ledger.participant.state.kvutils.app.batch.BatchingLedgerWriterConfigReader.optionsReader
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, ParticipantConfig}
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
-import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderWithFingerprints.`Message-Fingerprint Pair Weight`
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.configuration.LedgerConfiguration
-import com.daml.ledger.resources.ResourceOwner
 import scopt.OptionParser
 
 private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
@@ -53,7 +52,7 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
         participantId = participantConfig.participantId,
         keySerializationStrategy = DefaultStateKeySerializationStrategy,
         metrics = metrics,
-        stateValueCacheForPreExecution = caching.WeightedCache.from(
+        stateValueCache = caching.WeightedCache.from(
           configuration = config.stateValueCache,
           metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
         ),

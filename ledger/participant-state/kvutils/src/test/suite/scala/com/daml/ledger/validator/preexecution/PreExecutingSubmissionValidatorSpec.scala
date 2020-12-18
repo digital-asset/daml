@@ -70,7 +70,7 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         }
     }
 
-    "return a sorted read set with correct fingerprints" in {
+    "return a sorted read set" in {
       val expectedReadSet = allDamlStateKeyTypes.toSet
       val actualInputState =
         allDamlStateKeyTypes.map(key => key -> Some(DamlStateValue.getDefaultInstance)).toMap
