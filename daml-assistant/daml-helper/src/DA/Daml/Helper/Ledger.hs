@@ -52,7 +52,7 @@ import System.FilePath
 import System.IO.Extra
 import System.Process.Typed
 
-import Com.Daml.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
+import Com.Daml.Ledger.Api.V1.TransactionFilter
 import DA.Daml.Compiler.Dar (createArchive, createDarFile)
 import DA.Daml.Helper.Util
 import qualified DA.Daml.LF.Ast as LF

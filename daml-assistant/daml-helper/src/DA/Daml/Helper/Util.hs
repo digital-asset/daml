@@ -215,7 +215,6 @@ tokenFor parties ledgerId applicationId =
               , A.Object $
                 HashMap.fromList
                   [ ("actAs", A.toJSON parties)
-                  , ("readAs", A.toJSON parties)
                   , ("ledgerId", A.String ledgerId)
                   , ("applicationId", A.String applicationId)
                   ])
