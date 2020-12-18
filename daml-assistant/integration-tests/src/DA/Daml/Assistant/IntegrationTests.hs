@@ -11,9 +11,7 @@ import Control.Monad
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
-import qualified Data.HashMap.Strict as HashMap
 import Data.List.Extra
-import qualified Data.Map as Map
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -31,12 +29,11 @@ import System.Info.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import qualified Web.JWT as JWT
 
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.FreePort (getFreePort, socketHints)
 import DA.Daml.Assistant.IntegrationTestUtils
-import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer)
+import DA.Daml.Helper.Util (waitForConnectionOnPort, waitForHttpServer, tokenFor)
 -- import DA.PortFile
 import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent)
@@ -64,23 +61,7 @@ main = do
         ] $ defaultMain (tests tmpDir))
 
 hardcodedToken :: T.Text
-hardcodedToken =
-    JWT.encodeSigned
-        (JWT.HMACSecret "secret")
-        mempty
-        mempty
-            { JWT.unregisteredClaims =
-                  JWT.ClaimsMap $
-                  Map.fromList
-                      [ ( "https://daml.com/ledger-api"
-                        , Aeson.Object $
-                          HashMap.fromList
-                              [ ("actAs", Aeson.toJSON ["Alice" :: T.Text])
-                              , ("ledgerId", "MyLedger")
-                              , ("applicationId", "foobar")
-                              ])
-                      ]
-            }
+hardcodedToken = tokenFor ["Alice"] "MyLedger" "AssistantIntegrationTests"
 
 authorizationHeaders :: RequestHeaders
 authorizationHeaders = [("Authorization", "Bearer " <> T.encodeUtf8 hardcodedToken)]
@@ -504,7 +485,17 @@ damlStartTests getDamlStart =
                   threadDelay 40_000_000
                   initialRequest <-
                       parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
-                  let queryRequest =
+                  manager <- newManager defaultManagerSettings
+                  let queryRequestT =
+                          initialRequest
+                              { method = "POST"
+                              , requestHeaders = authorizationHeaders
+                              , requestBody =
+                                    RequestBodyLBS $
+                                    Aeson.encode $
+                                    Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:T"]]
+                              }
+                  let queryRequestS =
                           initialRequest
                               { method = "POST"
                               , requestHeaders = authorizationHeaders
@@ -513,12 +504,16 @@ damlStartTests getDamlStart =
                                     Aeson.encode $
                                     Aeson.object ["templateIds" Aeson..= [Aeson.String "Main:S"]]
                               }
-                  manager <- newManager defaultManagerSettings
-                  queryResponse <- httpLbs queryRequest manager
-                  statusCode (responseStatus queryResponse) @?= 200
+                  queryResponseT <- httpLbs queryRequestT manager
+                  queryResponseS <- httpLbs queryRequestS manager
+                  -- check that there are no more active contracts of template T
+                  statusCode (responseStatus queryResponseT) @?= 200
+                  preview (key "result" . _Array) (responseBody queryResponseT) @?= Just Vector.empty
+                  -- check that a new contract of template S was created
+                  statusCode (responseStatus queryResponseS) @?= 200
                   preview
                       (key "result" . nth 0 . key "payload" . key "newFieldName")
-                      (responseBody queryResponse) @?=
+                      (responseBody queryResponseS) @?=
                       Just "Alice"
         , testCase "daml start --sandbox-port=0" $
           withTempDir $ \tmpDir -> do

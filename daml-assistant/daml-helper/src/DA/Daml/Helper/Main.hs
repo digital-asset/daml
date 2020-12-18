@@ -80,6 +80,7 @@ data Command
     | LedgerAllocateParties { flags :: LedgerFlags, parties :: [String] }
     | LedgerUploadDar { flags :: LedgerFlags, darPathM :: Maybe FilePath }
     | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
+    | LedgerReset {flags :: LedgerFlags}
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
 
@@ -277,6 +278,9 @@ commandParser = subparser $ fold
             [ command "allocate-party" $ info
                 (ledgerAllocatePartyCmd <**> helper)
                 (progDesc "Allocate a single party on ledger")
+            , command "reset" $ info
+                (ledgerResetCmd <**> helper)
+                (progDesc "Archive all currently active contracts.")
             ]
         ]
 
@@ -301,6 +305,9 @@ commandParser = subparser $ fold
         <$> ledgerFlags (ShowJsonApi True)
         <*> option str (long "main-package-id" <> metavar "PKGID" <> help "Fetch DAR for this package identifier.")
         <*> option str (short 'o' <> long "output" <> metavar "PATH" <> help "Save fetched DAR into this file.")
+
+    ledgerResetCmd = LedgerReset
+        <$> ledgerFlags (ShowJsonApi True)
 
     ledgerNavigatorCmd = LedgerNavigator
         <$> ledgerFlags (ShowJsonApi False)
@@ -431,5 +438,6 @@ runCommand = \case
     LedgerAllocateParties {..} -> runLedgerAllocateParties flags parties
     LedgerUploadDar {..} -> runLedgerUploadDar flags darPathM
     LedgerFetchDar {..} -> runLedgerFetchDar flags pid saveAs
+    LedgerReset {..} -> runLedgerReset flags
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments
