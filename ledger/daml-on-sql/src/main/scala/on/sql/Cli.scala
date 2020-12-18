@@ -21,13 +21,6 @@ private[sql] final class Cli(
         .parser
 
     parser
-      .opt[Unit]("dev-mode-unsafe")
-      .optional()
-      .action((_, config) => config.copy(devMode = true))
-      .text("Set the development mode on. Development mode allows development versions of DAML-LF language.")
-      .hidden()
-
-    parser
       .opt[String]("sql-backend-jdbcurl-env")
       .optional()
       .text("The environment variable containing JDBC connection URL to a Postgres database, " +

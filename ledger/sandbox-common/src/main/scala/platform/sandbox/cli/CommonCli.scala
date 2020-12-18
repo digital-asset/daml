@@ -47,6 +47,12 @@ class CommonCli(name: LedgerName) {
     new OptionParser[SandboxConfig](name.unwrap.toLowerCase()) {
       head(s"$name version ${BuildInfo.Version}")
 
+      opt[Unit]("dev-mode-unsafe")
+        .optional()
+        .action((_, config) => config.copy(devMode = true))
+        .text("Set the development mode on. Development mode allows development versions of DAML-LF language.")
+        .hidden()
+
       arg[File]("<archive>...")
         .optional()
         .unbounded()
