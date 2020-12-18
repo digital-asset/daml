@@ -50,7 +50,7 @@ class CommonCli(name: LedgerName) {
       opt[Unit]("dev-mode-unsafe")
         .optional()
         .action((_, config) => config.copy(devMode = true))
-        .text("Set the development mode on. Development mode allows development versions of DAML-LF language.")
+        .text("Turns on development mode. Development mode allows development versions of DAML-LF language.")
         .hidden()
 
       arg[File]("<archive>...")
