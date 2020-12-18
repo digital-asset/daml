@@ -6,7 +6,6 @@ package value
 
 import com.daml.lf.data.Bytes
 
-import scala.language.higherKinds
 import scala.util.control.NoStackTrace
 
 sealed abstract class CidMapper[-A1, +A2, In, Out] {

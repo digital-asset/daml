@@ -99,7 +99,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       ),
       optLocation = None,
       signatories = signatories.map(Ref.Party.assertFromString).toSet,
-      stakeholders = signatories.union(observers).map(Ref.Party.assertFromString).toSet,
+      stakeholders = signatories.toSet.union(observers.toSet).map(Ref.Party.assertFromString),
       key = key.map(keyWithMaintainers(maintainers = signatories, _)),
       version = pkgTxVersion(templateId.packageId),
     )

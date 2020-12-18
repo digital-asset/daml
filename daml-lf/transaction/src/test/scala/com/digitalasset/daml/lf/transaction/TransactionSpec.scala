@@ -165,7 +165,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       }
       forAll(genEmptyNode, minSuccessful(10)) { n =>
         val m = n.updateVersion(diffVersion(n.version))
-        isReplayedBy(n, m) shouldBe 'left
+        isReplayedBy(n, m) shouldBe Symbol("left")
       }
     }
 

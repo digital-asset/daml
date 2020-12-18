@@ -3,7 +3,7 @@
 
 package com.daml.lf.archive
 
-import java.io._
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File, FileInputStream, InputStream}
 import java.util.zip.ZipInputStream
 
 import com.daml.lf.archive.Errors.{InvalidDar, InvalidLegacyDar, InvalidZipEntry}

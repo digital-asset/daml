@@ -11,8 +11,8 @@ import com.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.daml.lf.iface.reader.Errors
 import com.daml.daml_lf_dev.DamlLf
 
-import scala.collection.JavaConverters._
 import scala.collection.immutable.Map
+import scala.jdk.CollectionConverters._
 
 sealed abstract class InterfaceType extends Product with Serializable {
   def `type`: DefDataType.FWT

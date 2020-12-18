@@ -1944,8 +1944,8 @@ class EngineTest
 
     def pkg(version: LV) =
       language.Ast.Package(
-        Traversable.empty,
-        Traversable.empty,
+        Iterable.empty,
+        Iterable.empty,
         version,
         None
       )

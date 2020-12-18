@@ -12,7 +12,7 @@ import com.daml.lf.value.{ValueOuterClass => proto}
 import com.google.protobuf
 
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /**
   * Utilities to serialize and de-serialize Values
