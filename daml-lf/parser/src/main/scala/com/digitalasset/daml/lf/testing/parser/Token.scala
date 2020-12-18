@@ -41,19 +41,15 @@ private[parser] object Token {
   case object `with` extends Token
   case object `case` extends Token
   case object `of` extends Token
-  case object `sbind` extends Token
-  case object `ubind` extends Token
-  case object `create` extends Token
-  case object `fetch` extends Token
-  case object `exercise` extends Token
-  case object `exercise_by_key` extends Token
-  case object `fetch_by_key` extends Token
-  case object `lookup_by_key` extends Token
   case object `to` extends Token
   case object `to_any` extends Token
   case object `from_any` extends Token
   case object `type_rep` extends Token
   case object `loc` extends Token
+  case object `to_any_exception` extends Token
+  case object `from_any_exception` extends Token
+  case object `throw` extends Token
+  case object `catch` extends Token
 
   final case class Id(s: String) extends Token
   final case class ContractId(s: String) extends Token
