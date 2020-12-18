@@ -6,7 +6,6 @@ package com.daml.lf.data
 import BackStack.{BQ, BQAppend, BQEmpty, BQSnoc}
 
 import scala.annotation.tailrec
-import scala.collection.mutable
 
 /** A stack which allows to snoc, append, and pop in constant time, and generate an ImmArray in linear time.
   */
@@ -25,7 +24,7 @@ final class BackStack[+A] private (fq: BQ[A], val length: Int) {
 
   /** O(n) */
   def toImmArray: ImmArray[A] = {
-    val array = new mutable.ArraySeq[A](length)
+    val array = new Array[Any](length)
 
     @tailrec
     def go(cursor: Int, fq: BQ[A]): Unit = fq match {
@@ -42,7 +41,7 @@ final class BackStack[+A] private (fq: BQ[A], val length: Int) {
 
     go(length - 1, fq)
 
-    ImmArray.unsafeFromArraySeq(array)
+    ImmArray.unsafeFromArray(array)
   }
 
   /** O(n) */

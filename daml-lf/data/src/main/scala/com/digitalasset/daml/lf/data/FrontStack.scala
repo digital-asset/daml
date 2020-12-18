@@ -4,16 +4,13 @@
 package com.daml.lf.data
 
 import FrontStack.{FQ, FQCons, FQEmpty, FQPrepend}
-import ScalazEqual.{orderBy, equalBy, toIterableForScalazInstances}
+import ScalazEqual.{orderBy, toIterableForScalazInstances}
 
 import scalaz.syntax.applicative._
 import scalaz.syntax.traverse._
-import scalaz.{Applicative, Equal, Order, Traverse}
+import scalaz.{Applicative, Order, Traverse}
 
 import scala.annotation.tailrec
-import scala.collection.generic.CanBuildFrom
-import scala.collection.mutable
-import scala.language.higherKinds
 
 /** A stack which allows to cons, prepend, and pop in constant time, and generate an ImmArray in linear time.
   * Very useful when needing to traverse stuff in topological order or similar situations.
@@ -29,7 +26,7 @@ final class FrontStack[+A] private (fq: FQ[A], val length: Int) {
     @tailrec def lp(ix: Int): A =
       if (!i.hasNext) throw new IndexOutOfBoundsException(ix.toString)
       else {
-        val v = i.next
+        val v = i.next()
         if (ix <= 0) v else lp(ix - 1)
       }
     lp(ix)
@@ -48,7 +45,7 @@ final class FrontStack[+A] private (fq: FQ[A], val length: Int) {
 
   /** O(n) */
   def toImmArray: ImmArray[A] = {
-    val array = new mutable.ArraySeq[A](length)
+    val array = new Array[Any](length)
 
     @tailrec
     def go(cursor: Int, fq: FQ[A]): Unit = fq match {
@@ -64,7 +61,7 @@ final class FrontStack[+A] private (fq: FQ[A], val length: Int) {
     }
     go(0, fq)
 
-    ImmArray.unsafeFromArraySeq(array)
+    ImmArray.unsafeFromArray[A](array)
   }
 
   /** O(1) */
@@ -171,17 +168,6 @@ object FrontStack extends FrontStackInstances {
 
   def unapply[T](xs: FrontStack[T]): Boolean = xs.isEmpty
 
-  private[data] final class FSCanBuildFrom[A]
-      extends CanBuildFrom[FrontStack[_], A, FrontStack[A]] {
-    override def apply(from: FrontStack[_]) = apply()
-
-    override def apply() =
-      ImmArray.newBuilder[A].mapResult(FrontStack(_))
-  }
-
-  implicit def `FrontStack canBuildFrom`[A]: CanBuildFrom[FrontStack[_], A, FrontStack[A]] =
-    new FSCanBuildFrom
-
   implicit val `FrontStack covariant`: Traverse[FrontStack] = new Traverse[FrontStack] {
     override def traverseImpl[G[_]: Applicative, A, B](fa: FrontStack[A])(
         f: A => G[B]): G[FrontStack[B]] =
@@ -205,20 +191,4 @@ object FrontStack extends FrontStackInstances {
 
 object FrontStackCons {
   def unapply[A](xs: FrontStack[A]): Option[(A, FrontStack[A])] = xs.pop
-}
-
-sealed abstract class FrontStackInstances {
-  implicit def equalInstance[A: Equal]: Equal[FrontStack[A]] = {
-    import scalaz.std.iterable._
-    equalBy(fs => toIterableForScalazInstances(fs.iterator), true)
-  }
-}
-
-object FrontStackInstances {
-  import language.implicitConversions
-
-  /** Enables 2.13-style `to` calls. */
-  implicit def `FS companion to CBF`[A](
-      self: FrontStack.type): CanBuildFrom[FrontStack[_], A, FrontStack[A]] =
-    self.`FrontStack canBuildFrom`
 }

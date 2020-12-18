@@ -3,8 +3,6 @@
 
 package com.daml.lf.data
 
-import ImmArray.ImmArraySeq
-
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -23,11 +21,11 @@ class LawlessTraversalsSpec
     }
 
     "preserve class if the implementation bothered to set it up" in {
-      val classySeqs = Seq[Seq[Int]](List(1), Vector(2), ImmArraySeq(3))
+      val classySeqs = Seq[Seq[Int]](List(1), Vector(2), ImmArray.ImmArraySeq(3))
       // we need to use patmat, not == or shouldBe, because patmat is stricter
       inside(classySeqs map (_ traverseEitherStrictly (Right(_)))) {
         case Seq(_, Right(List(_)), _) => fail("lists are not vectors")
-        case Seq(Right(List(1)), Right(Vector(2)), Right(ImmArraySeq(3))) =>
+        case Seq(Right(List(1)), Right(Vector(2)), Right(ImmArray.ImmArraySeq(3))) =>
       }
     }
   }

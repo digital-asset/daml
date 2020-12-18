@@ -46,7 +46,7 @@ class StructSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks
         )
 
       forEvery(testCases) { list =>
-        Struct.fromSeq(list) shouldBe 'left
+        Struct.fromSeq(list) shouldBe a[Left[_, _]]
       }
 
     }

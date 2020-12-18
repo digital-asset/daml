@@ -9,16 +9,7 @@ import scalaz.syntax.applicative._
 import scalaz.{Applicative, Equal, Foldable, Order, Traverse}
 
 import scala.annotation.tailrec
-import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.generic.{
-  CanBuildFrom,
-  GenericCompanion,
-  GenericTraversableTemplate,
-  IndexedSeqFactory
-}
-import scala.collection.immutable.IndexedSeq
-import scala.collection.{IndexedSeqLike, IndexedSeqOptimized, mutable}
-import scala.language.higherKinds
+import scala.collection.compat.immutable.ArraySeq
 import scala.reflect.ClassTag
 
 /** Simple immutable array. The intention is that all the operations have the "obvious"
@@ -34,7 +25,7 @@ import scala.reflect.ClassTag
 final class ImmArray[+A] private (
     private val start: Int,
     val length: Int,
-    array: mutable.ArraySeq[A]
+    array: ArraySeq[A]
 ) {
   self =>
 
@@ -77,14 +68,16 @@ final class ImmArray[+A] private (
   private def uncheckedGet(idx: Int): A = array(start + idx)
 
   /** O(n) */
-  def copyToArray[B >: A](dst: Array[B], dstStart: Int, dstLen: Int): Unit = {
+  def copyToArray[B >: A](dst: Array[B], dstStart: Int, dstLen: Int): Int = {
+    val numElems = Math.max(length, dstLen)
     for (i <- 0 until Math.max(length, dstLen)) {
       dst(dstStart + i) = uncheckedGet(i)
     }
+    numElems
   }
 
   /** O(n) */
-  def copyToArray[B >: A](xs: Array[B]): Unit = {
+  def copyToArray[B >: A](xs: Array[B]): Int = {
     copyToArray(xs, 0, length)
   }
 
@@ -150,20 +143,20 @@ final class ImmArray[+A] private (
 
   /** O(n) */
   def map[B](f: A => B): ImmArray[B] = {
-    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(length)
+    val newArray: Array[Any] = new Array(length)
     for (i <- indices) {
       newArray(i) = f(uncheckedGet(i))
     }
-    ImmArray.unsafeFromArraySeq[B](newArray)
+    ImmArray.unsafeFromArray[B](newArray)
   }
 
   /** O(n) */
   def reverse: ImmArray[A] = {
-    val newArray: mutable.ArraySeq[A] = new mutable.ArraySeq(length)
+    val newArray: Array[Any] = new Array(length)
     for (i <- indices) {
       newArray(i) = array(start + length - (i + 1))
     }
-    ImmArray.unsafeFromArraySeq[A](newArray)
+    ImmArray.unsafeFromArray[A](newArray)
   }
 
   /** O(n+m)
@@ -172,14 +165,14 @@ final class ImmArray[+A] private (
     * since to append ImmArray we must copy both of them.
     */
   def slowAppend[B >: A](other: ImmArray[B]): ImmArray[B] = {
-    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(length + other.length)
+    val newArray: Array[Any] = new Array(length + other.length)
     for (i <- indices) {
       newArray(i) = uncheckedGet(i)
     }
     for (i <- other.indices) {
       newArray(length + i) = other.uncheckedGet(i)
     }
-    ImmArray.unsafeFromArraySeq(newArray)
+    ImmArray.unsafeFromArray[B](newArray)
   }
 
   /** O(n)
@@ -188,12 +181,12 @@ final class ImmArray[+A] private (
     * since to cons an ImmArray we must copy it.
     */
   def slowCons[B >: A](el: B): ImmArray[B] = {
-    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(length + 1)
+    val newArray: Array[Any] = new Array(length + 1)
     newArray(0) = el
     for (i <- indices) {
       newArray(i + 1) = uncheckedGet(i)
     }
-    ImmArray.unsafeFromArraySeq(newArray)
+    ImmArray.unsafeFromArray(newArray)
   }
 
   /** O(n)
@@ -202,22 +195,22 @@ final class ImmArray[+A] private (
     * since to snoc an ImmArray we must copy it.
     */
   def slowSnoc[B >: A](el: B): ImmArray[B] = {
-    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(length + 1)
+    val newArray: Array[Any] = new Array(length + 1)
     for (i <- indices) {
       newArray(i) = uncheckedGet(i)
     }
     newArray(length) = el
-    ImmArray.unsafeFromArraySeq(newArray)
+    ImmArray.unsafeFromArray(newArray)
   }
 
   /** O(min(n, m)) */
   def zip[B](that: ImmArray[B]): ImmArray[(A, B)] = {
     val newLen = Math.min(length, that.length)
-    val newArray: mutable.ArraySeq[(A, B)] = new mutable.ArraySeq(newLen)
+    val newArray: Array[Any] = new Array(newLen)
     for (i <- 0 until newLen) {
       newArray(i) = (uncheckedGet(i), that.uncheckedGet(i))
     }
-    ImmArray.unsafeFromArraySeq(newArray)
+    ImmArray.unsafeFromArray(newArray)
   }
 
   /** O(1) */
@@ -245,7 +238,7 @@ final class ImmArray[+A] private (
     * return the `array` as is and people would be able to break the original
     * `ImmArray`.
     */
-  def toIndexedSeq: ImmArray.ImmArraySeq[A] = new ImmArray.ImmArraySeq[A](this)
+  def toIndexedSeq: ImmArray.ImmArraySeq[A] = new ImmArray.ImmArraySeq(this)
 
   /** O(1)
     *
@@ -254,7 +247,9 @@ final class ImmArray[+A] private (
     * return the `array` as is and people would be able to break the original
     * `ImmArray`.
     */
-  def toSeq: ImmArray.ImmArraySeq[A] = new ImmArray.ImmArraySeq[A](this)
+  def toSeq: ImmArray.ImmArraySeq[A] = new ImmArray.ImmArraySeq(this)
+
+  def toArraySeq: ArraySeq[A] = array
 
   /** O(n) */
   def collect[B](f: PartialFunction[A, B]): ImmArray[B] = {
@@ -354,9 +349,8 @@ final class ImmArray[+A] private (
 }
 
 object ImmArray extends ImmArrayInstances {
-  private[this] val emptySingleton: ImmArray[Nothing] =
-    ImmArray.unsafeFromArraySeq(new mutable.ArraySeq(0))
-  def empty[T]: ImmArray[T] = emptySingleton
+  def empty[T]: ImmArray[T] =
+    ImmArray.fromArraySeq(ArraySeq.empty[AnyRef].asInstanceOf[ArraySeq[T]])
 
   def apply[T](element0: T, elements: T*): ImmArray[T] = {
     val builder = ImmArray.newBuilder[T]
@@ -366,7 +360,7 @@ object ImmArray extends ImmArrayInstances {
   }
 
   def apply[T](elements: Iterable[T]): ImmArray[T] = elements match {
-    case ias: ImmArraySeq[T] => ias.toImmArray
+    case ias: ArraySeq[T] => fromArraySeq(ias)
     case _ =>
       val builder = ImmArray.newBuilder[T]
       builder ++= elements
@@ -375,12 +369,18 @@ object ImmArray extends ImmArrayInstances {
 
   def unapplySeq[T](arr: ImmArray[T]): Option[IndexedSeq[T]] = Some(arr.toIndexedSeq)
 
-  /** This is unsafe because if you modify the ArraySeq you are passing in after creating the ImmArray
+  /** This is unsafe because if you modify the Array you are passing in after creating the ImmArray
     * you'll modify the ImmArray too, which is supposed to be immutable. If you're using it,
     * you must guarantee that the provided `Array` is not modified for the entire lifetime
     * of the resulting `ImmArray`.
     */
-  def unsafeFromArraySeq[T](arr: mutable.ArraySeq[_ <: T]): ImmArray[T] =
+  def unsafeFromArray[T](arr: Array[Any]): ImmArray[T] = {
+    // ArraySeq can be boxed or unboxed. By requiring an Array[Any] we enforce
+    // that values are always boxed.
+    new ImmArray(0, arr.length, ArraySeq.unsafeWrapArray(arr).asInstanceOf[ArraySeq[T]])
+  }
+
+  def fromArraySeq[T](arr: ArraySeq[T]): ImmArray[T] =
     new ImmArray(0, arr.length, arr)
 
   implicit val immArrayInstance: Traverse[ImmArray] = new Traverse[ImmArray] {
@@ -399,32 +399,13 @@ object ImmArray extends ImmArrayInstances {
     orderBy(ia => toIterableForScalazInstances(ia.iterator), true)
   }
 
-  private[ImmArray] final class IACanBuildFrom[A]
-      extends CanBuildFrom[ImmArray[_], A, ImmArray[A]] {
-    override def apply(from: ImmArray[_]) = newBuilder[A]
-    override def apply() = newBuilder[A]
-  }
-
-  implicit def `ImmArray canBuildFrom`[A]: CanBuildFrom[ImmArray[_], A, ImmArray[A]] =
-    new IACanBuildFrom
-
-  def newBuilder[A]: mutable.Builder[A, ImmArray[A]] =
-    mutable.ArraySeq.newBuilder[A].mapResult(ImmArray.unsafeFromArraySeq)
-
-  /** Note: we define this purely to be able to write `toSeq`. We cannot return
-    * `ArraySeq` directly because that's a mutable `Seq`, which would allow people
-    * to break the invariants.
+  /** Note: we define this purely to be able to write `toSeq`.
     *
     * However, _do not_ use it for anything but defining interface where you need
     * to expose a `Seq`, and you also need to use implicits that refer to the
     * specific types, such as the traverse instance.
     */
-  final class ImmArraySeq[+A] private[ImmArray] (array: ImmArray[A])
-      extends IndexedSeq[A]
-      with GenericTraversableTemplate[A, ImmArraySeq]
-      with IndexedSeqLike[A, ImmArraySeq[A]]
-      with IndexedSeqOptimized[A, ImmArraySeq[A]] {
-    import ImmArraySeq.IASCanBuildFrom
+  final class ImmArraySeq[+A](array: ImmArray[A]) extends AbstractImmArraySeq[A](array) {
 
     // TODO make this faster by implementing as many methods as possible.
     override def iterator: Iterator[A] = array.iterator
@@ -440,31 +421,12 @@ object ImmArray extends ImmArrayInstances {
     override def init: ImmArraySeq[A] = new ImmArraySeq(array.init)
     override def slice(from: Int, to: Int): ImmArraySeq[A] =
       new ImmArraySeq(array.relaxedSlice(from, to))
-    override def copyToArray[B >: A](xs: Array[B], dstStart: Int, dstLen: Int): Unit =
-      array.copyToArray(xs, dstStart, dstLen)
-
-    override def map[B, That](f: A => B)(implicit bf: CanBuildFrom[ImmArraySeq[A], B, That]): That =
-      bf match {
-        case _: IASCanBuildFrom[B] => array.map(f).toSeq
-        case _ => super.map(f)(bf)
-      }
-
-    override def to[Col[_]](implicit bf: CanBuildFrom[Nothing, A, Col[A @uncheckedVariance]])
-      : Col[A @uncheckedVariance] =
-      bf match {
-        case _: IASCanBuildFrom[A] => this
-        case _: IACanBuildFrom[A] => toImmArray
-        case _: FrontStack.FSCanBuildFrom[A] => FrontStack(toImmArray)
-        case _ => super.to(bf)
-      }
-
-    override def companion: GenericCompanion[ImmArraySeq] = ImmArraySeq
 
     def toImmArray: ImmArray[A] = array
   }
 
-  object ImmArraySeq extends IndexedSeqFactory[ImmArraySeq] {
-    implicit val immArraySeqInstance: Traverse[ImmArraySeq] = new Traverse[ImmArraySeq]
+  object ImmArraySeq extends ImmArraySeqCompanion {
+    implicit val `immArraySeq Traverse instance`: Traverse[ImmArraySeq] = new Traverse[ImmArraySeq]
     with Foldable.FromFoldr[ImmArraySeq] {
       override def map[A, B](fa: ImmArraySeq[A])(f: A => B) = fa.toImmArray.map(f).toSeq
       override def foldLeft[A, B](fa: ImmArraySeq[A], z: B)(f: (B, A) => B) =
@@ -482,19 +444,10 @@ object ImmArray extends ImmArrayInstances {
     implicit def `immArraySeq Equal instance`[A: Equal]: Equal[ImmArraySeq[A]] =
       equalBy(_.toImmArray, true)
 
-    private final class IASCanBuildFrom[A] extends GenericCanBuildFrom[A]
-
-    implicit def canBuildFrom[A]: CanBuildFrom[Coll, A, ImmArraySeq[A]] =
-      new IASCanBuildFrom
-
-    override def newBuilder[A]: mutable.Builder[A, ImmArraySeq[A]] =
-      ImmArray.newBuilder.mapResult(_.toSeq)
+    // Here only for 2.12 (harmless in 2.13); placed in ImmArraySeqCompanion the
+    // implicit gets in an unwinnable fight with IndexedSeq's version
+    override implicit def canBuildFrom[A]: Factory[A] = super.canBuildFrom
   }
-}
-
-sealed abstract class ImmArrayInstances {
-  implicit def immArrayEqualInstance[A: Equal]: Equal[ImmArray[A]] =
-    ScalazEqual.withNatural(Equal[A].equalIsNatural)(_ equalz _)
 }
 
 /** We do not provide apply on purpose -- see slowCons on why we want to discourage consing */

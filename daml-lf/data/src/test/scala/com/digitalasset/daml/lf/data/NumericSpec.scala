@@ -65,7 +65,7 @@ class NumericSpec
       )
 
       forEvery(testCases) { (scale, bigDec) =>
-        Numeric.fromBigDecimal(scale, bigDec) shouldBe 'left
+        Numeric.fromBigDecimal(scale, bigDec) shouldBe a[Left[_, _]]
       }
     }
 
@@ -81,7 +81,7 @@ class NumericSpec
       )
 
       forEvery(testCases) { (scale, bigDec) =>
-        Numeric.fromBigDecimal(scale, bigDec) shouldBe 'left
+        Numeric.fromBigDecimal(scale, bigDec) shouldBe a[Left[_, _]]
       }
     }
   }
@@ -102,10 +102,10 @@ class NumericSpec
         ("5678901234567890.1234567890123456789012", "5678901234567890.1234567890123456789012")
       )
 
-      add("1.0", "1.0") shouldBe 'right
+      add("1.0", "1.0") shouldBe a[Right[_, _]]
 
       forEvery(testCases) { (x, y) =>
-        add(x, y) shouldBe 'left
+        add(x, y) shouldBe a[Left[_, _]]
       }
     }
 
@@ -157,10 +157,10 @@ class NumericSpec
         ("567890123456789012345.67890123456789012", "-567890123456789012345.67890123456789012")
       )
 
-      subtract("1.0", "1.0") shouldBe 'right
+      subtract("1.0", "1.0") shouldBe a[Right[_, _]]
 
       forEvery(testCases) { (x, y) =>
-        subtract(x, y) shouldBe 'left
+        subtract(x, y) shouldBe a[Left[_, _]]
       }
     }
 
@@ -213,10 +213,10 @@ class NumericSpec
         (14, "5678901234567890.12345678901234", "-5678901234567890.12345678901234"),
       )
 
-      multiply(0, "10000000000000000000.", "1000000000000000000.") shouldBe 'right
+      multiply(0, "10000000000000000000.", "1000000000000000000.") shouldBe a[Right[_, _]]
 
       forEvery(testCases) { (scale, x, y) =>
-        multiply(scale, x, y) shouldBe 'left
+        multiply(scale, x, y) shouldBe a[Left[_, _]]
       }
     }
 
@@ -305,10 +305,10 @@ class NumericSpec
         (14, "5678901234567890.12345678901234", "-0.00000000001234"),
       )
 
-      divide(10, "100000000000000000.0000000000", "0.0000000001") shouldBe 'right
+      divide(10, "100000000000000000.0000000000", "0.0000000001") shouldBe a[Right[_, _]]
 
       forEvery(testCases) { (scale, x, y) =>
-        divide(scale, x, y) shouldBe 'left
+        divide(scale, x, y) shouldBe a[Left[_, _]]
       }
     }
 
@@ -392,7 +392,7 @@ class NumericSpec
       round(0, "1.5") shouldBe Right("2.0": Numeric)
 
       forEvery(testCases) { (s, x) =>
-        round(s, x) shouldBe 'left
+        round(s, x) shouldBe a[Left[_, _]]
       }
     }
 
@@ -441,7 +441,7 @@ class NumericSpec
       toLong("1.0") shouldBe Right(1)
 
       forEvery(testCases) { x =>
-        toLong(x) shouldBe 'left
+        toLong(x) shouldBe a[Left[_, _]]
       }
     }
 
@@ -572,9 +572,9 @@ class NumericSpec
         "2.1.0",
       )
 
-      fromString("1.0") shouldBe 'right
+      fromString("1.0") shouldBe a[Right[_, _]]
       forEvery(testCases) { x =>
-        fromString(x) shouldBe 'left
+        fromString(x) shouldBe a[Left[_, _]]
       }
     }
 

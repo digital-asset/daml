@@ -4,15 +4,14 @@
 package com.daml.lf.data
 
 import ScalazEqual.{equalBy, orderBy}
-import com.daml.lf.data.ImmArray.ImmArraySeq
 
-import scala.language.higherKinds
 import scalaz.{Applicative, Equal, Order, Traverse}
 import scalaz.std.tuple._
 import scalaz.std.string._
 import scalaz.syntax.traverse._
 
 import scala.collection.immutable.HashMap
+import scala.collection.compat._
 
 /** We use this container to pass around DAML-LF text maps as flat lists in various parts of the codebase. */
 // Note that keys are ordered using Utf8 ordering
@@ -72,8 +71,9 @@ object SortedLookupList extends SortedLookupListInstances {
       case Some(_) => Left(s"the entries $entries are not sorted by key")
     }
 
-  def apply[X](entries: Map[String, X]): SortedLookupList[X] =
-    new SortedLookupList[X](entries.to[ImmArraySeq].sorted(EntryOrdering).toImmArray)
+  def apply[X](entries: Map[String, X]): SortedLookupList[X] = {
+    new SortedLookupList[X](entries.to(ImmArray.ImmArraySeq).sorted(EntryOrdering).toImmArray)
+  }
 
   def Empty: SortedLookupList[Nothing] = new SortedLookupList(ImmArray.empty)
 

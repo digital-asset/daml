@@ -3,7 +3,6 @@
 
 package com.daml.lf.data
 
-import ImmArray.ImmArraySeq
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
 import org.scalacheck.util.Buildable
@@ -26,7 +25,7 @@ object DataArbitrary {
       } yield if (min >= max) ImmArray(Seq()) else ImmArray(raw).strictSlice(min, max)
     }
 
-  implicit def `arb ImmArraySeq`[A: Arbitrary]: Arbitrary[ImmArraySeq[A]] =
+  implicit def `arb ImmArraySeq`[A: Arbitrary]: Arbitrary[ImmArray.ImmArraySeq[A]] =
     Arbitrary(arbitrary[ImmArray[A]] map (_.toSeq))
 
   private[this] sealed trait APS
@@ -41,10 +40,10 @@ object DataArbitrary {
   // The default collection instances don't make smaller-sized elements.
   sealed trait Div3 // XXX in scala 2.13 consider a Nat tparam
   private[this] def div3[T](g: Gen[T]): Gen[T] =
-    Gen sized (n => Gen resize (n / 3, g))
+    Gen sized (n => Gen.resize(n / 3, g))
 
   implicit def `arb container1 Div3`[C, T](
-      implicit t: C => Traversable[T],
+      implicit t: C => Iterable[T],
       b: Buildable[T, C],
       a: Arbitrary[T]): Arbitrary[C @@ Div3] =
     Tag subst Arbitrary(Gen buildableOf div3(a.arbitrary))

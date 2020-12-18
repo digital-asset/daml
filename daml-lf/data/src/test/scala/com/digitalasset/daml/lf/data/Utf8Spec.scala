@@ -8,7 +8,8 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.collection.compat._
+import scala.jdk.CollectionConverters._
 import scala.util.Random
 
 class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
@@ -51,7 +52,7 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
 
     "explode in a same way a naive implementation" in {
       def naiveExplode(s: String) =
-        ImmArray(s.codePoints().iterator().asScala.map(codepointToString(_)).toIterable)
+        ImmArray(s.codePoints().iterator().asScala.map(codepointToString(_)).iterator.to(Iterable))
 
       forAll(strings) { s =>
         naiveExplode(s) shouldBe Utf8.explode(s)
@@ -111,8 +112,9 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
     "respect Unicode ordering on complex string" in {
 
       // a naive inefficient Unicode ordering
+      import Ordering.Implicits._
       val naiveOrdering =
-        Ordering.by((s: String) => s.codePoints().toArray.toIterable)
+        Ordering.by((s: String) => s.codePoints().toArray.toSeq)
 
       forAll { list: List[String] =>
         list.sorted(naiveOrdering) shouldBe list.sorted(Utf8.Ordering)
