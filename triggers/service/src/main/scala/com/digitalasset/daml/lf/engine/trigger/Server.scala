@@ -527,6 +527,8 @@ object Server {
             callbackUri = authCallback.getOrElse {
               Uri().withScheme("http").withAuthority(host, port).withPath(Path./("cb"))
             },
+            maxAuthCallbacks = 1000,
+            authCallbackTimeout = 1.minute,
             maxHttpEntityUploadSize = maxHttpEntityUploadSize,
             httpEntityUploadTimeout = httpEntityUploadTimeout,
           )))

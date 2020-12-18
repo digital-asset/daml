@@ -24,15 +24,18 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.auth.middleware.api.Client.{AuthException, RefreshException}
 import com.daml.auth.middleware.api.Tagged.RefreshToken
+import com.github.benmanes.caffeine.cache.{Cache, Caffeine}
 
-import scala.collection.concurrent.TrieMap
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 class Client(config: Client.Config) {
-  // TODO[AH] Make sure this is bounded in size.
-  private val callbacks: TrieMap[UUID, Response.Login => Route] = TrieMap()
+  private val callbacks: Cache[UUID, Response.Login => Route] = Caffeine
+    .newBuilder()
+    .maximumSize(config.maxAuthCallbacks)
+    .expireAfterWrite(config.authCallbackTimeout.toNanos, java.util.concurrent.TimeUnit.NANOSECONDS)
+    .build()
 
   /**
     * Handler for the callback in a login flow.
@@ -41,9 +44,10 @@ class Client(config: Client.Config) {
     */
   val callbackHandler: Route =
     parameters('state.as[UUID]) { requestId =>
-      callbacks.remove(requestId) match {
+      Option(callbacks.getIfPresent(requestId)) match {
         case None => complete(StatusCodes.NotFound)
         case Some(callback) =>
+          callbacks.invalidate(requestId)
           Response.Login.callbackParameters { callback }
       }
     }
@@ -113,7 +117,7 @@ class Client(config: Client.Config) {
     */
   def login(claims: Request.Claims, callback: Response.Login => Route): Route = {
     val requestId = UUID.randomUUID()
-    callbacks.update(requestId, callback)
+    callbacks.put(requestId, callback)
     redirect(loginUri(claims, Some(requestId)), StatusCodes.Found)
   }
 
@@ -203,6 +207,8 @@ object Client {
   case class Config(
       authMiddlewareUri: Uri,
       callbackUri: Uri,
+      maxAuthCallbacks: Long,
+      authCallbackTimeout: Duration,
       maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,
   )
