@@ -136,9 +136,9 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
           Http().singleRequest(req)
         }
       } yield {
-        // Redirect to CALLBACK
+        // Redirect to client callback
         assert(resp.status == StatusCodes.Found)
-        assert(resp.header[Location].get.uri == Uri("http://localhost/CALLBACK"))
+        assert(resp.header[Location].get.uri == middlewareClientCallbackUri)
         // Store token in cookie
         val cookie = resp.header[`Set-Cookie`].get.cookie
         assert(cookie.name == "daml-ledger-token")
@@ -165,10 +165,9 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
           Http().singleRequest(req)
         }
       } yield {
-        // Redirect to CALLBACK
+        // Redirect to client callback
         assert(resp.status == StatusCodes.Found)
-        assert(
-          resp.header[Location].get.uri.withQuery(Uri.Query()) == Uri("http://localhost/CALLBACK"))
+        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == middlewareClientCallbackUri)
         // with error parameter set
         assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
         // Without token in cookie
@@ -195,10 +194,9 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
           Http().singleRequest(req)
         }
       } yield {
-        // Redirect to CALLBACK
+        // Redirect to client callback
         assert(resp.status == StatusCodes.Found)
-        assert(
-          resp.header[Location].get.uri.withQuery(Uri.Query()) == Uri("http://localhost/CALLBACK"))
+        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == middlewareClientCallbackUri)
         // with error parameter set
         assert(resp.header[Location].get.uri.query().toMap.get("error") == Some("access_denied"))
         // Without token in cookie
