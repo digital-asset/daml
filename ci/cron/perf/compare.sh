@@ -3,7 +3,7 @@
 
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -euox pipefail
 
 BASELINE=$1
 
@@ -21,7 +21,8 @@ main() {
   local baseline_perf=$(measure)
   if [ "" = "$baseline_perf" ]; then exit 1; fi
 
-  git checkout -- daml-lf/scenario-interpreter/src/perf/benches/scala/com/digitalasset/daml/lf/speedy/perf/CollectAuthority.scala
+  # undo patch
+  git reset --hard
   git checkout $current >&2
   local current_perf=$(measure)
   if [ "" = "$current_perf" ]; then exit 1; fi
