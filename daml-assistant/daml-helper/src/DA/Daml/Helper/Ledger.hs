@@ -46,7 +46,6 @@ import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
 import Network.HTTP.Simple
 import Network.HTTP.Types (statusCode)
 import Numeric.Natural
-import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
@@ -410,40 +409,18 @@ runLedgerNavigator flags remainingArguments = do
     args <- getDefaultArgs flags
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "navigator-logback.xml")
     putStrLn $ "Opening navigator at " <> showHostAndPort args
-    partyDetails <- listParties args
-
-    withTempDir $ \confDir -> do
-        let navigatorConfPath = confDir </> "ui-backend.conf"
-            navigatorArgs = concat
-                [ ["server"]
-                , [host args, show (port args)]
-                , remainingArguments
-                ]
-
-        writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig partyDetails)
-        unsetEnv "DAML_PROJECT" -- necessary to prevent config contamination
-        withJar damlSdkJar [logbackArg] ("navigator" : navigatorArgs ++ ["-c", confDir </> "ui-backend.conf"]) $ \ph -> do
-            exitCode <- waitExitCode ph
-            exitWith exitCode
-
-  where
-    navigatorConfig :: [L.PartyDetails] -> T.Text
-    navigatorConfig partyDetails = T.unlines . concat $
-        [ ["users", "  {"]
-        , [ T.concat
-            [ "    "
-            , T.pack . show $
-                if TL.null displayName
-                    then L.unParty party
-                    else displayName
-            , " { party = "
-            , T.pack (show (L.unParty party))
-            , " }"
+    let navigatorArgs = concat
+            [ ["server"]
+            , [host args, show (port args)]
+            , ["--ignore-project-parties"]
+            , remainingArguments
             ]
-          | L.PartyDetails{..} <- partyDetails
-          ]
-        , ["  }"]
-        ]
+    withJar
+      damlSdkJar
+      [logbackArg]
+      ("navigator" : navigatorArgs) $ \ph -> do
+        exitCode <- waitExitCode ph
+        exitWith exitCode
 
 --
 -- Interface with the Haskell bindings
