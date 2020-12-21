@@ -31,7 +31,8 @@ case class Arguments(
     startConsole: Boolean = false,
     startWebServer: Boolean = false,
     useDatabase: Boolean = false,
-    ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024 // 50 MiB
+    ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024, // 50 MiB
+    ignoreProjectParties: Boolean = false
 )
 
 trait ArgumentsHelper { self: OptionParser[Arguments] =>
@@ -153,6 +154,12 @@ object Arguments {
             )
           }
         )
+
+      opt[Unit]("ignoreProjectParties")
+        .hidden()
+        .optional()
+        .text("Ignore the parties specified in the project configuration file and query the ledger for parties instead.")
+        .action((_, arguments) => arguments.copy(ignoreProjectParties = true))
 
       cmd("server")
         .text("serve data from platform")
