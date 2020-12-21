@@ -422,9 +422,12 @@ runLedgerNavigator flags remainingArguments = do
 
         writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig partyDetails)
         unsetEnv "DAML_PROJECT" -- necessary to prevent config contamination
-        withJar damlSdkJar [logbackArg] ("navigator" : navigatorArgs ++ ["-c", confDir </> "ui-backend.conf"]) $ \ph -> do
-            exitCode <- waitExitCode ph
-            exitWith exitCode
+        withJar
+          damlSdkJar
+          [logbackArg]
+          ("navigator" : navigatorArgs ++ ["-c", confDir </> "ui-backend.conf", "--ignoreProjectParties"]) $ \ph -> do
+          exitCode <- waitExitCode ph
+          exitWith exitCode
 
   where
     navigatorConfig :: [L.PartyDetails] -> T.Text
