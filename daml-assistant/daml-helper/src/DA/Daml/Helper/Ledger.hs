@@ -46,7 +46,6 @@ import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
 import Network.HTTP.Simple
 import Network.HTTP.Types (statusCode)
 import Numeric.Natural
-import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
@@ -410,20 +409,18 @@ runLedgerNavigator flags remainingArguments = do
     args <- getDefaultArgs flags
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "navigator-logback.xml")
     putStrLn $ "Opening navigator at " <> showHostAndPort args
-    partyDetails <- listParties args
     let navigatorArgs = concat
             [ ["server"]
             , [host args, show (port args)]
             , ["--ignore-project-parties"]
             , remainingArguments
             ]
-    unsetEnv "DAML_PROJECT" -- necessary to prevent config contamination
     withJar
       damlSdkJar
       [logbackArg]
       ("navigator" : navigatorArgs) $ \ph -> do
-      exitCode <- waitExitCode ph
-          exitWith exitCode
+        exitCode <- waitExitCode ph
+        exitWith exitCode
 
 --
 -- Interface with the Haskell bindings
