@@ -155,7 +155,7 @@ object Arguments {
           }
         )
 
-      opt[Unit]("ignoreProjectParties")
+      opt[Unit]("ignore-project-parties")
         .hidden()
         .optional()
         .text("Ignore the parties specified in the project configuration file and query the ledger for parties instead.")
