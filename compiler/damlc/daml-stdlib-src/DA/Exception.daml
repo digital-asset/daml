@@ -24,54 +24,119 @@ module DA.Exception
 import DA.Record
 import DA.Internal.LF
 
--- Move to DA.Internal.LF when implemented as primitive.
-data AnyException =
-    MkAnyException () -- Opaque
-        -- ^ HIDE
+---------------------------------------------------------------
+-- Move these to DA.Internal.LF or similar when implemented. --
+---------------------------------------------------------------
+
+data AnyException = MkAnyException () -- Opaque
+data GeneralError = MkGeneralError () -- Opaque
+data ArithmeticError = MkArithmeticError () -- Opaque
+data ValueError = MkValueError () -- Opaque
+
+--------------------------------------------------------------
 
 -- | Exception typeclass. This should not be implemented directly,
 -- instead, use the `exception` syntax.
-class Exception t where
-    toAnyException : t -> AnyException
-    fromAnyException : AnyException -> Optional t
+type Exception e =
+    ( HasThrow e
+    , HasMessage e
+    , HasToAnyException e
+    , HasFromAnyException e
+    )
 
-instance Exception AnyException where
-    toAnyException = identity
-    fromAnyException = Some
+-- | Part of the `Exception` constraint.
+class HasThrow e where
+    -- | Throw exception in a pure context.
+    throwPure : e -> t
 
--- | HIDE Get the error message associated with an AnyException
-displayAnyException : AnyException -> Text
-displayAnyException = undefined -- primitive @"anyExceptionMessage"
+-- | Part of the `Exception` constraint.
+class HasMessage e where
+    -- | Get the error message associated with an exception.
+    message : e -> Text
 
--- | Get the error message associated with an exception.
-displayException : Exception e => e -> Text
-displayException e = displayAnyException (toAnyException e)
+-- | Part of the `Exception` constraint.
+class HasToAnyException e where
+    -- | Convert an exception type to AnyException.
+    toAnyException : e -> AnyException
 
--- | Typeclass for action that supports throwing exceptions.
+-- | Part of the `Exception` constraint.
+class HasFromAnyException e where
+    -- | Convert an AnyException back to the underlying exception type, if possible.
+    fromAnyException : AnyException -> Optional e
+
+--------------------------------------------------------------
+
+-- | Actions in which `throw` is supported.
 class Action m => ActionThrow m where
-    -- | Throw an AnyException.
-    throwAny : AnyException -> m t
+    -- | Throw an exception.
+    throw : HasThrow e => e -> m t
+
+-- | Actions in which `try ... catch ...` is supported.
+class ActionThrow m => ActionCatch m where
+    -- | Run with exception handler. Prefer to use `try ... catch ...` syntax.
+    tryCatchRaw : (() -> m t) -> (AnyException -> Optional (m t)) -> m t
 
 instance ActionThrow Update where
-    throwAny e = pure () >>= \_ -> throwAnyPure e
-
--- | Throw an exception.
-throw : (ActionThrow m, Exception e) => e -> m t
-throw e = throwAny (toAnyException e)
-
--- | Throw an exception in pure code.
-throwPure : Exception e => e -> t
-throwPure e = throwAnyPure (toAnyException e)
-
--- | HIDE Throw an AnyException in pure code.
-throwAnyPure : AnyException -> t
-throwAnyPure = undefined -- primitive @"throw"
-
--- | Typeclass for action that supports catching exceptions.
-class ActionThrow m => ActionCatch m where
-    catchRaw : (() -> m t) -> (AnyException -> Optional (m t)) -> m t
+    throw e = pure () >>= \_ -> throwPure e
 
 instance ActionCatch Update where
-    catchRaw = undefined -- magic @"catch"
+    tryCatchRaw = undefined -- magic @"catch"
+
+--------------------------------------------------------------
+
+-- No throw for AnyException.
+
+instance HasMessage AnyException where
+    message = undefined -- primitive @"ANY_EXCEPTION_MESSAGE"
+
+instance HasToAnyException AnyException where
+    toAnyException e = e
+
+instance HasFromAnyException AnyException where
+    fromAnyException = Some
+
+--------------------------------------------------------------
+
+instance HasThrow GeneralError where
+    throwPure = undefined -- magic @"throw"
+
+instance HasMessage GeneralError where
+    message = undefined -- primitive @"GENERAL_ERROR_MESSAGE"
+
+instance HasToAnyException GeneralError where
+    toAnyException = undefined -- magic @"toAnyException"
+
+instance HasFromAnyException GeneralError where
+    fromAnyException = undefined -- magic @"fromAnyException"
+
+--------------------------------------------------------------
+
+instance HasThrow ArithmeticError where
+    throwPure = undefined -- magic @"throw"
+
+instance HasMessage ArithmeticError where
+    message = undefined -- primitive @"ARITHMETIC_ERROR_MESSAGE"
+
+instance HasToAnyException ArithmeticError where
+    toAnyException = undefined -- magic @"toAnyException"
+
+instance HasFromAnyException ArithmeticError where
+    fromAnyException = undefined -- magic @"fromAnyException"
+
+--------------------------------------------------------------
+
+instance HasThrow ValueError where
+    throwPure = undefined -- magic @"throw"
+
+instance HasMessage ValueError where
+    message = undefined -- primitive @"VALUE_ERROR_MESSAGE"
+
+instance HasToAnyException ValueError where
+    toAnyException = undefined -- magic @"toAnyException"
+
+instance HasFromAnyException ValueError where
+    fromAnyException = undefined -- magic @"fromAnyException"
+
+--------------------------------------------------------------
 
 #endif
