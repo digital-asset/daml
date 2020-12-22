@@ -56,13 +56,17 @@ damlPrimTypes _ver = map (bimap LF.ModuleName LF.TypeConName)
 
 damlStdlibTypes :: LF.Version -> [(LF.ModuleName, LF.TypeConName)]
 damlStdlibTypes ver
-    | ver == LF.versionDev = anyExceptionType <> types
+    | ver == LF.versionDev = exceptionTypes <> types
     | ver == LF.version1_6 = anyTypes <> damlStdlibTypes LF.version1_7
     | otherwise = types
   where
-    anyExceptionType = map (bimap LF.ModuleName LF.TypeConName)
-        [ (["DA", "Exception"], ["AnyException"]) ]
-        -- temporarily here until we make this an LF primitive
+    -- These are here temporarily until we make them LF primitives.
+    exceptionTypes = map (bimap LF.ModuleName LF.TypeConName)
+        [ (["DA", "Exception"], ["AnyException"])
+        , (["DA", "Exception"], ["GeneralError"])
+        , (["DA", "Exception"], ["ArithmeticError"])
+        , (["DA", "Exception"], ["ValueError"])
+        ]
     anyTypes = map (bimap LF.ModuleName LF.TypeConName)
         [ (["DA", "Internal", "Any"], ["AnyChoice"])
         , (["DA", "Internal", "Any"], ["AnyContractKey"])
