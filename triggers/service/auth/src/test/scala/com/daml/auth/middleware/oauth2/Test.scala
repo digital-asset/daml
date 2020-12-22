@@ -279,6 +279,49 @@ class TestCallbackUriOverride
   }
 }
 
+class TestLimitedMiddlewareCallbackStore
+  extends AsyncWordSpec
+    with TestFixture
+    with SuiteResourceManagementAroundAll {
+  override protected val maxMiddlewareLogins = 2
+  "the /login endpoint" should {
+    "drop oldest requests first" in {
+      def login(actAs: Party) = {
+        val claims = Request.Claims(actAs = List(actAs))
+        val uri = middlewareClient.loginUri(claims, None)
+        val req = HttpRequest(uri = uri)
+        Http().singleRequest(req)
+      }
+
+      def followRedirect(resp: HttpResponse) = {
+        assert(resp.status == StatusCodes.Found)
+        val uri = resp.header[Location].get.uri
+        val req = HttpRequest(uri = uri)
+        Http().singleRequest(req)
+      }
+
+      for {
+        // Follow login flows up to redirect to middleware callback.
+        redirectAlice <- login(Party("Alice"))
+          .flatMap(followRedirect)
+        redirectBob <- login(Party("Bob"))
+          .flatMap(followRedirect)
+        redirectCarol <- login(Party("Carol"))
+          .flatMap(followRedirect)
+        // Follow redirects to middleware callback.
+        // The earliest callback should have been evicted.
+        resultAlice <- followRedirect(redirectAlice)
+        resultBob <- followRedirect(redirectBob)
+        resultCarol <- followRedirect(redirectCarol)
+      } yield {
+        assert(resultAlice.status == StatusCodes.NotFound)
+        assert(resultBob.status == StatusCodes.Found)
+        assert(resultCarol.status == StatusCodes.Found)
+      }
+    }
+  }
+}
+
 class TestLimitedClientCallbackStore
     extends AsyncWordSpec
     with TestFixture
