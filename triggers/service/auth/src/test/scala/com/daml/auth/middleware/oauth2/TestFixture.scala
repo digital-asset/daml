@@ -45,6 +45,7 @@ trait TestFixture
   self: Suite =>
   protected val ledgerId: String = "test-ledger"
   protected val jwtSecret: String = "secret"
+  protected val maxMiddlewareLogins: Long = Config.DefaultMaxLoginRequests
   protected val maxClientAuthCallbacks: Long = 1000
   protected val middlewareCallbackUri: Option[Uri] = None
   lazy protected val clock: AdjustableClock = suiteResource.value.clock
@@ -84,7 +85,7 @@ trait TestFixture
           Config(
             port = Port.Dynamic,
             callbackUri = middlewareCallbackUri,
-            maxLoginRequests = Config.DefaultMaxLoginRequests,
+            maxLoginRequests = maxMiddlewareLogins,
             loginTimeout = Config.DefaultLoginTimeout,
             oauthAuth = serverUri.withPath(Uri.Path./("authorize")),
             oauthToken = serverUri.withPath(Uri.Path./("token")),
