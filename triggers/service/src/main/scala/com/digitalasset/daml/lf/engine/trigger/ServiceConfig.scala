@@ -129,7 +129,6 @@ private[trigger] object ServiceConfig {
     opt[String]("auth-callback")
       .optional()
       .action((t, c) => c.copy(authCallbackUri = Some(Uri(t))))
-      .text("Auth middleware URI.")
       .text("URI to the auth login flow callback endpoint `/cb`. By default constructed from the incoming login request.")
       // TODO[AH] Expose once the auth feature is fully implemented.
       .hidden()

@@ -62,6 +62,15 @@ object Config {
         .action((x, c) => c.copy(callbackUri = Some(Uri(x))))
         .text("URI to the auth middleware's callback endpoint `/cb`. By default constructed from the incoming login request.")
 
+      opt[Long]("max-pending-login-requests")
+        .action((x, c) => c.copy(maxLoginRequests = x))
+        .text(
+          "Maximum number of simultaneously pending login requests. Earlier requests will be evicted first when exceeded.")
+
+      opt[Long]("login-request-timeout")
+        .action((x, c) => c.copy(loginTimeout = FiniteDuration(x, duration.SECONDS)))
+        .text("Login request timeout. Requests will be evicted if the callback endpoint receives no corresponding request in time.")
+
       opt[String]("oauth-auth")
         .action((x, c) => c.copy(oauthAuth = Uri(x)))
         .required()
