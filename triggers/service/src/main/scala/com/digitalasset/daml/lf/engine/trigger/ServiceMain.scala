@@ -36,6 +36,8 @@ object ServiceMain {
   def startServer(
       host: String,
       port: Int,
+      maxAuthCallbacks: Long,
+      authCallbackTimeout: Duration,
       maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,
       authConfig: AuthConfig,
@@ -52,6 +54,8 @@ object ServiceMain {
         Server(
           host,
           port,
+          maxAuthCallbacks,
+          authCallbackTimeout,
           maxHttpEntityUploadSize,
           httpEntityUploadTimeout,
           authConfig,
@@ -126,6 +130,8 @@ object ServiceMain {
             Server(
               config.address,
               config.httpPort,
+              config.maxAuthCallbacks,
+              config.authCallbackTimeout,
               config.maxHttpEntityUploadSize,
               config.httpEntityUploadTimeout,
               authConfig,
