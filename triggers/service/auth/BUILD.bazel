@@ -59,6 +59,7 @@ da_scala_library(
         "//ledger/cli-opts",
         "//ledger/ledger-api-auth",
         "//libs-scala/ports",
+        "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_http_2_12",

@@ -7,12 +7,17 @@ import akka.http.scaladsl.model.Uri
 import com.daml.jwt.{JwtVerifierBase, JwtVerifierConfigurationCli}
 import com.daml.ports.Port
 
+import scala.concurrent.duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
+
 case class Config(
     // Port the middleware listens on
     port: Port,
     // The URI to which the OAuth2 server will redirect after a completed login flow.
     // Must map to the `/cb` endpoint of the auth middleware.
     callbackUri: Option[Uri],
+    maxLoginRequests: Long,
+    loginTimeout: Duration,
     // OAuth2 server endpoints
     oauthAuth: Uri,
     oauthToken: Uri,
@@ -24,15 +29,21 @@ case class Config(
 )
 
 object Config {
+  val DefaultMaxLoginRequests: Long = 10000
+  val DefaultLoginTimeout: Duration = FiniteDuration(1, duration.MINUTES)
+
   private val Empty =
     Config(
       port = Port.Dynamic,
       callbackUri = None,
+      maxLoginRequests = DefaultMaxLoginRequests,
+      loginTimeout = DefaultLoginTimeout,
       oauthAuth = null,
       oauthToken = null,
       clientId = null,
       clientSecret = null,
-      tokenVerifier = null)
+      tokenVerifier = null
+    )
 
   def parseConfig(args: Seq[String]): Option[Config] =
     configParser.parse(args, Empty)

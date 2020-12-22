@@ -52,8 +52,16 @@ trait TestFixture
   lazy protected val serverBinding: ServerBinding = suiteResource.value.authServerBinding
   lazy protected val middlewareBinding: ServerBinding = suiteResource.value.authMiddlewareBinding
   lazy protected val middlewareClient: Client = suiteResource.value.authMiddlewareClient
-  lazy protected val middlewareClientBinding: ServerBinding =
+  lazy protected val middlewareClientBinding: ServerBinding = {
     suiteResource.value.authMiddlewareClientBinding
+  }
+  lazy protected val middlewareClientCallbackUri: Uri = {
+    val host = middlewareClientBinding.localAddress
+    Uri()
+      .withScheme("http")
+      .withAuthority(host.getHostName, host.getPort)
+      .withPath(Uri.Path./("cb"))
+  }
   override protected lazy val suiteResource: Resource[TestResources] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, TestResources](
@@ -76,6 +84,8 @@ trait TestFixture
           Config(
             port = Port.Dynamic,
             callbackUri = middlewareCallbackUri,
+            maxLoginRequests = Config.DefaultMaxLoginRequests,
+            loginTimeout = Config.DefaultLoginTimeout,
             oauthAuth = serverUri.withPath(Uri.Path./("authorize")),
             oauthToken = serverUri.withPath(Uri.Path./("token")),
             clientId = "middleware",

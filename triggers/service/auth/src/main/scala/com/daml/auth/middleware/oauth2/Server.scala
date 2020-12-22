@@ -24,8 +24,8 @@ import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
+import com.github.benmanes.caffeine.cache.{Cache, Caffeine}
 
-import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.Try
@@ -47,8 +47,11 @@ object Server extends StrictLogging {
 
   def start(
       config: Config)(implicit system: ActorSystem, ec: ExecutionContext): Future[ServerBinding] = {
-    // TODO[AH] Make sure this is bounded in size - or avoid state altogether.
-    val requests: TrieMap[UUID, Uri] = TrieMap()
+    val requests: Cache[UUID, Uri] = Caffeine
+      .newBuilder()
+      .maximumSize(config.maxLoginRequests)
+      .expireAfterWrite(config.loginTimeout.toNanos, java.util.concurrent.TimeUnit.NANOSECONDS)
+      .build()
     val route = concat(
       path("auth") {
         get {
@@ -126,12 +129,12 @@ object Server extends StrictLogging {
         }
       }
 
-  private def login(config: Config, requests: TrieMap[UUID, Uri]) =
+  private def login(config: Config, requests: Cache[UUID, Uri]) =
     parameters('redirect_uri.as[Uri], 'claims.as[Request.Claims], 'state ?)
       .as[Request.Login](Request.Login) { login =>
         extractRequest { request =>
           val requestId = UUID.randomUUID
-          requests += (requestId -> {
+          requests.put(requestId, {
             var query = login.redirectUri.query().to[Seq]
             login.state.foreach(x => query ++= Seq("state" -> x))
             login.redirectUri.withQuery(Uri.Query(query: _*))
@@ -150,14 +153,15 @@ object Server extends StrictLogging {
         }
       }
 
-  private def loginCallback(config: Config, requests: TrieMap[UUID, Uri])(
+  private def loginCallback(config: Config, requests: Cache[UUID, Uri])(
       implicit system: ActorSystem,
       ec: ExecutionContext) = {
     def popRequest(optState: Option[String]): Directive1[Uri] = {
       val redirectUri = for {
         state <- optState
         requestId <- Try(UUID.fromString(state)).toOption
-        redirectUri <- requests.remove(requestId)
+        redirectUri <- Option(requests.getIfPresent(requestId))
+        _ = requests.invalidate(requestId)
       } yield redirectUri
       redirectUri match {
         case Some(redirectUri) => provide(redirectUri)
