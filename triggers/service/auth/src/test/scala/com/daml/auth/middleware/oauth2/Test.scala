@@ -280,7 +280,7 @@ class TestCallbackUriOverride
 }
 
 class TestLimitedMiddlewareCallbackStore
-  extends AsyncWordSpec
+    extends AsyncWordSpec
     with TestFixture
     with SuiteResourceManagementAroundAll {
   override protected val maxMiddlewareLogins = 2
