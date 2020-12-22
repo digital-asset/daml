@@ -213,6 +213,8 @@ trait AuthMiddlewareFixture
           middlewareConfig = MiddlewareConfig(
             port = Port.Dynamic,
             callbackUri = None,
+            maxLoginRequests = MiddlewareConfig.DefaultMaxLoginRequests,
+            loginTimeout = MiddlewareConfig.DefaultLoginTimeout,
             oauthAuth = uri.withPath(Path./("authorize")),
             oauthToken = uri.withPath(Path./("token")),
             clientId = "oauth-middleware-id",
@@ -460,6 +462,8 @@ trait TriggerServiceFixture
               r <- ServiceMain.startServer(
                 host.getHostName,
                 lock.port.value,
+                ServiceConfig.DefaultMaxAuthCallbacks,
+                ServiceConfig.DefaultAuthCallbackTimeout,
                 ServiceConfig.DefaultMaxHttpEntityUploadSize,
                 ServiceConfig.DefaultHttpEntityUploadTimeout,
                 authConfig,
