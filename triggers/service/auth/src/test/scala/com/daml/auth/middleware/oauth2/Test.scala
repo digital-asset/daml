@@ -278,3 +278,57 @@ class TestCallbackUriOverride
     }
   }
 }
+
+class TestLimitedClientCallbackStore
+    extends AsyncWordSpec
+    with TestFixture
+    with SuiteResourceManagementAroundAll {
+  override protected val maxClientAuthCallbacks = 2
+  "the /login client" should {
+    "drop oldest requests first" in {
+      def login(actAs: Party) = {
+        val claims = Request.Claims(actAs = List(actAs))
+        val host = middlewareClientBinding.localAddress
+        val uri = Uri()
+          .withScheme("http")
+          .withAuthority(host.getHostName, host.getPort)
+          .withPath(Uri.Path./("login"))
+          .withQuery(Uri.Query("claims" -> claims.toQueryString))
+        val req = HttpRequest(uri = uri)
+        Http().singleRequest(req)
+      }
+
+      def followRedirect(resp: HttpResponse) = {
+        assert(resp.status == StatusCodes.Found)
+        val uri = resp.header[Location].get.uri
+        val req = HttpRequest(uri = uri)
+        Http().singleRequest(req)
+      }
+
+      for {
+        // Follow login flows up to last redirect to middleware client.
+        redirectAlice <- login(Party("Alice"))
+          .flatMap(followRedirect)
+          .flatMap(followRedirect)
+          .flatMap(followRedirect)
+        redirectBob <- login(Party("Bob"))
+          .flatMap(followRedirect)
+          .flatMap(followRedirect)
+          .flatMap(followRedirect)
+        redirectCarol <- login(Party("Carol"))
+          .flatMap(followRedirect)
+          .flatMap(followRedirect)
+          .flatMap(followRedirect)
+        // Follow redirects to middleware client.
+        // The earliest callback should have been evicted.
+        resultAlice <- followRedirect(redirectAlice)
+        resultBob <- followRedirect(redirectBob)
+        resultCarol <- followRedirect(redirectCarol)
+      } yield {
+        assert(resultAlice.status == StatusCodes.NotFound)
+        assert(resultBob.status == StatusCodes.OK)
+        assert(resultCarol.status == StatusCodes.OK)
+      }
+    }
+  }
+}
