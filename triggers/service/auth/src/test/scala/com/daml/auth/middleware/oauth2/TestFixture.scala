@@ -3,7 +3,6 @@
 
 package com.daml.auth.middleware.oauth2
 
-import java.net.InetAddress
 import java.time.{Instant, ZoneId}
 import java.util.Date
 
@@ -60,7 +59,7 @@ trait TestFixture
     val host = middlewareClientBinding.localAddress
     Uri()
       .withScheme("http")
-      .withAuthority(host.getHostName, host.getPort)
+      .withAuthority("localhost", host.getPort)
       .withPath(Uri.Path./("cb"))
   }
   override protected lazy val suiteResource: Resource[TestResources] = {
@@ -109,7 +108,7 @@ trait TestFixture
               middlewareBinding.localAddress.getPort),
           callbackUri = Uri()
             .withScheme("http")
-            .withAuthority(InetAddress.getLoopbackAddress.getHostName, middlewareClientPort.value)
+            .withAuthority("localhost", middlewareClientPort.value)
             .withPath(Uri.Path./("cb")),
           maxAuthCallbacks = maxClientAuthCallbacks,
           authCallbackTimeout = FiniteDuration(1, duration.MINUTES),
