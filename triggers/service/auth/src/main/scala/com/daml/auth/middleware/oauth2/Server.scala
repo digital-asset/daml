@@ -7,7 +7,6 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{HttpCookie, HttpCookiePair}
@@ -15,7 +14,7 @@ import akka.http.scaladsl.server.{Directive1, Route}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.{Unmarshal, Unmarshaller}
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
-import com.daml.auth.oauth2.api.{Request => OAuthRequest, Response => OAuthResponse}
+import com.daml.auth.oauth2.api.{Response => OAuthResponse}
 import com.typesafe.scalalogging.StrictLogging
 import java.util.UUID
 
@@ -27,7 +26,7 @@ import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 // This is an implementation of the trigger service authentication middleware
 // for OAuth2 as specified in `/triggers/service/authentication.md`
@@ -75,6 +74,13 @@ class Server(config: Config) extends StrictLogging {
     }
   }.getOrElse(false)
 
+  private val requestTemplates: RequestTemplates = RequestTemplates(
+    config.clientId,
+    config.clientSecret,
+    config.oauthAuthTemplate,
+    config.oauthTokenTemplate,
+    config.oauthRefreshTemplate)
+
   private val auth: Route =
     parameters('claims.as[Request.Claims])
       .as[Request.Auth](Request.Auth) { auth =>
@@ -110,17 +116,20 @@ class Server(config: Config) extends StrictLogging {
             },
           )
           if (stored) {
-            val authorize = OAuthRequest.Authorize(
-              responseType = "code",
-              clientId = config.clientId,
-              redirectUri = toRedirectUri(request.uri),
-              // Auth0 will only issue a refresh token if the offline_access claim is present.
-              // TODO[AH] Make the request configurable, see https://github.com/digital-asset/daml/issues/7957
-              scope = Some("offline_access " + login.claims.toQueryString),
-              state = Some(requestId.toString),
-              audience = Some("https://daml.com/ledger-api"),
-            )
-            redirect(config.oauthAuth.withQuery(authorize.toQuery), StatusCodes.Found)
+            val authParams = requestTemplates.createAuthRequest(
+              login.claims,
+              requestId,
+              toRedirectUri(request.uri))
+            authParams match {
+              case Failure(exception) =>
+                logger.error(
+                  s"Failed to interpret authorization request template: ${exception.getMessage}")
+                complete(StatusCodes.InternalServerError, "Failed to construct authorization URL")
+              case Success(params) =>
+                val query = Uri.Query(params)
+                val uri = config.oauthAuth.withQuery(query)
+                redirect(uri, StatusCodes.Found)
+            }
           } else {
             complete(StatusCodes.ServiceUnavailable)
           }
@@ -149,35 +158,38 @@ class Server(config: Config) extends StrictLogging {
                 redirectUri =>
                   extractRequest {
                     request =>
-                      val body = OAuthRequest.Token(
-                        grantType = "authorization_code",
-                        code = authorize.code,
-                        redirectUri = toRedirectUri(request.uri),
-                        clientId = config.clientId,
-                        clientSecret = config.clientSecret
-                      )
-                      import com.daml.auth.oauth2.api.Request.Token.marshalRequestEntity
-                      val tokenRequest =
-                        for {
-                          entity <- Marshal(body).to[RequestEntity]
-                          req = HttpRequest(
+                      val tokenParams = requestTemplates
+                        .createTokenRequest(authorize.code, toRedirectUri(request.uri))
+                      tokenParams match {
+                        case Failure(exception) =>
+                          logger.error(
+                            s"Failed to interpret token request template: ${exception.getMessage}")
+                          complete(
+                            StatusCodes.InternalServerError,
+                            "Failed to construct token request")
+                        case Success(params) =>
+                          val entity = FormData(params).toEntity
+                          val req = HttpRequest(
                             uri = config.oauthToken,
                             entity = entity,
                             method = HttpMethods.POST)
-                          resp <- Http().singleRequest(req)
-                          tokenResp <- if (resp.status != StatusCodes.OK) {
-                            Unmarshal(resp).to[String].flatMap { msg =>
-                              Future.failed(new RuntimeException(
-                                s"Failed to retrieve token at ${req.uri} (${resp.status}): $msg"))
+                          val tokenRequest =
+                            for {
+                              resp <- Http().singleRequest(req)
+                              tokenResp <- if (resp.status != StatusCodes.OK) {
+                                Unmarshal(resp).to[String].flatMap { msg =>
+                                  Future.failed(new RuntimeException(
+                                    s"Failed to retrieve token at ${req.uri} (${resp.status}): $msg"))
+                                }
+                              } else {
+                                Unmarshal(resp).to[OAuthResponse.Token]
+                              }
+                            } yield tokenResp
+                          onSuccess(tokenRequest) { token =>
+                            setCookie(HttpCookie(cookieName, token.toCookieValue)) {
+                              redirect(redirectUri, StatusCodes.Found)
                             }
-                          } else {
-                            Unmarshal(resp).to[OAuthResponse.Token]
                           }
-                        } yield tokenResp
-                      onSuccess(tokenRequest) { token =>
-                        setCookie(HttpCookie(cookieName, token.toCookieValue)) {
-                          redirect(redirectUri, StatusCodes.Found)
-                        }
                       }
                   }
               }
@@ -203,39 +215,38 @@ class Server(config: Config) extends StrictLogging {
     extractActorSystem { implicit sys =>
       extractExecutionContext { implicit ec =>
         entity(as[Request.Refresh]) { refresh =>
-          val body = OAuthRequest.Refresh(
-            grantType = "refresh_token",
-            refreshToken = RefreshToken.unwrap(refresh.refreshToken),
-            clientId = config.clientId,
-            clientSecret = config.clientSecret)
-          import com.daml.auth.oauth2.api.Request.Refresh.marshalRequestEntity
-          val tokenRequest =
-            for {
-              entity <- Marshal(body).to[RequestEntity]
-              req = HttpRequest(uri = config.oauthToken, entity = entity, method = HttpMethods.POST)
-              resp <- Http().singleRequest(req)
-            } yield resp
-          onSuccess(tokenRequest) { resp =>
-            resp.status match {
-              // Return access and refresh token on success.
-              case StatusCodes.OK =>
-                val authResponse = Unmarshal(resp).to[OAuthResponse.Token].map { token =>
-                  Response.Authorize(
-                    accessToken = AccessToken(token.accessToken),
-                    refreshToken = RefreshToken.subst(token.refreshToken))
+          val refreshParams = requestTemplates.createRefreshRequest(refresh.refreshToken)
+          refreshParams match {
+            case Failure(exception) =>
+              logger.error(s"Failed to interpret refresh request template: ${exception.getMessage}")
+              complete(StatusCodes.InternalServerError, "Failed to construct refresh request")
+            case Success(params) =>
+              val entity = FormData(params).toEntity
+              val req =
+                HttpRequest(uri = config.oauthToken, entity = entity, method = HttpMethods.POST)
+              val tokenRequest = Http().singleRequest(req)
+              onSuccess(tokenRequest) { resp =>
+                resp.status match {
+                  // Return access and refresh token on success.
+                  case StatusCodes.OK =>
+                    val authResponse = Unmarshal(resp).to[OAuthResponse.Token].map { token =>
+                      Response.Authorize(
+                        accessToken = AccessToken(token.accessToken),
+                        refreshToken = RefreshToken.subst(token.refreshToken))
+                    }
+                    complete(authResponse)
+                  // Forward client errors.
+                  case status: StatusCodes.ClientError =>
+                    complete(HttpResponse.apply(status = status, entity = resp.entity))
+                  // Fail on unexpected responses.
+                  case _ =>
+                    onSuccess(Unmarshal(resp).to[String]) { msg =>
+                      failWith(
+                        new RuntimeException(
+                          s"Failed to retrieve refresh token (${resp.status}): $msg"))
+                    }
                 }
-                complete(authResponse)
-              // Forward client errors.
-              case status: StatusCodes.ClientError =>
-                complete(HttpResponse.apply(status = status, entity = resp.entity))
-              // Fail on unexpected responses.
-              case _ =>
-                onSuccess(Unmarshal(resp).to[String]) { msg =>
-                  failWith(
-                    new RuntimeException(
-                      s"Failed to retrieve refresh token (${resp.status}): $msg"))
-                }
-            }
+              }
           }
         }
       }

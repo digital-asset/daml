@@ -47,6 +47,7 @@ da_scala_library(
 da_scala_library(
     name = "oauth2-middleware",
     srcs = glob(["src/main/scala/com/daml/auth/middleware/oauth2/**/*.scala"]),
+    resources = glob(["src/main/resources/com/daml/auth/middleware/oauth2/**"]),
     scalacopts = scalacopts,
     visibility = ["//visibility:public"],
     deps = [
@@ -59,6 +60,12 @@ da_scala_library(
         "//ledger/ledger-api-auth",
         "//libs-scala/ports",
         "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_lihaoyi_fastparse_2_12",
+        "@maven//:com_lihaoyi_geny_2_12",
+        "@maven//:com_lihaoyi_os_lib_2_12",
+        "@maven//:com_lihaoyi_sjsonnet_2_12",
+        "@maven//:com_lihaoyi_ujson_2_12",
+        "@maven//:com_lihaoyi_upickle_core_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_http_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",

@@ -91,6 +91,9 @@ trait TestFixture
             loginTimeout = Config.DefaultLoginTimeout,
             oauthAuth = serverUri.withPath(Uri.Path./("authorize")),
             oauthToken = serverUri.withPath(Uri.Path./("token")),
+            oauthAuthTemplate = None,
+            oauthTokenTemplate = None,
+            oauthRefreshTemplate = None,
             clientId = "middleware",
             clientSecret = "middleware-secret",
             tokenVerifier = new JwtVerifier(
