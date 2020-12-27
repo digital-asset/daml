@@ -40,7 +40,7 @@ You'll get a whole lot of output. Under the header "DAR archive contains the fol
 #. ``*.hi`` and ``*.hie`` files for each ``*.daml`` file
 #. Some meta-inf and config files
 
-The first file is something like ``7Composing-1.0.0-887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625.dalf`` which is the actual compiled package for the project. ``*.dalf`` files contain DAML-LF, which is DAML's intermediate language. The file contents are a binary encoded protobuf message from the `daml-lf schema <https://github.com/digital-asset/daml/tree/master/daml-lf/archive>`_.  DAML-LF is evaluated on the Ledger by the DAML Engine, which is a JVM component that is part of tools like the IDE's Script runner, the Sandbox, or proper production ledgers. If DAML-LF is to DAML what Java Bytecode is to Java, the DAML Engine is to DAML what the JVM is to Java.
+The first file is something like ``7Composing-1.0.0-887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625.dalf`` which is the actual compiled package for the project. ``*.dalf`` files contain DAML-LF, which is DAML's intermediate language. The file contents are a binary encoded protobuf message from the `daml-lf schema <https://github.com/digital-asset/daml/tree/main/daml-lf/archive>`_.  DAML-LF is evaluated on the Ledger by the DAML Engine, which is a JVM component that is part of tools like the IDE's Script runner, the Sandbox, or proper production ledgers. If DAML-LF is to DAML what Java Bytecode is to Java, the DAML Engine is to DAML what the JVM is to Java.
 
 Hashes and Identifiers
 ----------------------

@@ -3,7 +3,7 @@
 For snapshot releases, skip the steps marked **[STABLE]**. For stable releases,
 skip the steps marked **[SNAPSHOT]**.
 
-Valid commits for a release should come from either the `master` branch or one
+Valid commits for a release should come from either the `main` branch or one
 of the support `release/a.b.x` branches (e.g. `release/1.0.x` branch is for
 patches we backport to the 1.0 release branch).
 
@@ -22,7 +22,7 @@ patches we backport to the 1.0 release branch).
    (`#team-daml`) if you're not sure.
 
    If you are manually creating the PR for an out-of-schedule snapshot, start
-   from latest master and run
+   from latest `main` and run
    ```
    ./release.sh snapshot <sha> <prefix>
    ```
@@ -43,7 +43,7 @@ patches we backport to the 1.0 release branch).
    of this writing (2020-08-13), @bame-da, @gerolf-da, @cocreature or
    @hurryabit.
 
-1. Merge the PR and wait for the corresponding `master` build to finish. You
+1. Merge the PR and wait for the corresponding `main` build to finish. You
    will be notified on `#team-daml`.
 
 1. On Windows, install the new SDK using the installer on

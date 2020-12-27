@@ -67,6 +67,6 @@ to your commit message.
     return 1
 }
 
-BASE=${1:-origin/master}
+BASE=${1:-origin/main}
 
 has_a_changelog $BASE || is_dependabot_pr $BASE

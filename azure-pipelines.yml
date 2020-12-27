@@ -10,15 +10,15 @@ trigger:
   batch: false
   branches:
     include:
-      - master
+      - main
       - release/*
 
-# Enable PR triggers that target the master branch
+# Enable PR triggers that target the main branch
 pr:
   autoCancel: true # cancel previous builds on push
   branches:
     include:
-      - master
+      - main
       - release/*
 
 jobs:
@@ -31,11 +31,11 @@ jobs:
           set -euo pipefail
           if [ "$(Build.Reason)" == "PullRequest" ]; then
               echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD^2)"
-              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD^1)"
+              echo "##vso[task.setvariable variable=main;isOutput=true]$(git rev-parse HEAD^1)"
               echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git merge-base $(git rev-parse HEAD^1) $(git rev-parse HEAD^2))"
           else
               echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD)"
-              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD^1)"
+              echo "##vso[task.setvariable variable=main;isOutput=true]$(git rev-parse HEAD^1)"
               echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git rev-parse HEAD^1)"
           fi
         name: out
@@ -409,7 +409,7 @@ jobs:
     dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
     condition: and(succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   eq(variables['Build.SourceBranchName'], 'main'))
     pool:
       vmImage: "Ubuntu-16.04"
     variables:
@@ -572,7 +572,7 @@ jobs:
           curl -XPOST \
                -i \
                -H 'Content-Type: application/json' \
-               --data "{\"text\":\"<@${pr_handler}> Release \`$(release_tag)\` is ready for testing. See <https://github.com/digital-asset/daml/blob/master/release/RELEASE.md|release instructions>. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
+               --data "{\"text\":\"<@${pr_handler}> Release \`$(release_tag)\` is ready for testing. See <https://github.com/digital-asset/daml/blob/main/release/RELEASE.md|release instructions>. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
                $(Slack.team-daml)
       - template: ci/tell-slack-failed.yml
         parameters:
@@ -619,7 +619,7 @@ jobs:
         done
 
         trap "git checkout $(branch_sha)" EXIT
-        git checkout origin/master
+        git checkout origin/main
         cp .bazelrc compatibility/
         compatibility/update-versions.sh
         git add compatibility/versions.bzl compatibility/maven_install.json
@@ -700,7 +700,7 @@ jobs:
       compatibility_windows.status: $[ dependencies.compatibility_windows.result ]
 
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
-      master_sha: $[ dependencies.git_sha.outputs['out.master'] ]
+      main_sha: $[ dependencies.git_sha.outputs['out.main'] ]
       fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
 
       # Using expression syntax so we get an empty string if not set, rather
@@ -758,7 +758,7 @@ jobs:
            "branch": "$(Build.SourceBranch)",
            "merge_commit": "$(Build.SourceVersion)",
            "branch_commit": "$(branch_sha)",
-           "master_commit": "$(master_sha)",
+           "main_commit": "$(main_sha)",
            "fork_point_commit": "$(fork_sha)",
            "commit_message": $(echo -n "$COMMIT_MSG" | jq -sR),
            "is_fork": "$(System.PullRequest.IsFork)",
@@ -851,7 +851,7 @@ jobs:
               ;;
             *)
               # Should not be reached, but who knows?
-              msg="has completed with status $(status). See <https://github.com/digital-asset/daml/blob/master/release/RELEASE.md|RELEASE.md> for what to do next."
+              msg="has completed with status $(status). See <https://github.com/digital-asset/daml/blob/main/release/RELEASE.md|RELEASE.md> for what to do next."
               ;;
             esac
           tell_slack "<@${PR_HANDLER}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/${PR}|#${PR}> $msg"

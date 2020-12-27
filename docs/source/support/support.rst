@@ -15,7 +15,7 @@ Have questions or feedback? You're in the right place.
 
   If you want to give feedback, you can make a topic in the ``General`` category `on our forum <https://discuss.daml.com>`_.
 
-When you're in the community Forum or on Stack Overflow, please keep to our `Code of Conduct <https://github.com/digital-asset/daml/blob/master/CODE_OF_CONDUCT.md>`__.
+When you're in the community Forum or on Stack Overflow, please keep to our `Code of Conduct <https://github.com/digital-asset/daml/blob/main/CODE_OF_CONDUCT.md>`__.
 
 Support expectations
 --------------------

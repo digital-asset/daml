@@ -9,7 +9,7 @@ This page gets you started with creating custom bindings for a DAML Ledger.
 Bindings for a language consist of two main components:
 
 - Ledger API
-    Client "stubs" for the programming language, -- the remote API that allows sending ledger commands and receiving ledger transactions. You have to generate **Ledger API** from `the gRPC protobuf definitions in the daml repository on GitHub <https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions>`_. **Ledger API** is documented on this page: :doc:`/app-dev/grpc/index`. The `gRPC <https://grpc.io/docs/>`_ tutorial explains how to generate client "stubs".
+    Client "stubs" for the programming language, -- the remote API that allows sending ledger commands and receiving ledger transactions. You have to generate **Ledger API** from `the gRPC protobuf definitions in the daml repository on GitHub <https://github.com/digital-asset/daml/tree/main/ledger-api/grpc-definitions>`_. **Ledger API** is documented on this page: :doc:`/app-dev/grpc/index`. The `gRPC <https://grpc.io/docs/>`_ tutorial explains how to generate client "stubs".
 
 - Codegen
      A code generator is a program that generates classes representing DAML contract templates in the language. These classes incorporate all boilerplate code for constructing: :ref:`com.daml.ledger.api.v1.CreateCommand` and :ref:`com.daml.ledger.api.v1.ExerciseCommand` corresponding for each DAML contract template.
@@ -88,16 +88,16 @@ The above examples should help you get started. If you are creating custom bindi
 Links
 =====
 
-- A Scala example that demonstrates how to manually construct ledger commands: https://github.com/digital-asset/daml/tree/master/language-support/scala/examples/iou-no-codegen
+- A Scala example that demonstrates how to manually construct ledger commands: https://github.com/digital-asset/daml/tree/main/language-support/scala/examples/iou-no-codegen
 
-- A Scala codegen example: https://github.com/digital-asset/daml/tree/master/language-support/scala/examples/quickstart-scala
+- A Scala codegen example: https://github.com/digital-asset/daml/tree/main/language-support/scala/examples/quickstart-scala
 
 - gRPC documentation: https://grpc.io/docs/
 
 - Documentation for Protobuf "well known types": https://developers.google.com/protocol-buffers/docs/reference/google.protobuf
 
 - DAML Ledger API gRPC Protobuf definitions
-    - current master: https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions
+    - current main: https://github.com/digital-asset/daml/tree/main/ledger-api/grpc-definitions
     - for specific versions: https://github.com/digital-asset/daml/releases
 
 - Required gRPC Protobuf definitions:
