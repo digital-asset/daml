@@ -13,7 +13,7 @@ import Tests.VariantTest()
 
 import Tests.Import()
 import Tests.Escape()
-import Tests.MapTest()
+import Tests.TextMapTest()
 import Tests.Serializable()
 import Tests.ContractKeys()
 import Tests.ParametersOrder()

@@ -9,7 +9,7 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
         AllGenericTests.class,
-        NumericTest.class
+        NumericTest.class,
 })
 public class AllTests {
 }
