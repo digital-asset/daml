@@ -88,7 +88,6 @@ private[kvutils] object InputsAndEffects {
               val key = globalKeyToStateKey(
                 GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key)))
               inputs += key
-              println(s"ADD FETCH: ${key.getContractKey} ${fetch.coid}")
               resolvedContractIds += resolvedContractKeyIdPair(key.getContractKey, fetch.coid)
             }
 
@@ -114,7 +113,6 @@ private[kvutils] object InputsAndEffects {
             inputs += key
             lookup.result.foreach { contractId =>
               addContractInput(contractId)
-              println(s"ADD LOOKUP: ${key.getContractKey} ${contractId}")
               resolvedContractIds += resolvedContractKeyIdPair(key.getContractKey, contractId)
             }
         }
