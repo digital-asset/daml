@@ -33,7 +33,7 @@ import com.daml.lf.data.Time
 import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.daml.lf.speedy.{ScenarioRunner, TraceLog}
+import com.daml.lf.speedy.{ScenarioRunner, TraceLog, svalue}
 import com.daml.lf.speedy.Speedy.{Machine, OffLedger, OnLedger}
 import com.daml.lf.speedy.{PartialTransaction, SValue}
 import com.daml.lf.speedy.SError._
@@ -108,7 +108,11 @@ trait ScriptLedgerClient {
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]]
 
-  def queryContractKey(parties: OneAnd[Set, Ref.Party], templateId: Identifier, key: SValue)(
+  def queryContractKey(
+      parties: OneAnd[Set, Ref.Party],
+      templateId: Identifier,
+      key: SValue,
+      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]]
 
@@ -170,15 +174,15 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   private def queryWithKey(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(
       implicit ec: ExecutionContext,
       mat: Materializer)
-    : Future[Seq[(ScriptLedgerClient.ActiveContract, Option[Value[ContractId]])]] = {
+    : Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value[ContractId]])]] = {
     val filter = transactionFilter(parties, templateId)
     val acsResponses =
       grpcClient.activeContractSetClient
         .getActiveContracts(filter, verbose = false)
         .runWith(Sink.seq)
     acsResponses.map(acsPages =>
-      acsPages.flatMap(page =>
-        page.activeContracts.map(createdEvent => {
+      acsPages.toVector.flatMap(page =>
+        page.activeContracts.toVector.map(createdEvent => {
           val argument = ValueValidator.validateRecord(createdEvent.getCreateArguments) match {
             case Left(err) => throw new ConverterException(err.toString)
             case Right(argument) => argument
@@ -217,14 +221,28 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      key: SValue)(
+      key: SValue,
+      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     // We cannot do better than a linear search over query here.
+    import scalaz.syntax.traverse._
+    import scalaz.std.vector._
+    import scalaz.std.option._
+    import scalaz.std.scalaFuture._
     for {
       activeContracts <- queryWithKey(parties, templateId)
+      speedyContracts <- activeContracts.traverse {
+        case (t, kOpt) =>
+          Converter.toFuture(kOpt.traverse(translateKey(templateId, _)).map(k => (t, k)))
+      }
     } yield {
-      activeContracts.collectFirst({ case (c, Some(k)) if k === key.toValue => c })
+      // Note that the Equal instance on Value performs structural equality
+      // and also compares optional field and constructor names and is
+      // therefore not correct here.
+      // Equality.areEqual corresponds to the DAML-LF value equality
+      // which we want here.
+      speedyContracts.collectFirst({ case (c, Some(k)) if svalue.Equality.areEqual(k, key) => c })
     }
   }
 
@@ -459,7 +477,8 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      key: SValue)(
+      key: SValue,
+      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     GlobalKey
@@ -788,7 +807,10 @@ class JsonLedgerClient(
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      key: SValue)(implicit ec: ExecutionContext, mat: Materializer) = {
+      key: SValue,
+      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue])(
+      implicit ec: ExecutionContext,
+      mat: Materializer) = {
     for {
       _ <- validateTokenParties(parties, "queryContractKey")
       fetchResponse <- requestSuccess[FetchKeyArgs, FetchResponse](
