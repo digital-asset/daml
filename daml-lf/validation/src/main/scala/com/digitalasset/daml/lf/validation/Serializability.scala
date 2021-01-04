@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -85,6 +85,9 @@ private[validation] object Serializability {
             unserializable(URAny)
           case BTTypeRep =>
             unserializable(URTypeRep)
+          case BTAnyException | BTArithmeticError | BTContractError | BTGeneralError =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            sys.error("exceptions not supported")
         }
       case TForall(_, _) =>
         unserializable(URForall)

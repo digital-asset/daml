@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -17,8 +17,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
+import scala.collection.compat._
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class TransactionCoderSpec
     extends AnyWordSpec
@@ -32,9 +33,9 @@ class TransactionCoderSpec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  import TransactionVersion.{V10, VDev}
+  import TransactionVersion.{V10, V11, VDev}
 
-  private[this] val transactionVersions = Table("transaction version", V10, VDev)
+  private[this] val transactionVersions = Table("transaction version", V10, V11, VDev)
 
   "encode-decode" should {
 
@@ -48,7 +49,7 @@ class TransactionCoderSpec
     }
 
     "do NodeCreate" in {
-      forAll(malformedCreateNodeGen, transactionVersionGen, transactionVersionGen) {
+      forAll(malformedCreateNodeGen, transactionVersionGen(), transactionVersionGen()) {
         (createNode, version1, version2) =>
           val (nodeVersion, txVersion) = inIncreasingOrder(version1, version2)
           val versionedNode = createNode.updateVersion(nodeVersion)
@@ -76,7 +77,7 @@ class TransactionCoderSpec
     }
 
     "do NodeFetch" in {
-      forAll(fetchNodeGen, transactionVersionGen, transactionVersionGen) {
+      forAll(fetchNodeGen, transactionVersionGen(), transactionVersionGen()) {
         (fetchNode, version1, version2) =>
           val (nodeVersion, txVersion) = inIncreasingOrder(version1, version2)
 
@@ -107,7 +108,7 @@ class TransactionCoderSpec
     }
 
     "do NodeExercises" in {
-      forAll(danglingRefExerciseNodeGen, transactionVersionGen, transactionVersionGen) {
+      forAll(danglingRefExerciseNodeGen, transactionVersionGen(), transactionVersionGen()) {
         (exerciseNode, version1, version2) =>
           val (nodeVersion, txVersion) = inIncreasingOrder(version1, version2)
 
@@ -176,7 +177,7 @@ class TransactionCoderSpec
       }
 
       forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
-        forAll(transactionVersionGen, transactionVersionGen, minSuccessful(20)) {
+        forAll(transactionVersionGen(), transactionVersionGen(), minSuccessful(20)) {
           (txVer1, txVer2) =>
             import scalaz.std.tuple._
             import scalaz.syntax.bifunctor._
@@ -230,7 +231,7 @@ class TransactionCoderSpec
                   ValueCoder.CidEncoder,
                   VersionedTransaction(
                     TransactionVersion.VDev,
-                    tx.nodes.mapValues(_.updateVersion(TransactionVersion.VDev)),
+                    tx.nodes.view.mapValues(_.updateVersion(TransactionVersion.VDev)).toMap,
                     tx.roots),
                 ),
             ).toBuilder.setVersion(badTxVer).build()
@@ -242,7 +243,7 @@ class TransactionCoderSpec
               ValueCoder.CidDecoder,
               encodedTxWithBadTxVer,
             ) shouldEqual Left(
-              DecodeError(s"Unsupported transaction version $badTxVer"),
+              DecodeError(s"Unsupported transaction version '$badTxVer'"),
             )
           }
         }
@@ -273,7 +274,7 @@ class TransactionCoderSpec
         val nodes = roots.iterator.map(nid => nid -> versionedNode).toMap
         val tx = VersionedTransaction(
           version,
-          nodes = nodes.mapValues(_.copy(version = version)),
+          nodes = nodes.view.mapValues(_.copy(version = version)).toMap,
           roots = roots
         )
 
@@ -287,10 +288,10 @@ class TransactionCoderSpec
                 ValueCoder.CidEncoder,
                 tx,
               )
-              .right
+              .toOption
               .get,
           )
-          .right
+          .toOption
           .get
         tx shouldEqual decoded
       }
@@ -299,9 +300,7 @@ class TransactionCoderSpec
 
   "encodeVersionedNode" should {
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7139
-    // replace all occurrences of "dev" by "11", once "11" is released
-    "fail iff try to encode choice observers in version < dev" in {
+    "fail iff try to encode choice observers in version < 11" in {
       val normalize = minimalistNode(V10)
 
       forAll(danglingRefExerciseNodeGen, minSuccessful(10)) { node =>
@@ -330,7 +329,11 @@ class TransactionCoderSpec
 
     "fail if try to encode a node in a version newer than the transaction" in {
 
-      forAll(danglingRefGenNode, transactionVersionGen, transactionVersionGen, minSuccessful(10)) {
+      forAll(
+        danglingRefGenNode,
+        transactionVersionGen(),
+        transactionVersionGen(),
+        minSuccessful(10)) {
         case ((nodeId, node), version1, version2) =>
           whenever(version1 != version2) {
             val (txVersion, nodeVersion) = inIncreasingOrder(version1, version2)
@@ -344,7 +347,7 @@ class TransactionCoderSpec
                 txVersion,
                 nodeId,
                 normalizedNode.updateVersion(nodeVersion),
-              ) shouldBe 'left
+              ) shouldBe Symbol("left")
           }
       }
     }
@@ -386,8 +389,8 @@ class TransactionCoderSpec
 
       forAll(
         danglingRefGenNode,
-        transactionVersionGen.filter(_ != V10),
-        transactionVersionGen.filter(_ != V10),
+        transactionVersionGen().filter(_ != V10),
+        transactionVersionGen().filter(_ != V10),
         minSuccessful(10)) {
         case ((nodeId, node), version1, version2) =>
           whenever(version1 != version2) {
@@ -409,14 +412,12 @@ class TransactionCoderSpec
               ValueCoder.CidDecoder,
               txVersion,
               encoded,
-            ) shouldBe 'left
+            ) shouldBe Symbol("left")
           }
       }
     }
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7139
-    // replace all occurrences of "dev" by "11", once "11" is released
-    "ignore field observers in version < dev" in {
+    "ignore field observers in version < 11" in {
       val normalize = minimalistNode(V10)
 
       forAll(
@@ -557,7 +558,7 @@ class TransactionCoderSpec
       version: TransactionVersion,
       nodes: Map[Nid, GenNode[Nid, Cid]],
   ): Map[Nid, GenNode[Nid, Cid]] =
-    nodes.mapValues(_.updateVersion(version))
+    nodes.view.mapValues(_.updateVersion(version)).toMap
 
   private[this] def inIncreasingOrder(version1: TransactionVersion, version2: TransactionVersion) =
     if (version1 < version2)

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,6 +8,7 @@ import IdString.`Name order instance`
 import Ref.Name
 import ScalazEqual._
 
+import scala.collection
 import scalaz.std.iterable._
 import scalaz.std.tuple._
 import scalaz.syntax.order._
@@ -58,7 +59,7 @@ object Struct {
     * In case one of the field name is duplicated, return it as Left.
     * O(n log n)
     */
-  def fromSeq[X](fields: Seq[(Name, X)]): Either[Name, Struct[X]] =
+  def fromSeq[X](fields: collection.Seq[(Name, X)]): Either[Name, Struct[X]] =
     if (fields.isEmpty) rightEmpty
     else {
       val struct = Struct(ImmArray(fields.sortBy(_._1: String)))

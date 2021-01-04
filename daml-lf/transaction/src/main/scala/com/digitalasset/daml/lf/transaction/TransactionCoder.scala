@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -14,8 +14,8 @@ import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.google.protobuf.ProtocolStringList
 
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.JavaConverters._
 import scala.collection.immutable.HashMap
+import scala.jdk.CollectionConverters._
 
 object TransactionCoder {
 
@@ -63,7 +63,7 @@ object TransactionCoder {
       cidEncoder: ValueCoder.EncodeCid[Cid],
       value: VersionedValue[Cid],
   ): Either[EncodeError, ValueOuterClass.VersionedValue] =
-    ValueCoder.encodeVersionedValueWithCustomVersion(cidEncoder, value)
+    ValueCoder.encodeVersionedValue(cidEncoder, value)
 
   def decodeValue[Cid](
       cidDecoder: ValueCoder.DecodeCid[Cid],

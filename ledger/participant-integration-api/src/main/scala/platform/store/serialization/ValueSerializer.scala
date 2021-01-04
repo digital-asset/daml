@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.serialization
@@ -16,7 +16,7 @@ private[platform] object ValueSerializer {
       errorContext: => String,
   ): Array[Byte] =
     ValueCoder
-      .encodeVersionedValueWithCustomVersion(ValueCoder.CidEncoder, value)
+      .encodeVersionedValue(ValueCoder.CidEncoder, value)
       .fold(error => sys.error(s"$errorContext (${error.errorMessage})"), _.toByteArray)
 
   private def deserializeValueHelper(

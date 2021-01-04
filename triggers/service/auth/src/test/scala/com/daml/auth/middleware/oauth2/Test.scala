@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.middleware.oauth2
@@ -250,6 +250,32 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
         }
       } yield {
         assert(exception.status.isInstanceOf[StatusCodes.ClientError])
+      }
+    }
+  }
+}
+
+class TestCallbackUriOverride
+    extends AsyncWordSpec
+    with TestFixture
+    with SuiteResourceManagementAroundAll {
+  override protected val middlewareCallbackUri = Some(Uri("http://localhost/MIDDLEWARE_CALLBACK"))
+  "the /login endpoint" should {
+    "redirect to the configured middleware callback URI" in {
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val req = HttpRequest(uri = middlewareClient.loginUri(claims, None))
+      for {
+        resp <- Http().singleRequest(req)
+        // Redirect to /authorize on authorization server
+        resp <- {
+          assert(resp.status == StatusCodes.Found)
+          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          Http().singleRequest(req)
+        }
+      } yield {
+        // Redirect to configured callback URI on middleware
+        assert(resp.status == StatusCodes.Found)
+        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == middlewareCallbackUri.get)
       }
     }
   }

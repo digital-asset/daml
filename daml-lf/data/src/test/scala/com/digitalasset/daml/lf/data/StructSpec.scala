@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -46,7 +46,7 @@ class StructSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks
         )
 
       forEvery(testCases) { list =>
-        Struct.fromSeq(list) shouldBe 'left
+        Struct.fromSeq(list) shouldBe a[Left[_, _]]
       }
 
     }

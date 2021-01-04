@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.middleware.oauth2
@@ -10,6 +10,9 @@ import com.daml.ports.Port
 case class Config(
     // Port the middleware listens on
     port: Port,
+    // The URI to which the OAuth2 server will redirect after a completed login flow.
+    // Must map to the `/cb` endpoint of the auth middleware.
+    callbackUri: Option[Uri],
     // OAuth2 server endpoints
     oauthAuth: Uri,
     oauthToken: Uri,
@@ -24,6 +27,7 @@ object Config {
   private val Empty =
     Config(
       port = Port.Dynamic,
+      callbackUri = None,
       oauthAuth = null,
       oauthToken = null,
       clientId = null,
@@ -42,6 +46,10 @@ object Config {
         .action((x, c) => c.copy(port = Port(x)))
         .required()
         .text("Port to listen on")
+
+      opt[String]("callback")
+        .action((x, c) => c.copy(callbackUri = Some(Uri(x))))
+        .text("URI to the auth middleware's callback endpoint `/cb`. By default constructed from the incoming login request.")
 
       opt[String]("oauth-auth")
         .action((x, c) => c.copy(oauthAuth = Uri(x)))

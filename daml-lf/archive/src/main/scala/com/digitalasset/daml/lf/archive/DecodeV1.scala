@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -17,8 +17,10 @@ import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 import com.google.protobuf.CodedInputStream
 
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.JavaConverters._
-import scala.collection.{breakOut, mutable}
+import scala.collection
+import scala.collection.compat._
+import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 
 private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Package] {
 
@@ -32,7 +34,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       onlySerializableDataDefs: Boolean
   ): Package = {
     val internedStrings: ImmArraySeq[String] = ImmArraySeq(
-      lfPackage.getInternedStringsList.asScala: _*)
+      lfPackage.getInternedStringsList.asScala.toSeq: _*)
     if (internedStrings.nonEmpty)
       assertSince(LV.Features.internedPackageId, "interned strings table")
 
@@ -124,7 +126,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
   }
 
   private[this] def decodeInternedDottedNames(
-      internedList: Seq[PLF.InternedDottedName],
+      internedList: collection.Seq[PLF.InternedDottedName],
       internedStrings: ImmArraySeq[String]): ImmArraySeq[DottedName] = {
 
     if (internedList.nonEmpty)
@@ -138,11 +140,12 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         idn =>
           decodeSegments(
             idn.getSegmentsInternedStrList.asScala
-              .map(id => internedStrings.lift(id).getOrElse(throw outOfRange(id)))(breakOut))
-      )(breakOut)
+              .map(id => internedStrings.lift(id).getOrElse(throw outOfRange(id))))
+      )
+      .to(ImmArraySeq)
   }
 
-  private[this] def decodeSegments(segments: Seq[String]): DottedName =
+  private[this] def decodeSegments(segments: collection.Seq[String]): DottedName =
     DottedName.fromSegments(segments) match {
       case Left(err) => throw new ParseError(err)
       case Right(x) => x
@@ -173,7 +176,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       packageId: PackageId,
       internedStrings: ImmArraySeq[String],
       internedDottedNames: ImmArraySeq[DottedName],
-      internedTypes: IndexedSeq[Type],
+      internedTypes: collection.IndexedSeq[Type],
       optDependencyTracker: Option[PackageDependencyTracker],
       optModuleName: Option[ModuleName],
       onlySerializableDataDefs: Boolean
@@ -196,6 +199,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     private def decodeModuleWithName(lfModule: PLF.Module, moduleName: ModuleName) = {
       val defs = mutable.ArrayBuffer[(DottedName, Definition)]()
       val templates = mutable.ArrayBuffer[(DottedName, Template)]()
+      val exceptions = mutable.ArrayBuffer[(DottedName, DefException)]()
 
       if (versionIsOlderThan(LV.Features.typeSynonyms)) {
         assertEmpty(lfModule.getSynonymsList, "Module.synonyms")
@@ -262,10 +266,20 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           "DefTemplate.tycon.tycon"
         )
         currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
-        templates += ((defName, decodeTemplate(defn)))
+        templates += ((defName, decodeTemplate(defName, defn)))
       }
 
-      Module(moduleName, defs, templates, decodeFeatureFlags(lfModule.getFlags))
+      if (versionIsOlderThan(LV.Features.exceptions)) {
+        assertEmpty(lfModule.getExceptionsList, "Module.exceptions")
+      } else if (!onlySerializableDataDefs) {
+        lfModule.getExceptionsList.asScala
+          .foreach { defn =>
+            val defName = getInternedDottedName(defn.getNameInternedDname)
+            exceptions += ((defName, decodeException(defName, defn)))
+          }
+      }
+
+      Module(moduleName, defs, templates, exceptions, decodeFeatureFlags(lfModule.getFlags))
     }
 
     // -----------------------------------------------------------------------
@@ -290,7 +304,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       }
 
     private[this] def handleDottedName(
-        segments: Seq[String],
+        segments: collection.Seq[String],
         interned_id: Int,
         description: => String,
     ): DottedName =
@@ -382,7 +396,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     private[this] def handleInternedNames(
         strings: util.List[String],
         stringIds: util.List[Integer],
-        description: => String): Seq[Name] =
+        description: => String): collection.Seq[Name] =
       if (versionIsOlderThan(LV.Features.internedStrings)) {
         assertEmpty(stringIds, description + "_interned_string")
         strings.asScala.map(toName)
@@ -523,15 +537,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       }
     }
 
-    private[this] def decodeTemplate(lfTempl: PLF.DefTemplate): Template = {
-      val tpl = handleDottedName(
-        lfTempl.getTyconCase,
-        PLF.DefTemplate.TyconCase.TYCON_DNAME,
-        lfTempl.getTyconDname,
-        PLF.DefTemplate.TyconCase.TYCON_INTERNED_DNAME,
-        lfTempl.getTyconInternedDname,
-        "DefTemplate.tycon.tycon"
-      )
+    private[this] def decodeTemplate(tpl: DottedName, lfTempl: PLF.DefTemplate): Template = {
       val paramName = handleInternedName(
         lfTempl.getParamCase,
         PLF.DefTemplate.ParamCase.PARAM_STR,
@@ -592,6 +598,12 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         update = decodeExpr(lfChoice.getUpdate, s"$tpl:$chName:choice")
       )
     }
+
+    private[lf] def decodeException(
+        exceptionName: DottedName,
+        lfException: PLF.DefException,
+    ): DefException =
+      DefException(decodeExpr(lfException.getMessage, s"$exceptionName:message"))
 
     private[lf] def decodeKind(lfKind: PLF.Kind): Kind =
       lfKind.getSumCase match {
@@ -987,11 +999,30 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           assertSince(LV.Features.typeRep, "Expr.type_rep")
           ETypeRep(decodeType(lfExpr.getTypeRep))
 
-        case PLF.Expr.SumCase.MAKE_ANY_EXCEPTION =>
-          throw ParseError("Expr.MAKE_ANY_EXCEPTION") // TODO #8020
+        case PLF.Expr.SumCase.THROW =>
+          assertSince(LV.Features.exceptions, "Expr.from_any_exception")
+          val eThrow = lfExpr.getThrow
+          EThrow(
+            returnType = decodeType(eThrow.getReturnType),
+            exceptionType = decodeType(eThrow.getExceptionType),
+            exception = decodeExpr(eThrow.getExceptionExpr, definition)
+          )
+
+        case PLF.Expr.SumCase.TO_ANY_EXCEPTION =>
+          assertSince(LV.Features.exceptions, "Expr.to_any_exception")
+          val makeAnyException = lfExpr.getToAnyException
+          EToAnyException(
+            typ = decodeType(makeAnyException.getType),
+            value = decodeExpr(makeAnyException.getExpr, definition),
+          )
 
         case PLF.Expr.SumCase.FROM_ANY_EXCEPTION =>
-          throw ParseError("Expr.FROM_ANY_EXCEPTION") // TODO #8020
+          assertSince(LV.Features.exceptions, "Expr.from_any_exception")
+          val fromAnyException = lfExpr.getFromAnyException
+          EFromAnyException(
+            typ = decodeType(fromAnyException.getType),
+            value = decodeExpr(fromAnyException.getExpr, definition),
+          )
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw ParseError("Expr.SUM_NOT_SET")
@@ -1158,7 +1189,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           UpdateEmbedExpr(decodeType(embedExpr.getType), decodeExpr(embedExpr.getBody, definition))
 
         case PLF.Update.SumCase.TRY_CATCH =>
-          throw ParseError("Update.TRY_CATCH") // TODO #8020
+          assertSince(LV.Features.exceptions, "Update.try_catch")
+          val tryCatch = lfUpdate.getTryCatch
+          UpdateTryCatch(
+            typ = decodeType(tryCatch.getReturnType),
+            body = decodeExpr(tryCatch.getTryExpr, definition),
+            binder = toName(internedStrings(tryCatch.getVarInternedStr)),
+            handler = decodeExpr(tryCatch.getCatchExpr, definition),
+          )
 
         case PLF.Update.SumCase.SUM_NOT_SET =>
           throw ParseError("Update.SUM_NOT_SET")
@@ -1324,14 +1362,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     if (i != 0)
       throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
 
-  private def assertUndefined(s: Seq[_], description: => String): Unit =
+  private def assertUndefined(s: collection.Seq[_], description: => String): Unit =
     if (s.nonEmpty)
       throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
 
-  private def assertNonEmpty(s: Seq[_], description: => String): Unit =
+  private def assertNonEmpty(s: collection.Seq[_], description: => String): Unit =
     if (s.isEmpty) throw ParseError(s"Unexpected empty $description")
 
-  private[this] def assertEmpty(s: Seq[_], description: => String): Unit =
+  private[this] def assertEmpty(s: collection.Seq[_], description: => String): Unit =
     if (s.nonEmpty) throw ParseError(s"Unexpected non-empty $description")
 
   private[this] def assertEmpty(s: util.List[_], description: => String): Unit =
@@ -1374,11 +1412,10 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
       BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
       BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep),
-      // FIXME: https://github.com/digital-asset/daml/issues/8020
-//      BuiltinTypeInfo(ANY_EXCEPTION, ???, minVersion = exceptions),
-//      BuiltinTypeInfo(GENERAL_ERROR, ???, minVersion = exceptions),
-//      BuiltinTypeInfo(ARITHMETIC_ERROR, ???, minVersion = exceptions),
-//      BuiltinTypeInfo(CONTRACT_ERROR, ???, minVersion = exceptions)
+      BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = exceptions),
+      BuiltinTypeInfo(GENERAL_ERROR, BTGeneralError, minVersion = exceptions),
+      BuiltinTypeInfo(ARITHMETIC_ERROR, BTArithmeticError, minVersion = exceptions),
+      BuiltinTypeInfo(CONTRACT_ERROR, BTContractError, minVersion = exceptions)
     )
   }
 
@@ -1637,9 +1674,24 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
       BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),
-      BuiltinFunctionInfo(GEQ_DATE, BGreaterEq, implicitParameters = List(TDate)),
-      BuiltinFunctionInfo(LEQ_DATE, BLessEq, implicitParameters = List(TDate)),
-      BuiltinFunctionInfo(LESS_DATE, BLess, implicitParameters = List(TDate)),
+      BuiltinFunctionInfo(
+        GEQ_DATE,
+        BGreaterEq,
+        implicitParameters = List(TDate),
+        maxVersion = Some(genComparison),
+      ),
+      BuiltinFunctionInfo(
+        LEQ_DATE,
+        BLessEq,
+        implicitParameters = List(TDate),
+        maxVersion = Some(genComparison),
+      ),
+      BuiltinFunctionInfo(
+        LESS_DATE,
+        BLess,
+        implicitParameters = List(TDate),
+        maxVersion = Some(genComparison),
+      ),
       BuiltinFunctionInfo(TIMESTAMP_TO_UNIX_MICROSECONDS, BTimestampToUnixMicroseconds),
       BuiltinFunctionInfo(TO_TEXT_DATE, BToTextDate),
       BuiltinFunctionInfo(UNIX_DAYS_TO_DATE, BUnixDaysToDate),
@@ -1651,7 +1703,12 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(GREATER, BGreater, minVersion = genComparison),
       BuiltinFunctionInfo(GREATER_EQ, BGreaterEq, minVersion = genComparison),
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
-      BuiltinFunctionInfo(EQUAL_INT64, BEqual, implicitParameters = List(TInt64)),
+      BuiltinFunctionInfo(
+        EQUAL_INT64,
+        BEqual,
+        implicitParameters = List(TInt64),
+        maxVersion = Some(genComparison),
+      ),
       BuiltinFunctionInfo(
         EQUAL_DECIMAL,
         BEqual,
@@ -1667,45 +1724,47 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(
         EQUAL_TEXT,
         BEqual,
-        maxVersion = Some(genMap),
+        maxVersion = Some(genComparison),
         implicitParameters = List(TText)),
       BuiltinFunctionInfo(
         EQUAL_TIMESTAMP,
         BEqual,
-        maxVersion = Some(genMap),
+        maxVersion = Some(genComparison),
         implicitParameters = List(TTimestamp)),
       BuiltinFunctionInfo(
         EQUAL_DATE,
         BEqual,
-        maxVersion = Some(genMap),
+        maxVersion = Some(genComparison),
         implicitParameters = List(TDate)),
       BuiltinFunctionInfo(
         EQUAL_PARTY,
         BEqual,
-        maxVersion = Some(genMap),
+        maxVersion = Some(genComparison),
         implicitParameters = List(TParty)),
       BuiltinFunctionInfo(
         EQUAL_BOOL,
         BEqual,
-        maxVersion = Some(genMap),
+        maxVersion = Some(genComparison),
         implicitParameters = List(TBool)),
       BuiltinFunctionInfo(
         EQUAL_TYPE_REP,
         BEqual,
         minVersion = typeRep,
-        maxVersion = Some(genMap),
+        maxVersion = Some(genComparison),
         implicitParameters = List(TTypeRep)),
-      BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId, maxVersion = Some(genMap)),
+      BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId, maxVersion = Some(genComparison)),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId),
-      BuiltinFunctionInfo(THROW, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(MAKE_GENERAL_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(MAKE_ARITHMETIC_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(MAKE_CONTRACT_ERROR, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(GENERAL_ERROR_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(ARITHMETIC_ERROR_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
-      BuiltinFunctionInfo(CONTRACT_ERROR_MESSAGE, BTextToUpper, minVersion = exceptions), // TODO #8020
+      BuiltinFunctionInfo(MAKE_GENERAL_ERROR, BMakeGeneralError, minVersion = exceptions),
+      BuiltinFunctionInfo(MAKE_ARITHMETIC_ERROR, BMakeArithmeticError, minVersion = exceptions),
+      BuiltinFunctionInfo(MAKE_CONTRACT_ERROR, BMakeContractError, minVersion = exceptions),
+      BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
+      BuiltinFunctionInfo(GENERAL_ERROR_MESSAGE, BGeneralErrorMessage, minVersion = exceptions),
+      BuiltinFunctionInfo(
+        ARITHMETIC_ERROR_MESSAGE,
+        BArithmeticErrorMessage,
+        minVersion = exceptions),
+      BuiltinFunctionInfo(CONTRACT_ERROR_MESSAGE, BContractErrorMessage, minVersion = exceptions),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),

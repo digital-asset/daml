@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator
@@ -17,7 +17,7 @@ final class RawToDamlLedgerStateReaderAdapter(
   import RawToDamlLedgerStateReaderAdapter.deserializeDamlStateValue
 
   override def read(
-      keys: Seq[DamlStateKey]
+      keys: Iterable[DamlStateKey]
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[DamlStateValue]]] =
     ledgerStateReader
       .read(keys.map(keySerializationStrategy.serializeStateKey))

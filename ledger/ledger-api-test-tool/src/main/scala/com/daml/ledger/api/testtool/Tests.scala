@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool
@@ -37,6 +37,7 @@ object Tests {
   val optional: Vector[LedgerTestSuite] =
     Vector(
       new ParticipantPruningIT,
+      new MultiPartySubmissionIT,
     )
 
   val retired: Vector[LedgerTestSuite] =

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform
@@ -20,7 +20,7 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
 
   private[this] val batchSize = 1000
 
-  private[this] val stableValueVersion = lf.value.ValueVersion("6")
+  private[this] val stableValueVersion = lf.transaction.TransactionVersion.V10
   private[this] val stableValueVersionAsInt = stableValueVersion.protoValue.toInt
 
   private[this] val SELECT_EVENTS =

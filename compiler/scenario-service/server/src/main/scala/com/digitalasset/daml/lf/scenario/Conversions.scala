@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.scenario
@@ -185,11 +185,6 @@ final class Conversions(
       case wtc: SError.DamlEWronglyTypedContract =>
         sys.error(
           s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked.",
-        )
-
-      case divv: SError.DamlEDisallowedInputValueVersion =>
-        sys.error(
-          s"Got unexpected DamlEDisallowedInputVersion error in scenario service: $divv. Note that in the scenario service this error should never surface since its accept all stable versions.",
         )
     }
     builder.build

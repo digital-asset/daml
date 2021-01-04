@@ -1,12 +1,14 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package value
 
+import scala.collection.compat._
 import data.{Bytes, ImmArray, Ref}
 import Value._
 import Ref.{Identifier, Name}
+import com.daml.lf.transaction.TransactionVersion
 import test.ValueGenerators.{coidGen, idGen, nameGen}
 import test.TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
 import com.daml.scalatest.Unnatural
@@ -41,11 +43,11 @@ class ValueSpec
     }
 
     "rejects excessive nesting" in {
-      exceedsNesting.serializable shouldBe ImmArray(exceedsNestingError)
+      exceedsNesting.serializable() shouldBe ImmArray(exceedsNestingError)
     }
 
     "accepts just right nesting" in {
-      matchesNesting.serializable shouldBe ImmArray.empty
+      matchesNesting.serializable() shouldBe ImmArray.empty
     }
   }
 
@@ -57,10 +59,10 @@ class ValueSpec
     "does not bump version when" - {
 
       "ensureNoCid is used " in {
-        val value = VersionedValue[ContractId](ValueVersion.minVersion, ValueUnit)
+        val value = VersionedValue[ContractId](TransactionVersion.minVersion, ValueUnit)
         val contract = ContractInst(tmplId, value, "agreed")
-        value.ensureNoCid.map(_.version) shouldBe Right(ValueVersion.minVersion)
-        contract.ensureNoCid.map(_.arg.version) shouldBe Right(ValueVersion.minVersion)
+        value.ensureNoCid.map(_.version) shouldBe Right(TransactionVersion.minVersion)
+        contract.ensureNoCid.map(_.arg.version) shouldBe Right(TransactionVersion.minVersion)
 
       }
 
@@ -77,11 +79,11 @@ class ValueSpec
 
       val hash = crypto.Hash.hashPrivateKey("some hash")
       import ContractId.V1.build
-      build(hash, suffix(0)) shouldBe 'right
-      build(hash, suffix(94)) shouldBe 'right
-      build(hash, suffix(95)) shouldBe 'left
-      build(hash, suffix(96)) shouldBe 'left
-      build(hash, suffix(127)) shouldBe 'left
+      build(hash, suffix(0)) shouldBe Symbol("right")
+      build(hash, suffix(94)) shouldBe Symbol("right")
+      build(hash, suffix(95)) shouldBe Symbol("left")
+      build(hash, suffix(96)) shouldBe Symbol("left")
+      build(hash, suffix(127)) shouldBe Symbol("left")
 
     }
 
@@ -111,7 +113,7 @@ class ValueSpec
 
   // XXX can factor like FlatSpecCheckLaws
   private def checkLaws(props: org.scalacheck.Properties) =
-    forEvery(Table(("law", "property"), props.properties: _*)) { (_, p) =>
+    forEvery(Table(("law", "property"), props.properties.toSeq: _*)) { (_, p) =>
       check(p, minSuccessful(20))
     }
 
@@ -153,8 +155,8 @@ class ValueSpec
 
       "matches constructor rank" in {
         val fooCp = shapeless.Coproduct[fooVariant.Inj[Cid]]
-        val quux = fooCp('quux ->> 42L)
-        val baz = fooCp('baz ->> 42L)
+        val quux = fooCp(Symbol("quux") ->> 42L)
+        val baz = fooCp(Symbol("baz") ->> 42L)
         (fooVariant.inj(quux) ?|? fooVariant.inj(baz)) shouldBe scalaz.Ordering.LT
       }
 
@@ -200,7 +202,7 @@ class ValueSpec
 
 object ValueSpec {
   private val fooSpec =
-    'quux ->> VA.int64 :: 'baz ->> VA.int64 :: RNil
+    Symbol("quux") ->> VA.int64 :: Symbol("baz") ->> VA.int64 :: RNil
   private val (_, fooRecord) = VA.record(Identifier assertFromString "abc:Foo:FooRec", fooSpec)
   private val fooVariantId = Identifier assertFromString "abc:Foo:FooVar"
   private val (_, fooVariant) = VA.variant(fooVariantId, fooSpec)
@@ -214,7 +216,10 @@ object ValueSpec {
     scopeOfEnumsGen flatMap { details =>
       (
         details transform ((name, members) => VA.enum(name, members)._2),
-        details.transform((_, members) => members.to[ImmArray]).lift)
+        details
+          .transform((_, members) =>
+            implicitly[Factory[Ref.Name, ImmArray[Ref.Name]]].fromSpecific(members))
+          .lift)
     }
   /*
   private val genFoos: Gen[(ImmArray[Name], ValueAddend)] =

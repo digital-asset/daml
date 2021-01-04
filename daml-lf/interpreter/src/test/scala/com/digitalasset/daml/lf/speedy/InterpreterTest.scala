@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -193,13 +193,14 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
             Package(
               List(
                 Module(
-                  modName,
-                  Map(
+                  name = modName,
+                  definitions = Map(
                     DottedName.assertFromString("bar") ->
                       DValue(TBuiltin(BTBool), true, ETrue, false),
                   ),
-                  Map.empty,
-                  FeatureFlags.default,
+                  templates = Map.empty,
+                  exceptions = Map.empty,
+                  featureFlags = FeatureFlags.default,
                 ),
               ),
               Set.empty[PackageId],
@@ -214,10 +215,11 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
           Package(
             List(
               Module(
-                modName,
-                Map.empty,
-                Map.empty,
-                FeatureFlags.default,
+                name = modName,
+                definitions = Map.empty,
+                templates = Map.empty,
+                exceptions = Map.empty,
+                featureFlags = FeatureFlags.default,
               ),
             ),
             Set.empty[PackageId],

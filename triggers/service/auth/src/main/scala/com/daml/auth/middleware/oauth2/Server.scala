@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.middleware.oauth2
@@ -37,12 +37,13 @@ object Server extends StrictLogging {
   import com.daml.auth.oauth2.api.JsonProtocol._
   implicit private val unmarshal: Unmarshaller[String, Uri] = Unmarshaller.strict(Uri(_))
 
-  // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
-  private def toRedirectUri(uri: Uri) =
-    Uri()
-      .withScheme(uri.scheme)
-      .withAuthority(uri.authority)
-      .withPath(Uri.Path./("cb"))
+  private def toRedirectUri(config: Config, uri: Uri) =
+    config.callbackUri.getOrElse {
+      Uri()
+        .withScheme(uri.scheme)
+        .withAuthority(uri.authority)
+        .withPath(Uri.Path./("cb"))
+    }
 
   def start(
       config: Config)(implicit system: ActorSystem, ec: ExecutionContext): Future[ServerBinding] = {
@@ -138,7 +139,7 @@ object Server extends StrictLogging {
           val authorize = OAuthRequest.Authorize(
             responseType = "code",
             clientId = config.clientId,
-            redirectUri = toRedirectUri(request.uri),
+            redirectUri = toRedirectUri(config, request.uri),
             // Auth0 will only issue a refresh token if the offline_access claim is present.
             // TODO[AH] Make the request configurable, see https://github.com/digital-asset/daml/issues/7957
             scope = Some("offline_access " + login.claims.toQueryString),
@@ -174,9 +175,10 @@ object Server extends StrictLogging {
                   val body = OAuthRequest.Token(
                     grantType = "authorization_code",
                     code = authorize.code,
-                    redirectUri = toRedirectUri(request.uri),
+                    redirectUri = toRedirectUri(config, request.uri),
                     clientId = config.clientId,
-                    clientSecret = config.clientSecret)
+                    clientSecret = config.clientSecret
+                  )
                   import com.daml.auth.oauth2.api.Request.Token.marshalRequestEntity
                   val tokenRequest =
                     for {

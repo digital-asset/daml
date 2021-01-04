@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.stores
@@ -24,7 +24,6 @@ import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.platform.sandbox.stores.ledger.{Ledger, PartyIdGenerator}
-
 import io.grpc.Status
 
 import scala.compat.java8.FutureConverters
@@ -42,7 +41,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       estimatedInterpretationCost: Long,
   ): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
-      "submitter" -> submitterInfo.singleSubmitterOrThrow(),
+      "actAs" -> submitterInfo.actAs.mkString(","),
       "applicationId" -> submitterInfo.applicationId,
       "commandId" -> submitterInfo.commandId,
       "deduplicateUntil" -> submitterInfo.deduplicateUntil.toString,

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -62,6 +62,12 @@ private[validation] object ExprTraversable {
         f(body)
       case EFromAny(ty @ _, body) =>
         f(body)
+      case EThrow(returnType @ _, exceptionType @ _, exception) =>
+        f(exception)
+      case EToAnyException(typ @ _, value) =>
+        f(value)
+      case EFromAnyException(typ @ _, value) =>
+        f(value)
     }
     ()
   }
@@ -90,6 +96,9 @@ private[validation] object ExprTraversable {
         f(rbk.key)
       case UpdateEmbedExpr(typ @ _, body) =>
         f(body)
+      case UpdateTryCatch(typ @ _, body, binder @ _, handler) =>
+        f(body)
+        f(handler)
     }
     ()
   }

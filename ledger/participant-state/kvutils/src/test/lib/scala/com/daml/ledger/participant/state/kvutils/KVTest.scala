@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -407,8 +407,8 @@ object KVTest {
       deduplicationTime: Duration,
       recordTime: Timestamp,
   ): SubmitterInfo =
-    SubmitterInfo.withSingleSubmitter(
-      submitter = submitter,
+    SubmitterInfo(
+      actAs = List(submitter),
       applicationId = Ref.LedgerString.assertFromString("test"),
       commandId = commandId,
       deduplicateUntil = recordTime.addMicros(deduplicationTime.toNanos / 1000).toInstant,

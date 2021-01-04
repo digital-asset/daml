@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.preexecution
@@ -9,9 +9,9 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, Fingerprint, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
+import com.daml.ledger.validator.preexecution.RawPreExecutingCommitStrategy.{InputState, ReadSet}
 import com.daml.ledger.validator.{
   StateKeySerializationStrategy,
   StateSerializationStrategy,
@@ -21,37 +21,30 @@ import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LogAppenderPreExecutingCommitStrategy(
+final class RawPreExecutingCommitStrategy(
     keySerializationStrategy: StateKeySerializationStrategy,
 ) extends PreExecutingCommitStrategy[
       DamlStateKey,
-      (Option[DamlStateValue], Fingerprint),
+      Option[DamlStateValue],
       ReadSet,
       RawKeyValuePairsWithLogEntry,
     ] {
   private val stateSerializationStrategy = new StateSerializationStrategy(keySerializationStrategy)
 
   override def generateReadSet(
-      fetchedInputs: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
+      fetchedInputs: InputState,
       accessedKeys: Set[DamlStateKey],
-  ): ReadSet =
-    accessedKeys
-      .map { key =>
-        val (_, fingerprint) =
-          fetchedInputs.getOrElse(key, throw new KeyNotPresentInInputException(key))
-        key -> fingerprint
-      }
-      .map {
-        case (damlKey, fingerprint) =>
-          keySerializationStrategy.serializeStateKey(damlKey) -> fingerprint
-      }
-      .toVector
-      .sortBy(_._1.asReadOnlyByteBuffer)
+  ): Map[DamlStateKey, Option[DamlStateValue]] =
+    accessedKeys.view.map { key =>
+      val value =
+        fetchedInputs.getOrElse(key, throw new KeyNotPresentInInputException(key))
+      key -> value
+    }.toMap
 
   override def generateWriteSets(
       participantId: ParticipantId,
       logEntryId: DamlLogEntryId,
-      inputState: Map[DamlStateKey, (Option[DamlStateValue], Fingerprint)],
+      inputState: InputState,
       preExecutionResult: KeyValueCommitting.PreExecutionResult,
   )(implicit executionContext: ExecutionContext)
     : Future[PreExecutionCommitResult[RawKeyValuePairsWithLogEntry]] = {
@@ -91,4 +84,9 @@ final class LogAppenderPreExecutingCommitStrategy(
       logEntry: DamlLogEntry,
   )(implicit executionContext: ExecutionContext): Future[(Bytes, Bytes)] =
     Future(logEntryId -> Envelope.enclose(logEntry))
+}
+
+object RawPreExecutingCommitStrategy {
+  type InputState = Map[DamlStateKey, Option[DamlStateValue]]
+  type ReadSet = Map[DamlStateKey, Option[DamlStateValue]]
 }

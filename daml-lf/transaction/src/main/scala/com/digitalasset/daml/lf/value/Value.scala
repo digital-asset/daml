@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -7,6 +7,7 @@ package value
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.data._
+import com.daml.lf.transaction.TransactionVersion
 import data.ScalazEqual._
 
 import scala.annotation.tailrec
@@ -202,7 +203,7 @@ object Value extends CidContainer1[Value] {
     */
   val MAXIMUM_NESTING: Int = 100
 
-  final case class VersionedValue[+Cid](version: ValueVersion, value: Value[Cid])
+  final case class VersionedValue[+Cid](version: TransactionVersion, value: Value[Cid])
       extends CidContainer[VersionedValue[Cid]] {
 
     override protected def self: this.type = this
@@ -503,11 +504,10 @@ private final class `Value Order instance`[Cid: Order](Scope: Value.LookupVarian
       ctorA: Ref.Name,
       ctorB: Ref.Name) = {
     val idAB = unifyIds(idA, idB)
-    Scope(idAB) cata ({ ctors =>
+    Scope(idAB).cata({ ctors =>
       val lookup = ctors.toSeq
       (lookup indexOf ctorA) ?|? (lookup indexOf ctorB)
-    },
-    noType(idAB))
+    }, noType(idAB))
   }
   @throws[IllegalArgumentException]
   private[this] def noType(id: Identifier): Nothing =

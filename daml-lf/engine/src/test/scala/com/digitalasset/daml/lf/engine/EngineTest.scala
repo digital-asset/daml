@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -30,7 +30,7 @@ import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.transaction.Node.GenNode
-import com.daml.lf.value.ValueVersion.assertAsVersionedValue
+import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
@@ -1944,8 +1944,8 @@ class EngineTest
 
     def pkg(version: LV) =
       language.Ast.Package(
-        Traversable.empty,
-        Traversable.empty,
+        Iterable.empty,
+        Iterable.empty,
         version,
         None
       )

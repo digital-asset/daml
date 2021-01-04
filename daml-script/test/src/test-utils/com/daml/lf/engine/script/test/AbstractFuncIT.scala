@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -302,6 +302,18 @@ abstract class AbstractFuncIT
         } yield {
           assert(v == SUnit)
         }
+      }
+    }
+    "multiparty command submission" in {
+      for {
+        clients <- participantClients()
+        v <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:multiPartySubmission"),
+          dar = stableDar
+        )
+      } yield {
+        assert(v == SUnit)
       }
     }
   }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Agent startup script
@@ -163,7 +163,7 @@ NIX_CONF
 
 systemctl restart nix-daemon
 
-# Warm up local caches by building dev-env and current daml master
+# Warm up local caches by building dev-env and current daml main
 # This is allowed to fail, as we still want to have CI machines
 # around, even when their caches are only warmed up halfway
 su --login vsts <<'CACHE_WARMUP'

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.lf.data
 
@@ -228,7 +228,7 @@ private final class ConcatenableMatchingStringModule(
   override def fromInt(i: Int): T = fromLong(i.toLong)
 
   override def concat(s: T, ss: T*): Either[String, T] = {
-    val b = StringBuilder.newBuilder
+    val b = new StringBuilder
     b ++= s
     ss.foreach(b ++= _)
     if (b.length <= maxLength) Right(b.result()) else Left(s"id ${b.result()} too Long")

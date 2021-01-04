@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -158,14 +158,14 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
     }
 
     "fail if version is different" in {
-      val versions = TransactionVersion.Values
+      val versions = TransactionVersion.All
       def diffVersion(v: TransactionVersion) = {
         val randomVersion = versions(Random.nextInt(versions.length - 1))
         if (randomVersion != v) randomVersion else versions.last
       }
       forAll(genEmptyNode, minSuccessful(10)) { n =>
         val m = n.updateVersion(diffVersion(n.version))
-        isReplayedBy(n, m) shouldBe 'left
+        isReplayedBy(n, m) shouldBe Symbol("left")
       }
     }
 

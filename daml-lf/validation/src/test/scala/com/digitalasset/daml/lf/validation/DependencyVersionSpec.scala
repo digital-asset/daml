@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -41,6 +41,7 @@ class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks w
               EVal(Identifier(depPkgId, QualifiedName(depModName, u))),
               false)
         },
+        Map.empty,
         Map.empty,
         FeatureFlags.default
       )

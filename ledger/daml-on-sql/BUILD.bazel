@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test")
@@ -102,6 +102,20 @@ conformance_test(
         "--ledgerid=conformance-test",
         "--port=6865",
         "--eager-package-loading",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-multi-party-submissions",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--ledgerid=conformance-test",
+        "--port=6865",
+        "--eager-package-loading",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=MultiPartySubmissionIT",
     ],
 )
 

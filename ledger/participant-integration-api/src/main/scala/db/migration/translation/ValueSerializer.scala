@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform
@@ -17,7 +17,7 @@ private[migration] object ValueSerializer {
 
   private[translation] object DeprecatedValueVersionsError {
     val DeprecatedValueVersions = Set("1", "2", "3", "4", "5")
-    val UnsupportedErrorMessage = """Unsupported value version (\d)""".r
+    val UnsupportedErrorMessage = """Unsupported transaction version '(\d)'""".r
 
     def unapply[X](arg: Either[ValueCoder.DecodeError, X]): Option[String] =
       arg match {

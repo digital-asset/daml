@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -31,6 +31,10 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     "GenMap" -> BTGenMap,
     "Any" -> BTAny,
     "TypeRep" -> BTTypeRep,
+    "AnyException" -> BTAnyException,
+    "GeneralError" -> BTGeneralError,
+    "ArithmeticError" -> BTArithmeticError,
+    "ContractError" -> BTContractError,
   )
 
   private[parser] def fullIdentifier: Parser[Ref.Identifier] =

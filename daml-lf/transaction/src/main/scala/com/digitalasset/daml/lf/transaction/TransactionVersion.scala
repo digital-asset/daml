@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -6,7 +6,7 @@ package transaction
 
 import com.daml.lf.data.ImmArray
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.value.{Value, ValueVersion}
+import com.daml.lf.value.Value
 
 import scala.collection.immutable.HashMap
 
@@ -20,23 +20,31 @@ sealed abstract class TransactionVersion private (val protoValue: String, privat
 object TransactionVersion {
 
   case object V10 extends TransactionVersion("10", 10)
+  case object V11 extends TransactionVersion("11", 11)
   case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
-  val Values = List(V10, VDev)
+  val All = List(V10, V11, VDev)
 
   private[lf] implicit val Ordering: scala.Ordering[TransactionVersion] = scala.Ordering.by(_.index)
 
-  private[this] val stringMapping = Values.iterator.map(v => v.protoValue -> v).toMap
+  private[this] val stringMapping = All.iterator.map(v => v.protoValue -> v).toMap
 
   def fromString(vs: String): Either[String, TransactionVersion] =
-    stringMapping.get(vs).toRight(s"Unsupported transaction version $vs")
+    stringMapping.get(vs) match {
+      case Some(value) => Right(value)
+      case None =>
+        Left(s"Unsupported transaction version '$vs'")
+    }
 
   def assertFromString(vs: String): TransactionVersion =
     data.assertRight(fromString(vs))
 
-  val minVersion = Values.min
-  private[transaction] val minChoiceObservers = VDev
-  private[transaction] val minNodeVersion = VDev
+  val minVersion: TransactionVersion = All.min
+  def maxVersion: TransactionVersion = VDev
+
+  private[lf] val minGenMap = V11
+  private[lf] val minChoiceObservers = V11
+  private[lf] val minNodeVersion = V11
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._
@@ -44,14 +52,8 @@ object TransactionVersion {
       v1_6 -> V10,
       v1_7 -> V10,
       v1_8 -> V10,
+      v1_11 -> V11,
       v1_dev -> VDev,
-    )
-  }
-
-  private[lf] val assignValueVersion: TransactionVersion => ValueVersion = {
-    Map(
-      V10 -> ValueVersion("6"),
-      VDev -> ValueVersion("dev"),
     )
   }
 
