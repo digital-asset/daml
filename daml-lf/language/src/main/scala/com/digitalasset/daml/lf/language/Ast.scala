@@ -169,8 +169,8 @@ object Ast {
       case KStar => "*"
       case KNat => "nat"
       case KArrow(fun, arg) if needParens =>
-        "(" + prettyKind(fun, true) + "->" + prettyKind(arg, false)
-        ")"
+        "(" + prettyKind(fun, true) + "->" + prettyKind(arg, false) +
+          ")"
       case KArrow(fun, arg) =>
         prettyKind(fun, true) + "->" + prettyKind(arg, false)
     }
