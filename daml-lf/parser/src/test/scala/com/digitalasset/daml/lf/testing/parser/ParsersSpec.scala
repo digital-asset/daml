@@ -583,7 +583,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         )
 
       val recDef = DDataType(
-        false,
+        true,
         ImmArray.empty,
         DataRecord(ImmArray.empty)
       )
@@ -600,6 +600,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
 
     }
   }
+
   "parses exception definition" in {
 
     val p =
