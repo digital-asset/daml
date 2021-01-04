@@ -607,7 +607,7 @@ object Ast {
         precond: E,
         signatories: E,
         agreementText: E,
-        choices: Traversable[(ChoiceName, GenTemplateChoice[E])],
+        choices: Iterable[(ChoiceName, GenTemplateChoice[E])],
         observers: E,
         key: Option[GenTemplateKey[E]]
     ): GenTemplate[E] = {
@@ -749,7 +749,7 @@ object Ast {
       featureFlags: FeatureFlags
   ) extends NoCopy
 
-  private def findDuplicate[Key, Value](xs: Traversable[(Key, Value)]) =
+  private def findDuplicate[Key, Value](xs: Iterable[(Key, Value)]) =
     xs.groupBy(_._1).collectFirst { case (key, values) if values.size > 1 => key }
 
   sealed class GenModuleCompanion[E] {
@@ -817,8 +817,8 @@ object Ast {
   sealed class GenPackageCompanion[E] {
 
     def apply(
-        modules: Traversable[GenModule[E]],
-        directDeps: Traversable[PackageId],
+        modules: Iterable[GenModule[E]],
+        directDeps: Iterable[PackageId],
         languageVersion: LanguageVersion,
         metadata: Option[PackageMetadata],
     ): GenPackage[E] = {

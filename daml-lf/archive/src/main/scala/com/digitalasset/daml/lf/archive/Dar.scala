@@ -7,7 +7,6 @@ package archive
 import scalaz.{Applicative, Equal, Traverse}
 import scalaz.syntax.equal._
 import scalaz.std.list._
-import scala.language.higherKinds
 
 final case class Dar[A](main: A, dependencies: List[A]) {
   lazy val all: List[A] = main :: dependencies

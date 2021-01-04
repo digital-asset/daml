@@ -14,8 +14,8 @@ import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.google.protobuf.ProtocolStringList
 
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.JavaConverters._
 import scala.collection.immutable.HashMap
+import scala.jdk.CollectionConverters._
 
 object TransactionCoder {
 

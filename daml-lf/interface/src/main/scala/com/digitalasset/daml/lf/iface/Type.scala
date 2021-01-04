@@ -12,7 +12,7 @@ import scalaz.Monoid
 import scalaz.syntax.foldable._
 import scalaz.syntax.monoid._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /**
   * [[Type]] is an intermediate form from
@@ -90,7 +90,7 @@ final case class TypeCon(name: TypeConName, typArgs: ImmArraySeq[Type])
       throw new RuntimeException(
         s"Mismatching type vars and applied types, expected ${defn.typeVars} but got ${typArgs.length} types")
     } else {
-      if (defn.typeVars.empty) { // optimization
+      if (defn.typeVars.isEmpty) { // optimization
         defn.dataType
       } else {
         val paramsMap = Map(defn.typeVars.zip(typArgs): _*)

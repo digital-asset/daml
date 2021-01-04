@@ -3,8 +3,6 @@
 
 package com.daml.lf.transaction
 
-import scala.language.higherKinds
-
 sealed abstract class DiscriminatedSubtype[X] {
   type T <: X
   def apply(x: X): T

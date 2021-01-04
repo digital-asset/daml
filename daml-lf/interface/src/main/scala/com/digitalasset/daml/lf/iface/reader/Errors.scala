@@ -6,7 +6,8 @@ package reader
 
 import com.daml.lf.data.Ref.{DottedName, Name}
 
-import scala.language.{higherKinds, implicitConversions}
+import scala.language.implicitConversions
+import scala.collection.compat._
 import scala.collection.immutable.Map
 import scalaz.{-\/, ==>>, @@, Applicative, Cord, Monoid, Order, Semigroup, Tag, Traverse, \/, \/-}
 import scalaz.std.map._
@@ -18,13 +19,13 @@ import scalaz.syntax.traverse._
 final case class Errors[K, A](run: A \/ (K ==>> Errors[K, A])) {
   def fold[Z](pure: A => Z, roll: (K ==>> Z) => Z): Z = {
     def go(self: Errors[K, A]): Z =
-      self.run fold (pure, r => roll(r map go))
+      self.run.fold(pure, r => roll(r map go))
     go(this)
   }
 
   def collectAndPrune[B](f: A PartialFunction B)(implicit K: Order[K]): Errors[K, B] = {
     def go(self: Errors[K, A]): Option[Errors[K, B]] =
-      self.run fold (a => f.lift(a) map Errors.point, { m =>
+      self.run.fold(a => f.lift(a) map Errors.point, { m =>
         val m2 = m mapOption go
         if (m2.isEmpty) None else Some(Errors(\/-(m2)))
       })
@@ -41,7 +42,7 @@ object Errors {
 
   implicit final class `ErrorLoc syntax`(private val self: ErrorLoc) extends AnyVal {
     def fold[Z](property: Symbol => Z, field: String => Z): Z =
-      Tag.unwrap(self) fold (property, field)
+      Tag.unwrap(self).fold(property, field)
   }
 
   implicit val `ErrorLoc order`: Order[ErrorLoc] = {
@@ -56,18 +57,19 @@ object Errors {
   implicit def `Errors covariant`[K]: Traverse[({ type l[a] = Errors[K, a] })#l] =
     new Traverse[({ type l[a] = Errors[K, a] })#l] {
       override def map[A, B](fa: Errors[K, A])(f: A => B): Errors[K, B] =
-        Errors(fa.run bimap (f, (_ map (map(_)(f)))))
+        Errors(fa.run.bimap(f, (_ map (map(_)(f)))))
 
       // inorder fold/traversal
       override def traverseImpl[G[_]: Applicative, A, B](fa: Errors[K, A])(
           f: A => G[B]): G[Errors[K, B]] =
-        fa.run bitraverse (f, (_ traverse (traverseImpl(_)(f)))) map (Errors(_))
+        fa.run.bitraverse(f, (_ traverse (traverseImpl(_)(f)))).map(Errors(_))
     }
 
   implicit def `Errors monoid`[K: Order, A: Semigroup]: Monoid[Errors[K, A]] = {
     object Rec { // inst recurs on inst
-      implicit val inst: Monoid[Errors[K, A]] = Monoid instance (
-        (l, r) => Errors(l.run |+| r.run), zeroErrors
+      implicit val inst: Monoid[Errors[K, A]] = Monoid.instance(
+        (l, r) => Errors(l.run |+| r.run),
+        zeroErrors
       )
     }
     Rec.inst
@@ -98,11 +100,10 @@ object Errors {
       map: Iterable[(K, A)])(f: A => (Errors[Loc, E] \/ B))(
       implicit kloc: K => Loc): (Errors[Loc, E], Map[K, B]) = {
     import scalaz.std.iterable._
-    val (errs, successes) = partitionEithers(map map {
+    val (errs, successes) = map.partitionMap {
       case (k, a) => locate(kloc(k), f(a)).map((k, _)).toEither
-    })
-    type R[_] = Map[K, B]
-    (errs.suml, successes.to[R])
+    }
+    (errs.suml, successes.toMap)
   }
 
   /** Meant for "fail if any fail" style errors; failures end up indexed by `kloc`

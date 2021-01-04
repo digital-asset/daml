@@ -15,7 +15,7 @@ case class EventId(
     nodeId: NodeId
 ) {
   lazy val toLedgerString: LedgerString = {
-    val builder = StringBuilder.newBuilder
+    val builder = new StringBuilder()
     builder += '#'
     builder ++= transactionId
     builder += ':'

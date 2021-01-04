@@ -12,6 +12,8 @@ import com.daml.lf.value.Value
 import scalaz.Equal
 
 import scala.annotation.tailrec
+import scala.collection.compat._
+import scala.collection.compat.immutable._
 import scala.collection.immutable.HashMap
 
 final case class VersionedTransaction[Nid, +Cid] private[lf] (
@@ -579,12 +581,12 @@ object Transaction {
 
     @tailrec
     def loop(
-        nids1: Stream[Nid],
-        nids2: Stream[Nid],
-        stack: List[(Nid, Exe, Stream[Nid], Nid, Exe, Stream[Nid])] = List.empty,
+        nids1: LazyList[Nid],
+        nids2: LazyList[Nid],
+        stack: List[(Nid, Exe, LazyList[Nid], Nid, Exe, LazyList[Nid])] = List.empty,
     ): Either[ReplayMismatch[Nid, Cid], Unit] =
       (nids1, nids2) match {
-        case (nid1 #:: rest1, nid2 #:: rest2) =>
+        case (LazyList.cons(nid1, rest1), LazyList.cons(nid2, rest2)) =>
           (recorded.nodes(nid1), replayed.nodes(nid2)) match {
             case (
                 Node.NodeCreate(
@@ -691,8 +693,8 @@ object Transaction {
                   choiceObservers1 == choiceObservers2 &&
                   (key1.isEmpty || key1 === key2) =>
               loop(
-                children1.iterator.toStream,
-                children2.iterator.toStream,
+                children1.iterator.to(LazyList),
+                children2.iterator.to(LazyList),
                 (nid1, exe1, rest1, nid2, exe2, rest2) :: stack
               )
             case (
@@ -708,7 +710,7 @@ object Transaction {
               Left(ReplayNodeMismatch(recorded, nid1, replayed, nid2))
           }
 
-        case (Stream.Empty, Stream.Empty) =>
+        case (LazyList(), LazyList()) =>
           stack match {
             case (nid1, exe1, nids1, nid2, exe2, nids2) :: rest =>
               if (exe1.exerciseResult.isEmpty || exe1.exerciseResult === exe2.exerciseResult)
@@ -719,15 +721,15 @@ object Transaction {
               Right(())
           }
 
-        case (nid1 #:: _, Stream.Empty) =>
+        case (LazyList.cons(nid1, _), LazyList()) =>
           Left(ReplayedNodeMissing(recorded, nid1, replayed))
 
-        case (Stream.Empty, nid2 #:: _) =>
+        case (LazyList(), LazyList.cons(nid2, _)) =>
           Left(RecordedNodeMissing(recorded, replayed, nid2))
 
       }
 
-    loop(recorded.roots.iterator.toStream, replayed.roots.iterator.toStream)
+    loop(recorded.roots.iterator.to(LazyList), replayed.roots.iterator.to(LazyList))
 
   }
 
