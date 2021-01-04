@@ -559,7 +559,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         """
           module Mod {
 
-            record R = { } ;
+            record @serializable R = { } ;
 
             template (this : R) =  {
               precondition True,

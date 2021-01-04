@@ -54,4 +54,7 @@ private[validation] class World(packages: PartialFunction[PackageId, Ast.GenPack
         throw EUnknownDefinition(ctx, LEValue(name))
     }
 
+  def lookupException(ctx: => Context, name: TypeConName): Ast.GenDefException[_] =
+    lookupModule(ctx, name.packageId, name.qualifiedName.module).exceptions
+      .getOrElse(name.qualifiedName.name, throw EUnknownDefinition(ctx, LEException(name)))
 }
