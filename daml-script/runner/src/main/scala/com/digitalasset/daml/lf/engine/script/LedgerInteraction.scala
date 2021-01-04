@@ -478,7 +478,8 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: SValue,
-      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue])(
+      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue],
+  )(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     GlobalKey
