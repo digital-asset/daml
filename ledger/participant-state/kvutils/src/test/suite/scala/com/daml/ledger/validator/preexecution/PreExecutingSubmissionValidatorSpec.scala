@@ -61,7 +61,6 @@ class PreExecutingSubmissionValidatorSpec
       val ledgerStateReaderMockResult = Seq(
         TestValue(Some(makeContractKeyStateValue("contract ID")))
       )
-
       when(ledgerStateReaderMock.read(any[Seq[DamlStateKey]])(any[ExecutionContext]))
         .thenReturn(Future.successful(ledgerStateReaderMockResult))
 
