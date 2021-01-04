@@ -1147,9 +1147,9 @@ Then we define *well-formed expressions*. ::
 
       Γ  ⊢  σ  :  ⋆
       ⊢ₑ  τ
-      Γ  ⊢  e  :  σ
+      Γ  ⊢  e  :  τ
     ——————————————————————————————————————————————————————————————— ExpThrow [DAML-LF ≥ 1.dev]
-      Γ  ⊢  'throw' @σ  @τ @e  :  τ
+      Γ  ⊢  'throw' @σ @τ @e  :  σ
 
       ⊢ₑ  τ
       Γ  ⊢  eₘ  : 'Text'
@@ -1160,7 +1160,7 @@ Then we define *well-formed expressions*. ::
       ⊢ₑ  τ
       Γ  ⊢  e  :  'AnyException'
     ——————————————————————————————————————————————————————————————— ExpFromAnyException [DAML-LF ≥ 1.dev]
-      Γ  ⊢  'from_any_exception' @τ e  :  'Option' τ
+      Γ  ⊢  'from_any_exception' @τ e  :  'Optional' τ
 
       Γ  ⊢  τ  :  ⋆      Γ  ⊢  e  :  τ
     ——————————————————————————————————————————————————————————————— UpdPure
@@ -2427,7 +2427,7 @@ exact output.
 
       e  ⇓  Ok v
     —————————————————————————————————————————————————————————————————————— EvExpThrow
-      'throw' @τ e  ⇓  Err v
+      'throw' @σ @τ e  ⇓  Err v
 
       eₘ  ⇓  Err v
     —————————————————————————————————————————————————————————————————————— EvExpMakeAnyExceptionErr1
@@ -4133,7 +4133,7 @@ Error functions
 
     'ERROR' ≡
         Λ (α : ⋆). λ (x : 'Text').
-        'throw' @α ('make_any_exception' @'GeneralError' x ('MAKE_GENERAL_ERROR' x))
+        'throw' @α @'GeneralError' ('MAKE_GENERAL_ERROR' x)
 
 * ``ANY_EXCEPTION_MESSAGE : 'AnyException' → 'Text'``
 
