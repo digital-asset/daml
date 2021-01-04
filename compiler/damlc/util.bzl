@@ -15,6 +15,7 @@ LATEST_STABLE_DAML_LF_VERSION = "1.8"
 DAML_LF_VERSIONS = [
     "1.6",
     "1.7",
-    LATEST_STABLE_DAML_LF_VERSION,
+    "1.8",
+    "1.11",
     "1.dev",
 ]
