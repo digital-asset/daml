@@ -157,6 +157,40 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       )
     }
 
+    "catch collisions between exception and template" in {
+      Module.apply(
+        name = modName1,
+        definitions = List(
+          defName("defName1") -> recordDef,
+          defName("defName2") -> recordDef,
+        ),
+        templates = List(
+          defName("defName1") -> template,
+        ),
+        exceptions = List(
+          defName("defName2") -> exception,
+        ),
+        featureFlags = FeatureFlags.default,
+      )
+
+      a[PackageError] shouldBe thrownBy(
+        Module.apply(
+          name = modName1,
+          definitions = List(
+            defName("defName1") -> recordDef,
+            defName("defName2") -> recordDef,
+          ),
+          templates = List(
+            defName("defName1") -> template,
+          ),
+          exceptions = List(
+            defName("defName1") -> exception,
+          ),
+          featureFlags = FeatureFlags.default,
+        )
+      )
+    }
+
   }
 
   "Template.apply" should {
