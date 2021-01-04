@@ -80,7 +80,7 @@ fi
 #
 if [ -z "${1:-}" ] ; then
   echo "Determining latest SDK version..."
-  readonly VERSION="$(curl -sS https://github.com/digital-asset/daml/releases/latest | sed 's/^.*github.com\/digital-asset\/daml\/releases\/tag\/v//' | sed 's/".*$//')"
+  readonly VERSION="$(curl -sS https://docs.daml.com/latest)"
   if [ -z "$VERSION" ] ; then
     echo "Failed to determine latest SDK version."
     exit 1
