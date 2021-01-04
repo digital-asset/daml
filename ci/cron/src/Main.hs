@@ -128,14 +128,16 @@ fetch_if_missing opts temp v = do
 
 update_s3 :: DocOptions -> FilePath -> Versions -> IO ()
 update_s3 opts temp vs = do
-    putStrLn "Updating versions.json & hidden.json..."
+    putStrLn "Updating versions.json, hidden.json, latest..."
     create_versions_json (dropdown vs) (temp </> "versions.json")
     let hidden = Data.List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs)
     create_versions_json hidden (temp </> "hidden.json")
-    shell_ $ "aws s3 cp " <> temp </> "versions.json " <> s3Path opts "versions.json" <> " --acl public-read"
-    shell_ $ "aws s3 cp " <> temp </> "hidden.json " <> s3Path opts "hidden.json" <> " --acl public-read"
-    -- FIXME: remove after running once (and updating the reading bit in this file)
-    shell_ $ "aws s3 cp " <> temp </> "hidden.json " <> s3Path opts "snapshots.json" <> " --acl public-read"
+    let push f = shell_ $ "aws s3 cp " <> temp </> f <> s3Path opts f <> " --acl public-read"
+    push "versions.json"
+    push "hidden.json"
+    Control.Monad.Extra.whenJust (top vs) $ \latest -> do
+        writeFile (temp </> "latest") (show latest)
+        push "latest"
     putStrLn "Done."
     where
         create_versions_json versions file = do
@@ -238,8 +240,7 @@ fetch_s3_versions opts = do
     -- We could technically remove the catch later.
     dropdown <- fetch "versions.json" False `catchIO`
       (\_ -> pure [])
-    -- TODO: read hidden.json after this has run once
-    hidden <- fetch "snapshots.json" True `catchIO`
+    hidden <- fetch "hidden.json" True `catchIO`
       (\_ -> pure [])
     return $ versions $ dropdown <> hidden
     where fetch file prerelease = do
@@ -454,4 +455,9 @@ main = do
       Docs -> do
           docs sdkDocOpts
           docs damlOnSqlDocOpts
+          -- FIXME: this is meant to run once to create the `latest` file
+          -- without waiting for the next stable release.
+          gh_versions <- fetch_gh_versions (includedVersion sdkDocOpts)
+          IO.withTempDir $ \temp_dir -> do
+              update_s3 sdkDocOpts temp_dir gh_versions
       Check { bash_lib, gcp_credentials, max_releases } -> check_releases gcp_credentials bash_lib max_releases
