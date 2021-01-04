@@ -42,11 +42,15 @@ class PreExecutingSubmissionValidatorSpec
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "validate" should {
-    "read from ledger state once in presence of contract key state key inputs" in {
-      // De-referencing contract key state keys would require a further `read` call needlessly, because,
-      // if the state value of a contract key state key changed between fetching inputs and the conflict-detection,
-      // then the fingerprint of the contract key state key will have changed as well, and conflict detection
-      // will detect that.
+
+    "read from ledger state only once in presence of (KV) state key inputs of DAML contract keys'" in {
+
+      // Given a KV state key input of a DAML contract key, de-referencing it at validation time
+      // to force conflict detection also on the KV state key of the corresponding DAML contract ID
+      // harms performance (because it requires an extra read) and it is useless, because,
+      // if the KV state value of such a DAML contract key (i.e., the referenced contract ID)
+      // has changed between inputs fetching and conflict-detection, then the associated fingerprint
+      // will have changed as well and conflict detection will raise a red flag anyway.
 
       val expectedReadSet = Set(
         makeContractKeyStateKey("a template"),
