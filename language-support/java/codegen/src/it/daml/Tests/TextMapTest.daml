@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 
-module Tests.MapTest where
+module Tests.TextMapTest where
 import DA.TextMap
 
 data MapRecord = MapRecord

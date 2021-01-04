@@ -11,13 +11,13 @@ import com.daml.ledger.api.v1.ValueOuterClass;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
-import tests.maptest.MapItem;
-import tests.maptest.MapItemMapRecord;
-import tests.maptest.MapRecord;
-import tests.maptest.TemplateWithMap;
-import tests.maptest.mapvariant.ParameterizedVariant;
-import tests.maptest.mapvariant.RecordVariant;
-import tests.maptest.mapvariant.TextVariant;
+import tests.textmaptest.MapItem;
+import tests.textmaptest.MapItemMapRecord;
+import tests.textmaptest.MapRecord;
+import tests.textmaptest.TemplateWithMap;
+import tests.textmaptest.mapvariant.ParameterizedVariant;
+import tests.textmaptest.mapvariant.RecordVariant;
+import tests.textmaptest.mapvariant.TextVariant;
 import tests.varianttest.variantitem.ParameterizedRecordVariant;
 
 import java.util.Collections;
@@ -27,7 +27,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @RunWith(JUnitPlatform.class)
-public class MapTest {
+public class TextMapTest {
 
     @Test
     public void mapRecordRoundTrip() {
