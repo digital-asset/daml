@@ -26,7 +26,7 @@ import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.mockito.{ArgumentMatcher, ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -42,6 +42,40 @@ class PreExecutingSubmissionValidatorSpec
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "validate" should {
+    "read from ledger state once in presence of contract key state key inputs" in {
+      // De-referencing contract key state keys would require a further `read` call needlessly, because,
+      // if the state value of a contract key state key changed between fetching inputs and the conflict-detection,
+      // then the fingerprint of the contract key state key will have changed as well, and conflict detection
+      // will detect that.
+
+      val contractId = "a contract ID"
+      val expectedReadSet = Set(
+        makeContractIdStateKey(contractId),
+        makeContractKeyStateKey("a template"),
+      )
+      val instance = createInstance(expectedReadSet = expectedReadSet)
+
+      val ledgerStateReaderMock = mock[StateReader[DamlStateKey, TestValue]]
+      val ledgerStateReaderMockResult = Seq(
+        Some(makeContractIdStateValue()),
+        Some(makeContractKeyStateValue(contractId)),
+      ).map(TestValue(_))
+      when(
+        ledgerStateReaderMock.read(
+          argThat[Seq[DamlStateKey]](new ArgumentMatcher[Seq[DamlStateKey]] {
+            override def matches(argument: Seq[DamlStateKey]): Boolean =
+              argument.toSet == expectedReadSet
+          }))(any[ExecutionContext]))
+        .thenReturn(Future.successful(ledgerStateReaderMockResult))
+
+      instance
+        .validate(anEnvelope(expectedReadSet), aParticipantId, ledgerStateReaderMock)
+        .map { _ =>
+          verify(ledgerStateReaderMock, times(1)).read(any[Seq[DamlStateKey]])
+        }
+      succeed
+    }
+
     "generate correct output in case of success" in {
       val expectedReadSet = Set(allDamlStateKeyTypes.head)
       val actualInputState = Map(
@@ -84,22 +118,6 @@ class PreExecutingSubmissionValidatorSpec
       instance
         .validate(anEnvelope(expectedReadSet), aParticipantId, ledgerStateReader)
         .map(verifyReadSet(_, expectedReadSet))
-    }
-
-    "read exactly once" in {
-      val expectedReadSet = allDamlStateKeyTypes.toSet
-      val instance = createInstance(expectedReadSet = expectedReadSet)
-
-      val ledgerStateReaderMock = mock[StateReader[DamlStateKey, TestValue]]
-      when(ledgerStateReaderMock.read(any[Seq[DamlStateKey]])(any[ExecutionContext]))
-        .thenReturn(Future.successful(Seq.empty))
-
-      instance
-        .validate(anEnvelope(expectedReadSet), aParticipantId, ledgerStateReaderMock)
-        .map { _ =>
-          verify(ledgerStateReaderMock, times(1)).read(any[Seq[DamlStateKey]])
-        }
-      succeed
     }
 
     "return a read set when the contract keys are inconsistent" in {
