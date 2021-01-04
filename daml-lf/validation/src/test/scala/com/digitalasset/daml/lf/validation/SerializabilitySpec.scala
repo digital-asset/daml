@@ -12,8 +12,6 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.util.Try
-
 class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   "Serializability checking" should {
@@ -235,7 +233,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
             record @serializable SerializableRecord = { message: Text } ;
 
             exception SerializableRecord = {
-              message \(e: Mod:SerializableRecord) -> Mod:SerializableRecord {message} e
+              message \(e: NegativeTestCase:SerializableRecord) -> NegativeTestCase:SerializableRecord {message} e
             } ;
           }
 
@@ -243,7 +241,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
             record UnserializableRecord = { message: Text } ;
 
             exception UnserializableRecord = {
-              message \(e: Mod:UnserializableRecord) -> Mod:UnserializableRecord {message} e
+              message \(e: PositiveTestCase:UnserializableRecord) -> PositiveTestCase:UnserializableRecord {message} e
             } ;
           }
         """
@@ -357,7 +355,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
     val w = world(pkg)
     val longModName = DottedName.assertFromString(modName)
     val mod = pkg.modules(longModName)
-    require(Try(Typing.checkModule(w, defaultPackageId, mod)).isSuccess)
+    Typing.checkModule(w, defaultPackageId, mod)
     Serializability.checkModule(w, defaultPackageId, mod)
   }
 

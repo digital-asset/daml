@@ -58,10 +58,10 @@ final case class ContextTemplate(tycon: TypeConName) extends Context {
   def pretty: String = s"template definition ${tycon.qualifiedName}"
 }
 final case class ContextDefException(tycon: TypeConName) extends Context {
-  def pretty: String = s"exception type ${tycon.qualifiedName}"
+  def pretty: String = s"exception definition ${tycon.qualifiedName}"
 }
 final case class ContextDefValue(ref: ValueRef) extends Context {
-  def pretty: String = s"value type ${ref.qualifiedName}"
+  def pretty: String = s"value definition ${ref.qualifiedName}"
 }
 final case class ContextLocation(loc: Location) extends Context {
   def pretty: String =
