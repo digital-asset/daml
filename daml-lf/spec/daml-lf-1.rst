@@ -165,7 +165,7 @@ Version: 1.7
   + **Add** existential ``Any`` type
 
     - add `'Any'` primitive type
-    - add `'to_any'` and `'from_any'` expression to convert from/to an
+    - add `'to_an'y` and `'from_any'` expression to convert from/to an
       arbitrary ground type (i.e. a type with no free type variables)
       to ``Any``.
 
@@ -603,7 +603,6 @@ Then we can define our kinds, types, and expressions::
        | 'type_rep' @τ                              -- ExpToTypeRep: A type representation [DAML-LF ≥ 1.7]
        |  u                                         -- ExpUpdate: Update expression
        |  s                                         -- ExpScenario: Scenario expression
-       | 'throw'                                    -- ExpThrow: throw exception
        | 'make_any_exception' @τ eₘ eₚ              -- ExpMakeAnyException: Turn a concrete exception into an 'AnyException' [DAML-LF ≥ 1.dev]
        | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException' [DAML-LF ≥ 1.dev]
 
@@ -703,7 +702,7 @@ available for usage::
             , 'choices' { ChDef₁, …, ChDefₘ }
             , KeyDef
             }
-       |  'exception' T                             -- DefException [DAML-LF ≥ 1.dev]
+       |  'exception' (x: T)                        -- DefException [DAML-LF ≥ 1.dev]
 
   Module (mnemonic: delta for definitions)
     Δ ::= ε                                         -- DefCtxEmpty
@@ -951,7 +950,7 @@ can be thrown and caught by the exception handling mechanism. ::
   Exception types     │ ⊢ₑ  τ  │
                       └────────┘
 
-      'exception' T ↦ …  ∈  〚Ξ〛Mod
+      'exception' (x : T) ↦ …  ∈  〚Ξ〛Mod
     ———————————————————————————————————————————————————————————————— ExnTyDefException
       ⊢ₑ  Mod:T
 
@@ -1145,19 +1144,13 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpCase
       Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ
 
-      Γ  ⊢  σ  :  ⋆
-      ⊢ₑ  τ
-      Γ  ⊢  e  :  σ
-    ——————————————————————————————————————————————————————————————— ExpThrow [DAML-LF ≥ 1.dev]
-      Γ  ⊢  'throw' @σ  @τ @e  :  τ
-
-      ⊢ₑ  τ
+      ε  ⊢  τ  :  ⋆      ⊢ₑ  τ
       Γ  ⊢  eₘ  : 'Text'
       Γ  ⊢  eₚ  :  τ
     ——————————————————————————————————————————————————————————————— ExpMakeAnyException [DAML-LF ≥ 1.dev]
       Γ  ⊢  'make_any_exception' @τ eₘ eₚ  :  'AnyException'
 
-      ⊢ₑ  τ
+      ε  ⊢  τ  :  ⋆      ⊢ₑ  τ
       Γ  ⊢  e  :  'AnyException'
     ——————————————————————————————————————————————————————————————— ExpFromAnyException [DAML-LF ≥ 1.dev]
       Γ  ⊢  'from_any_exception' @τ e  :  'Option' τ
@@ -1536,9 +1529,9 @@ for the ``DefTemplate`` rule). ::
 
     'record' T ↦ { f₁ : τ₁, …, fₙ : τₙ }  ∈  〚Ξ〛Mod
     ⊢ₛ  Mod:T
-    ⊢  e  :  Mod:T → 'Text'
+    x : Mod:T  ⊢  eₘ  :  'Text'
   ——————————————————————————————————————————————————————————————— DefException [DAML-LF ≥ 1.dev]
-    ⊢  'exception' T ↦ { 'message' e }
+    ⊢  'exception' (x : T) ↦ { 'message' eₘ }
 
                           ┌───────────────────┐
   Well-formed choices     │ x : Mod:T ⊢ ChDef │
@@ -2427,7 +2420,7 @@ exact output.
 
       e  ⇓  Ok v
     —————————————————————————————————————————————————————————————————————— EvExpThrow
-      'throw' @τ e  ⇓  Err v
+      'THROW' @τ e  ⇓  Err v
 
       eₘ  ⇓  Err v
     —————————————————————————————————————————————————————————————————————— EvExpMakeAnyExceptionErr1
@@ -4133,7 +4126,14 @@ Error functions
 
     'ERROR' ≡
         Λ (α : ⋆). λ (x : 'Text').
-        'throw' @α ('make_any_exception' @'GeneralError' x ('MAKE_GENERAL_ERROR' x))
+        'THROW' @α ('make_any_exception' @'GeneralError' x ('MAKE_GENERAL_ERROR' x))
+
+* ``THROW : ∀ (α : ⋆) . 'AnyException' → α``
+
+  [*Available in version >= 1.11*]
+
+  Throws an ``'AnyException'``. See the evaluation rule ``EvExpThrow`` for
+  precise semantics.
 
 * ``ANY_EXCEPTION_MESSAGE : 'AnyException' → 'Text'``
 
@@ -4555,6 +4555,7 @@ program using the field ``exercise_by_key`` in the ``Update`` message.
 TO_TEXT_CONTRACT_ID
 ...................
 
+
 [*Available in versions >= 1.11*]
 
 The deserialization process will reject any DAML-LF 1.8 (or earlier)
@@ -4576,18 +4577,7 @@ message.
 Exception
 .........
 
-[*Available in versions >= 1.1dev*]
-
-The deserialization process will reject any DAML-LF 1.11 (or earlier)
-program exception using
-- the field ``throw``, ``to_any_exception``, or ``from_any_exception``
-  in the ``Expr`` message,
-- the field ``try`` in the ``Update message,
-- any of the builtin functions ``MAKE_GENERAL_ERROR``,
-  ``MAKE_ARITHMETIC_ERROR``, ``MAKE_CONTRACT_ERROR``,
-  ``ANY_EXCEPTION_MESSAGE``, ``GENERAL_ERROR_MESSAGE``, or
-  ``ARITHMETIC_ERROR_MESSAGE`.
-
+.. FIXME: https://github.com/digital-asset/daml/issues/7788
 
 
 .. Local Variables:
