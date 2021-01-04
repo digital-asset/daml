@@ -132,7 +132,7 @@ update_s3 opts temp vs = do
     create_versions_json (dropdown vs) (temp </> "versions.json")
     let hidden = Data.List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs)
     create_versions_json hidden (temp </> "hidden.json")
-    let push f = shell_ $ "aws s3 cp " <> temp </> f <> s3Path opts f <> " --acl public-read"
+    let push f = shell_ $ "aws s3 cp " <> temp </> f <> " " <> s3Path opts f <> " --acl public-read"
     push "versions.json"
     push "hidden.json"
     Control.Monad.Extra.whenJust (top vs) $ \latest -> do
