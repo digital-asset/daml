@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -48,6 +48,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import ParticipantsJsonProtocol.ContractIdFormat
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.value.Value
 import com.daml.script.converter.Converter.{JavaList, toContractId, unrollFree}
 import com.daml.script.converter.ConverterException
 
@@ -397,7 +398,27 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
         .toRight(s"Failed to find choice $choice in $id")
     } yield choice.returnType
 
+  private def lookupKeyTy(id: Identifier): Either[String, Type] =
+    for {
+      pkg <- compiledPackages
+        .getSignature(id.packageId)
+        .toRight(s"Failed to find package ${id.packageId}")
+      module <- pkg.modules
+        .get(id.qualifiedName.module)
+        .toRight(s"Failed to find module ${id.qualifiedName.module}")
+      tpl <- module.templates
+        .get(id.qualifiedName.name)
+        .toRight(s"Failed to find template ${id.qualifiedName.name}")
+      key <- tpl.key.toRight(s"Template ${id} does not have a contract key")
+    } yield key.typ
+
   private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)
+
+  private def translateKey(id: Identifier, v: Value[ContractId]): Either[String, SValue] =
+    for {
+      keyTy <- lookupKeyTy(id)
+      translated <- valueTranslator.translateValue(keyTy, v).left.map(_.msg)
+    } yield translated
 
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   private val knownPackages: Map[String, PackageId] = (for {
@@ -688,7 +709,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       tplId <- Converter.toFuture(Converter.typeRepToIdentifier(sTplId))
                       key <- Converter.toFuture(Converter.toAnyContractKey(sKey))
                       client <- Converter.toFuture(clients.getPartiesParticipant(parties))
-                      optR <- client.queryContractKey(parties, tplId, key.key)
+                      optR <- client.queryContractKey(parties, tplId, key.key, translateKey)
                       optR <- Converter.toFuture(
                         optR.traverse(Converter.fromCreated(valueTranslator, _)))
                       v <- run(SEApp(SEValue(continue), Array(SEValue(SOptional(optR)))))

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -212,6 +212,7 @@ trait AuthMiddlewareFixture
             .withAuthority(oauth.localAddress.getHostString, oauth.localAddress.getPort)
           middlewareConfig = MiddlewareConfig(
             port = Port.Dynamic,
+            callbackUri = None,
             oauthAuth = uri.withPath(Path./("authorize")),
             oauthToken = uri.withPath(Path./("token")),
             clientId = "oauth-middleware-id",
@@ -252,7 +253,6 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     timeProviderType = Some(TimeProviderType.Static),
     authService = authService,
     ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
-    seeding = None,
   )
 
   protected lazy val sandboxServer: SandboxServer = resource.value._1
@@ -436,7 +436,9 @@ trait TriggerServiceFixture
 
   // Use a small initial interval so we can test restart behaviour more easily.
   private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
-  private def triggerServiceOwner(encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]]) =
+  private def triggerServiceOwner(
+      encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
+      authCallback: Option[Uri]) =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
         for {
@@ -461,6 +463,7 @@ trait TriggerServiceFixture
                 ServiceConfig.DefaultMaxHttpEntityUploadSize,
                 ServiceConfig.DefaultHttpEntityUploadTimeout,
                 authConfig,
+                authCallback,
                 ledgerConfig,
                 restartConfig,
                 encodedDars,
@@ -478,14 +481,15 @@ trait TriggerServiceFixture
         } yield binding
     }
 
-  def withTriggerService[A](encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]])(
-      testFn: Uri => Future[A])(
+  def withTriggerService[A](
+      encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
+      authCallback: Option[Uri] = None)(testFn: Uri => Future[A])(
       implicit ec: ExecutionContext,
       pos: source.Position,
   ): Future[A] = {
     logger.info(s"${pos.fileName}:${pos.lineNumber}: setting up trigger service")
     implicit val context: ResourceContext = ResourceContext(ec)
-    triggerServiceOwner(encodedDars).use { binding =>
+    triggerServiceOwner(encodedDars, authCallback).use { binding =>
       val uri = Uri.from(scheme = "http", host = "localhost", port = binding.localAddress.getPort)
       testFn(uri)
     }

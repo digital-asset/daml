@@ -13,7 +13,7 @@ Notes on the format of this file:
     $ bazel build language-support/hs/bindings/examples/nim/...
     $ daml install latest --activate
 
-## 1. Look at [Nim.daml](https://github.com/digital-asset/daml/blob/master/language-support/hs/bindings/examples/nim/daml/Nim.daml)
+## 1. Look at [Nim.daml](https://github.com/digital-asset/daml/blob/main/language-support/hs/bindings/examples/nim/daml/Nim.daml)
 
 `Nim.daml` models the operation of the game room and the rules of Nim:
 

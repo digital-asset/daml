@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _grpc:
@@ -13,7 +13,7 @@ If you're not familiar with gRPC and protobuf, we strongly recommend following t
 Getting started
 ***************
 
-You can get the protobufs from a `GitHub release <protobufs_>`_, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions>`__.
+You can get the protobufs from a `GitHub release <protobufs_>`_, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/main/ledger-api/grpc-definitions>`__.
 
 Protobuf reference documentation
 ********************************

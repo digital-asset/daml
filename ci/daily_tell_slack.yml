@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
@@ -20,7 +20,7 @@ steps:
         MESSAGE="${{ parameters['success-message'] }}"
     fi
     PAYLOAD="{\"text\":$MESSAGE}"
-    if [ "$(Build.SourceBranchName)" = "master" ]; then
+    if [ "$(Build.SourceBranchName)" = "main" ]; then
         curl -XPOST \
              -i \
              -H 'Content-type: application/json' \

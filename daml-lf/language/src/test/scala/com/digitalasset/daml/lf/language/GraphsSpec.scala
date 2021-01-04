@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.language
@@ -43,7 +43,7 @@ class GraphsSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCheck
     "successfully sort all edges of directed acyclic graph" in {
       dags.forEvery { dag =>
         val result = topoSort(dag)
-        result shouldBe 'right
+        result shouldBe a[Right[_, _]]
 
         val Right(sortedEdges) = result
 
@@ -61,7 +61,7 @@ class GraphsSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCheck
     "fail on cyclic graph and return a proper cycle" in {
       dcgs.forEvery { dcg =>
         val result = topoSort(dcg)
-        result shouldBe 'left
+        result shouldBe a[Left[_, _]]
 
         val Left(Cycle(loop)) = result
 

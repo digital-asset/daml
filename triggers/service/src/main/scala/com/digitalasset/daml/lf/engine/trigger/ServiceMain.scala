@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -8,6 +8,7 @@ import java.util.UUID
 import akka.actor.typed.{ActorRef, ActorSystem, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.model.Uri
 import akka.util.Timeout
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.dec.DirectExecutionContext
@@ -38,6 +39,7 @@ object ServiceMain {
       maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,
       authConfig: AuthConfig,
+      authCallback: Option[Uri],
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
       encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
@@ -53,6 +55,7 @@ object ServiceMain {
           maxHttpEntityUploadSize,
           httpEntityUploadTimeout,
           authConfig,
+          authCallback,
           ledgerConfig,
           restartConfig,
           encodedDars,
@@ -126,6 +129,7 @@ object ServiceMain {
               config.maxHttpEntityUploadSize,
               config.httpEntityUploadTimeout,
               authConfig,
+              config.authCallbackUri,
               ledgerConfig,
               restartConfig,
               encodedDars,

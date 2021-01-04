@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -99,7 +99,7 @@ final class TransactionBuilder(pkgTxVersion: Ref.PackageId => TransactionVersion
       ),
       optLocation = None,
       signatories = signatories.map(Ref.Party.assertFromString).toSet,
-      stakeholders = signatories.union(observers).map(Ref.Party.assertFromString).toSet,
+      stakeholders = signatories.toSet.union(observers.toSet).map(Ref.Party.assertFromString),
       key = key.map(keyWithMaintainers(maintainers = signatories, _)),
       version = pkgTxVersion(templateId.packageId),
     )

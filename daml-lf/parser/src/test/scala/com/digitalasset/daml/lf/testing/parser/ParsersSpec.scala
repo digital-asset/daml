@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -65,6 +65,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "Arrow" -> BTArrow,
         "Option" -> BTOptional,
         "TextMap" -> BTTextMap,
+        "AnyException" -> BTAnyException,
+        "GeneralError" -> BTGeneralError,
+        "ArithmeticError" -> BTArithmeticError,
+        "ContractError" -> BTContractError,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltinType) =>
@@ -219,6 +223,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "GREATER" -> BGreater,
         "GREATER_EQ" -> BGreaterEq,
         "COERCE_CONTRACT_ID" -> BCoerceContractId,
+        "MAKE_GENERAL_ERROR" -> BMakeGeneralError,
+        "MAKE_ARITHMETIC_ERROR" -> BMakeArithmeticError,
+        "MAKE_CONTRACT_ERROR" -> BMakeContractError,
+        "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
+        "GENERAL_ERROR_MESSAGE" -> BGeneralErrorMessage,
+        "ARITHMETIC_ERROR_MESSAGE" -> BArithmeticErrorMessage,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>
@@ -297,6 +307,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           ECase(
             e"e",
             ImmArray(CaseAlt(CPPrimCon(PCTrue), e"False"), CaseAlt(CPPrimCon(PCFalse), e"True"))),
+        "to_any_exception @Mod:E exception" ->
+          EToAnyException(E, e"exception"),
+        "from_any_exception @Mod:E anyException" ->
+          EFromAnyException(E, e"anyException"),
+        "throw @Unit @Mod:E exception" ->
+          EThrow(TUnit, E, e"exception")
       )
 
       forEvery(testCases)((stringToParse, expectedExp) =>
@@ -360,6 +376,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           UpdateGetTime,
         "uembed_expr @tau e" ->
           UpdateEmbedExpr(t"tau", e"e"),
+        "try @tau body catch err -> handler err" ->
+          UpdateTryCatch(t"tau", e"body", n"err", e"handler err")
       )
 
       forEvery(testCases)((stringToParse, expectedUpdate) =>
@@ -450,7 +468,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         """
         module Mod {
 
-          record Person = { person: Party, name: Text } ;
+          record @serializable Person = { person: Party, name: Text } ;
 
           template (this : Person) =  {
             precondition True,
@@ -518,7 +536,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         )
 
       val recDef = DDataType(
-        false,
+        true,
         ImmArray.empty,
         DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text"))
       )
@@ -541,7 +559,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         """
           module Mod {
 
-            record R = { } ;
+            record @serializable R = { } ;
 
             template (this : R) =  {
               precondition True,
@@ -565,7 +583,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         )
 
       val recDef = DDataType(
-        false,
+        true,
         ImmArray.empty,
         DataRecord(ImmArray.empty)
       )
@@ -581,6 +599,39 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           )))
 
     }
+  }
+
+  "parses exception definition" in {
+
+    val p =
+      """
+          module Mod {
+
+            record @serializable Exception = { message: Text } ;
+
+            exception Exception = {
+              message \(e: Mod:Exception) -> Mod:Exception {message} e
+            } ;
+          }
+      """
+
+    val recDef = DDataType(
+      true,
+      ImmArray.empty,
+      DataRecord(ImmArray(n"message" -> TText))
+    )
+    val name = DottedName.assertFromString("Exception")
+    val exception = DefException(e"""\(e: Mod:Exception) -> Mod:Exception {message} e""")
+    parseModules(p) shouldBe Right(
+      List(
+        Module(
+          name = modName,
+          definitions = List(name -> recDef),
+          templates = List.empty,
+          exceptions = List(name -> exception),
+          featureFlags = FeatureFlags.default
+        )))
+
   }
 
   "parses location annotations" in {
@@ -602,18 +653,25 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
   }
 
   private val keywords = Table(
+    "Cons",
+    "Nil",
+    "Some",
+    "None",
     "forall",
     "let",
     "in",
     "with",
     "case",
     "of",
-    "sbind",
-    "ubind",
-    "create",
-    "fetch",
-    "exercise",
     "to",
+    "to_any",
+    "from_any",
+    "type_rep",
+    "loc",
+    "to_any_exception",
+    "from_any_exception",
+    "throw",
+    "catch",
   )
 
   private val modName = DottedName.assertFromString("Mod")
@@ -623,6 +681,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
 
   private val T: TTyCon = TTyCon(qualify("T"))
   private val R: TTyCon = TTyCon(qualify("R"))
+  private val E: TTyCon = TTyCon(qualify("E"))
   private val RIntBool = TypeConApp(R.tycon, ImmArray(t"Int64", t"Bool"))
   private val α: TVar = TVar(n"a")
   private val β: TVar = TVar(n"b")

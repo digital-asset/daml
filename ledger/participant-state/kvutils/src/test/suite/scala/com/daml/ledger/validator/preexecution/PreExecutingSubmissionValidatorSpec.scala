@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.preexecution
@@ -70,7 +70,7 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         }
     }
 
-    "return a sorted read set with correct fingerprints" in {
+    "return a sorted read set" in {
       val expectedReadSet = allDamlStateKeyTypes.toSet
       val actualInputState =
         allDamlStateKeyTypes.map(key => key -> Some(DamlStateValue.getDefaultInstance)).toMap
@@ -253,9 +253,9 @@ object PreExecutingSubmissionValidatorSpec {
     val wrappedInputState = inputState.mapValues(TestValue(_))
     new StateReader[DamlStateKey, TestValue] {
       override def read(
-          keys: Seq[DamlStateKey]
+          keys: Iterable[DamlStateKey]
       )(implicit executionContext: ExecutionContext): Future[Seq[TestValue]] =
-        Future.successful(keys.map(wrappedInputState))
+        Future.successful(keys.view.map(wrappedInputState).toVector)
     }
   }
 

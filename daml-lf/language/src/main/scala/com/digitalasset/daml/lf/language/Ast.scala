@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.language
@@ -607,21 +607,23 @@ object Ast {
         precond: E,
         signatories: E,
         agreementText: E,
-        choices: Traversable[(ChoiceName, GenTemplateChoice[E])],
+        choices: Iterable[(ChoiceName, GenTemplateChoice[E])],
         observers: E,
         key: Option[GenTemplateKey[E]]
     ): GenTemplate[E] = {
 
-      findDuplicate(choices).foreach { choiceName =>
-        throw PackageError(s"collision on choice name $choiceName")
-      }
+      val choiceMap = toMapWithoutDuplicate(
+        choices,
+        (choiceName: ChoiceName) =>
+          throw PackageError(s"collision on choice name ${choiceName.toString}")
+      )
 
       new GenTemplate[E](
         param,
         precond,
         signatories,
         agreementText,
-        choices.toMap,
+        choiceMap,
         observers,
         key,
       )
@@ -749,8 +751,18 @@ object Ast {
       featureFlags: FeatureFlags
   ) extends NoCopy
 
-  private def findDuplicate[Key, Value](xs: Traversable[(Key, Value)]) =
-    xs.groupBy(_._1).collectFirst { case (key, values) if values.size > 1 => key }
+  private[this] def toMapWithoutDuplicate[Key, Value](
+      xs: Iterable[(Key, Value)],
+      error: Key => Nothing,
+  ): Map[Key, Value] =
+    xs.foldLeft[Map[Key, Value]](Map.empty[Key, Value]) {
+      case (acc, (key, value)) =>
+        if (acc.contains(key)) {
+          error(key)
+        } else {
+          acc.updated(key, value)
+        }
+    }
 
   sealed class GenModuleCompanion[E] {
 
@@ -762,19 +774,30 @@ object Ast {
         featureFlags: FeatureFlags
     ): GenModule[E] = {
 
-      findDuplicate(definitions).foreach { defName =>
-        throw PackageError(s"Collision on definition name ${defName.toString}")
+      val definitionMap =
+        toMapWithoutDuplicate(
+          definitions,
+          (name: DottedName) =>
+            throw PackageError(s"Collision on definition name ${name.toString}"),
+        )
+
+      val templateMap =
+        toMapWithoutDuplicate(
+          templates,
+          (name: DottedName) => throw PackageError(s"Collision on template name ${name.toString}"),
+        )
+
+      val exceptionMap =
+        toMapWithoutDuplicate(
+          exceptions,
+          (name: DottedName) => throw PackageError(s"Collision on exception name ${name.toString}"),
+        )
+
+      templateMap.keysIterator.find(exceptionMap.keySet.contains).foreach { name =>
+        throw PackageError(s"Collision between exception and template name ${name.toString}")
       }
 
-      findDuplicate(templates).foreach { templName =>
-        throw PackageError(s"Collision on template name ${templName.toString}")
-      }
-
-      findDuplicate(exceptions).foreach { exnName =>
-        throw PackageError(s"Collision on exception name ${exnName.toString}")
-      }
-
-      new GenModule(name, definitions.toMap, templates.toMap, exceptions.toMap, featureFlags)
+      GenModule(name, definitionMap, templateMap, exceptionMap, featureFlags)
     }
 
     def unapply(arg: GenModule[E]): Option[(
@@ -817,16 +840,19 @@ object Ast {
   sealed class GenPackageCompanion[E] {
 
     def apply(
-        modules: Traversable[GenModule[E]],
-        directDeps: Traversable[PackageId],
+        modules: Iterable[GenModule[E]],
+        directDeps: Iterable[PackageId],
         languageVersion: LanguageVersion,
         metadata: Option[PackageMetadata],
     ): GenPackage[E] = {
       val modulesWithNames = modules.map(m => m.name -> m)
-      findDuplicate(modulesWithNames).foreach { modName =>
-        throw PackageError(s"Collision on module name ${modName.toString}")
-      }
-      this(modulesWithNames.toMap, directDeps.toSet, languageVersion, metadata)
+      val moduleMap =
+        toMapWithoutDuplicate(
+          modulesWithNames,
+          (modName: ModuleName) =>
+            throw PackageError(s"Collision on module name ${modName.toString}"),
+        )
+      this(moduleMap, directDeps.toSet, languageVersion, metadata)
     }
 
     def apply(

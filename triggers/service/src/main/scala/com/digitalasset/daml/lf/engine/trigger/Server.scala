@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -501,6 +501,7 @@ object Server {
       maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,
       authConfig: AuthConfig,
+      authCallback: Option[Uri],
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
       initialDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
@@ -523,8 +524,9 @@ object Server {
         Some(
           AuthClient(AuthClient.Config(
             authMiddlewareUri = uri,
-            // TODO[AH] Make the redirect URI configurable, especially the authority. E.g. when running behind nginx.
-            callbackUri = Uri().withScheme("http").withAuthority(host, port).withPath(Path./("cb")),
+            callbackUri = authCallback.getOrElse {
+              Uri().withScheme("http").withAuthority(host, port).withPath(Path./("cb"))
+            },
             maxHttpEntityUploadSize = maxHttpEntityUploadSize,
             httpEntityUploadTimeout = httpEntityUploadTimeout,
           )))

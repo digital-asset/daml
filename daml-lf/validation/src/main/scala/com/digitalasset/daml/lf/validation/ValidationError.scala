@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -40,6 +40,9 @@ final case class LETemplate(conName: TypeConName) extends LookupError {
 final case class LEChoice(conName: TypeConName, choiceName: ChoiceName) extends LookupError {
   def pretty: String = s"unknown choice: ${conName.qualifiedName}:$choiceName"
 }
+final case class LEException(conName: TypeConName) extends LookupError {
+  def pretty: String = s"unknown exception: ${conName.qualifiedName}"
+}
 
 sealed abstract class Context extends Product with Serializable {
   def pretty: String
@@ -52,10 +55,13 @@ final case class ContextDefDataType(tycon: TypeConName) extends Context {
   def pretty: String = s"data type ${tycon.qualifiedName}"
 }
 final case class ContextTemplate(tycon: TypeConName) extends Context {
-  def pretty: String = s"data type ${tycon.qualifiedName}"
+  def pretty: String = s"template definition ${tycon.qualifiedName}"
+}
+final case class ContextDefException(tycon: TypeConName) extends Context {
+  def pretty: String = s"exception definition ${tycon.qualifiedName}"
 }
 final case class ContextDefValue(ref: ValueRef) extends Context {
-  def pretty: String = s"value type ${ref.qualifiedName}"
+  def pretty: String = s"value definition ${ref.qualifiedName}"
 }
 final case class ContextLocation(loc: Location) extends Context {
   def pretty: String =
@@ -94,6 +100,9 @@ case object SRTemplateArg extends SerializabilityRequirement {
 }
 case object SRChoiceArg extends SerializabilityRequirement {
   def pretty: String = "choice argument"
+}
+case object SRExceptionArg extends SerializabilityRequirement {
+  def pretty: String = "exception argument"
 }
 case object SRChoiceRes extends SerializabilityRequirement {
   def pretty: String = "choice result"
@@ -294,6 +303,10 @@ final case class EExpectedAnyType(context: Context, typ: Type) extends Validatio
   protected def prettyInternal: String =
     s"expected a type containing neither type variables nor quantifiers, but found: ${typ.pretty}"
 }
+final case class EExpectedExceptionType(context: Context, typ: Type) extends ValidationError {
+  protected def prettyInternal: String =
+    s"expected an exception type, but found: ${typ.pretty}"
+}
 final case class EExpectedHigherKind(context: Context, kind: Kind) extends ValidationError {
   protected def prettyInternal: String = s"expected higher kinded type, but found: ${kind.pretty}"
 }
@@ -352,6 +365,11 @@ final case class EExpectedTemplatableType(context: Context, conName: TypeConName
     extends ValidationError {
   protected def prettyInternal: String =
     s"expected monomorphic record type in template definition, but found: ${conName.qualifiedName}"
+}
+final case class EExpectedExceptionableType(context: Context, conName: TypeConName)
+    extends ValidationError {
+  protected def prettyInternal: String =
+    s"expected monomorphic record type in exception definition, but found: ${conName.qualifiedName}"
 }
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"

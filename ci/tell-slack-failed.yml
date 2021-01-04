@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
@@ -24,5 +24,5 @@ steps:
            --data "{\"text\":\"$WARNING\n\"}" \
            $(Slack.team-daml)
     condition: and(failed(),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                   or(eq(variables['Build.SourceBranchName'], 'main'),
                       startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))

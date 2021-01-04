@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -517,6 +517,21 @@ trait AbstractTriggerServiceTestAuthMiddleware
     with AuthMiddlewareFixture {
 
   behavior of "authenticated service"
+
+  it should "redirect to the configured callback URI after login" in withTriggerService(
+    Nil,
+    authCallback = Some("http://localhost/TRIGGER_CALLBACK")) { uri: Uri =>
+    for {
+      resp <- httpRequest(
+        HttpRequest(
+          method = HttpMethods.GET,
+          uri = uri.withPath(Uri.Path(s"/v1/triggers")).withQuery(Query(("party", alice.toString))),
+        ))
+      _ <- resp.status shouldBe StatusCodes.Found
+      redirectUri = resp.header[headers.Location].get.uri.query().get("redirect_uri").get
+      _ <- Uri(redirectUri).withQuery(Query()) shouldBe Uri("http://localhost/TRIGGER_CALLBACK")
+    } yield succeed
+  }
 
   it should "forbid a non-authorized party to start a trigger" in withTriggerService(List(dar)) {
     uri: Uri =>

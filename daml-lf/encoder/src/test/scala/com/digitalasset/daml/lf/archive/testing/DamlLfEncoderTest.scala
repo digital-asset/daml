@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.archive
@@ -47,13 +47,15 @@ class DamlLfEncoderTest
 
       val modules_1_7 = modules_1_6 + "NumericMod" + "AnyMod"
       val modules_1_8 = modules_1_7 + "SynonymMod"
-      val modules_1_dev = modules_1_8 + "GenMapMod"
+      val modules_1_11 = modules_1_8 + "GenMapMod"
+      val modules_1_dev = modules_1_11
 
       val versions = Table(
         "versions" -> "modules",
         "1.6" -> modules_1_6,
         "1.7" -> modules_1_7,
         "1.8" -> modules_1_8,
+        "1.11" -> modules_1_11,
         "1.dev" -> modules_1_dev
       )
 

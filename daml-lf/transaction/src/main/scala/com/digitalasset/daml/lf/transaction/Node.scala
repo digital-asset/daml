@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -67,7 +67,7 @@ object Node {
             key,
             _,
           ) =>
-        self copy (
+        self.copy(
           coid = f2(coid),
           coinst = Value.ContractInst.map1(Value.map1(f2))(coinst),
           key = key.map(KeyWithMaintainers.map1(Value.map1(f2))),
@@ -83,7 +83,7 @@ object Node {
             _,
             _,
           ) =>
-        self copy (
+        self.copy(
           coid = f2(coid),
           key = key.map(KeyWithMaintainers.map1(Value.map1(f2))),
         )
@@ -104,7 +104,7 @@ object Node {
             _,
             _,
           ) =>
-        self copy (
+        self.copy(
           targetCoid = f2(targetCoid),
           chosenValue = Value.map1(f2)(chosenValue),
           children = children.map(f1),
@@ -118,7 +118,7 @@ object Node {
             result,
             _,
           ) =>
-        self copy (
+        self.copy(
           key = KeyWithMaintainers.map1(Value.map1(f2))(key),
           result = result.map(f2),
         )

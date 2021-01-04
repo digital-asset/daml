@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator
@@ -12,7 +12,7 @@ final class LedgerStateOperationsReaderAdapter[LogResult](
     operations: LedgerStateOperations[LogResult]
 ) extends StateReader[Key, Option[Value]] {
   override def read(
-      keys: Seq[Key]
+      keys: Iterable[Key]
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] =
     operations.readState(keys)
 }

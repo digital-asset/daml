@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -15,7 +15,7 @@ case class EventId(
     nodeId: NodeId
 ) {
   lazy val toLedgerString: LedgerString = {
-    val builder = StringBuilder.newBuilder
+    val builder = new StringBuilder()
     builder += '#'
     builder ++= transactionId
     builder += ':'

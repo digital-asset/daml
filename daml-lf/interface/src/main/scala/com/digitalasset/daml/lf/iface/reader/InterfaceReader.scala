@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -46,7 +46,7 @@ object InterfaceReader {
       Semigroup.firstSemigroup
 
     def treeReport(errors: Errors[ErrorLoc, InterfaceReader.InvalidDataTypeDefinition]): Cord =
-      stringReport(errors)(_ fold (sy => Cord(".") :+ sy.name, Cord("'") :+ _ :+ "'"), _.error)
+      stringReport(errors)(_.fold(sy => Cord(".") :+ sy.name, Cord("'") :+ _ :+ "'"), _.error)
   }
 
   private[reader] final case class State(
@@ -66,7 +66,7 @@ object InterfaceReader {
 
   private[reader] object State {
     implicit val stateMonoid: Monoid[State] =
-      Monoid instance ((l, r) => State(l.typeDecls ++ r.typeDecls, l.errors |+| r.errors), State())
+      Monoid.instance((l, r) => State(l.typeDecls ++ r.typeDecls, l.errors |+| r.errors), State())
   }
 
   def readInterface(
@@ -122,7 +122,7 @@ object InterfaceReader {
             enum(fullName, tyVars, dfn)
         }
 
-        locate('name, rootErrOf[ErrorLoc](result)) match {
+        locate(Symbol("name"), rootErrOf[ErrorLoc](result)) match {
           case -\/(e) =>
             state.addError(e)
           case \/-(d) =>

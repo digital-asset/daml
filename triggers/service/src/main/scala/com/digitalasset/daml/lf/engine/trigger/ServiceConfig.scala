@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -23,6 +23,7 @@ private[trigger] final case class ServiceConfig(
     ledgerHost: String,
     ledgerPort: Int,
     authUri: Option[Uri],
+    authCallbackUri: Option[Uri],
     maxInboundMessageSize: Int,
     minRestartInterval: FiniteDuration,
     maxRestartInterval: FiniteDuration,
@@ -120,6 +121,14 @@ private[trigger] object ServiceConfig {
       // TODO[AH] Expose once the auth feature is fully implemented.
       .hidden()
 
+    opt[String]("auth-callback")
+      .optional()
+      .action((t, c) => c.copy(authCallbackUri = Some(Uri(t))))
+      .text("Auth middleware URI.")
+      .text("URI to the auth login flow callback endpoint `/cb`. By default constructed from the incoming login request.")
+      // TODO[AH] Expose once the auth feature is fully implemented.
+      .hidden()
+
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
       .optional()
@@ -188,6 +197,7 @@ private[trigger] object ServiceConfig {
         ledgerHost = null,
         ledgerPort = 0,
         authUri = None,
+        authCallbackUri = None,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         minRestartInterval = DefaultMinRestartInterval,
         maxRestartInterval = DefaultMaxRestartInterval,

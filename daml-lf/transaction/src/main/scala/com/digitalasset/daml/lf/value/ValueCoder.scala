@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -12,7 +12,7 @@ import com.daml.lf.value.{ValueOuterClass => proto}
 import com.google.protobuf
 
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /**
   * Utilities to serialize and de-serialize Values

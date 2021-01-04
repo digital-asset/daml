@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.cli
@@ -46,6 +46,12 @@ class CommonCli(name: LedgerName) {
   val parser: OptionParser[SandboxConfig] =
     new OptionParser[SandboxConfig](name.unwrap.toLowerCase()) {
       head(s"$name version ${BuildInfo.Version}")
+
+      opt[Unit]("dev-mode-unsafe")
+        .optional()
+        .action((_, config) => config.copy(devMode = true))
+        .text("Turns on development mode. Development mode allows development versions of DAML-LF language.")
+        .hidden()
 
       arg[File]("<archive>...")
         .optional()
@@ -284,7 +290,7 @@ class CommonCli(name: LedgerName) {
       .opt[String]("contract-id-seeding")
       .optional()
       .text(
-        s"""Set the seeding mode of contract IDs. Possible values are $allSeedingModeNames. Default is "$defaultSeedingModeName".""")
+        s"""Set the seeding mode of contract IDs. Possible values are $allSeedingModeNames. "$defaultSeedingModeName" mode is not compatible with development mode. Default is "$defaultSeedingModeName".""")
       .validate(
         v =>
           Either.cond(

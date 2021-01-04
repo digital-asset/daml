@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.on.sql
@@ -19,13 +19,6 @@ private[sql] final class Cli(
       new CommonCli(Name)
         .withContractIdSeeding(defaultConfig, Some(Seeding.Strong), Some(Seeding.Weak))
         .parser
-
-    parser
-      .opt[Unit]("dev-mode-unsafe")
-      .optional()
-      .action((_, config) => config.copy(devMode = true))
-      .text("Allows development versions of DAML-LF language and transaction format.")
-      .hidden()
 
     parser
       .opt[String]("sql-backend-jdbcurl-env")
