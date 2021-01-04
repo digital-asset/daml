@@ -31,7 +31,7 @@ version1_7 = V1 $ PointStable 7
 version1_8 :: Version
 version1_8 = V1 $ PointStable 8
 
--- | DAML-LF version 1.8
+-- | DAML-LF version 1.11
 version1_11 :: Version
 version1_11 = V1 $ PointStable 11
 
