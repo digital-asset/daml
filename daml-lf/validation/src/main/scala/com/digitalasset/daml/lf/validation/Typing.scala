@@ -267,7 +267,7 @@ private[validation] object Typing {
     mod.templates.foreach {
       case (dfnName, template) =>
         val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
-        val env = Env(languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), Map.empty)
+        val env = Env(languageVersion, world, ContextTemplate(tyConName), Map.empty)
         world.lookupDataType(env.ctx, tyConName) match {
           case DDataType(_, ImmArray(), DataRecord(_)) =>
             env.checkTemplate(tyConName, template)

@@ -55,13 +55,13 @@ final case class ContextDefDataType(tycon: TypeConName) extends Context {
   def pretty: String = s"data type ${tycon.qualifiedName}"
 }
 final case class ContextTemplate(tycon: TypeConName) extends Context {
-  def pretty: String = s"data type ${tycon.qualifiedName}"
+  def pretty: String = s"template definition ${tycon.qualifiedName}"
 }
 final case class ContextDefException(tycon: TypeConName) extends Context {
-  def pretty: String = s"exception type ${tycon.qualifiedName}"
+  def pretty: String = s"exception definition ${tycon.qualifiedName}"
 }
 final case class ContextDefValue(ref: ValueRef) extends Context {
-  def pretty: String = s"value type ${ref.qualifiedName}"
+  def pretty: String = s"value definition ${ref.qualifiedName}"
 }
 final case class ContextLocation(loc: Location) extends Context {
   def pretty: String =
@@ -100,6 +100,9 @@ case object SRTemplateArg extends SerializabilityRequirement {
 }
 case object SRChoiceArg extends SerializabilityRequirement {
   def pretty: String = "choice argument"
+}
+case object SRExceptionArg extends SerializabilityRequirement {
+  def pretty: String = "exception argument"
 }
 case object SRChoiceRes extends SerializabilityRequirement {
   def pretty: String = "choice result"

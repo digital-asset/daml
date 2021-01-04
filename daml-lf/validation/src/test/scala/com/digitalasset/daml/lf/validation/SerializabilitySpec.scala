@@ -12,8 +12,6 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.util.Try
-
 class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   "Serializability checking" should {
@@ -164,53 +162,52 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
           }
 
           module PositiveTestCase1 {
-              record UnserializableRecord = {};
+            record UnserializableRecord = {};
 
-              template (this : UnserializableRecord) =  {    // disallowed unserializable type
-                precondition True,
-                signatories Nil @Party,
-                observers Nil @Party,
-                agreement "Agreement",
-                choices {
-                  choice Ch (self) (i : Mod:SerializableType) :
-                    Mod:SerializableType, controllers $partiesAlice
-                      to upure @Mod:SerializableType (Mod:SerializableType {})
-                }
-              } ;
-            }
-
+            template (this : UnserializableRecord) =  {    // disallowed unserializable type
+              precondition True,
+              signatories Nil @Party,
+              observers Nil @Party,
+              agreement "Agreement",
+              choices {
+                choice Ch (self) (i : Mod:SerializableType) :
+                  Mod:SerializableType, controllers $partiesAlice
+                    to upure @Mod:SerializableType (Mod:SerializableType {})
+              }
+            } ;
+          }
 
           module PositiveTestCase2 {
-              record @serializable SerializableRecord = {};
+            record @serializable SerializableRecord = {};
 
-              template (this : SerializableRecord) =  {
-                precondition True,
-                signatories Nil @Party,
-                observers Nil @Party,
-                agreement "Agreement",
-                choices {
-                  choice Ch (self) (i : Mod:UnserializableType) :     // disallowed unserializable type
-                   Unit, controllers $partiesAlice to
-                       upure @Unit ()
-                }
-              } ;
-            }
+            template (this : SerializableRecord) =  {
+              precondition True,
+              signatories Nil @Party,
+              observers Nil @Party,
+              agreement "Agreement",
+              choices {
+                choice Ch (self) (i : Mod:UnserializableType) :     // disallowed unserializable type
+                 Unit, controllers $partiesAlice to
+                     upure @Unit ()
+              }
+            } ;
+          }
 
           module PositiveTestCase3 {
-              record @serializable SerializableRecord = {};
+            record @serializable SerializableRecord = {};
 
-              template (this : SerializableRecord) =  {
-                precondition True,
-                signatories Nil @Party,
-                observers Nil @Party,
-                agreement "Agreement",
-                choices {
-                  choice Ch (self) (i : Mod:SerializableType) :
-                    Mod:UnserializableType, controllers $partiesAlice to       // disallowed unserializable type
-                       upure @Mod:UnserializableType (Mod:UnserializableType {})
-                }
-              } ;
-            }
+            template (this : SerializableRecord) =  {
+              precondition True,
+              signatories Nil @Party,
+              observers Nil @Party,
+              agreement "Agreement",
+              choices {
+                choice Ch (self) (i : Mod:SerializableType) :
+                  Mod:UnserializableType, controllers $partiesAlice to       // disallowed unserializable type
+                     upure @Mod:UnserializableType (Mod:UnserializableType {})
+              }
+            } ;
+          }
          """
 
       val positiveTestCases = Table(
@@ -224,6 +221,33 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
       forEvery(positiveTestCases) { modName =>
         an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, modName))
       }
+
+    }
+
+    "reject unserializable exception definitions" in {
+
+      val pkg =
+        p"""
+          // well-formed module
+          module NegativeTestCase {
+            record @serializable SerializableRecord = { message: Text } ;
+
+            exception SerializableRecord = {
+              message \(e: NegativeTestCase:SerializableRecord) -> NegativeTestCase:SerializableRecord {message} e
+            } ;
+          }
+
+          module PositiveTestCase {
+            record UnserializableRecord = { message: Text } ;
+
+            exception UnserializableRecord = {
+              message \(e: PositiveTestCase:UnserializableRecord) -> PositiveTestCase:UnserializableRecord {message} e
+            } ;
+          }
+        """
+
+      check(pkg, "NegativeTestCase")
+      an[EExpectedSerializableType] shouldBe thrownBy(check(pkg, "PositiveTestCase"))
 
     }
 
@@ -331,7 +355,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
     val w = world(pkg)
     val longModName = DottedName.assertFromString(modName)
     val mod = pkg.modules(longModName)
-    require(Try(Typing.checkModule(w, defaultPackageId, mod)).isSuccess)
+    Typing.checkModule(w, defaultPackageId, mod)
     Serializability.checkModule(w, defaultPackageId, mod)
   }
 

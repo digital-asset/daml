@@ -62,7 +62,9 @@ private[validation] object Serializability {
         checkType(targ)
       case TBuiltin(builtinType) =>
         builtinType match {
-          case BTInt64 | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit =>
+          case BTInt64 | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit |
+              BTAnyException | BTGeneralError | BTArithmeticError | BTContractError =>
+            ()
           case BTNumeric =>
             unserializable(URNumeric)
           case BTList =>
@@ -85,9 +87,6 @@ private[validation] object Serializability {
             unserializable(URAny)
           case BTTypeRep =>
             unserializable(URTypeRep)
-          case BTAnyException | BTArithmeticError | BTContractError | BTGeneralError =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            sys.error("exceptions not supported")
         }
       case TForall(_, _) =>
         unserializable(URForall)
@@ -135,6 +134,15 @@ private[validation] object Serializability {
     template.key.foreach(k => Env(version, world, context, SRKey, k.typ).checkType())
   }
 
+  def checkException(
+      version: LanguageVersion,
+      world: World,
+      tyCon: TTyCon,
+  ): Unit = {
+    val context = ContextDefException(tyCon.tycon)
+    Env(version, world, context, SRExceptionArg, tyCon).checkType()
+  }
+
   def checkModule(world: World, pkgId: PackageId, module: Module): Unit = {
     val version = world.lookupPackage(NoContext, pkgId).languageVersion
     module.definitions.foreach {
@@ -147,6 +155,10 @@ private[validation] object Serializability {
       case (defName, template) =>
         val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
         checkTemplate(version, world, tyCon, template)
+    }
+    module.exceptions.keys.foreach { defName =>
+      val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
+      checkException(version, world, tyCon)
     }
   }
 }
