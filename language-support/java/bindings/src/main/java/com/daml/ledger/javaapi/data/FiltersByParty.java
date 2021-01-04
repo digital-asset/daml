@@ -27,8 +27,8 @@ public class FiltersByParty extends TransactionFilter {
     @Override
     TransactionFilterOuterClass.TransactionFilter toProto() {
         HashMap<String, TransactionFilterOuterClass.Filters> partyToFilters = new HashMap<>(this.partyToFilters.size());
-        for (String party : this.partyToFilters.keySet()) {
-            partyToFilters.put(party, this.partyToFilters.get(party).toProto());
+        for (Map.Entry<String, Filter> entry : this.partyToFilters.entrySet()) {
+            partyToFilters.put(entry.getKey(), entry.getValue().toProto());
         }
         return TransactionFilterOuterClass.TransactionFilter.newBuilder()
                 .putAllFiltersByParty(partyToFilters)
@@ -38,8 +38,8 @@ public class FiltersByParty extends TransactionFilter {
     public static FiltersByParty fromProto(TransactionFilterOuterClass.TransactionFilter transactionFilter) {
         Map<String, TransactionFilterOuterClass.Filters> partyToFilters = transactionFilter.getFiltersByPartyMap();
         HashMap<String, Filter> converted = new HashMap<>(partyToFilters.size());
-        for (String party : partyToFilters.keySet()) {
-            converted.put(party, Filter.fromProto(partyToFilters.get(party)));
+        for (Map.Entry<String, TransactionFilterOuterClass.Filters> entry  : partyToFilters.entrySet()) {
+            converted.put(entry.getKey(), Filter.fromProto(entry.getValue()));
         }
         return new FiltersByParty(converted);
     }
