@@ -1,4 +1,4 @@
-.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Copyright © 2020, `Digital Asset (Switzerland) GmbH
@@ -284,10 +284,8 @@ strings that are part of the syntax with single quotes. We do not
 enclose symbols such as ``.`` or ``→`` in quotes for the sake of
 brevity and readability.
 
-
-Literals
-~~~~~~~~
-
+Identifiers
+~~~~~~~~~~~
 In this section, we define a bunch of literals that can be handled by
 DAML-LF programs.
 
@@ -348,71 +346,7 @@ and other similar pitfalls. ::
    PackageVersionString  ∈ (0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))* – PackageVersionString
 
 
-We can now define all the literals that a program can handle::
-
-  Nat type literals:                                -- LitNatType
-       n ∈  \d+
-
-  64-bit integer literals:
-        LitInt64  ∈  (-?)\d+                         -- LitInt64
-
-  Numeric literals:
-      LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*        -- LitNumeric
-
-  Date literals:
-         LitDate  ∈  \d{4}-\d{2}-\d{2}               -- LitDate
-
-  UTC timestamp literals:
-     LitTimestamp ∈  \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(.\d{1,3})?Z
-                                                     -- LitTimestamp
-  UTF8 string literals:
-               t ::= String                          -- LitText
-
-  Party literals:
-        LitParty ::= PartyIdString                   -- LitParty
-
-The literals represent actual DAML-LF values:
-
-* A ``LitNatType`` represents a natural number between ``0`` and
-  ``38``, bounds inclusive.
-* A ``LitInt64`` represents a standard signed 64-bit integer (integer
-  between ``−2⁶³`` to ``2⁶³−1``).
-* A ``LitNumeric`` represents a signed number that can be represented
-  in base-10 without loss of precision with at most 38 digits
-  (ignoring possible leading 0 and with a scale (the number of
-  significant digits on the right of the decimal point) between ``0``
-  and ``37`` (bounds inclusive). In the following, we will use
-  ``scale(LitNumeric)`` to denote the scale of the decimal number.
-* A ``LitDate`` represents the number of day since
-  ``1970-01-01`` with allowed range from ``0001-01-01`` to
-  ``9999-12-31`` and using a year-month-day format.
-* A ``LitTimestamp`` represents the number of microseconds
-  since ``1970-01-01T00:00:00.000000Z`` with allowed range
-  ``0001-01-01T00:00:00.000000Z`` to ``9999-12-31T23:59:59.999999Z``
-  using a
-  year-month-day-hour-minute-second-microsecond
-  format.
-* A ``LitText`` represents a `UTF8 string
-  <https://en.wikipedia.org/wiki/UTF-8>`_.
-* A ``LitParty`` represents a *party*.
-
-.. note:: A literal which is not backed by an actual value is not
-   valid and is implicitly rejected by the syntax presented here.
-   For instance, the literal ``9223372036854775808`` is not a valid
-   ``LitInt64`` since it cannot be encoded as a signed 64-bits
-   integer, i.e. it equals ``2⁶³``.  Similarly,``2019-13-28`` is not a
-   valid ``LitDate`` because there are only 12 months in a year.
-
-Number-like literals (``LitNatTyp``, ``LitInt64``, ``LitNumeric``,
-``LitDate``, ``LitTimestamp``) are ordered by natural
-ordering. Text-like literals (``LitText`` and ``LitParty``) are
-ordered lexicographically. In the followinng we will denote the
-corresponding (non-strict) order by ``≤ₗ``.
-
-Identifiers
-~~~~~~~~~~~
-
-We define now a generic notion of *identifier* and *name*::
+We can now define a generic notion of *identifier* and *name*::
 
   identifiers:
           Ident  ∈  [a-zA-Z_\$][a-zA-Z0-9_\$]       -- Ident
@@ -485,16 +419,13 @@ strings as *package identifiers*.  ::
   V1 Contract identifiers:
           cidV1  ∈  00([0-9a-f][0-9a-f]){32,126}    -- V1ContractId
 
-  Contract identifiers:
-          cid := cidV0 | cidV1                      -- ContractId
-
 Contract identifiers can be created dynamically through interactions
 with the underlying ledger. See the `operation semantics of update
 statements <Update Interpretation_>`_ for the formal specification of
 those interactions. Depending on its configuration, a DAML-LF engine
 can produce V0 or V1 contract identifiers.  When configured to produce
 V0 contract identifiers, a DAML-LF compliant engine must refuse to
-load any DAML-LF >= 1.dev archives.  On the contrary, when configured
+load any DAML-LF >= 1.11 archives.  On the contrary, when configured
 to produce V1 contract IDs, a DAML-LF compliant engine must accept to
 load any non-deprecated DAML-LF version. V1 Contract IDs allocation
 scheme is described in the `V1 Contract ID allocation
@@ -503,6 +434,74 @@ scheme specification <./contract-id.rst>`_.
 Also note that package identifiers are typically `cryptographic hash
 <Package hash_>`_ of the content of the package itself.
 
+Literals
+~~~~~~~~
+
+We now define all the literals that a program can handle::
+
+  Nat type literals:                                -- LitNatType
+       n ∈  \d+
+
+  64-bit integer literals:
+        LitInt64  ∈  (-?)\d+                         -- LitInt64
+
+  Numeric literals:
+      LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*        -- LitNumeric
+
+  Date literals:
+         LitDate  ∈  \d{4}-\d{2}-\d{2}               -- LitDate
+
+  UTC timestamp literals:
+     LitTimestamp ∈  \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(.\d{1,3})?Z
+                                                     -- LitTimestamp
+  UTF8 string literals:
+               t ::= String                          -- LitText
+
+  Party literals:
+        LitParty ::= PartyIdString                   -- LitParty
+
+  Contract ID literals:
+        cid   ::= cidV0 | cidV1                      -- LitCid
+
+The literals represent actual DAML-LF values:
+
+* A ``LitNatType`` represents a natural number between ``0`` and
+  ``38``, bounds inclusive.
+* A ``LitInt64`` represents a standard signed 64-bit integer (integer
+  between ``−2⁶³`` to ``2⁶³−1``).
+* A ``LitNumeric`` represents a signed number that can be represented
+  in base-10 without loss of precision with at most 38 digits
+  (ignoring possible leading 0 and with a scale (the number of
+  significant digits on the right of the decimal point) between ``0``
+  and ``37`` (bounds inclusive). In the following, we will use
+  ``scale(LitNumeric)`` to denote the scale of the decimal number.
+* A ``LitDate`` represents the number of day since
+  ``1970-01-01`` with allowed range from ``0001-01-01`` to
+  ``9999-12-31`` and using a year-month-day format.
+* A ``LitTimestamp`` represents the number of microseconds
+  since ``1970-01-01T00:00:00.000000Z`` with allowed range
+  ``0001-01-01T00:00:00.000000Z`` to ``9999-12-31T23:59:59.999999Z``
+  using a
+  year-month-day-hour-minute-second-microsecond
+  format.
+* A ``LitText`` represents a `UTF8 string
+  <https://en.wikipedia.org/wiki/UTF-8>`_.
+* A ``LitParty`` represents a *party*.
+
+.. note:: A literal which is not backed by an actual value is not
+   valid and is implicitly rejected by the syntax presented here.
+   For instance, the literal ``9223372036854775808`` is not a valid
+   ``LitInt64`` since it cannot be encoded as a signed 64-bits
+   integer, i.e. it equals ``2⁶³``.  Similarly,``2019-13-28`` is not a
+   valid ``LitDate`` because there are only 12 months in a year.
+
+Number-like literals (``LitNatTyp``, ``LitInt64``,
+``LitNumeric``,``LitDate``, ``LitTimestamp``) are ordered by natural
+ordering. Text-like literals (``LitText``, ``LitParty``, and
+``Contract ID``) are ordered lexicographically. Note that in the ASCII
+encoding, the character ``#`` comes before digits, meaning V0 Contract
+ID are ordered before V1 Contract ID. In the following we will denote
+the corresponding (non-strict) order by ``≤ₗ``.
 
 Kinds, types, and expressions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3233,7 +3232,7 @@ updates.
 
     —————————————————————————————————————————————————————————————————————— EvLessEqTimestamp
       𝕆('LESS_EQ' @σ LitTimestamp₁ LitTimestamp₂) =
-          Ok (LitTimestamp₁ ≤ LitTimestamp₂)
+          Ok (LitTimestamp₁ ≤ₗ≤ LitTimestamp₂)
 
     —————————————————————————————————————————————————————————————————————— EvLessEqText
       𝕆('LESS_EQ' @σ LitText₁ LitText₂) = Ok (LitText₁ ≤ₗ LitText₂)
@@ -3243,7 +3242,10 @@ updates.
 
     —————————————————————————————————————————————————————————————————————— EvLessEqNumeric
       𝕆('LESS_EQ' @σ LitNumeric₁ LitNumeric₂) =
-          Ok (LitNumeric₁ ≤ LitNumeric₂)
+          Ok (LitNumeric₁ ≤ₗ LitNumeric₂)
+
+    —————————————————————————————————————————————————————————————————————— EvLessEqContractId
+      𝕆('LESS_EQ' @σ cid₁ cid₂) = Ok (cid₁ ≤ₗ cid₂)
 
     —————————————————————————————————————————————————————————————————————— EvLessEqStructEmpty
       𝕆('LESS_EQ' @⟨ ⟩ ⟨ ⟩ ⟨ ⟩) = Ok 'True'
