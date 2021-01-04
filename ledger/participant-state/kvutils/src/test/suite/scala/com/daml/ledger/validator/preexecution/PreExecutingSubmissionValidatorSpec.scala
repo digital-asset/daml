@@ -34,7 +34,11 @@ import org.scalatest.wordspec.AsyncWordSpec
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSugar {
+class PreExecutingSubmissionValidatorSpec
+    extends AsyncWordSpec
+    with Matchers
+    with MockitoSugar
+    with ArgumentMatchersSugar {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "validate" should {
@@ -80,6 +84,22 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       instance
         .validate(anEnvelope(expectedReadSet), aParticipantId, ledgerStateReader)
         .map(verifyReadSet(_, expectedReadSet))
+    }
+
+    "read exactly once" in {
+      val expectedReadSet = allDamlStateKeyTypes.toSet
+      val instance = createInstance(expectedReadSet = expectedReadSet)
+
+      val ledgerStateReaderMock = mock[StateReader[DamlStateKey, TestValue]]
+      when(ledgerStateReaderMock.read(any[Seq[DamlStateKey]])(any[ExecutionContext]))
+        .thenReturn(Future.successful(Seq.empty))
+
+      instance
+        .validate(anEnvelope(expectedReadSet), aParticipantId, ledgerStateReaderMock)
+        .map { _ =>
+          verify(ledgerStateReaderMock, times(1)).read(any[Seq[DamlStateKey]])
+        }
+      succeed
     }
 
     "return a read set when the contract keys are inconsistent" in {
@@ -174,9 +194,11 @@ object PreExecutingSubmissionValidatorSpec {
   private final case class TestValue(value: Option[DamlStateValue])
 
   private object TestValue {
+
     implicit object `TestValue has DamlStateValue` extends HasDamlStateValue[TestValue] {
       override def damlStateValue(value: TestValue): Option[DamlStateValue] = value.value
     }
+
   }
 
   private final case class TestReadSet(keys: Set[DamlStateKey])
