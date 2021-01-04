@@ -26,7 +26,7 @@ import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import org.mockito.{ArgumentMatcher, ArgumentMatchersSugar, MockitoSugar}
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -48,32 +48,26 @@ class PreExecutingSubmissionValidatorSpec
       // then the fingerprint of the contract key state key will have changed as well, and conflict detection
       // will detect that.
 
-      val contractId = "a contract ID"
       val expectedReadSet = Set(
-        makeContractIdStateKey(contractId),
         makeContractKeyStateKey("a template"),
       )
       val instance = createInstance(expectedReadSet = expectedReadSet)
 
       val ledgerStateReaderMock = mock[StateReader[DamlStateKey, TestValue]]
       val ledgerStateReaderMockResult = Seq(
-        Some(makeContractIdStateValue()),
-        Some(makeContractKeyStateValue(contractId)),
-      ).map(TestValue(_))
-      when(
-        ledgerStateReaderMock.read(
-          argThat[Seq[DamlStateKey]](new ArgumentMatcher[Seq[DamlStateKey]] {
-            override def matches(argument: Seq[DamlStateKey]): Boolean =
-              argument.toSet == expectedReadSet
-          }))(any[ExecutionContext]))
+        TestValue(Some(makeContractKeyStateValue("contract ID")))
+      )
+
+      when(ledgerStateReaderMock.read(any[Seq[DamlStateKey]])(any[ExecutionContext]))
         .thenReturn(Future.successful(ledgerStateReaderMockResult))
 
       instance
         .validate(anEnvelope(expectedReadSet), aParticipantId, ledgerStateReaderMock)
         .map { _ =>
-          verify(ledgerStateReaderMock, times(1)).read(any[Seq[DamlStateKey]])
+          verify(ledgerStateReaderMock, times(1))
+            .read(any[Seq[DamlStateKey]])(any[ExecutionContext])
+          succeed
         }
-      succeed
     }
 
     "generate correct output in case of success" in {
