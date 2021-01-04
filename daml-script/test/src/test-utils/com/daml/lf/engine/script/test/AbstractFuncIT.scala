@@ -316,5 +316,17 @@ abstract class AbstractFuncIT
         assert(v == SUnit)
       }
     }
+    "tuple key" in {
+      for {
+        clients <- participantClients()
+        v <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:tupleKey"),
+          dar = stableDar
+        )
+      } yield {
+        assert(v == SUnit)
+      }
+    }
   }
 }
