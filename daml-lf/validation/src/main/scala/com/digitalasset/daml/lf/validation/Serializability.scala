@@ -139,8 +139,8 @@ private[validation] object Serializability {
       world: World,
       tyCon: TTyCon,
   ): Unit = {
-    val context = ContextTemplate(tyCon.tycon)
-    Env(version, world, context, SRTemplateArg, tyCon).checkType()
+    val context = ContextDefException(tyCon.tycon)
+    Env(version, world, context, SRExceptionArg, tyCon).checkType()
   }
 
   def checkModule(world: World, pkgId: PackageId, module: Module): Unit = {
