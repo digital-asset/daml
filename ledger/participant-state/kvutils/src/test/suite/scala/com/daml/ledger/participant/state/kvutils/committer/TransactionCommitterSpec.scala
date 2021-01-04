@@ -566,6 +566,31 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
   }
 
   "validateContractKeys" should {
+    "return Inconsistent error when a contract key resolves to a different contract id than given by a participant node" in {
+      val key = aContractKey
+      val contractIdA = aContractId
+      val contractIdB = aContractId
+
+      val context = commitContextWithContractStateKeys(
+        key -> contractIdB
+      )
+
+      val transaction = transactionWithResolvedContractIds(
+        key -> contractIdA
+      )
+
+      val result =
+        instance.validateContractKeys.apply(context, DamlTransactionEntrySummary(transaction))
+      result shouldBe a[StepStop]
+      val rejectionReason = result
+        .asInstanceOf[StepStop]
+        .logEntry
+        .getTransactionRejectionEntry // TODO: factor out up to this line
+        .getInconsistent
+        .getDetails
+      rejectionReason should fullyMatch regex s"Contract keys inconsistent"
+    }
+
     def aContractKey: DamlContractKey =
       DamlContractKey
         .newBuilder()
@@ -616,31 +641,6 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
           case (key, id) => contractStateKey(key) -> Some(contractKeyStateValue(id))
         }.toMap
       )
-
-    "return Inconsistent error when a contract key resolves to a different contract id than given by a participant node" in {
-      val key = aContractKey
-      val contractIdA = aContractId
-      val contractIdB = aContractId
-
-      val context = commitContextWithContractStateKeys(
-        key -> contractIdB
-      )
-
-      val transaction = transactionWithResolvedContractIds(
-        key -> contractIdA
-      )
-
-      val result =
-        instance.validateContractKeys.apply(context, DamlTransactionEntrySummary(transaction))
-      result shouldBe a[StepStop]
-      val rejectionReason = result
-        .asInstanceOf[StepStop]
-        .logEntry
-        .getTransactionRejectionEntry // TODO: factor out up to this line
-        .getInconsistent
-        .getDetails
-      rejectionReason should fullyMatch regex s"Contract keys inconsistent"
-    }
   }
 
   private def createTransactionCommitter(): TransactionCommitter =

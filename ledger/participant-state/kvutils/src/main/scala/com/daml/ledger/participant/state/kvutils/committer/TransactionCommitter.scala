@@ -469,7 +469,7 @@ private[kvutils] class TransactionCommitter(
     * Validates that 'contract key' -> 'contract id' mapping resolved by a participant is still valid.
     */
   private def validateContractKeysConsistency(
-                                               currentResolvedIds: Map[DamlContractKey, String]
+      currentResolvedIds: Map[DamlContractKey, String]
   )(
       recordTime: Option[Timestamp],
       transactionEntry: DamlTransactionEntrySummary,
