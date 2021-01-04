@@ -31,6 +31,10 @@ version1_7 = V1 $ PointStable 7
 version1_8 :: Version
 version1_8 = V1 $ PointStable 8
 
+-- | DAML-LF version 1.8
+version1_11 :: Version
+version1_11 = V1 $ PointStable 11
+
 -- | The DAML-LF version used by default.
 versionDefault :: Version
 versionDefault = version1_8
@@ -40,7 +44,7 @@ versionDev :: Version
 versionDev = V1 PointDev
 
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version1_6, version1_7, version1_8, versionDev]
+supportedOutputVersions = [version1_6, version1_7, version1_8, version1_11, versionDev]
 
 supportedInputVersions :: [Version]
 supportedInputVersions = supportedOutputVersions
@@ -84,14 +88,14 @@ featureStringInterning = Feature
 featureGenericComparison :: Feature
 featureGenericComparison = Feature
     { featureName = "Generic order relation"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_11
     , featureCppFlag = Just "DAML_GENERIC_COMPARISON"
     }
 
 featureGenMap :: Feature
 featureGenMap = Feature
     { featureName = "Generic map"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_11
     , featureCppFlag = Just "DAML_GENMAP"
     }
 
@@ -122,24 +126,21 @@ featureUnstable = Feature
 featureToTextContractId :: Feature
 featureToTextContractId = Feature
     { featureName = "TO_TEXT_CONTRACT_ID primitive"
-    -- TODO Change as part of #7139
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_11
     , featureCppFlag = Just "DAML_TO_TEXT_CONTRACT_ID"
     }
 
 featureChoiceObservers :: Feature  -- issue #7709
 featureChoiceObservers = Feature
     { featureName = "Choice observers"
-    -- TODO Change as part of #7139
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_11
     , featureCppFlag = Just "DAML_CHOICE_OBSERVERS"
     }
 
 featureTypeInterning :: Feature
 featureTypeInterning = Feature
     { featureName = "Type interning"
-    -- TODO Change as part of #7139
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_11
     , featureCppFlag = Nothing
     }
 
@@ -149,7 +150,7 @@ featureExceptions = Feature
     , featureMinVersion = versionDev
         -- TODO (#8020): Update LF version number when we stabilize exceptions.
         -- https://github.com/digital-asset/daml/issues/8020
-        -- https://github.com/digital-asset/daml/issues/7139
+        -- https://github.com/digital-asset/daml/issues/8369
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 
