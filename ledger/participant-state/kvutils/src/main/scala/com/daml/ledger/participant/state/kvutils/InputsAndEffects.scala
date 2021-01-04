@@ -52,8 +52,9 @@ private[kvutils] object InputsAndEffects {
   def computeInputs(
       tx: Transaction.Transaction,
       meta: TransactionMeta,
-  ): List[DamlStateKey] = {
+  ): (List[DamlStateKey], List[DamlContractKeyIdPair]) = {
     val inputs = mutable.LinkedHashSet[DamlStateKey]()
+    val resolvedContractIds = mutable.ListBuffer.empty[DamlContractKeyIdPair]
 
     {
       import PackageId.ordering
@@ -84,8 +85,11 @@ private[kvutils] object InputsAndEffects {
           case fetch: Node.NodeFetch[Value.ContractId] =>
             addContractInput(fetch.coid)
             fetch.key.foreach { keyWithMaintainers =>
-              inputs += globalKeyToStateKey(
+              val key = globalKeyToStateKey(
                 GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key)))
+              inputs += key
+              println(s"ADD FETCH: ${key.getContractKey} ${fetch.coid}")
+              resolvedContractIds += resolvedContractKeyIdPair(key.getContractKey, fetch.coid)
             }
 
           case create: Node.NodeCreate[Value.ContractId] =>
@@ -95,20 +99,30 @@ private[kvutils] object InputsAndEffects {
             }
 
           case exe: Node.NodeExercises[NodeId, Value.ContractId] =>
+            exe.key.foreach { keyWithMaintainers =>
+              val key = globalKeyToStateKey(
+                GlobalKey(exe.templateId, forceNoContractIds(keyWithMaintainers.key)))
+              resolvedContractIds += resolvedContractKeyIdPair(key.getContractKey, exe.targetCoid)
+            }
             addContractInput(exe.targetCoid)
 
           case lookup: Node.NodeLookupByKey[Value.ContractId] =>
             // We need both the contract key state and the contract state. The latter is used to verify
             // that the submitter can access the contract.
-            lookup.result.foreach(addContractInput)
-            inputs += globalKeyToStateKey(
-              GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key)))
+            val key =
+              globalKeyToStateKey(GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key)))
+            inputs += key
+            lookup.result.foreach { contractId =>
+              addContractInput(contractId)
+              println(s"ADD LOOKUP: ${key.getContractKey} ${contractId}")
+              resolvedContractIds += resolvedContractKeyIdPair(key.getContractKey, contractId)
+            }
         }
 
         inputs ++= partyInputs(node.informeesOfNode)
     }
 
-    inputs.toList
+    (inputs.toList, resolvedContractIds.toList)
   }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */

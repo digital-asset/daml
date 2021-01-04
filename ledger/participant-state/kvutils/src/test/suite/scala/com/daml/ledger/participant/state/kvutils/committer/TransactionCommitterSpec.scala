@@ -27,12 +27,14 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
+import com.daml.lf.value.ValueOuterClass.Identifier
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.Inspectors.forEvery
+import java.util.UUID
 
 import scala.collection.JavaConverters._
 
@@ -561,6 +563,84 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
           DamlStateKey.newBuilder().setParty(party).build() -> partyAllocation.map(
             DamlStateValue.newBuilder().setParty(_).build())
       }.toMap
+  }
+
+  "validateContractKeys" should {
+    def aContractKey: DamlContractKey =
+      DamlContractKey
+        .newBuilder()
+        .setTemplateId(Identifier.newBuilder().addName(UUID.randomUUID().toString.take(10)))
+        .build()
+
+    def contractKeyState(contractId: String): DamlContractKeyState =
+      DamlContractKeyState
+        .newBuilder()
+        .setContractId(contractId)
+        .build()
+
+    def aContractId: String = s"testContractId-${UUID.randomUUID().toString.take(10)}"
+
+    def contractStateKey(contractKey: DamlContractKey): DamlStateKey =
+      DamlStateKey
+        .newBuilder()
+        .setContractKey(contractKey)
+        .build()
+
+    def contractKeyStateValue(contractId: String): DamlStateValue =
+      DamlStateValue
+        .newBuilder()
+        .setContractKeyState(contractKeyState(contractId))
+        .build()
+
+    def resolvedContractId(key: DamlContractKey, resolvedToId: String): DamlContractKeyIdPair =
+      DamlContractKeyIdPair
+        .newBuilder()
+        .setKey(key)
+        .setResolvedToId(resolvedToId)
+        .build()
+
+    def transactionWithResolvedContractIds(
+        contractKeyIdPairs: (DamlContractKey, String)*): DamlTransactionEntry = {
+      createTransactionEntry(List("Alice")).toBuilder
+        .addAllContractKeyIdPairs(contractKeyIdPairs.toList.map {
+          case (key, id) => resolvedContractId(key, id)
+        }.asJava)
+        .build
+    }
+
+    def commitContextWithContractStateKeys(
+        contractKeyIdPairs: (DamlContractKey, String)*): CommitContext =
+      createCommitContext(
+        recordTime = None,
+        inputs = contractKeyIdPairs.map {
+          case (key, id) => contractStateKey(key) -> Some(contractKeyStateValue(id))
+        }.toMap
+      )
+
+    "return Inconsistent error when a contract key resolves to a different contract id than given by a participant node" in {
+      val key = aContractKey
+      val contractIdA = aContractId
+      val contractIdB = aContractId
+
+      val context = commitContextWithContractStateKeys(
+        key -> contractIdB
+      )
+
+      val transaction = transactionWithResolvedContractIds(
+        key -> contractIdA
+      )
+
+      val result =
+        instance.validateContractKeys.apply(context, DamlTransactionEntrySummary(transaction))
+      result shouldBe a[StepStop]
+      val rejectionReason = result
+        .asInstanceOf[StepStop]
+        .logEntry
+        .getTransactionRejectionEntry // TODO: factor out up to this line
+        .getInconsistent
+        .getDetails
+      rejectionReason should fullyMatch regex s"Contract keys inconsistent"
+    }
   }
 
   private def createTransactionCommitter(): TransactionCommitter =

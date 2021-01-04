@@ -69,6 +69,14 @@ private[state] object Conversions {
       .build
   }
 
+  def resolvedContractKeyIdPair(
+      contractKey: DamlContractKey,
+      contractId: ContractId): DamlContractKeyIdPair =
+    DamlContractKeyIdPair.newBuilder
+      .setKey(contractKey)
+      .setResolvedToId(contractIdToString(contractId))
+      .build()
+
   def commandDedupKey(subInfo: DamlSubmitterInfo): DamlStateKey = {
     val sortedUniqueSubmitters =
       if (subInfo.getSubmittersCount == 1)

@@ -149,9 +149,9 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           resultA.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
 
           resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.DISPUTED
-          resultB.successfulLogEntry.getTransactionRejectionEntry.getDisputed.getDetails should startWith(
-            "dependency error: couldn't find contract ")
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getInconsistent.getDetails should startWith(
+            "Contract keys inconsistent")
         }
       }
 
@@ -222,9 +222,9 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           resultA.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
 
           resultB.successfulLogEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.DISPUTED
-          resultB.successfulLogEntry.getTransactionRejectionEntry.getDisputed.getDetails should startWith(
-            "Missing input state for key contract_id: ")
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT
+          resultB.successfulLogEntry.getTransactionRejectionEntry.getInconsistent.getDetails should startWith(
+            "Contract keys inconsistent")
         }
       }
 
