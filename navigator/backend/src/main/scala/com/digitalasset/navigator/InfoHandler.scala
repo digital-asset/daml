@@ -38,7 +38,6 @@ case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(
       "assets" -> obj.assets.toJson,
       "time" -> TimeProviderType.write(obj.time).toJson,
       "configFile" -> obj.configFile.map(p => p.toString).toJson,
-      "startConsole" -> obj.startConsole.toJson,
       "tlsConfig" -> obj.tlsConfig
         .fold[JsValue](JsNull)(c =>
           JsObject(

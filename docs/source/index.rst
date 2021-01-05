@@ -108,7 +108,6 @@ DAML Documentation
    :hidden:
    :caption: Early Access Features
 
-   tools/navigator/console
    tools/extractor
    daml-integration-kit/index
    triggers/index

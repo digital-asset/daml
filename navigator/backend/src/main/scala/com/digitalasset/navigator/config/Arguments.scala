@@ -28,7 +28,6 @@ case class Arguments(
     tlsConfig: Option[TlsConfiguration] = None,
     accessTokenFile: Option[Path] = None,
     configFile: Option[Path] = None,
-    startConsole: Boolean = false,
     startWebServer: Boolean = false,
     useDatabase: Boolean = false,
     ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024, // 50 MiB
@@ -168,17 +167,6 @@ object Arguments {
             arguments.copy(
               command = RunServer,
               startWebServer = true
-          ))
-        .children(hostname, port)
-
-      cmd("console")
-        .text("Early Access (Labs). Start the console")
-        .action(
-          (_, arguments) =>
-            arguments.copy(
-              command = RunServer,
-              useDatabase = true,
-              startConsole = true
           ))
         .children(hostname, port)
 

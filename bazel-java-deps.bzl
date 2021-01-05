@@ -12,7 +12,6 @@ load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 version_specific = {
     "2.12": [
         "ai.x:diff_2.12:2.0.1",
-        "org.gnieh:diffson-spray-json_2.12:3.1.1",
     ],
 }
 

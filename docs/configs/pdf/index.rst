@@ -110,7 +110,6 @@ Early Access Features
    :titlesonly:
    :maxdepth: 2
 
-   tools/navigator/console
    tools/extractor
    daml-integration-kit/index
    triggers/index

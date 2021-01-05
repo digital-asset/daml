@@ -288,13 +288,6 @@ This is the version of Navigator that runs as a web app.
 
 See :doc:`/tools/navigator/index`.
 
-Navigator Console
------------------
-
-This is the version of Navigator that runs on the command-line. It has similar functionality to the GUI.
-
-See :doc:`/tools/navigator/console`.
-
 Extractor
 =========
 

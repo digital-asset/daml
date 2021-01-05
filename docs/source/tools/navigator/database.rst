@@ -1,6 +1,11 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. NOTE: This page is currently not included in the docs since
+.. it was only accessible via Navigator console. However, the database
+.. support is also available via a hidden option in the web UI so
+.. for now we keep the docs around until we decide to drop it completely.
+
 Querying the Navigator local database
 #####################################
 
