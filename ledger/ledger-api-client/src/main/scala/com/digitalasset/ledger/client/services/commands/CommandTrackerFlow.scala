@@ -74,7 +74,6 @@ object CommandTrackerFlow {
                     logger.warn(
                       s"Completion Stream failed with an error. Trying to recover in ${backOffDuration} ..",
                       e)
-                    Source.empty
                     delayedEmptySource(backOffDuration)
                 }
               )
