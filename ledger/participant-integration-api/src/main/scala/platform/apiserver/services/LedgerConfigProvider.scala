@@ -10,7 +10,6 @@ import akka.stream.scaladsl.{Keep, RestartSource, Sink}
 import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitch}
 import akka.{Done, NotUsed}
 import com.daml.api.util.TimeProvider
-import com.daml.dec.{DirectExecutionContext => DE}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
@@ -20,13 +19,14 @@ import com.daml.ledger.participant.state.v1.{
   SubmissionResult,
   WriteConfigService
 }
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.LedgerConfiguration
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.{DurationInt, DurationLong}
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /**
   * Subscribes to ledger configuration updates coming from the index,
@@ -41,7 +41,7 @@ private[apiserver] final class LedgerConfigProvider private (
     timeProvider: TimeProvider,
     config: LedgerConfiguration,
     materializer: Materializer,
-)(implicit loggingContext: LoggingContext)
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends AutoCloseable {
 
   private[this] val logger = ContextualizedLogger.get(this.getClass)
@@ -92,8 +92,8 @@ private[apiserver] final class LedgerConfigProvider private (
           logger.info(
             s"Initial ledger configuration lookup did not find any configuration. Looking for new ledger configurations from the ledger beginning.")
           state.set(None -> None)
-      }(DE)
-      .map(_ => startStreamingUpdates())(DE)
+      }
+      .map(_ => startStreamingUpdates())
 
   private[this] def configFound(offset: LedgerOffset.Absolute, config: Configuration): Unit = {
     state.set(Some(offset) -> Some(config))
@@ -155,7 +155,7 @@ private[apiserver] final class LedgerConfigProvider private (
           logger.warn(
             s"Initial configuration submission $submissionId failed. Reason: ${result.description}")
           ()
-      }(DE)
+      }
   }
 
   /** The latest configuration found so far.
@@ -177,12 +177,19 @@ private[apiserver] final class LedgerConfigProvider private (
 }
 
 private[apiserver] object LedgerConfigProvider {
-
-  def create(
+  def owner(
       index: IndexConfigManagementService,
       optWriteService: Option[WriteConfigService],
       timeProvider: TimeProvider,
       config: LedgerConfiguration,
-  )(implicit materializer: Materializer, loggingContext: LoggingContext): LedgerConfigProvider =
-    new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer)
+  )(
+      implicit materializer: Materializer,
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): ResourceOwner[LedgerConfigProvider] =
+    for {
+      provider <- ResourceOwner.forCloseable(() =>
+        new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer))
+      _ <- ResourceOwner.forFuture(() => provider.ready.map(_ => provider))
+    } yield provider
 }

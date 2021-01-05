@@ -52,9 +52,9 @@ private[apiserver] final class ApiCommandService private (
     ledgerConfigProvider: LedgerConfigProvider,
     metrics: Metrics,
 )(
-    implicit grpcExecutionContext: ExecutionContext,
-    actorMaterializer: Materializer,
-    loggingContext: LoggingContext
+    implicit materializer: Materializer,
+    executionContext: ExecutionContext,
+    loggingContext: LoggingContext,
 ) extends CommandServiceGrpc.CommandService
     with AutoCloseable {
 
@@ -63,7 +63,7 @@ private[apiserver] final class ApiCommandService private (
   private val submissionTracker: TrackerMap = TrackerMap(configuration.retentionPeriod)
   private val staleCheckerInterval: FiniteDuration = 30.seconds
 
-  private val trackerCleanupJob: Cancellable = actorMaterializer.system.scheduler
+  private val trackerCleanupJob: Cancellable = materializer.system.scheduler
     .scheduleAtFixedRate(staleCheckerInterval, staleCheckerInterval)(submissionTracker.cleanup)
 
   @volatile private var running = true
@@ -190,8 +190,8 @@ private[apiserver] object ApiCommandService {
       ledgerConfigProvider: LedgerConfigProvider,
       metrics: Metrics,
   )(
-      implicit grpcExecutionContext: ExecutionContext,
-      actorMaterializer: Materializer,
+      implicit materializer: Materializer,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(

@@ -22,7 +22,6 @@ da_scala_library(
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-service/jwt",
         "//ledger/ledger-api-common",
-        "//libs-scala/concurrent",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_context",

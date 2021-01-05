@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.auth.services
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.daml.ledger.api.v1.testing.time_service._
@@ -13,11 +12,12 @@ import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 private[daml] final class TimeServiceAuthorization(
     protected val service: TimeService with AutoCloseable,
-    private val authorizer: Authorizer)
+    private val authorizer: Authorizer,
+)(implicit executionContext: ExecutionContext)
     extends TimeService
     with ProxyCloseable
     with GrpcApiService {
@@ -31,7 +31,7 @@ private[daml] final class TimeServiceAuthorization(
     authorizer.requireAdminClaims(service.setTime)(request)
 
   override def bindService(): ServerServiceDefinition =
-    TimeServiceGrpc.bindService(this, DirectExecutionContext)
+    TimeServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
 }

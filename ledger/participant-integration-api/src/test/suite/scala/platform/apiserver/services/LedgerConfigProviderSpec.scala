@@ -20,6 +20,7 @@ import com.daml.ledger.participant.state.v1.{
   TimeModel,
   WriteConfigService
 }
+import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
@@ -38,6 +39,7 @@ final class LedgerConfigProviderSpec
     with AkkaBeforeAndAfterAll
     with MockitoSugar {
 
+  private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "Ledger Config Provider" should {
@@ -47,24 +49,27 @@ final class LedgerConfigProviderSpec
       val configuration = configurationWith(generation = 7)
       when(index.lookupConfiguration())
         .thenReturn(Future.successful(Some(offset("0001") -> configuration)))
-      val ledgerConfigProvider = LedgerConfigProvider.create(
-        index,
-        optWriteService = Some(writeService),
-        timeProvider = someTimeProvider,
-        config = LedgerConfiguration(
-          initialConfiguration = configurationWith(generation = 3),
-          initialConfigurationSubmitDelay = Duration.ofSeconds(1),
-          configurationLoadTimeout = Duration.ofSeconds(5),
-        ),
-      )
 
-      ledgerConfigProvider.ready
-        .map { _ =>
-          verifyZeroInteractions(writeService)
-          ledgerConfigProvider.latestConfiguration should be(Some(configuration))
-        }
-        .andThen {
-          case _ => ledgerConfigProvider.close()
+      LedgerConfigProvider
+        .owner(
+          index,
+          optWriteService = Some(writeService),
+          timeProvider = someTimeProvider,
+          config = LedgerConfiguration(
+            initialConfiguration = configurationWith(generation = 3),
+            initialConfigurationSubmitDelay = Duration.ofSeconds(1),
+            configurationLoadTimeout = Duration.ofSeconds(5),
+          ),
+        )
+        .use { ledgerConfigProvider =>
+          ledgerConfigProvider.ready
+            .map { _ =>
+              verifyZeroInteractions(writeService)
+              ledgerConfigProvider.latestConfiguration should be(Some(configuration))
+            }
+            .andThen {
+              case _ => ledgerConfigProvider.close()
+            }
         }
     }
 
@@ -74,23 +79,26 @@ final class LedgerConfigProviderSpec
       val writeService = new FakeWriteConfigService
       when(index.configurationEntries(None)).thenReturn(writeService.configurationSource)
       val configurationToSubmit = configurationWith(generation = 1)
-      val ledgerConfigProvider = LedgerConfigProvider.create(
-        index,
-        optWriteService = Some(writeService),
-        timeProvider = someTimeProvider,
-        config = LedgerConfiguration(
-          configurationToSubmit,
-          initialConfigurationSubmitDelay = Duration.ofMillis(100),
-          configurationLoadTimeout = Duration.ofSeconds(5),
-        ),
-      )
 
-      ledgerConfigProvider.ready
-        .map { _ =>
-          ledgerConfigProvider.latestConfiguration should be(Some(configurationToSubmit))
-        }
-        .andThen {
-          case _ => ledgerConfigProvider.close()
+      LedgerConfigProvider
+        .owner(
+          index,
+          optWriteService = Some(writeService),
+          timeProvider = someTimeProvider,
+          config = LedgerConfiguration(
+            configurationToSubmit,
+            initialConfigurationSubmitDelay = Duration.ofMillis(100),
+            configurationLoadTimeout = Duration.ofSeconds(5),
+          ),
+        )
+        .use { ledgerConfigProvider =>
+          ledgerConfigProvider.ready
+            .map { _ =>
+              ledgerConfigProvider.latestConfiguration should be(Some(configurationToSubmit))
+            }
+            .andThen {
+              case _ => ledgerConfigProvider.close()
+            }
         }
     }
 
@@ -100,23 +108,26 @@ final class LedgerConfigProviderSpec
       val writeService = new FakeWriteConfigService(delay = 5.seconds)
       when(index.configurationEntries(None)).thenReturn(writeService.configurationSource)
       val configurationToSubmit = configurationWith(generation = 1)
-      val ledgerConfigProvider = LedgerConfigProvider.create(
-        index,
-        optWriteService = Some(writeService),
-        timeProvider = someTimeProvider,
-        config = LedgerConfiguration(
-          configurationToSubmit,
-          initialConfigurationSubmitDelay = Duration.ZERO,
-          configurationLoadTimeout = Duration.ofMillis(500),
-        ),
-      )
 
-      ledgerConfigProvider.ready
-        .map { _ =>
-          ledgerConfigProvider.latestConfiguration should be(None)
-        }
-        .andThen {
-          case _ => ledgerConfigProvider.close()
+      LedgerConfigProvider
+        .owner(
+          index,
+          optWriteService = Some(writeService),
+          timeProvider = someTimeProvider,
+          config = LedgerConfiguration(
+            configurationToSubmit,
+            initialConfigurationSubmitDelay = Duration.ZERO,
+            configurationLoadTimeout = Duration.ofMillis(500),
+          ),
+        )
+        .use { ledgerConfigProvider =>
+          ledgerConfigProvider.ready
+            .map { _ =>
+              ledgerConfigProvider.latestConfiguration should be(None)
+            }
+            .andThen {
+              case _ => ledgerConfigProvider.close()
+            }
         }
     }
   }

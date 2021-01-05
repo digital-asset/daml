@@ -6,6 +6,7 @@ package com.daml.platform.sandbox
 import java.io.File
 import java.nio.file.Files
 import java.time.Instant
+import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -334,6 +335,10 @@ final class SandboxServer(
       )
       ledgerConfiguration = config.ledgerConfig
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
+      servicesExecutionContext <- ResourceOwner
+        .forExecutorService(() => Executors.newWorkStealingPool())
+        .map(ExecutionContext.fromExecutorService)
+        .acquire()
       apiServicesOwner = new ApiServices.Owner(
         participantId = config.participantId,
         optWriteService = Some(new TimedWriteService(indexAndWriteService.writeService, metrics)),
@@ -348,6 +353,7 @@ final class SandboxServer(
           implicitPartyAllocation = config.implicitPartyAllocation,
         ),
         optTimeServiceBackend = timeServiceBackendO,
+        servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         healthChecks = healthChecks,
         seedService = seedingService,
@@ -365,7 +371,8 @@ final class SandboxServer(
           AuthorizationInterceptor(authService, executionContext),
           resetService,
         ),
-        metrics
+        servicesExecutionContext,
+        metrics,
       ).acquire()
       _ <- Resource.fromFuture(writePortFile(apiServer.port))
     } yield {

@@ -5,7 +5,7 @@ package com.daml.platform.apiserver
 
 import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{Executor, TimeUnit}
 import java.util.concurrent.TimeUnit.SECONDS
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -14,7 +14,6 @@ import com.daml.ports.Port
 import com.google.protobuf.Message
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
-import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.ssl.SslContext
 
 import scala.concurrent.Future
@@ -36,7 +35,7 @@ private[apiserver] object GrpcServer {
       sslContext: Option[SslContext] = None,
       interceptors: List[ServerInterceptor] = List.empty,
       metrics: Metrics,
-      eventLoopGroups: ServerEventLoopGroups,
+      servicesExecutor: Executor,
       services: Iterable[BindableService],
   ) extends ResourceOwner[Server] {
     override def acquire()(implicit context: ResourceContext): Resource[Server] = {
@@ -44,15 +43,13 @@ private[apiserver] object GrpcServer {
       Resource(Future {
         val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))
         builder.sslContext(sslContext.orNull)
-        builder.channelType(classOf[NioServerSocketChannel])
         builder.permitKeepAliveTime(10, SECONDS)
         builder.permitKeepAliveWithoutCalls(true)
-        builder.directExecutor()
+        builder.executor(servicesExecutor)
         builder.maxInboundMessageSize(maxInboundMessageSize)
         interceptors.foreach(builder.intercept)
         builder.intercept(new MetricsInterceptor(metrics))
         builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
-        eventLoopGroups.populate(builder)
         services.foreach { service =>
           builder.addService(service)
           toLegacyService(service).foreach(builder.addService)

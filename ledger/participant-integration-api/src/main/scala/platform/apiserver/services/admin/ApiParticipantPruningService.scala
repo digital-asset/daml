@@ -5,7 +5,6 @@ package com.daml.platform.apiserver.services.admin
 
 import java.util.UUID
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
   PruneRequest,
@@ -31,7 +30,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class ApiParticipantPruningService private (
     readBackend: IndexParticipantPruningService with LedgerEndService,
     writeBackend: WriteParticipantPruningService)(
-    implicit grpcExecutionContext: ExecutionContext,
+    implicit executionContext: ExecutionContext,
     logCtx: LoggingContext)
     extends ParticipantPruningServiceGrpc.ParticipantPruningService
     with GrpcApiService {
@@ -39,7 +38,7 @@ final class ApiParticipantPruningService private (
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override def bindService(): ServerServiceDefinition =
-    ParticipantPruningServiceGrpc.bindService(this, DirectExecutionContext)
+    ParticipantPruningServiceGrpc.bindService(this, executionContext)
 
   override def prune(request: PruneRequest): Future[PruneResponse] = {
     val submissionIdOrErr = SubmissionId
@@ -137,7 +136,7 @@ object ApiParticipantPruningService {
   def createApiService(
       readBackend: IndexParticipantPruningService with LedgerEndService,
       writeBackend: WriteParticipantPruningService
-  )(implicit grpcExecutionContext: ExecutionContext, logCtx: LoggingContext)
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext)
     : ParticipantPruningServiceGrpc.ParticipantPruningService with GrpcApiService =
     new ApiParticipantPruningService(readBackend, writeBackend)
 
