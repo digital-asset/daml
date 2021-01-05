@@ -1,11 +1,8 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
 module Tests.GenMapTest where
-import DA.List
 import DA.Map
-import DA.Optional
 
 data MapRecord = MapRecord
     with
