@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
-package traversable
+package iterable
 
 import com.daml.lf.language.Ast._
 import com.daml.lf.validation.Util._
 
-private[validation] object TypeTraversable {
+private[validation] object TypeIterable {
   that =>
 
   private def toType(tyCon: TypeConApp): Type =
@@ -81,7 +81,7 @@ private[validation] object TypeTraversable {
       case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
           ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) |
           ETyAbs(_, _) =>
-        ExprTraversable.iterator(expr0).flatMap(iterator(_))
+        ExprIterable.iterator(expr0).flatMap(iterator(_))
     }
   }
 
@@ -110,7 +110,7 @@ private[validation] object TypeTraversable {
         Iterator(typ) ++
           iterator(body)
       case UpdateGetTime | UpdateFetchByKey(_) | UpdateLookupByKey(_) =>
-        ExprTraversable.iterator(update).flatMap(iterator(_))
+        ExprIterable.iterator(update).flatMap(iterator(_))
       case UpdateTryCatch(typ, body, binder @ _, handler) =>
         Iterator(typ) ++
           iterator(body) ++
@@ -142,7 +142,7 @@ private[validation] object TypeTraversable {
         Iterator(typ) ++
           iterator(body)
       case ScenarioGetTime | ScenarioPass(_) | ScenarioGetParty(_) =>
-        ExprTraversable.iterator(scenario).flatMap(iterator(_))
+        ExprIterable.iterator(scenario).flatMap(iterator(_))
     }
 
   private[validation] def iterator(defn: Definition): Iterator[Type] =

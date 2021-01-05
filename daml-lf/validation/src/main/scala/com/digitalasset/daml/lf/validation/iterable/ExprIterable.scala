@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
-package traversable
+package iterable
 
 import com.daml.lf.language.Ast._
 import com.daml.lf.validation.Util._
 
-private[validation] object ExprTraversable {
+private[validation] object ExprIterable {
   that =>
 
-  private[traversable] def iterator(x: Expr): Iterator[Expr] = {
+  private[iterable] def iterator(x: Expr): Iterator[Expr] = {
     x match {
       case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EVal(_) | EEnumCon(_, _) | ETypeRep(
             _) =>
@@ -66,7 +66,7 @@ private[validation] object ExprTraversable {
     }
   }
 
-  private[traversable] def iterator(x: Update): Iterator[Expr] = {
+  private[iterable] def iterator(x: Update): Iterator[Expr] = {
     x match {
       case UpdatePure(typ @ _, expr) =>
         Iterator(expr)
@@ -92,7 +92,7 @@ private[validation] object ExprTraversable {
     }
   }
 
-  private[traversable] def iterator(x: Scenario): Iterator[Expr] = {
+  private[iterable] def iterator(x: Scenario): Iterator[Expr] = {
     x match {
       case ScenarioPure(typ @ _, expr) =>
         Iterator(expr)
@@ -112,7 +112,7 @@ private[validation] object ExprTraversable {
     }
   }
 
-  private[traversable] def iterator(x: Definition): Iterator[Expr] =
+  private[iterable] def iterator(x: Definition): Iterator[Expr] =
     x match {
       case DTypeSyn(params @ _, typ @ _) => Iterator.empty
       case DDataType(serializable @ _, params @ _, dataCons @ _) => Iterator.empty
@@ -120,7 +120,7 @@ private[validation] object ExprTraversable {
         Iterator(body)
     }
 
-  private[traversable] def iterator(x: Template): Iterator[Expr] =
+  private[iterable] def iterator(x: Template): Iterator[Expr] =
     x match {
       case Template(param @ _, precond, signatories, agreementText, choices, observers, key) =>
         Iterator(precond, signatories, agreementText) ++
@@ -129,7 +129,7 @@ private[validation] object ExprTraversable {
           key.iterator.flatMap(iterator(_))
     }
 
-  private[traversable] def iterator(x: TemplateChoice): Iterator[Expr] =
+  private[iterable] def iterator(x: TemplateChoice): Iterator[Expr] =
     x match {
       case TemplateChoice(
           name @ _,
@@ -145,7 +145,7 @@ private[validation] object ExprTraversable {
           Iterator(update)
     }
 
-  private[traversable] def iterator(x: TemplateKey): Iterator[Expr] =
+  private[iterable] def iterator(x: TemplateKey): Iterator[Expr] =
     x match {
       case TemplateKey(typ @ _, body, maintainers) =>
         Iterator(body, maintainers)
@@ -153,18 +153,18 @@ private[validation] object ExprTraversable {
 
   def apply(expr: Expr): Iterable[Expr] =
     new Iterable[Expr] {
-      override def iterator: Iterator[Expr] = ExprTraversable.iterator(expr)
+      override def iterator: Iterator[Expr] = ExprIterable.iterator(expr)
     }
 
   def apply(template: Template): Iterable[Expr] =
     new Iterable[Expr] {
-      override def iterator: Iterator[Expr] = ExprTraversable.iterator(template)
+      override def iterator: Iterator[Expr] = ExprIterable.iterator(template)
     }
 
   def apply(module: Module): Iterable[Expr] =
     new Iterable[Expr] {
       override def iterator: Iterator[Expr] =
-        module.definitions.values.iterator.flatMap(ExprTraversable.iterator(_)) ++
-          module.templates.values.iterator.flatMap(ExprTraversable.iterator(_))
+        module.definitions.values.iterator.flatMap(ExprIterable.iterator(_)) ++
+          module.templates.values.iterator.flatMap(ExprIterable.iterator(_))
     }
 }
