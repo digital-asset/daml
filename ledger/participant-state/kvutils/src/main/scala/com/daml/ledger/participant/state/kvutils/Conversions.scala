@@ -71,10 +71,11 @@ private[state] object Conversions {
 
   def resolvedContractKeyIdPair(
       contractKey: DamlContractKey,
-      contractId: ContractId): DamlContractKeyIdPair =
+      contractId: Option[ContractId]): DamlContractKeyIdPair =
     DamlContractKeyIdPair.newBuilder
       .setKey(contractKey)
-      .setResolvedToId(contractIdToString(contractId))
+      // an empty string is used to mark "no contract id"
+      .setResolvedToId(contractId.map(contractIdToString).getOrElse(""))
       .build()
 
   def commandDedupKey(subInfo: DamlSubmitterInfo): DamlStateKey = {

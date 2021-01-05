@@ -7,6 +7,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.TransactionMeta
 import com.daml.lf.data.Ref._
+import com.daml.lf.transaction.Node.{KeyWithMaintainers, LeafOnlyNode}
 import com.daml.lf.transaction.{GlobalKey, Node, NodeId, Transaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -54,7 +55,7 @@ private[kvutils] object InputsAndEffects {
       meta: TransactionMeta,
   ): (List[DamlStateKey], List[DamlContractKeyIdPair]) = {
     val inputs = mutable.LinkedHashSet[DamlStateKey]()
-    val resolvedContractIds = mutable.ListBuffer.empty[DamlContractKeyIdPair]
+    val resolvedContractIdsMap = mutable.Map.empty[DamlContractKey, Option[ContractId]]
 
     {
       import PackageId.ordering
@@ -79,16 +80,58 @@ private[kvutils] object InputsAndEffects {
       parties.toList.sorted.map(partyStateKey)
     }
 
+    def addOrUpdateResolvedContractId(
+        key: DamlContractKey,
+        contractId: Option[Value.ContractId]): Unit =
+      resolvedContractIdsMap.get(key) match {
+        case None => resolvedContractIdsMap += (key -> contractId)
+        case _ => ()
+      }
+
+    def updateMappingWithExercisesNode(exe: Node.NodeExercises[NodeId, Value.ContractId]): Unit =
+      exe.key.foreach { keyWithMaintainers =>
+        val key =
+          globalKeyToStateKey(GlobalKey(exe.templateId, forceNoContractIds(keyWithMaintainers.key)))
+        addOrUpdateResolvedContractId(key.getContractKey, Some(exe.targetCoid))
+      }
+
+    def stateKey(
+        node: LeafOnlyNode[Value.ContractId],
+        keyWithMaintainers: KeyWithMaintainers[Value[Value.ContractId]]): DamlStateKey =
+      globalKeyToStateKey(GlobalKey(node.templateId, forceNoContractIds(keyWithMaintainers.key)))
+
+    def updateMappingWithLeafNode(node: LeafOnlyNode[Value.ContractId]): Unit = {
+      node match {
+        case fetch: Node.NodeFetch[Value.ContractId] =>
+          fetch.key.foreach { keyWithMaintainers =>
+            val key = stateKey(fetch, keyWithMaintainers)
+            addOrUpdateResolvedContractId(key.getContractKey, Some(fetch.coid))
+          }
+        case create: Node.NodeCreate[Value.ContractId] =>
+          create.key.foreach { keyWithMaintainers =>
+            val key = stateKey(create, keyWithMaintainers)
+            addOrUpdateResolvedContractId(key.getContractKey, Some(create.coid))
+          }
+        case lookup: Node.NodeLookupByKey[Value.ContractId] =>
+          val key = stateKey(lookup, lookup.key)
+          addOrUpdateResolvedContractId(key.getContractKey, lookup.result)
+      }
+    }
+
+    tx.foreachInExecutionOrder(
+      (_, exercisesNode) => updateMappingWithExercisesNode(exercisesNode),
+      (_, leafNode) => updateMappingWithLeafNode(leafNode),
+      (_, _) => ()
+    )
+
     tx.foreach {
       case (_, node) =>
         node match {
           case fetch: Node.NodeFetch[Value.ContractId] =>
             addContractInput(fetch.coid)
             fetch.key.foreach { keyWithMaintainers =>
-              val key = globalKeyToStateKey(
+              inputs += globalKeyToStateKey(
                 GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key)))
-              inputs += key
-              resolvedContractIds += resolvedContractKeyIdPair(key.getContractKey, fetch.coid)
             }
 
           case create: Node.NodeCreate[Value.ContractId] =>
@@ -98,29 +141,20 @@ private[kvutils] object InputsAndEffects {
             }
 
           case exe: Node.NodeExercises[NodeId, Value.ContractId] =>
-            exe.key.foreach { keyWithMaintainers =>
-              val key = globalKeyToStateKey(
-                GlobalKey(exe.templateId, forceNoContractIds(keyWithMaintainers.key)))
-              resolvedContractIds += resolvedContractKeyIdPair(key.getContractKey, exe.targetCoid)
-            }
             addContractInput(exe.targetCoid)
 
           case lookup: Node.NodeLookupByKey[Value.ContractId] =>
             // We need both the contract key state and the contract state. The latter is used to verify
             // that the submitter can access the contract.
-            val key =
-              globalKeyToStateKey(GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key)))
-            inputs += key
-            lookup.result.foreach { contractId =>
-              addContractInput(contractId)
-              resolvedContractIds += resolvedContractKeyIdPair(key.getContractKey, contractId)
-            }
+            lookup.result.foreach(addContractInput)
+            inputs += globalKeyToStateKey(
+              GlobalKey(lookup.templateId, forceNoContractIds(lookup.key.key)))
         }
 
         inputs ++= partyInputs(node.informeesOfNode)
     }
 
-    (inputs.toList, resolvedContractIds.toList)
+    (inputs.toList, resolvedContractIdsMap.map(m => resolvedContractKeyIdPair(m._1, m._2)).toList)
   }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
