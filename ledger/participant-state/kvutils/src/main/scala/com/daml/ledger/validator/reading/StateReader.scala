@@ -17,6 +17,9 @@ trait StateReader[-Key, +Value] {
   /**
     * Reads values of a set of keys from the backing store.
     *
+    * Reading from the ledger can be time-consuming and resource-intensive; to limit the
+    * performance impact, this method must be called at most once per validation.
+    *
     * @param keys list of keys to look up
     * @return values corresponding to the requested keys, in the same order as requested
     */

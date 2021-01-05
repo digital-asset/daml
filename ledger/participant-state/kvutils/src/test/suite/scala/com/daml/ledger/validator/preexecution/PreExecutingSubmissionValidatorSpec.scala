@@ -147,11 +147,9 @@ object PreExecutingSubmissionValidatorSpec {
   private final case class TestValue(value: Option[DamlStateValue])
 
   private object TestValue {
-
     implicit object `TestValue has DamlStateValue` extends HasDamlStateValue[TestValue] {
       override def damlStateValue(value: TestValue): Option[DamlStateValue] = value.value
     }
-
   }
 
   private final case class TestReadSet(keys: Set[DamlStateKey])
