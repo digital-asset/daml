@@ -278,6 +278,8 @@ runStart
                 projectConfig
             whenJust mbOutputPath $ \_outputPath -> do
               runCodegen lang []
+        doReset (SandboxPort sandboxPort) =
+          runLedgerReset $ (defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}
         doUploadDar darPath (SandboxPort sandboxPort) =
           runLedgerUploadDar ((defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}) (Just darPath)
         listenForKeyPress projectConfig darPath sandboxPort runInitScript = do
@@ -295,6 +297,7 @@ runStart
         rebuild :: ProjectConfig -> FilePath -> SandboxPort -> IO () -> IO ()
         rebuild projectConfig darPath sandboxPort doRunInitScript = do
           putStrLn "Re-building and uploading package ..."
+          doReset sandboxPort
           doBuild
           doCodegen projectConfig
           doUploadDar darPath sandboxPort

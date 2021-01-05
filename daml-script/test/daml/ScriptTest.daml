@@ -323,3 +323,44 @@ jsonQueryContractKey p = do
   submit p do archiveCmd cid
   optR <- queryContractKey @WithKey p p
   optR === None
+
+template MultiPartyContract
+  with
+    parties: [Party]
+  where
+    signatory parties
+
+    nonconsuming choice MPFetchOther : ()
+      with
+        cid: ContractId MultiPartyContract
+        actor: Party
+      controller actor
+      do
+        actualContract <- fetch cid
+        return ()
+
+multiPartySubmission : Script ()
+multiPartySubmission = do
+  p1 <- allocateParty "p1"
+  p2 <- allocateParty "p2"
+  submitMultiMustFail [p1] [] (createCmd (MultiPartyContract [p1, p2]))
+  shared <- submitMulti [p1, p2] [] (createCmd (MultiPartyContract [p1, p2]))
+  single <- submitMulti [p1] [] (createCmd (MultiPartyContract [p1]))
+  submitMultiMustFail [p2] [] (exerciseCmd shared (MPFetchOther single p2))
+  submitMulti [p2] [p1] (exerciseCmd shared (MPFetchOther single p2))
+  pure ()
+
+-- Create a contract only visible to one party to test readAs
+jsonMultiPartySubmissionCreateSingle : Party -> Script (ContractId MultiPartyContract)
+jsonMultiPartySubmissionCreateSingle p = do
+  submit p (createCmd (MultiPartyContract [p]))
+
+-- Create a contract only visible to one party to test readAs
+jsonMultiPartySubmissionCreate : (Party, Party) -> Script (ContractId MultiPartyContract)
+jsonMultiPartySubmissionCreate (p1, p2) = do
+  submitMulti [p1, p2] [] (createCmd (MultiPartyContract [p1, p2]))
+
+-- Create a contract only visible to one party to test readAs
+jsonMultiPartySubmissionExercise : (Party, Party, ContractId MultiPartyContract, ContractId MultiPartyContract) -> Script ()
+jsonMultiPartySubmissionExercise (p1, p2, cid, cidFetch) = do
+  submitMulti [p2] [p1] (exerciseCmd cid (MPFetchOther cidFetch p2))

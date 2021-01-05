@@ -6,6 +6,7 @@ package com.daml.gatling.stats
 import java.io.File
 
 import org.scalactic.TypeCheckedTripleEquals
+import scalaz.-\/
 import scalaz.Scalaz._
 
 import scala.util.Random
@@ -26,19 +27,19 @@ class SimulationLogSpec extends AnyFlatSpec with Matchers with TypeCheckedTriple
     SimulationLog.fromFile(requiredResource(s"$simulationLog/$fileName.txt"))
 
   it should "fail if file does not exist" in {
-    SimulationLog.fromFile(new File("DOES-NOT-EXIST-OgUzdJsvKHc9TtfNiLXA")) shouldBe Symbol("left")
+    SimulationLog.fromFile(new File("DOES-NOT-EXIST-OgUzdJsvKHc9TtfNiLXA")) shouldBe a[-\/[_]]
   }
 
   it should "fail if no RUN entry" in {
-    resultFor("no-run") shouldBe Symbol("left")
+    resultFor("no-run") shouldBe a[-\/[_]]
   }
 
   it should "fail if no USER entry" in {
-    resultFor("no-user") shouldBe Symbol("left")
+    resultFor("no-user") shouldBe a[-\/[_]]
   }
 
   it should "fail if multiple RUN entries" in {
-    resultFor("multiple-run") shouldBe Symbol("left")
+    resultFor("multiple-run") shouldBe a[-\/[_]]
   }
 
   it should "return correct result for minimal log" in {

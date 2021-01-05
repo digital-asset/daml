@@ -214,7 +214,6 @@ typeOfBuiltin = \case
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
-  BEThrow            -> pure $ TForall (alpha, KStar) (TAnyException :-> tAlpha)
   BEAnyExceptionMessage -> pure $ TAnyException :-> TText
   BEGeneralErrorMessage -> pure $ TGeneralError :-> TText
   BEArithmeticErrorMessage -> pure $ TArithmeticError :-> TText
@@ -699,15 +698,19 @@ typeOf' = \case
   ETypeRep ty -> do
     checkGroundType ty
     pure $ TBuiltin BTTypeRep
-  EMakeAnyException ty msg val -> do
+  EToAnyException ty val -> do
     checkExceptionType ty
-    checkExpr msg TText
     checkExpr val ty
     pure TAnyException
   EFromAnyException ty val -> do
     checkExceptionType ty
     checkExpr val TAnyException
     pure (TOptional ty)
+  EThrow ty1 ty2 val -> do
+    checkType ty1 KStar
+    checkExceptionType ty2
+    checkExpr val ty2
+    pure ty1
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
@@ -837,6 +840,7 @@ checkDefException m DefException{..} = do
         tcon = Qualified PRSelf modName exnName
     DefDataType _loc _name _serializable tyParams dataCons <- inWorld (lookupDataType tcon)
     unless (null tyParams) $ throwWithContext (EExpectedExceptionTypeHasNoParams modName exnName)
+    checkExpr exnMessage (TCon tcon :-> TText)
     _ <- match _DataRecord (EExpectedExceptionTypeIsRecord modName exnName) dataCons
     case NM.lookup exnName (moduleTemplates m) of
         Nothing -> pure ()

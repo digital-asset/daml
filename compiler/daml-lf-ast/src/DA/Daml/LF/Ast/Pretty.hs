@@ -211,7 +211,6 @@ instance Pretty BuiltinExpr where
     BEUnit -> keyword_ "unit"
     BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     BEError -> "ERROR"
-    BEThrow -> "THROW"
     BEAnyExceptionMessage -> "ANY_EXCEPTION_MESSAGE"
     BEGeneralErrorMessage -> "GENERAL_ERROR_MESSAGE"
     BEArithmeticErrorMessage -> "ARITHMETIC_ERROR_MESSAGE"
@@ -509,10 +508,12 @@ instance Pretty Expr where
     EToAny ty body -> pPrintAppKeyword lvl prec "to_any" [TyArg ty, TmArg body]
     EFromAny ty body -> pPrintAppKeyword lvl prec "from_any" [TyArg ty, TmArg body]
     ETypeRep ty -> pPrintAppKeyword lvl prec "type_rep" [TyArg ty]
-    EMakeAnyException ty msg val -> pPrintAppKeyword lvl prec "make_any_exception"
-        [TyArg ty, TmArg msg, TmArg val]
+    EToAnyException ty val -> pPrintAppKeyword lvl prec "to_any_exception"
+        [TyArg ty, TmArg val]
     EFromAnyException ty val -> pPrintAppKeyword lvl prec "from_any_exception"
         [TyArg ty, TmArg val]
+    EThrow ty1 ty2 val -> pPrintAppKeyword lvl prec "throw"
+        [TyArg ty1, TyArg ty2, TmArg val]
 
 instance Pretty DefTypeSyn where
   pPrintPrec lvl _prec (DefTypeSyn mbLoc syn params typ) =
@@ -521,8 +522,10 @@ instance Pretty DefTypeSyn where
       lhsDoc = pPrint syn <-> hsep (map (pPrintAndKind lvl precParam) params) <-> "="
 
 instance Pretty DefException where
-  pPrintPrec lvl _prec (DefException mbLoc tycon) =
-    withSourceLoc lvl mbLoc (keyword_ "exception" <-> pPrint tycon)
+  pPrintPrec lvl _prec (DefException mbLoc tycon msg) =
+    withSourceLoc lvl mbLoc
+      $ (keyword_ "exception" <-> pPrint tycon <-> "where")
+      $$ nest 2 ("message" <-> pPrintPrec lvl 0 msg)
 
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =

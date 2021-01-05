@@ -19,12 +19,19 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   import exprParser.{expr, expr0}
 
   private def split(defs: Seq[Def]) = {
-    defs.foldLeft((Seq.empty[(DottedName, Definition)], Seq.empty[(DottedName, Template)])) {
-      case ((definitions, templates), DataDef(name, defn)) =>
-        ((name -> defn) +: definitions, templates)
-      case ((definitions, templates), TemplDef(name, defn)) =>
-        (definitions, (name -> defn) +: templates)
+    val definitions = Seq.newBuilder[(DottedName, Definition)]
+    val templates = Seq.newBuilder[(DottedName, Template)]
+    val exceptions = Seq.newBuilder[(DottedName, DefException)]
+    defs.foreach {
+      case DataDef(name, defn) =>
+        definitions += name -> defn
+      case TemplDef(name, defn) =>
+        templates += name -> defn
+      case ExcepDef(name, defn) =>
+        exceptions += name -> defn
+      case _ =>
     }
+    (definitions.result(), templates.result(), exceptions.result())
   }
 
   lazy val pkg: Parser[Package] =
@@ -40,15 +47,13 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   lazy val mod: Parser[Module] =
     Id("module") ~! tags(modTags) ~ dottedName ~ `{` ~ rep(definition <~ `;`) <~ `}` ^^ {
       case _ ~ modTag ~ modName ~ _ ~ defs =>
-        val (definitions, templates) = split(defs)
-        val flags = FeatureFlags(
-          forbidPartyLiterals = modTag(noPartyLitsTag)
-        )
-        Module(modName, definitions, templates, flags)
+        val (definitions, templates, exceptions) = split(defs)
+        val flags = FeatureFlags(forbidPartyLiterals = modTag(noPartyLitsTag))
+        Module(modName, definitions, templates, exceptions, flags)
     }
 
   private lazy val definition: Parser[Def] =
-    synDefinition | recDefinition | variantDefinition | enumDefinition | valDefinition | templateDefinition
+    synDefinition | recDefinition | variantDefinition | enumDefinition | valDefinition | templateDefinition | exceptionDefinition
 
   private def tags(allowed: Set[Name]): Parser[Set[Name]] = Parser { in =>
     val parser = rep(`@` ~> id) ^^ { tags =>
@@ -132,6 +137,11 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
         TemplDef(tycon, Template(x, precon, signatories, agreement, choices, observers, key))
     }
 
+  private lazy val exceptionDefinition: Parser[ExcepDef] =
+    Id("exception") ~> dottedName ~ `=` ~ `{` ~ (Id("message") ~> expr) <~ `}` ^^ {
+      case tycon ~ _ ~ _ ~ message => ExcepDef(tycon, DefException(message))
+    }
+
   private lazy val choiceParam: Parser[(Name, Type)] =
     `(` ~> id ~ `:` ~ typ <~ `)` ^^ { case name ~ _ ~ typ => name -> typ }
 
@@ -175,5 +185,6 @@ object ModParser {
 
   private final case class DataDef(name: DottedName, defn: Definition) extends Def
   private final case class TemplDef(name: DottedName, defn: Template) extends Def
+  private final case class ExcepDef(name: DottedName, defn: DefException) extends Def
 
 }

@@ -7,6 +7,7 @@ package testing
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 
@@ -376,6 +377,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setLookupByKey(rbk)
         case UpdateEmbedExpr(typ, body) =>
           builder.setEmbedExpr(PLF.Update.EmbedExpr.newBuilder().setType(typ).setBody(body))
+        case UpdateTryCatch(_, _, _, _) =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          //  support exceptions
+          sys.error("exceptions not supported")
       }
       builder.build()
     }
@@ -663,6 +668,14 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       setString(name, b.setNameStr, b.setNameInternedStr)
       b.setConsuming(choice.consuming)
       b.setControllers(choice.controllers)
+      choice.choiceObservers match {
+        case Some(value) =>
+          assertUntil(LV.Features.choiceObservers, "TemplateChoice.observer")
+          b.setObservers(value)
+        case None if languageVersion >= LV.Features.choiceObservers =>
+          b.setObservers(ENil(AstUtil.TParty))
+        case _ =>
+      }
       b.setArgBinder(choice.argBinder._1 -> choice.argBinder._2)
       b.setRetType(choice.returnType)
       b.setUpdate(choice.update)
@@ -732,6 +745,10 @@ private[daml] class EncodeV1(minor: LV.Minor) {
   private def assertSince(minVersion: LV, description: String): Unit =
     if (versionIsOlderThan(minVersion))
       throw EncodeError(s"$description is not supported by DAML-LF 1.$minor")
+
+  private def assertUntil(minVersion: LV, description: String): Unit =
+    if (versionIsOlderThan(minVersion))
+      throw EncodeError(s"non empty $description is not supported by DAML-LF 1.$minor")
 
 }
 

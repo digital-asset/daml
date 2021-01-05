@@ -19,7 +19,8 @@ import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
-import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE, UNIMPLEMENTED}
+import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE}
+import org.scalatest.EitherValues._
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scalaz.syntax.tag._
@@ -190,30 +191,26 @@ class SubmitRequestValidatorTest
         )
       }
 
-      "not allow multiple submitters" in {
-        requestMustFailWith(
-          commandsValidator
-            .validateCommands(
-              api.commands.withParty("alice").addActAs("bob"),
-              internal.ledgerTime,
-              internal.submittedAt,
-              Some(internal.maxDeduplicationTime)),
-          UNIMPLEMENTED,
-          "Multi-party submissions are not supported",
-        )
-      }
-
-      "not allow readAs parties" in {
-        requestMustFailWith(
-          commandsValidator
-            .validateCommands(
-              api.commands.withParty("charlie").addReadAs("bob"),
-              internal.ledgerTime,
-              internal.submittedAt,
-              Some(internal.maxDeduplicationTime)),
-          UNIMPLEMENTED,
-          "Multi-party submissions are not supported",
-        )
+      "correctly read and deduplicate multiple submitters" in {
+        val result = commandsValidator
+          .validateCommands(
+            api.commands
+              .withParty("alice")
+              .addActAs("bob")
+              .addReadAs("alice")
+              .addReadAs("charlie")
+              .addReadAs("bob"),
+            internal.ledgerTime,
+            internal.submittedAt,
+            Some(internal.maxDeduplicationTime),
+          )
+        inside(result.right.value) {
+          case cmd: ApiCommands =>
+            // actAs parties are gathered from "party" and "readAs" fields
+            cmd.actAs shouldEqual Set("alice", "bob")
+            // readAs should exclude all parties that are already actAs parties
+            cmd.readAs shouldEqual Set("charlie")
+        }
       }
 
       "tolerate a single submitter specified in the actAs fields" in {
@@ -222,7 +219,8 @@ class SubmitRequestValidatorTest
             api.commands.withParty("").addActAs(api.submitter),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime)) shouldEqual Right(internal.emptyCommands)
+            Some(internal.maxDeduplicationTime),
+          ) shouldEqual Right(internal.emptyCommands)
       }
 
       "tolerate a single submitter specified in party, actAs, and readAs fields" in {
@@ -231,7 +229,7 @@ class SubmitRequestValidatorTest
             api.commands.withParty(api.submitter).addActAs(api.submitter).addReadAs(api.submitter),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime)
+            Some(internal.maxDeduplicationTime),
           ) shouldEqual Right(internal.emptyCommands)
       }
 

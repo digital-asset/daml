@@ -35,6 +35,7 @@ import qualified Data.ByteString.UTF8 as BS.UTF8
 import System.Environment
 import System.Exit
 import System.IO
+import System.IO.Extra (writeFileUTF8)
 import System.IO.Temp
 import System.FilePath
 import System.Directory
@@ -92,8 +93,16 @@ setupDamlPath :: DamlPath -> IO ()
 setupDamlPath (DamlPath path) = do
     createDirectoryIfMissing True (path </> "bin")
     createDirectoryIfMissing True (path </> "sdk")
-    -- For now, we only ensure that the config file exists.
-    appendFile (path </> damlConfigName) ""
+    -- Ensure that the config file exists.
+    unlessM (doesFileExist (path </> damlConfigName)) $ do
+        writeFileUTF8 (path </> damlConfigName) defaultConfig
+  where
+    defaultConfig = unlines
+        [ "update-check: never"
+        , if isWindows
+            then "auto-install: false"
+            else "auto-install: true"
+        ]
 
 -- | Install (extracted) SDK directory to the correct place, after performing
 -- a version sanity check. Then run the sdk install hook if applicable.

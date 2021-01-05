@@ -304,5 +304,17 @@ abstract class AbstractFuncIT
         }
       }
     }
+    "multiparty command submission" in {
+      for {
+        clients <- participantClients()
+        v <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:multiPartySubmission"),
+          dar = stableDar
+        )
+      } yield {
+        assert(v == SUnit)
+      }
+    }
   }
 }

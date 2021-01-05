@@ -3,21 +3,12 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.caching.Cache
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.{Bytes, Fingerprint}
+import com.daml.ledger.participant.state.kvutils.Bytes
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.caching.{
-  CacheUpdatePolicy,
-  CachingDamlLedgerStateReaderWithFingerprints
-}
-import com.daml.ledger.validator.preexecution.PreExecutionCommitResult.ReadSet
-import com.daml.ledger.validator.{
-  LedgerStateAccess,
-  LedgerStateOperationsReaderAdapter,
-  StateKeySerializationStrategy
-}
+import com.daml.ledger.validator.reading.StateReader
+import com.daml.ledger.validator.{LedgerStateAccess, LedgerStateOperationsReaderAdapter}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.timer.RetryStrategy
 
@@ -30,27 +21,28 @@ import scala.util.{Failure, Success}
   * fingerprints alongside values), parametric in the logic that produces a fingerprint given a
   * value.
   *
-  * @param keySerializationStrategy      The key serializer used for state keys.
+  * @param transformStateReader          Transforms the state reader into the format used by the underlying store.
   * @param validator                     The pre-execution validator.
-  * @param valueToFingerprint            The logic that produces a fingerprint given a value.
   * @param postExecutionConflictDetector The post-execution conflict detector.
   * @param postExecutionFinalizer        The post-execution finalizer.
-  * @param stateValueCache               The cache instance for state values.
-  * @param cacheUpdatePolicy             The caching policy for values.
   */
-class PreExecutingValidatingCommitter[WriteSet](
-    keySerializationStrategy: StateKeySerializationStrategy,
-    validator: PreExecutingSubmissionValidator[ReadSet, WriteSet],
-    valueToFingerprint: Option[Value] => Fingerprint,
+class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
+    transformStateReader: StateReader[Key, Option[Value]] => StateReader[
+      DamlStateKey,
+      StateValue,
+    ],
+    validator: PreExecutingSubmissionValidator[
+      StateValue,
+      ReadSet,
+      WriteSet,
+    ],
     postExecutionConflictDetector: PostExecutionConflictDetector[
-      Key,
-      (Option[Value], Fingerprint),
+      DamlStateKey,
+      StateValue,
       ReadSet,
       WriteSet,
     ],
     postExecutionFinalizer: PostExecutionFinalizer[ReadSet, WriteSet],
-    stateValueCache: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
-    cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
 ) {
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -58,28 +50,22 @@ class PreExecutingValidatingCommitter[WriteSet](
   /**
     * Pre-executes and then commits a submission.
     */
-  def commit[LogResult](
+  def commit(
       correlationId: String,
       submissionEnvelope: Bytes,
       submittingParticipantId: ParticipantId,
-      ledgerStateAccess: LedgerStateAccess[LogResult],
+      ledgerStateAccess: LedgerStateAccess[Any],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
     LoggingContext.newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
       // Sequential pre-execution, implemented by enclosing the whole pre-post-exec pipeline is a single transaction.
       ledgerStateAccess.inTransaction { ledgerStateOperations =>
-        val stateReader = new LedgerStateOperationsReaderAdapter(ledgerStateOperations)
-          .mapValues(value => value -> valueToFingerprint(value))
-        val cachingStateReader = CachingDamlLedgerStateReaderWithFingerprints(
-          stateValueCache,
-          cacheUpdatePolicy,
-          stateReader,
-          keySerializationStrategy,
-        )
+        val stateReader =
+          transformStateReader(new LedgerStateOperationsReaderAdapter(ledgerStateOperations))
         for {
           preExecutionOutput <- validator.validate(
             submissionEnvelope,
             submittingParticipantId,
-            cachingStateReader,
+            stateReader,
           )
           _ <- retry {
             case _: ConflictDetectedException =>

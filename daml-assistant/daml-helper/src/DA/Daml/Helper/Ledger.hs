@@ -17,11 +17,13 @@ module DA.Daml.Helper.Ledger (
     runLedgerUploadDar,
     runLedgerFetchDar,
     runLedgerNavigator,
+    runLedgerReset,
     ) where
 
 import Control.Exception (SomeException(..), catch)
 import Control.Lens (toListOf)
 import Control.Monad.Extra hiding (fromMaybeM)
+import Control.Monad.IO.Class (liftIO)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
 import Data.Aeson.Text
@@ -37,17 +39,19 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
+import qualified Data.UUID as UUID
+import qualified Data.UUID.V4 as UUID
 import GHC.Generics
 import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
 import Network.HTTP.Simple
 import Network.HTTP.Types (statusCode)
 import Numeric.Natural
-import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Process.Typed
 
+import Com.Daml.Ledger.Api.V1.TransactionFilter
 import DA.Daml.Compiler.Dar (createArchive, createDarFile)
 import DA.Daml.Helper.Util
 import qualified DA.Daml.LF.Ast as LF
@@ -56,7 +60,6 @@ import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 import DA.Daml.Package.Config (PackageSdkVersion(..))
 import DA.Daml.Project.Util (fromMaybeM)
 import qualified DA.Ledger as L
-import DA.Ledger (Party(..), PartyDetails(..))
 import qualified SdkVersion
 
 data LedgerApi
@@ -70,7 +73,7 @@ data LedgerFlags = LedgerFlags
   , fTimeout :: L.TimeoutSeconds
   -----------------------------------------
   -- The following values get defaults from the project config by
-  -- running `getDefaultArgs`
+  -- running `getDefaultLedgerFlags`
   , fHostM :: Maybe String
   , fPortM :: Maybe Int
   , fTokFileM :: Maybe FilePath
@@ -222,11 +225,11 @@ runLedgerListParties flags (JsonFlag json) = do
     if json then do
         TL.putStrLn . encodeToLazyText . A.toJSON $
             [ A.object
-                [ "party" .= TL.toStrict (unParty party)
+                [ "party" .= TL.toStrict (L.unParty party)
                 , "display_name" .= TL.toStrict displayName
                 , "is_local" .= isLocal
                 ]
-            | PartyDetails {..} <- xs
+            | L.PartyDetails {..} <- xs
             ]
     else if null xs then
         putStrLn "no parties are known"
@@ -319,23 +322,23 @@ downloadPackage args pid = do
     convPid :: LF.PackageId -> L.PackageId
     convPid (LF.PackageId text) = L.PackageId $ TL.fromStrict text
 
-listParties :: LedgerArgs -> IO [PartyDetails]
+listParties :: LedgerArgs -> IO [L.PartyDetails]
 listParties args =
   case api args of
     Grpc -> runWithLedgerArgs args L.listKnownParties
     HttpJson -> httpJsonRequest args "GET" "/v1/parties" id
 
-lookupParty :: LedgerArgs -> String -> IO (Maybe Party)
+lookupParty :: LedgerArgs -> String -> IO (Maybe L.Party)
 lookupParty args name = do
     xs <- listParties args
     let text = TL.pack name
-    let pred PartyDetails{displayName,party} = if text == displayName then Just party else Nothing
+    let pred L.PartyDetails{displayName,party} = if text == displayName then Just party else Nothing
     return $ firstJust pred xs
 
-allocateParty :: LedgerArgs -> String -> IO Party
+allocateParty :: LedgerArgs -> String -> IO L.Party
 allocateParty args name = do
   let text = TL.pack name
-  PartyDetails {party} <-
+  L.PartyDetails {party} <-
     case api args of
       Grpc ->
         runWithLedgerArgs args $
@@ -345,6 +348,59 @@ allocateParty args name = do
         setRequestBodyJSON $ AllocatePartyRequest {identifierHint = text, displayName = text}
   return party
 
+runLedgerReset :: LedgerFlags -> IO ()
+runLedgerReset flags = do
+  putStrLn "Resetting ledger."
+  args <- getDefaultArgs flags
+  reset args
+
+reset :: LedgerArgs -> IO ()
+reset args = do
+  case api args of
+    Grpc ->
+      runWithLedgerArgs args $ do
+        parties <- map L.party <$> L.listKnownParties
+        unless (null parties) $ do
+          ledgerId <- L.getLedgerIdentity
+          activeContracts <-
+            L.getActiveContracts
+              ledgerId
+              (TransactionFilter $
+               Map.fromList [(L.unParty p, Just $ Filters Nothing) | p <- parties])
+              (L.Verbosity False)
+          let chunks = chunksOf 100 activeContracts
+          forM_ chunks $ \chunk -> do
+            cmdId <- liftIO UUID.nextRandom
+            let cmds =
+                  L.Commands
+                    { coms =
+                        [ L.ExerciseCommand
+                          { tid = tid
+                          , cid = cid
+                          , choice = L.Choice "Archive"
+                          , arg = L.VRecord $ L.Record Nothing []
+                          }
+                        | (_offset, _mbWid, events) <- chunk
+                        , L.CreatedEvent {cid, tid} <- events
+                        ]
+                    , lid = ledgerId
+                    , wid = Nothing
+                    , aid = L.ApplicationId "ledger-reset"
+                    , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
+                    , actAs = parties
+                    , readAs = []
+                    , dedupTime = Nothing
+                    , minLeTimeAbs = Nothing
+                    , minLeTimeRel = Nothing
+                    }
+            errOrEmpty <- L.submit cmds
+            case errOrEmpty of
+              Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
+              Right () -> pure ()
+    HttpJson ->
+      fail
+        "The reset command is currently not available for the HTTP JSON API. Please use the gRPC API."
+
 -- | Run navigator against configured ledger. We supply Navigator with
 -- the list of parties from the ledger, but in the future Navigator
 -- should fetch the list of parties itself.
@@ -353,40 +409,18 @@ runLedgerNavigator flags remainingArguments = do
     args <- getDefaultArgs flags
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "navigator-logback.xml")
     putStrLn $ "Opening navigator at " <> showHostAndPort args
-    partyDetails <- listParties args
-
-    withTempDir $ \confDir -> do
-        let navigatorConfPath = confDir </> "ui-backend.conf"
-            navigatorArgs = concat
-                [ ["server"]
-                , [host args, show (port args)]
-                , remainingArguments
-                ]
-
-        writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig partyDetails)
-        unsetEnv "DAML_PROJECT" -- necessary to prevent config contamination
-        withJar damlSdkJar [logbackArg] ("navigator" : navigatorArgs ++ ["-c", confDir </> "ui-backend.conf"]) $ \ph -> do
-            exitCode <- waitExitCode ph
-            exitWith exitCode
-
-  where
-    navigatorConfig :: [PartyDetails] -> T.Text
-    navigatorConfig partyDetails = T.unlines . concat $
-        [ ["users", "  {"]
-        , [ T.concat
-            [ "    "
-            , T.pack . show $
-                if TL.null displayName
-                    then unParty party
-                    else displayName
-            , " { party = "
-            , T.pack (show (unParty party))
-            , " }"
+    let navigatorArgs = concat
+            [ ["server"]
+            , [host args, show (port args)]
+            , ["--ignore-project-parties"]
+            , remainingArguments
             ]
-          | PartyDetails{..} <- partyDetails
-          ]
-        , ["  }"]
-        ]
+    withJar
+      damlSdkJar
+      [logbackArg]
+      ("navigator" : navigatorArgs) $ \ph -> do
+        exitCode <- waitExitCode ph
+        exitWith exitCode
 
 --
 -- Interface with the Haskell bindings

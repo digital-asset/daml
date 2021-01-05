@@ -9,6 +9,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
+import scala.collection.compat._
+
 final class RelationTest extends AnyPropSpec with Matchers with ScalaCheckPropertyChecks {
 
   import Relation.Relation._
@@ -45,7 +47,11 @@ final class RelationTest extends AnyPropSpec with Matchers with ScalaCheckProper
 
   property("flattening is the inverse of grouping for non empty relations") {
     forAll(nonEmptyRelations) { nonEmpty =>
-      flatten(nonEmpty).toSeq.groupBy(_._1).mapValues(_.map(_._2).toSet) shouldEqual nonEmpty
+      flatten(nonEmpty).toSeq
+        .groupBy(_._1)
+        .view
+        .mapValues(_.map(_._2).toSet)
+        .toMap shouldEqual nonEmpty
     }
   }
 

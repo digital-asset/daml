@@ -32,9 +32,9 @@ class TransactionCoderSpec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  import TransactionVersion.{V10, VDev}
+  import TransactionVersion.{V10, V11, VDev}
 
-  private[this] val transactionVersions = Table("transaction version", V10, VDev)
+  private[this] val transactionVersions = Table("transaction version", V10, V11, VDev)
 
   "encode-decode" should {
 
@@ -48,7 +48,7 @@ class TransactionCoderSpec
     }
 
     "do NodeCreate" in {
-      forAll(malformedCreateNodeGen, transactionVersionGen, transactionVersionGen) {
+      forAll(malformedCreateNodeGen, transactionVersionGen(), transactionVersionGen()) {
         (createNode, version1, version2) =>
           val (nodeVersion, txVersion) = inIncreasingOrder(version1, version2)
           val versionedNode = createNode.updateVersion(nodeVersion)
@@ -76,7 +76,7 @@ class TransactionCoderSpec
     }
 
     "do NodeFetch" in {
-      forAll(fetchNodeGen, transactionVersionGen, transactionVersionGen) {
+      forAll(fetchNodeGen, transactionVersionGen(), transactionVersionGen()) {
         (fetchNode, version1, version2) =>
           val (nodeVersion, txVersion) = inIncreasingOrder(version1, version2)
 
@@ -107,7 +107,7 @@ class TransactionCoderSpec
     }
 
     "do NodeExercises" in {
-      forAll(danglingRefExerciseNodeGen, transactionVersionGen, transactionVersionGen) {
+      forAll(danglingRefExerciseNodeGen, transactionVersionGen(), transactionVersionGen()) {
         (exerciseNode, version1, version2) =>
           val (nodeVersion, txVersion) = inIncreasingOrder(version1, version2)
 
@@ -176,7 +176,7 @@ class TransactionCoderSpec
       }
 
       forAll(noDanglingRefGenTransaction, minSuccessful(50)) { tx =>
-        forAll(transactionVersionGen, transactionVersionGen, minSuccessful(20)) {
+        forAll(transactionVersionGen(), transactionVersionGen(), minSuccessful(20)) {
           (txVer1, txVer2) =>
             import scalaz.std.tuple._
             import scalaz.syntax.bifunctor._
@@ -242,7 +242,7 @@ class TransactionCoderSpec
               ValueCoder.CidDecoder,
               encodedTxWithBadTxVer,
             ) shouldEqual Left(
-              DecodeError(s"Unsupported transaction version $badTxVer"),
+              DecodeError(s"Unsupported transaction version '$badTxVer'"),
             )
           }
         }
@@ -299,9 +299,7 @@ class TransactionCoderSpec
 
   "encodeVersionedNode" should {
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7139
-    // replace all occurrences of "dev" by "11", once "11" is released
-    "fail iff try to encode choice observers in version < dev" in {
+    "fail iff try to encode choice observers in version < 11" in {
       val normalize = minimalistNode(V10)
 
       forAll(danglingRefExerciseNodeGen, minSuccessful(10)) { node =>
@@ -330,7 +328,11 @@ class TransactionCoderSpec
 
     "fail if try to encode a node in a version newer than the transaction" in {
 
-      forAll(danglingRefGenNode, transactionVersionGen, transactionVersionGen, minSuccessful(10)) {
+      forAll(
+        danglingRefGenNode,
+        transactionVersionGen(),
+        transactionVersionGen(),
+        minSuccessful(10)) {
         case ((nodeId, node), version1, version2) =>
           whenever(version1 != version2) {
             val (txVersion, nodeVersion) = inIncreasingOrder(version1, version2)
@@ -386,8 +388,8 @@ class TransactionCoderSpec
 
       forAll(
         danglingRefGenNode,
-        transactionVersionGen.filter(_ != V10),
-        transactionVersionGen.filter(_ != V10),
+        transactionVersionGen().filter(_ != V10),
+        transactionVersionGen().filter(_ != V10),
         minSuccessful(10)) {
         case ((nodeId, node), version1, version2) =>
           whenever(version1 != version2) {
@@ -414,9 +416,7 @@ class TransactionCoderSpec
       }
     }
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7139
-    // replace all occurrences of "dev" by "11", once "11" is released
-    "ignore field observers in version < dev" in {
+    "ignore field observers in version < 11" in {
       val normalize = minimalistNode(V10)
 
       forAll(

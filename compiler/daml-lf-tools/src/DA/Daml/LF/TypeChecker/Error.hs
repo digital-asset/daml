@@ -69,6 +69,7 @@ data UnserializabilityReason
   | URNumericOutOfRange !Natural
   | URTypeLevelNat
   | URAny -- ^ It contains a value of type Any.
+  | URAnyException -- ^ It contains a value of type AnyException.
   | URTypeRep -- ^ It contains a value of type TypeRep.
   | URTypeSyn  -- ^ It contains a type synonym.
 
@@ -195,6 +196,7 @@ instance Pretty UnserializabilityReason where
     URNumericOutOfRange n -> "Numeric scale " <> integer (fromIntegral n) <> " is out of range (needs to be between 0 and 38)"
     URTypeLevelNat -> "type-level nat"
     URAny -> "Any"
+    URAnyException -> "AnyException"
     URTypeRep -> "TypeRep"
     URTypeSyn -> "type synonym"
 

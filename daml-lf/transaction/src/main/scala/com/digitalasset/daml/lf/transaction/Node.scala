@@ -49,7 +49,7 @@ object Node {
     private[lf] def updateVersion(version: TransactionVersion): GenNode[Nid, Cid]
 
     protected def versionValue[Cid2 >: Cid](v: Value[Cid2]): VersionedValue[Cid2] =
-      VersionedValue(TransactionVersion.assignValueVersion(version), v)
+      VersionedValue(version, v)
   }
 
   object GenNode extends CidContainer2[GenNode] {

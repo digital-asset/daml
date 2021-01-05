@@ -20,6 +20,7 @@ import           Data.Functor.Identity
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
 import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromMaybe)
 import qualified Data.NameMap as NM
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
@@ -516,7 +517,6 @@ encodeBuiltinExpr = \case
     BESha256Text -> builtin P.BuiltinFunctionSHA256_TEXT
 
     BEError -> builtin P.BuiltinFunctionERROR
-    BEThrow -> builtin P.BuiltinFunctionTHROW
     BEAnyExceptionMessage -> builtin P.BuiltinFunctionANY_EXCEPTION_MESSAGE
     BEGeneralErrorMessage -> builtin P.BuiltinFunctionGENERAL_ERROR_MESSAGE
     BEArithmeticErrorMessage -> builtin P.BuiltinFunctionARITHMETIC_ERROR_MESSAGE
@@ -672,15 +672,19 @@ encodeExpr' = \case
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
     ETypeRep ty -> do
         expr . P.ExprSumTypeRep <$> encodeType' ty
-    EMakeAnyException ty msg val -> do
-        expr_MakeAnyExceptionType <- encodeType ty
-        expr_MakeAnyExceptionMessage <- encodeExpr msg
-        expr_MakeAnyExceptionExpr <- encodeExpr val
-        pureExpr $ P.ExprSumMakeAnyException P.Expr_MakeAnyException{..}
+    EToAnyException ty val -> do
+        expr_ToAnyExceptionType <- encodeType ty
+        expr_ToAnyExceptionExpr <- encodeExpr val
+        pureExpr $ P.ExprSumToAnyException P.Expr_ToAnyException{..}
     EFromAnyException ty val -> do
         expr_FromAnyExceptionType <- encodeType ty
         expr_FromAnyExceptionExpr <- encodeExpr val
         pureExpr $ P.ExprSumFromAnyException P.Expr_FromAnyException{..}
+    EThrow ty1 ty2 val -> do
+        expr_ThrowReturnType <- encodeType ty1
+        expr_ThrowExceptionType <- encodeType ty2
+        expr_ThrowExceptionExpr <- encodeExpr val
+        pureExpr $ P.ExprSumThrow P.Expr_Throw{..}
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr
@@ -855,6 +859,7 @@ encodeDefException :: DefException -> Encode P.DefException
 encodeDefException DefException{..} = do
     defExceptionNameInternedDname <- encodeDottedNameId unTypeConName exnName
     defExceptionLocation <- traverse encodeSourceLoc exnLocation
+    defExceptionMessage <- encodeExpr exnMessage
     pure P.DefException{..}
 
 encodeTemplate :: Template -> Encode P.DefTemplate
@@ -878,12 +883,21 @@ encodeTemplateKey TemplateKey{..} = do
     defTemplate_DefKeyMaintainers <- encodeExpr tplKeyMaintainers
     pure P.DefTemplate_DefKey{..}
 
+encodeChoiceObservers :: Maybe Expr -> Encode (Just P.Expr)
+encodeChoiceObservers chcObservers = do
+  EncodeEnv{..} <- get
+  -- The choice-observers field is mandatory when supported. So, when choice-observers are
+  -- not syntactically explicit, we generate an empty-party-list expression here.
+  if version `supports` featureChoiceObservers
+  then encodeExpr (fromMaybe (ENil TParty) chcObservers)
+  else traverse encodeExpr' chcObservers
+
 encodeTemplateChoice :: TemplateChoice -> Encode P.TemplateChoice
 encodeTemplateChoice TemplateChoice{..} = do
     templateChoiceName <- encodeName unChoiceName chcName
     let templateChoiceConsuming = chcConsuming
     templateChoiceControllers <- encodeExpr chcControllers
-    templateChoiceObservers <- traverse encodeExpr' chcObservers
+    templateChoiceObservers <- encodeChoiceObservers chcObservers
     templateChoiceSelfBinder <- encodeName unExprVarName chcSelfBinder
     templateChoiceArgBinder <- Just <$> encodeExprVarWithType chcArgBinder
     templateChoiceRetType <- encodeType chcReturnType

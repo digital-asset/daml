@@ -30,7 +30,7 @@ import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
 import com.daml.lf.transaction.Node.GenNode
-import com.daml.lf.value.ValueVersion.assertAsVersionedValue
+import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues

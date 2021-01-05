@@ -20,6 +20,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   lazy val expr0: Parser[Expr] =
     literal ^^ EPrimLit |
       primCon ^^ EPrimCon |
+      scenario ^^ EScenario |
+      update ^^ EUpdate |
       eList |
       eOption |
       eRecCon |
@@ -34,13 +36,13 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eLet |
       eToAny |
       eFromAny |
+      eToAnyException |
+      eFromAnyException |
       eToTextTypeConName |
+      eThrow |
       fullIdentifier ^^ EVal |
       (id ^? builtinFunctions) ^^ EBuiltin |
-      (id ^? builtinFunctions) ^^ EBuiltin |
       caseOf |
-      scenario ^^ EScenario |
-      update ^^ EUpdate |
       id ^^ EVar |
       `(` ~> expr <~ `)`
 
@@ -182,6 +184,21 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       case ty ~ e => EFromAny(ty, e)
     }
 
+  private lazy val eToAnyException: Parser[EToAnyException] =
+    `to_any_exception` ~>! argTyp ~ expr0 ^^ {
+      case ty ~ e => EToAnyException(ty, e)
+    }
+
+  private lazy val eFromAnyException: Parser[EFromAnyException] =
+    `from_any_exception` ~>! argTyp ~ expr0 ^^ {
+      case ty ~ e => EFromAnyException(ty, e)
+    }
+
+  private lazy val eThrow: Parser[EThrow] =
+    `throw` ~>! argTyp ~ argTyp ~ expr0 ^^ {
+      case retType ~ excepType ~ exception => EThrow(retType, excepType, exception)
+    }
+
   private lazy val eToTextTypeConName: Parser[Expr] =
     `type_rep` ~>! argTyp ^^ ETypeRep
 
@@ -276,6 +293,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "GREATER" -> BGreater,
     "GREATER_EQ" -> BGreaterEq,
     "COERCE_CONTRACT_ID" -> BCoerceContractId,
+    "MAKE_GENERAL_ERROR" -> BMakeGeneralError,
+    "MAKE_ARITHMETIC_ERROR" -> BMakeArithmeticError,
+    "MAKE_CONTRACT_ERROR" -> BMakeContractError,
+    "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
+    "GENERAL_ERROR_MESSAGE" -> BGeneralErrorMessage,
+    "ARITHMETIC_ERROR_MESSAGE" -> BArithmeticErrorMessage,
   )
 
   /* Scenarios */
@@ -286,7 +309,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val scenarioBlock: Parser[Scenario] =
-    `sbind` ~>! bindings ~ expr ^^ {
+    Id("sbind") ~>! bindings ~ expr ^^ {
       case bs ~ body => ScenarioBlock(bs, body)
     }
 
@@ -332,37 +355,37 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val updateBlock =
-    `ubind` ~>! bindings ~ expr ^^ {
+    Id("ubind") ~>! bindings ~ expr ^^ {
       case bs ~ body => UpdateBlock(bs, body)
     }
 
   private lazy val updateCreate =
-    `create` ~! `@` ~> fullIdentifier ~ expr0 ^^ {
+    Id("create") ~! `@` ~> fullIdentifier ~ expr0 ^^ {
       case t ~ e => UpdateCreate(t, e)
     }
 
   private lazy val updateFetch =
-    `fetch` ~! `@` ~> fullIdentifier ~ expr0 ^^ {
+    Id("fetch") ~! `@` ~> fullIdentifier ~ expr0 ^^ {
       case t ~ e => UpdateFetch(t, e)
     }
 
   private lazy val updateExercise =
-    `exercise` ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
+    Id("exercise") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
       case t ~ choice ~ cid ~ arg => UpdateExercise(t, choice, cid, arg)
     }
 
   private lazy val updateExerciseByKey =
-    `exercise_by_key` ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
+    Id("exercise_by_key") ~! `@` ~> fullIdentifier ~ id ~ expr0 ~ expr0 ^^ {
       case t ~ choice ~ key ~ arg => UpdateExerciseByKey(t, choice, key, arg)
     }
 
   private lazy val updateFetchByKey =
-    `fetch_by_key` ~! `@` ~> fullIdentifier ~ expr ^^ {
+    Id("fetch_by_key") ~! `@` ~> fullIdentifier ~ expr ^^ {
       case t ~ eKey => UpdateFetchByKey(RetrieveByKey(t, eKey))
     }
 
   private lazy val updateLookupByKey =
-    `lookup_by_key` ~! `@` ~> fullIdentifier ~ expr ^^ {
+    Id("lookup_by_key") ~! `@` ~> fullIdentifier ~ expr ^^ {
       case t ~ eKey => UpdateLookupByKey(RetrieveByKey(t, eKey))
     }
 
@@ -372,6 +395,11 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private lazy val updateEmbedExpr =
     Id("uembed_expr") ~> argTyp ~ expr0 ^^ {
       case t ~ e => UpdateEmbedExpr(t, e)
+    }
+
+  private lazy val updateCatch =
+    Id("try") ~>! argTyp ~ expr0 ~ `catch` ~ id ~ `->` ~ expr ^^ {
+      case typ ~ body ~ _ ~ binder ~ _ ~ handler => UpdateTryCatch(typ, body, binder, handler)
     }
 
   private lazy val update: Parser[Update] =
@@ -384,7 +412,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateFetchByKey |
       updateLookupByKey |
       updateGetTime |
-      updateEmbedExpr
+      updateEmbedExpr |
+      updateCatch
 
   private lazy val int: Parser[Int] =
     acceptMatch("Int", { case Number(l) => l.toInt })

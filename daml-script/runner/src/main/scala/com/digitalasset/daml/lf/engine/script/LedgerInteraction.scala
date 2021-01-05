@@ -877,7 +877,7 @@ class JsonLedgerClient(
       new RuntimeException("setTime is not supported when running DAML Script over the JSON API."))
   }
 
-  // Check that the parties in the token are a superset of the given parties.
+  // Check that the parties in the token match the given parties.
   private def validateTokenParties(parties: OneAnd[Set, Ref.Party], what: String): Future[Unit] = {
     import scalaz.std.string._
     val tokenParties = Set(tokenPayload.readAs ++ tokenPayload.actAs: _*)
@@ -899,21 +899,17 @@ class JsonLedgerClient(
       readAs: Set[Ref.Party]): Future[Unit] = {
     // Relax once the JSON API supports multi-party read/write
     import scalaz.std.string._
-    if (actAs.tail.nonEmpty) {
-      Future.failed(
-        new RuntimeException(s"JSON API does not support multi-party actAs but got ${actAs}"))
-    } else if (!(readAs.subsetOf(actAs.toSet))) {
+    if (tokenPayload.actAs.isEmpty) {
       Future.failed(new RuntimeException(
-        s"JSON API does not support additional parties in readAs on command submissions but got ${readAs}"))
-    } else if (tokenPayload.actAs.isEmpty) {
-      Future.failed(
-        new RuntimeException(
-          s"Tried to submit a command as ${actAs.head} but token contains no actAs parties."))
-    } else if (List[String](actAs.head) /== tokenPayload.actAs) {
-      Future.failed(
-        new RuntimeException(
-          s"Tried to submit a command as ${actAs.head} but token provides claims for ${tokenPayload.actAs
-            .mkString(" ")}"))
+        s"Tried to submit a command with actAs = ${actAs.toList.mkString(", ")} but token contains no actAs parties."))
+    } else if ((actAs.toList: List[String]) /== tokenPayload.actAs) {
+      Future.failed(new RuntimeException(
+        s"Tried to submit a command with actAs = ${actAs.toList.mkString(", ")} but token provides claims for actAs = ${tokenPayload.actAs
+          .mkString(" ")}"))
+    } else if ((readAs.toList: List[String]) /== tokenPayload.readAs) {
+      Future.failed(new RuntimeException(
+        s"Tried to submit a command with readAs = ${readAs.mkString(", ")} but token provides claims for readAs = ${tokenPayload.readAs
+          .mkString(" ")}"))
     } else {
       Future.unit
     }

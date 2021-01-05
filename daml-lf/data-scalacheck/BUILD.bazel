@@ -6,19 +6,22 @@ load(
     "da_scala_library",
     "lf_scalacopts",
 )
+load("@scala_version//:index.bzl", "scala_version_suffix")
 
 da_scala_library(
     name = "data-scalacheck",
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
-        "@maven//:org_typelevel_kind_projector_2_12_12",
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+    ],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:daml-lf-data-scalacheck:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

@@ -34,19 +34,15 @@ private[parser] object Lexer extends RegexParsers {
     "with" -> `with`,
     "case" -> `case`,
     "of" -> `of`,
-    "sbind" -> `sbind`,
-    "ubind" -> `ubind`,
-    "create" -> `create`,
-    "fetch" -> `fetch`,
-    "exercise" -> `exercise`,
-    "exercise_by_key" -> `exercise_by_key`,
-    "fetch_by_key" -> `fetch_by_key`,
-    "lookup_by_key" -> `lookup_by_key`,
     "to" -> `to`,
     "to_any" -> `to_any`,
     "from_any" -> `from_any`,
     "type_rep" -> `type_rep`,
-    "loc" -> `loc`
+    "loc" -> `loc`,
+    "to_any_exception" -> `to_any_exception`,
+    "from_any_exception" -> `from_any_exception`,
+    "throw" -> `throw`,
+    "catch" -> `catch`
   )
 
   val token: Parser[Token] =

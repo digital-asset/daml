@@ -126,40 +126,35 @@ trait MultiPartyServiceCallAuthTests extends ServiceCallAuthTests {
   }
 
   it should "allow multi-party calls authorized to exactly the required parties" in {
-    // Note: use expectSuccess() once multi-party submissions are enabled
-    expectUnimplemented(
+    expectSuccess(
       serviceCallFor(
         TokenParties(actAs, readAs),
         RequestSubmitters("", actAs, readAs),
       ))
   }
   it should "allow multi-party calls authorized to a superset of the required parties" in {
-    // Note: use expectSuccess() once multi-party submissions are enabled
-    expectUnimplemented(
+    expectSuccess(
       serviceCallFor(
         TokenParties(randomActAs ++ actAs, randomReadAs ++ readAs),
         RequestSubmitters("", actAs, readAs),
       ))
   }
   it should "allow multi-party calls with all parties authorized in read-write mode" in {
-    // Note: use expectSuccess() once multi-party submissions are enabled
-    expectUnimplemented(
+    expectSuccess(
       serviceCallFor(
         TokenParties(actAs ++ readAs, List.empty),
         RequestSubmitters("", actAs, readAs),
       ))
   }
   it should "allow multi-party calls with actAs parties spread across party and actAs fields" in {
-    // Note: use expectSuccess() once multi-party submissions are enabled
-    expectUnimplemented(
+    expectSuccess(
       serviceCallFor(
         TokenParties(actAs, readAs),
         RequestSubmitters(actAs.head, actAs.tail, readAs),
       ))
   }
   it should "allow multi-party calls with actAs parties duplicated in the readAs field" in {
-    // Note: use expectSuccess() once multi-party submissions are enabled
-    expectUnimplemented(
+    expectSuccess(
       serviceCallFor(
         TokenParties(actAs, readAs),
         RequestSubmitters("", actAs, actAs ++ readAs),

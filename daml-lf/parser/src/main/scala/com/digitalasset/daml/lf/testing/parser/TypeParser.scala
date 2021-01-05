@@ -31,6 +31,10 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     "GenMap" -> BTGenMap,
     "Any" -> BTAny,
     "TypeRep" -> BTTypeRep,
+    "AnyException" -> BTAnyException,
+    "GeneralError" -> BTGeneralError,
+    "ArithmeticError" -> BTArithmeticError,
+    "ContractError" -> BTContractError,
   )
 
   private[parser] def fullIdentifier: Parser[Ref.Identifier] =

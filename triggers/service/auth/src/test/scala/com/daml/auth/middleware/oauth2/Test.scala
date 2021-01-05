@@ -254,3 +254,29 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     }
   }
 }
+
+class TestCallbackUriOverride
+    extends AsyncWordSpec
+    with TestFixture
+    with SuiteResourceManagementAroundAll {
+  override protected val middlewareCallbackUri = Some(Uri("http://localhost/MIDDLEWARE_CALLBACK"))
+  "the /login endpoint" should {
+    "redirect to the configured middleware callback URI" in {
+      val claims = Request.Claims(actAs = List(Party("Alice")))
+      val req = HttpRequest(uri = middlewareClient.loginUri(claims, None))
+      for {
+        resp <- Http().singleRequest(req)
+        // Redirect to /authorize on authorization server
+        resp <- {
+          assert(resp.status == StatusCodes.Found)
+          val req = HttpRequest(uri = resp.header[Location].get.uri)
+          Http().singleRequest(req)
+        }
+      } yield {
+        // Redirect to configured callback URI on middleware
+        assert(resp.status == StatusCodes.Found)
+        assert(resp.header[Location].get.uri.withQuery(Uri.Query()) == middlewareCallbackUri.get)
+      }
+    }
+  }
+}

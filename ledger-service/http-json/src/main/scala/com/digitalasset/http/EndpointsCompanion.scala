@@ -11,7 +11,7 @@ import com.daml.jwt.domain.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import scalaz.syntax.std.option._
-import scalaz.{-\/, Show, \/, \/-}
+import scalaz.{-\/, NonEmptyList, Show, \/, \/-}
 import spray.json.JsValue
 
 import scala.concurrent.Future
@@ -62,15 +62,16 @@ object EndpointsCompanion {
                   applicationId <- payload.applicationId.toRightDisjunction(
                     Unauthorized("applicationId missing in access token"))
                   actAs <- payload.actAs match {
-                    case p :: Nil => \/-(p)
-                    case ps => -\/(Unauthorized(s"Expected exactly one party in actAs but got $ps"))
+                    case p +: ps => \/-(NonEmptyList(p, ps: _*))
+                    case _ =>
+                      -\/(Unauthorized(s"Expected one or more parties in actAs but got none"))
                   }
                 } yield
                   JwtWritePayload(
                     lar.LedgerId(ledgerId),
                     lar.ApplicationId(applicationId),
-                    lar.Party(actAs),
-                    payload.readAs.map(lar.Party(_))
+                    lar.Party.subst(actAs),
+                    lar.Party.subst(payload.readAs),
                 )
             )
         }

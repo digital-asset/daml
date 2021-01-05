@@ -36,6 +36,7 @@ trait TestFixture
   self: Suite =>
   protected val ledgerId: String = "test-ledger"
   protected val jwtSecret: String = "secret"
+  protected val middlewareCallbackUri: Option[Uri] = None
   lazy protected val clock: AdjustableClock = suiteResource.value._1
   lazy protected val server: OAuthServer = suiteResource.value._2
   lazy protected val serverBinding: ServerBinding = suiteResource.value._3
@@ -75,6 +76,7 @@ trait TestFixture
         middlewareBinding <- Resources.authMiddlewareBinding(
           Config(
             port = Port.Dynamic,
+            callbackUri = middlewareCallbackUri,
             oauthAuth = serverUri.withPath(Uri.Path./("authorize")),
             oauthToken = serverUri.withPath(Uri.Path./("token")),
             clientId = "middleware",

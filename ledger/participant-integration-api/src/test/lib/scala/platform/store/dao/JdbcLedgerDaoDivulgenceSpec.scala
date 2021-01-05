@@ -11,7 +11,6 @@ import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercis
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInst, ValueParty, VersionedValue}
-import com.daml.lf.value.ValueVersion
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.{Inside, LoneElement}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -138,7 +137,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         template = someContractInstance.template,
         agreementText = someContractInstance.agreementText,
         arg = VersionedValue(
-          version = ValueVersion("6"),
+          version = TransactionVersion.V10,
           value = someContractInstance.arg
         )
       )

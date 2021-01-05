@@ -74,6 +74,11 @@ object Util {
   val TDecimalScale = TNat(Decimal.scale)
   val TDecimal = TNumeric(TDecimalScale)
 
+  val TAnyException = TBuiltin(BTAnyException)
+  val TGeneralError = TBuiltin(BTGeneralError)
+  val TArithmeticError = TBuiltin(BTArithmeticError)
+  val TContractError = TBuiltin(BTContractError)
+
   val EUnit = EPrimCon(PCUnit)
   val ETrue = EPrimCon(PCTrue)
   val EFalse = EPrimCon(PCFalse)
@@ -164,7 +169,7 @@ object Util {
 
   private[this] def toSignature(module: Module): ModuleSignature =
     module match {
-      case Module(name, definitions, templates, featureFlags) =>
+      case Module(name, definitions, templates, exceptions, featureFlags) =>
         ModuleSignature(
           name = name,
           definitions = definitions.transform {
@@ -173,6 +178,7 @@ object Util {
             case (_, typeSyn: DTypeSyn) => typeSyn
           },
           templates = templates.transform((_, template) => toSignature(template)),
+          exceptions = exceptions.transform((_, _) => DefExceptionSignature),
           featureFlags = featureFlags,
         )
     }

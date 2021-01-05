@@ -251,6 +251,62 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       meta = None)
   }
 
+  protected def multiPartyCreateCommand(ps: List[String], value: String) = {
+    val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
+    val psv = v.Value(v.Value.Sum.List(v.List(ps.map(p => v.Value(v.Value.Sum.Party(p))))))
+    val payload = v.Record(
+      fields = List(
+        v.RecordField("parties", Some(psv)),
+        v.RecordField("value", Some(v.Value(v.Value.Sum.Text(value))))
+      )
+    )
+    domain.CreateCommand(
+      templateId = templateId,
+      payload = payload,
+      meta = None
+    )
+  }
+
+  protected def multiPartyAddSignatories(cid: lar.ContractId, ps: List[String]) = {
+    val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
+    val psv = v.Value(v.Value.Sum.List(v.List(ps.map(p => v.Value(v.Value.Sum.Party(p))))))
+    val argument = v.Value(
+      v.Value.Sum.Record(
+        v.Record(
+          fields = List(v.RecordField("newParties", Some(psv)))
+        )))
+    domain.ExerciseCommand(
+      reference = domain.EnrichedContractId(Some(templateId), cid),
+      argument = argument,
+      choice = lar.Choice("MPAddSignatories"),
+      meta = None
+    )
+  }
+
+  protected def multiPartyFetchOther(
+      cid: lar.ContractId,
+      fetchedCid: lar.ContractId,
+      actors: List[String]) = {
+    val templateId: OptionalPkg = domain.TemplateId(None, "Test", "MultiPartyContract")
+    val argument = v.Value(
+      v.Value.Sum.Record(
+        v.Record(
+          fields = List(
+            v.RecordField("cid", Some(v.Value(v.Value.Sum.ContractId(fetchedCid.unwrap)))),
+            v.RecordField(
+              "actors",
+              Some(v.Value(v.Value.Sum.List(v.List(actors.map(p =>
+                v.Value(v.Value.Sum.Party(p)))))))),
+          )
+        )))
+    domain.ExerciseCommand(
+      reference = domain.EnrichedContractId(Some(templateId), cid),
+      argument = argument,
+      choice = lar.Choice("MPFetchOther"),
+      meta = None
+    )
+  }
+
   protected def assertStatus(jsObj: JsValue, expectedStatus: StatusCode): Assertion = {
     inside(jsObj) {
       case JsObject(fields) =>
@@ -887,6 +943,61 @@ abstract class AbstractHttpServiceIntegrationTest
                 assertExerciseResponseArchivedContract(exercisedResponse, exercise)
             }
       }: Future[Assertion]
+  }
+
+  "should support multi-party command submissions" in withHttpService { (uri, encoder, _) =>
+    val newDar = AbstractHttpServiceIntegrationTestFuns.dar3
+    for {
+      _ <- Http()
+        .singleRequest(
+          HttpRequest(
+            method = HttpMethods.POST,
+            uri = uri.withPath(Uri.Path("/v1/packages")),
+            headers = authorizationHeader(jwtAdminNoParty),
+            entity = HttpEntity.fromFile(ContentTypes.`application/octet-stream`, newDar)
+          )
+        )
+      // multi-party actAs on create
+      cid <- postCreateCommand(
+        multiPartyCreateCommand(List("Alice", "Bob"), ""),
+        encoder,
+        uri,
+        headersWithPartyAuth(List("Alice", "Bob"))).map {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          getContractId(getResult(output))
+      }
+      // multi-party actAs on exercise
+      cidMulti <- postJsonRequest(
+        uri.withPath(Uri.Path("/v1/exercise")),
+        encodeExercise(encoder)(multiPartyAddSignatories(cid, List("Charlie", "David"))),
+        headersWithPartyAuth(List("Alice", "Bob", "Charlie", "David"))
+      ).map {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          inside(getChild(getResult(output), "exerciseResult")) {
+            case JsString(c) => lar.ContractId(c)
+          }
+      }
+      // create a contract only visible to Alice
+      cid <- postCreateCommand(
+        multiPartyCreateCommand(List("Alice"), ""),
+        encoder,
+        uri,
+        headersWithPartyAuth(List("Alice"))).map {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          getContractId(getResult(output))
+      }
+      _ <- postJsonRequest(
+        uri.withPath(Uri.Path("/v1/exercise")),
+        encodeExercise(encoder)(multiPartyFetchOther(cidMulti, cid, List("Charlie"))),
+        headersWithPartyAuth(List("Charlie"), readAs = List("Alice"))
+      ).map {
+        case (status, _) =>
+          status shouldBe StatusCodes.OK
+      }
+    } yield succeed
   }
 
   private def assertExerciseResponseArchivedContract(

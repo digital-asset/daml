@@ -250,12 +250,16 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     // if they are non-unique or use only a subset of parties for performance reasons.
     // Currently, we subscribe to all available parties. We could change that to do it lazily only on login
     // but given that Navigator is only a development tool that might not be worth the complexity.
-    val partyRefresh: Option[Cancellable] = if (config.users.isEmpty) {
-      Some(system.scheduler.scheduleWithFixedDelay(Duration.Zero, 1.seconds, store, UpdateParties))
-    } else {
-      config.users.foreach { case (displayName, config) => store ! Subscribe(displayName, config) }
-      None
-    }
+    val partyRefresh: Option[Cancellable] =
+      if (config.users.isEmpty || arguments.ignoreProjectParties) {
+        Some(
+          system.scheduler.scheduleWithFixedDelay(Duration.Zero, 1.seconds, store, UpdateParties))
+      } else {
+        config.users.foreach {
+          case (displayName, config) => store ! Subscribe(displayName, config)
+        }
+        None
+      }
 
     def graphQL: GraphQLHandler = DefaultGraphQLHandler(customEndpoints, Some(store))
     def info: InfoHandler = DefaultInfoHandler(arguments, store)

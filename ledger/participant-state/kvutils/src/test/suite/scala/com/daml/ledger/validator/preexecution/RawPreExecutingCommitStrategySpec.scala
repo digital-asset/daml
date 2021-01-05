@@ -19,15 +19,14 @@ import com.daml.ledger.validator.TestHelper.{
   aParticipantId,
   allDamlStateKeyTypes
 }
-import com.daml.ledger.validator.preexecution.LogAppenderPreExecutingCommitStrategySpec._
-import com.google.protobuf.ByteString
+import com.daml.ledger.validator.preexecution.RawPreExecutingCommitStrategySpec._
 import org.mockito.ArgumentMatchers.any
 import org.mockito.MockitoSugar
 import org.mockito.invocation.InvocationOnMock
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-final class LogAppenderPreExecutingCommitStrategySpec
+final class RawPreExecutingCommitStrategySpec
     extends AsyncWordSpec
     with Matchers
     with MockitoSugar {
@@ -37,21 +36,19 @@ final class LogAppenderPreExecutingCommitStrategySpec
       val contractIdStateKey = DamlStateKey.newBuilder.setContractId("a contract ID").build
       val contractIdStateValue =
         DamlStateValue.newBuilder.setContractState(DamlContractState.newBuilder).build
-      val fingerprint = ByteString.copyFromUtf8("fingerprint")
 
       val mockStateKeySerializationStrategy = newMockStateKeySerializationStrategy
-      val instance = new LogAppenderPreExecutingCommitStrategy(mockStateKeySerializationStrategy)
+      val instance = new RawPreExecutingCommitStrategy(mockStateKeySerializationStrategy)
 
       instance.generateReadSet(
-        fetchedInputs = Map(contractIdStateKey -> ((Some(contractIdStateValue), fingerprint))),
+        fetchedInputs = Map(contractIdStateKey -> Some(contractIdStateValue)),
         accessedKeys = Set(contractIdStateKey),
-      ) should be(
-        Seq(mockStateKeySerializationStrategy.serializeStateKey(contractIdStateKey) -> fingerprint))
+      ) should be(Map(contractIdStateKey -> Some(contractIdStateValue)))
     }
 
     "throw in case an input key is declared in the read set but not fetched as input" in {
       val mockStateKeySerializationStrategy = newMockStateKeySerializationStrategy
-      val instance = new LogAppenderPreExecutingCommitStrategy(mockStateKeySerializationStrategy)
+      val instance = new RawPreExecutingCommitStrategy(mockStateKeySerializationStrategy)
 
       assertThrows[IllegalStateException](
         instance
@@ -77,7 +74,7 @@ final class LogAppenderPreExecutingCommitStrategySpec
       )
 
       val mockStateKeySerializationStrategy = newMockStateKeySerializationStrategy
-      val instance = new LogAppenderPreExecutingCommitStrategy(mockStateKeySerializationStrategy)
+      val instance = new RawPreExecutingCommitStrategy(mockStateKeySerializationStrategy)
 
       instance.generateWriteSets(aParticipantId, logEntryId, Map.empty, preExecutionResult).map {
         actual =>
@@ -104,7 +101,7 @@ final class LogAppenderPreExecutingCommitStrategySpec
   }
 }
 
-object LogAppenderPreExecutingCommitStrategySpec {
+object RawPreExecutingCommitStrategySpec {
   private def aStateKey(id: Int) =
     DamlStateKey
       .newBuilder()

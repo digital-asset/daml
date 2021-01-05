@@ -40,6 +40,7 @@ da_haskell_library(
         "typed-process",
         "unordered-containers",
         "utf8-string",
+        "uuid",
         "vector",
         "yaml",
     ],
@@ -52,6 +53,7 @@ da_haskell_library(
         "//compiler/damlc/daml-package-config",
         "//daml-assistant:daml-project-config",
         "//language-support/hs/bindings:hs-ledger",
+        "//ledger-api/grpc-definitions:ledger-api-haskellpb",
         "//libs-haskell/da-hs-base",
     ],
 )

@@ -5,7 +5,7 @@ package com.daml.ledger.validator.caching
 
 import com.daml.caching.Cache.Size
 import com.daml.caching.{Cache, Weight, WeightedCache}
-import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, seqOf}
+import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, iterableOf}
 import com.daml.ledger.validator.caching.CachingStateReaderSpec._
 import com.daml.ledger.validator.reading.StateReader
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -24,7 +24,7 @@ class CachingStateReaderSpec
   "read" should {
     "update cache upon read if policy allows" in {
       val mockReader = mock[TestStateReader]
-      when(mockReader.read(seqOf(size = 1))(anyExecutionContext))
+      when(mockReader.read(iterableOf(size = 1))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(TestValue.random()))))
       val (cache, instance) = newInstance(mockReader, shouldCacheOnRead = true)
 
@@ -35,7 +35,7 @@ class CachingStateReaderSpec
 
     "do not update cache upon read if policy does not allow" in {
       val mockReader = mock[TestStateReader]
-      when(mockReader.read(seqOf(size = 1))(anyExecutionContext))
+      when(mockReader.read(iterableOf(size = 1))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(TestValue.random()))))
       val (cache, instance) = newInstance(mockReader, shouldCacheOnRead = false)
 
@@ -46,7 +46,7 @@ class CachingStateReaderSpec
 
     "serve request from cache for seen key (if policy allows)" in {
       val mockReader = mock[TestStateReader]
-      when(mockReader.read(seqOf(size = 1))(anyExecutionContext))
+      when(mockReader.read(iterableOf(size = 1))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(TestValue(7)))))
       val (_, instance) = newInstance(mockReader, shouldCacheOnRead = true)
 

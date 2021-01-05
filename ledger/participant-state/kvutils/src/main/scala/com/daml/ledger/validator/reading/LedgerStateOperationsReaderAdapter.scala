@@ -12,7 +12,7 @@ final class LedgerStateOperationsReaderAdapter[LogResult](
     operations: LedgerStateOperations[LogResult]
 ) extends StateReader[Key, Option[Value]] {
   override def read(
-      keys: Seq[Key]
+      keys: Iterable[Key]
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] =
     operations.readState(keys)
 }

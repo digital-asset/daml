@@ -96,15 +96,15 @@ trait JsonApiFixture
     super.afterAll()
   }
 
-  protected def getToken(parties: List[String], admin: Boolean): String = {
+  protected def getToken(actAs: List[String], readAs: List[String], admin: Boolean): String = {
     val payload = AuthServiceJWTPayload(
       ledgerId = Some("MyLedger"),
       participantId = None,
       exp = None,
       applicationId = Some("foobar"),
-      actAs = parties,
+      actAs = actAs,
+      readAs = readAs,
       admin = admin,
-      readAs = List()
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt = DecodedJwt[String](header, AuthServiceJWTCodec.writeToString(payload))
@@ -127,7 +127,7 @@ trait JsonApiFixture
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
             Resource[ServerBinding] {
-              Files.write(jsonAccessTokenFile, getToken(List(), false).getBytes())
+              Files.write(jsonAccessTokenFile, getToken(List(), List(), false).getBytes())
               val config = new HttpService.DefaultStartSettings {
                 override val ledgerHost = "localhost"
                 override val ledgerPort = server.port.value
@@ -189,7 +189,7 @@ final class JsonApiIt
       ApiParameters(
         "http://localhost",
         httpPort,
-        Some(getToken(defaultParty.toList, true)),
+        Some(getToken(defaultParty.toList, List(), true)),
         applicationId)
     val partyMap = parties.map(p => (Party.assertFromString(p), Participant(p))).toMap
     val participantMap = parties
@@ -200,7 +200,7 @@ final class JsonApiIt
             ApiParameters(
               "http://localhost",
               httpPort,
-              Some(getToken(List(p), admin)),
+              Some(getToken(List(p), List(), admin)),
               applicationId)))
       .toMap
     val participantParams = Participants(Some(defaultParticipant), participantMap, partyMap)
@@ -209,12 +209,17 @@ final class JsonApiIt
 
   private def getMultiPartyClients(
       parties: List[String],
+      readAs: List[String] = List(),
       applicationId: Option[ApplicationId] = None,
       envIface: EnvironmentInterface = envIface) = {
     // We give the default participant some nonsense party so the checks for party mismatch fail
     // due to the mismatch and not because the token does not allow inferring a party
     val defaultParticipant =
-      ApiParameters("http://localhost", httpPort, Some(getToken(parties, true)), applicationId)
+      ApiParameters(
+        "http://localhost",
+        httpPort,
+        Some(getToken(parties, readAs, true)),
+        applicationId)
     val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
     Runner.jsonClients(participantParams, envIface)
   }
@@ -275,7 +280,7 @@ final class JsonApiIt
             Some(JsString("Bob"))))
       } yield {
         assert(
-          exception.getMessage === "Tried to submit a command as Bob but token provides claims for Alice")
+          exception.getMessage === "Tried to submit a command with actAs = Bob but token provides claims for actAs = Alice")
       }
     }
     "application id mismatch" in {
@@ -313,7 +318,7 @@ final class JsonApiIt
           run(clients, QualifiedName.assertFromString("ScriptTest:jsonCreate")))
       } yield {
         assert(
-          exception.getMessage === "Tried to submit a command as Alice but token contains no actAs parties.")
+          exception.getMessage === "Tried to submit a command with actAs = Alice but token contains no actAs parties.")
       }
     }
     "submit fails on assertion failure" in {
@@ -414,6 +419,32 @@ final class JsonApiIt
         )
       } yield {
         assert(cids == SUnit)
+      }
+    }
+    "multiPartySubmission" in {
+      val party1 = "multiPartySubmission1"
+      val party2 = "multiPartySubmission2"
+      for {
+        clients1 <- getClients(parties = List(party1))
+        cidSingle <- run(
+          clients1,
+          QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreateSingle"),
+          inputValue = Some(JsString(party1)))
+          .map(v => ApiCodecCompressed.apiValueToJsValue(v.toValue.mapContractId(_.coid)))
+        clientsBoth <- getMultiPartyClients(List(party1, party2))
+        cidBoth <- run(
+          clientsBoth,
+          QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreate"),
+          inputValue = Some(JsArray(JsString(party1), JsString(party2))))
+          .map(v => ApiCodecCompressed.apiValueToJsValue(v.toValue.mapContractId(_.coid)))
+        clients2 <- getMultiPartyClients(List(party2), List(party1))
+        r <- run(
+          clients2,
+          QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionExercise"),
+          inputValue = Some(JsArray(JsString(party1), JsString(party2), cidBoth, cidSingle))
+        )
+      } yield {
+        assert(r == SUnit)
       }
     }
   }

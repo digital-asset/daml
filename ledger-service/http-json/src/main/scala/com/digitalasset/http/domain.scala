@@ -59,9 +59,9 @@ object domain {
   case class JwtWritePayload(
       ledgerId: LedgerId,
       applicationId: ApplicationId,
-      actAs: Party,
+      actAs: NonEmptyList[Party],
       readAs: List[Party]) {
-    val parties: OneAnd[Set, Party] = oneAndSet(actAs, readAs.toSet)
+    val parties: OneAnd[Set, Party] = oneAndSet(actAs.head, actAs.tail.toSet union readAs.toSet)
   }
 
   // JWT payload that preserves readAs and actAs and supports multiple parties. This is currently only used for
