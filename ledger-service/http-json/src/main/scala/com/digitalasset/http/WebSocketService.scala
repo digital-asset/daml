@@ -188,13 +188,12 @@ object WebSocketService {
               val q: CompiledQueries = prepareFilters(resolved, gacr.query, lookupType)
               (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
           }
-        val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
+        def fn(a: domain.ActiveContract[LfV]): Option[Positive] =
           q.get(a.templateId).flatMap { preds =>
             preds.collect(Function unlift { case ((_, p), ix) => p(a.payload) option ix })
           }
-        }
         // TODO SC this yields the wrong matchedQueries indices
-        def dbQueries = q.toSeq.flatMap {
+        def dbQueries: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] = q.toSeq.flatMap {
           case (tpid, nel) => nel.toVector.map { case ((vp, _), _) => (tpid, vp.toSqlWhereClause) }
         }
 
