@@ -276,7 +276,7 @@ jobs:
 - job: compat_versions_pr_trigger_daily
   dependsOn: compat_versions_pr
   pool:
-    vmImage: "ubuntu-latest"
+    vmImage: "ubuntu-18.04"
   variables:
     branch: $[ dependencies.compat_versions_pr.outputs['out.branch'] ]
   steps:
