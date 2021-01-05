@@ -499,7 +499,7 @@ object Server {
       host: String,
       port: Int,
       maxAuthCallbacks: Long,
-      authCallbackTimeout: Duration,
+      authCallbackTimeout: FiniteDuration,
       maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,
       authConfig: AuthConfig,

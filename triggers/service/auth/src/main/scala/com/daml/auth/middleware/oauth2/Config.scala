@@ -8,7 +8,7 @@ import com.daml.jwt.{JwtVerifierBase, JwtVerifierConfigurationCli}
 import com.daml.ports.Port
 
 import scala.concurrent.duration
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.FiniteDuration
 
 case class Config(
     // Port the middleware listens on
@@ -17,7 +17,7 @@ case class Config(
     // Must map to the `/cb` endpoint of the auth middleware.
     callbackUri: Option[Uri],
     maxLoginRequests: Long,
-    loginTimeout: Duration,
+    loginTimeout: FiniteDuration,
     // OAuth2 server endpoints
     oauthAuth: Uri,
     oauthToken: Uri,
@@ -30,7 +30,7 @@ case class Config(
 
 object Config {
   val DefaultMaxLoginRequests: Long = 10000
-  val DefaultLoginTimeout: Duration = FiniteDuration(1, duration.MINUTES)
+  val DefaultLoginTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
 
   private val Empty =
     Config(

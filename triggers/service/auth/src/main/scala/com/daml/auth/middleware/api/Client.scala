@@ -28,7 +28,7 @@ import com.github.benmanes.caffeine.cache.{Cache, Caffeine}
 
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.FiniteDuration
 
 class Client(config: Client.Config) {
   private val callbacks: Cache[UUID, Response.Login => Route] = Caffeine
@@ -208,7 +208,7 @@ object Client {
       authMiddlewareUri: Uri,
       callbackUri: Uri,
       maxAuthCallbacks: Long,
-      authCallbackTimeout: Duration,
+      authCallbackTimeout: FiniteDuration,
       maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,
   )

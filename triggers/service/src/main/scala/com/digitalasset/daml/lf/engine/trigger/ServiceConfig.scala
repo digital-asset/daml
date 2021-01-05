@@ -12,7 +12,7 @@ import com.daml.platform.services.time.TimeProviderType
 import scalaz.Show
 
 import scala.concurrent.duration
-import scala.concurrent.duration.{Duration => ScalaDuration, FiniteDuration}
+import scala.concurrent.duration.FiniteDuration
 
 private[trigger] final case class ServiceConfig(
     // For convenience, we allow passing DARs on startup
@@ -28,7 +28,7 @@ private[trigger] final case class ServiceConfig(
     minRestartInterval: FiniteDuration,
     maxRestartInterval: FiniteDuration,
     maxAuthCallbacks: Long,
-    authCallbackTimeout: ScalaDuration,
+    authCallbackTimeout: FiniteDuration,
     maxHttpEntityUploadSize: Long,
     httpEntityUploadTimeout: FiniteDuration,
     timeProviderType: TimeProviderType,
@@ -88,7 +88,7 @@ private[trigger] object ServiceConfig {
   val DefaultMaxRestartInterval: FiniteDuration = FiniteDuration(60, duration.SECONDS)
   // Adds up to ~1GB with DefaultMaxInboundMessagesSize
   val DefaultMaxAuthCallbacks: Long = 250
-  val DefaultAuthCallbackTimeout: ScalaDuration = FiniteDuration(1, duration.MINUTES)
+  val DefaultAuthCallbackTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
   val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxInboundMessageSize.toLong
   val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
 
