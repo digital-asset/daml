@@ -16,7 +16,7 @@ jobs:
 - job: announce_rotation
   timeoutInMinutes: 60
   pool:
-    vmImage: ubuntu-latest
+    vmImage: ubuntu-18.04
   steps:
   - checkout: self
     persistCredentials: true
