@@ -286,7 +286,7 @@ brevity and readability.
 
 Identifiers
 ~~~~~~~~~~~
-In this section, we define a bunch of literals that can be handled by
+In this section, we define the sorts of strings and identifiers that appear in 
 DAML-LF programs.
 
 We first define two types of *strings*::
@@ -3232,7 +3232,7 @@ updates.
 
     —————————————————————————————————————————————————————————————————————— EvLessEqTimestamp
       𝕆('LESS_EQ' @σ LitTimestamp₁ LitTimestamp₂) =
-          Ok (LitTimestamp₁ ≤ₗ≤ LitTimestamp₂)
+          Ok (LitTimestamp₁ ≤ₗ LitTimestamp₂)
 
     —————————————————————————————————————————————————————————————————————— EvLessEqText
       𝕆('LESS_EQ' @σ LitText₁ LitText₂) = Ok (LitText₁ ≤ₗ LitText₂)
