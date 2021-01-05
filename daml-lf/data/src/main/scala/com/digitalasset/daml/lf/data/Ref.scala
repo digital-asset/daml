@@ -181,7 +181,7 @@ object Ref {
    * specified package. */
   final case class Identifier(packageId: PackageId, qualifiedName: QualifiedName)
       extends Ordered[Identifier] {
-    override def toString: String = packageId.toString + ":" + qualifiedName.toString
+    override def toString: String = packageId + ":" + qualifiedName.toString
 
     override def compare(that: Identifier): Int = {
       val diffPkgId = this.packageId compare that.packageId
