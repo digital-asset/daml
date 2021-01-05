@@ -34,34 +34,42 @@ import qualified Network.URI
 import qualified Options.Applicative as Opt
 import Safe (headMay)
 import qualified System.Directory as Directory
+import qualified System.Environment
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as IO
 import qualified System.Process as System
 import qualified Text.Regex.TDFA as Regex
 
-shell_exit_code :: String -> IO (Exit.ExitCode, String, String)
-shell_exit_code cmd = do
-    System.readCreateProcessWithExitCode (System.shell cmd) ""
-
 die :: String -> Int -> String -> String -> IO a
 die cmd exit out err =
     fail $ unlines ["Subprocess:",
-                         cmd,
-                        "failed with exit code " <> show exit <> "; output:",
-                        "---",
-                        out,
-                        "---",
-                        "err:",
-                        "---",
-                        err,
-                        "---"]
+                    cmd,
+                    "failed with exit code " <> show exit <> "; output:",
+                    "---",
+                    out,
+                    "---",
+                    "err:",
+                    "---",
+                    err,
+                    "---"]
 
 shell :: String -> IO String
 shell cmd = System.readCreateProcess (System.shell cmd) ""
 
+proc :: [String] -> IO String
+proc args = System.readCreateProcess (System.proc (head args) (tail args)) ""
+
 shell_ :: String -> IO ()
 shell_ cmd = do
     Control.void $ shell cmd
+
+proc_ :: [String] -> IO ()
+proc_ args = Control.void $ proc args
+
+shell_env_ :: [(String, String)] -> String -> IO ()
+shell_env_ env cmd = do
+    parent_env <- System.Environment.getEnvironment
+    Control.void $ System.readCreateProcess ((System.shell cmd) {System.env = Just (parent_env ++ env)}) ""
 
 robustly_download_nix_packages :: IO ()
 robustly_download_nix_packages = do
@@ -69,7 +77,7 @@ robustly_download_nix_packages = do
     where
         cmd = "nix-build nix -A tools -A ci-cached"
         h n = do
-            (exit, out, err) <- shell_exit_code cmd
+            (exit, out, err) <- System.readCreateProcessWithExitCode (System.shell cmd) ""
             case (exit, n) of
               (Exit.ExitSuccess, _) -> return ()
               (Exit.ExitFailure exit, 0) -> die cmd exit out err
@@ -108,20 +116,20 @@ build_and_push opts@DocOptions{build} temp versions = do
     where
         restore_sha io =
             bracket (init <$> shell "git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD")
-                                      (\cur_sha -> shell_ $ "git checkout " <> cur_sha)
-                                      (const io)
+                    (\cur_sha -> proc_ ["git", "checkout", cur_sha])
+                    (const io)
         push version =
-            shell_ $ "aws s3 cp " <>
-              (temp </> show version) <> " " <>
-              s3Path opts (show version) <>
-              " --recursive --acl public-read"
+            proc_ ["aws", "s3", "cp",
+                   temp </> show version,
+                   s3Path opts (show version),
+                   "--recursive", "--acl", "public-read"]
 
 fetch_if_missing :: DocOptions -> FilePath -> Version -> IO ()
 fetch_if_missing opts temp v = do
     missing <- not <$> Directory.doesDirectoryExist (temp </> show v)
     if missing then do
         putStrLn $ "Downloading " <> show v <> "..."
-        shell_ $ "aws s3 cp " <> s3Path opts (show v) <> " " <> temp </> show v <> " --recursive"
+        proc_ ["aws", "s3", "cp", s3Path opts (show v), temp </> show v, "--recursive"]
         putStrLn "Done."
     else do
         putStrLn $ show v <> " already present."
@@ -132,7 +140,7 @@ update_s3 opts temp vs = do
     create_versions_json (dropdown vs) (temp </> "versions.json")
     let hidden = Data.List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs)
     create_versions_json hidden (temp </> "hidden.json")
-    let push f = shell_ $ "aws s3 cp " <> temp </> f <> s3Path opts f <> " --acl public-read"
+    let push f = proc_ ["aws", "s3", "cp", temp </> f, s3Path opts f, "--acl", "public-read"]
     push "versions.json"
     push "hidden.json"
     Control.Monad.Extra.whenJust (top vs) $ \latest -> do
@@ -160,19 +168,17 @@ update_top_level opts temp new mayOld = do
     Control.when (not $ null to_delete) $ do
         putStrLn $ "Deleting top-level files: " <> show to_delete
         Data.Foldable.for_ to_delete (\f -> do
-            shell_ $ "aws s3 rm " <> s3Path opts f <> " --recursive")
+            proc_ ["aws", "s3", "rm", s3Path opts f, "--recursive"])
         putStrLn "Done."
     putStrLn $ "Pushing " <> show new <> " to top-level..."
     let path = s3Path opts "" <> "/"
-    shell_ $ "aws s3 cp " <> temp </> show new </> " " <> path <> " --recursive --acl public-read"
+    proc_ ["aws", "s3", "cp", temp </> show new, path, "--recursive", "--acl", "public-read"]
     putStrLn "Done."
 
 reset_cloudfront :: IO ()
 reset_cloudfront = do
     putStrLn "Refreshing CloudFront cache..."
-    shell_ $ "aws cloudfront create-invalidation"
-             <> " --distribution-id E1U753I56ERH55"
-             <> " --paths '/*'"
+    shell_ "aws cloudfront create-invalidation --distribution-id E1U753I56ERH55 --paths '/*'"
 
 fetch_gh_paginated :: String -> IO [GitHubRelease]
 fetch_gh_paginated url = do
@@ -245,8 +251,8 @@ fetch_s3_versions opts = do
     return $ versions $ dropdown <> hidden
     where fetch file prerelease = do
               temp <- shell "mktemp"
-              shell_ $ "aws s3 cp " <> s3Path opts file <> " " <> temp
-              s3_raw <- shell $ "cat " <> temp
+              proc_ ["aws", "s3", "cp", s3Path opts file, temp]
+              s3_raw <- proc ["cat", temp]
               let type_annotated_value :: Maybe JSON.Object
                   type_annotated_value = JSON.decode $ LBS.fromString s3_raw
               case type_annotated_value of
@@ -267,11 +273,11 @@ sdkDocOpts = DocOptions
     -- the repo.
   , includedVersion = \v -> v >= version "0.13.10"
   , build = \temp version -> do
-        shell_ $ "git checkout v" <> show version
+        proc_ ["git", "checkout", "v" <> show version]
         robustly_download_nix_packages
-        shell_ $ "DAML_SDK_RELEASE_VERSION=" <> show version <> " bazel build //docs:docs"
-        shell_ $ "mkdir -p  " <> temp </> show version
-        shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> temp </> show version
+        shell_env_ [("DAML_SDK_RELEASE_VERSION", show version)] "bazel build //docs:docs"
+        proc_ ["mkdir", "-p", temp </> show version]
+        proc_ ["tar", "xzf", "bazel-bin/docs/html.tar.gz", "--strip-components=1", "-C", temp </> show version]
   }
 
 damlOnSqlDocOpts :: DocOptions
@@ -279,11 +285,11 @@ damlOnSqlDocOpts = DocOptions
   { s3Subdir = Just "daml-driver-for-postgresql"
   , includedVersion = \v -> v > version "1.8.0-snapshot.20201201.5776.0.4b91f2a6"
   , build = \temp version -> do
-        shell_ $ "git checkout v" <> show version
+        proc_ ["git", "checkout", "v", show version]
         robustly_download_nix_packages
-        shell_ $ "DAML_SDK_RELEASE_VERSION=" <> show version <> " bazel build //ledger/daml-on-sql:docs"
-        shell_ $ "mkdir -p  " <> temp </> show version
-        shell_ $ "tar xzf bazel-bin/ledger/daml-on-sql/html.tar.gz --strip-components=1 -C" <> temp </> show version
+        shell_env_ [("DAML_SDK_RELEASE_VERSION", show version)] "bazel build //ledger/daml-on-sql:docs"
+        proc_ ["mkdir", "-p", temp </> show version]
+        proc_ ["tar", "xzf", "bazel-bin/ledger/daml-on-sql/html.tar.gz", "--strip-components=1", "-C", temp </> show version]
   }
 
 docs :: DocOptions -> IO ()
@@ -455,9 +461,4 @@ main = do
       Docs -> do
           docs sdkDocOpts
           docs damlOnSqlDocOpts
-          -- FIXME: this is meant to run once to create the `latest` file
-          -- without waiting for the next stable release.
-          gh_versions <- fetch_gh_versions (includedVersion sdkDocOpts)
-          IO.withTempDir $ \temp_dir -> do
-              update_s3 sdkDocOpts temp_dir gh_versions
       Check { bash_lib, gcp_credentials, max_releases } -> check_releases gcp_credentials bash_lib max_releases

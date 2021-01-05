@@ -119,14 +119,14 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     }
 
   private lazy val templateDefinition: Parser[TemplDef] =
-    Id("template") ~ `(` ~> id ~ `:` ~ dottedName ~ `)` ~ `=` ~ `{` ~
+    (Id("template") ~ `(` ~> id ~ `:` ~ dottedName ~ `)` ~ `=` ~ `{` ~
       (Id("precondition") ~> expr) ~
       (`,` ~> Id("signatories") ~> expr) ~
       (`,` ~> Id("observers") ~> expr) ~
       (`,` ~> Id("agreement") ~> expr) ~
       (`,` ~> Id("choices") ~ `{` ~> repsep(templateChoice, `,`) <~ `}`) ~
       opt(`,` ~> Id("key") ~> templateKey) <~
-      `}` ^^ {
+      `}`) ^^ {
       case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
             precon ~
             signatories ~

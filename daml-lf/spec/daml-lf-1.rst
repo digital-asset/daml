@@ -603,7 +603,7 @@ Then we can define our kinds, types, and expressions::
        | 'type_rep' @τ                              -- ExpToTypeRep: A type representation [DAML-LF ≥ 1.7]
        |  u                                         -- ExpUpdate: Update expression
        |  s                                         -- ExpScenario: Scenario expression
-       | 'throw'                                    -- ExpThrow: throw exception
+       | 'throw' @σ @τ e                            -- ExpThrow: throw exception
        | 'make_any_exception' @τ eₘ eₚ              -- ExpMakeAnyException: Turn a concrete exception into an 'AnyException' [DAML-LF ≥ 1.dev]
        | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException' [DAML-LF ≥ 1.dev]
 
@@ -703,7 +703,7 @@ available for usage::
             , 'choices' { ChDef₁, …, ChDefₘ }
             , KeyDef
             }
-       |  'exception' T                             -- DefException [DAML-LF ≥ 1.dev]
+       |  'exception' T ↦ { 'message' e }           -- DefException [DAML-LF ≥ 1.dev]
 
   Module (mnemonic: delta for definitions)
     Δ ::= ε                                         -- DefCtxEmpty

@@ -10,7 +10,7 @@ import com.daml.lf.language.Util._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.validation.AlphaEquiv._
 import com.daml.lf.validation.Util._
-import com.daml.lf.validation.traversable.TypeTraversable
+import com.daml.lf.validation.iterable.TypeIterable
 
 import scala.annotation.tailrec
 
@@ -930,7 +930,7 @@ private[validation] object Typing {
         case TVar(_) | TForall(_, _) | TSynApp(_, _) =>
           throw EExpectedAnyType(ctx, typ)
         case _ =>
-          TypeTraversable(typ).foreach(checkAnyType_)
+          TypeIterable(typ).foreach(checkAnyType_)
       }
     }
 
