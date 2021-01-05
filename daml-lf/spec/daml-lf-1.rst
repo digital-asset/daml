@@ -95,18 +95,24 @@ version. In addition, we will mark lines within inference rules with
 annotations of the form ``[DAML-LF < x.y]`` and ``[DAML-LF ≥ x.y]`` to
 make the respective line conditional upon the DAML-LF version.
 
-The version 1.dev is a special staging area for the next 1.x version to
-be released. Compliant implementations are not required to implement any
-features exclusive to version 1.dev, but should take them under
-advisement as likely elements of the next 1.x version.
+A *preview* version is an snapshot of the next 1.x version to be
+released. It is provided for beta testing purpose and may only be
+changed to include bug fixes.  On the other hand, the *development*
+version is a special staging area for the development of upcoming
+version 1.x version.  It may be used for alpha testing, and can be
+changed without notice. Compliant implementations are not required to
+implement any features exclusive to development version, but should
+take them under advisement as likely elements of the next 1.x version.
 
-Below, we list the versions of DAML-LF 1.x that a DAML-LF
-engine compliant with the present specification must handle [except for
-1.dev], in ascending order.  The list comes with a brief description of
-the changes, and some links to help unfamiliar readers learn about the
-features involved in the change.  One can refer also to the
-`Serialization` section which is particularly concerned about versioning
-and backward compatibility.
+Below, we list the versions of DAML-LF 1.x that a DAML-LF engine
+compliant with the present specification must handle, in ascending
+order. The optional preview version is marked with the tag *(preview)*
+while the development version is marked with the tag *(development)*.
+Conventionally development version is call 1.dev.  The list comes with
+a brief description of the changes, and some links to help unfamiliar
+readers learn about the features involved in the change.  One can
+refer also to the `Serialization` section which is particularly
+concerned about versioning and backward compatibility.
 
 Support for language versions 1.0 to 1.5 was dropped on 2020-11-30.
 This breaking change does not impact ledgers created with SDK 1.0.0 or
@@ -215,8 +221,8 @@ Version: 1.11 (preview)
 
   + **Add** choice observers.
 
-Version: 1.dev
-..............
+Version: 1.dev (development)
+............................
 
   + **Add** exception handling.
 
@@ -4401,8 +4407,8 @@ To provide sharing of `names <Identifiers_>`_, the so-called *name
 interning* mechanism allows the *names* within messages to be stored
 in a global table and be referenced by their index.
 
-``InternedDottedName`` is a non-empty list of valid `interned
-identifiers`_. Such message is interpreted as the name built from the
+``InternedDottedName`` is a non-empty list of valid interned
+identifiers. Such message is interpreted as the name built from the
 sequence the interned identifiers it contains.  The field
 ``Package.interned_dotted_names`` is a list of such messages. A
 so-called `interned name` is a valid zero-based index of this list. An
