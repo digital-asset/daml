@@ -326,9 +326,6 @@ Developer Tools
    * - Navigator Config File Creation (``daml navigator create-config``)
      - Stable
      -
-   * - :doc:`DAML Navigator Console </tools/navigator/console>` (``daml navigator console``)
-     - Labs
-     -
    * - Navigator graphQL Schema (``daml navigator dump-graphql-schema``)
      - Labs
      -
