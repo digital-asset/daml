@@ -3,7 +3,7 @@
 
 module MoreChoiceObserverDivulgence where
 
--- @SINCE-LF 1.dev
+-- @SINCE-LF 1.11
 
 -- This example is a small modification of `DiscloseViaChoiceObserver`, but now the divulgence is achieved using a separate `Divulger` template, with a `Divulge` choice, which does a `fetch` on the given `id`, in the view of a choice-observer.
 

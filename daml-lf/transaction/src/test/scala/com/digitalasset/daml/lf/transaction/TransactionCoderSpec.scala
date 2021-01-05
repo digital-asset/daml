@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -17,8 +17,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
+import scala.collection.compat._
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class TransactionCoderSpec
     extends AnyWordSpec
@@ -230,7 +231,7 @@ class TransactionCoderSpec
                   ValueCoder.CidEncoder,
                   VersionedTransaction(
                     TransactionVersion.VDev,
-                    tx.nodes.mapValues(_.updateVersion(TransactionVersion.VDev)),
+                    tx.nodes.view.mapValues(_.updateVersion(TransactionVersion.VDev)).toMap,
                     tx.roots),
                 ),
             ).toBuilder.setVersion(badTxVer).build()
@@ -273,7 +274,7 @@ class TransactionCoderSpec
         val nodes = roots.iterator.map(nid => nid -> versionedNode).toMap
         val tx = VersionedTransaction(
           version,
-          nodes = nodes.mapValues(_.copy(version = version)),
+          nodes = nodes.view.mapValues(_.copy(version = version)).toMap,
           roots = roots
         )
 
@@ -287,10 +288,10 @@ class TransactionCoderSpec
                 ValueCoder.CidEncoder,
                 tx,
               )
-              .right
+              .toOption
               .get,
           )
-          .right
+          .toOption
           .get
         tx shouldEqual decoded
       }
@@ -346,7 +347,7 @@ class TransactionCoderSpec
                 txVersion,
                 nodeId,
                 normalizedNode.updateVersion(nodeVersion),
-              ) shouldBe 'left
+              ) shouldBe Symbol("left")
           }
       }
     }
@@ -411,7 +412,7 @@ class TransactionCoderSpec
               ValueCoder.CidDecoder,
               txVersion,
               encoded,
-            ) shouldBe 'left
+            ) shouldBe Symbol("left")
           }
       }
     }
@@ -557,7 +558,7 @@ class TransactionCoderSpec
       version: TransactionVersion,
       nodes: Map[Nid, GenNode[Nid, Cid]],
   ): Map[Nid, GenNode[Nid, Cid]] =
-    nodes.mapValues(_.updateVersion(version))
+    nodes.view.mapValues(_.updateVersion(version)).toMap
 
   private[this] def inIncreasingOrder(version1: TransactionVersion, version2: TransactionVersion) =
     if (version1 < version2)

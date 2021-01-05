@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #
@@ -33,8 +33,8 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 rules_scala_version = "67a7ac178a73d1d5ff4c2b0663a8eda6dfcbbc56"
 rules_scala_sha256 = "95054009fd938ac7ef53a20619f94a5408d8ae74eb5b318cd150a3ecb1a6086f"
 
-rules_haskell_version = "130121dac45dc726175fbb15230c02325b6fe73a"
-rules_haskell_sha256 = "423112ebcd17ae609caf6b76c75d5785f58a41a197fb62545d46f89bd66b508c"
+rules_haskell_version = "3987c494f7a3b72805855246a844a28880dd0b15"
+rules_haskell_sha256 = "7f6e7005cefbce61930e2feca71d96abba9d7a23059ca1bcdc1d13355f5d448f"
 rules_nixpkgs_version = "0dd4c8a085b108592b0193ad1e237e2e07f715ac"
 rules_nixpkgs_sha256 = "f2073135db911ee94b70da1e2288dd2445976a1b20a1edfe67773b29751f50a9"
 buildifier_version = "3.3.0"

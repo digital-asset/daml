@@ -1,10 +1,10 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package archive
 
-import java.io._
+import java.io.{File, FileInputStream, InputStream}
 import java.util.zip.ZipInputStream
 
 import com.daml.lf.data.Ref
@@ -70,7 +70,7 @@ object UniversalArchiveReader {
       entrySizeThreshold: Int,
       parseDalf: InputStream => Try[A],
   ): (String, ZipInputStream) => Try[Dar[A]] =
-    DarReader { case (_, is) => parseDalf(is) }.readArchive(_, _, entrySizeThreshold)
+    DarReader[A] { case (_, is) => parseDalf(is) }.readArchive(_, _, entrySizeThreshold)
 }
 
 /**

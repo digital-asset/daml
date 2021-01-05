@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.language
@@ -150,6 +150,40 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           templates = List.empty,
           exceptions = List(
             defName("defName1") -> exception,
+            defName("defName1") -> exception,
+          ),
+          featureFlags = FeatureFlags.default,
+        )
+      )
+    }
+
+    "catch collisions between exception and template" in {
+      Module.apply(
+        name = modName1,
+        definitions = List(
+          defName("defName1") -> recordDef,
+          defName("defName2") -> recordDef,
+        ),
+        templates = List(
+          defName("defName1") -> template,
+        ),
+        exceptions = List(
+          defName("defName2") -> exception,
+        ),
+        featureFlags = FeatureFlags.default,
+      )
+
+      a[PackageError] shouldBe thrownBy(
+        Module.apply(
+          name = modName1,
+          definitions = List(
+            defName("defName1") -> recordDef,
+            defName("defName2") -> recordDef,
+          ),
+          templates = List(
+            defName("defName1") -> template,
+          ),
+          exceptions = List(
             defName("defName1") -> exception,
           ),
           featureFlags = FeatureFlags.default,

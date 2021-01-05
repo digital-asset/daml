@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
@@ -15,6 +15,7 @@ LATEST_STABLE_DAML_LF_VERSION = "1.8"
 DAML_LF_VERSIONS = [
     "1.6",
     "1.7",
-    LATEST_STABLE_DAML_LF_VERSION,
+    "1.8",
+    "1.11",
     "1.dev",
 ]

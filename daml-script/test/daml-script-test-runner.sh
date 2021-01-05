@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Copy-pasted from the Bazel Bash runfiles library v2.
@@ -62,6 +62,7 @@ ScriptTest:testQueryContractKey SUCCESS
 ScriptTest:testSetTime SUCCESS
 ScriptTest:testStack SUCCESS
 ScriptTest:traceOrder SUCCESS
+ScriptTest:tupleKey SUCCESS
 EOF
 )"
 

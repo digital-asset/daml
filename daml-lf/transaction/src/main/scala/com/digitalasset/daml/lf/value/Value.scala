@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -504,11 +504,10 @@ private final class `Value Order instance`[Cid: Order](Scope: Value.LookupVarian
       ctorA: Ref.Name,
       ctorB: Ref.Name) = {
     val idAB = unifyIds(idA, idB)
-    Scope(idAB) cata ({ ctors =>
+    Scope(idAB).cata({ ctors =>
       val lookup = ctors.toSeq
       (lookup indexOf ctorA) ?|? (lookup indexOf ctorB)
-    },
-    noType(idAB))
+    }, noType(idAB))
   }
   @throws[IllegalArgumentException]
   private[this] def noType(id: Identifier): Nothing =

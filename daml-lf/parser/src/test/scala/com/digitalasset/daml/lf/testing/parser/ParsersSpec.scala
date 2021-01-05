@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -559,7 +559,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         """
           module Mod {
 
-            record R = { } ;
+            record @serializable R = { } ;
 
             template (this : R) =  {
               precondition True,
@@ -583,7 +583,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         )
 
       val recDef = DDataType(
-        false,
+        true,
         ImmArray.empty,
         DataRecord(ImmArray.empty)
       )
@@ -600,6 +600,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
 
     }
   }
+
   "parses exception definition" in {
 
     val p =

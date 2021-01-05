@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
@@ -29,8 +29,8 @@ class InterpretationCostBasedLedgerWriterChooserSpec
 
       instance.commit(aCorrelationId, anEnvelope, commitMetadata).map { _ =>
         verify(mockWriterCheap, times(1)).commit(any[String], any[Bytes], any[CommitMetadata])
+        succeed
       }
-      succeed
     }
 
     "delegate to cheap writer in case estimated interpretation cost is below threshold" in {
@@ -43,8 +43,8 @@ class InterpretationCostBasedLedgerWriterChooserSpec
 
       instance.commit(aCorrelationId, anEnvelope, commitMetadata).map { _ =>
         verify(mockWriterCheap, times(1)).commit(any[String], any[Bytes], any[CommitMetadata])
+        succeed
       }
-      succeed
     }
 
     "delegate to expensive writer in case estimated interpretation cost reaches the threshold" in {
@@ -57,8 +57,8 @@ class InterpretationCostBasedLedgerWriterChooserSpec
 
       instance.commit(aCorrelationId, anEnvelope, commitMetadata).map { _ =>
         verify(mockWriterExpensive, times(1)).commit(any[String], any[Bytes], any[CommitMetadata])
+        succeed
       }
-      succeed
     }
 
     "delegate to expensive writer in case threshold is 0" in {
@@ -71,8 +71,8 @@ class InterpretationCostBasedLedgerWriterChooserSpec
 
       instance.commit(aCorrelationId, anEnvelope, commitMetadata).map { _ =>
         verify(mockWriterExpensive, times(1)).commit(any[String], any[Bytes], any[CommitMetadata])
+        succeed
       }
-      succeed
     }
   }
 

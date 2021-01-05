@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.jwt
@@ -44,8 +44,8 @@ class JwksVerifier(
   private[this] val http =
     new UrlJwkProvider(
       url,
-      new Integer(connectionTimeoutUnit.toMillis(connectionTimeout).toInt),
-      new Integer(readTimeoutUnit.toMillis(readTimeout).toInt),
+      Integer.valueOf(connectionTimeoutUnit.toMillis(connectionTimeout).toInt),
+      Integer.valueOf(readTimeoutUnit.toMillis(readTimeout).toInt),
     )
 
   private[this] val cache: Cache[String, JwtVerifier] = CacheBuilder

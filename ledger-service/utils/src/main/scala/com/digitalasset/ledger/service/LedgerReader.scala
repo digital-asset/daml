@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.service
@@ -76,7 +76,7 @@ object LedgerReader {
 
   def damlLfTypeLookup(packageStore: () => PackageStore)(id: Identifier): Option[DefDataType.FWT] =
     for {
-      iface <- packageStore().get(id.packageId.toString)
+      iface <- packageStore().get(id.packageId)
       ifaceType <- iface.typeDecls.get(id.qualifiedName)
     } yield ifaceType.`type`
 }

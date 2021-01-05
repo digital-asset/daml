@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -17,8 +17,10 @@ import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 import com.google.protobuf.CodedInputStream
 
 import scala.Ordering.Implicits.infixOrderingOps
-import scala.collection.JavaConverters._
-import scala.collection.{breakOut, mutable}
+import scala.collection
+import scala.collection.compat._
+import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 
 private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Package] {
 
@@ -32,7 +34,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       onlySerializableDataDefs: Boolean
   ): Package = {
     val internedStrings: ImmArraySeq[String] = ImmArraySeq(
-      lfPackage.getInternedStringsList.asScala: _*)
+      lfPackage.getInternedStringsList.asScala.toSeq: _*)
     if (internedStrings.nonEmpty)
       assertSince(LV.Features.internedPackageId, "interned strings table")
 
@@ -124,7 +126,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
   }
 
   private[this] def decodeInternedDottedNames(
-      internedList: Seq[PLF.InternedDottedName],
+      internedList: collection.Seq[PLF.InternedDottedName],
       internedStrings: ImmArraySeq[String]): ImmArraySeq[DottedName] = {
 
     if (internedList.nonEmpty)
@@ -138,11 +140,12 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         idn =>
           decodeSegments(
             idn.getSegmentsInternedStrList.asScala
-              .map(id => internedStrings.lift(id).getOrElse(throw outOfRange(id)))(breakOut))
-      )(breakOut)
+              .map(id => internedStrings.lift(id).getOrElse(throw outOfRange(id))))
+      )
+      .to(ImmArraySeq)
   }
 
-  private[this] def decodeSegments(segments: Seq[String]): DottedName =
+  private[this] def decodeSegments(segments: collection.Seq[String]): DottedName =
     DottedName.fromSegments(segments) match {
       case Left(err) => throw new ParseError(err)
       case Right(x) => x
@@ -173,7 +176,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       packageId: PackageId,
       internedStrings: ImmArraySeq[String],
       internedDottedNames: ImmArraySeq[DottedName],
-      internedTypes: IndexedSeq[Type],
+      internedTypes: collection.IndexedSeq[Type],
       optDependencyTracker: Option[PackageDependencyTracker],
       optModuleName: Option[ModuleName],
       onlySerializableDataDefs: Boolean
@@ -301,7 +304,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       }
 
     private[this] def handleDottedName(
-        segments: Seq[String],
+        segments: collection.Seq[String],
         interned_id: Int,
         description: => String,
     ): DottedName =
@@ -393,7 +396,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     private[this] def handleInternedNames(
         strings: util.List[String],
         stringIds: util.List[Integer],
-        description: => String): Seq[Name] =
+        description: => String): collection.Seq[Name] =
       if (versionIsOlderThan(LV.Features.internedStrings)) {
         assertEmpty(stringIds, description + "_interned_string")
         strings.asScala.map(toName)
@@ -1359,14 +1362,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     if (i != 0)
       throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
 
-  private def assertUndefined(s: Seq[_], description: => String): Unit =
+  private def assertUndefined(s: collection.Seq[_], description: => String): Unit =
     if (s.nonEmpty)
       throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
 
-  private def assertNonEmpty(s: Seq[_], description: => String): Unit =
+  private def assertNonEmpty(s: collection.Seq[_], description: => String): Unit =
     if (s.isEmpty) throw ParseError(s"Unexpected empty $description")
 
-  private[this] def assertEmpty(s: Seq[_], description: => String): Unit =
+  private[this] def assertEmpty(s: collection.Seq[_], description: => String): Unit =
     if (s.nonEmpty) throw ParseError(s"Unexpected non-empty $description")
 
   private[this] def assertEmpty(s: util.List[_], description: => String): Unit =

@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Releases and Versioning
@@ -56,7 +56,7 @@ Once a month Digital Asset publishes a community update to accompany the announc
 Process
 -------
 
-Weekly snapshot and monthly stable releases follow a regular process and schedule. The process is documented `in the DAML repository <https://github.com/digital-asset/daml/blob/master/release/RELEASE.md>`_ so only the schedule for monthly releases is covered here.
+Weekly snapshot and monthly stable releases follow a regular process and schedule. The process is documented `in the DAML repository <https://github.com/digital-asset/daml/blob/main/release/RELEASE.md>`_ so only the schedule for monthly releases is covered here.
 
 Selecting a Release Candidate
 

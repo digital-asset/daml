@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
@@ -69,6 +69,16 @@ template WithKey
     nonconsuming choice GetCid : ContractId WithKey
       controller p
       do pure self
+
+template TTupleKey
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    key (p1, p2) : (Party, Party)
+    maintainer key._1
 
 test0 : Script (Party, Party, [T], [TProposal], [C])
 test0 = do
@@ -348,6 +358,15 @@ multiPartySubmission = do
   single <- submitMulti [p1] [] (createCmd (MultiPartyContract [p1]))
   submitMultiMustFail [p2] [] (exerciseCmd shared (MPFetchOther single p2))
   submitMulti [p2] [p1] (exerciseCmd shared (MPFetchOther single p2))
+  pure ()
+
+tupleKey : Script ()
+tupleKey = do
+  p1 <- allocateParty "p1"
+  p2 <- allocateParty "p2"
+  cid <- submit p1 (createCmd (TTupleKey p1 p2))
+  r <- queryContractKey @TTupleKey p1 (p1, p2)
+  r === Some (cid, TTupleKey p1 p2)
   pure ()
 
 -- Create a contract only visible to one party to test readAs

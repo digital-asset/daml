@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -469,7 +469,7 @@ object Engine {
       tx.nodes.get(tx.roots(0)).toList.head match {
         case create: NodeCreate[_] => makeDesc("create", create.coinst.template, None)
         case exercise: NodeExercises[_, _] =>
-          makeDesc("exercise", exercise.templateId, Some(exercise.choiceId.toString))
+          makeDesc("exercise", exercise.templateId, Some(exercise.choiceId))
         case fetch: NodeFetch[_] => makeDesc("fetch", fetch.templateId, None)
         case lookup: NodeLookupByKey[_] => makeDesc("lookup", lookup.templateId, None)
       }

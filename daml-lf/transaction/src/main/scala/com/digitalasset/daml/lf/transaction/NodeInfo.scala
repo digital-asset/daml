@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.transaction
@@ -64,7 +64,7 @@ object NodeInfo {
     def actingParties: Set[Party]
     def choiceObservers: Set[Party]
 
-    final def requiredAuthorizers(): Set[Party] = actingParties
+    final def requiredAuthorizers: Set[Party] = actingParties
 
     final def informeesOfNode: Set[Party] =
       if (consuming)
@@ -77,7 +77,7 @@ object NodeInfo {
     def keyMaintainers: Set[Party]
     def hasResult: Boolean
 
-    final def requiredAuthorizers(): Set[Party] = keyMaintainers
+    final def requiredAuthorizers: Set[Party] = keyMaintainers
     final def informeesOfNode: Set[Party] =
       // TODO(JM): In the successful case the informees should be the
       // signatories of the fetch contract. The signatories should be

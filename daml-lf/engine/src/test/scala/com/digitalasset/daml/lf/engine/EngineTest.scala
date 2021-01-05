@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -1944,8 +1944,8 @@ class EngineTest
 
     def pkg(version: LV) =
       language.Ast.Package(
-        Traversable.empty,
-        Traversable.empty,
+        Iterable.empty,
+        Iterable.empty,
         version,
         None
       )

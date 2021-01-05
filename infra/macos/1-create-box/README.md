@@ -171,7 +171,7 @@ git checkout 0ef5e055659230e2fb2ae9b0928f70dc27c1c136
 ```
 
 where, again, this is the commit I tested with, so I am providing it for
-maximum reproducibility, but I have no reason to mistrust the master branch.
+maximum reproducibility, but I have no reason to mistrust the `master` branch.
 
 Finally, run:
 ```bash
