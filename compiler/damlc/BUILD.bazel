@@ -51,7 +51,7 @@ genrule(
 )
 
 genrule(
-    name = "hpp",
+    name = "hpp-rule",
     srcs = ["@stackage-exe//hpp"],
     outs = ["hpp"],
     cmd = """
