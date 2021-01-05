@@ -1675,6 +1675,16 @@ convertTyCon env t
                     then TTypeRep
                     else TUnit
             _ -> defaultTyCon
+    | NameIn DA_Internal_Exception n <- t =
+        case n of
+            -- TODO #8020 https://github.com/digital-asset/daml/issues/8020:
+            -- Depending on how we end up using these during desugaring, we may need
+            -- to erase these to TUnit on LF versions that don't support exceptions.
+            "AnyException" -> pure (TBuiltin BTAnyException)
+            "GeneralError" -> pure (TBuiltin BTGeneralError)
+            "ArithmeticError" -> pure (TBuiltin BTArithmeticError)
+            "ContractError" -> pure (TBuiltin BTContractError)
+            _ -> defaultTyCon
     | NameIn DA_Internal_Prelude "Optional" <- t = pure (TBuiltin BTOptional)
     | otherwise = defaultTyCon
     where
