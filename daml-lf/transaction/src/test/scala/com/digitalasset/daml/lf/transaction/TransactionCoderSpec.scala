@@ -39,7 +39,7 @@ class TransactionCoderSpec
 
   "encode-decode" should {
 
-    "do contractInstance" ignore {
+    "do contractInstance" in {
       forAll(versionedContractInstanceGen)(
         coinst =>
           Right(coinst) shouldEqual TransactionCoder.decodeVersionedContractInstance(
@@ -48,7 +48,7 @@ class TransactionCoderSpec
         ))
     }
 
-    "do NodeCreate" ignore {
+    "do NodeCreate" in {
       forAll(malformedCreateNodeGen, transactionVersionGen(), transactionVersionGen()) {
         (createNode, version1, version2) =>
           val (nodeVersion, txVersion) = inIncreasingOrder(version1, version2)
@@ -76,7 +76,7 @@ class TransactionCoderSpec
       }
     }
 
-    "do NodeFetch" ignore {
+    "do NodeFetch" in {
       forAll(fetchNodeGen, transactionVersionGen(), transactionVersionGen()) {
         (fetchNode, version1, version2) =>
           val (nodeVersion, txVersion) = inIncreasingOrder(version1, version2)
@@ -107,7 +107,7 @@ class TransactionCoderSpec
       }
     }
 
-    "do NodeExercises" ignore {
+    "do NodeExercises" in {
       forAll(danglingRefExerciseNodeGen, transactionVersionGen(), transactionVersionGen()) {
         (exerciseNode, version1, version2) =>
           val (nodeVersion, txVersion) = inIncreasingOrder(version1, version2)
@@ -170,7 +170,7 @@ class TransactionCoderSpec
         }
       }
 
-    "succeed with encoding under later version if succeeded under earlier version" ignore {
+    "succeed with encoding under later version if succeeded under earlier version" in {
       def overrideNodeVersions[Nid, Cid](tx: GenTransaction[Nid, Cid]) = {
         tx.copy(nodes = tx.nodes.transform((_, node) =>
           node.updateVersion(TransactionVersion.minVersion)))
@@ -249,7 +249,7 @@ class TransactionCoderSpec
         }
       }
 
-    "do tx with a lot of root nodes" ignore {
+    "do tx with a lot of root nodes" in {
       val node =
         NodeCreate[ContractId](
           coid = absCid("#test-cid"),
@@ -300,7 +300,7 @@ class TransactionCoderSpec
 
   "encodeVersionedNode" should {
 
-    "fail iff try to encode choice observers in version < 11" ignore {
+    "fail iff try to encode choice observers in version < 11" in {
       val normalize = minimalistNode(V10)
 
       forAll(danglingRefExerciseNodeGen, minSuccessful(10)) { node =>
@@ -327,7 +327,7 @@ class TransactionCoderSpec
       }
     }
 
-    "fail if try to encode a node in a version newer than the transaction" ignore {
+    "fail if try to encode a node in a version newer than the transaction" in {
 
       forAll(
         danglingRefGenNode,
@@ -356,7 +356,7 @@ class TransactionCoderSpec
 
   "decodeVersionedNode" should {
 
-    """ignore field version if enclosing Transaction message is of version 10""" ignore {
+    """ignore field version if enclosing Transaction message is of version 10""" in {
       val normalize = minimalistNode(V10)
 
       forAll(danglingRefGenNode, Gen.asciiStr, minSuccessful(10)) {
@@ -417,7 +417,7 @@ class TransactionCoderSpec
       }
     }
 
-    "ignore field observers in version < 11" ignore {
+    "ignore field observers in version < 11" in {
       val normalize = minimalistNode(V10)
 
       forAll(
