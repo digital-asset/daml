@@ -8,7 +8,6 @@ module DA.Daml.Assistant.Install
     , InstallURL (..)
     , InstallEnv (..)
     , versionInstall
-    , getLatestVersion
     , install
     , uninstallVersion
     , pattern RawInstallTarget_Project
@@ -20,7 +19,7 @@ import DA.Daml.Assistant.Util
 import qualified DA.Daml.Assistant.Install.Github as Github
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
-import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion)
+import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion)
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
 import Safe
@@ -372,16 +371,12 @@ versionInstall env@InstallEnv{..} version = do
 -- | Install the latest version of the SDK.
 latestInstall :: InstallEnv -> IO ()
 latestInstall env@InstallEnv{..} = do
-    version1 <- getLatestVersion
+    version1 <- getLatestReleaseVersion
     version2M <- if iSnapshots options
         then getLatestSdkSnapshotVersion
         else pure Nothing
     let version = maybe version1 (max version1) version2M
     versionInstall env version
-
--- | Get the latest stable version.
-getLatestVersion :: IO SdkVersion
-getLatestVersion = Github.getLatestVersion
 
 -- | Install the SDK version of the current project.
 projectInstall :: InstallEnv -> ProjectPath -> IO ()
