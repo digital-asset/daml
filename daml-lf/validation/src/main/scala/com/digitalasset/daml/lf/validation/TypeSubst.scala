@@ -7,6 +7,7 @@ import com.daml.lf.data.Ref.Name
 import com.daml.lf.language.Ast._
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.traversable.TypeTraversable
+import scala.collection.compat.immutable.LazyList
 
 private[validation] object TypeSubst {
 
@@ -32,7 +33,7 @@ private[validation] object TypeSubst {
     }
 
   private def freshTypeVarName(fv: Set[TypeVarName]): TypeVarName =
-    Stream
+    LazyList
       .from(0)
       .map(i => Name.assertFromString("$freshVar" + i.toString))
       .filterNot(fv.contains)(0)

@@ -10,144 +10,126 @@ import com.daml.lf.validation.Util._
 private[validation] object ExprTraversable {
   that =>
 
-  private[traversable] def foreach[U](x: Expr, f: Expr => U): Unit = {
+  private[traversable] def iterator(x: Expr): Iterator[Expr] = {
     x match {
       case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EVal(_) | EEnumCon(_, _) | ETypeRep(
             _) =>
+        Iterator.empty
       case ELocation(_, expr) =>
-        f(expr)
+        Iterator(expr)
       case ERecCon(tycon @ _, fields) =>
-        fields.values.foreach(f)
+        fields.values
       case ERecProj(tycon @ _, field @ _, record) =>
-        f(record)
+        Iterator(record)
       case ERecUpd(tycon @ _, field @ _, record, update) =>
-        f(record)
-        f(update)
+        Iterator(record, update)
       case EVariantCon(tycon @ _, variant @ _, arg) =>
-        f(arg)
+        Iterator(arg)
       case EStructCon(fields) =>
-        fields.values.foreach(f)
+        fields.values
       case EStructProj(field @ _, struct) =>
-        f(struct)
+        Iterator(struct)
       case EStructUpd(field @ _, struct, update) =>
-        f(struct)
-        f(update)
+        Iterator(struct, update)
       case EApp(fun, arg) =>
-        f(fun)
-        f(arg)
+        Iterator(fun, arg)
       case ETyApp(expr, typ @ _) =>
-        f(expr)
+        Iterator(expr)
       case EAbs(binder @ _, body, ref @ _) =>
-        f(body)
+        Iterator(body)
       case ETyAbs(binder @ _, body) =>
-        f(body)
+        Iterator(body)
       case ECase(scrut, alts) =>
-        f(scrut)
-        alts.iterator.foreach(a => f(a.expr))
+        Iterator(scrut) ++ alts.iterator.map(_.expr)
       case ELet(binding, body) =>
-        f(binding.bound)
-        f(body)
-      case ENil(_) =>
+        Iterator(binding.bound, body)
+      case ENil(_) => Iterator.empty
       case ECons(typ @ _, front, tail) =>
-        front.iterator.foreach(f)
-        f(tail)
+        front.iterator ++ Iterator(tail)
       case EUpdate(update) =>
-        foreach(update, f)
+        iterator(update)
       case EScenario(scenario) =>
-        foreach(scenario, f)
-      case ENone(typ @ _) =>
+        iterator(scenario)
+      case ENone(typ @ _) => Iterator.empty
       case ESome(typ @ _, body) =>
-        f(body)
+        Iterator(body)
       case EToAny(ty @ _, body) =>
-        f(body)
+        Iterator(body)
       case EFromAny(ty @ _, body) =>
-        f(body)
+        Iterator(body)
       case EThrow(returnType @ _, exceptionType @ _, exception) =>
-        f(exception)
+        Iterator(exception)
       case EToAnyException(typ @ _, value) =>
-        f(value)
+        Iterator(value)
       case EFromAnyException(typ @ _, value) =>
-        f(value)
+        Iterator(value)
     }
-    ()
   }
 
-  private[traversable] def foreach[U](x: Update, f: Expr => U): Unit = {
+  private[traversable] def iterator(x: Update): Iterator[Expr] = {
     x match {
       case UpdatePure(typ @ _, expr) =>
-        f(expr)
+        Iterator(expr)
       case UpdateBlock(bindings, body) =>
-        bindings.iterator.foreach(b => f(b.bound))
-        f(body)
+        bindings.iterator.map(_.bound) ++ Iterator(body)
       case UpdateCreate(templateId @ _, arg) =>
-        f(arg)
+        Iterator(arg)
       case UpdateFetch(templateId @ _, contractId) =>
-        f(contractId)
+        Iterator(contractId)
       case UpdateExercise(templateId @ _, choice @ _, cid, arg) =>
-        f(cid)
-        f(arg)
+        Iterator(cid, arg)
       case UpdateExerciseByKey(templateId @ _, choice @ _, key, arg) =>
-        f(key)
-        f(arg)
-      case UpdateGetTime =>
+        Iterator(key, arg)
+      case UpdateGetTime => Iterator.empty
       case UpdateFetchByKey(rbk) =>
-        f(rbk.key)
+        Iterator(rbk.key)
       case UpdateLookupByKey(rbk) =>
-        f(rbk.key)
+        Iterator(rbk.key)
       case UpdateEmbedExpr(typ @ _, body) =>
-        f(body)
+        Iterator(body)
       case UpdateTryCatch(typ @ _, body, binder @ _, handler) =>
-        f(body)
-        f(handler)
+        Iterator(body, handler)
     }
-    ()
   }
 
-  private[traversable] def foreach[U](x: Scenario, f: Expr => U): Unit = {
+  private[traversable] def iterator(x: Scenario): Iterator[Expr] = {
     x match {
       case ScenarioPure(typ @ _, expr) =>
-        f(expr)
+        Iterator(expr)
       case ScenarioBlock(bindings, body) =>
-        bindings.iterator.foreach(b => f(b.bound))
-        f(body)
+        bindings.iterator.map(_.bound) ++ Iterator(body)
       case ScenarioCommit(party, update, retType @ _) =>
-        f(party)
-        f(update)
+        Iterator(party, update)
       case ScenarioMustFailAt(party, update, retType @ _) =>
-        f(party)
-        f(update)
+        Iterator(party, update)
       case ScenarioPass(relTime) =>
-        f(relTime)
-      case ScenarioGetTime =>
+        Iterator(relTime)
+      case ScenarioGetTime => Iterator.empty
       case ScenarioGetParty(name) =>
-        f(name)
+        Iterator(name)
       case ScenarioEmbedExpr(typ @ _, body) =>
-        f(body)
+        Iterator(body)
     }
-    ()
   }
 
-  private[traversable] def foreach[U](x: Definition, f: Expr => U): Unit =
+  private[traversable] def iterator(x: Definition): Iterator[Expr] =
     x match {
-      case DTypeSyn(params @ _, typ @ _) =>
-      case DDataType(serializable @ _, params @ _, dataCons @ _) =>
+      case DTypeSyn(params @ _, typ @ _) => Iterator.empty
+      case DDataType(serializable @ _, params @ _, dataCons @ _) => Iterator.empty
       case DValue(typ @ _, noPartyLiterals @ _, body, isTest @ _) =>
-        f(body)
-        ()
+        Iterator(body)
     }
 
-  private[traversable] def foreach[U](x: Template, f: Expr => U): Unit =
+  private[traversable] def iterator(x: Template): Iterator[Expr] =
     x match {
       case Template(param @ _, precond, signatories, agreementText, choices, observers, key) =>
-        f(precond)
-        f(signatories)
-        f(agreementText)
-        choices.values.foreach(foreach(_, f))
-        f(observers)
-        key.foreach(foreach(_, f))
+        Iterator(precond, signatories, agreementText) ++
+          choices.values.iterator.flatMap(iterator(_)) ++
+          Iterator(observers) ++
+          key.iterator.flatMap(iterator(_))
     }
 
-  private[traversable] def foreach[U](x: TemplateChoice, f: Expr => U): Unit =
+  private[traversable] def iterator(x: TemplateChoice): Iterator[Expr] =
     x match {
       case TemplateChoice(
           name @ _,
@@ -158,36 +140,31 @@ private[validation] object ExprTraversable {
           binder @ _,
           returnType @ _,
           update) =>
-        f(controllers)
-        observers.map(f)
-        f(update)
-        ()
+        Iterator(controllers) ++
+          observers.iterator ++
+          Iterator(update)
     }
 
-  private[traversable] def foreach[U](x: TemplateKey, f: Expr => U): Unit =
+  private[traversable] def iterator(x: TemplateKey): Iterator[Expr] =
     x match {
       case TemplateKey(typ @ _, body, maintainers) =>
-        f(body)
-        f(maintainers)
-        ()
+        Iterator(body, maintainers)
     }
 
-  def apply(expr: Expr): Traversable[Expr] =
-    new Traversable[Expr] {
-      def foreach[U](f: Expr => U): Unit = that.foreach(expr, f)
+  def apply(expr: Expr): Iterable[Expr] =
+    new Iterable[Expr] {
+      override def iterator: Iterator[Expr] = ExprTraversable.iterator(expr)
     }
 
-  def apply(template: Template): Traversable[Expr] =
-    new Traversable[Expr] {
-      def foreach[U](f: Expr => U): Unit = that.foreach(template, f)
+  def apply(template: Template): Iterable[Expr] =
+    new Iterable[Expr] {
+      override def iterator: Iterator[Expr] = ExprTraversable.iterator(template)
     }
 
-  def apply(module: Module): Traversable[Expr] =
-    new Traversable[Expr] {
-      def foreach[U](f: Expr => U): Unit = {
-        module.definitions.values.foreach(that.foreach(_, f))
-        module.templates.values.foreach(that.foreach(_, f))
-      }
+  def apply(module: Module): Iterable[Expr] =
+    new Iterable[Expr] {
+      override def iterator: Iterator[Expr] =
+        module.definitions.values.iterator.flatMap(ExprTraversable.iterator(_)) ++
+          module.templates.values.iterator.flatMap(ExprTraversable.iterator(_))
     }
-
 }

@@ -35,8 +35,8 @@ private[validation] object Collision {
     } throw ECollision(pkgId, entity1, entity2)
 
   private def namedEntitiesFromPkg(
-      modules: Traversable[(ModuleName, Ast.Module)]
-  ): Traversable[NamedEntity] =
+      modules: Iterable[(ModuleName, Ast.Module)]
+  ): Iterable[NamedEntity] =
     modules.flatMap {
       case (modName, module) =>
         val namedModule = NModDef(modName, module.definitions.toList)

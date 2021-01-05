@@ -67,7 +67,7 @@ private[parser] object Lexer extends RegexParsers {
       "=" ^^^ `=` |
       "_" ^^^ Token.`_` |
       "|" ^^^ `|` |
-      """[a-zA-Z\$_][\w\$]*""".r ^^ (s => keywords.getOrElse(s, Id(s))) |
+      """[a-zA-Z_\$][\w\$]*""".r ^^ (s => keywords.getOrElse(s, Id(s))) |
       """#\w+""".r ^^ ContractId |
       """\'([^\\\']|\\\'|\\\\)+\'""".r >> toSimpleString |
       """\"([^\\\"]|\\n|\\r|\\\"|\\\'|\\\\)*\"""".r >> toText |
@@ -107,18 +107,18 @@ private[parser] object Lexer extends RegexParsers {
   private def toNumber(s: String): Parser[Number] =
     (in: Input) =>
       Try(Success(Number(s.toLong), in))
-        .getOrElse(Error(s"cannot interpret $s as a Number", in))
+        .getOrElse[ParseResult[Number]](Error(s"cannot interpret $s as a Number", in))
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   private def toText(s: String): Parser[Text] =
     (in: Input) =>
-      Try(Success(Text(StringContext.treatEscapes(s.drop(1).dropRight(1))), in))
-        .getOrElse(Error(s"cannot interpret $s as a Text", in))
+      Try(Success(Text(StringContext.processEscapes(s.drop(1).dropRight(1))), in))
+        .getOrElse[ParseResult[Text]](Error(s"cannot interpret $s as a Text", in))
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   private def toSimpleString(s: String): Parser[SimpleString] =
     (in: Input) =>
-      Try(Success(SimpleString(StringContext.treatEscapes(s.drop(1).dropRight(1))), in))
-        .getOrElse(Error(s"cannot interpret $s as a SimpleText", in))
+      Try(Success(SimpleString(StringContext.processEscapes(s.drop(1).dropRight(1))), in))
+        .getOrElse[ParseResult[SimpleString]](Error(s"cannot interpret $s as a SimpleText", in))
 
 }

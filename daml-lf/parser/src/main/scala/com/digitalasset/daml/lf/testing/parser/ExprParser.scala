@@ -44,7 +44,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       (id ^? builtinFunctions) ^^ EBuiltin |
       caseOf |
       id ^^ EVar |
-      `(` ~> expr <~ `)`
+      (`(` ~> expr <~ `)`)
 
   lazy val exprs: Parser[List[Expr]] = rep(expr0)
 
@@ -62,7 +62,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private lazy val primCon =
     Id("True") ^^^ PCTrue |
       Id("False") ^^^ PCFalse |
-      `(` ~ `)` ^^^ PCUnit
+      (`(` ~ `)` ^^^ PCUnit)
 
   private lazy val eAppAgr: Parser[EAppAgr] =
     argTyp ^^ EAppTypArg |
@@ -204,10 +204,10 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val pattern: Parser[CasePat] =
     primCon ^^ CPPrimCon |
-      `nil` ^^^ CPNil |
-      `cons` ~>! id ~ id ^^ { case x1 ~ x2 => CPCons(x1, x2) } |
-      `none` ^^^ CPNone |
-      `some` ~>! id ^^ CPSome |
+      (`nil` ^^^ CPNil) |
+      (`cons` ~>! id ~ id ^^ { case x1 ~ x2 => CPCons(x1, x2) }) |
+      (`none` ^^^ CPNone) |
+      (`some` ~>! id ^^ CPSome) |
       (fullIdentifier <~ `:`) ~ id ~ opt(id) ^^ {
         case tyCon ~ vName ~ Some(x) =>
           CPVariant(tyCon, vName, x)
