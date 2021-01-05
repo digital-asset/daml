@@ -480,4 +480,6 @@ object Engine {
 
   def DevEngine(): Engine = new Engine(EngineConfig.Dev)
 
+  def StableEngine(): Engine = new Engine(EngineConfig.Stable)
+
 }

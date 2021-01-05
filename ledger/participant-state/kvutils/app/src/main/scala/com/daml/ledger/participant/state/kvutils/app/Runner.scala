@@ -77,11 +77,7 @@ final class Runner[T <: ReadWriteService, Extra](
       "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    // share engine between the kvutils committer backend and the ledger api server
-    // this avoids duplicate compilation of packages as well as keeping them in memory twice
-    // FIXME: https://github.com/digital-asset/daml/issues/5164
-    // This should be made configurable
-    val sharedEngine = Engine.DevEngine()
+    val sharedEngine = Engine.StableEngine()
 
     newLoggingContext { implicit loggingContext =>
       for {

@@ -383,9 +383,7 @@ class TransactionCoderSpec
       }
     }
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7139
-    // enable the test when we have more that one version newer than 10
-    "fail if try to decode a node in a version newer than the enclosing Transaction message version" ignore {
+    "fail if try to decode a node in a version newer than the enclosing Transaction message version" in {
 
       forAll(
         danglingRefGenNode,
