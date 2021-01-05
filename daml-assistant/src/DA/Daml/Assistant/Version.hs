@@ -203,7 +203,7 @@ getLatestReleaseVersion = do
         case responseStatus resp of
             s | s == ok200 -> do
                     body <- responseBody resp
-                    case (parseVersion $ decodeUtf8 body) of
+                    case parseVersion $ decodeUtf8 body of
                         Right v -> pure v
                         Left invalidVersion ->
                             throwIO $
