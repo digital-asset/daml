@@ -26,7 +26,7 @@ class GenMapSpec
     with CustomMatchers {
 
   override protected def darFile =
-    // TODO: https://github.com/digital-asset/daml/issues/7139
+    // TODO https://github.com/digital-asset/daml/issues/7139
     // Change to "daml-lf/encoder/test-1.11.dar" once 1.11 is frozen
     new File(rlocation("daml-lf/encoder/test-1.dev.dar"))
 

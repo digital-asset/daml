@@ -523,7 +523,7 @@ class TransactionCoderSpec
   ): Map[NodeId, GenNode[NodeId, ContractId]] =
     nodes.transform((_, gn) => minimalistNode(txvMin)(gn))
 
-  // FIXME: https://github.com/digital-asset/daml/issues/7709
+  // TODO https://github.com/digital-asset/daml/issues/7709
   // The following function should be usefull to test choice observers
   def minimalistTx(
       txvMin: TransactionVersion,

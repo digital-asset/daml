@@ -240,7 +240,7 @@ object InterfaceReader {
         case Ast.BTGenMap => \/-((2, PrimType.GenMap))
         case Ast.BTAnyException | Ast.BTGeneralError | Ast.BTArithmeticError |
             Ast.BTContractError =>
-          // TODO: https://github.com/digital-asset/daml/issues/8020
+          // TODO https://github.com/digital-asset/daml/issues/8020
           // Add exception types to the interface reader
           unserializableDataType(
             ctx,
