@@ -299,8 +299,26 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
     BS.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
     recachePkgDb dbPath
 
+-- | Fake settings, we need those to make ghc-pkg happy.
+--
+-- As a long-term solution, it might make sense to clone ghc-pkg
+-- and strip it down to only the functionality we need. A lot of this
+-- is rather sketchy in the context of daml.
+settings :: [(T.Text, T.Text)]
+settings =
+  [ ("target arch", "ArchUnknown")
+  , ("target os", "OSUnknown")
+  , ("target word size", "8")
+  , ("Unregisterised", "YES")
+  , ("target has GNU nonexec stack", "YES")
+  , ("target has .ident directive", "YES")
+  , ("target has subsections via symbols", "YES")
+  , ("cross compiling", "NO")
+  ]
+
 recachePkgDb :: FilePath -> IO ()
 recachePkgDb dbPath = do
+    T.writeFileUtf8 (dbPath </> "settings") $ T.pack $ show settings
     ghcPkgPath <- getGhcPkgPath
     callProcess
         (ghcPkgPath </> exe "ghc-pkg")
@@ -380,15 +398,7 @@ installDar dbPath confFiles dalf srcs = do
     forM_ srcs $ \src -> do
         let path = dbPath </> ZipArchive.eRelativePath src
         write path (ZipArchive.fromEntry src)
-    ghcPkgPath <- getGhcPkgPath
-    callProcess
-        (ghcPkgPath </> exe "ghc-pkg")
-        [ "recache"
-              -- ghc-pkg insists on using a global package db and will try
-              -- to find one automatically if we don’t specify it here.
-        , "--global-package-db=" ++ (dbPath </> "package.conf.d")
-        , "--expand-pkgroot"
-        ]
+    recachePkgDb dbPath
   where
     write fp bs =
         createDirectoryIfMissing True (takeDirectory fp) >> BSL.writeFile fp bs
@@ -405,7 +415,7 @@ getGhcPkgPath :: IO FilePath
 getGhcPkgPath =
     if isWindows
         then locateRunfiles "rules_haskell_ghc_windows_amd64/bin"
-        else locateRunfiles "ghc_nix/lib/ghc-8.6.5/bin"
+        else locateRunfiles "ghc_nix/lib/ghc-8.10.3/bin"
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a

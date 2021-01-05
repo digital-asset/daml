@@ -330,7 +330,7 @@ nixpkgs_package(
 
 nix_ghc_deps = common_nix_file_deps + [
     "//nix:ghc.nix",
-    "//nix:overrides/ghc-8.6.5.nix",
+    "//nix:overrides/ghc-8.10.3.nix",
     "//nix:overrides/ghc-8.6.3-binary.nix",
 ]
 
@@ -398,7 +398,7 @@ filegroup(
 # This is used to get ghc-pkg on Linux.
 nixpkgs_package(
     name = "ghc_nix",
-    attribute_path = "ghcStatic",
+    attribute_path = "ghc",
     build_file_content = """
 package(default_visibility = ["//visibility:public"])
 exports_files(glob(["lib/**/*"]))
@@ -421,7 +421,7 @@ common_ghc_flags = [
 
 # Used by Darwin and Linux
 haskell_register_ghc_nixpkgs(
-    attribute_path = "ghcStaticDwarf" if enable_ghc_dwarf else "ghcStatic",
+    attribute_path = "ghcDwarf" if enable_ghc_dwarf else "ghc",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
 
     # -fexternal-dynamic-refs is required so that we produce position-independent
@@ -439,7 +439,6 @@ haskell_register_ghc_nixpkgs(
         "-optc-mmacosx-version-min=10.14",
         "-opta-mmacosx-version-min=10.14",
         "-optl-mmacosx-version-min=10.14",
-        "-optP-mmacosx-version-min=10.14",
     ] if is_darwin else ["-optl-s"])),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
@@ -454,14 +453,13 @@ haskell_register_ghc_nixpkgs(
         "-Wwarn",
     ],
     repositories = dev_env_nix_repos,
-    static_runtime = True,
-    version = "8.6.5",
+    version = "8.10.3",
 )
 
 # Used by Windows
 haskell_register_ghc_bindists(
     compiler_flags = common_ghc_flags,
-    version = "8.6.5",
+    version = "8.10.3",
 ) if is_windows else None
 
 nixpkgs_package(

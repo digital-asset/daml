@@ -64,7 +64,7 @@ common_nix_file_deps = [
 
 nix_ghc_deps = common_nix_file_deps + [
     "@daml//nix:ghc.nix",
-    "@daml//nix:overrides/ghc-8.6.5.nix",
+    "@daml//nix:overrides/ghc-8.10.3.nix",
     "@daml//nix:overrides/ghc-8.6.3-binary.nix",
 ]
 
@@ -106,18 +106,17 @@ filegroup(
 
 haskell_register_ghc_bindists(
     compiler_flags = [],
-    version = "8.6.5",
+    version = "8.10.3",
 ) if is_windows else None
 
 haskell_register_ghc_nixpkgs(
-    attribute_path = "ghcStatic",
+    attribute_path = "ghc",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
     repositories = dev_env_nix_repos,
-    static_runtime = True,
-    version = "8.6.5",
+    version = "8.10.3",
 )
 
 nixpkgs_python_configure(repository = "@nixpkgs")

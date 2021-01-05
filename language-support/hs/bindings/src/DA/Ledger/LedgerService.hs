@@ -8,7 +8,6 @@ module DA.Ledger.LedgerService (
     askTimeout,
     ) where
 
-import Control.Monad.Fail (MonadFail)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader,local,asks)
 import Control.Monad.Trans.Reader (ReaderT(..))

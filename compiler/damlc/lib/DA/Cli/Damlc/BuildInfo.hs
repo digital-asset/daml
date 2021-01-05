@@ -7,7 +7,6 @@ module DA.Cli.Damlc.BuildInfo
   ) where
 
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
-import Data.Monoid ((<>))
 import SdkVersion
 
 buildInfo :: PP.Doc
