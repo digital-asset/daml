@@ -26,7 +26,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class WebsocketServiceIntegrationTest
+sealed abstract class AbstractWebsocketServiceIntegrationTest
     extends AsyncFreeSpec
     with Matchers
     with Inside
@@ -36,8 +36,6 @@ class WebsocketServiceIntegrationTest
 
   import HttpServiceTestFixture._
   import WebsocketTestFixture._
-
-  override def jdbcConfig: Option[JdbcConfig] = None
 
   override def staticContentConfig: Option[StaticContentConfig] = None
 
@@ -908,3 +906,11 @@ class WebsocketServiceIntegrationTest
     }
   }
 }
+
+final class WebsocketServiceIntegrationTest extends AbstractWebsocketServiceIntegrationTest {
+  override def jdbcConfig = None
+}
+
+final class WebsocketServiceWithPostgresIntTest
+    extends AbstractWebsocketServiceIntegrationTest
+    with HttpServicePostgresInt
