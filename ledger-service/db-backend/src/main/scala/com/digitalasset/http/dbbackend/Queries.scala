@@ -311,7 +311,8 @@ object Queries {
     }
   }
 
-  /** Whether selectContractsMultiTemplate computes a matchedQueries marker. */
+  /** Whether selectContractsMultiTemplate computes a matchedQueries marker,
+    * and whether it may compute >1 query to run. */
   private[http] sealed abstract class MatchedQueryMarker[T[_], +Mark]
       extends Product
       with Serializable
@@ -320,7 +321,7 @@ object Queries {
     case object Unused extends MatchedQueryMarker[Id, SurrogateTpId]
   }
 
-  private[this] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
+  private[http] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
     oaa.copy(tail = oaa.tail.flatMap(Vector(a, _)))
 
   // Like groupBy but split into n maps where n is the longest list under groupBy.

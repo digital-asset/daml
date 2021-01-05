@@ -10,6 +10,7 @@ import akka.stream.Materializer
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{JwtPayload, SearchForeverRequest}
 import com.daml.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
+import JsonProtocol.LfValueDatabaseCodec
 import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.{BeginBookmark, ContractStreamStep, InsertDeleteStep}
@@ -20,6 +21,7 @@ import com.daml.jwt.domain.Jwt
 import com.typesafe.scalalogging.LazyLogging
 import com.daml.http.query.ValuePredicate
 import doobie.{ConnectionIO, LogHandler}
+import doobie.syntax.string._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
@@ -28,6 +30,7 @@ import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.std.tuple._
+import scalaz.std.vector._
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
 import Liskov.<~<
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
@@ -269,6 +272,7 @@ object WebSocketService {
             .toLeftDisjunction(x.ekey.templateId)
         }
 
+      // invariant: every set is non-empty
       val q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]] =
         resolvedWithKey.foldLeft(Map.empty[domain.TemplateId.RequiredPkg, HashSet[LfV]])(
           (acc, el) =>
@@ -282,10 +286,23 @@ object WebSocketService {
           case Some(k) => if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
         }
       }
-      StreamPredicate(q.keySet, unresolved, fn, _ /*parties*/ => _ => sys.error("TODO alt path"))
+      def dbQueries: Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
+        q.toSeq map (_ rightMap { lfvKeys =>
+          val khd +: ktl = lfvKeys.toVector
+          import dbbackend.Queries.{intersperse, concatFragment}
+          concatFragment(intersperse(OneAnd(khd, ktl) map keyEquality, sql" OR "))
+        })
+      StreamPredicate(q.keySet, unresolved, fn, { parties => implicit lh =>
+        dbbackend.ContractDao.selectContractsMultiTemplate(parties, dbQueries).map(_ map (_.void))
+      })
     }
 
     override def renderCreatedMetadata(p: Unit) = Map.empty
+  }
+
+  private[this] def keyEquality(k: LfV): doobie.Fragment = {
+    import dbbackend.Queries.Implicits._
+    sql"key = ${LfValueDatabaseCodec.apiValueToJsValue(k)}"
   }
 
   private[this] object InitialEnrichedContractKeyWithStreamQuery
