@@ -473,7 +473,7 @@ class Ledger {
    * @returns The return value of the choice together with a list of
    * [[event]]'s that were created as a result of exercising the choice.
    */
-  async exercise<T extends object, C, R>(choice: Choice<T, C, R>, contractId: ContractId<T>, argument: C): Promise<[R , Event<object>[]]> {
+  async exercise<T extends object, C, R, K>(choice: Choice<T, C, R, K>, contractId: ContractId<T>, argument: C): Promise<[R , Event<object>[]]> {
     const payload = {
       templateId: choice.template().templateId,
       contractId: ContractId(choice.template()).encode(contractId),
@@ -508,7 +508,7 @@ class Ledger {
    * is consuming (or otherwise archives it as part of its execution).
    *
    */
-  async createAndExercise<T extends object, C, R>(choice: Choice<T, C, R>, payload: T, argument: C): Promise<[R, Event<object>[]]> {
+  async createAndExercise<T extends object, C, R, K>(choice: Choice<T, C, R, K>, payload: T, argument: C): Promise<[R, Event<object>[]]> {
     const command = {
       templateId: choice.template().templateId,
       payload: choice.template().encode(payload),
