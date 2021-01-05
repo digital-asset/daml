@@ -42,37 +42,6 @@ class PreExecutingSubmissionValidatorSpec
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "validate" should {
-
-    "read from ledger state only once in presence of (KV) state key inputs of DAML contract keys'" in {
-
-      // Given a KV state key input of a DAML contract key, de-referencing it at validation time
-      // to force conflict detection also on the KV state key of the corresponding DAML contract ID
-      // harms performance (because it requires an extra read) and it is useless, because,
-      // if the KV state value of such a DAML contract key (i.e., the referenced contract ID)
-      // has changed between inputs fetching and conflict-detection, then the associated fingerprint
-      // will have changed as well and conflict detection will raise a red flag anyway.
-
-      val expectedReadSet = Set(
-        makeContractKeyStateKey("a template"),
-      )
-      val instance = createInstance(expectedReadSet = expectedReadSet)
-
-      val ledgerStateReaderMock = mock[StateReader[DamlStateKey, TestValue]]
-      val ledgerStateReaderMockResult = Seq(
-        TestValue(Some(makeContractKeyStateValue("contract ID")))
-      )
-      when(ledgerStateReaderMock.read(any[Seq[DamlStateKey]])(any[ExecutionContext]))
-        .thenReturn(Future.successful(ledgerStateReaderMockResult))
-
-      instance
-        .validate(anEnvelope(expectedReadSet), aParticipantId, ledgerStateReaderMock)
-        .map { _ =>
-          verify(ledgerStateReaderMock, times(1))
-            .read(any[Seq[DamlStateKey]])(any[ExecutionContext])
-          succeed
-        }
-    }
-
     "generate correct output in case of success" in {
       val expectedReadSet = Set(allDamlStateKeyTypes.head)
       val actualInputState = Map(
@@ -102,6 +71,35 @@ class PreExecutingSubmissionValidatorSpec
           actual.outOfTimeBoundsWriteSet shouldBe expectedOutOfTimeBoundsWriteSet
           actual.readSet shouldBe TestReadSet(expectedReadSet)
           actual.involvedParticipants shouldBe expectedInvolvedParticipants
+        }
+    }
+
+    "read from ledger state only once when a DAML contract key is in the read-set" in {
+      // Given a KV state key input of a DAML contract key, de-referencing it at validation time
+      // to force conflict detection also on the KV state key of the corresponding DAML contract ID
+      // harms performance (because it requires an extra read) and it is useless, because,
+      // if the KV state value of such a DAML contract key (i.e., the referenced contract ID)
+      // has changed between inputs fetching and conflict-detection, then the associated fingerprint
+      // will have changed as well and conflict detection will raise a red flag anyway.
+
+      val expectedReadSet = Set(
+        makeContractKeyStateKey("a template"),
+      )
+      val instance = createInstance(expectedReadSet = expectedReadSet)
+
+      val ledgerStateReaderMock = mock[StateReader[DamlStateKey, TestValue]]
+      val ledgerStateReaderMockResult = Seq(
+        TestValue(Some(makeContractKeyStateValue("contract ID")))
+      )
+      when(ledgerStateReaderMock.read(any[Seq[DamlStateKey]])(any[ExecutionContext]))
+        .thenReturn(Future.successful(ledgerStateReaderMockResult))
+
+      instance
+        .validate(anEnvelope(expectedReadSet), aParticipantId, ledgerStateReaderMock)
+        .map { _ =>
+          verify(ledgerStateReaderMock, times(1))
+            .read(any[Seq[DamlStateKey]])(any[ExecutionContext])
+          succeed
         }
     }
 
@@ -209,11 +207,9 @@ object PreExecutingSubmissionValidatorSpec {
   private final case class TestValue(value: Option[DamlStateValue])
 
   private object TestValue {
-
     implicit object `TestValue has DamlStateValue` extends HasDamlStateValue[TestValue] {
       override def damlStateValue(value: TestValue): Option[DamlStateValue] = value.value
     }
-
   }
 
   private final case class TestReadSet(keys: Set[DamlStateKey])
