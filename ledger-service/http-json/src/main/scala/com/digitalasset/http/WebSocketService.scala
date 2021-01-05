@@ -302,7 +302,7 @@ object WebSocketService {
 
   private[this] def keyEquality(k: LfV): doobie.Fragment = {
     import dbbackend.Queries.Implicits._
-    sql"key = ${LfValueDatabaseCodec.apiValueToJsValue(k)}"
+    sql"key = ${LfValueDatabaseCodec.apiValueToJsValue(k)}::jsonb"
   }
 
   private[this] object InitialEnrichedContractKeyWithStreamQuery
