@@ -9,6 +9,7 @@ import com.github.ghik.silencer.silent
 import doobie._
 import doobie.implicits._
 import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
+import scalaz.Id.Id
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.boolean._
@@ -260,13 +261,13 @@ object Queries {
     * into the `queries` argument that produced the contract.
     */
   @silent(" gvs .* never used")
-  private[http] def selectContractsMultiTemplate[Mark](
+  private[http] def selectContractsMultiTemplate[T[_], Mark](
       parties: OneAnd[Set, String],
       queries: Seq[(SurrogateTpId, Fragment)],
-      trackMatchIndices: MatchedQueryMarker[Mark])(
+      trackMatchIndices: MatchedQueryMarker[T, Mark])(
       implicit log: LogHandler,
       gvs: Get[Vector[String]],
-      pvs: Put[Vector[String]]): Seq[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
+      pvs: Put[Vector[String]]): T[Query0[DBContract[Mark, JsValue, JsValue, Vector[String]]]] = {
     val partyVector = parties.toVector
     def query(preds: OneAnd[Vector, (SurrogateTpId, Fragment)], findMark: SurrogateTpId => Mark) = {
       val assocedPreds = preds.map {
@@ -306,15 +307,17 @@ object Queries {
 
       case MatchedQueryMarker.Unused =>
         val predHd +: predTl = queries.toVector
-        Seq(query(OneAnd(predHd, predTl), identity))
+        query(OneAnd(predHd, predTl), identity)
     }
   }
 
   /** Whether selectContractsMultiTemplate computes a matchedQueries marker. */
-  private[http] sealed abstract class MatchedQueryMarker[+Mark] extends Product with Serializable
+  private[http] sealed abstract class MatchedQueryMarker[T[_], +Mark]
+      extends Product
+      with Serializable
   private[http] object MatchedQueryMarker {
-    implicit case object ByInt extends MatchedQueryMarker[Int]
-    implicit case object Unused extends MatchedQueryMarker[SurrogateTpId]
+    case object ByInt extends MatchedQueryMarker[Seq, Int]
+    case object Unused extends MatchedQueryMarker[Id, SurrogateTpId]
   }
 
   private[this] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
