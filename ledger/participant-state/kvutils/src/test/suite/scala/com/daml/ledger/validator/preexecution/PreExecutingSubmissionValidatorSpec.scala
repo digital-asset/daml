@@ -82,33 +82,6 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         .map(verifyReadSet(_, expectedReadSet))
     }
 
-    "return a read set when the contract keys are inconsistent" in {
-      val contractKeyStateKey = makeContractKeyStateKey("id")
-
-      // At the time of pre-execution, the key points to contract A.
-      val contractIdAStateKey = makeContractIdStateKey("contract ID A")
-      val contractIdAStateValue = makeContractIdStateValue()
-
-      // However, at the time of validation, it points to contract B.
-      val contractKeyBStateValue = makeContractKeyStateValue("contract ID B")
-      val contractIdBStateKey = makeContractIdStateKey("contract ID B")
-      val contractIdBStateValue = makeContractIdStateValue()
-
-      val preExecutedInputKeys = Set(contractKeyStateKey, contractIdAStateKey)
-      val expectedReadSet = Set(contractKeyStateKey, contractIdBStateKey)
-      val actualInputState = Map(
-        contractKeyStateKey -> Some(contractKeyBStateValue),
-        contractIdAStateKey -> Some(contractIdAStateValue),
-        contractIdBStateKey -> Some(contractIdBStateValue),
-      )
-      val instance = createInstance(expectedReadSet = expectedReadSet)
-      val ledgerStateReader = createLedgerStateReader(actualInputState)
-
-      instance
-        .validate(anEnvelope(preExecutedInputKeys), aParticipantId, ledgerStateReader)
-        .map(verifyReadSet(_, expectedReadSet))
-    }
-
     "fail in case a batched submission is input" in {
       val instance = createInstance()
       val aBatchedSubmission = DamlSubmissionBatch.newBuilder
@@ -195,13 +168,13 @@ object PreExecutingSubmissionValidatorSpec {
   }
 
   private def createInstance(
-                              expectedReadSet: Set[DamlStateKey] = Set.empty,
-                              expectedMinRecordTime: Option[Instant] = None,
-                              expectedMaxRecordTime: Option[Instant] = None,
-                              expectedSuccessWriteSet: TestWriteSet = TestWriteSet(""),
-                              expectedOutOfTimeBoundsWriteSet: TestWriteSet = TestWriteSet(""),
-                              expectedInvolvedParticipants: Set[ParticipantId] = Set.empty,
-                            ): PreExecutingSubmissionValidator[TestValue, TestReadSet, TestWriteSet] = {
+      expectedReadSet: Set[DamlStateKey] = Set.empty,
+      expectedMinRecordTime: Option[Instant] = None,
+      expectedMaxRecordTime: Option[Instant] = None,
+      expectedSuccessWriteSet: TestWriteSet = TestWriteSet(""),
+      expectedOutOfTimeBoundsWriteSet: TestWriteSet = TestWriteSet(""),
+      expectedInvolvedParticipants: Set[ParticipantId] = Set.empty,
+  ): PreExecutingSubmissionValidator[TestValue, TestReadSet, TestWriteSet] = {
     val mockCommitter = mock[KeyValueCommitting]
     val result = PreExecutionResult(
       expectedReadSet,
@@ -250,21 +223,21 @@ object PreExecutingSubmissionValidatorSpec {
   }
 
   private def createLedgerStateReader(
-                                       inputState: Map[DamlStateKey, Option[DamlStateValue]]
-                                     ): StateReader[DamlStateKey, TestValue] = {
+      inputState: Map[DamlStateKey, Option[DamlStateValue]]
+  ): StateReader[DamlStateKey, TestValue] = {
     val wrappedInputState = inputState.mapValues(TestValue(_))
     new StateReader[DamlStateKey, TestValue] {
       override def read(
-                         keys: Iterable[DamlStateKey]
-                       )(implicit executionContext: ExecutionContext): Future[Seq[TestValue]] =
+          keys: Iterable[DamlStateKey]
+      )(implicit executionContext: ExecutionContext): Future[Seq[TestValue]] =
         Future.successful(keys.view.map(wrappedInputState).toVector)
     }
   }
 
   private def verifyReadSet(
-                             output: PreExecutionOutput[TestReadSet, Any],
-                             expectedReadSet: Set[DamlStateKey],
-                           ): Assertion = {
+      output: PreExecutionOutput[TestReadSet, Any],
+      expectedReadSet: Set[DamlStateKey],
+  ): Assertion = {
     import org.scalatest.matchers.should.Matchers._
     output.readSet.keys should be(expectedReadSet)
   }
