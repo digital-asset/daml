@@ -11,6 +11,7 @@ import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 import DA.Test.Process
 import DA.Test.Util
 import qualified Data.ByteString.Lazy as BSL
+import Data.List (sort)
 import qualified Data.NameMap as NM
 import Module (unitIdString)
 import System.Directory.Extra
