@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.caching.Cache.Size
 import com.daml.caching.{Cache, Weight}
-import com.daml.ledger.validator.Raw
 import com.google.protobuf.MessageLite
 
 package object caching {

@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.validator.Raw
-
 package object export {
 
   val header = new Header(version = "v2")

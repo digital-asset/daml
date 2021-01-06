@@ -12,11 +12,11 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.rawHexString
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.validator.batch.BatchedSubmissionValidatorFactory
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
-import com.daml.ledger.validator.{CommitStrategy, Raw, StateKeySerializationStrategy}
+import com.daml.ledger.validator.{CommitStrategy, StateKeySerializationStrategy}
 import com.daml.metrics.Metrics
 
 import scala.concurrent.ExecutionContext

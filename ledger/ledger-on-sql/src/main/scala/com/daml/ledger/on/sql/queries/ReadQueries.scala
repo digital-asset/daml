@@ -4,8 +4,8 @@
 package com.daml.ledger.on.sql.queries
 
 import com.daml.ledger.on.sql.Index
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
-import com.daml.ledger.validator.Raw
 
 import scala.collection.immutable
 import scala.util.Try

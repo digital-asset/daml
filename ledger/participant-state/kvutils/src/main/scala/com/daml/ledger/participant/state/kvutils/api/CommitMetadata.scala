@@ -4,8 +4,8 @@
 package com.daml.ledger.participant.state.kvutils.api
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
-import com.daml.ledger.validator.{Raw, StateKeySerializationStrategy}
+import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, Raw}
+import com.daml.ledger.validator.StateKeySerializationStrategy
 
 import scala.collection.JavaConverters._
 

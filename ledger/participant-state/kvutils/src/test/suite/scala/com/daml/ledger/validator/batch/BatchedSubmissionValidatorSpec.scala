@@ -13,13 +13,13 @@ import com.daml.ledger.participant.state.kvutils.export.{
   NoOpLedgerDataExporter,
   SubmissionAggregator
 }
-import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, iterableOf}
 import com.daml.ledger.validator.TestHelper.{aParticipantId, anInvalidEnvelope, makePartySubmission}
 import com.daml.ledger.validator.batch.BatchedSubmissionValidatorSpec._
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
-import com.daml.ledger.validator.{CommitStrategy, Raw, ValidationFailed}
+import com.daml.ledger.validator.{CommitStrategy, ValidationFailed}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics

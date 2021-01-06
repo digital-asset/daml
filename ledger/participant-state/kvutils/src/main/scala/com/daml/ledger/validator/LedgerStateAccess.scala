@@ -4,6 +4,7 @@
 package com.daml.ledger.validator
 
 import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.metrics.{Metrics, Timed}
 
 import scala.concurrent.{ExecutionContext, Future}

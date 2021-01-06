@@ -4,8 +4,8 @@
 package com.daml.ledger
 
 import com.daml.caching.ConcurrentCache
-import com.daml.ledger.participant.state.kvutils.CorrelationId
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
+import com.daml.ledger.participant.state.kvutils.{CorrelationId, Raw}
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 
 import scala.concurrent.{ExecutionContext, Future}

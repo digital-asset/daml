@@ -13,14 +13,15 @@ import com.daml.ledger.participant.state.kvutils.{
   DamlStateMap,
   Envelope,
   KeyValueCommitting,
+  Raw,
   TestHelpers
 }
 import com.daml.ledger.participant.state.v1.Configuration
+import com.daml.ledger.validator.HasDamlStateValue
 import com.daml.ledger.validator.TestHelper._
 import com.daml.ledger.validator.ValidationFailed.ValidationError
 import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidatorSpec._
 import com.daml.ledger.validator.reading.StateReader
-import com.daml.ledger.validator.{HasDamlStateValue, Raw}
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext

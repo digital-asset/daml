@@ -3,7 +3,7 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.validator.Raw
+import com.daml.ledger.participant.state.kvutils.Raw
 
 /**
   * Raw key-value pairs with a distinct log entry.

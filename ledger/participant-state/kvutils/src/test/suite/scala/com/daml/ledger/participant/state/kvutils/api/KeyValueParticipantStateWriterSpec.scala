@@ -8,14 +8,13 @@ import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateWriterSpec._
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.{
   DefaultStateKeySerializationStrategy,
-  Raw,
   StateKeySerializationStrategy
 }
 import com.daml.lf.crypto

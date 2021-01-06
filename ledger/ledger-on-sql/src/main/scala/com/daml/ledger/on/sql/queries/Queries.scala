@@ -17,7 +17,7 @@ import anorm.{
   SqlRequestError,
   ToStatement
 }
-import com.daml.ledger.validator.Raw
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.google.protobuf.ByteString
 
 trait Queries extends ReadQueries with WriteQueries

@@ -12,9 +12,8 @@ import com.daml.ledger.participant.state.kvutils.export.{
   ProtobufBasedLedgerDataImporter,
   SubmissionInfo
 }
-import com.daml.ledger.participant.state.kvutils.{Envelope, DamlKvutils => Proto}
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw, DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.Raw
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.crypto
 import com.daml.lf.data._

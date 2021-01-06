@@ -3,8 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.export.{WriteItem, WriteSet}
-import com.daml.ledger.validator.{LedgerStateOperations, Raw}
+import com.daml.ledger.validator.LedgerStateOperations
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}

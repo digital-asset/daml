@@ -7,7 +7,6 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
-import com.daml.ledger.validator.Raw
 
 import scala.concurrent.Future
 

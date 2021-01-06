@@ -12,9 +12,9 @@ import java.io.{
 }
 import java.time.Instant
 
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExportSpecBase._
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.validator.Raw
 import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

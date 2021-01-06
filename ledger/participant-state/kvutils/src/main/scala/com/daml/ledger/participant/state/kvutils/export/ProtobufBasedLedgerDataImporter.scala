@@ -6,10 +6,9 @@ package com.daml.ledger.participant.state.kvutils.export
 import java.io.{BufferedInputStream, Closeable, InputStream}
 import java.nio.file.{Files, Path}
 
-import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.LedgerExportEntry
+import com.daml.ledger.participant.state.kvutils.{Conversions, Raw}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.Raw
 
 import scala.collection.JavaConverters._
 

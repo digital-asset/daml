@@ -9,8 +9,8 @@ import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.LedgerId
-import com.daml.ledger.validator.Raw
 
 import scala.util.Try
 
@@ -39,7 +39,7 @@ final class SqliteQueries(override protected implicit val connection: Connection
       .as(long("row_id").single)
   }
 
-  override final def truncate(): Try[Unit] = Try {
+  override def truncate(): Try[Unit] = Try {
     SQL"delete from #$StateTable".executeUpdate()
     SQL"delete from #$LogTable".executeUpdate()
     SQL"delete from #$MetaTable".executeUpdate()

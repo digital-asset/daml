@@ -9,9 +9,8 @@ import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
-import com.daml.ledger.participant.state.kvutils.OffsetBuilder
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
-import com.daml.ledger.validator.Raw
+import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
 
 import scala.collection.{breakOut, immutable}
 import scala.util.Try

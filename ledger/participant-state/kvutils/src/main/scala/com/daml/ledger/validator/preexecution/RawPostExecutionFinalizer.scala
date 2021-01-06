@@ -5,8 +5,9 @@ package com.daml.ledger.validator.preexecution
 
 import java.time.Instant
 
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.SubmissionResult
-import com.daml.ledger.validator.{LedgerStateOperations, Raw}
+import com.daml.ledger.validator.LedgerStateOperations
 
 import scala.concurrent.{ExecutionContext, Future}
 

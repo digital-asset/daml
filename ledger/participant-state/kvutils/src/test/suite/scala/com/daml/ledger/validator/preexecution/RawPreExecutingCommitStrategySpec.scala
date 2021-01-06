@@ -3,7 +3,6 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlContractState,
   DamlLogEntry,
@@ -12,6 +11,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
+import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Raw}
+import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.TestHelper.{
   aLogEntry,
   aLogEntryId,
@@ -19,7 +20,6 @@ import com.daml.ledger.validator.TestHelper.{
   allDamlStateKeyTypes
 }
 import com.daml.ledger.validator.preexecution.RawPreExecutingCommitStrategySpec._
-import com.daml.ledger.validator.{Raw, StateKeySerializationStrategy}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.MockitoSugar
 import org.mockito.invocation.InvocationOnMock

@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.validator.ArgumentMatchers.anyExecutionContext
 import com.daml.ledger.validator.RawToDamlLedgerStateReaderAdapterSpec._
 import com.daml.ledger.validator.TestHelper.{anInvalidEnvelope, makePartySubmission}

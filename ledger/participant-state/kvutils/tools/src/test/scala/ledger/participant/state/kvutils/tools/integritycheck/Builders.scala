@@ -3,8 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.`export`.WriteSet
-import com.daml.ledger.validator.Raw
 import com.google.protobuf.ByteString
 
 object Builders {

@@ -4,6 +4,7 @@
 package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.value.ValueOuterClass.Identifier
 import com.google.protobuf.{ByteString, Empty}

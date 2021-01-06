@@ -3,6 +3,8 @@
 
 package com.daml.ledger.validator
 
+import com.daml.ledger.participant.state.kvutils.Raw
+
 import scala.util.control.NoStackTrace
 
 sealed trait ValidationFailed extends RuntimeException with NoStackTrace

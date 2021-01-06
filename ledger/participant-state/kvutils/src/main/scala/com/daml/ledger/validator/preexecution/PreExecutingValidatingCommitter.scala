@@ -4,9 +4,10 @@
 package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.reading.{LedgerStateReader, StateReader}
-import com.daml.ledger.validator.{LedgerStateAccess, LedgerStateOperationsReaderAdapter, Raw}
+import com.daml.ledger.validator.{LedgerStateAccess, LedgerStateOperationsReaderAdapter}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.timer.RetryStrategy
 

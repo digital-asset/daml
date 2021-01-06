@@ -4,10 +4,10 @@
 package com.daml.ledger.on.memory
 
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
-import com.daml.ledger.participant.state.kvutils.OffsetBuilder
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
+import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v1.Offset
-import com.daml.ledger.validator.{BatchingLedgerStateOperations, Raw}
+import com.daml.ledger.validator.BatchingLedgerStateOperations
 
 import scala.collection.{breakOut, mutable}
 import scala.concurrent.{ExecutionContext, Future}

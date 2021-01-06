@@ -5,8 +5,8 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.nio.file.Paths
 
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.Builders._
-import com.daml.ledger.validator.Raw
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec

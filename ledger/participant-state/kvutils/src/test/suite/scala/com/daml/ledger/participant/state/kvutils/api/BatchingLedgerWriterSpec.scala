@@ -7,10 +7,9 @@ import akka.stream.Materializer
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
-import com.daml.ledger.participant.state.kvutils.{Envelope, MockitoHelpers}
+import com.daml.ledger.participant.state.kvutils.{Envelope, MockitoHelpers, Raw}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SubmissionResult
-import com.daml.ledger.validator.Raw
 import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
 import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}

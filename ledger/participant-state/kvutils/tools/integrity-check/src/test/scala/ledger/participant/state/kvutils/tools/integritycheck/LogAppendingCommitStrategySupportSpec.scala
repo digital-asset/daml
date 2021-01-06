@@ -12,9 +12,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.LogAppendingCommitStrategySupportSpec._
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Version}
+import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Raw, Version}
 import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
-import com.daml.ledger.validator.Raw
 import com.google.protobuf.{ByteString, Empty}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers

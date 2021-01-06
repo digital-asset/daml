@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
-import com.daml.ledger.validator.Raw
 import com.google.protobuf.ByteString
 
 import scala.util.Try
