@@ -14,6 +14,7 @@ Goals
 * Allows ledgers to store information about the contract and the
   creating transaction in the contract ID if necessary.
 
+
 Requirements
 ^^^^^^^^^^^^
 
@@ -53,7 +54,7 @@ bytes defined as follows ::
 where
 
 * ``∥`` is the concatenation operation; 
-* ``versionPrefix`` is 1 byte (equal to 0) used to version the
+* ``versionPrefix`` is 1 byte (equal to `0x00`) used to version the
   contract ID scheme;
 * ``discriminator`` is a sequence of 32 bytes. It is like a random
   UUID, but generated from an initial seed (called *submission seed*)
@@ -147,6 +148,7 @@ Submission seed
 Any random number with sufficient entropy works as submission seed
 ``submission_seed`` (256 bit entropy).
 
+
 Transaction seed construction
 -----------------------------
 
@@ -176,6 +178,7 @@ where
 
 * ``i`` is the 0-based index of the root node as a 64 bytes big-endian
   integer;
+
 
 Derivation of seeds for the children of exercise nodes
 ------------------------------------------------------
@@ -209,7 +212,8 @@ where
   lexicographically. IDs of stakeholder are interpreted as their
   US-ASCII encoding prefixed with there size encoded as a 32 bits
   big-endian integer.
-  
+
+
 Submission
 ^^^^^^^^^^
 
