@@ -10,14 +10,9 @@ import com.google.protobuf.MessageLite
 
 package object caching {
 
-  implicit object `Key Weight` extends Weight[Raw.Key] {
-    override def weigh(key: Raw.Key): Size =
-      key.bytes.size().toLong
-  }
-
-  implicit object `Value Weight` extends Weight[Raw.Value] {
-    override def weigh(value: Raw.Value): Size =
-      value.bytes.size().toLong
+  implicit object `Raw Weight` extends Weight[Raw] {
+    override def weigh(raw: Raw): Size =
+      raw.bytes.size().toLong
   }
 
   implicit object `Message Weight` extends Weight[MessageLite] {
