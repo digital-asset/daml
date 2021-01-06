@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.metrics.MetricName
-import com.google.protobuf.ByteString
 
 /** The participant-state key-value utilities provide methods to succinctly implement
   * [[com.daml.ledger.participant.state.v1.ReadService]] and
@@ -29,7 +28,6 @@ import com.google.protobuf.ByteString
   */
 package object kvutils {
 
-  type Bytes = ByteString
   type DamlStateMap = Map[DamlStateKey, Option[DamlStateValue]]
 
   type CorrelationId = String
