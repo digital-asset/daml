@@ -657,6 +657,13 @@ quickstartTests quickstartDir mvnDir getSandbox =
                                   "{\"0\":{\"issuer\":\"EUR_Bank\",\"owner\":\"Alice\",\"currency\":\"EUR\",\"amount\":100.0000000000,\"observers\":[]}}"
                   -- waitForProcess' will block on Windows so we explicitly kill the process.
                               terminateProcess mavenPh
+        , testCase "daml codegen java with DAML_PROJECT" $
+              withTempDir $ \dir -> do
+                callCommandSilent $ unwords ["daml", "new", dir </> "quickstart", "--template=quickstart-java"]
+                withEnv [ ("DAML_PROJECT", Just $ dir </> "quickstart") ] $ do
+                    callCommandSilent $ unwords ["daml", "build"]
+                    callCommandSilent $ unwords ["daml", "codegen", "java"]
+                pure ()
         ]
   where
     mvnRepoFlag = "-Dmaven.repo.local=" <> mvnDir
