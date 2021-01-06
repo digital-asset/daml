@@ -19,6 +19,7 @@ import java.util.UUID
 
 import akka.http.scaladsl.model.Uri.Path
 
+import scala.collection.compat.immutable.LazyList
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -61,6 +62,7 @@ import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiValue,
   toApiIdentifier
 }
+import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.ConverterException
 import scalaz.OneAnd._
 import scalaz.std.either._
@@ -278,7 +280,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
 
       })
     transactionTreeF.map(r =>
-      r.right.map(transactionTree => {
+      r.map(transactionTree => {
         val events = transactionTree.getTransaction.rootEventIds
           .map(evId => transactionTree.getTransaction.eventsById(evId))
           .toList
@@ -403,12 +405,12 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   class ArrayBufferTraceLog extends TraceLog {
     val buffer = ArrayBuffer[(String, Option[Location])]()
     override def add(message: String, optLocation: Option[Location]): Unit = {
-      buffer.append((message, optLocation))
+      discard { buffer.append((message, optLocation)) }
     }
     override def iterator: Iterator[(String, Option[Location])] = {
       buffer.iterator
     }
-    def clear: Unit = buffer.clear
+    def clear: Unit = buffer.clear()
   }
 
   val traceLog = new ArrayBufferTraceLog()
@@ -505,7 +507,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     onLedger.commitLocation = optLocation
     onLedger.localContracts = Map.empty
     onLedger.globalDiscriminators = Set.empty
-    val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to[ImmArray])._1
+    val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))._1
     val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
     machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
     onLedger.committers = actAs.toList.toSet
@@ -631,7 +633,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   override def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
-    val usedNames = getLedgerParties.toSet ++ allocatedParties.keySet
+    val usedNames = getLedgerParties().toSet ++ allocatedParties.keySet
     Future.fromTry(for {
       name <- if (partyIdHint != "") {
         // Try to allocate the given hint as party name. Will fail if the name is already taken.
@@ -642,7 +644,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
         }
       } else {
         // Allocate a fresh name based on the display name.
-        val candidates = displayName #:: Stream.from(1).map(displayName + _.toString())
+        val candidates = displayName #:: LazyList.from(1).map(displayName + _.toString())
         Success(candidates.find(s => !(usedNames contains s)).get)
       }
       // Create and store the new party.
@@ -655,7 +657,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   }
 
   override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
-    val ledgerParties = getLedgerParties
+    val ledgerParties: Map[String, PartyDetails] = getLedgerParties()
       .map(p => (p -> PartyDetails(party = p, displayName = None, isLocal = true)))
       .toMap
     Future.successful((ledgerParties ++ allocatedParties).values.toList)
@@ -775,7 +777,7 @@ class JsonLedgerClient(
         QueryArgs(templateId))
     } yield {
       val ctx = templateId.qualifiedName
-      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).right.get
+      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
       val parsedResults = queryResponse.results.map(r => {
         val payload = r.payload.convertTo[Value[ContractId]](
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_)))
@@ -796,7 +798,7 @@ class JsonLedgerClient(
         FetchArgs(cid))
     } yield {
       val ctx = templateId.qualifiedName
-      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).right.get
+      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
       fetchResponse.result.map(r => {
         val payload = r.payload.convertTo[Value[ContractId]](
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_)))
@@ -819,7 +821,7 @@ class JsonLedgerClient(
         FetchKeyArgs(templateId, key.toValue))
     } yield {
       val ctx = templateId.qualifiedName
-      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).right.get
+      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
       fetchResponse.result.map(r => {
         val payload = r.payload.convertTo[Value[ContractId]](
           LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_)))

@@ -67,7 +67,6 @@ trait NavigatorModelAliases[Cid] {
   type DamlLfEnum = iface.Enum
   val DamlLfEnum = iface.Enum
 
-  import scala.language.higherKinds
   type OfCid[F[_]] = F[Cid]
   type ApiValue = OfCid[V]
   type ApiRecordField = (Option[DamlLfRef.Name], ApiValue)

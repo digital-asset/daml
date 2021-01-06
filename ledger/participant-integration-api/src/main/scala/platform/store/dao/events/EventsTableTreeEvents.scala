@@ -7,6 +7,8 @@ import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions._
 
+import scala.collection.compat.immutable.ArraySeq
+
 private[events] object EventsTableTreeEvents {
 
   private val createdTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
@@ -25,11 +27,11 @@ private[events] object EventsTableTreeEvents {
             contractId = contractId,
             templateId = templateId,
             createArgument = createArgument,
-            createSignatories = createSignatories,
-            createObservers = createObservers,
+            createSignatories = ArraySeq.unsafeWrapArray(createSignatories),
+            createObservers = ArraySeq.unsafeWrapArray(createObservers),
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
-            eventWitnesses = eventWitnesses,
+            eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
           )
         )
     }
@@ -53,9 +55,9 @@ private[events] object EventsTableTreeEvents {
             exerciseChoice = exerciseChoice,
             exerciseArgument = exerciseArgument,
             exerciseResult = exerciseResult,
-            exerciseActors = exerciseActors,
-            exerciseChildEventIds = exerciseChildEventIds,
-            eventWitnesses = eventWitnesses,
+            exerciseActors = ArraySeq.unsafeWrapArray(exerciseActors),
+            exerciseChildEventIds = ArraySeq.unsafeWrapArray(exerciseChildEventIds),
+            eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
           )
         )
     }

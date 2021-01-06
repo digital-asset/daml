@@ -200,7 +200,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
 
     val divulgedContractIds = divulgence -- st.archivedIds
     st.mapAcs(
-        _ divulgeAlreadyCommittedContracts (transactionId, divulgedContractIds, divulgedContracts))
+        _.divulgeAlreadyCommittedContracts(transactionId, divulgedContractIds, divulgedContracts))
       .mapAcs(_ addParties st.parties)
       .result
   }

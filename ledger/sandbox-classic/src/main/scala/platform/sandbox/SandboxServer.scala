@@ -49,7 +49,7 @@ import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.ports.Port
 import scalaz.syntax.tag._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try

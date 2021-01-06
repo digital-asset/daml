@@ -6,8 +6,6 @@ package com.daml.jwt
 import scalaz.syntax.applicative._
 import scalaz.{Applicative, Traverse}
 
-import scala.language.higherKinds
-
 package domain {
 
   final case class KeyPair[A](publicKey: A, privateKey: A)

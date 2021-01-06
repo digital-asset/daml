@@ -33,6 +33,7 @@ import com.daml.lf.engine.script.{
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
+import scala.collection.compat._
 import scala.collection.immutable.HashMap
 import scala.util.{Failure, Success}
 
@@ -103,9 +104,9 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   @throws[ParseError]
   def update(
       unloadModules: Set[ModuleName],
-      loadModules: Seq[ProtoScenarioModule],
+      loadModules: collection.Seq[ProtoScenarioModule],
       unloadPackages: Set[PackageId],
-      loadPackages: Seq[ByteString],
+      loadPackages: collection.Seq[ByteString],
       omitValidation: Boolean,
   ): Unit = synchronized {
 
@@ -122,11 +123,11 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       if (unloadPackages.nonEmpty || newPackages.nonEmpty) {
         val invalidPackages = unloadModules ++ newPackages.keys
         val newExtSignature = extSignatures -- unloadPackages ++ AstUtil.toSignatures(newPackages)
-        val newExtDefns = extDefns.filterKeys(sdef => !invalidPackages(sdef.packageId)) ++
+        val newExtDefns = extDefns.view.filterKeys(sdef => !invalidPackages(sdef.packageId)) ++
           assertRight(Compiler.compilePackages(newExtSignature, newPackages, compilerConfig))
         // we update only if we manage to compile the new packages
         extSignatures = newExtSignature
-        extDefns = newExtDefns
+        extDefns = newExtDefns.toMap
         modDefns = HashMap.empty
         modules.values
       } else {

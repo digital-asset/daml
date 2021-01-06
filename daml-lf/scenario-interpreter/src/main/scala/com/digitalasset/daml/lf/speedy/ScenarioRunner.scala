@@ -39,7 +39,7 @@ final case class ScenarioRunner(
   import scala.util.{Try, Success, Failure}
 
   def run(): Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)] =
-    handleUnsafe(runUnsafe) match {
+    handleUnsafe(runUnsafe()) match {
       case Left(err) => Left((err, ledger))
       case Right(t) => Right(t)
     }

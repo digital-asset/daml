@@ -26,14 +26,14 @@ class JwtVerifier(verifier: com.auth0.jwt.interfaces.JWTVerifier) extends JwtVer
     // but we still need to do manual expiration checks in ongoing streams
     \/.fromTryCatchNonFatal(verifier.verify(jwt.value))
       .bimap(
-        e => Error('verify, e.getMessage),
+        e => Error(Symbol("verify"), e.getMessage),
         a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload)
       )
       .flatMap(base64Decode)
   }
 
   private def base64Decode(jwt: domain.DecodedJwt[String]): Error \/ domain.DecodedJwt[String] =
-    jwt.traverse(Base64.decode).leftMap(e => Error('base64Decode, e.shows))
+    jwt.traverse(Base64.decode).leftMap(e => Error(Symbol("base64Decode"), e.shows))
 
 }
 
@@ -56,7 +56,7 @@ object HMAC256Verifier extends StrictLogging {
       val algorithm = Algorithm.HMAC256(secret)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
-    }.leftMap(e => Error('HMAC256, e.getMessage))
+    }.leftMap(e => Error(Symbol("HMAC256"), e.getMessage))
 }
 
 // ECDSA validator factory
@@ -75,7 +75,7 @@ object ECDSAVerifier extends StrictLogging {
         KeyUtils
           .readECPublicKeyFromCrt(new File(path))
           .toEither)
-        .leftMap(e => Error('fromCrtFile, e.getMessage))
+        .leftMap(e => Error(Symbol("fromCrtFile"), e.getMessage))
       verifier <- ECDSAVerifier(algorithmPublicKey(key))
     } yield verifier
   }
@@ -89,7 +89,7 @@ object RSA256Verifier extends StrictLogging {
       val algorithm = Algorithm.RSA256(publicKey, null)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
-    }.leftMap(e => Error('RSA256, e.getMessage))
+    }.leftMap(e => Error(Symbol("RSA256"), e.getMessage))
 
   def apply(keyProvider: RSAKeyProvider): Error \/ JwtVerifier =
     \/.fromTryCatchNonFatal {
@@ -97,7 +97,7 @@ object RSA256Verifier extends StrictLogging {
       val algorithm = Algorithm.RSA256(keyProvider)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
-    }.leftMap(e => Error('RSA256, e.getMessage))
+    }.leftMap(e => Error(Symbol("RSA256"), e.getMessage))
 
   /**
     * Create a RSA256 validator with the key loaded from the given file.
@@ -110,7 +110,7 @@ object RSA256Verifier extends StrictLogging {
         KeyUtils
           .readRSAPublicKeyFromCrt(new File(path))
           .toEither)
-        .leftMap(e => Error('fromCrtFile, e.getMessage))
+        .leftMap(e => Error(Symbol("fromCrtFile"), e.getMessage))
       verfier <- RSA256Verifier.apply(rsaKey)
     } yield verfier
   }

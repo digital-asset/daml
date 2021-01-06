@@ -23,7 +23,6 @@ import scalaz.std.set._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
 
-import scala.language.higherKinds
 import spray.json._
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.FrontStack
@@ -137,7 +136,7 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
         JsString(obj.coid)
       override def read(json: JsValue) = json match {
         case JsString(s) =>
-          ContractId fromString s fold (deserializationError(_), identity)
+          ContractId.fromString(s).fold(deserializationError(_), identity)
         case _ => deserializationError("ContractId must be a string")
       }
     }
@@ -479,9 +478,9 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                         .toCommands(extendedCompiledPackages, payload.freeAp))
                       client <- Converter.toFuture(clients
                         .getPartiesParticipant(actAs))
-                      commitLocation <- payload.loc cata (sLoc =>
-                        Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
-                      Future(None))
+                      commitLocation <- payload.loc.cata(
+                        sLoc => Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
+                        Future(None))
                       submitRes <- client.submit(actAs, readAs, commands, commitLocation)
                       _ = copyTracelog(client)
                       v <- submitRes match {
@@ -533,9 +532,9 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                         .toCommands(extendedCompiledPackages, payload.freeAp))
                       client <- Converter.toFuture(clients
                         .getPartiesParticipant(actAs))
-                      commitLocation <- payload.loc cata (sLoc =>
-                        Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
-                      Future(None))
+                      commitLocation <- payload.loc.cata(
+                        sLoc => Converter.toFuture(Converter.toOptionLocation(knownPackages, sLoc)),
+                        Future(None))
                       submitRes <- client.submitMustFail(actAs, readAs, commands, commitLocation)
                       _ = copyTracelog(client)
                       v <- submitRes match {

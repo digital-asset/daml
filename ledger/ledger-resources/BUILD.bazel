@@ -6,6 +6,10 @@ load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test_suite")
 da_scala_library(
     name = "ledger-resources",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
     tags = ["maven_coordinates=com.daml:ledger-resources:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -13,8 +17,6 @@ da_scala_library(
     deps = [
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
     ],
 )
 

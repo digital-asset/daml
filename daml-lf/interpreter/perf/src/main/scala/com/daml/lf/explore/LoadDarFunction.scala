@@ -30,7 +30,7 @@ object LoadDarFunction extends App {
       )
 
     val compiledPackages: CompiledPackages =
-      PureCompiledPackages(packagesMap, compilerConfig).right.get
+      PureCompiledPackages(packagesMap, compilerConfig).toOption.get
 
     def function(argValue: Long): Long = {
       val expr: SExpr = {

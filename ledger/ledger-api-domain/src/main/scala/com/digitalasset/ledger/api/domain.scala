@@ -15,7 +15,7 @@ import com.daml.lf.value.{Value => Lf}
 import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
 
-import scala.collection.{breakOut, immutable}
+import scala.collection.immutable
 
 object domain {
 
@@ -28,7 +28,7 @@ object domain {
 
     /** These parties subscribe for all templates */
     def allForParties(parties: Set[Ref.Party]) =
-      TransactionFilter(parties.map(_ -> Filters.noFilter)(breakOut))
+      TransactionFilter(parties.view.map(_ -> Filters.noFilter).toMap)
   }
 
   final case class Filters(inclusive: Option[InclusiveFilters]) {

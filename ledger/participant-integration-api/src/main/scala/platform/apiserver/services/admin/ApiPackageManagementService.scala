@@ -80,7 +80,7 @@ private[apiserver] final class ApiPackageManagementService private (
       .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
   }
 
-  private[this] val darReader = DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+  private[this] val darReader = DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
 
   def decodeAndValidate(stream: ZipInputStream): Try[Dar[Archive]] =
     for {

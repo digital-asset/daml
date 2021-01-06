@@ -147,7 +147,7 @@ private[platform] abstract class BaseLedger(
   override def listLfPackages()(
       implicit loggingContext: LoggingContext,
   ): Future[Map[PackageId, v2.PackageDetails]] =
-    ledgerDao.listLfPackages
+    ledgerDao.listLfPackages()
 
   override def getLfArchive(packageId: PackageId)(
       implicit loggingContext: LoggingContext,
