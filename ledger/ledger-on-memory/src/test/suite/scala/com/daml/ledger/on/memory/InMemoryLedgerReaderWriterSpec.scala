@@ -8,7 +8,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.api.CommitMetadata
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.ledger.validator.{SubmissionEnvelope, ValidateAndCommit}
+import com.daml.ledger.validator.ValidateAndCommit
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -29,7 +29,7 @@ class InMemoryLedgerReaderWriterSpec
     "not signal new head in case of failure" in {
       val mockDispatcher = mock[Dispatcher[Index]]
       val mockCommitter = mock[ValidateAndCommit]
-      when(mockCommitter(any[String], any[SubmissionEnvelope], any[ParticipantId]))
+      when(mockCommitter(any[String], any[Raw.Value], any[ParticipantId]))
         .thenReturn(
           Future.successful(SubmissionResult.InternalError("Validation failed with an exception")))
       val instance = new InMemoryLedgerReaderWriter(

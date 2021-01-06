@@ -11,7 +11,6 @@ import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import scala.concurrent.{ExecutionContext, Future}
 
 package object validator {
-  type SubmissionEnvelope = Raw.Value
   type SubmittingParticipantId = ParticipantId
 
   /**
@@ -19,7 +18,7 @@ package object validator {
     */
   type ValidateAndCommit = (
       CorrelationId,
-      SubmissionEnvelope,
+      Raw.Value,
       SubmittingParticipantId,
   ) => Future[SubmissionResult]
 
