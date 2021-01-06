@@ -55,8 +55,7 @@ class FrontStackSpec
 
   "toImmArray" should {
     "yield same elements as iterator" in forAll { fs: FrontStack[Int] =>
-      import ImmArray._
-      fs.toImmArray should ===(implicitly[Factory[Int, ImmArray[Int]]].fromSpecific(fs.iterator))
+      fs.toImmArray should ===(fs.iterator.to(ImmArray))
     }
   }
 

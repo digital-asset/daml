@@ -251,9 +251,12 @@ object SValue {
 
   def toList(entries: TreeMap[SValue, SValue]): SList =
     SList(
-      FrontStack(implicitly[Factory[SStruct, ImmArray[SStruct]]].fromSpecific(entries.iterator.map {
-        case (k, v) => entry(k, v)
-      })))
+      FrontStack(
+        entries.iterator
+          .map {
+            case (k, v) => entry(k, v)
+          }
+          .to(ImmArray)))
 
   private def mapArrayList(
       as: util.ArrayList[SValue],

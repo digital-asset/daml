@@ -26,7 +26,6 @@ import scalaz.{Order, Tag}
 import scalaz.syntax.order._
 import scalaz.scalacheck.{ScalazProperties => SzP}
 
-import scala.collection.compat._
 import scala.language.implicitConversions
 
 class OrderingSpec
@@ -56,8 +55,7 @@ class OrderingSpec
         r("Int64", VA.int64)(SInt64),
         r("Text", VA.text)(SText),
         r("Int64 Option List", VA.list(VA.optional(VA.int64))) { loi =>
-          SList(implicitly[Factory[SValue, FrontStack[SValue]]].fromSpecific(loi.map(oi =>
-            SOptional(oi map SInt64))))
+          SList(loi.map(oi => SOptional(oi map SInt64)).to(FrontStack))
         },
       ) ++
         comparableCoidsGen.zipWithIndex.map {

@@ -126,9 +126,7 @@ object TypedValueGenerators {
       type Inj[Cid] = Vector[elt.Inj[Cid]]
       override val t = TypePrim(PT.List, ImmArraySeq(elt.t))
       override def inj[Cid: IntroCtx](elts: Inj[Cid]) =
-        ValueList(
-          implicitly[Factory[Value[Cid], FrontStack[Value[Cid]]]]
-            .fromSpecific(elts.map(elt.inj(_))))
+        ValueList(elts.map(elt.inj(_)).to(FrontStack))
       override def prj[Cid] = {
         case ValueList(v) =>
           import scalaz.std.vector._
