@@ -25,6 +25,14 @@
         <appender-ref ref="MEM" />
     </logger>
 
+    <appender name="JdbcIndexerSpecAppender" class="com.daml.platform.testing.LogCollector">
+        <test>com.daml.platform.indexer.JdbcIndexerSpec</test>
+    </appender>
+
+    <logger name="com.daml.platform.store.dao.HikariConnection" level="INFO">
+        <appender-ref ref="JdbcIndexerSpecAppender" />
+    </logger>
+
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="ASYNC"/>

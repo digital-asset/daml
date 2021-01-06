@@ -220,10 +220,10 @@ final class SqlLedgerSpec
       for {
         _ <- createSqlLedger(validatePartyAllocation = false)
       } yield {
-        val jdbcLedgerDaoLogs =
-          LogCollector.read[this.type]("com.daml.platform.store.dao.JdbcLedgerDao")
-        jdbcLedgerDaoLogs should contain(
-          Level.INFO -> "Starting JdbcLedgerDao with async commit disabled"
+        val hikariDataSourceLogs =
+          LogCollector.read[this.type]("com.daml.platform.store.dao.HikariConnection")
+        hikariDataSourceLogs should contain(
+          Level.INFO -> "Creating Hikari connections with asynchronous commit disabled"
         )
       }
     }

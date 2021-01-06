@@ -85,7 +85,6 @@ private class JdbcLedgerDao(
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslation.Cache,
     validatePartyAllocation: Boolean,
-    enableAsyncCommits: Boolean = false,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -96,13 +95,6 @@ private class JdbcLedgerDao(
   }
 
   private val logger = ContextualizedLogger.get(this.getClass)
-
-  LoggingContext.newLoggingContext { implicit loggingContext =>
-    if (enableAsyncCommits)
-      logger.info("Starting JdbcLedgerDao with async commit enabled")
-    else
-      logger.info("Starting JdbcLedgerDao with async commit disabled")
-  }
 
   override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()
 
@@ -131,16 +123,19 @@ private class JdbcLedgerDao(
   override def initializeLedger(ledgerId: LedgerId)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters)(
-      ParametersTable.setLedgerId(ledgerId.unwrap)
-    )
+    dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) {
+      implicit connection =>
+        queries.enforceSynchronousCommit
+        ParametersTable.setLedgerId(ledgerId.unwrap)(connection)
+    }
 
   override def initializeParticipantId(participantId: ParticipantId)(implicit
       loggingContext: LoggingContext
   ): Future[Unit] =
-    dbDispatcher.executeSql(metrics.daml.index.db.initializeParticipantId)(
-      ParametersTable.setParticipantId(participantId.unwrap)
-    )
+    dbDispatcher.executeSql(metrics.daml.index.db.initializeParticipantId) { implicit connection =>
+      queries.enforceSynchronousCommit
+      ParametersTable.setParticipantId(participantId.unwrap)(connection)
+    }
 
   private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
     "select * from configuration_entries where ledger_offset > {startExclusive} and ledger_offset <= {endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}"
@@ -223,9 +218,6 @@ private class JdbcLedgerDao(
     dbDispatcher.executeSql(
       metrics.daml.index.db.storeConfigurationEntryDbMetrics
     ) { implicit conn =>
-      if (enableAsyncCommits) {
-        queries.enableAsyncCommit
-      }
       val optCurrentConfig = ParametersTable.getLedgerEndAndConfiguration(conn)
       val optExpectedGeneration: Option[Long] =
         optCurrentConfig.map { case (_, c) => c.generation + 1 }
@@ -300,9 +292,6 @@ private class JdbcLedgerDao(
       partyEntry: PartyLedgerEntry,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
-      if (enableAsyncCommits) {
-        queries.enableAsyncCommit
-      }
       ParametersTable.updateLedgerEnd(offsetStep)
       val savepoint = conn.setSavepoint()
 
@@ -471,9 +460,6 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
-        if (enableAsyncCommits) {
-          queries.enableAsyncCommit
-        }
         val error =
           Timed.value(
             metrics.daml.index.db.storeTransactionDbMetrics.commitValidation,
@@ -508,9 +494,6 @@ private class JdbcLedgerDao(
       reason: RejectionReason,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher.executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
-      if (enableAsyncCommits) {
-        queries.enableAsyncCommit
-      }
       for (info <- submitterInfo) {
         handleError(offsetStep.offset, info, recordTime, reason)
       }
@@ -524,6 +507,7 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.storeInitialStateFromScenario) {
       implicit connection =>
+        queries.enforceSynchronousCommit
         ledgerEntries.foreach { case (offset, entry) =>
           entry match {
             case tx: LedgerEntry.Transaction =>
@@ -687,9 +671,6 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
       implicit connection =>
-        if (enableAsyncCommits) {
-          queries.enableAsyncCommit
-        }
         ParametersTable.updateLedgerEnd(offsetStep)
 
         if (packages.nonEmpty) {
@@ -1038,7 +1019,13 @@ private[platform] object JdbcLedgerDao {
       jdbcAsyncCommits: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
     for {
-      dbDispatcher <- DbDispatcher.owner(serverRole, jdbcUrl, maxConnections, metrics)
+      dbDispatcher <- DbDispatcher.owner(
+        serverRole,
+        jdbcUrl,
+        maxConnections,
+        metrics,
+        jdbcAsyncCommits,
+      )
       executor <- ResourceOwner.forExecutorService(() => Executors.newWorkStealingPool())
     } yield new JdbcLedgerDao(
       maxConnections,
@@ -1050,15 +1037,11 @@ private[platform] object JdbcLedgerDao {
       metrics,
       lfValueTranslationCache,
       validatePartyAllocation,
-      jdbcAsyncCommits,
     )
 
   sealed trait Queries {
 
-    /** Performance optimization for transactions that don't
-      * require strong durability guarantees.
-      */
-    protected[JdbcLedgerDao] def enableAsyncCommit(implicit conn: Connection): Unit
+    protected[JdbcLedgerDao] def enforceSynchronousCommit(implicit conn: Connection): Unit
 
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
 
@@ -1101,8 +1084,10 @@ private[platform] object JdbcLedgerDao {
         |truncate table party_entries cascade;
       """.stripMargin
 
-    override protected[JdbcLedgerDao] def enableAsyncCommit(implicit conn: Connection): Unit = {
-      val statement = conn.prepareStatement("SET LOCAL synchronous_commit = 'off'")
+    override protected[JdbcLedgerDao] def enforceSynchronousCommit(implicit
+        conn: Connection
+    ): Unit = {
+      val statement = conn.prepareStatement("SET LOCAL synchronous_commit = 'on'")
       try {
         statement.execute()
         ()
@@ -1146,7 +1131,9 @@ private[platform] object JdbcLedgerDao {
         |set referential_integrity true;
       """.stripMargin
 
-    /** Async commit not supported for H2 */
-    override protected[JdbcLedgerDao] def enableAsyncCommit(implicit conn: Connection): Unit = ()
+    /** H2 does not support asynchronous commits */
+    override protected[JdbcLedgerDao] def enforceSynchronousCommit(implicit
+        conn: Connection
+    ): Unit = ()
   }
 }

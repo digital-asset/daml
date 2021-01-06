@@ -31,6 +31,7 @@ private[platform] final class HikariConnection(
     metrics: Option[MetricRegistry],
     connectionPoolPrefix: String,
     maxInitialConnectRetryAttempts: Int,
+    connectionAsyncCommit: Boolean,
 )(implicit loggingContext: LoggingContext)
     extends ResourceOwner[HikariDataSource] {
 
@@ -44,6 +45,7 @@ private[platform] final class HikariConnection(
     config.addDataSourceProperty("prepStmtCacheSize", "128")
     config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
     config.setAutoCommit(false)
+    enableAsyncCommit(config)
     config.setMaximumPoolSize(maxPoolSize)
     config.setMinimumIdle(minimumIdle)
     config.setConnectionTimeout(connectionTimeout.toMillis)
@@ -67,6 +69,14 @@ private[platform] final class HikariConnection(
       }
     )(conn => Future { conn.close() })
   }
+
+  private def enableAsyncCommit(config: HikariConfig): Unit =
+    if (connectionAsyncCommit && DbType.jdbcType(jdbcUrl).supportsAsynchronousCommits) {
+      logger.info("Creating Hikari connections with asynchronous commit enabled")
+      config.setConnectionInitSql("SET synchronous_commit=OFF")
+    } else {
+      logger.info("Creating Hikari connections with asynchronous commit disabled")
+    }
 }
 
 private[platform] object HikariConnection {
@@ -80,6 +90,7 @@ private[platform] object HikariConnection {
       maxPoolSize: Int,
       connectionTimeout: FiniteDuration,
       metrics: Option[MetricRegistry],
+      connectionAsyncCommit: Boolean,
   )(implicit
       loggingContext: LoggingContext
   ): HikariConnection =
@@ -92,6 +103,7 @@ private[platform] object HikariConnection {
       metrics,
       ConnectionPoolPrefix,
       MaxInitialConnectRetryAttempts,
+      connectionAsyncCommit,
     )
 }
 
@@ -157,6 +169,7 @@ private[platform] object HikariJdbcConnectionProvider {
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
+      connectionAsyncCommit: Boolean = false,
   )(implicit loggingContext: LoggingContext): ResourceOwner[HikariJdbcConnectionProvider] =
     for {
       // these connections should never time out as we have the same number of threads as connections
@@ -167,6 +180,7 @@ private[platform] object HikariJdbcConnectionProvider {
         maxConnections,
         250.millis,
         Some(metrics),
+        connectionAsyncCommit,
       )
       healthPoller <- ResourceOwner.forTimer(() =>
         new Timer(s"${classOf[HikariJdbcConnectionProvider].getName}#healthPoller")
