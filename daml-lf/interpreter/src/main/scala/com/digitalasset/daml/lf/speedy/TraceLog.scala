@@ -37,7 +37,7 @@ private final class RingIterator[A](ringStart: Int, ringSize: Int, buffer: Array
   private var first = true
   private def nextPos: Int = (pos + 1) % ringSize
   def hasNext: Boolean = ringSize != 0 && (first || pos != ringStart)
-  def next: A = {
+  def next(): A = {
     val x = buffer(pos)
     first = false
     pos = nextPos

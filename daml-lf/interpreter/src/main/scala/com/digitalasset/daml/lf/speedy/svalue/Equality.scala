@@ -6,7 +6,7 @@ package svalue
 
 import com.daml.lf.speedy.SError.SErrorCrash
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 private[lf] object Equality {
 

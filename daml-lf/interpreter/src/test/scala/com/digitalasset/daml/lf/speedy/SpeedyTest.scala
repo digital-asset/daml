@@ -229,7 +229,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
   "from_any" should {
 
     "throw an exception on Int64" in {
-      eval(e"""from_any @Test:T1 1""", anyPkgs) shouldBe 'left
+      eval(e"""from_any @Test:T1 1""", anyPkgs) shouldBe a[Left[_, _]]
     }
 
     "return Some(tpl) if template type matches" in {

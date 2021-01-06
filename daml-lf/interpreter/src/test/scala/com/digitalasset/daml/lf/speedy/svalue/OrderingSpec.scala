@@ -26,6 +26,7 @@ import scalaz.{Order, Tag}
 import scalaz.syntax.order._
 import scalaz.scalacheck.{ScalazProperties => SzP}
 
+import scala.collection.compat._
 import scala.language.implicitConversions
 
 class OrderingSpec
@@ -55,7 +56,8 @@ class OrderingSpec
         r("Int64", VA.int64)(SInt64),
         r("Text", VA.text)(SText),
         r("Int64 Option List", VA.list(VA.optional(VA.int64))) { loi =>
-          SList(loi.map(oi => SOptional(oi map SInt64)).to[FrontStack])
+          SList(implicitly[Factory[SValue, FrontStack[SValue]]].fromSpecific(loi.map(oi =>
+            SOptional(oi map SInt64))))
         },
       ) ++
         comparableCoidsGen.zipWithIndex.map {
@@ -68,7 +70,7 @@ class OrderingSpec
     "be lawful on each subset" in forEvery(randomComparableValues) { (_, svGen) =>
       implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
       implicit val svalueArb: Arbitrary[SValue] = Arbitrary(svGen)
-      forEvery(Table(("law", "prop"), SzP.order.laws[SValue].properties: _*)) { (_, p) =>
+      forEvery(Table(("law", "prop"), SzP.order.laws[SValue].properties.toSeq: _*)) { (_, p) =>
         check(p, minSuccessful(50))
       }
     }

@@ -11,7 +11,8 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.SErrorCrash
 import com.daml.lf.value.{Value => V}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
+import scala.collection.compat._
 import scala.collection.immutable.TreeMap
 
 /** Speedy values. These are the value types recognized by the
@@ -56,7 +57,7 @@ sealed trait SValue {
           case (_, _) => throw SErrorCrash("SValue.toValue: TextMap with non text key")
         }))
       case SGenMap(false, entries) =>
-        V.ValueGenMap(ImmArray(entries.map { case (k, v) => k.toValue -> v.toValue }))
+        V.ValueGenMap(ImmArray(entries.toSeq.map { case (k, v) => k.toValue -> v.toValue }))
       case SContractId(coid) =>
         V.ValueContractId(coid)
       case SStruct(_, _) =>
@@ -173,8 +174,11 @@ object SValue {
     }
 
     def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SGenMap = {
-      type O[_] = TreeMap[SValue, SValue]
-      SGenMap(isTextMap, entries.map { case p @ (k, _) => comparable(k); p }.to[O])
+      SGenMap(
+        isTextMap,
+        implicitly[Factory[(SValue, SValue), TreeMap[SValue, SValue]]].fromSpecific(entries.map {
+          case p @ (k, _) => comparable(k); p
+        }))
     }
 
     def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SGenMap =
@@ -246,7 +250,10 @@ object SValue {
   }
 
   def toList(entries: TreeMap[SValue, SValue]): SList =
-    SList(FrontStack(entries.iterator.map { case (k, v) => entry(k, v) }.to[ImmArray]))
+    SList(
+      FrontStack(implicitly[Factory[SStruct, ImmArray[SStruct]]].fromSpecific(entries.iterator.map {
+        case (k, v) => entry(k, v)
+      })))
 
   private def mapArrayList(
       as: util.ArrayList[SValue],

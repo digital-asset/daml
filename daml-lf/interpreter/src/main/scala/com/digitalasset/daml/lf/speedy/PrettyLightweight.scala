@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import java.util
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SExpr._
@@ -79,6 +79,6 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
       s"clo[${commas(fvs.map(pp))}]:${pp(expr)}"
   }
 
-  def commas(xs: Seq[String]): String = xs.mkString(",")
+  def commas(xs: collection.Seq[String]): String = xs.mkString(",")
 
 }
