@@ -25,7 +25,7 @@ final class RawToDamlLedgerStateReaderAdapter(
 }
 
 object RawToDamlLedgerStateReaderAdapter {
-  private[validator] val deserializeDamlStateValue: LedgerStateOperations.Value => DamlStateValue =
+  private[validator] val deserializeDamlStateValue: Raw.Value => DamlStateValue =
     Envelope
       .openStateValue(_)
       .getOrElse(sys.error("Opening enveloped DamlStateValue failed"))

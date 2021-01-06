@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 import java.nio.file.Paths
 
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.Builders._
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.validator.Raw
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -21,7 +21,9 @@ final class IntegrityCheckerSpec
   "compareSameSizeWriteSets" should {
     "return None in case strategy cannot explain difference" in {
       val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
-      when(mockCommitStrategySupport.explainMismatchingValue(any[Key], any[Value], any[Value]))
+      when(
+        mockCommitStrategySupport
+          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value]))
         .thenReturn(None)
       val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
 
@@ -37,7 +39,9 @@ final class IntegrityCheckerSpec
 
     "return explanation from strategy in case it can explain the difference" in {
       val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
-      when(mockCommitStrategySupport.explainMismatchingValue(any[Key], any[Value], any[Value]))
+      when(
+        mockCommitStrategySupport
+          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value]))
         .thenReturn(Some("expected explanation"))
       val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
 
@@ -52,7 +56,9 @@ final class IntegrityCheckerSpec
 
     "return all explanations in case of multiple differences" in {
       val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
-      when(mockCommitStrategySupport.explainMismatchingValue(any[Key], any[Value], any[Value]))
+      when(
+        mockCommitStrategySupport
+          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value]))
         .thenReturn(Some("first explanation"), Some("second explanation"))
       val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
 

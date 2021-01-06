@@ -7,8 +7,7 @@ import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.v1.Offset
-import com.daml.ledger.validator.BatchingLedgerStateOperations
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.validator.{BatchingLedgerStateOperations, Raw}
 
 import scala.collection.{breakOut, mutable}
 import scala.concurrent.{ExecutionContext, Future}
@@ -21,18 +20,18 @@ private[memory] final class InMemoryLedgerStateOperations(
   import InMemoryLedgerStateOperations.appendEntry
 
   override def readState(
-      keys: Iterable[Key],
-  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] =
+      keys: Iterable[Raw.Key],
+  )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Value]]] =
     Future.successful(keys.map(state.get)(breakOut))
 
   override def writeState(
-      keyValuePairs: Iterable[(Key, Value)],
+      keyValuePairs: Iterable[Raw.Pair],
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
     state ++= keyValuePairs
     Future.unit
   }
 
-  override def appendToLog(key: Key, value: Value)(
+  override def appendToLog(key: Raw.Key, value: Raw.Value)(
       implicit executionContext: ExecutionContext
   ): Future[Index] =
     Future.successful(appendEntry(log, LedgerRecord(_, key, value)))
@@ -40,7 +39,7 @@ private[memory] final class InMemoryLedgerStateOperations(
 
 object InMemoryLedgerStateOperations {
   def apply(): InMemoryLedgerStateOperations = {
-    val inMemoryState = mutable.Map.empty[Key, Value]
+    val inMemoryState = mutable.Map.empty[Raw.Key, Raw.Value]
     val inMemoryLog = mutable.ArrayBuffer[LedgerRecord]()
     new InMemoryLedgerStateOperations(inMemoryLog, inMemoryState)
   }

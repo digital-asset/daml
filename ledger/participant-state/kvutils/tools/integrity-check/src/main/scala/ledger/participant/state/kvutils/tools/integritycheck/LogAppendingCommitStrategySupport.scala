@@ -14,10 +14,9 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.bytesAsHexString
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.batch.BatchedSubmissionValidatorFactory
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
-import com.daml.ledger.validator.{CommitStrategy, StateKeySerializationStrategy}
+import com.daml.ledger.validator.{CommitStrategy, Raw, StateKeySerializationStrategy}
 import com.daml.metrics.Metrics
 
 import scala.concurrent.ExecutionContext
@@ -54,9 +53,10 @@ final class LogAppendingCommitStrategySupport(implicit executionContext: Executi
     new LogAppendingReadServiceFactory(metrics)
 
   override def explainMismatchingValue(
-      logEntryId: Key,
-      expectedValue: Value,
-      actualValue: Value): Option[String] = {
+      logEntryId: Raw.Key,
+      expectedValue: Raw.Value,
+      actualValue: Raw.Value,
+  ): Option[String] = {
     val expectedLogEntry = kvutils.Envelope.openLogEntry(expectedValue)
     val actualLogEntry = kvutils.Envelope.openLogEntry(actualValue)
     Some(
@@ -65,7 +65,7 @@ final class LogAppendingCommitStrategySupport(implicit executionContext: Executi
     )
   }
 
-  override def checkEntryIsReadable(rawKey: Key, rawValue: Value): Either[String, Unit] =
+  override def checkEntryIsReadable(rawKey: Raw.Key, rawValue: Raw.Value): Either[String, Unit] =
     Envelope.open(rawValue) match {
       case Left(errorMessage) =>
         Left(s"Invalid value envelope: $errorMessage")

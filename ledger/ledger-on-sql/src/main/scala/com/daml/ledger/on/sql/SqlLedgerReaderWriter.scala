@@ -25,7 +25,6 @@ import com.daml.ledger.participant.state.kvutils.api.{
 }
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
@@ -199,18 +198,18 @@ object SqlLedgerReaderWriter {
   private final class SqlLedgerStateOperations(queries: Queries)
       extends BatchingLedgerStateOperations[Index] {
     override def readState(
-        keys: Iterable[Key],
-    )(implicit executionContext: sc.ExecutionContext): sc.Future[Seq[Option[Value]]] =
+        keys: Iterable[Raw.Key],
+    )(implicit executionContext: sc.ExecutionContext): sc.Future[Seq[Option[Raw.Value]]] =
       Future.fromTry(queries.selectStateValuesByKeys(keys)).removeExecutionContext
 
     override def writeState(
-        keyValuePairs: Iterable[(Key, Value)],
+        keyValuePairs: Iterable[Raw.Pair],
     )(implicit executionContext: sc.ExecutionContext): sc.Future[Unit] =
       Future.fromTry(queries.updateState(keyValuePairs)).removeExecutionContext
 
     override def appendToLog(
-        key: Key,
-        value: Value,
+        key: Raw.Key,
+        value: Raw.Value,
     )(implicit executionContext: sc.ExecutionContext): sc.Future[Index] =
       Future.fromTry(queries.insertRecordIntoLog(key, value)).removeExecutionContext
   }

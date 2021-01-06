@@ -16,7 +16,6 @@ import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
   BatchedSubmissionValidatorFactory,
@@ -267,7 +266,7 @@ object InMemoryLedgerReaderWriter {
   private def transformStateReader(
       keySerializationStrategy: StateKeySerializationStrategy,
       cache: Cache[DamlStateKey, DamlStateValue]
-  )(stateReader: StateReader[Key, Option[Value]])
+  )(stateReader: StateReader[Raw.Key, Option[Raw.Value]])
     : StateReader[DamlStateKey, Option[DamlStateValue]] = {
     CachingStateReader(
       cache,

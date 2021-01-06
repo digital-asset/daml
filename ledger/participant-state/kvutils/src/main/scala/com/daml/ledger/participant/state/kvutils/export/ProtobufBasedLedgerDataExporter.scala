@@ -8,7 +8,6 @@ import java.nio.file.{Files, Path}
 
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.LedgerExportEntry
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.collection.JavaConverters._
 
@@ -22,7 +21,7 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
   override def close(): Unit = output.close()
 
   private object Writer extends LedgerDataWriter {
-    override def write(submissionInfo: SubmissionInfo, writeSet: Seq[(Key, Value)]): Unit = {
+    override def write(submissionInfo: SubmissionInfo, writeSet: WriteSet): Unit = {
       val entry = LedgerExportEntry.newBuilder
         .setSubmissionInfo(buildSubmissionInfo(submissionInfo))
         .addAllWriteSet(buildWriteSet(writeSet).asJava)
@@ -43,9 +42,7 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
         .setRecordTime(Conversions.buildTimestamp(submissionInfo.recordTimeInstant))
         .build()
 
-    private def buildWriteSet(
-        writeSet: Seq[(Key, Value)],
-    ): Iterable[LedgerExportEntry.WriteEntry] =
+    private def buildWriteSet(writeSet: WriteSet): Iterable[LedgerExportEntry.WriteEntry] =
       writeSet.map(
         writeEntry =>
           LedgerExportEntry.WriteEntry.newBuilder

@@ -5,7 +5,6 @@ package com.daml.ledger.validator.batch
 
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.caching.{
   CacheUpdatePolicy,
   CachingCommitStrategy,
@@ -18,6 +17,7 @@ import com.daml.ledger.validator.{
   DefaultStateKeySerializationStrategy,
   LedgerStateOperations,
   LogAppendingCommitStrategy,
+  Raw,
   StateKeySerializationStrategy
 }
 
@@ -37,8 +37,8 @@ object BatchedSubmissionValidatorFactory {
   class LedgerStateReaderAdapter[LogResult](delegate: LedgerStateOperations[LogResult])
       extends LedgerStateReader {
     override def read(
-        keys: Iterable[Key]
-    )(implicit executionContext: ExecutionContext): Future[Seq[Option[Value]]] =
+        keys: Iterable[Raw.Key]
+    )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Value]]] =
       delegate.readState(keys)
   }
 

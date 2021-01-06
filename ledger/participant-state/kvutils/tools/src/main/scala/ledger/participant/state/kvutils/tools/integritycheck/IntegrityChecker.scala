@@ -20,7 +20,7 @@ import com.daml.ledger.participant.state.kvutils.export.{
 }
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.validator.Raw
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
   BatchedSubmissionValidatorParameters,
@@ -299,9 +299,10 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
   }
 
   private def explainDifference(
-      key: Key,
-      expectedValue: Value,
-      actualValue: Value): Option[String] =
+      key: Raw.Key,
+      expectedValue: Raw.Value,
+      actualValue: Raw.Value,
+  ): Option[String] =
     kvutils.Envelope
       .openStateValue(expectedValue)
       .toOption
