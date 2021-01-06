@@ -455,7 +455,7 @@ private class JdbcLedgerDao(
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics)(
         preparedInsert.writeState(metrics)(_)
       )
-      .map(_ => Ok)(executionContext)
+      .map(_ => Ok)(servicesExecutionContext)
 
   override def storeTransactionEvents(
       preparedInsert: PreparedInsert
@@ -464,7 +464,7 @@ private class JdbcLedgerDao(
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics)(
         preparedInsert.writeEvents(metrics)(_)
       )
-      .map(_ => Ok)(executionContext)
+      .map(_ => Ok)(servicesExecutionContext)
 
   override def completeTransaction(
       submitterInfo: Option[SubmitterInfo],

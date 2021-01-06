@@ -11,9 +11,12 @@ import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
 
+import scala.concurrent.ExecutionContext
+
 final class StandaloneIndexerServer(
     readService: ReadService,
     config: IndexerConfig,
+    servicesExecutionContext: ExecutionContext,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslation.Cache,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
@@ -26,6 +29,7 @@ final class StandaloneIndexerServer(
       ServerRole.Indexer,
       config,
       readService,
+      servicesExecutionContext,
       metrics,
       lfValueTranslationCache,
     )

@@ -128,6 +128,7 @@ final class Runner[T <: ReadWriteService, Extra](
                 new StandaloneIndexerServer(
                   readService = readService,
                   config = factory.indexerConfig(participantConfig, config),
+                  servicesExecutionContext = servicesExecutionContext,
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
                 ).acquire()
