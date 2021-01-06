@@ -8,7 +8,7 @@ import com.google.protobuf.ByteString
 sealed trait Raw {
   def bytes: ByteString
 
-  final def size: Int = bytes.size
+  final def size: Long = bytes.size.toLong
 }
 
 object Raw {

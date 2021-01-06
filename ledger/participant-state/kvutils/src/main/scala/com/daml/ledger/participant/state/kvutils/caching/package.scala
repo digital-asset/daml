@@ -11,7 +11,7 @@ package object caching {
 
   implicit object `Raw Weight` extends Weight[Raw] {
     override def weigh(raw: Raw): Size =
-      raw.bytes.size().toLong
+      raw.size
   }
 
   implicit object `Message Weight` extends Weight[MessageLite] {
