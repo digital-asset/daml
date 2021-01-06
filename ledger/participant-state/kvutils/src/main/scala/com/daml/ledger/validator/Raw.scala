@@ -5,15 +5,20 @@ package com.daml.ledger.validator
 
 import com.google.protobuf.ByteString
 
+trait Raw {
+  def bytes: ByteString
+
+  final def size: Int = bytes.size
+}
+
 object Raw {
 
-  case class Key(bytes: ByteString)
+  case class Key(override val bytes: ByteString) extends Raw
 
-  case class Value(bytes: ByteString) {
-    def size: Int = bytes.size
-  }
+  case class Value(override val bytes: ByteString) extends Raw
 
   type Pair = (Key, Value)
 
   implicit val `Key Ordering`: Ordering[Key] = Ordering.by(_.bytes.asReadOnlyByteBuffer)
+
 }

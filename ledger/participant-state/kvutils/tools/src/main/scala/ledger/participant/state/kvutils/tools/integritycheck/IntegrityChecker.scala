@@ -33,7 +33,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, JdbcIndexer}
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.google.protobuf.ByteString
 
 import scala.PartialFunction.condOpt
 import scala.concurrent.duration.Duration
@@ -273,16 +272,16 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
           if (expectedKey == actualKey && expectedValue != actualValue) {
             explainDifference(expectedKey, expectedValue, actualValue).map { explainedDifference =>
               Seq(
-                s"expected value:    ${bytesAsHexString(expectedValue.bytes)}",
-                s" vs. actual value: ${bytesAsHexString(actualValue.bytes)}",
+                s"expected value:    ${rawHexString(expectedValue)}",
+                s" vs. actual value: ${rawHexString(actualValue)}",
                 explainedDifference,
               )
             }
           } else if (expectedKey != actualKey) {
             Some(
               Seq(
-                s"expected key:    ${bytesAsHexString(expectedKey.bytes)}",
-                s" vs. actual key: ${bytesAsHexString(actualKey.bytes)}",
+                s"expected key:    ${rawHexString(expectedKey)}",
+                s" vs. actual key: ${rawHexString(actualKey)}",
               ))
           } else {
             None
@@ -346,8 +345,8 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
 }
 
 object IntegrityChecker {
-  def bytesAsHexString(bytes: ByteString): String =
-    bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
+  def rawHexString(raw: Raw): String =
+    raw.bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
 
   abstract class CheckFailedException(message: String) extends RuntimeException(message)
 

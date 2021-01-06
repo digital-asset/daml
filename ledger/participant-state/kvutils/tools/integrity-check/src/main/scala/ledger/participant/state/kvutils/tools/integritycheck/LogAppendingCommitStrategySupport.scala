@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.Envelope
-import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.bytesAsHexString
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.rawHexString
 import com.daml.ledger.validator.batch.BatchedSubmissionValidatorFactory
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
 import com.daml.ledger.validator.{CommitStrategy, Raw, StateKeySerializationStrategy}
@@ -60,7 +60,7 @@ final class LogAppendingCommitStrategySupport(implicit executionContext: Executi
     val expectedLogEntry = kvutils.Envelope.openLogEntry(expectedValue)
     val actualLogEntry = kvutils.Envelope.openLogEntry(actualValue)
     Some(
-      s"Log entry ID: ${bytesAsHexString(logEntryId.bytes)}${System.lineSeparator()}" +
+      s"Log entry ID: ${rawHexString(logEntryId)}${System.lineSeparator()}" +
         s"Expected: $expectedLogEntry${System.lineSeparator()}Actual: $actualLogEntry"
     )
   }
