@@ -24,7 +24,7 @@ import com.daml.ledger.validator.batch.{
 }
 import com.daml.ledger.validator.caching.{CachingStateReader, ImmutablesOnlyCacheUpdatePolicy}
 import com.daml.ledger.validator.preexecution._
-import com.daml.ledger.validator.reading.StateReader
+import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
 import com.daml.ledger.validator.{Raw, StateKeySerializationStrategy, ValidateAndCommit}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -265,9 +265,8 @@ object InMemoryLedgerReaderWriter {
 
   private def transformStateReader(
       keySerializationStrategy: StateKeySerializationStrategy,
-      cache: Cache[DamlStateKey, DamlStateValue]
-  )(stateReader: StateReader[Raw.Key, Option[Raw.Value]])
-    : StateReader[DamlStateKey, Option[DamlStateValue]] = {
+      cache: Cache[DamlStateKey, DamlStateValue],
+  )(stateReader: LedgerStateReader): DamlLedgerStateReader = {
     CachingStateReader(
       cache,
       ImmutablesOnlyCacheUpdatePolicy,
