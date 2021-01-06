@@ -41,7 +41,7 @@ object Queries {
     ()
   }
 
-  implicit val byteStringToStatement: ToStatement[ByteString] =
+  private val byteStringToStatement: ToStatement[ByteString] =
     (s: PreparedStatement, index: Int, v: ByteString) =>
       s.setBinaryStream(index, v.newInput(), v.size())
 
@@ -51,7 +51,7 @@ object Queries {
   implicit val rawValueToStatement: ToStatement[Raw.Value] =
     byteStringToStatement.contramap(_.bytes)
 
-  implicit val columnToByteString: Column[ByteString] =
+  private val columnToByteString: Column[ByteString] =
     Column.nonNull { (value: Any, meta: MetaDataItem) =>
       value match {
         case blob: Blob => Right(ByteString.readFrom(blob.getBinaryStream))
@@ -63,7 +63,16 @@ object Queries {
       }
     }
 
-  def getBytes(columnName: String): RowParser[ByteString] =
-    SqlParser.get(columnName)(columnToByteString)
+  implicit val columnToRawKey: Column[Raw.Key] =
+    columnToByteString.map(Raw.Key)
+
+  implicit val columnToRawValue: Column[Raw.Value] =
+    columnToByteString.map(Raw.Value)
+
+  def rawKey(columnName: String): RowParser[Raw.Key] =
+    SqlParser.get(columnName)(columnToRawKey)
+
+  def rawValue(columnName: String): RowParser[Raw.Value] =
+    SqlParser.get(columnName)(columnToRawValue)
 
 }

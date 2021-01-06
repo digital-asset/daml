@@ -30,13 +30,9 @@ trait CommonQueries extends Queries {
       endInclusive: Index,
   ): Try[immutable.Seq[(Index, LedgerRecord)]] = Try {
     SQL"SELECT sequence_no, entry_id, envelope FROM #$LogTable WHERE sequence_no > $startExclusive AND sequence_no <= $endInclusive ORDER BY sequence_no"
-      .as((long("sequence_no") ~ getBytes("entry_id") ~ getBytes("envelope")).map {
+      .as((long("sequence_no") ~ rawKey("entry_id") ~ rawValue("envelope")).map {
         case index ~ entryId ~ envelope =>
-          index -> LedgerRecord(
-            OffsetBuilder.fromLong(index),
-            Raw.Key(entryId),
-            Raw.Value(envelope),
-          )
+          index -> LedgerRecord(OffsetBuilder.fromLong(index), entryId, envelope)
       }.*)
   }
 
@@ -47,7 +43,7 @@ trait CommonQueries extends Queries {
       val results =
         SQL"SELECT key, value FROM #$StateTable WHERE key IN (${keys.toSeq})"
           .fold(Map.newBuilder[Raw.Key, Raw.Value], ColumnAliaser.empty) { (builder, row) =>
-            builder += Raw.Key(row("key")) -> Raw.Value(row("value"))
+            builder += row("key")(columnToRawKey) -> row("value")(columnToRawValue)
           }
           .fold(exceptions => throw exceptions.head, _.result())
       keys.map(results.get)(breakOut)
@@ -56,7 +52,7 @@ trait CommonQueries extends Queries {
   override final def updateState(stateUpdates: Iterable[Raw.Pair]): Try[Unit] = Try {
     executeBatchSql(updateStateQuery, stateUpdates.map {
       case (key, value) =>
-        Seq[NamedParameter]("key" -> key.bytes, "value" -> value.bytes)
+        Seq[NamedParameter]("key" -> key, "value" -> value)
     })
   }
 
