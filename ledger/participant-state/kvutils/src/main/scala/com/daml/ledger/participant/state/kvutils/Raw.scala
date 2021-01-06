@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.google.protobuf.ByteString
 
-trait Raw {
+sealed trait Raw {
   def bytes: ByteString
 
   final def size: Int = bytes.size
@@ -13,9 +13,9 @@ trait Raw {
 
 object Raw {
 
-  case class Key(override val bytes: ByteString) extends Raw
+  final case class Key(override val bytes: ByteString) extends Raw
 
-  case class Value(override val bytes: ByteString) extends Raw
+  final case class Value(override val bytes: ByteString) extends Raw
 
   type Pair = (Key, Value)
 
