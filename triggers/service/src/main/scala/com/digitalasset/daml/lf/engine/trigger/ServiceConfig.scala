@@ -27,7 +27,7 @@ private[trigger] final case class ServiceConfig(
     maxInboundMessageSize: Int,
     minRestartInterval: FiniteDuration,
     maxRestartInterval: FiniteDuration,
-    maxAuthCallbacks: Long,
+    maxAuthCallbacks: Int,
     authCallbackTimeout: FiniteDuration,
     maxHttpEntityUploadSize: Long,
     httpEntityUploadTimeout: FiniteDuration,
@@ -87,7 +87,7 @@ private[trigger] object ServiceConfig {
   private val DefaultMinRestartInterval: FiniteDuration = FiniteDuration(5, duration.SECONDS)
   val DefaultMaxRestartInterval: FiniteDuration = FiniteDuration(60, duration.SECONDS)
   // Adds up to ~1GB with DefaultMaxInboundMessagesSize
-  val DefaultMaxAuthCallbacks: Long = 250
+  val DefaultMaxAuthCallbacks: Int = 250
   val DefaultAuthCallbackTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
   val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxInboundMessageSize.toLong
   val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
@@ -151,7 +151,7 @@ private[trigger] object ServiceConfig {
       .text(
         s"Maximum time interval between restarting a failed trigger. Defaults to ${DefaultMaxRestartInterval.toSeconds} seconds.")
 
-    opt[Long]("max-pending-authorizations")
+    opt[Int]("max-pending-authorizations")
       .action((x, c) => c.copy(maxAuthCallbacks = x))
       .optional()
       .text(

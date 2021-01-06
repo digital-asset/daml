@@ -16,7 +16,7 @@ case class Config(
     // The URI to which the OAuth2 server will redirect after a completed login flow.
     // Must map to the `/cb` endpoint of the auth middleware.
     callbackUri: Option[Uri],
-    maxLoginRequests: Long,
+    maxLoginRequests: Int,
     loginTimeout: FiniteDuration,
     // OAuth2 server endpoints
     oauthAuth: Uri,
@@ -29,7 +29,7 @@ case class Config(
 )
 
 object Config {
-  val DefaultMaxLoginRequests: Long = 10000
+  val DefaultMaxLoginRequests: Int = 10000
   val DefaultLoginTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
 
   private val Empty =
@@ -62,10 +62,10 @@ object Config {
         .action((x, c) => c.copy(callbackUri = Some(Uri(x))))
         .text("URI to the auth middleware's callback endpoint `/cb`. By default constructed from the incoming login request.")
 
-      opt[Long]("max-pending-login-requests")
+      opt[Int]("max-pending-login-requests")
         .action((x, c) => c.copy(maxLoginRequests = x))
         .text(
-          "Maximum number of simultaneously pending login requests. Earlier requests will be evicted first when exceeded.")
+          "Maximum number of simultaneously pending login requests. Requests will be denied when exceeded until earlier requests have been completed or timed out.")
 
       opt[Long]("login-request-timeout")
         .action((x, c) => c.copy(loginTimeout = FiniteDuration(x, duration.SECONDS)))

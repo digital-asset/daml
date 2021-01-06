@@ -285,7 +285,7 @@ class TestLimitedMiddlewareCallbackStore
     with SuiteResourceManagementAroundAll {
   override protected val maxMiddlewareLogins = 2
   "the /login endpoint" should {
-    "drop oldest requests first" in {
+    "refuse requests when max capacity is reached" in {
       def login(actAs: Party) = {
         val claims = Request.Claims(actAs = List(actAs))
         val uri = middlewareClient.loginUri(claims, None)
@@ -306,15 +306,19 @@ class TestLimitedMiddlewareCallbackStore
           .flatMap(followRedirect)
         redirectBob <- login(Party("Bob"))
           .flatMap(followRedirect)
+        // The store should be full
+        refusedCarol <- login(Party("Carol"))
+        _ = assert(refusedCarol.status == StatusCodes.ServiceUnavailable)
+        // Follow first redirect to middleware callback.
+        resultAlice <- followRedirect(redirectAlice)
+        _ = assert(resultAlice.status == StatusCodes.Found)
+        // The store should have space again
         redirectCarol <- login(Party("Carol"))
           .flatMap(followRedirect)
         // Follow redirects to middleware callback.
-        // The earliest callback should have been evicted.
-        resultAlice <- followRedirect(redirectAlice)
         resultBob <- followRedirect(redirectBob)
         resultCarol <- followRedirect(redirectCarol)
       } yield {
-        assert(resultAlice.status == StatusCodes.NotFound)
         assert(resultBob.status == StatusCodes.Found)
         assert(resultCarol.status == StatusCodes.Found)
       }
@@ -328,7 +332,7 @@ class TestLimitedClientCallbackStore
     with SuiteResourceManagementAroundAll {
   override protected val maxClientAuthCallbacks = 2
   "the /login client" should {
-    "drop oldest requests first" in {
+    "refuse requests when max capacity is reached" in {
       def login(actAs: Party) = {
         val claims = Request.Claims(actAs = List(actAs))
         val host = middlewareClientBinding.localAddress
@@ -358,17 +362,20 @@ class TestLimitedClientCallbackStore
           .flatMap(followRedirect)
           .flatMap(followRedirect)
           .flatMap(followRedirect)
+        // The store should be full
+        refusedCarol <- login(Party("Carol"))
+        _ = assert(refusedCarol.status == StatusCodes.ServiceUnavailable)
+        // Follow first redirect to middleware client.
+        resultAlice <- followRedirect(redirectAlice)
+        _ = assert(resultAlice.status == StatusCodes.OK)
+        // The store should have space again
         redirectCarol <- login(Party("Carol"))
           .flatMap(followRedirect)
           .flatMap(followRedirect)
           .flatMap(followRedirect)
-        // Follow redirects to middleware client.
-        // The earliest callback should have been evicted.
-        resultAlice <- followRedirect(redirectAlice)
         resultBob <- followRedirect(redirectBob)
         resultCarol <- followRedirect(redirectCarol)
       } yield {
-        assert(resultAlice.status == StatusCodes.NotFound)
         assert(resultBob.status == StatusCodes.OK)
         assert(resultCarol.status == StatusCodes.OK)
       }

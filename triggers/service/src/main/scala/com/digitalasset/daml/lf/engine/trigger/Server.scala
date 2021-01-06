@@ -498,7 +498,7 @@ object Server {
   def apply(
       host: String,
       port: Int,
-      maxAuthCallbacks: Long,
+      maxAuthCallbacks: Int,
       authCallbackTimeout: FiniteDuration,
       maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,

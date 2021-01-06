@@ -36,7 +36,7 @@ object ServiceMain {
   def startServer(
       host: String,
       port: Int,
-      maxAuthCallbacks: Long,
+      maxAuthCallbacks: Int,
       authCallbackTimeout: FiniteDuration,
       maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,
