@@ -498,6 +498,8 @@ object Server {
   def apply(
       host: String,
       port: Int,
+      maxAuthCallbacks: Int,
+      authCallbackTimeout: FiniteDuration,
       maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,
       authConfig: AuthConfig,
@@ -527,6 +529,8 @@ object Server {
             callbackUri = authCallback.getOrElse {
               Uri().withScheme("http").withAuthority(host, port).withPath(Path./("cb"))
             },
+            maxAuthCallbacks = maxAuthCallbacks,
+            authCallbackTimeout = authCallbackTimeout,
             maxHttpEntityUploadSize = maxHttpEntityUploadSize,
             httpEntityUploadTimeout = httpEntityUploadTimeout,
           )))

@@ -25,14 +25,15 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.auth.middleware.api.Client.{AuthException, RefreshException}
 import com.daml.auth.middleware.api.Tagged.RefreshToken
 
-import scala.collection.concurrent.TrieMap
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 
 class Client(config: Client.Config) {
-  // TODO[AH] Make sure this is bounded in size.
-  private val callbacks: TrieMap[UUID, Response.Login => Route] = TrieMap()
+  private val callbacks: RequestStore[UUID, Response.Login => Route] = new RequestStore(
+    config.maxAuthCallbacks,
+    config.authCallbackTimeout,
+  )
 
   /**
     * Handler for the callback in a login flow.
@@ -41,8 +42,9 @@ class Client(config: Client.Config) {
     */
   val callbackHandler: Route =
     parameters('state.as[UUID]) { requestId =>
-      callbacks.remove(requestId) match {
-        case None => complete(StatusCodes.NotFound)
+      callbacks.pop(requestId) match {
+        case None =>
+          complete(StatusCodes.NotFound)
         case Some(callback) =>
           Response.Login.callbackParameters { callback }
       }
@@ -109,12 +111,17 @@ class Client(config: Client.Config) {
   /**
     * Redirect the client to login with the auth middleware.
     *
+    * Will respond with 503 if the callback store is full ([[Client.Config.maxAuthCallbacks]]).
+    *
     * @param callback Will be stored and executed once the login flow completed.
     */
   def login(claims: Request.Claims, callback: Response.Login => Route): Route = {
     val requestId = UUID.randomUUID()
-    callbacks.update(requestId, callback)
-    redirect(loginUri(claims, Some(requestId)), StatusCodes.Found)
+    if (callbacks.put(requestId, callback)) {
+      redirect(loginUri(claims, Some(requestId)), StatusCodes.Found)
+    } else {
+      complete(StatusCodes.ServiceUnavailable)
+    }
   }
 
   /**
@@ -203,6 +210,8 @@ object Client {
   case class Config(
       authMiddlewareUri: Uri,
       callbackUri: Uri,
+      maxAuthCallbacks: Int,
+      authCallbackTimeout: FiniteDuration,
       maxHttpEntityUploadSize: Long,
       httpEntityUploadTimeout: FiniteDuration,
   )
