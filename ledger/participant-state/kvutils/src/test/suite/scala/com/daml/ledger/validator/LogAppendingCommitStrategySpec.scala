@@ -50,7 +50,7 @@ final class LogAppendingCommitStrategySpec
       when(mockLedgerStateOperations.appendToLog(any[Key], any[Value])(anyExecutionContext))
         .thenReturn(Future.successful(0L))
       val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]
-      val expectedStateKey = ByteString.copyFromUtf8("some key")
+      val expectedStateKey = Raw.Key(ByteString.copyFromUtf8("some key"))
       when(mockStateKeySerializationStrategy.serializeStateKey(aStateKey))
         .thenReturn(expectedStateKey)
       val expectedOutputStateBytes = Map(expectedStateKey -> Envelope.enclose(aStateValue))

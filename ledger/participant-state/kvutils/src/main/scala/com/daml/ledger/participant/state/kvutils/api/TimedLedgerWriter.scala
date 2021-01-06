@@ -4,8 +4,8 @@
 package com.daml.ledger.participant.state.kvutils.api
 
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
+import com.daml.ledger.validator.Raw
 import com.daml.metrics.{Metrics, Timed}
 
 import scala.concurrent.Future
@@ -17,7 +17,7 @@ class TimedLedgerWriter(delegate: LedgerWriter, metrics: Metrics) extends Ledger
 
   override def commit(
       correlationId: String,
-      envelope: Bytes,
+      envelope: Raw.Value,
       metadata: CommitMetadata,
   ): Future[SubmissionResult] =
     Timed.future(

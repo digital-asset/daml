@@ -19,11 +19,10 @@ import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, iterable
 import com.daml.ledger.validator.TestHelper.{aParticipantId, anInvalidEnvelope, makePartySubmission}
 import com.daml.ledger.validator.batch.BatchedSubmissionValidatorSpec._
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
-import com.daml.ledger.validator.{CommitStrategy, ValidationFailed}
+import com.daml.ledger.validator.{CommitStrategy, Raw, ValidationFailed}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
-import com.google.protobuf.ByteString
 import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -106,7 +105,7 @@ class BatchedSubmissionValidatorSpec
         .addSubmissions(
           CorrelatedSubmission.newBuilder
             .setCorrelationId(aCorrelationId)
-            .setSubmission(anInvalidEnvelope))
+            .setSubmission(anInvalidEnvelope.bytes))
         .build
 
       validator
@@ -236,10 +235,10 @@ class BatchedSubmissionValidatorSpec
         .addSubmissions(
           CorrelatedSubmission.newBuilder
             .setCorrelationId(aCorrelationId)
-            .setSubmission(Envelope.enclose(submission)))
+            .setSubmission(Envelope.enclose(submission).bytes))
         .addSubmissions(CorrelatedSubmission.newBuilder
           .setCorrelationId("anotherCorrelationId")
-          .setSubmission(Envelope.enclose(submission)))
+          .setSubmission(Envelope.enclose(submission).bytes))
         .build()
       val mockLedgerStateReader = mock[DamlLedgerStateReader]
       // Expect two keys, i.e., to retrieve the party and submission dedup values.
@@ -343,7 +342,7 @@ object BatchedSubmissionValidatorSpec {
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   private def createBatchSubmissionOf(
-      nSubmissions: Int): (Seq[DamlSubmission], DamlSubmissionBatch, ByteString) = {
+      nSubmissions: Int): (Seq[DamlSubmission], DamlSubmissionBatch, Raw.Value) = {
     val submissions = (1 to nSubmissions).map { n =>
       makePartySubmission(s"party-$n")
     }
@@ -354,7 +353,7 @@ object BatchedSubmissionValidatorSpec {
         batchBuilder
           .addSubmissionsBuilder()
           .setCorrelationId(s"test-correlationId-$index")
-          .setSubmission(Envelope.enclose(submission))
+          .setSubmission(Envelope.enclose(submission).bytes)
     }
     val batchSubmission = batchBuilder.build
     (submissions, batchSubmission, Envelope.enclose(batchSubmission))

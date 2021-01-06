@@ -36,6 +36,4 @@ package object kvutils {
 
   val MetricPrefix: MetricName = MetricName.DAML :+ "kvutils"
 
-  implicit val `Bytes Ordering`: Ordering[Bytes] = Ordering.by(_.asReadOnlyByteBuffer)
-
 }

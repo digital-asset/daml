@@ -6,9 +6,9 @@ package com.daml.ledger.on.memory
 import java.util.concurrent.locks.StampedLock
 
 import com.daml.ledger.on.memory.InMemoryState._
-import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.validator.Raw
 import com.google.protobuf.ByteString
 
 import scala.collection.mutable
@@ -43,16 +43,14 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
 
 object InMemoryState {
   type ImmutableLog = IndexedSeq[LedgerRecord]
-  type ImmutableState = collection.Map[StateKey, StateValue]
+  type ImmutableState = collection.Map[Raw.Key, Raw.Value]
 
   type MutableLog = mutable.Buffer[LedgerRecord] with ImmutableLog
-  type MutableState = mutable.Map[StateKey, StateValue] with ImmutableState
-
-  type StateKey = Bytes
-  type StateValue = Bytes
+  type MutableState = mutable.Map[Raw.Key, Raw.Value] with ImmutableState
 
   // The first element will never be read because begin offsets are exclusive.
-  private val Beginning = LedgerRecord(Offset.beforeBegin, ByteString.EMPTY, ByteString.EMPTY)
+  private val Beginning =
+    LedgerRecord(Offset.beforeBegin, Raw.Key(ByteString.EMPTY), Raw.Value(ByteString.EMPTY))
 
   def empty =
     new InMemoryState(

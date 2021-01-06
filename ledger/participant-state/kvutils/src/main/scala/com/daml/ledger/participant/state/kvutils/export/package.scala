@@ -3,13 +3,13 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.validator.Raw
 
 package object export {
 
   val header = new Header(version = "v2")
 
-  type WriteItem = (Key, Value)
+  type WriteItem = Raw.Pair
 
   type WriteSet = Seq[WriteItem]
 

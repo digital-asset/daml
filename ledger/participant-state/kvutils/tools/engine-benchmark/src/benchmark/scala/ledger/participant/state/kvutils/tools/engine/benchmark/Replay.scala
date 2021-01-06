@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.kvutils.export.{
 }
 import com.daml.ledger.participant.state.kvutils.{Envelope, DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.validator.Raw
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.crypto
 import com.daml.lf.data._
@@ -29,7 +30,6 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value, ValueCoder => ValCoder}
-import com.google.protobuf.ByteString
 import org.openjdk.jmh.annotations._
 
 import scala.collection.JavaConverters._
@@ -192,7 +192,7 @@ object Replay {
 
   private[this] def decodeEnvelope(
       participantId: Ref.ParticipantId,
-      envelope: ByteString,
+      envelope: Raw.Value,
   ): Stream[TxEntry] =
     assertRight(Envelope.open(envelope)) match {
       case Envelope.SubmissionMessage(submission) =>
@@ -200,7 +200,7 @@ object Replay {
       case Envelope.SubmissionBatchMessage(batch) =>
         batch.getSubmissionsList.asScala.toStream
           .map(_.getSubmission)
-          .flatMap(decodeEnvelope(participantId, _))
+          .flatMap(envelope => decodeEnvelope(participantId, Raw.Value(envelope)))
       case Envelope.LogEntryMessage(_) | Envelope.StateValueMessage(_) =>
         Stream.empty
     }

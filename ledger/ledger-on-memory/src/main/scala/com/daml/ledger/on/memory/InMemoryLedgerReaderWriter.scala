@@ -13,7 +13,7 @@ import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.api._
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
@@ -26,7 +26,7 @@ import com.daml.ledger.validator.batch.{
 import com.daml.ledger.validator.caching.{CachingStateReader, ImmutablesOnlyCacheUpdatePolicy}
 import com.daml.ledger.validator.preexecution._
 import com.daml.ledger.validator.reading.StateReader
-import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidateAndCommit}
+import com.daml.ledger.validator.{Raw, StateKeySerializationStrategy, ValidateAndCommit}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
@@ -46,7 +46,7 @@ final class InMemoryLedgerReaderWriter private[memory] (
     with LedgerWriter {
   override def commit(
       correlationId: String,
-      envelope: Bytes,
+      envelope: Raw.Value,
       metadata: CommitMetadata,
   ): Future[SubmissionResult] =
     validateAndCommit(correlationId, envelope, participantId)
@@ -207,7 +207,7 @@ object InMemoryLedgerReaderWriter {
 
       def validateAndCommit(
           correlationId: String,
-          submissionEnvelope: Bytes,
+          submissionEnvelope: Raw.Value,
           submittingParticipantId: ParticipantId,
       ) =
         new InMemoryLedgerStateAccess(state, metrics).inTransaction { ledgerStateOperations =>
@@ -250,7 +250,7 @@ object InMemoryLedgerReaderWriter {
 
       def validateAndCommit(
           correlationId: String,
-          submissionEnvelope: Bytes,
+          submissionEnvelope: Raw.Value,
           submittingParticipantId: ParticipantId,
       ) =
         committer.commit(

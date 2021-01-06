@@ -9,6 +9,7 @@ import java.nio.file.{Files, Path}
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.LedgerExportEntry
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.validator.Raw
 
 import scala.collection.JavaConverters._
 
@@ -41,14 +42,14 @@ final class ProtobufBasedLedgerDataImporter(input: InputStream)
     SubmissionInfo(
       ParticipantId.assertFromString(entrySubmissionInfo.getParticipantId),
       entrySubmissionInfo.getCorrelationId,
-      entrySubmissionInfo.getSubmissionEnvelope,
+      Raw.Value(entrySubmissionInfo.getSubmissionEnvelope),
       Conversions.parseInstant(entrySubmissionInfo.getRecordTime),
     )
   }
 
   private def parseWriteSet(entry: LedgerExportEntry): WriteSet =
     entry.getWriteSetList.asScala.view
-      .map(writeEntry => writeEntry.getKey -> writeEntry.getValue)
+      .map(writeEntry => Raw.Key(writeEntry.getKey) -> Raw.Value(writeEntry.getValue))
       .toVector
 
 }

@@ -5,7 +5,6 @@ package com.daml.ledger.validator
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.lf.data.Time.Timestamp
@@ -47,7 +46,7 @@ class ValidatingCommitter[LogResult](
 ) {
   def commit(
       correlationId: String,
-      envelope: Bytes,
+      envelope: Raw.Value,
       submittingParticipantId: ParticipantId,
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
     newLoggingContext("correlationId" -> correlationId) { implicit loggingContext =>
@@ -64,7 +63,7 @@ class ValidatingCommitter[LogResult](
             SubmissionResult.Acknowledged
           case Left(MissingInputState(keys)) =>
             SubmissionResult.InternalError(
-              s"Missing input state: ${keys.map(_.asScala.map("%02x".format(_)).mkString).mkString(", ")}")
+              s"Missing input state: ${keys.map(_.bytes.asScala.map("%02x".format(_)).mkString).mkString(", ")}")
           case Left(ValidationError(reason)) =>
             SubmissionResult.InternalError(reason)
         }

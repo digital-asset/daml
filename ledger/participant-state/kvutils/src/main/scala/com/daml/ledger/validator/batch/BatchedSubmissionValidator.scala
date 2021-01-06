@@ -64,10 +64,10 @@ object BatchedSubmissionValidator {
   // instead and remove the whole concept of log entry identifiers.
   // For now this implementation uses a sha256 hash of the submission envelope in order to generate
   // deterministic log entry IDs.
-  private[validator] def bytesToLogEntryId(bytes: ByteString): DamlLogEntryId = {
+  private[validator] def rawToLogEntryId(value: Raw.Value): DamlLogEntryId = {
     val messageDigest = MessageDigest
       .getInstance("SHA-256")
-    messageDigest.update(bytes.asReadOnlyByteBuffer())
+    messageDigest.update(value.bytes.asReadOnlyByteBuffer())
     val hash = messageDigest
       .digest()
       .map("%02x" format _)
@@ -111,7 +111,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     * been committed. It is up to the caller to discard, or not to, a partially successful batch.
     */
   def validateAndCommit(
-      submissionEnvelope: ByteString,
+      submissionEnvelope: Raw.Value,
       correlationId: CorrelationId,
       recordTimeInstant: Instant,
       participantId: ParticipantId,
@@ -170,10 +170,10 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     }
 
   private def singleSubmissionSource(
-      envelope: ByteString,
+      envelope: Raw.Value,
       submission: DamlSubmission,
       correlationId: CorrelationId): Source[Inputs, NotUsed] = {
-    val logEntryId = bytesToLogEntryId(envelope)
+    val logEntryId = rawToLogEntryId(envelope)
     Source.single(Indexed(CorrelatedSubmission(correlationId, logEntryId, submission), 0L))
   }
 
@@ -192,14 +192,12 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
               metrics.decode,
               metrics.decodeRunning,
               Future {
+                val rawEnvelope = Raw.Value(submissionEnvelope)
                 val submission = Envelope
-                  .openSubmission(submissionEnvelope)
+                  .openSubmission(rawEnvelope)
                   .fold(error => throw validator.ValidationFailed.ValidationError(error), identity)
                 metrics.receivedSubmissionBytes.update(submission.getSerializedSize)
-                CorrelatedSubmission(
-                  correlationId,
-                  bytesToLogEntryId(submissionEnvelope),
-                  submission)
+                CorrelatedSubmission(correlationId, rawToLogEntryId(rawEnvelope), submission)
               }
             )
         }

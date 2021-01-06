@@ -9,8 +9,8 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.kvutils.`export`.ProtobufBasedLedgerDataImporter
+import com.daml.ledger.validator.Raw
 import com.daml.lf.archive.Decode
-import com.google.protobuf.ByteString
 import org.openjdk.jmh.annotations.{Param, Scope, Setup, State}
 
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
@@ -38,7 +38,7 @@ abstract class BenchmarkWithLedgerExport {
 
     val builder = Submissions.newBuilder()
 
-    def decodeEnvelope(envelope: ByteString): Unit =
+    def decodeEnvelope(envelope: Raw.Value): Unit =
       Envelope.open(envelope).fold(sys.error, identity) match {
         case Envelope.SubmissionMessage(submission)
             if submission.getPayloadCase == DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
@@ -50,7 +50,7 @@ abstract class BenchmarkWithLedgerExport {
           builder += submission.getTransactionEntry.getTransaction
         case Envelope.SubmissionBatchMessage(batch) =>
           for (submission <- batch.getSubmissionsList.asScala) {
-            decodeEnvelope(submission.getSubmission)
+            decodeEnvelope(Raw.Value(submission.getSubmission))
           }
         case _ =>
           ()

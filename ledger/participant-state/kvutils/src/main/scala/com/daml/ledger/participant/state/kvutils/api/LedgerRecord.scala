@@ -3,8 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
-import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.validator.Raw
 
 /**
   * A log entry read from the ledger.
@@ -13,4 +13,4 @@ import com.daml.ledger.participant.state.v1.Offset
   * @param entryId  opaque ID of log entry
   * @param envelope opaque contents of log entry
   */
-final case class LedgerRecord(offset: Offset, entryId: Bytes, envelope: Bytes)
+final case class LedgerRecord(offset: Offset, entryId: Raw.Key, envelope: Raw.Value)

@@ -17,6 +17,7 @@ import anorm.{
   SqlRequestError,
   ToStatement
 }
+import com.daml.ledger.validator.Raw
 import com.google.protobuf.ByteString
 
 trait Queries extends ReadQueries with WriteQueries
@@ -43,6 +44,12 @@ object Queries {
   implicit val byteStringToStatement: ToStatement[ByteString] =
     (s: PreparedStatement, index: Int, v: ByteString) =>
       s.setBinaryStream(index, v.newInput(), v.size())
+
+  implicit val rawKeyToStatement: ToStatement[Raw.Key] =
+    byteStringToStatement.contramap(_.bytes)
+
+  implicit val rawValueToStatement: ToStatement[Raw.Value] =
+    byteStringToStatement.contramap(_.bytes)
 
   implicit val columnToByteString: Column[ByteString] =
     Column.nonNull { (value: Any, meta: MetaDataItem) =>

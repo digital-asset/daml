@@ -3,6 +3,7 @@
 
 package com.daml.ledger.validator.preexecution
 
+import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlContractState,
   DamlLogEntry,
@@ -11,8 +12,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils, `Bytes Ordering`}
-import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.ledger.validator.TestHelper.{
   aLogEntry,
   aLogEntryId,
@@ -20,6 +19,7 @@ import com.daml.ledger.validator.TestHelper.{
   allDamlStateKeyTypes
 }
 import com.daml.ledger.validator.preexecution.RawPreExecutingCommitStrategySpec._
+import com.daml.ledger.validator.{Raw, StateKeySerializationStrategy}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.MockitoSugar
 import org.mockito.invocation.InvocationOnMock
@@ -63,7 +63,7 @@ final class RawPreExecutingCommitStrategySpec
   "generateWriteSets" should {
     "serialize keys according to strategy" in {
       val logEntryId = aLogEntryId()
-      val expectedLogEntryKey = logEntryId.toByteString
+      val expectedLogEntryKey = Raw.Key(logEntryId.toByteString)
       val preExecutionResult = PreExecutionResult(
         readSet = Set.empty,
         successfulLogEntry = aLogEntry,
@@ -96,7 +96,7 @@ final class RawPreExecutingCommitStrategySpec
     val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]
     when(mockStateKeySerializationStrategy.serializeStateKey(any[DamlStateKey]()))
       .thenAnswer((invocation: InvocationOnMock) =>
-        invocation.getArgument[DamlStateKey](0).getContractIdBytes)
+        Raw.Key(invocation.getArgument[DamlStateKey](0).getContractIdBytes))
     mockStateKeySerializationStrategy
   }
 }

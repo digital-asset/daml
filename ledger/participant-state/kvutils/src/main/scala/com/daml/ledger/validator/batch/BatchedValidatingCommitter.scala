@@ -7,7 +7,6 @@ import java.time.Instant
 
 import akka.stream.Materializer
 import com.daml.caching.Cache
-import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator._
@@ -58,7 +57,7 @@ class BatchedValidatingCommitter[LogResult](
 
   def commit(
       correlationId: String,
-      submissionEnvelope: Bytes,
+      submissionEnvelope: Raw.Value,
       submittingParticipantId: ParticipantId,
       ledgerStateOperations: LedgerStateOperations[LogResult],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] = {

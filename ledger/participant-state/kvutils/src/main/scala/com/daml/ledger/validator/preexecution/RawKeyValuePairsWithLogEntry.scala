@@ -3,13 +3,13 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.Bytes
+import com.daml.ledger.validator.Raw
 
 /**
   * Raw key-value pairs with a distinct log entry.
   */
 case class RawKeyValuePairsWithLogEntry(
-    state: Iterable[(Bytes, Bytes)],
-    logEntryKey: Bytes,
-    logEntryValue: Bytes,
+    state: Iterable[Raw.Pair],
+    logEntryKey: Raw.Key,
+    logEntryValue: Raw.Value,
 )

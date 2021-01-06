@@ -4,7 +4,6 @@
 package com.daml.ledger.validator
 
 import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.validator.LedgerStateOperations._
 import com.daml.metrics.{Metrics, Timed}
 
@@ -153,7 +152,7 @@ final class TimedLedgerStateOperations[LogResult](
 
 object LedgerStateOperations {
 
-  type Key = Bytes
-  type Value = Bytes
+  type Key = Raw.Key
+  type Value = Raw.Value
 
 }

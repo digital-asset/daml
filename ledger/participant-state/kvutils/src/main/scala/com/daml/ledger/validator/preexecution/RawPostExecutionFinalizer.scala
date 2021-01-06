@@ -5,9 +5,8 @@ package com.daml.ledger.validator.preexecution
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.v1.SubmissionResult
-import com.daml.ledger.validator.LedgerStateOperations
+import com.daml.ledger.validator.{LedgerStateOperations, Raw}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -44,7 +43,7 @@ final class RawPostExecutionFinalizer[ReadSet](now: () => Instant)
   private def retrieveLogEntry(
       preExecutionOutput: PreExecutionOutput[Any, RawKeyValuePairsWithLogEntry],
       withinTimeBounds: Boolean,
-  ): (Bytes, Bytes) = {
+  ): Raw.Pair = {
     val writeSet = if (withinTimeBounds) {
       preExecutionOutput.successWriteSet
     } else {
@@ -56,7 +55,7 @@ final class RawPostExecutionFinalizer[ReadSet](now: () => Instant)
   private def retrieveState(
       preExecutionOutput: PreExecutionOutput[Any, RawKeyValuePairsWithLogEntry],
       withinTimeBounds: Boolean,
-  ): Iterable[(Bytes, Bytes)] =
+  ): Iterable[Raw.Pair] =
     if (withinTimeBounds) {
       preExecutionOutput.successWriteSet.state
     } else {

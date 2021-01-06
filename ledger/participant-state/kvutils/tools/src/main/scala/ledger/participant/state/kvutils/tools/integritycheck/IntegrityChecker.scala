@@ -204,7 +204,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
           println(
             "Read submission"
               + s" correlationId=${submissionInfo.correlationId}"
-              + s" submissionEnvelopeSize=${submissionInfo.submissionEnvelope.size()}"
+              + s" submissionEnvelopeSize=${submissionInfo.submissionEnvelope.size}"
               + s" writeSetSize=${expectedWriteSet.size}"
           )
           expectedWriteSet.foreach {
@@ -227,7 +227,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
               val actualWriteSet = commitStrategySupport.writeSet.getAndClearRecordedWriteSet()
               val orderedActualWriteSet =
                 if (config.sortWriteSet)
-                  actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
+                  actualWriteSet.sortBy(_._1)
                 else
                   actualWriteSet
               actualReadServiceFactory.appendBlock(orderedActualWriteSet)
@@ -273,16 +273,16 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
           if (expectedKey == actualKey && expectedValue != actualValue) {
             explainDifference(expectedKey, expectedValue, actualValue).map { explainedDifference =>
               Seq(
-                s"expected value:    ${bytesAsHexString(expectedValue)}",
-                s" vs. actual value: ${bytesAsHexString(actualValue)}",
+                s"expected value:    ${bytesAsHexString(expectedValue.bytes)}",
+                s" vs. actual value: ${bytesAsHexString(actualValue.bytes)}",
                 explainedDifference,
               )
             }
           } else if (expectedKey != actualKey) {
             Some(
               Seq(
-                s"expected key:    ${bytesAsHexString(expectedKey)}",
-                s" vs. actual key: ${bytesAsHexString(actualKey)}",
+                s"expected key:    ${bytesAsHexString(expectedKey.bytes)}",
+                s" vs. actual key: ${bytesAsHexString(actualKey.bytes)}",
               ))
           } else {
             None

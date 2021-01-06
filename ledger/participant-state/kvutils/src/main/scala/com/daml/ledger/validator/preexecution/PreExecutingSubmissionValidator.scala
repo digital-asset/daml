@@ -5,11 +5,11 @@ package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlSubmission}
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.batch.BatchedSubmissionValidator
 import com.daml.ledger.validator.reading.StateReader
-import com.daml.ledger.validator.{HasDamlStateValue, ValidationFailed}
+import com.daml.ledger.validator.{HasDamlStateValue, Raw, ValidationFailed}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 
@@ -40,7 +40,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
   private val logger = ContextualizedLogger.get(getClass)
 
   def validate(
-      submissionEnvelope: Bytes,
+      submissionEnvelope: Raw.Value,
       submittingParticipantId: ParticipantId,
       ledgerStateReader: StateReader[DamlStateKey, StateValue],
   )(
@@ -60,7 +60,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
           submittingParticipantId,
           inputState,
         )
-        logEntryId = BatchedSubmissionValidator.bytesToLogEntryId(submissionEnvelope)
+        logEntryId = BatchedSubmissionValidator.rawToLogEntryId(submissionEnvelope)
         generatedWriteSets <- Timed.future(
           metrics.daml.kvutils.submission.validator.generateWriteSets,
           commitStrategy.generateWriteSets(
@@ -82,7 +82,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
       }
     )
 
-  private def decodeSubmission(submissionEnvelope: Bytes)(
+  private def decodeSubmission(submissionEnvelope: Raw.Value)(
       implicit executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[DamlSubmission] =

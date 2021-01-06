@@ -7,7 +7,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.api.CommitMetadata
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.ledger.validator.ValidateAndCommit
+import com.daml.ledger.validator.{Raw, SubmissionEnvelope, ValidateAndCommit}
 import com.daml.lf.data.Ref
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -28,7 +28,7 @@ class InMemoryLedgerReaderWriterSpec
     "not signal new head in case of failure" in {
       val mockDispatcher = mock[Dispatcher[Index]]
       val mockCommitter = mock[ValidateAndCommit]
-      when(mockCommitter(any[String], any[ByteString], any[ParticipantId]))
+      when(mockCommitter(any[String], any[SubmissionEnvelope], any[ParticipantId]))
         .thenReturn(
           Future.successful(SubmissionResult.InternalError("Validation failed with an exception")))
       val instance = new InMemoryLedgerReaderWriter(
@@ -41,7 +41,11 @@ class InMemoryLedgerReaderWriterSpec
       )
 
       instance
-        .commit("correlation ID", ByteString.copyFromUtf8("some bytes"), CommitMetadata.Empty)
+        .commit(
+          "correlation ID",
+          Raw.Value(ByteString.copyFromUtf8("some bytes")),
+          CommitMetadata.Empty,
+        )
         .map { actual =>
           verify(mockDispatcher, times(0)).signalNewHead(any[Int])
           actual should be(a[SubmissionResult.InternalError])

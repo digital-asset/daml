@@ -4,15 +4,14 @@
 package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
-import com.daml.ledger.validator.LedgerStateOperations.Key
 
 /**
   * Determines how we namespace and serialize state keys.
   */
 trait StateKeySerializationStrategy {
-  def serializeStateKey(key: DamlStateKey): Key
+  def serializeStateKey(key: DamlStateKey): Raw.Key
 
-  def deserializeStateKey(input: Key): DamlStateKey
+  def deserializeStateKey(input: Raw.Key): DamlStateKey
 }
 
 object StateKeySerializationStrategy {

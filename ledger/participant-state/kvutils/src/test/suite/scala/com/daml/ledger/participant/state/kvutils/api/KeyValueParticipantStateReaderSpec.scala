@@ -10,8 +10,9 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader.offsetForUpdate
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReaderSpec._
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, OffsetBuilder}
+import com.daml.ledger.participant.state.kvutils.{Envelope, OffsetBuilder}
 import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, Update}
+import com.daml.ledger.validator.Raw
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
@@ -156,7 +157,7 @@ class KeyValueParticipantStateReaderSpec
     }
 
     "throw in case of an invalid log entry received" in {
-      val anInvalidEnvelope = ByteString.copyFrom(Array[Byte](0, 1, 2))
+      val anInvalidEnvelope = Raw.Value(ByteString.copyFrom(Array[Byte](0, 1, 2)))
       val reader = readerStreamingFrom(
         offset = None,
         LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelope))
@@ -251,11 +252,12 @@ object KeyValueParticipantStateReaderSpec {
         entry,
         recordTime)
 
-  private def aLogEntryId(index: Int): Bytes =
-    DamlLogEntryId.newBuilder
-      .setEntryId(ByteString.copyFrom(s"id-$index".getBytes))
-      .build
-      .toByteString
+  private def aLogEntryId(index: Int): Raw.Key =
+    Raw.Key(
+      DamlLogEntryId.newBuilder
+        .setEntryId(ByteString.copyFrom(s"id-$index".getBytes))
+        .build
+        .toByteString)
 
   private def readerStreamingFrom(offset: Option[Offset], items: LedgerRecord*): LedgerReader = {
     val reader = mock[LedgerReader]

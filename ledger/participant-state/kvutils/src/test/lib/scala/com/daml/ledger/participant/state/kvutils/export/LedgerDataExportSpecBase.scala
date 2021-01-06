@@ -14,6 +14,7 @@ import java.time.Instant
 
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExportSpecBase._
 import com.daml.ledger.participant.state.v1
+import com.daml.ledger.validator.Raw
 import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -78,10 +79,10 @@ object LedgerDataExportSpecBase {
   private def someSubmissionInfo(): SubmissionInfo = SubmissionInfo(
     participantId = v1.ParticipantId.assertFromString("id"),
     correlationId = "parent",
-    submissionEnvelope = ByteString.copyFromUtf8("an envelope"),
+    submissionEnvelope = Raw.Value(ByteString.copyFromUtf8("an envelope")),
     recordTimeInstant = Instant.ofEpochSecond(123456, 123456789),
   )
 
-  private def keyValuePairOf(key: String, value: String): (ByteString, ByteString) =
-    ByteString.copyFromUtf8(key) -> ByteString.copyFromUtf8(value)
+  private def keyValuePairOf(key: String, value: String): Raw.Pair =
+    Raw.Key(ByteString.copyFromUtf8(key)) -> Raw.Value(ByteString.copyFromUtf8(value))
 }

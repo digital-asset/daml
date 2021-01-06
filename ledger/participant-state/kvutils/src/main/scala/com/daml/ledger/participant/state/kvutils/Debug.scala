@@ -42,16 +42,16 @@ object Debug {
       outputState: Map[DamlStateKey, DamlStateValue]): Unit =
     optLedgerDumpStream.foreach { outs =>
       val dumpEntry = DamlKvutils.LedgerDumpEntry.newBuilder
-        .setSubmission(Envelope.enclose(submission))
+        .setSubmission(Envelope.enclose(submission).bytes)
         .setEntryId(entryId)
         .setParticipantId(participantId)
-        .setLogEntry(Envelope.enclose(logEntry))
+        .setLogEntry(Envelope.enclose(logEntry).bytes)
         .addAllOutputState(
           outputState.map {
             case (k, v) =>
               DamlKvutils.LedgerDumpEntry.StatePair.newBuilder
                 .setStateKey(k)
-                .setStateValue(Envelope.enclose(v))
+                .setStateValue(Envelope.enclose(v).bytes)
                 .build
           }.asJava
         )

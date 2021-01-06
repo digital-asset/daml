@@ -39,7 +39,7 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
       LedgerExportEntry.SubmissionInfo.newBuilder
         .setParticipantId(submissionInfo.participantId: String)
         .setCorrelationId(submissionInfo.correlationId)
-        .setSubmissionEnvelope(submissionInfo.submissionEnvelope)
+        .setSubmissionEnvelope(submissionInfo.submissionEnvelope.bytes)
         .setRecordTime(Conversions.buildTimestamp(submissionInfo.recordTimeInstant))
         .build()
 
@@ -49,8 +49,8 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
       writeSet.map(
         writeEntry =>
           LedgerExportEntry.WriteEntry.newBuilder
-            .setKey(writeEntry._1)
-            .setValue(writeEntry._2)
+            .setKey(writeEntry._1.bytes)
+            .setValue(writeEntry._2.bytes)
             .build())
   }
 

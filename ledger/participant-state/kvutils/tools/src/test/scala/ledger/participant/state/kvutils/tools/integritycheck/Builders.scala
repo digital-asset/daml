@@ -4,14 +4,14 @@
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import com.daml.ledger.participant.state.kvutils.`export`.WriteSet
+import com.daml.ledger.validator.Raw
 import com.google.protobuf.ByteString
 
 object Builders {
-  def bytes(text: String): ByteString =
-    ByteString.copyFromUtf8(text)
 
   def writeSet(values: (String, String)*): WriteSet =
     values.map {
-      case (key, value) => bytes(key) -> bytes(value)
+      case (key, value) =>
+        Raw.Key(ByteString.copyFromUtf8(key)) -> Raw.Value(ByteString.copyFromUtf8(value))
     }
 }

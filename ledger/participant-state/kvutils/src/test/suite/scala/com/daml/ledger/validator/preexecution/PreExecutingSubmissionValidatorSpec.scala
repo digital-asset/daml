@@ -10,18 +10,17 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.{
-  Bytes,
   DamlStateMap,
   Envelope,
   KeyValueCommitting,
   TestHelpers
 }
 import com.daml.ledger.participant.state.v1.Configuration
-import com.daml.ledger.validator.HasDamlStateValue
 import com.daml.ledger.validator.TestHelper._
 import com.daml.ledger.validator.ValidationFailed.ValidationError
 import com.daml.ledger.validator.preexecution.PreExecutingSubmissionValidatorSpec._
 import com.daml.ledger.validator.reading.StateReader
+import com.daml.ledger.validator.{HasDamlStateValue, Raw}
 import com.daml.lf.data.Ref.ParticipantId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
@@ -88,7 +87,7 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         .addSubmissions(
           CorrelatedSubmission.newBuilder
             .setCorrelationId("correlated submission")
-            .setSubmission(anEnvelope()))
+            .setSubmission(anEnvelope().bytes))
         .build()
 
       instance
@@ -156,7 +155,7 @@ object PreExecutingSubmissionValidatorSpec {
 
   private final case class TestWriteSet(value: String)
 
-  private def anEnvelope(expectedReadSet: Set[DamlStateKey] = Set.empty): Bytes = {
+  private def anEnvelope(expectedReadSet: Set[DamlStateKey] = Set.empty): Raw.Value = {
     val submission = DamlSubmission
       .newBuilder()
       .setConfigurationSubmission(DamlConfigurationSubmission.getDefaultInstance)

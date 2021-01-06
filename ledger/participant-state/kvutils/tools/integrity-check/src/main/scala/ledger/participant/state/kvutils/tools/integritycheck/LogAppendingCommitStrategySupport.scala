@@ -60,23 +60,23 @@ final class LogAppendingCommitStrategySupport(implicit executionContext: Executi
     val expectedLogEntry = kvutils.Envelope.openLogEntry(expectedValue)
     val actualLogEntry = kvutils.Envelope.openLogEntry(actualValue)
     Some(
-      s"Log entry ID: ${bytesAsHexString(logEntryId)}${System.lineSeparator()}" +
+      s"Log entry ID: ${bytesAsHexString(logEntryId.bytes)}${System.lineSeparator()}" +
         s"Expected: $expectedLogEntry${System.lineSeparator()}Actual: $actualLogEntry"
     )
   }
 
-  override def checkEntryIsReadable(keyBytes: Key, valueBytes: Value): Either[String, Unit] =
-    Envelope.open(valueBytes) match {
+  override def checkEntryIsReadable(rawKey: Key, rawValue: Value): Either[String, Unit] =
+    Envelope.open(rawValue) match {
       case Left(errorMessage) =>
         Left(s"Invalid value envelope: $errorMessage")
       case Right(Envelope.LogEntryMessage(logEntry)) =>
-        val _ = DamlLogEntryId.parseFrom(keyBytes)
+        val _ = DamlLogEntryId.parseFrom(rawKey.bytes)
         if (logEntry.getPayloadCase == DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET)
           Left("Log entry payload not set.")
         else
           Right(())
       case Right(Envelope.StateValueMessage(value)) =>
-        val key = stateKeySerializationStrategy.deserializeStateKey(keyBytes)
+        val key = stateKeySerializationStrategy.deserializeStateKey(rawKey)
         if (key.getKeyCase == DamlStateKey.KeyCase.KEY_NOT_SET)
           Left("State key not set.")
         else if (value.getValueCase == DamlStateValue.ValueCase.VALUE_NOT_SET)

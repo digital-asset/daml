@@ -6,7 +6,7 @@ package com.daml.ledger.on.sql.queries
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.v1.LedgerId
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.validator.Raw
 import com.daml.metrics.{Metrics, Timed}
 
 import scala.collection.immutable
@@ -24,7 +24,9 @@ final class TimedQueries(delegate: Queries, metrics: Metrics) extends Queries {
       metrics.daml.ledger.database.queries.selectFromLog,
       delegate.selectFromLog(start, end))
 
-  override def selectStateValuesByKeys(keys: Iterable[Key]): Try[immutable.Seq[Option[Value]]] =
+  override def selectStateValuesByKeys(
+      keys: Iterable[Raw.Key]
+  ): Try[immutable.Seq[Option[Raw.Value]]] =
     Timed.value(
       metrics.daml.ledger.database.queries.selectStateValuesByKeys,
       delegate.selectStateValuesByKeys(keys))
@@ -34,12 +36,12 @@ final class TimedQueries(delegate: Queries, metrics: Metrics) extends Queries {
       metrics.daml.ledger.database.queries.updateOrRetrieveLedgerId,
       delegate.updateOrRetrieveLedgerId(providedLedgerId))
 
-  override def insertRecordIntoLog(key: Key, value: Value): Try[Index] =
+  override def insertRecordIntoLog(key: Raw.Key, value: Raw.Value): Try[Index] =
     Timed.value(
       metrics.daml.ledger.database.queries.insertRecordIntoLog,
       delegate.insertRecordIntoLog(key, value))
 
-  override def updateState(stateUpdates: Iterable[(Key, Value)]): Try[Unit] =
+  override def updateState(stateUpdates: Iterable[Raw.Pair]): Try[Unit] =
     Timed.value(
       metrics.daml.ledger.database.queries.updateState,
       delegate.updateState(stateUpdates))
