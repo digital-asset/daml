@@ -285,7 +285,7 @@ damlOnSqlDocOpts = DocOptions
   { s3Subdir = Just "daml-driver-for-postgresql"
   , includedVersion = \v -> v > version "1.8.0-snapshot.20201201.5776.0.4b91f2a6"
   , build = \temp version -> do
-        proc_ ["git", "checkout", "v", show version]
+        proc_ ["git", "checkout", "v" <> show version]
         robustly_download_nix_packages
         shell_env_ [("DAML_SDK_RELEASE_VERSION", show version)] "bazel build //ledger/daml-on-sql:docs"
         proc_ ["mkdir", "-p", temp </> show version]
