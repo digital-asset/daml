@@ -44,7 +44,8 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
 
   it should "load full java config" in {
     val expected = Conf(
-      darFiles = Map(projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")),
+      darFiles = Map(
+        projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")),
       outputDirectory = path("path/to/output/java/directory"),
       decoderPkgAndClass = Some(("my.company.java", "DecoderClass")),
       verbosity = Level.WARN,
@@ -56,7 +57,8 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
 
   it should "load full scala config" in {
     val expected = Conf(
-      darFiles = Map(projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.scala.package")),
+      darFiles = Map(
+        projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.scala.package")),
       outputDirectory = path("path/to/output/scala/directory"),
       decoderPkgAndClass = Some(("my.company.scala", "DecoderClass")),
       verbosity = Level.INFO,
@@ -80,7 +82,8 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
 
   it should "load required fields only java config" in {
     val expected = Conf(
-      darFiles = Map(projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")),
+      darFiles = Map(
+        projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")),
       outputDirectory = path("path/to/output/java/directory"),
     )
 
@@ -89,7 +92,8 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
 
   it should "load required fields only scala config" in {
     val expected = Conf(
-      darFiles = Map(projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.scala.package")),
+      darFiles = Map(
+        projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.scala.package")),
       outputDirectory = path("path/to/output/scala/directory"),
     )
 
