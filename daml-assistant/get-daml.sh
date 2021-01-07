@@ -47,7 +47,7 @@ trap cleanup EXIT
 # Check that the temporary directory has enough space for the installation
 #
 if [ "$(df $TMPDIR | tail -1 | awk '{print $4}')" -lt $INSTALL_MINSIZE ]; then
-    echo "Not enough disk space available to extract DAML SDK in $TMPDIR."
+    echo "Not enough disk space available to extract Daml SDK in $TMPDIR."
     echo ""
     echo "You can specify an alternative extraction directory by"
     echo "setting the TEMPDIR environment variable."

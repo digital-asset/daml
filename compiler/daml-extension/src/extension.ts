@@ -144,7 +144,7 @@ async function showReleaseNotes(version: string) {
         if (res.ok) {
             const panel = vscode.window.createWebviewPanel(
                 'releaseNotes', // Identifies the type of the webview. Used internally
-                `New DAML SDK ${version} Available`, // Title of the panel displayed to the user
+                `New Daml SDK ${version} Available`, // Title of the panel displayed to the user
                 vscode.ViewColumn.One, // Editor column to show the new webview panel in
                 {} // No webview options for now
             );

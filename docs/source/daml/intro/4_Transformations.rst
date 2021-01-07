@@ -101,7 +101,7 @@ If you open the script view in the IDE, you will notice that Bob sees the ``Cont
 Choices in the Ledger Model
 ---------------------------
 
-In :doc:`1_Token` you learned about the high-level structure of a DAML ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
+In :doc:`1_Token` you learned about the high-level structure of a Daml ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
 
 A *transaction* is a list of *actions*, and there are just four kinds of action: ``create``, ``exercise``, ``fetch`` and ``key assertion``.
 
@@ -197,4 +197,4 @@ Next up
 
 You can now store and transform data on the ledger, even giving other parties specific write access through choices.
 
-In :doc:`5_Restrictions`, you will learn how to restrict data and transformations further. In that context, you will also learn about time on DAML ledgers, ``do`` blocks and ``<-`` notation within those.
+In :doc:`5_Restrictions`, you will learn how to restrict data and transformations further. In that context, you will also learn about time on Daml ledgers, ``do`` blocks and ``<-`` notation within those.

@@ -1,4 +1,4 @@
-[![DAML logo](daml-logo.png)](https://www.daml.com)
+[![Daml logo](daml-logo.png)](https://www.daml.com)
 
 [![Download](https://img.shields.io/github/release/digital-asset/daml.svg?label=Download)](https://docs.daml.com/getting-started/installation.html)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/main/LICENSE)
@@ -7,20 +7,20 @@
 Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 
-# Welcome to the DAML repository!
+# Welcome to the Daml repository!
 
-This repository hosts all code for the [DAML smart contract language and SDK](https://daml.com/), originally created by
-[Digital Asset](https://www.digitalasset.com). DAML is an open-source smart contract language for building future-proof distributed applications on a safe, privacy-aware runtime. The SDK is a set of tools to help you develop applications based on DAML.
+This repository hosts all code for the [Daml smart contract language and SDK](https://daml.com/), originally created by
+[Digital Asset](https://www.digitalasset.com). Daml is an open-source smart contract language for building future-proof distributed applications on a safe, privacy-aware runtime. The SDK is a set of tools to help you develop applications based on DAML.
 
-## Using DAML
+## Using Daml
 
 To download DAML, follow [the installation instructions](https://docs.daml.com/getting-started/installation.html).
 Once installed, to try it out, follow the [quickstart guide](https://docs.daml.com/getting-started/quickstart.html).
 
-If you have questions about how to use DAML or how to build DAML-based solutions, please ask them on
+If you have questions about how to use Daml or how to build Daml-based solutions, please ask them on
 [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
 
-## Contributing to DAML
+## Contributing to Daml
 
 We warmly welcome [contributions](./CONTRIBUTING.md). If you are looking for ideas on how to contribute, please browse our
 [issues](https://github.com/digital-asset/daml/issues). To build and test DAML:
@@ -75,7 +75,7 @@ On Mac if building is causing trouble complaining about missing nix packages, yo
 
 ### 4. Installing a local copy
 
-On Linux and Mac run `daml-sdk-head` which installs a version of the SDK with version number `0.0.0`. Set the `version:` field in any DAML project to 0.0.0 and it will use the locally installed one.
+On Linux and Mac run `daml-sdk-head` which installs a version of the SDK with version number `0.0.0`. Set the `version:` field in any Daml project to 0.0.0 and it will use the locally installed one.
 
 On Windows:
 

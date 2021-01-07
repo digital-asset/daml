@@ -3,7 +3,7 @@
 
 # -*- coding: utf-8 -*-
 #
-# DAML SDK documentation build configuration file, created by
+# Daml SDK documentation build configuration file, created by
 # sphinx-quickstart on Wed Jul  5 17:39:28 2017.
 #
 # This file is execfile()d with the current directory set to its
@@ -51,7 +51,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'DAML SDK'
+project = u'Daml SDK'
 copyright = u'© Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.'
 author = u'Digital Asset'
 
@@ -145,7 +145,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'DigitalAssetSDK.tex', u'DAML SDK Documentation',
+    (master_doc, 'DigitalAssetSDK.tex', u'Daml SDK Documentation',
      u'Digital Asset', 'manual'),
 ]
 
@@ -155,7 +155,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'digitalassetsdk', u'DAML SDK Documentation',
+    (master_doc, 'digitalassetsdk', u'Daml SDK Documentation',
      [author], 1)
 ]
 
@@ -166,7 +166,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'DigitalAssetSDK', u'DAML SDK Documentation',
+    (master_doc, 'DigitalAssetSDK', u'Daml SDK Documentation',
      author, 'DigitalAssetSDK', 'One line description of project.',
      'Miscellaneous'),
 ]

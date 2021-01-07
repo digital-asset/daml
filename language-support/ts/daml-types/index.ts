@@ -107,7 +107,7 @@ export const registerTemplate = <T extends object>(template: Template<T>): void 
 export const lookupTemplate = (templateId: string): Template<object> => {
   const template = registeredTemplates[templateId];
   if (template === undefined) {
-    throw Error(`Failed to look up template ${templateId}. Make sure your @daml/types version agrees with the used DAML SDK version.`);
+    throw Error(`Failed to look up template ${templateId}. Make sure your @daml/types version agrees with the used Daml SDK version.`);
   }
   return template;
 }

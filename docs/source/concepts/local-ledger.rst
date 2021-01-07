@@ -6,26 +6,26 @@
 Causality and Local Ledgers
 ###########################
 
-DAML ledgers do not totally order all transactions.
+Daml ledgers do not totally order all transactions.
 So different parties may observe two transactions on different Participant Nodes in different orders via the :ref:`Ledger API <ledger-api-services>`.
 Moreover, different Participant Nodes may output two transactions for the same party in different orders.
-This document explains the ordering guarantees that DAML ledgers do provide, by :ref:`example <causality-examples>` and formally via the concept of :ref:`causality graphs <causality-graph>` and :ref:`local ledgers <local-ledger-structure>`.
+This document explains the ordering guarantees that Daml ledgers do provide, by :ref:`example <causality-examples>` and formally via the concept of :ref:`causality graphs <causality-graph>` and :ref:`local ledgers <local-ledger-structure>`.
 
 The presentation assumes that you are familiar with the following concepts:
 
 * The :ref:`Ledger API <ledger-api-services>`
 
-* The :ref:`DAML Ledger Model <da-ledgers>`
+* The :ref:`Daml Ledger Model <da-ledgers>`
 
 .. _causality-examples:
 
 Causality examples
 ******************
 
-A DAML Ledger need not totally order all transaction, unlike ledgers in the DAML Ledger Model.
+A Daml Ledger need not totally order all transaction, unlike ledgers in the Daml Ledger Model.
 The following examples illustrate these ordering guarantees of the Ledger API.
-They are based the paint counteroffer workflow from the DAML Ledger Model's :ref:`privacy section <da-model-privacy>`,
-ignoring the total ordering coming from the DAML Ledger Model.
+They are based the paint counteroffer workflow from the Daml Ledger Model's :ref:`privacy section <da-model-privacy>`,
+ignoring the total ordering coming from the Daml Ledger Model.
 Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as follows.
 
 .. https://www.lucidchart.com/documents/edit/c4df0455-13ab-415f-b457-f5654c2684be
@@ -39,8 +39,8 @@ Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as 
 Stakeholders of a contract see creation and archival in the same order.
 =======================================================================
 
-Every DAML Ledger orders the creation of the `CounterOffer A P Bank` before the painter exercising the consuming choice on the `CounterOffer`.
-(If the **Create** was ordered after the **Exercise**, the resulting shared ledger would be inconsistent, which violates the validity guarantee of DAML ledgers.)
+Every Daml Ledger orders the creation of the `CounterOffer A P Bank` before the painter exercising the consuming choice on the `CounterOffer`.
+(If the **Create** was ordered after the **Exercise**, the resulting shared ledger would be inconsistent, which violates the validity guarantee of Daml ledgers.)
 Accordingly, Alice will see the creation before the archival on her transaction stream and so will the painter.
 This does not depend on whether they are hosted on the same Participant Node.
 
@@ -107,7 +107,7 @@ The rationale for this behaviour is that Alice could have learnt about the contr
 The Participant Nodes therefore cannot know whether there will ever be a **Create** event for the contract.
 So if Participant Nodes delayed outputting the **Create** action for the `CounterOffer` until a **Create** event for the `Iou` contract was published,
 this delay might last forever and liveness is lost.
-DAML ledgers therefore do not capture data flow through applications.
+Daml ledgers therefore do not capture data flow through applications.
 
 .. _causality-divulgence-example:
 
@@ -128,7 +128,7 @@ Even though this may seem unexpected, it is in line with stakeholder-based ledge
 Since the painter is not a stakeholder of the `Iou` contract, he should not care about the archivals or creates of the contract.
 In fact, the divulged `Iou` contract shows up neither in the painter's active contract service nor in the flat transaction stream.
 Such witnessed events are included in the transaction tree stream as a convenience:
-They relieve the painter from computing the consequences of the choice and enable him to check that the action conforms to the DAML model.
+They relieve the painter from computing the consequences of the choice and enable him to check that the action conforms to the Daml model.
 
 Similarly, being an actor of an **Exercise** action induces order with respect to other uses of the contract only if the actor is a contract stakeholder.
 This is because non-stakeholder actors of an **Exercise** action merely authorize the action, but they do not track whether the contract is active; this is what signatories and observers are for.
@@ -149,8 +149,8 @@ This shows that the ordering guarantees depend on the party.
 Causality graphs
 ****************
 
-The above examples indicate that DAML ledgers order transactions only partially.
-DAML ledgers can be represented as finite directed acyclic graphs (DAG) of transactions.
+The above examples indicate that Daml ledgers order transactions only partially.
+Daml ledgers can be represented as finite directed acyclic graphs (DAG) of transactions.
 
 .. _def-causality-graph:
 
@@ -198,7 +198,7 @@ Consistency
 ===========
 
 Consistency ensures that a causality graph sufficiently orders all the transactions.
-It generalizes :ref:`ledger consistency <da-model-consistency>` from the DAML Ledger Model as :ref:`explained below <causality-consistency-ledger-model>`.
+It generalizes :ref:`ledger consistency <da-model-consistency>` from the Daml Ledger Model as :ref:`explained below <causality-consistency-ledger-model>`.
 
 .. _def-causal-consistency-contract:
 
@@ -321,13 +321,13 @@ It is also the reduction of the topological sort, i.e., the :ref:`ledger <split-
       For each such pair, determine the actions' ordering in `G` and add an edge to `G'` from the earlier action's transaction to the later action's transaction.
    #. `reduce`:sub:`X`\ `(G)` is the transitive closure of `G'`.
 
-Topological sort and reduction link causality graphs `G` to the ledgers `L` from the DAML Ledger Model.
-Topological sort transforms a causality graph `G` into a sequence of transactions; extending them with the requesters gives a sequence of commits, i.e., a ledger in the DAML Ledger Model.
+Topological sort and reduction link causality graphs `G` to the ledgers `L` from the Daml Ledger Model.
+Topological sort transforms a causality graph `G` into a sequence of transactions; extending them with the requesters gives a sequence of commits, i.e., a ledger in the Daml Ledger Model.
 Conversely, a sequence of commits `L` yields a causality graph `G`:sub:`L` by taking the transactions as vertices and adding an edge from `tx1` to `tx2` whenever `tx1`\ 's commit precedes `tx2`\ 's commit in the sequence.
 
 There are now two consistency definitions:
 
-* :ref:`Ledger Consistency <da-model-ledger-consistency>` according to DAML Ledger Model
+* :ref:`Ledger Consistency <da-model-ledger-consistency>` according to Daml Ledger Model
 
 * :ref:`Consistency of causality graph <def-consistency-causality-graph>`
 
@@ -340,7 +340,7 @@ Conversely, if the sequence of commits `L` is ledger consistent, `G`:sub:`L` is 
 Local ledgers
 *************
 
-As explained in the DAML Ledger Model, parties see only a :ref:`projection <da-model-projections>` of the shared ledger for privacy reasons.
+As explained in the Daml Ledger Model, parties see only a :ref:`projection <da-model-projections>` of the shared ledger for privacy reasons.
 Like consistency, projection extends to causality graphs as follows.
 
 Definition »Causal consistency for a party«
@@ -384,7 +384,7 @@ This difference explains the :ref:`divulgence causality example <causality-divul
 Ledger API ordering guarantees
 ==============================
 
-The :ref:`Transaction Service <transaction-service>` provides the updates as a stream of DAML transactions
+The :ref:`Transaction Service <transaction-service>` provides the updates as a stream of Daml transactions
 and the :ref:`Active Contract Service <active-contract-service>` summarizes all the updates up to a given point
 by the contracts that are active at this point.
 Conceptually, both services are derived from the local ledger that the Participant Node manages for each hosted party.
@@ -403,13 +403,13 @@ In particular, an application can process all subsequent events from the flat tr
    
 Since the topological sort of a local ledger is not unique, different Participant Nodes may pick different orders for the transaction streams of the same party.
 Similarly, the transaction streams for different parties may order common transactions differently, as the party's local ledgers impose different ordering constraints.
-Nevertheless, DAML ledgers ensure that all local ledgers are projections of a virtual shared causality graph that connects to the DAML Ledger Model as described above.
+Nevertheless, Daml ledgers ensure that all local ledgers are projections of a virtual shared causality graph that connects to the Daml Ledger Model as described above.
 The ledger validity guarantees therefore extend via the local ledgers to the Ledger API.
-These guarantees are subject to the deployed DAML ledger's trust assumptions.
+These guarantees are subject to the deployed Daml ledger's trust assumptions.
 
 .. note::
-   The virtual shared causality graph exists only as a concept, to reason about DAML ledger guarantees.
-   A deployed DAML ledger in general does not store or even construct such a shared causality graph.
+   The virtual shared causality graph exists only as a concept, to reason about Daml ledger guarantees.
+   A deployed Daml ledger in general does not store or even construct such a shared causality graph.
    The Participant Nodes merely maintain the local ledgers for their parties.
    They synchronize these local ledgers to the extent that they remain consistent.
    That is, all the local ledgers can in theory be combined into a consistent single causality graph of which they are projections.
@@ -451,4 +451,4 @@ The :ref:`causality examples <causality-examples>` can be explained in terms of 
 #. :ref:`causality-example-depend-on-party`
    Alice is an informee of the **Fetch** and **Exercise** actions on her `Iou`.
    Unlike for the painter, :ref:`her local ledger <counteroffer-causality-projections>` does order `tx3` before `tx4`,
-   so Alice is guaranteed to observe `tx3` before `tx4` on all Participant Nodes through which she is connect to the DAML ledger.
+   so Alice is guaranteed to observe `tx3` before `tx4` on all Participant Nodes through which she is connect to the Daml ledger.

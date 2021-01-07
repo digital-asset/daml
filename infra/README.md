@@ -1,6 +1,6 @@
-# DAML
+# Daml
 
-This is the terraform code used by the DAML repository to deploy supporting
+This is the terraform code used by the Daml repository to deploy supporting
 infrastructure such as the Bazel caches, Nix caches and Azure Pipeline (VSTS)
 Agents.
 

@@ -3,9 +3,9 @@
 
 .. _daml-script-api-docs:
 
-DAML Script Library
+Daml Script Library
 ====================
 
-The DAML Script library defines the API used to implement DAML scripts. See :doc:`/daml-script/index`:: for more information on DAML script.
+The Daml Script library defines the API used to implement Daml scripts. See :doc:`/daml-script/index`:: for more information on Daml script.
 
 {{{body}}}

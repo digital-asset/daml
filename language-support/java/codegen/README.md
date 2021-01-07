@@ -8,7 +8,7 @@ The codegen code source is provided with two sets of tests:
 
 - The standard tests (under ``src/test/java-*`` directory) which are based on 
   dar files produced by ``daml-lf-encoder``. Hence those test do not 
-  dependent on DAML compilers. Those tests are designed to test the codegen 
+  dependent on Daml compilers. Those tests are designed to test the codegen 
   with precise features of LF, even if the compiler do not support them.
   
 - The integration tests (under ``src/it/java-*`` directory) which are based on 

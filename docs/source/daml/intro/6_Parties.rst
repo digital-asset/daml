@@ -4,13 +4,13 @@
 6 Parties and authority
 =======================
 
-DAML is designed for distributed applications involving mutually distrusting parties. In a well-constructed contract model, all parties have strong guarantees that nobody cheats or circumvents the rules laid out by templates and choices.
+Daml is designed for distributed applications involving mutually distrusting parties. In a well-constructed contract model, all parties have strong guarantees that nobody cheats or circumvents the rules laid out by templates and choices.
 
-In this section you will learn about DAML's authorization rules and how to develop contract models that give all parties the required guarantees. In particular, you'll learn how to:
+In this section you will learn about Daml's authorization rules and how to develop contract models that give all parties the required guarantees. In particular, you'll learn how to:
 
 - Pass authority from one contract to another
 - Write advanced choices
-- Reason through DAML's Authorization model
+- Reason through Daml's Authorization model
 
 .. hint::
 
@@ -101,7 +101,7 @@ Bob can now transfer his ``Iou``. The transfer workflow can even be used for iss
 Use role contracts for ongoing authorization
 --------------------------------------------
 
-Many actions, like the issuance of assets or their transfer, can be pre-agreed. You can represent this succinctly in DAML through relationship or role contracts.
+Many actions, like the issuance of assets or their transfer, can be pre-agreed. You can represent this succinctly in Daml through relationship or role contracts.
 
 Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in the script above. In :doc:`7_Composing`, you will see how to compose the ``ProposeTransfer`` and ``IouTransferProposal_Accept`` choices into a single new choice, but for now, here is a different way. You can give them the joint right to transfer an IOU:
 
@@ -130,10 +130,10 @@ Here it is in action:
   :start-after: -- SENDER_SCENARIO_BEGIN
   :end-before: -- SENDER_SCENARIO_END
 
-DAML's authorization model
+Daml's authorization model
 --------------------------
 
-Hopefully, the above will have given you a good intuition for how authority is passed around in DAML. In this section you'll learn about  the formal authorization model to allow you to reason through your contract models. This will allow you to construct them in such a way that you don't run into authorization errors at runtime, or, worse still, allow malicious transactions.
+Hopefully, the above will have given you a good intuition for how authority is passed around in Daml. In this section you'll learn about  the formal authorization model to allow you to reason through your contract models. This will allow you to construct them in such a way that you don't run into authorization errors at runtime, or, worse still, allow malicious transactions.
 
 In :ref:`choices` you learned that a transaction is, equivalently, a tree of transactions, or a forest of actions, where each transaction is a list of actions, and each action has a child-transaction called its consequences.
 
@@ -215,4 +215,4 @@ Therefore, the consequences of ``TryA`` are only authorized by Alice. Bob's auth
 Next up
 -------
 
-In :doc:`7_Composing` you will put everything you have learned together to build a simple asset holding and trading model akin to that in the :doc:`/app-dev/bindings-java/quickstart`. In that context you'll learn a bit more about the ``Update`` action and how to use it to compose transactions, as well as about privacy on DAML ledgers.
+In :doc:`7_Composing` you will put everything you have learned together to build a simple asset holding and trading model akin to that in the :doc:`/app-dev/bindings-java/quickstart`. In that context you'll learn a bit more about the ``Update`` action and how to use it to compose transactions, as well as about privacy on Daml ledgers.

@@ -178,7 +178,7 @@ Allocating parties is necessary to interact with the ledger. For more informatio
 Package service
 ===============
 
-Use the **package service** to obtain information about DAML packages available on the ledger.
+Use the **package service** to obtain information about Daml packages available on the ledger.
 
 This is useful for obtaining type and metadata information that allow you to interpret event data in a more useful way.
 

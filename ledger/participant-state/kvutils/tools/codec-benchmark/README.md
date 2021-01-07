@@ -10,7 +10,7 @@ The default input data is the reference ledger export. It cannot be used as a
 reliable source to compare performances between commits, as the content of the
 export may vary over time. This should, however, provide a good dataset to
 have a tight feedback loop on improvements to the translation between Speedy,
-DAML-LF, and Protobuf objects and messages.
+Daml-LF, and Protobuf objects and messages.
 
 To run the benchmarks with a custom ledger export, you can run the following:
 
@@ -63,8 +63,8 @@ you run the benchmarks that are relevant to you with the proper settings.
 
 * _serialize_: translate from a Protobuf object to its serialized from
 * _deserialize_: translate a serialized Protobuf message into its object representation
-* _encode_: translate a Protobuf object to a DAML-LF object
-* _decode_: translate a DAML-LF object to a Protobuf object
+* _encode_: translate a Protobuf object to a Daml-LF object
+* _decode_: translate a Daml-LF object to a Protobuf object
 
 #### Known issues
 

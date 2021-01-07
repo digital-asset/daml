@@ -4,7 +4,7 @@
 9 Functional Programming 101
 ============================
 
-In this chapter, you will learn more about expressing complex logic in a functional language like DAML. Specifically, you'll learn about
+In this chapter, you will learn more about expressing complex logic in a functional language like Daml. Specifically, you'll learn about
 
 - Function signatures and functions
 - Advanced control flow (``if...else``, folds, recursion, ``when``)
@@ -20,7 +20,7 @@ If you no longer have your chapter 7 and 8 projects set up, and want to look bac
 The Haskell Connection
 ----------------------
 
-The previous chapters of this introduction to DAML have mostly covered the structure of templates, and their connection to the :doc:`DAML Ledger Model </concepts/ledger-model/index>`. The logic of what happens within the ``do`` blocks of choices has been kept relatively simple. In this chapter, we will dive deeper into DAML's expression language, the part that allows you to write logic inside those ``do`` blocks. But we can only scratch the surface here. DAML borrows a lot of its language from `Haskell <https://www.haskell.org>`__. If you want to dive deeper, or learn about specific aspects of the language you can refer to standard literature on Haskell. Some recommendations:
+The previous chapters of this introduction to Daml have mostly covered the structure of templates, and their connection to the :doc:`Daml Ledger Model </concepts/ledger-model/index>`. The logic of what happens within the ``do`` blocks of choices has been kept relatively simple. In this chapter, we will dive deeper into Daml's expression language, the part that allows you to write logic inside those ``do`` blocks. But we can only scratch the surface here. Daml borrows a lot of its language from `Haskell <https://www.haskell.org>`__. If you want to dive deeper, or learn about specific aspects of the language you can refer to standard literature on Haskell. Some recommendations:
 
 - `Finding Success and Failure in Haskell (Julie Maronuki, Chris Martin) <https://joyofhaskell.com/>`__
 - `Haskell Programming from first principles (Christopher Allen, Julie Moronuki) <http://haskellbook.com/>`__
@@ -28,18 +28,18 @@ The previous chapters of this introduction to DAML have mostly covered the struc
 - `Programming in Haskell (Graham Hutton) <http://www.cs.nott.ac.uk/~pszgmh/pih.html>`__
 - `Real World Haskell (Bryan O'Sullivan, Don Stewart, John Goerzen) <http://book.realworldhaskell.org/>`__
 
-When comparing DAML to Haskell it's worth noting:
+When comparing Daml to Haskell it's worth noting:
 
--   Haskell is a lazy language, which allows you to write things like ``head [1..]``, meaning "take the first element of an infinite list". DAML by contrast is strict. Expressions are fully evaluated, which means it is not possible to work with infinite data structures.
-- DAML has a ``with`` syntax for records, and dot syntax for record field access, neither of which present in Haskell. But DAML supports Haskell's curly brace record notation.
-- DAML has a number of Haskell compiler extensions active by default.
-- DAML doesn't support all features of Haskell's type system. For example, there are no existential types or GADTs.
+-   Haskell is a lazy language, which allows you to write things like ``head [1..]``, meaning "take the first element of an infinite list". Daml by contrast is strict. Expressions are fully evaluated, which means it is not possible to work with infinite data structures.
+- Daml has a ``with`` syntax for records, and dot syntax for record field access, neither of which present in Haskell. But Daml supports Haskell's curly brace record notation.
+- Daml has a number of Haskell compiler extensions active by default.
+- Daml doesn't support all features of Haskell's type system. For example, there are no existential types or GADTs.
 - Actions are called Monads in Haskell.
 
 Functions
 ---------
 
-In :doc:`3_Data` you learnt about one half of DAML's type system: Data types. It's now time to learn about the other, which are Function types. Function types in DAML can be spotted by looking for ``->`` which can be read as "maps to".
+In :doc:`3_Data` you learnt about one half of Daml's type system: Data types. It's now time to learn about the other, which are Function types. Function types in Daml can be spotted by looking for ``->`` which can be read as "maps to".
 
 For example, the function signature ``Int -> Int`` maps an integer to another integer. There are many such functions, but one would be:
 
@@ -122,7 +122,7 @@ Type Constraints
 
 The ``Additive a =>`` part of the signature of ``add`` is a type constraint on the type parameter ``a``. ``Additive`` here is a typeclass. You already met typeclasses like ``Eq`` and ``Show`` in :doc:`3_Data`. The ``Additive`` typeclass says that you can add a thing. Ie there is a function ``(+) : a -> a -> a``. Now the way to read the full signature of ``add`` is "Given that a has an instance for the Additive typeclass, a maps to a function which maps a to a".
 
-Typeclasses in DAML are a bit like interfaces in other languages. To be able to add two things using the ``+`` function, those things need to expose the ``+`` interface.
+Typeclasses in Daml are a bit like interfaces in other languages. To be able to add two things using the ``+`` function, those things need to expose the ``+`` interface.
 
 Unlike interfaces, typeclasses can have multiple type parameters. A good example, which also demonstrates the use of multiple constraints at the same time, is the signature of the ``exercise`` function:
 
@@ -182,7 +182,7 @@ The ``..`` in the second to last line means fill all fields of the new record us
 Functions Everywhere
 ....................
 
-You have probably already guessed it: Anywhere you can put a value in DAML you can also put a function. Even inside data types:
+You have probably already guessed it: Anywhere you can put a value in Daml you can also put a function. Even inside data types:
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
   :language: daml
@@ -211,7 +211,7 @@ You can probably guess what the ``mapA`` and ``mapA_``\ s in the above choice do
 Lambdas
 .......
 
-Like in most modern languages, DAML also supports inline functions called lambdas. They are defined using ``(\x y z -> ...)`` syntax. For example, a lambda version of ``increment`` would be ``(\n -> n + 1)``.
+Like in most modern languages, Daml also supports inline functions called lambdas. They are defined using ``(\x y z -> ...)`` syntax. For example, a lambda version of ``increment`` would be ``(\n -> n + 1)``.
 
 Control Flow
 ------------
@@ -382,20 +382,20 @@ A more general loop looks like this:
 
 The only real difference is that the iterator is explicit in the former, and implicit in the latter.
 
-In both cases, state is being mutated: ``result`` in the former, ``state`` in the latter. Values in DAML are immutable, so it needs to work differently. In DAML we will do this with folds and recursion.
+In both cases, state is being mutated: ``result`` in the former, ``state`` in the latter. Values in Daml are immutable, so it needs to work differently. In Daml we will do this with folds and recursion.
 
 .. _folds:
 
 Folds
 ~~~~~
 
-Folds correspond to looping with an explicit iterator: ``for`` and ``forEach`` loops in procedural languages. The most common iterator is a list, as is the case in the ``sum`` function above. For such cases, DAML has the ``foldl`` function. The ``l`` stands for "left" and means the list is processed from the left. There is also a corresponding ``foldr`` which processes from the right.
+Folds correspond to looping with an explicit iterator: ``for`` and ``forEach`` loops in procedural languages. The most common iterator is a list, as is the case in the ``sum`` function above. For such cases, Daml has the ``foldl`` function. The ``l`` stands for "left" and means the list is processed from the left. There is also a corresponding ``foldr`` which processes from the right.
 
 .. code-block:: daml
 
   foldl : (b -> a -> b) -> b -> [a] -> b
 
-Let's give the type parameters semantic names. ``b`` is the state, ``a`` is an item. ``foldl``\ s first argument is a function which takes a state and an item and returns a new state. That's the equivalent of the inner block of the ``forEach``. It then takes a state, which is the initial state, and a list of items, which is the iterator. The result is again a state. The ``sum`` function above can be translated to DAML almost instantly with those correspondences in mind:
+Let's give the type parameters semantic names. ``b`` is the state, ``a`` is an item. ``foldl``\ s first argument is a function which takes a state and an item and returns a new state. That's the equivalent of the inner block of the ``forEach``. It then takes a state, which is the initial state, and a list of items, which is the iterator. The result is again a state. The ``sum`` function above can be translated to Daml almost instantly with those correspondences in mind:
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
   :language: daml
@@ -417,16 +417,16 @@ Almost all loops with explicit iterators can be translated to folds, though we h
     return result;
   }
 
-Translating the ``for`` into a ``forEach`` is easy if you can get your hands on an array containing values ``[0..(l-1)]``. And that's literally how you do it in DAML, using *ranges*. ``[0..(l-1)]`` is shorthand for ``enumFromTo 0 (l-1)``, which returns the list you'd expect.
+Translating the ``for`` into a ``forEach`` is easy if you can get your hands on an array containing values ``[0..(l-1)]``. And that's literally how you do it in Daml, using *ranges*. ``[0..(l-1)]`` is shorthand for ``enumFromTo 0 (l-1)``, which returns the list you'd expect.
 
-DAML also has an operator ``(!!) : [a] -> Int -> a`` which returns an element in a list. You may now be tempted to write ``sumArrs`` like this:
+Daml also has an operator ``(!!) : [a] -> Int -> a`` which returns an element in a list. You may now be tempted to write ``sumArrs`` like this:
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
   :language: daml
   :start-after: -- SUM_ARR_BEGIN
   :end-before: -- SUM_ARR_END
 
-But you should immediately forget again that you just learnt about ``(!!)``. Lists in DAML are linked lists, which makes access using ``(!!)`` slow and idiosyncratic. The way to do this in DAML is to get rid of the ``i`` altogether and instead merge the lists first, and then iterate over the "zipped" up lists:
+But you should immediately forget again that you just learnt about ``(!!)``. Lists in Daml are linked lists, which makes access using ``(!!)`` slow and idiosyncratic. The way to do this in Daml is to get rid of the ``i`` altogether and instead merge the lists first, and then iterate over the "zipped" up lists:
 
 .. literalinclude:: daml/daml-intro-9/daml/Main.daml
   :language: daml
@@ -457,12 +457,12 @@ If there is no explicit iterator, you can use recursion. Let's try to write a fu
   :start-after: -- REVERSE_BEGIN
   :end-before: -- REVERSE_END
 
-You may be tempted to make ``reverseWorker`` a local definition inside ``reverse``, but DAML only supports recursion for top-level functions so the recursive part ``recurseWorker`` has to be its own top-level function.
+You may be tempted to make ``reverseWorker`` a local definition inside ``reverse``, but Daml only supports recursion for top-level functions so the recursive part ``recurseWorker`` has to be its own top-level function.
 
 Folds and Maps in Action Contexts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The folds and ``map`` function above are pure in the sense introduced in :doc:`5_Restrictions`: The functions used to map or process items have no side-effects. In day-to-day DAML that's the exception rather than the rule. If you have looked at the chapter 8 models, you'll have noticed ``mapA``, ``mapA_``, and ``forA`` all over the place. A good example are the ``mapA`` in the ``testMultiTrade`` script:
+The folds and ``map`` function above are pure in the sense introduced in :doc:`5_Restrictions`: The functions used to map or process items have no side-effects. In day-to-day Daml that's the exception rather than the rule. If you have looked at the chapter 8 models, you'll have noticed ``mapA``, ``mapA_``, and ``forA`` all over the place. A good example are the ``mapA`` in the ``testMultiTrade`` script:
 
 .. literalinclude:: daml/daml-intro-8/daml/Test/Intro/Asset/MultiTrade.daml
   :language: daml
@@ -494,9 +494,9 @@ Have a go at implementing ``foldlA`` in terms of ``foldl`` and ``sequence`` and 
   :start-after: -- FORA_EXAMPLE_BEGIN
   :end-before: -- FORA_EXAMPLE_END
 
-Lastly, you'll have noticed that in some cases we used ``mapA_``, not ``mapA``. The underscore indicates that the result is not used. ``mapA_ fn xs fn = void (mapA fn xs)``. The DAML Linter will alert you if you could use ``mapA_`` instead of ``mapA``, and similarly for ``forA_``.
+Lastly, you'll have noticed that in some cases we used ``mapA_``, not ``mapA``. The underscore indicates that the result is not used. ``mapA_ fn xs fn = void (mapA fn xs)``. The Daml Linter will alert you if you could use ``mapA_`` instead of ``mapA``, and similarly for ``forA_``.
 
 Next up
 -------
 
-You now know the basics of functions and control flow, both in pure and Action contexts. The Chapter 8 example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the DAML Standard Library. It provides functions and typeclasses for many common circumstances and in :doc:`10_StdLib`, you'll get an overview of the library and learn how to search and browse it.
+You now know the basics of functions and control flow, both in pure and Action contexts. The Chapter 8 example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the Daml Standard Library. It provides functions and typeclasses for many common circumstances and in :doc:`10_StdLib`, you'll get an overview of the library and learn how to search and browse it.

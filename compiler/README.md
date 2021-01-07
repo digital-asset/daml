@@ -1,8 +1,8 @@
-# DAML Compiler
+# Daml Compiler
 
 This directory contains several libraries used by and the executable for the
-DAML compiler.
+Daml compiler.
 
 ## Libraries
 
-* `daml-lf-ast`: The DAML-LF AST and type checker.
+* `daml-lf-ast`: The Daml-LF AST and type checker.
