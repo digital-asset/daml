@@ -64,8 +64,8 @@ see below why this is useful.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml
    :language: daml
-   :start-after: -- Daml_SCRIPT_HEADER_BEGIN
-   :end-before: -- Daml_SCRIPT_HEADER_END
+   :start-after: -- DAML_SCRIPT_HEADER_BEGIN
+   :end-before: -- DAML_SCRIPT_HEADER_END
 
 Since on an actual ledger parties cannot be arbitrary strings, we
 define a record containing all the parties that we will use in our

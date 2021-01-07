@@ -108,7 +108,7 @@ Here is what each field means:
 - ``sdk-version``: the SDK version that this project uses.
 
    The assistant automatically downloads and installs this version if needed (see the ``auto-install`` setting in the global config). We recommend keeping this up to date with the latest stable release of the SDK.
-   It is possible to override the version without modifying the ``daml.yaml`` file by setting the ``Daml_SDK_VERSION`` environment variable. This is mainly useful when you are working with an
+   It is possible to override the version without modifying the ``daml.yaml`` file by setting the ``DAML_SDK_VERSION`` environment variable. This is mainly useful when you are working with an
    external project that you want to build with a specific version.
 
    The assistant will warn you when it is time to update this setting (see the ``update-check`` setting in the global config  to control how often it checks, or to disable this check entirely).
@@ -121,7 +121,7 @@ Here is what each field means:
   SDK 1.3.0 so you get improvements in Daml Studio but deploy to DABL which could still be running
   a ledger and the JSON API from SDK 1.2.0. In that case, you can set ``sdk-version: 1.3.0``
   and ``platform-version: 1.2.0``.
-  It is possible to override the platform version by setting the ``Daml_PLATFORM_VERSION``
+  It is possible to override the platform version by setting the ``DAML_PLATFORM_VERSION``
   environment variable.
 - ``name``: the name of the project. This determines the filename of the ``.dar`` file compiled by ``daml build``.
 - ``source``: the root folder of your Daml source code files relative to the project root.

@@ -48,8 +48,8 @@ import the `carbon-1.0.0` package as data dependency
 
 .. literalinclude:: example/carbon-label/daml.yaml
   :language: daml
-  :start-after: # Daml_YAML_BEGIN
-  :end-before: # Daml_YAML_END
+  :start-after: # DAML_YAML_BEGIN
+  :end-before: # DAML_YAML_END
 
 Deploying an extension is simple: just upload the new package to the ledger with
 the `daml ledger upload-dar` command. In our example the ledger runs on the
