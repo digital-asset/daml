@@ -1,0 +1,49 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+
+#ifndef DAML_EXCEPTIONS
+
+-- | HIDE
+module DA.Internal.Exception where
+
+#else
+
+-- | MOVE Prelude This module contains the definitions needed for exception desugaring.
+module DA.Internal.Exception
+    ( module DA.Internal.Exception
+    , AnyException
+    , GeneralError
+    , ArithmeticError
+    , ContractError
+    ) where
+
+import GHC.Types
+import DA.Internal.LF
+import DA.Internal.Prelude ( Optional )
+
+type Exception e =
+    ( HasMessage e
+    , HasThrow e
+    , HasToAnyException e
+    , HasFromAnyException e
+    )
+
+class HasMessage e where
+    message : e -> Text
+
+class HasThrow e where
+    throwPure : forall t. e -> t
+
+class HasToAnyException e where
+    toAnyException : e -> AnyException
+
+class HasFromAnyException e where
+    fromAnyException : AnyException -> Optional e
+
+instance HasMessage AnyException where
+    message = primitive @"BEAnyExceptionMessage"
+
+#endif

@@ -373,6 +373,12 @@ convertPrim version "EToAnyContractKey"
         ETmLam (mkVar "key", key) $
         EToAny key (EVar $ mkVar "key")
 
+-- Exceptions
+convertPrim version "BEAnyExceptionMessage"
+    ty@(TBuiltin BTAnyException :-> TText) =
+    whenRuntimeSupports version featureExceptions ty $
+        EBuiltin BEAnyExceptionMessage
+
 -- Unknown primitive.
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 

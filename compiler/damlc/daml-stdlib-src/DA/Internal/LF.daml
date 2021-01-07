@@ -45,6 +45,13 @@ module DA.Internal.LF
   -- If this is not supported by the target LF version, we compile it to ().
   , Any
   , TypeRep
+
+  #ifdef DAML_EXCEPTIONS
+  , AnyException
+  , GeneralError
+  , ArithmeticError
+  , ContractError
+  #endif
   ) where
 
 import GHC.Stack.Types (HasCallStack)
@@ -266,4 +273,20 @@ instance Ord TypeRep where
   (<) = primitive @"BELess"
   (>) = primitive @"BEGreater"
 #endif -- DAML_GENERIC_COMPARISON
+#endif
+
+#ifdef DAML_EXCEPTIONS
+
+-- | A wrapper for all exception types.
+data AnyException = AnyException Opaque
+
+-- | Exception raised by `error`.
+data GeneralError = GeneralError Opaque
+
+-- | Exception raised by an arithmetic operation, such as divide-by-zero or overflow.
+data ArithmeticError = ArithmeticError Opaque
+
+-- | Exception raised when a contract is invalid, i.e. fails the ensure clause.
+data ContractError = ContractError Opaque
+
 #endif

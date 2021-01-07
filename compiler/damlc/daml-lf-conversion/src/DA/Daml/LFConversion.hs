@@ -824,7 +824,11 @@ convertBind env (name, x)
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
-internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Map", "Any", "TypeRep"]
+internalTypes = mkUniqSet
+    [ "Scenario", "Update", "ContractId", "Time", "Date", "Party"
+    , "Pair", "TextMap", "Map", "Any", "TypeRep"
+    , "AnyException", "GeneralError", "ArithmeticError", "ContractError"
+    ]
 
 consumingTypes :: UniqSet FastString
 consumingTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming"]
@@ -1674,12 +1678,6 @@ convertTyCon env t
                 pure $ if envLfVersion env `supports` featureTypeRep
                     then TTypeRep
                     else TUnit
-            _ -> defaultTyCon
-    | NameIn DA_Internal_Exception n <- t =
-        case n of
-            -- TODO #8020 https://github.com/digital-asset/daml/issues/8020:
-            -- Depending on how we end up using these during desugaring, we may need
-            -- to erase these to TUnit on LF versions that don't support exceptions.
             "AnyException" -> pure (TBuiltin BTAnyException)
             "GeneralError" -> pure (TBuiltin BTGeneralError)
             "ArithmeticError" -> pure (TBuiltin BTArithmeticError)
