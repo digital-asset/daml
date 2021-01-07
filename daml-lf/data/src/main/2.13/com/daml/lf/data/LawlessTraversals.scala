@@ -11,7 +11,7 @@ private[daml] object LawlessTraversals {
       private val seq: This with Iterable[A])
       extends AnyVal {
     def traverseEitherStrictly[E, B, That](f: A => Either[E, B])(
-        implicit cbf: BuildFrom[This[A], B, That]): Either[E, That] = {
+        implicit cbf: BuildFrom[This, B, That]): Either[E, That] = {
       val that = cbf.newBuilder(seq)
       that.sizeHint(seq)
       val i = seq.iterator
