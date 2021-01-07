@@ -6,11 +6,11 @@ package com.daml.navigator.query
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.daml.lf.data.{Ref => DamlLfRef}
-import com.daml.lf.value.Value.{ValueText, ValueInt64}
+import com.daml.lf.value.Value.{ValueEnum, ValueInt64, ValueText}
 import com.daml.navigator.model._
 import scalaz.syntax.tag._
-import com.daml.navigator.DamlConstants.singletonRecord
-import com.daml.navigator.query.SortDirection.{ASCENDING, DESCENDING}
+import com.daml.navigator.DamlConstants.{name, record}
+import com.daml.navigator.query.SortDirection._
 import com.daml.ledger.api.refinements.ApiTypes
 import scalaz.Tag
 
@@ -28,21 +28,34 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
       DamlLfDottedName.assertFromString("T1")))
+  val damlLfDirectionId = DamlLfIdentifier(
+    DamlLfRef.PackageId.assertFromString("hash"),
+    DamlLfQualifiedName(
+      DamlLfDottedName.assertFromString("module"),
+      DamlLfDottedName.assertFromString("Direction"))
+  )
+
+  val DirectionType: DamlLfType =
+    DamlLfTypeCon(DamlLfTypeConName(damlLfDirectionId), DamlLfImmArraySeq())
 
   val damlLfRecord0 = DamlLfDefDataType(
     DamlLfImmArraySeq(),
     DamlLfRecord(
       DamlLfImmArraySeq(
-        DamlLfRef.Name.assertFromString("foo") ->
-          DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
-      )))
+        name("foo") ->
+          DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq()),
+        name("direction") ->
+          DirectionType,
+      ))
+  )
   val damlLfRecord1 = DamlLfDefDataType(
     DamlLfImmArraySeq(),
     DamlLfRecord(
       DamlLfImmArraySeq(
-        DamlLfRef.Name.assertFromString("int") ->
-          DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
-      )))
+        name("int") ->
+          DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq()),
+      ))
+  )
 
   val damlLfIdKey = DamlLfIdentifier(
     DamlLfRef.PackageId.assertFromString("hash"),
@@ -83,38 +96,40 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
   val louise = ApiTypes.Party("Louise")
 
   val contract1 = Contract(
-    ApiTypes.ContractId("id1"),
-    template1,
-    singletonRecord("foo", ValueText("bar")),
-    None,
-    List(alice),
-    List(bob, charlie),
-    None)
+    id = ApiTypes.ContractId("id1"),
+    template = template1,
+    argument = record("foo" -> ValueText("bar"), "direction" -> ValueEnum(None, name("West"))),
+    agreementText = None,
+    signatories = List(alice),
+    observers = List(bob, charlie),
+    key = None,
+  )
   val contract2 = Contract(
-    ApiTypes.ContractId("id2"),
-    template2,
-    singletonRecord("int", ValueInt64(1)),
-    Some(""),
-    List(gloria),
-    List(ernest, francis),
-    Some(singletonRecord("foo", ValueText("foo")))
+    id = ApiTypes.ContractId("id2"),
+    template = template2,
+    argument = record("int" -> ValueInt64(1)),
+    agreementText = Some(""),
+    signatories = List(gloria),
+    observers = List(ernest, francis),
+    key = Some(record("foo" -> ValueText("foo"))),
   )
   val contract3 = Contract(
-    ApiTypes.ContractId("id3"),
-    template1,
-    singletonRecord("foo", ValueText("bar")),
-    Some("agreement"),
-    List(dana),
-    List(henry, ivy),
-    None)
+    id = ApiTypes.ContractId("id3"),
+    template = template1,
+    argument = record("foo" -> ValueText("bar"), "direction" -> ValueEnum(None, name("East"))),
+    agreementText = Some("agreement"),
+    signatories = List(dana),
+    observers = List(henry, ivy),
+    key = None,
+  )
   val contract4 = Contract(
-    ApiTypes.ContractId("id4"),
-    template2,
-    singletonRecord("int", ValueInt64(2)),
-    None,
-    List(john),
-    List(kevin, louise),
-    Some(singletonRecord("foo", ValueText("bar")))
+    id = ApiTypes.ContractId("id4"),
+    template = template2,
+    argument = record("int" -> ValueInt64(2)),
+    agreementText = None,
+    signatories = List(john),
+    observers = List(kevin, louise),
+    key = Some(record("foo" -> ValueText("bar"))),
   )
 
   val contracts = List(contract1, contract2, contract3, contract4)
@@ -124,7 +139,8 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
       val sorter = new ContractSorter(
         criteria.map { case (k, v) => new SortCriterion(k, v) },
         damlLfDefDataTypes.get,
-        AllContractsPager)
+        AllContractsPager,
+      )
       sorter.sort(contracts) should contain theSameElementsInOrderAs expected
     }
   }
@@ -164,4 +180,18 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
   // FIXME contract1 and contract3 are not compatible with the criteria and should go at the end
   test(List("key.foo" -> ASCENDING), List(contract1, contract3, contract4, contract2))
 
+  test(
+    List("template.parameter.foo" -> ASCENDING),
+    List(contract2, contract4, contract1, contract3),
+  )
+
+  test(
+    List("template.parameter.int" -> ASCENDING),
+    List(contract1, contract3, contract2, contract4),
+  )
+
+  test(
+    List("template.parameter.direction" -> ASCENDING),
+    List(contract2, contract4, contract3, contract1),
+  )
 }

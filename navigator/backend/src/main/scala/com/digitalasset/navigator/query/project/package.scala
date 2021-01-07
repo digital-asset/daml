@@ -83,7 +83,8 @@ object project {
                     case None =>
                       Left(MustNotBeLastPart("DataType", cursor, value))
                   }
-                case Right(result) => Right(result)
+                case Right(result) =>
+                  Right(result)
               }
             case None =>
               Left(UnknownType(tyCon.toString, cursor, value))
