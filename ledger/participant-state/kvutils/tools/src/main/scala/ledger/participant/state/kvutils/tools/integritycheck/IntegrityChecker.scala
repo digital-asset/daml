@@ -344,7 +344,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
 }
 
 object IntegrityChecker {
-  def rawHexString(raw: Raw): String =
+  def rawHexString(raw: Raw.Bytes): String =
     raw.bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
 
   abstract class CheckFailedException(message: String) extends RuntimeException(message)

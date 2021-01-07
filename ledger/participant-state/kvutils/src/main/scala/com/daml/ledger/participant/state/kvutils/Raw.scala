@@ -5,17 +5,17 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.google.protobuf.ByteString
 
-sealed trait Raw {
-  def bytes: ByteString
-
-  final def size: Long = bytes.size.toLong
-}
-
 object Raw {
 
-  final case class Key(override val bytes: ByteString) extends Raw
+  sealed trait Bytes {
+    def bytes: ByteString
 
-  final case class Value(override val bytes: ByteString) extends Raw
+    final def size: Long = bytes.size.toLong
+  }
+
+  final case class Key(override val bytes: ByteString) extends Bytes
+
+  final case class Value(override val bytes: ByteString) extends Bytes
 
   type Pair = (Key, Value)
 
