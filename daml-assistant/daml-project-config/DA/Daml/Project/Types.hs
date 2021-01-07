@@ -88,6 +88,11 @@ newtype DamlPath = DamlPath
     { unwrapDamlPath :: FilePath
     } deriving (Eq, Show)
 
+-- | File path to a cache directory, e.g. ~/.cache.
+newtype CachePath = CachePath
+    { unwrapCachePath :: FilePath
+    } deriving (Eq, Show)
+
 -- | Absolute file path to the assistant executable, e.g., /home/foobar/.daml/bin/daml.
 newtype DamlAssistantPath = DamlAssistantPath
     { unwrapDamlAssistantPath :: FilePath

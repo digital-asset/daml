@@ -11,6 +11,7 @@ module DA.Daml.Assistant.Env
     , getDamlEnv
     , testDamlEnv
     , getDamlPath
+    , getCachePath
     , getProjectPath
     , getSdk
     , getDispatchEnv
@@ -36,6 +37,7 @@ getDamlEnv envDamlPath lookForProjectPath = do
     envProjectPath <- getProjectPath lookForProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath envProjectPath
     envLatestStableSdkVersion <- getLatestStableSdkVersion envDamlPath
+    envCachePath <- getCachePath
     pure Env {..}
 
 -- | (internal) Override function with environment variable
@@ -144,6 +146,23 @@ getDamlPath = wrapErr "Determining daml home directory." $ do
         hasDamlConfig :: FilePath -> IO Bool
         hasDamlConfig p = doesFileExist (p </> damlConfigName)
 
+-- | Get the DAML cache folder. This defaults to $XDG_CACHE_HOME/daml.
+getCachePath :: IO CachePath
+getCachePath =
+    wrapErr "Determing daml cache directory." $ do
+        overrideWithEnvVar damlCacheEnvVar makeAbsolute CachePath $ do
+            errOrcacheDir <- tryIO $ getXdgDirectory XdgCache "daml"
+            case errOrcacheDir of
+                Left _err -> do
+                    -- if getXdgDirectory fails we fall back to the daml path.
+                    -- TODO (drsk) This fallback can be removed when we upgrade "directory" to 1.3.6.1.
+                    damlPath <- unwrapDamlPath <$> getDamlPath
+                    pure $ CachePath damlPath
+                Right cacheDir -> do
+                    createDirectoryIfMissing True cacheDir
+                    pure $ CachePath cacheDir
+
+
 -- | Calculate the project path. This is done by starting at the current
 -- working directory, checking if "daml.yaml" is present. If it is found,
 -- that's the project path. Otherwise, go up one level and repeat
@@ -202,6 +221,7 @@ getDispatchEnv Env{..} = do
     originalEnv <- getEnvironment
     pure $ filter ((`notElem` damlEnvVars) . fst) originalEnv
         ++ [ (damlPathEnvVar, unwrapDamlPath envDamlPath)
+           , (damlCacheEnvVar, unwrapCachePath envCachePath)
            , (projectPathEnvVar, maybe "" unwrapProjectPath envProjectPath)
            , (sdkPathEnvVar, maybe "" unwrapSdkPath envSdkPath)
            , (sdkVersionEnvVar, maybe "" versionToString envSdkVersion)

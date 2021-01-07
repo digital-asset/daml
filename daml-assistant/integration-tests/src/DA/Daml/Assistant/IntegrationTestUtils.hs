@@ -3,6 +3,7 @@
 module DA.Daml.Assistant.IntegrationTestUtils (withSdkResource, throwError) where
 
 import Conduit hiding (connect)
+import Control.Monad (forM_)
 import Control.Monad.Fail (MonadFail)
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import qualified Data.Conduit.Zlib as Zlib
@@ -10,6 +11,7 @@ import Data.List.Extra
 import qualified Data.Text as T
 import System.Environment.Blank
 import System.FilePath
+import System.Directory.Extra
 import System.IO.Extra
 import System.Info.Extra
 import Test.Tasty
@@ -34,11 +36,18 @@ withSdkResource f =
                     .| Zlib.ungzip
                     .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError extractDir)
                 setEnv "DAML_HOME" targetDir True
+                setEnv "DAML_CACHE" targetDir True
                 if isWindows
                     then callProcessSilent
                         (extractDir </> "daml" </> damlInstallerName)
                         ["install", "--install-assistant=yes", "--set-path=no", extractDir]
                     else callCommandSilent $ extractDir </> "install.sh"
+                -- We restrict the permissions of the DAML_HOME directory to make sure everything
+                -- still works when the directory is read-only.
+                allFiles <- listFilesRecursive targetDir
+                forM_ allFiles $ \file -> do
+                  getPermissions file >>= \p -> setPermissions file $ p {writable = False}
+                setPermissions targetDir emptyPermissions {executable = True}
             setEnv "PATH" (intercalate [searchPathSeparator] ((targetDir </> "bin") : oldPath)) True
             pure oldPath
         restoreEnv oldPath = do

@@ -73,9 +73,11 @@ da_haskell_test(
         "tasty-hunit",
         "text",
     ],
-    main_function = "DataLimit.main",
+    main_function = "Telemetry.main",
     visibility = ["//visibility:public"],
     deps = [
         ":da-hs-base",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/test-utils",
     ],
 )
