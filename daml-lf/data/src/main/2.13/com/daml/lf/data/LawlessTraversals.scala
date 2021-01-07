@@ -7,8 +7,8 @@ import scala.annotation.tailrec
 import scala.collection.BuildFrom
 
 private[daml] object LawlessTraversals {
-  implicit final class `Lawless iterable traversal`[A, This[X] <: Iterable[X]](
-      private val seq: This[A])
+  implicit final class `Lawless iterable traversal`[A, This <: Iterable[A]](
+      private val seq: This with Iterable[A])
       extends AnyVal {
     def traverseEitherStrictly[E, B, That](f: A => Either[E, B])(
         implicit cbf: BuildFrom[This[A], B, That]): Either[E, That] = {
