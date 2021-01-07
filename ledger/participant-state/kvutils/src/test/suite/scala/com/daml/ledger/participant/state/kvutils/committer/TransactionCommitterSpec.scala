@@ -588,7 +588,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
         .getTransactionRejectionEntry // TODO: factor out up to this line
         .getInconsistent
         .getDetails
-      rejectionReason should fullyMatch regex s"Contract keys inconsistent"
+      rejectionReason should startWith("Contract keys inconsistent")
     }
 
     def aContractKey: DamlContractKey =

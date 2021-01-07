@@ -481,26 +481,21 @@ private[kvutils] class TransactionCommitter(
       transactionEntry: DamlTransactionEntrySummary,
       resolvedKeys: Map[DamlContractKey, String]
   )(): StepResult[DamlTransactionEntrySummary] = {
-    val keysAreConsistent = transactionEntry.contractKeyToIdMap.forall {
-      case (contractKey, submittedContractId) =>
-        resolvedKeys.get(contractKey) match {
-          case None =>
-            // This means that there is no such key yet in the context.
-            // We allow such submission because the submitted contractKey is ~most likely~ a result of a create command,
-            // however a more strict validation should be done here to verify that the command type was really create.
-            true
-          case contractId: Some[String] =>
-            contractId == submittedContractId
-        }
+    val invalidKeys = transactionEntry.contractKeyToIdMap.foldLeft[List[DamlContractKey]](Nil) {
+      case (invalidKeys, (contractKey, submittedContractId)) =>
+        if (resolvedKeys.get(contractKey) == submittedContractId) invalidKeys
+        else contractKey +: invalidKeys
     }
-    if (keysAreConsistent) StepContinue(transactionEntry)
-    else
-      reject(
-        recordTime,
-        buildRejectionLogEntry(
-          transactionEntry,
-          RejectionReason.Inconsistent("Contract keys inconsistent")
-        ))
+    invalidKeys match {
+      case Nil => StepContinue(transactionEntry)
+      case invalid =>
+        reject(
+          recordTime,
+          buildRejectionLogEntry(
+            transactionEntry,
+            RejectionReason.Inconsistent(s"Contract keys inconsistent: [${invalid.mkString(", ")}]")
+          ))
+    }
   }
 
   /** Check that all informee parties mentioned of a transaction are allocated. */

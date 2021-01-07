@@ -88,12 +88,15 @@ private[kvutils] object InputsAndEffects {
         case _ => ()
       }
 
-    def updateMappingWithExercisesNode(exe: Node.NodeExercises[NodeId, Value.ContractId]): Unit =
-      exe.key.foreach { keyWithMaintainers =>
-        val key =
-          globalKeyToStateKey(GlobalKey(exe.templateId, forceNoContractIds(keyWithMaintainers.key)))
-        addOrUpdateResolvedContractId(key.getContractKey, Some(exe.targetCoid))
+    def updateMappingWithExercisesNode(exe: Node.NodeExercises[NodeId, Value.ContractId]): Unit = {
+      if (exe.byKey) {
+        exe.key.foreach { keyWithMaintainers =>
+          val key =
+            globalKeyToStateKey(GlobalKey(exe.templateId, forceNoContractIds(keyWithMaintainers.key)))
+          addOrUpdateResolvedContractId(key.getContractKey, Some(exe.targetCoid))
+        }
       }
+    }
 
     def stateKey(
         node: LeafOnlyNode[Value.ContractId],
@@ -110,7 +113,7 @@ private[kvutils] object InputsAndEffects {
         case create: Node.NodeCreate[Value.ContractId] =>
           create.key.foreach { keyWithMaintainers =>
             val key = stateKey(create, keyWithMaintainers)
-            addOrUpdateResolvedContractId(key.getContractKey, Some(create.coid))
+            addOrUpdateResolvedContractId(key.getContractKey, None)
           }
         case lookup: Node.NodeLookupByKey[Value.ContractId] =>
           val key = stateKey(lookup, lookup.key)
