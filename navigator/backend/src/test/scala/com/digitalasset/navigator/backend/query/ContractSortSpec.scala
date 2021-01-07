@@ -56,6 +56,10 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
           DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq()),
       ))
   )
+  val damlLfEnum = DamlLfDefDataType(
+    DamlLfImmArraySeq(),
+    DamlLfEnum(DamlLfImmArraySeq(name("North"), name("East"), name("South"), name("West")))
+  )
 
   val damlLfIdKey = DamlLfIdentifier(
     DamlLfRef.PackageId.assertFromString("hash"),
@@ -76,7 +80,8 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
 
   val damlLfDefDataTypes: Map[DamlLfIdentifier, DamlLfDefDataType] = Map(
     damlLfId0 -> damlLfRecord0,
-    damlLfId1 -> damlLfRecord1
+    damlLfId1 -> damlLfRecord1,
+    damlLfDirectionId -> damlLfEnum,
   )
 
   val template1 = Template(damlLfId0, List.empty, None)
@@ -192,6 +197,6 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
 
   test(
     List("template.parameter.direction" -> ASCENDING),
-    List(contract2, contract4, contract3, contract1),
+    List(contract2, contract4, contract1, contract3),
   )
 }
