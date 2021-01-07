@@ -94,6 +94,9 @@ class CommandClientImplTest
       service.getLastRequest.value.getCommands.applicationId shouldBe commands.getApplicationId
       service.getLastRequest.value.getCommands.commandId shouldBe commands.getCommandId
       service.getLastRequest.value.getCommands.party shouldBe commands.getParty
+      service.getLastRequest.value.getCommands.actAs shouldBe commands.getActAs.asScala
+      service.getLastRequest.value.getCommands.readAs shouldBe commands.getReadAs.asScala
+      commands.getActAs.get(0) shouldBe commands.getParty
       service.getLastRequest.value.getCommands.workflowId shouldBe commands.getWorkflowId
       service.getLastRequest.value.getCommands.ledgerId shouldBe ledgerServices.ledgerId
       service.getLastRequest.value.getCommands.minLedgerTimeRel

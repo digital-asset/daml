@@ -34,6 +34,8 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
+import com.daml.ledger.javaapi.data.helper.ListHelper.list
+
 object TestUtil {
 
   def testDalf =
@@ -87,6 +89,35 @@ object TestUtil {
               cmds.asJava))
           .build)
   }
+
+  def sendCmd(
+      channel: Channel,
+      actAs: java.util.List[String],
+      readAs: java.util.List[String],
+      cmds: Command*): Empty = {
+    CommandServiceGrpc
+      .newBlockingStub(channel)
+      .withDeadlineAfter(40, TimeUnit.SECONDS)
+      .submitAndWait(
+        SubmitAndWaitRequest
+          .newBuilder()
+          .setCommands(
+            SubmitCommandsRequest.toProto(
+              LedgerID,
+              randomId,
+              randomId,
+              randomId,
+              actAs,
+              readAs,
+              Optional.empty[Instant],
+              Optional.empty[Duration],
+              Optional.empty[Duration],
+              cmds.asJava))
+          .build)
+  }
+
+  def sendCmd(channel: Channel, party: String, cmds: Command*): Empty =
+    sendCmd(channel, list(party), list[String](), cmds: _*)
 
   def readActiveContracts[C <: Contract](fromCreatedEvent: CreatedEvent => C)(
       channel: Channel

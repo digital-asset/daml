@@ -28,4 +28,20 @@ public class SubmitRequest {
                 .build();
     }
 
+    static public CommandSubmissionServiceOuterClass.SubmitRequest toProto(@NonNull String ledgerId,
+                                                                           @NonNull String workflowId,
+                                                                           @NonNull String applicationId,
+                                                                           @NonNull String commandId,
+                                                                           @NonNull List<@NonNull String> actAs,
+                                                                           @NonNull List<@NonNull String> readAs,
+                                                                           @NonNull Optional<Instant> minLedgerTimeAbs,
+                                                                           @NonNull Optional<Duration> minLedgerTimeRel,
+                                                                           @NonNull Optional<Duration> deduplicationTime,
+                                                                           @NonNull List<@NonNull Command> commands) {
+        return CommandSubmissionServiceOuterClass.SubmitRequest.newBuilder()
+                .setCommands(SubmitCommandsRequest.toProto(ledgerId, workflowId, applicationId, commandId,
+                        actAs, readAs, minLedgerTimeAbs, minLedgerTimeRel, deduplicationTime, commands))
+                .build();
+    }
+
 }

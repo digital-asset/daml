@@ -130,6 +130,7 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
         new LedgerOffset.Absolute("0")) {
         override def getCommandSubmissionClient: CommandSubmissionClient =
           new CommandSubmissionClient {
+
             override def submit(
                 workflowId: String,
                 applicationId: String,
@@ -151,6 +152,19 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
                   commands))
               Single.error(new RuntimeException("expected failure"))
             }
+
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                actAs: java.util.List[String],
+                readAS: java.util.List[String],
+                minLedgerTimeAbs: Optional[Instant],
+                minLedgerTimeRel: Optional[Duration],
+                deduplicationTime: Optional[Duration],
+                commands: util.List[Command]): Single[JEmpty] =
+              untestedEndpoint
+
             override def submit(
                 workflowId: String,
                 applicationId: String,
@@ -167,8 +181,31 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
                 workflowId: String,
                 applicationId: String,
                 commandId: String,
+                actAs: java.util.List[String],
+                readAS: java.util.List[String],
+                minLedgerTimeAbs: Optional[Instant],
+                minLedgerTimeRel: Optional[Duration],
+                deduplicationTime: Optional[Duration],
+                commands: util.List[Command],
+                accessToken: String): Single[JEmpty] =
+              untestedEndpoint
+
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
                 party: String,
-                commands: util.List[Command]): Single[JEmpty] = untestedEndpoint
+                commands: util.List[Command]): Single[JEmpty] =
+              untestedEndpoint
+
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                actAs: java.util.List[String],
+                readAS: java.util.List[String],
+                commands: util.List[Command]): Single[JEmpty] =
+              untestedEndpoint
 
             override def submit(
                 workflowId: String,
@@ -176,7 +213,18 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
                 commandId: String,
                 party: String,
                 commands: util.List[Command],
-                accessToken: String): Single[JEmpty] = untestedEndpoint
+                accessToken: String): Single[JEmpty] =
+              untestedEndpoint
+
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                actAs: java.util.List[String],
+                readAS: java.util.List[String],
+                commands: util.List[Command],
+                accessToken: String): Single[JEmpty] =
+              untestedEndpoint
           }
       }
 
