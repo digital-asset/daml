@@ -169,7 +169,7 @@ commandParser = subparser $ fold
         <*> (SandboxOptions <$> many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox")))
         <*> (NavigatorOptions <$> many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator")))
         <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
-        <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to DAML script interpreter")))
+        <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter")))
         <*> stdinCloseOpt
         <*> (SandboxClassic <$> switch (long "sandbox-classic" <> help "Deprecated. Run with Sandbox Classic."))
 
@@ -198,7 +198,7 @@ commandParser = subparser $ fold
 
     deployCmdInfo = mconcat
         [ progDesc $ concat
-              [ "Deploy the current DAML project to a remote DAML ledger. "
+              [ "Deploy the current Daml project to a remote Daml ledger. "
               , "This will allocate the project's parties on the ledger "
               , "(if missing) and upload the project's built DAR file. You "
               , "can specify the ledger in daml.yaml with the ledger.host and "
@@ -245,7 +245,7 @@ commandParser = subparser $ fold
     ledgerCmdInfo = mconcat
         [ forwardOptions
         , progDesc $ concat
-              [ "Interact with a remote DAML ledger. You can specify "
+              [ "Interact with a remote Daml ledger. You can specify "
               , "the ledger in daml.yaml with the ledger.host and "
               , "ledger.port options, or you can pass the --host "
               , "and --port flags to each command below. "
