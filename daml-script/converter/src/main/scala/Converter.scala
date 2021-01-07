@@ -37,7 +37,7 @@ private[daml] object Converter {
 
   // Helper to make constructing an SRecord more convenient
   def record(ty: Identifier, fields: (String, SValue)*): SValue = {
-    val fieldNames = fields.iterator.map { case (n, _) => Name.assertFromString(n) }.to(ImmArray)
+    val fieldNames = fields.view.map { case (n, _) => Name.assertFromString(n) }.to(ImmArray)
     val args =
       new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
     SRecord(ty, fieldNames, args)
