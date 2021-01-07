@@ -39,18 +39,21 @@ private[platform] final class HikariConnection(
 
   override def acquire()(implicit context: ResourceContext): Resource[HikariDataSource] = {
     val config = new HikariConfig
+    val dbType = DbType.jdbcType(jdbcUrl)
+
     config.setJdbcUrl(jdbcUrl)
-    config.setDriverClassName(DbType.jdbcType(jdbcUrl).driver)
+    config.setDriverClassName(dbType.driver)
     config.addDataSourceProperty("cachePrepStmts", "true")
     config.addDataSourceProperty("prepStmtCacheSize", "128")
     config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
     config.setAutoCommit(false)
-    enableAsyncCommit(config)
     config.setMaximumPoolSize(maxPoolSize)
     config.setMinimumIdle(minimumIdle)
     config.setConnectionTimeout(connectionTimeout.toMillis)
     config.setPoolName(s"$connectionPoolPrefix.${serverRole.threadPoolSuffix}")
     metrics.foreach(config.setMetricRegistry)
+
+    configureAsyncCommit(config, dbType)
 
     // Hikari dies if a database connection could not be opened almost immediately
     // regardless of any connection timeout settings. We retry connections so that
@@ -70,12 +73,15 @@ private[platform] final class HikariConnection(
     )(conn => Future { conn.close() })
   }
 
-  private def enableAsyncCommit(config: HikariConfig): Unit =
-    if (connectionAsyncCommit && DbType.jdbcType(jdbcUrl).supportsAsynchronousCommits) {
+  private def configureAsyncCommit(config: HikariConfig, dbType: DbType): Unit =
+    if (connectionAsyncCommit && dbType.supportsAsynchronousCommits) {
       logger.info("Creating Hikari connections with asynchronous commit enabled")
       config.setConnectionInitSql("SET synchronous_commit=OFF")
-    } else {
+    } else if (dbType.supportsAsynchronousCommits) {
       logger.info("Creating Hikari connections with asynchronous commit disabled")
+      config.setConnectionInitSql("SET synchronous_commit=ON")
+    } else if (connectionAsyncCommit) {
+      logger.warn(s"Asynchronous commits are not compatible with ${dbType.name} database backend")
     }
 }
 

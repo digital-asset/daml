@@ -821,7 +821,7 @@ private[kvutils] object TransactionCommitter {
         ), // DeduplicateUntil defines a rejection window, endpoints inclusive
       Some(timeModel.minRecordTime(ledgerTime)),
       Some(timeModel.minRecordTime(submissionTime)),
-    ).flatten.maxledger / sandbox - classic / src / test / suite / scala / platform / sandbox / stores / ledger / sql / SqlLedgerSpec.scala
+    ).flatten.max
 
   private def transactionMaxRecordTime(
       submissionTime: Instant,
