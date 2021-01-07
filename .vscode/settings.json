@@ -5,13 +5,18 @@
         "dev-env/lib/*": true,
         "bazel-*/*": true,
         ".bazel-cache/*": true,
-        "**/node_modules/*": true,
+        "**/node_modules/*": true
     },
     "files.watcherExclude": {
+        "**/.stack-work": true,
+        "**/*.hi": true,
+        "**/*.dyn_hi": true,
+        "**/workspaces/*": true,
         "**/.git": true,
         "dev-env/lib/*": true,
         "bazel-*/*": true,
         ".bazel-cache/*": true,
+        "**/node_modules/*": true
     },
     "search.exclude": {
         "**/.stack-work": true,
@@ -19,9 +24,8 @@
         "**/*.dyn_hi": true,
         "**/workspaces/*": true,
         "dev-env/lib/*": true,
-        "buck-out/*": true,
         "bazel-*/*": true,
-        ".bazel-cache": true,
+        ".bazel-cache": true
     },
     "[restructuredtext]": {
         "editor.wordWrap": "wordWrapColumn",
