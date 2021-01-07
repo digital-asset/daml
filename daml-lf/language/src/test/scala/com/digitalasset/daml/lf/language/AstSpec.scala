@@ -199,7 +199,9 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
       name = name,
       consuming = true,
       controllers = eParties,
-      choiceObservers = None, //FIXME #7709: need test for the Some case
+      // TODO https://github.com/digital-asset/daml/issues/7709
+      //  need test for the Some case
+      choiceObservers = None,
       selfBinder = Name.assertFromString("self"),
       argBinder = Name.assertFromString("arg") -> TUnit,
       returnType = TUnit,

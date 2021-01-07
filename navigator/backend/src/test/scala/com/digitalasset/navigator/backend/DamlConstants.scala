@@ -331,10 +331,13 @@ case object DamlConstants {
     )
   )
 
-  private implicit def name(s: String): DamlLfRef.Name =
+  private[navigator] implicit def name(s: String): DamlLfRef.Name =
     DamlLfRef.Name.assertFromString(s)
 
   @throws[IllegalArgumentException]
-  private[navigator] def singletonRecord(label: String, value: ApiValue): ApiRecord =
-    V.ValueRecord(None, ImmArray((Some(name(label)), value)))
+  private[navigator] def record(fields: (String, ApiValue)*): ApiRecord =
+    V.ValueRecord(
+      None,
+      fields.iterator.map { case (label, value) => Some(name(label)) -> value }.to[ImmArray])
+
 }

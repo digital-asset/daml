@@ -49,9 +49,8 @@ class TransactionCoderSpec
     }
 
     "do NodeCreate" in {
-      forAll(malformedCreateNodeGen, transactionVersionGen(), transactionVersionGen()) {
-        (createNode, version1, version2) =>
-          val (nodeVersion, txVersion) = inIncreasingOrder(version1, version2)
+      forAll(malformedCreateNodeGen, versionInIncreasingOrder()) {
+        case (createNode, (nodeVersion, txVersion)) =>
           val versionedNode = createNode.updateVersion(nodeVersion)
           val Right(encodedNode) = TransactionCoder
             .encodeNode(
@@ -77,10 +76,8 @@ class TransactionCoderSpec
     }
 
     "do NodeFetch" in {
-      forAll(fetchNodeGen, transactionVersionGen(), transactionVersionGen()) {
-        (fetchNode, version1, version2) =>
-          val (nodeVersion, txVersion) = inIncreasingOrder(version1, version2)
-
+      forAll(fetchNodeGen, versionInIncreasingOrder()) {
+        case (fetchNode, (nodeVersion, txVersion)) =>
           val versionedNode = withoutByKeyFlag(fetchNode).updateVersion(nodeVersion)
           val encodedNode =
             TransactionCoder
@@ -108,10 +105,8 @@ class TransactionCoderSpec
     }
 
     "do NodeExercises" in {
-      forAll(danglingRefExerciseNodeGen, transactionVersionGen(), transactionVersionGen()) {
-        (exerciseNode, version1, version2) =>
-          val (nodeVersion, txVersion) = inIncreasingOrder(version1, version2)
-
+      forAll(danglingRefExerciseNodeGen, versionInIncreasingOrder()) {
+        case (exerciseNode, (nodeVersion, txVersion)) =>
           val normalizedNode = minimalistNode(nodeVersion)(exerciseNode)
           val versionedNode = normalizedNode.updateVersion(nodeVersion)
           val Right(encodedNode) =
@@ -329,26 +324,18 @@ class TransactionCoderSpec
 
     "fail if try to encode a node in a version newer than the transaction" in {
 
-      forAll(
-        danglingRefGenNode,
-        transactionVersionGen(),
-        transactionVersionGen(),
-        minSuccessful(10)) {
-        case ((nodeId, node), version1, version2) =>
-          whenever(version1 != version2) {
-            val (txVersion, nodeVersion) = inIncreasingOrder(version1, version2)
+      forAll(danglingRefGenNode, versionInStrictIncreasingOrder(), minSuccessful(10)) {
+        case ((nodeId, node), (txVersion, nodeVersion)) =>
+          val normalizedNode = minimalistNode(nodeVersion)(node)
 
-            val normalizedNode = minimalistNode(nodeVersion)(node)
-
-            TransactionCoder
-              .encodeNode(
-                TransactionCoder.NidEncoder,
-                ValueCoder.CidEncoder,
-                txVersion,
-                nodeId,
-                normalizedNode.updateVersion(nodeVersion),
-              ) shouldBe Symbol("left")
-          }
+          TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              txVersion,
+              nodeId,
+              normalizedNode.updateVersion(nodeVersion),
+            ) shouldBe Symbol("left")
       }
     }
 
@@ -383,37 +370,29 @@ class TransactionCoderSpec
       }
     }
 
-    // FIXME: https://github.com/digital-asset/daml/issues/7139
-    // enable the test when we have more that one version newer than 10
-    "fail if try to decode a node in a version newer than the enclosing Transaction message version" ignore {
+    "fail if try to decode a node in a version newer than the enclosing Transaction message version" in {
 
-      forAll(
-        danglingRefGenNode,
-        transactionVersionGen().filter(_ != V10),
-        transactionVersionGen().filter(_ != V10),
-        minSuccessful(10)) {
-        case ((nodeId, node), version1, version2) =>
-          whenever(version1 != version2) {
-            val (txVersion, nodeVersion) = inIncreasingOrder(version1, version2)
+      val postV10versions = TransactionVersion.All.filter(_ > V10)
 
-            val normalizedNode = minimalistNode(nodeVersion)(node).updateVersion(nodeVersion)
+      forAll(danglingRefGenNode, versionInStrictIncreasingOrder(postV10versions)) {
+        case ((nodeId, node), (txVersion, nodeVersion)) =>
+          val normalizedNode = minimalistNode(nodeVersion)(node).updateVersion(nodeVersion)
 
-            val Right(encoded) = TransactionCoder
-              .encodeNode(
-                TransactionCoder.NidEncoder,
-                ValueCoder.CidEncoder,
-                nodeVersion,
-                nodeId,
-                normalizedNode,
-              )
+          val Right(encoded) = TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              nodeVersion,
+              nodeId,
+              normalizedNode,
+            )
 
-            TransactionCoder.decodeVersionedNode(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
-              txVersion,
-              encoded,
-            ) shouldBe Symbol("left")
-          }
+          TransactionCoder.decodeVersionedNode(
+            TransactionCoder.NidDecoder,
+            ValueCoder.CidDecoder,
+            txVersion,
+            encoded,
+          ) shouldBe Symbol("left")
       }
     }
 
@@ -525,7 +504,7 @@ class TransactionCoderSpec
   ): Map[NodeId, GenNode[NodeId, ContractId]] =
     nodes.transform((_, gn) => minimalistNode(txvMin)(gn))
 
-  // FIXME: https://github.com/digital-asset/daml/issues/7709
+  // TODO https://github.com/digital-asset/daml/issues/7709
   // The following function should be usefull to test choice observers
   def minimalistTx(
       txvMin: TransactionVersion,
@@ -560,10 +539,19 @@ class TransactionCoderSpec
   ): Map[Nid, GenNode[Nid, Cid]] =
     nodes.view.mapValues(_.updateVersion(version)).toMap
 
-  private[this] def inIncreasingOrder(version1: TransactionVersion, version2: TransactionVersion) =
-    if (version1 < version2)
-      (version1, version2)
-    else
-      (version2, version1)
+  private def versionInIncreasingOrder(versions: Seq[TransactionVersion] = TransactionVersion.All)
+    : Gen[(TransactionVersion, TransactionVersion)] =
+    for {
+      v1 <- Gen.oneOf(versions)
+      v2 <- Gen.oneOf(versions.filter(_ >= v1))
+    } yield (v1, v2)
+
+  private def versionInStrictIncreasingOrder(
+      versions: Seq[TransactionVersion] = TransactionVersion.All)
+    : Gen[(TransactionVersion, TransactionVersion)] =
+    for {
+      v1 <- Gen.oneOf(versions.dropRight(1))
+      v2 <- Gen.oneOf(versions.filter(_ > v1))
+    } yield (v1, v2)
 
 }

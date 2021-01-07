@@ -26,8 +26,8 @@ class GenMapSpec
     with CustomMatchers {
 
   override protected def darFile =
-    // FIXME https://github.com/digital-asset/daml/issues/2256
-    // Change to "daml-lf/encoder/test-1.9.dar" once 1.9 is frozen
+    // TODO https://github.com/digital-asset/daml/issues/7139
+    // Change to "daml-lf/encoder/test-1.11.dar" once 1.11 is frozen
     new File(rlocation("daml-lf/encoder/test-1.dev.dar"))
 
   override def scenario: Option[String] = Some("GenMapMod:createContracts")

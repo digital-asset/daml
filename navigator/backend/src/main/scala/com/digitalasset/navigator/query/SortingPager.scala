@@ -57,7 +57,8 @@ sealed abstract class SortingPager[N <: Node[_]](
 
   private def project(node: N)(criterion: SortCriterion): Option[ProjectValue] = {
     val cursor = PropertyCursor.fromString(criterion.field)
-    project.run(node, cursor, "", ps) match {
+    val x = project.run(node, cursor, "", ps)
+    x match {
       case Left(failure) =>
         logger.error(s"Cannot project $node with criterion $criterion: $failure. Using None.")
         None
