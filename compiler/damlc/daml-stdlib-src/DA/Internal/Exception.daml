@@ -43,6 +43,7 @@ class HasToAnyException e where
 class HasFromAnyException e where
     fromAnyException : AnyException -> Optional e
 
+{-
 instance HasMessage AnyException where
     message = primitive @"BEAnyExceptionMessage"
 instance HasMessage GeneralError where
@@ -51,6 +52,7 @@ instance HasMessage ArithmeticError where
     message = primitive @"BEArithmeticErrorMessage"
 instance HasMessage ContractError where
     message = primitive @"BEContractErrorMessage"
+-}
 
 {-
 instance HasThrow GeneralError where
