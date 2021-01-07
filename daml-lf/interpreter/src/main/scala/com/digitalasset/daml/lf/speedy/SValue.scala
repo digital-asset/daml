@@ -57,7 +57,7 @@ sealed trait SValue {
           case (_, _) => throw SErrorCrash("SValue.toValue: TextMap with non text key")
         }))
       case SGenMap(false, entries) =>
-        V.ValueGenMap(ImmArray(entries.toSeq.map { case (k, v) => k.toValue -> v.toValue }))
+        V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
       case SStruct(_, _) =>
