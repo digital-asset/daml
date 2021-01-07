@@ -9,7 +9,7 @@ import data.{Bytes, Utf8}
 import language.TypeOrdering
 import value.Value.ContractId
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object Ordering extends scala.math.Ordering[SValue] {
 

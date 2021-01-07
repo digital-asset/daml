@@ -605,8 +605,8 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
             case (x, y) =>
               forEvery(builtins) {
                 case (bi, _) =>
-                  eval(bi, typ, x, y) shouldBe 'right
-                  if (x != y) eval(bi, typ, y, x) shouldBe 'right
+                  eval(bi, typ, x, y) shouldBe a[Right[_, _]]
+                  if (x != y) eval(bi, typ, y, x) shouldBe a[Right[_, _]]
               }
           }
 
@@ -614,8 +614,8 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
             case (x, y) =>
               forEvery(builtins) {
                 case (bi, _) =>
-                  eval(bi, typ, x, y) shouldBe 'left
-                  if (x != y) eval(bi, typ, y, x) shouldBe 'left
+                  eval(bi, typ, x, y) shouldBe a[Left[_, _]]
+                  if (x != y) eval(bi, typ, y, x) shouldBe a[Left[_, _]]
               }
           }
 
@@ -625,7 +625,7 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
 
   }
 
-  private[this] val compiledPackages = PureCompiledPackages(Map(pkgId1 -> pkg1, pkgId2 -> pkg2)).right.get
+  private[this] val compiledPackages = PureCompiledPackages(Map(pkgId1 -> pkg1, pkgId2 -> pkg2)).toOption.get
 
   private[this] val binderType = {
     implicit def parserParameters: ParserParameters[this.type] = parserParameters1

@@ -19,7 +19,7 @@ import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.control.NoStackTrace
 
 private[lf] object Speedy {
@@ -176,7 +176,7 @@ private[lf] object Speedy {
       kontStack.add(k)
       if (enableInstrumentation) {
         track.countPushesKont += 1
-        if (kontDepth > track.maxDepthKont) track.maxDepthKont = kontDepth
+        if (kontDepth() > track.maxDepthKont) track.maxDepthKont = kontDepth()
       }
     }
 
@@ -274,7 +274,7 @@ private[lf] object Speedy {
           kontStack.add(last_index, KLocation(this, loc))
           if (enableInstrumentation) {
             track.countPushesKont += 1
-            if (kontDepth > track.maxDepthKont) track.maxDepthKont = kontDepth
+            if (kontDepth() > track.maxDepthKont) track.maxDepthKont = kontDepth()
           }
         }
         // NOTE(MH): When we use a cached top level value, we need to put the
@@ -385,7 +385,7 @@ private[lf] object Speedy {
               val value = returnValue
               returnValue = null
               popTempStackToBase()
-              popKont.execute(value)
+              popKont().execute(value)
             } else {
               val expr = ctrl
               ctrl = null

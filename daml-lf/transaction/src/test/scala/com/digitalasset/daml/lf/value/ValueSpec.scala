@@ -217,8 +217,7 @@ object ValueSpec {
       (
         details transform ((name, members) => VA.enum(name, members)._2),
         details
-          .transform((_, members) =>
-            implicitly[Factory[Ref.Name, ImmArray[Ref.Name]]].fromSpecific(members))
+          .transform((_, members) => members.to(ImmArray))
           .lift)
     }
   /*
