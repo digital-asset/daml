@@ -378,6 +378,18 @@ convertPrim version "BEAnyExceptionMessage"
     ty@(TBuiltin BTAnyException :-> TText) =
     whenRuntimeSupports version featureExceptions ty $
         EBuiltin BEAnyExceptionMessage
+convertPrim version "BEGeneralErrorMessage"
+    ty@(TBuiltin BTGeneralError :-> TText) =
+    whenRuntimeSupports version featureExceptions ty $
+        EBuiltin BEGeneralErrorMessage
+convertPrim version "BEArithmeticErrorMessage"
+    ty@(TBuiltin BTArithmeticError :-> TText) =
+    whenRuntimeSupports version featureExceptions ty $
+        EBuiltin BEArithmeticErrorMessage
+convertPrim version "BEContractErrorMessage"
+    ty@(TBuiltin BTContractError :-> TText) =
+    whenRuntimeSupports version featureExceptions ty $
+        EBuiltin BEContractErrorMessage
 
 -- Unknown primitive.
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty

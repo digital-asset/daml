@@ -11,7 +11,7 @@ module DA.Internal.Exception where
 
 #else
 
--- | MOVE Prelude This module contains the definitions needed for exception desugaring.
+-- | MOVE DA.Exception This module contains the definitions needed for exception desugaring.
 module DA.Internal.Exception
     ( module DA.Internal.Exception
     , AnyException
@@ -22,7 +22,7 @@ module DA.Internal.Exception
 
 import GHC.Types
 import DA.Internal.LF
-import DA.Internal.Prelude ( Optional )
+import DA.Internal.Prelude ( Optional (..) )
 
 type Exception e =
     ( HasMessage e
@@ -45,5 +45,43 @@ class HasFromAnyException e where
 
 instance HasMessage AnyException where
     message = primitive @"BEAnyExceptionMessage"
+instance HasMessage GeneralError where
+    message = primitive @"BEGeneralErrorMessage"
+instance HasMessage ArithmeticError where
+    message = primitive @"BEArithmeticErrorMessage"
+instance HasMessage ContractError where
+    message = primitive @"BEContractErrorMessage"
+
+{-
+instance HasThrow GeneralError where
+    throwPure = magic @"throw"
+instance HasThrow ArithmeticError where
+    throwPure = magic @"throw"
+instance HasThrow ContractError where
+    throwPure = magic @"throw"
+-}
+
+instance HasToAnyException AnyException where
+    toAnyException e = e
+{-
+instance HasToAnyException GeneralError where
+    toAnyException = magic @"toAnyException"
+instance HasToAnyException ArithmeticError where
+    toAnyException = magic @"toAnyException"
+instance HasToAnyException ContractError where
+    toAnyException = magic @"toAnyException"
+-}
+
+instance HasFromAnyException AnyException where
+    fromAnyException = Some
+{-
+instance HasFromAnyException GeneralError where
+    fromAnyException = magic @"fromAnyException"
+instance HasFromAnyException ArithmeticError where
+    fromAnyException = magic @"fromAnyException"
+instance HasFromAnyException ContractError where
+    fromAnyException = magic @"fromAnyException"
+-}
+
 
 #endif
