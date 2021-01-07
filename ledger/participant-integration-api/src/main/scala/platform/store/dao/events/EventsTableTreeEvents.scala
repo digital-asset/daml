@@ -14,6 +14,8 @@ private[events] object EventsTableTreeEvents {
   private val createdTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
     EventsTable.createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+        // ArraySeq.unsafeWrapArray is safe here
+        // since we get the Array from parsing and don't let it escape anywhere.
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -39,6 +41,8 @@ private[events] object EventsTableTreeEvents {
   private val exercisedTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Exercised]] =
     EventsTable.exercisedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
+        // ArraySeq.unsafeWrapArray is safe here
+        // since we get the Array from parsing and don't let it escape anywhere.
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,

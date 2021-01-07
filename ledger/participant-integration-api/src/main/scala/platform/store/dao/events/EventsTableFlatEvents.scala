@@ -15,6 +15,8 @@ private[events] object EventsTableFlatEvents {
   private val createdFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Created]] =
     EventsTable.createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+        // ArraySeq.unsafeWrapArray is safe here
+        // since we get the Array from parsing and don't let it escape anywhere.
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -40,6 +42,8 @@ private[events] object EventsTableFlatEvents {
   private val archivedFlatEventParser: RowParser[EventsTable.Entry[Raw.FlatEvent.Archived]] =
     EventsTable.archivedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses =>
+        // ArraySeq.unsafeWrapArray is safe here
+        // since we get the Array from parsing and don't let it escape anywhere.
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
