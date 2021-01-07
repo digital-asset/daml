@@ -31,50 +31,18 @@ import scala.util.Try
 
 // This is an implementation of the trigger service authentication middleware
 // for OAuth2 as specified in `/triggers/service/authentication.md`
-object Server extends StrictLogging {
+class Server(config: Config) extends StrictLogging {
   import com.daml.auth.middleware.api.JsonProtocol._
   import com.daml.auth.oauth2.api.JsonProtocol._
   implicit private val unmarshal: Unmarshaller[String, Uri] = Unmarshaller.strict(Uri(_))
 
-  private def toRedirectUri(config: Config, uri: Uri) =
+  private def toRedirectUri(uri: Uri) =
     config.callbackUri.getOrElse {
       Uri()
         .withScheme(uri.scheme)
         .withAuthority(uri.authority)
         .withPath(Uri.Path./("cb"))
     }
-
-  def start(config: Config)(implicit sys: ActorSystem): Future[ServerBinding] = {
-    val requests: RequestStore[UUID, Uri] =
-      new RequestStore(config.maxLoginRequests, config.loginTimeout)
-    val route = concat(
-      path("auth") {
-        get {
-          auth(config)
-        }
-      },
-      path("login") {
-        get {
-          login(config, requests)
-        }
-      },
-      path("cb") {
-        get {
-          loginCallback(config, requests)
-        }
-      },
-      path("refresh") {
-        post {
-          refresh(config)
-        }
-      },
-    )
-
-    Http().newServerAt("localhost", config.port.value).bind(route)
-  }
-
-  def stop(f: Future[ServerBinding])(implicit ec: ExecutionContext): Future[Done] =
-    f.flatMap(_.unbind())
 
   private val cookieName = "daml-ledger-token"
 
@@ -107,7 +75,7 @@ object Server extends StrictLogging {
     }
   }.getOrElse(false)
 
-  private def auth(config: Config): Route =
+  private val auth: Route =
     parameters('claims.as[Request.Claims])
       .as[Request.Auth](Request.Auth) { auth =>
         optionalToken {
@@ -126,7 +94,10 @@ object Server extends StrictLogging {
         }
       }
 
-  private def login(config: Config, requests: RequestStore[UUID, Uri]): Route =
+  private val requests: RequestStore[UUID, Uri] =
+    new RequestStore(config.maxLoginRequests, config.loginTimeout)
+
+  private val login: Route =
     parameters('redirect_uri.as[Uri], 'claims.as[Request.Claims], 'state ?)
       .as[Request.Login](Request.Login) { login =>
         extractRequest { request =>
@@ -142,7 +113,7 @@ object Server extends StrictLogging {
             val authorize = OAuthRequest.Authorize(
               responseType = "code",
               clientId = config.clientId,
-              redirectUri = toRedirectUri(config, request.uri),
+              redirectUri = toRedirectUri(request.uri),
               // Auth0 will only issue a refresh token if the offline_access claim is present.
               // TODO[AH] Make the request configurable, see https://github.com/digital-asset/daml/issues/7957
               scope = Some("offline_access " + login.claims.toQueryString),
@@ -156,7 +127,7 @@ object Server extends StrictLogging {
         }
       }
 
-  private def loginCallback(config: Config, requests: RequestStore[UUID, Uri]): Route = {
+  private val loginCallback: Route = {
     extractActorSystem { implicit sys =>
       extractExecutionContext { implicit ec =>
         def popRequest(optState: Option[String]): Directive1[Uri] = {
@@ -181,7 +152,7 @@ object Server extends StrictLogging {
                       val body = OAuthRequest.Token(
                         grantType = "authorization_code",
                         code = authorize.code,
-                        redirectUri = toRedirectUri(config, request.uri),
+                        redirectUri = toRedirectUri(request.uri),
                         clientId = config.clientId,
                         clientSecret = config.clientSecret
                       )
@@ -228,7 +199,7 @@ object Server extends StrictLogging {
     }
   }
 
-  private def refresh(config: Config): Route = {
+  private val refresh: Route = {
     extractActorSystem { implicit sys =>
       extractExecutionContext { implicit ec =>
         entity(as[Request.Refresh]) { refresh =>
@@ -270,4 +241,36 @@ object Server extends StrictLogging {
       }
     }
   }
+
+  def route: Route = concat(
+    path("auth") {
+      get {
+        auth
+      }
+    },
+    path("login") {
+      get {
+        login
+      }
+    },
+    path("cb") {
+      get {
+        loginCallback
+      }
+    },
+    path("refresh") {
+      post {
+        refresh
+      }
+    },
+  )
+}
+
+object Server extends StrictLogging {
+  def start(config: Config)(implicit sys: ActorSystem): Future[ServerBinding] = {
+    Http().newServerAt("localhost", config.port.value).bind(new Server(config).route)
+  }
+
+  def stop(f: Future[ServerBinding])(implicit ec: ExecutionContext): Future[Done] =
+    f.flatMap(_.unbind())
 }
