@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.LogAppendingCommitStrategySupportSpec._
-import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Version}
+import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Envelope, Raw, Version}
 import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
 import com.google.protobuf.{ByteString, Empty}
 import org.scalatest.Inside
@@ -42,39 +42,42 @@ final class LogAppendingCommitStrategySupportSpec extends AnyWordSpec with Match
     }
 
     "fail on an invalid envelope" in {
-      val value = ByteString.copyFromUtf8("invalid envelope")
+      val value = Raw.Value(ByteString.copyFromUtf8("invalid envelope"))
       inside(support.checkEntryIsReadable(noKey, value)) {
         case Left(message) => message should startWith("Invalid value envelope:")
       }
     }
 
     "fail on an unknown entry" in {
-      val value = DamlKvutils.Envelope.newBuilder
-        .setVersion(Version.version)
-        .build()
-        .toByteString
+      val value = Raw.Value(
+        DamlKvutils.Envelope.newBuilder
+          .setVersion(Version.version)
+          .build()
+          .toByteString)
       inside(support.checkEntryIsReadable(noKey, value)) {
         case Left(_) => succeed
       }
     }
 
     "fail on a submission entry" in {
-      val value = DamlKvutils.Envelope.newBuilder
-        .setVersion(Version.version)
-        .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION)
-        .build()
-        .toByteString
+      val value = Raw.Value(
+        DamlKvutils.Envelope.newBuilder
+          .setVersion(Version.version)
+          .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION)
+          .build()
+          .toByteString)
       inside(support.checkEntryIsReadable(noKey, value)) {
         case Left(message) => message should startWith("Unexpected submission message:")
       }
     }
 
     "fail on a submission batch entry" in {
-      val value = DamlKvutils.Envelope.newBuilder
-        .setVersion(Version.version)
-        .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION_BATCH)
-        .build()
-        .toByteString
+      val value = Raw.Value(
+        DamlKvutils.Envelope.newBuilder
+          .setVersion(Version.version)
+          .setKind(DamlKvutils.Envelope.MessageKind.SUBMISSION_BATCH)
+          .build()
+          .toByteString)
       inside(support.checkEntryIsReadable(noKey, value)) {
         case Left(message) => message should startWith("Unexpected submission batch message:")
       }
@@ -89,7 +92,7 @@ final class LogAppendingCommitStrategySupportSpec extends AnyWordSpec with Match
     }
 
     "fail on a state entry with an invalid key" in {
-      val key = DamlStateKey.newBuilder.build().toByteString
+      val key = Raw.Key(DamlStateKey.newBuilder.build().toByteString)
       val value = aValidStateValue
       inside(support.checkEntryIsReadable(key, value)) {
         case Left(message) => message should be("State key not set.")
@@ -127,21 +130,26 @@ final class LogAppendingCommitStrategySupportSpec extends AnyWordSpec with Match
 }
 
 object LogAppendingCommitStrategySupportSpec {
-  private val noKey: ByteString = ByteString.EMPTY
+  private val noKey: Raw.Key =
+    Raw.Key(ByteString.EMPTY)
 
-  private val aValidLogEntryId: ByteString =
-    DamlLogEntryId.newBuilder.setEntryId(ByteString.copyFromUtf8("entry-id")).build().toByteString
+  private val aValidLogEntryId: Raw.Key =
+    Raw.Key(
+      DamlLogEntryId.newBuilder
+        .setEntryId(ByteString.copyFromUtf8("entry-id"))
+        .build()
+        .toByteString)
 
-  private val aValidLogEntry: ByteString =
+  private val aValidLogEntry: Raw.Value =
     Envelope.enclose(
       DamlLogEntry.newBuilder
         .setPartyAllocationEntry(DamlPartyAllocationEntry.newBuilder.setParty("Alice"))
         .build())
 
-  private val aValidStateKey: ByteString =
-    DamlStateKey.newBuilder.setConfiguration(Empty.getDefaultInstance).build().toByteString
+  private val aValidStateKey: Raw.Key =
+    Raw.Key(DamlStateKey.newBuilder.setConfiguration(Empty.getDefaultInstance).build().toByteString)
 
-  private val aValidStateValue: ByteString =
+  private val aValidStateValue: Raw.Value =
     Envelope.enclose(
       DamlStateValue.newBuilder
         .setConfigurationEntry(

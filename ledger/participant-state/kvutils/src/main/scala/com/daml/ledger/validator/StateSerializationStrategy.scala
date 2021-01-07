@@ -4,16 +4,17 @@
 package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.{Envelope, `Bytes Ordering`}
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 
 import scala.collection.{SortedMap, breakOut}
 
 final class StateSerializationStrategy(keyStrategy: StateKeySerializationStrategy) {
-  def serializeState(key: DamlStateKey, value: DamlStateValue): (Key, Value) =
+  def serializeState(key: DamlStateKey, value: DamlStateValue): Raw.KeyValuePair =
     (keyStrategy.serializeStateKey(key), Envelope.enclose(value))
 
-  def serializeStateUpdates(state: Map[DamlStateKey, DamlStateValue]): SortedMap[Key, Value] =
+  def serializeStateUpdates(
+      state: Map[DamlStateKey, DamlStateValue]
+  ): SortedMap[Raw.Key, Raw.Value] =
     state.map {
       case (key, value) => serializeState(key, value)
     }(breakOut)

@@ -49,7 +49,7 @@ class KeyValueParticipantStateReader private[api] (
               case Envelope.LogEntryMessage(logEntry) =>
                 Timed.value(
                   metrics.daml.kvutils.reader.parseUpdates, {
-                    val logEntryId = DamlLogEntryId.parseFrom(entryId)
+                    val logEntryId = DamlLogEntryId.parseFrom(entryId.bytes)
                     val updates =
                       logEntryToUpdate(logEntryId, logEntry, timeUpdatesProvider())
                     val updatesWithOffsets = Source(updates).zipWithIndex.map {

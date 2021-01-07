@@ -11,16 +11,15 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.{ConsoleReporter, MetricRegistry}
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils
-import com.daml.ledger.participant.state.kvutils.KeyValueCommitting
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataImporter,
   NoOpLedgerDataExporter,
   ProtobufBasedLedgerDataImporter,
   WriteSet
 }
+import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
   BatchedSubmissionValidatorParameters,
@@ -33,7 +32,6 @@ import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, JdbcIndexer}
 import com.daml.platform.store.dao.events.LfValueTranslation
-import com.google.protobuf.ByteString
 
 import scala.PartialFunction.condOpt
 import scala.concurrent.duration.Duration
@@ -204,7 +202,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
           println(
             "Read submission"
               + s" correlationId=${submissionInfo.correlationId}"
-              + s" submissionEnvelopeSize=${submissionInfo.submissionEnvelope.size()}"
+              + s" submissionEnvelopeSize=${submissionInfo.submissionEnvelope.size}"
               + s" writeSetSize=${expectedWriteSet.size}"
           )
           expectedWriteSet.foreach {
@@ -227,7 +225,7 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
               val actualWriteSet = commitStrategySupport.writeSet.getAndClearRecordedWriteSet()
               val orderedActualWriteSet =
                 if (config.sortWriteSet)
-                  actualWriteSet.sortBy(_._1.asReadOnlyByteBuffer())
+                  actualWriteSet.sortBy(_._1)
                 else
                   actualWriteSet
               actualReadServiceFactory.appendBlock(orderedActualWriteSet)
@@ -273,16 +271,16 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
           if (expectedKey == actualKey && expectedValue != actualValue) {
             explainDifference(expectedKey, expectedValue, actualValue).map { explainedDifference =>
               Seq(
-                s"expected value:    ${bytesAsHexString(expectedValue)}",
-                s" vs. actual value: ${bytesAsHexString(actualValue)}",
+                s"expected value:    ${rawHexString(expectedValue)}",
+                s" vs. actual value: ${rawHexString(actualValue)}",
                 explainedDifference,
               )
             }
           } else if (expectedKey != actualKey) {
             Some(
               Seq(
-                s"expected key:    ${bytesAsHexString(expectedKey)}",
-                s" vs. actual key: ${bytesAsHexString(actualKey)}",
+                s"expected key:    ${rawHexString(expectedKey)}",
+                s" vs. actual key: ${rawHexString(actualKey)}",
               ))
           } else {
             None
@@ -299,9 +297,10 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
   }
 
   private def explainDifference(
-      key: Key,
-      expectedValue: Value,
-      actualValue: Value): Option[String] =
+      key: Raw.Key,
+      expectedValue: Raw.Value,
+      actualValue: Raw.Value,
+  ): Option[String] =
     kvutils.Envelope
       .openStateValue(expectedValue)
       .toOption
@@ -345,8 +344,8 @@ class IntegrityChecker[LogResult](commitStrategySupport: CommitStrategySupport[L
 }
 
 object IntegrityChecker {
-  def bytesAsHexString(bytes: ByteString): String =
-    bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
+  def rawHexString(raw: Raw.Bytes): String =
+    raw.bytes.toByteArray.map(byte => "%02x".format(byte)).mkString
 
   abstract class CheckFailedException(message: String) extends RuntimeException(message)
 

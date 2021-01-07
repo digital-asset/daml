@@ -10,10 +10,10 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.{
-  Bytes,
   DamlStateMap,
   Envelope,
   KeyValueCommitting,
+  Raw,
   TestHelpers
 }
 import com.daml.ledger.participant.state.v1.Configuration
@@ -88,7 +88,7 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         .addSubmissions(
           CorrelatedSubmission.newBuilder
             .setCorrelationId("correlated submission")
-            .setSubmission(anEnvelope()))
+            .setSubmission(anEnvelope().bytes))
         .build()
 
       instance
@@ -156,7 +156,7 @@ object PreExecutingSubmissionValidatorSpec {
 
   private final case class TestWriteSet(value: String)
 
-  private def anEnvelope(expectedReadSet: Set[DamlStateKey] = Set.empty): Bytes = {
+  private def anEnvelope(expectedReadSet: Set[DamlStateKey] = Set.empty): Raw.Value = {
     val submission = DamlSubmission
       .newBuilder()
       .setConfigurationSubmission(DamlConfigurationSubmission.getDefaultInstance)

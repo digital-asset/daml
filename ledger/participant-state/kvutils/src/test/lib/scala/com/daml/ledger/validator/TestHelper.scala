@@ -4,6 +4,7 @@
 package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.value.ValueOuterClass.Identifier
 import com.google.protobuf.{ByteString, Empty}
@@ -38,7 +39,7 @@ private[validator] object TestHelper {
       .setSubmissionDedup(DamlSubmissionDedupKey.newBuilder.setSubmissionId("a submission ID")),
   ).map(_.build)
 
-  lazy val anInvalidEnvelope: ByteString = ByteString.copyFromUtf8("invalid data")
+  lazy val anInvalidEnvelope: Raw.Value = Raw.Value(ByteString.copyFromUtf8("invalid data"))
 
   def makePartySubmission(party: String): DamlSubmission = {
     val builder = DamlSubmission.newBuilder

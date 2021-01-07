@@ -5,13 +5,12 @@ package com.daml.ledger.participant.state.kvutils.export
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.kvutils.CorrelationId
+import com.daml.ledger.participant.state.kvutils.{CorrelationId, Raw}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.google.protobuf.ByteString
 
 case class SubmissionInfo(
     participantId: ParticipantId,
     correlationId: CorrelationId,
-    submissionEnvelope: ByteString,
+    submissionEnvelope: Raw.Value,
     recordTimeInstant: Instant,
 )
