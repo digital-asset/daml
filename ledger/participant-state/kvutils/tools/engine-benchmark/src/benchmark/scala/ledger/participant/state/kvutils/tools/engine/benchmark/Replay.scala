@@ -199,7 +199,8 @@ object Replay {
       case Envelope.SubmissionBatchMessage(batch) =>
         batch.getSubmissionsList.asScala.toStream
           .map(_.getSubmission)
-          .flatMap(envelope => decodeEnvelope(participantId, Raw.Value(envelope)))
+          .flatMap(submissionEnvelope =>
+            decodeEnvelope(participantId, Raw.Value(submissionEnvelope)))
       case Envelope.LogEntryMessage(_) | Envelope.StateValueMessage(_) =>
         Stream.empty
     }

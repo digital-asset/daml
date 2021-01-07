@@ -43,12 +43,13 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
         .build()
 
     private def buildWriteSet(writeSet: WriteSet): Iterable[LedgerExportEntry.WriteEntry] =
-      writeSet.map(
-        writeEntry =>
+      writeSet.map {
+        case (key, value) =>
           LedgerExportEntry.WriteEntry.newBuilder
-            .setKey(writeEntry._1.bytes)
-            .setValue(writeEntry._2.bytes)
-            .build())
+            .setKey(key.bytes)
+            .setValue(value.bytes)
+            .build()
+      }
   }
 
 }
