@@ -387,12 +387,8 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
         import dslSyntax._
         Consume.interpret(
           for {
-            // TODO SC there is no guarantee that account1 and account2 arrive
-            // in separate messages; indeed they do not with postgres
-            ContractDelta(Vector((account1, _)), Vector(), None) <- readOne
-            _ = Seq(cid1, cid2) should contain(account1)
-            ContractDelta(Vector((account2, _)), Vector(), None) <- readOne
-            _ = Seq(cid1, cid2) should contain(account2)
+            Vector((account1, _), (account2, _)) <- readAcsN(2)
+            _ = Seq(account1, account2) should contain theSameElementsAs Seq(cid1, cid2)
             ContractDelta(Vector(), _, Some(liveStartOffset)) <- readOne
             _ <- liftF(
               postCreateCommand(
@@ -665,10 +661,8 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
           for {
             // TODO SC there is no guarantee that account1 and account2 arrive
             // in separate messages; indeed they do not with postgres
-            ContractDelta(Vector((account1, _)), Vector(), None) <- readOne
-            _ = Seq(cid1, cid2) should contain(account1)
-            ContractDelta(Vector((account2, _)), Vector(), None) <- readOne
-            _ = Seq(cid1, cid2) should contain(account2)
+            Vector((account1, _), (account2, _)) <- readAcsN(2)
+            _ = Seq(account1, account2) should contain theSameElementsAs Seq(cid1, cid2)
             ContractDelta(Vector(), _, Some(liveStartOffset)) <- readOne
             _ <- liftF(postArchiveCommand(templateId, cid1, encoder, uri))
             ContractDelta(Vector(), Vector(archivedCid1), Some(_)) <- readOne
@@ -729,6 +723,24 @@ sealed abstract class AbstractWebsocketServiceIntegrationTest
         inside(rescan) {
           case (Vector(), Vector(_, _), Some(_)) => succeed
         }
+  }
+
+  /** Consume ACS blocks expecting `createCount` contracts.  Fail if there
+    * are too many contracts.
+    */
+  private[this] def readAcsN(createCount: Int): Consume.FCC[JsValue, Vector[(String, JsValue)]] = {
+    val dslSyntax = Consume.syntax[JsValue]
+    import dslSyntax._
+    def go(createCount: Int): Consume.FCC[JsValue, Vector[(String, JsValue)]] =
+      if (createCount <= 0) point(Vector.empty)
+      else
+        for {
+          ContractDelta(creates, Vector(), None) <- readOne
+          found = creates.size
+          if found <= createCount
+          tail <- if (found < createCount) go(createCount - found) else point(Vector.empty)
+        } yield creates ++ tail
+    go(createCount)
   }
 
   "fetch should should return an error if empty list of (templateId, key) pairs is passed" in withHttpService {
