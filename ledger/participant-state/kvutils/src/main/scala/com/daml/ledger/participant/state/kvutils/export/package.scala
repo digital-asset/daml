@@ -7,7 +7,7 @@ package object export {
 
   val header = new Header(version = "v2")
 
-  type WriteItem = Raw.Pair
+  type WriteItem = Raw.KeyValuePair
 
   type WriteSet = Seq[WriteItem]
 

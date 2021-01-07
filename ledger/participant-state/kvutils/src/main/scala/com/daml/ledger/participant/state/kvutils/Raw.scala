@@ -17,7 +17,7 @@ object Raw {
 
   final case class Value(override val bytes: ByteString) extends Bytes
 
-  type Pair = (Key, Value)
+  type KeyValuePair = (Key, Value)
 
   implicit val `Key Ordering`: Ordering[Key] = Ordering.by(_.bytes.asReadOnlyByteBuffer)
 

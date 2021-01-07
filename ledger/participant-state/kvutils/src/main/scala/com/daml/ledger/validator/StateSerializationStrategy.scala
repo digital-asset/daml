@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import scala.collection.{SortedMap, breakOut}
 
 final class StateSerializationStrategy(keyStrategy: StateKeySerializationStrategy) {
-  def serializeState(key: DamlStateKey, value: DamlStateValue): Raw.Pair =
+  def serializeState(key: DamlStateKey, value: DamlStateValue): Raw.KeyValuePair =
     (keyStrategy.serializeStateKey(key), Envelope.enclose(value))
 
   def serializeStateUpdates(

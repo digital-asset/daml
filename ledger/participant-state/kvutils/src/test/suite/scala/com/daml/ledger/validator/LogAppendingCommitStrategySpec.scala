@@ -37,14 +37,15 @@ final class LogAppendingCommitStrategySpec
           verify(mockLedgerStateOperations, times(1)).appendToLog(any[Raw.Key], any[Raw.Value])(
             anyExecutionContext)
           verify(mockLedgerStateOperations, times(0))
-            .writeState(any[Iterable[Raw.Pair]])(anyExecutionContext)
+            .writeState(any[Iterable[Raw.KeyValuePair]])(anyExecutionContext)
           actualIndex should be(expectedIndex)
         }
     }
 
     "write keys serialized according to strategy" in {
       val mockLedgerStateOperations = mock[LedgerStateOperations[Long]]
-      when(mockLedgerStateOperations.writeState(any[Iterable[Raw.Pair]])(anyExecutionContext))
+      when(
+        mockLedgerStateOperations.writeState(any[Iterable[Raw.KeyValuePair]])(anyExecutionContext))
         .thenReturn(Future.unit)
       when(mockLedgerStateOperations.appendToLog(any[Raw.Key], any[Raw.Value])(anyExecutionContext))
         .thenReturn(Future.successful(0L))

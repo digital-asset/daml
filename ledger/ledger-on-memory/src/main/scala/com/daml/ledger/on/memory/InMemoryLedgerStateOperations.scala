@@ -25,7 +25,7 @@ private[memory] final class InMemoryLedgerStateOperations(
     Future.successful(keys.map(state.get)(breakOut))
 
   override def writeState(
-      keyValuePairs: Iterable[Raw.Pair],
+      keyValuePairs: Iterable[Raw.KeyValuePair],
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
     state ++= keyValuePairs
     Future.unit

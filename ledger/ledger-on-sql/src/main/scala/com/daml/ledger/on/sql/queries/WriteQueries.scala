@@ -14,7 +14,7 @@ trait WriteQueries {
 
   def insertRecordIntoLog(key: Raw.Key, value: Raw.Value): Try[Index]
 
-  def updateState(stateUpdates: Iterable[Raw.Pair]): Try[Unit]
+  def updateState(stateUpdates: Iterable[Raw.KeyValuePair]): Try[Unit]
 
   def truncate(): Try[Unit]
 

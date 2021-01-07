@@ -34,7 +34,7 @@ class WriteRecordingLedgerStateOperations[LogResult](delegate: LedgerStateOperat
   }
 
   override def writeState(
-      keyValuePairs: Iterable[Raw.Pair]
+      keyValuePairs: Iterable[Raw.KeyValuePair]
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
     this.synchronized(recordedWriteSet.appendAll(keyValuePairs))
     delegate.writeState(keyValuePairs)

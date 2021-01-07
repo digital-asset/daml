@@ -48,7 +48,7 @@ trait CommonQueries extends Queries {
       keys.map(results.get)(breakOut)
     }
 
-  override final def updateState(stateUpdates: Iterable[Raw.Pair]): Try[Unit] = Try {
+  override final def updateState(stateUpdates: Iterable[Raw.KeyValuePair]): Try[Unit] = Try {
     executeBatchSql(updateStateQuery, stateUpdates.map {
       case (key, value) =>
         Seq[NamedParameter]("key" -> key, "value" -> value)

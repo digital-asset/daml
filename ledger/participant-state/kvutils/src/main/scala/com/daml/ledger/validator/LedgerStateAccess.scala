@@ -67,7 +67,7 @@ trait LedgerStateOperations[+LogResult] {
     * Writes a list of key-value pairs to the backing store.  In case a key already exists its value is overwritten.
     */
   def writeState(
-      keyValuePairs: Iterable[Raw.Pair],
+      keyValuePairs: Iterable[Raw.KeyValuePair],
   )(implicit executionContext: ExecutionContext): Future[Unit]
 
   /**
@@ -110,7 +110,7 @@ abstract class NonBatchingLedgerStateOperations[LogResult]
     Future.sequence(keys.map(readState)).map(_.toSeq)
 
   override final def writeState(
-      keyValuePairs: Iterable[Raw.Pair],
+      keyValuePairs: Iterable[Raw.KeyValuePair],
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     Future
       .sequence(keyValuePairs.map {
@@ -141,7 +141,7 @@ final class TimedLedgerStateOperations[LogResult](
     Timed.future(metrics.daml.ledger.state.write, delegate.writeState(key, value))
 
   override def writeState(
-      keyValuePairs: Iterable[Raw.Pair],
+      keyValuePairs: Iterable[Raw.KeyValuePair],
   )(implicit executionContext: ExecutionContext): Future[Unit] =
     Timed.future(metrics.daml.ledger.state.write, delegate.writeState(keyValuePairs))
 

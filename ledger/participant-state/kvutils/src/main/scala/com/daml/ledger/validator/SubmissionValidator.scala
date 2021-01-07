@@ -296,7 +296,7 @@ class SubmissionValidator[LogResult] private[validator] (
 
 object SubmissionValidator {
 
-  type RawKeyValuePairs = Seq[Raw.Pair]
+  type RawKeyValuePairs = Seq[Raw.KeyValuePair]
 
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)

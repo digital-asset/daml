@@ -145,7 +145,7 @@ class SubmissionValidatorSpec
               actualLogResult should be(expectedLogResult)
               verify(mockLogEntryIdGenerator, times(1)).apply()
               verify(mockStateOperations, times(0))
-                .writeState(any[Iterable[Raw.Pair]])(anyExecutionContext)
+                .writeState(any[Iterable[Raw.KeyValuePair]])(anyExecutionContext)
               logEntryValueCaptor.getAllValues should have size 1
               logEntryIdCaptor.getAllValues should have size 1
               logEntryIdCaptor.getValue should be(Raw.Key(expectedLogEntryId.toByteString))
@@ -268,7 +268,7 @@ class SubmissionValidatorSpec
 
     "return invalid submission if state cannot be written" in {
       val mockStateOperations = mock[LedgerStateOperations[Int]]
-      when(mockStateOperations.writeState(any[Iterable[Raw.Pair]])(anyExecutionContext))
+      when(mockStateOperations.writeState(any[Iterable[Raw.KeyValuePair]])(anyExecutionContext))
         .thenThrow(new IllegalArgumentException("Write error"))
       when(mockStateOperations.readState(any[Iterable[Raw.Key]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))

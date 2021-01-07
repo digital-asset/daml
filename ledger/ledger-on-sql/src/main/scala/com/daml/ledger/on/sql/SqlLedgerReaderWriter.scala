@@ -203,7 +203,7 @@ object SqlLedgerReaderWriter {
       Future.fromTry(queries.selectStateValuesByKeys(keys)).removeExecutionContext
 
     override def writeState(
-        keyValuePairs: Iterable[Raw.Pair],
+        keyValuePairs: Iterable[Raw.KeyValuePair],
     )(implicit executionContext: sc.ExecutionContext): sc.Future[Unit] =
       Future.fromTry(queries.updateState(keyValuePairs)).removeExecutionContext
 

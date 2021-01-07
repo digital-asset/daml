@@ -41,7 +41,7 @@ final class TimedQueries(delegate: Queries, metrics: Metrics) extends Queries {
       metrics.daml.ledger.database.queries.insertRecordIntoLog,
       delegate.insertRecordIntoLog(key, value))
 
-  override def updateState(stateUpdates: Iterable[Raw.Pair]): Try[Unit] =
+  override def updateState(stateUpdates: Iterable[Raw.KeyValuePair]): Try[Unit] =
     Timed.value(
       metrics.daml.ledger.database.queries.updateState,
       delegate.updateState(stateUpdates))

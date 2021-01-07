@@ -44,7 +44,7 @@ final class RawPostExecutionFinalizer[ReadSet](now: () => Instant)
   private def retrieveLogEntry(
       preExecutionOutput: PreExecutionOutput[Any, RawKeyValuePairsWithLogEntry],
       withinTimeBounds: Boolean,
-  ): Raw.Pair = {
+  ): Raw.KeyValuePair = {
     val writeSet = if (withinTimeBounds) {
       preExecutionOutput.successWriteSet
     } else {
@@ -56,7 +56,7 @@ final class RawPostExecutionFinalizer[ReadSet](now: () => Instant)
   private def retrieveState(
       preExecutionOutput: PreExecutionOutput[Any, RawKeyValuePairsWithLogEntry],
       withinTimeBounds: Boolean,
-  ): Iterable[Raw.Pair] =
+  ): Iterable[Raw.KeyValuePair] =
     if (withinTimeBounds) {
       preExecutionOutput.successWriteSet.state
     } else {

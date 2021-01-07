@@ -81,7 +81,7 @@ final class RawPreExecutingCommitStrategy(
   private def logEntryToKeyValuePairs(
       logEntryId: Raw.Key,
       logEntry: DamlLogEntry,
-  )(implicit executionContext: ExecutionContext): Future[Raw.Pair] =
+  )(implicit executionContext: ExecutionContext): Future[Raw.KeyValuePair] =
     Future(logEntryId -> Envelope.enclose(logEntry))
 }
 
