@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.{Connection, PreparedStatement}
 import java.time.Instant
 
-import anorm.{BatchSql, NamedParameter, ToStatement}
+import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions._

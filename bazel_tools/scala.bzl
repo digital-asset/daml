@@ -61,7 +61,7 @@ common_scalacopts = version_specific.get(scala_major_version, []) + [
     "-deprecation",
     # better error reporting for pureconfig
     "-Xmacro-settings:materialize-derivations",
-#    "-Xfatal-warnings",
+    "-Xfatal-warnings",
     # catch missing string interpolators
     "-Xlint:missing-interpolator",
     "-Xlint:constant",  # / 0

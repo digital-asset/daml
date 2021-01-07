@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.dao.events
 
-import java.sql.{Connection, PreparedStatement}
+import java.sql.Connection
 import java.time.Instant
 
 import anorm.SqlParser.int
@@ -26,7 +26,6 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
     Vector[NamedParameter]("contract_id" -> contractId)
 
   def toExecutables(
-      tx: TransactionIndexing.TransactionInfo,
       info: TransactionIndexing.ContractsInfo,
   ): ContractsTable.Executables = {
     val deletes = info.netArchives.iterator.map(deleteContract).toSeq

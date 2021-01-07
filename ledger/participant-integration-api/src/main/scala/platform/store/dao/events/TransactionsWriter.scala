@@ -43,6 +43,7 @@ object TransactionsWriter {
       }
 
       insertsPhase2.insert(connection).execute()
+      ()
     }
   }
 }
@@ -98,7 +99,7 @@ private[dao] final class TransactionsWriter(
 
     new TransactionsWriter.PreparedInsert(
       eventsTable.toExecutables(indexing.transaction, indexing.events, serialized),
-      contractsTable.toExecutables(indexing.transaction, indexing.contracts),
+      contractsTable.toExecutables(indexing.contracts),
       contractWitnessesTable.toExecutables(indexing.contractWitnesses),
       InsertsPhase2.toExecutable(indexing.transaction, indexing.contracts, serialized, indexing.contractWitnesses)
     )

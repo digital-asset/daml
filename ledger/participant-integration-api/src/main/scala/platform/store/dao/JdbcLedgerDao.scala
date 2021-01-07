@@ -1084,7 +1084,15 @@ private[platform] object JdbcLedgerDao {
         |truncate table party_entries cascade;
       """.stripMargin
 
-    override protected[JdbcLedgerDao] def enableAsyncCommit(implicit conn: Connection): Unit = ()
+    override protected[JdbcLedgerDao] def enableAsyncCommit(implicit conn: Connection): Unit = {
+      val statement = conn.prepareStatement("SET LOCAL synchronous_commit = 'off'")
+      try {
+        statement.execute()
+        ()
+      } finally {
+        statement.close()
+      }
+    }
   }
 
   object H2DatabaseQueries extends Queries {

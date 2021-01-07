@@ -26,7 +26,7 @@ object InsertsPhase2 {
         templateIds(idx) = create.templateId.toString
         stakeholders(idx) = create.stakeholders.mkString("|")
         createArgs(idx) = serialized.createArgumentsByContract(create.coid)
-        hashes(idx) = create.key.map(convert(create.templateId, _)).map(_.hash.bytes.toByteArray).orNull
+        hashes(idx) = create.key.map(convertLfValueKey(create.templateId, _)).map(_.hash.bytes.toByteArray).orNull
       }
 
       contractsInfo.divulgedContracts.iterator.zipWithIndex.foreach {
