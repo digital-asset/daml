@@ -20,6 +20,7 @@ import org.scalatest._
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.collection.compat._
 import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoTransactionTreesSpec
@@ -282,6 +283,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
   // Ensure two sequences of transaction trees are comparable:
   // - witnesses do not have to appear in a specific order
   private def comparable(txs: Seq[TransactionTree]): Seq[TransactionTree] =
-    txs.map(tx => tx.copy(eventsById = tx.eventsById.mapValues(_.modifyWitnessParties(_.sorted))))
+    txs.map(tx =>
+      tx.copy(eventsById = tx.eventsById.view.mapValues(_.modifyWitnessParties(_.sorted)).toMap))
 
 }

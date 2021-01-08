@@ -3,8 +3,6 @@
 
 package com.daml.codegen.types
 
-import scala.language.higherKinds
-
 import scalaz.{Applicative, Comonad, Order, Traverse, ==>>}
 import scalaz.std.tuple._
 import scalaz.syntax.apply._
@@ -48,7 +46,7 @@ object Namespace {
   /** Build a tree from name elements K; the root element is the empty
     * name.  Invariant: no duplicate List[K]s.
     */
-  def fromHierarchy[K: Order, V](elts: Traversable[(List[K], V)]): Namespace[K, Option[V]] = {
+  def fromHierarchy[K: Order, V](elts: Iterable[(List[K], V)]): Namespace[K, Option[V]] = {
     val (subs, here) = elts partition (_._1.nonEmpty)
     Namespace(
       here.headOption map (_._2),

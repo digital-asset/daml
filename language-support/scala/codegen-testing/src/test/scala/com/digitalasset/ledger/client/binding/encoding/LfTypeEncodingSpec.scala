@@ -5,7 +5,6 @@ package com.daml.ledger.client
 package binding
 package encoding
 
-import scala.language.higherKinds
 import scala.collection.immutable.Map
 
 import org.scalacheck.{Arbitrary, Gen, Shrink}
@@ -451,7 +450,7 @@ object LfTypeEncodingSpec {
 
     object RecordFields extends InvariantApply[RecordFields] {
       override def xmap[A, Z](fa: RecordFields[A], f: A => Z, g: Z => A): RecordFields[Z] =
-        fa copy (writers = g andThen fa.writers, reader = fa.reader andThen (_ leftMap (_ map f)))
+        fa.copy(writers = g andThen fa.writers, reader = fa.reader andThen (_ leftMap (_ map f)))
 
       override def xmapN[A, B, Z](fa: RecordFields[A], fb: RecordFields[B])(f: (A, B) => Z)(
           g: Z => (A, B)): RecordFields[Z] =

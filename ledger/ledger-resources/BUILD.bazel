@@ -23,13 +23,15 @@ da_scala_library(
 da_scala_library(
     name = "ledger-resources-test-lib",
     srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
     tags = ["maven_coordinates=com.daml:ledger-resources-test-lib:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         ":ledger-resources",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )

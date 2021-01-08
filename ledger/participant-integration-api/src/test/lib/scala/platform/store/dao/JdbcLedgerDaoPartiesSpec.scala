@@ -38,7 +38,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       _ = response should be(PersistenceResponse.Ok)
       parties <- ledgerDao.listKnownParties()
     } yield {
-      parties should contain allOf (alice, bob)
+      parties should contain.allOf(alice, bob)
     }
   }
 
@@ -90,7 +90,7 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
       _ = response should be(PersistenceResponse.Ok)
       parties <- ledgerDao.getParties(Seq(danParty, eveParty, nonExistentParty))
     } yield {
-      parties should contain only (dan, eve)
+      parties should contain.only(dan, eve)
     }
   }
 

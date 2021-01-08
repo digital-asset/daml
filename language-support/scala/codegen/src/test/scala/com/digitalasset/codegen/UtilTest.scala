@@ -15,6 +15,8 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
+import scala.collection.compat._
+
 class UtilTest extends UtilTestHelpers with ScalaCheckDrivenPropertyChecks {
 
   val packageInterface =
@@ -49,7 +51,7 @@ class UtilTest extends UtilTestHelpers with ScalaCheckDrivenPropertyChecks {
   "partitionEithers" should "equal scalaz separate in simple cases" in forAll {
     iis: List[Either[Int, Int]] =>
       import scalaz.syntax.monadPlus._, scalaz.std.list._, scalaz.std.either._
-      Util.partitionEithers(iis) shouldBe iis.separate
+      iis.partitionMap(identity) shouldBe iis.separate
   }
 
 }

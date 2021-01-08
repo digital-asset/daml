@@ -114,7 +114,7 @@ object ProjectConfig {
   /** Returns the path of the current daml project config file, if any.
     * The path is given by environment variables set by the SDK Assistant. */
   def projectConfigPath(): Either[ConfigLoadingError, File] =
-    projectPath.flatMap(path =>
+    projectPath().flatMap(path =>
       Try(new File(path, projectConfigName)).toEither.left.map(t => ConfigMissing(t.getMessage)))
 
   /** Loads a project configuration from a string */
@@ -147,7 +147,7 @@ object ProjectConfig {
     * This is the preferred way of loading the SDK project configuration. */
   def loadFromEnv(): Either[ConfigLoadingError, ProjectConfig] = {
     for {
-      path <- projectConfigPath
+      path <- projectConfigPath()
       result <- loadFromFile(path)
     } yield result
   }

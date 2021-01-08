@@ -19,7 +19,7 @@ class PrimitiveSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPrope
   "Primitive types" when {
     "defined concretely" should {
       "have nice companion aliases" in {
-        P.List: collection.generic.TraversableFactory[P.List]
+        P.List: test.CollectionCompat.IterableFactory[P.List]
       }
     }
     "defined abstractly" should {

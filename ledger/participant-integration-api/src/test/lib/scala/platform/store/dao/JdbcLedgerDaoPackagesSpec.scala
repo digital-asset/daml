@@ -30,7 +30,7 @@ private[dao] trait JdbcLedgerDaoPackagesSpec {
       secondUploadResult <- storePackageEntry(
         offset2,
         packages.map(a => a._1 -> a._2.copy(sourceDescription = Some(secondDescription))))
-      loadedPackages <- ledgerDao.listLfPackages
+      loadedPackages <- ledgerDao.listLfPackages()
     } yield {
       firstUploadResult shouldBe PersistenceResponse.Ok
       secondUploadResult shouldBe PersistenceResponse.Ok

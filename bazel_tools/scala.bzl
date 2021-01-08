@@ -199,11 +199,14 @@ def _wrap_rule(
         deps = [],
         scala_deps = [],
         versioned_scala_deps = {},
+        runtime_deps = [],
+        scala_runtime_deps = [],
         exports = [],
         scala_exports = [],
         silent_annotations = False,
         **kwargs):
     deps = deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
+    runtime_deps = runtime_deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_runtime_deps]
     exports = exports + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_exports]
     if silent_annotations:
         scalacopts = ["-P:silencer:checkUnused"] + scalacopts
@@ -216,6 +219,7 @@ def _wrap_rule(
         scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
         plugins = common_plugins + plugins,
         deps = deps,
+        runtime_deps = runtime_deps,
         **kwargs
     )
 

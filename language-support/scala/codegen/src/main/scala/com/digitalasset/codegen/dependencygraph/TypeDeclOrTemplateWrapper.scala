@@ -3,8 +3,6 @@
 
 package com.daml.codegen.dependencygraph
 
-import scala.language.higherKinds
-
 import com.daml.lf.iface.DefDataType
 
 import scalaz.{Applicative, Traverse}
