@@ -173,7 +173,7 @@ texinfo_documents = [
 ]
 
 
-# Import the DAML lexer
+# Import the Daml lexer
 def setup(sphinx):
     from pygments_daml_lexer import DAMLLexer
     sphinx.add_lexer("daml", DAMLLexer())

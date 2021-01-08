@@ -336,7 +336,7 @@ rst_prolog = """
 .. _api-test-tool: https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/{release}/ledger-api-test-tool-{release}.jar
 """.format(release = release)
 
-# Import the DAML lexer
+# Import the Daml lexer
 def setup(sphinx):
     from pygments_daml_lexer import DAMLLexer
     sphinx.add_lexer("daml", DAMLLexer())

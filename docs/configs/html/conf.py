@@ -51,8 +51,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'DAML SDK'
-copyright = u'© Copyright 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited. "Digital Asset" and "DAML" are Registered in the U.S. Patent and Trademark Office.'
+project = u'Daml SDK'
+copyright = u'© Copyright 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited. "Digital Asset" and "Daml" are Registered in the U.S. Patent and Trademark Office.'
 author = u'Digital Asset'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -178,7 +178,7 @@ rst_prolog = """
 .. _http-json: https://github.com/digital-asset/daml/releases/download/v{release}/http-json-{release}.jar
 """.format(release = release)
 
-# Import the DAML lexer
+# Import the Daml lexer
 def setup(sphinx):
     from pygments_daml_lexer import DAMLLexer
     sphinx.add_lexer("daml", DAMLLexer())
