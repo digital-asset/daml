@@ -28,8 +28,8 @@ import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, S
 import org.jline.reader.impl.history.DefaultHistory
 
 import scala.collection.immutable.ListMap
-import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
+import scala.jdk.CollectionConverters._
 
 object Main extends App {
   // idempotent; force stdout to output in UTF-8 -- in theory it should pick it up from
@@ -112,7 +112,7 @@ object Repl {
         state = dispatch(state, line)
       }
     } catch {
-      case _: org.jline.reader.EndOfFileException => Unit
+      case _: org.jline.reader.EndOfFileException => ()
     }
     state.history.save
   }
@@ -431,7 +431,8 @@ object Repl {
         state.scenarioRunner.compilerConfig))
     defs.get(idToRef(state, args(0))) match {
       case None =>
-        println("Error: definition '" + args(0) + "' not found. Try :list."); usage
+        println("Error: definition '" + args(0) + "' not found. Try :list.")
+        usage()
       case Some(defn) =>
         println(Pretty.SExpr.prettySExpr(0)(defn.body).render(80))
     }
@@ -458,14 +459,14 @@ object Repl {
         lookup(state, id) match {
           case None =>
             println("Error: definition '" + id + "' not found. Try :list.")
-            usage
+            usage()
           case Some(DValue(_, _, body, _)) =>
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
-            val compiledPackages = PureCompiledPackages(state.packages).right.get
+            val compiledPackages = PureCompiledPackages(state.packages).toOption.get
             val machine = Speedy.Machine.fromPureExpr(compiledPackages, expr)
             val startTime = System.nanoTime()
-            val valueOpt = machine.run match {
+            val valueOpt = machine.run() match {
               case SResultError(err) =>
                 println(prettyError(err).render(128))
                 None

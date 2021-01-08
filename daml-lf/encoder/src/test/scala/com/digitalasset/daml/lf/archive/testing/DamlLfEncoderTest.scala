@@ -13,7 +13,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 
 class DamlLfEncoderTest
@@ -64,7 +64,7 @@ class DamlLfEncoderTest
           UniversalArchiveReader()
             .readFile(new File(rlocation(s"daml-lf/encoder/test-$version.dar")))
 
-        dar shouldBe 'success
+        dar shouldBe Symbol("success")
 
         val findModules = dar.toOption.toList.flatMap(getNonEmptyModules).toSet
 
