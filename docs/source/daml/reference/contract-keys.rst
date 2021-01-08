@@ -60,7 +60,7 @@ Like ``fetch``, ``fetchByKey`` needs to be authorized by at least one stakeholde
 ``fetchByKey`` fails and aborts the transaction if:
 
 - The submitting Party is not a stakeholder on a contract with the given key, or
-- A contract was found, but the ``fetchByKey`` violates the authorization rule, meaning no stakeholder authorized the ``fetch``..
+- A contract was found, but the ``fetchByKey`` violates the authorization rule, meaning no stakeholder authorized the ``fetch``.
 
 This means that if it fails, it doesn't guarantee that a contract with that key doesn't exist, just that the submitting Party doesn't know about it, or there are issues with authorization.
 

@@ -44,11 +44,9 @@ records the relations between the actions during the above acceptance.
 
 Formally, an **action** is one of the following:
 
-#. a **Create** action on a contract, which records the creation of the contract
+#. a **Create** action of a contract, which records the creation of the contract
 #. an **Exercise** action on a contract, which records that one or more parties
    have exercised a right they have on the contract, and which also contains:
-
-   |
 
    #. An associated set of parties called **actors**. These are the
       parties who perform the action.
