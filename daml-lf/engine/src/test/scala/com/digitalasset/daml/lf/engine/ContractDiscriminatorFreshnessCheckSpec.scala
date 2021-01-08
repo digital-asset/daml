@@ -199,12 +199,12 @@ class ContractDiscriminatorFreshnessCheckSpec
       )
 
       forAll(negativeTestCases) { cmd =>
-        run(cmd) shouldBe 'right
+        run(cmd) shouldBe a[Right[_, _]]
       }
 
       forAll(positiveTestCases) { cmd =>
         val r = run(cmd)
-        r shouldBe 'left
+        r shouldBe a[Left[_, _]]
         r.left.exists(_.msg.contains("Conflicting discriminators")) shouldBe true
       }
 
@@ -270,12 +270,12 @@ class ContractDiscriminatorFreshnessCheckSpec
       )
 
       forAll(negativeTestCases) { cmd =>
-        Right(cmd) shouldBe 'right
+        Right(cmd) shouldBe a[Right[_, _]]
       }
 
       forAll(positiveTestCases) { cmd =>
         val r = run(cmd)
-        r shouldBe 'left
+        r shouldBe a[Left[_, _]]
         r.left.exists(_.msg.contains("Conflicting discriminators")) shouldBe true
       }
 

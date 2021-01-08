@@ -94,8 +94,8 @@ class EngineTest
         ValueRecord(
           Some(BasicTests_WithKey),
           ImmArray(
-            (Some("p"), ValueParty(alice)),
-            (Some("k"), ValueInt64(42))
+            (Some[Ref.Name]("p"), ValueParty(alice)),
+            (Some[Ref.Name]("k"), ValueInt64(42))
           ))),
       ""
     )
@@ -187,7 +187,7 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
-      res shouldBe 'right
+      res shouldBe a[Right[_, _]]
 
     }
 
@@ -199,7 +199,7 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
-      res shouldBe 'right
+      res shouldBe a[Right[_, _]]
     }
 
     "not translate create commands argument wrong label" in {
@@ -212,7 +212,7 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
-      res shouldBe 'left
+      res shouldBe a[Left[_, _]]
     }
 
     "translate exercise commands argument including labels" in {
@@ -227,7 +227,7 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
-      res shouldBe 'right
+      res shouldBe a[Right[_, _]]
     }
 
     "translate exercise commands argument without labels" in {
@@ -242,7 +242,7 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
-      res shouldBe 'right
+      res shouldBe a[Right[_, _]]
     }
 
     "translate exercise-by-key commands with argument with labels" in {
@@ -257,7 +257,7 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
-      res shouldBe 'right
+      res shouldBe a[Right[_, _]]
     }
 
     "translate exercise-by-key commands with argument without labels" in {
@@ -272,7 +272,7 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
-      res shouldBe 'right
+      res shouldBe a[Right[_, _]]
     }
 
     "not translate exercise-by-key commands with argument with wrong labels" in {
@@ -328,7 +328,9 @@ class EngineTest
           id,
           ValueRecord(
             Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-            ImmArray((Some("giver"), ValueParty(clara)), (Some("receiver"), ValueParty(clara)))
+            ImmArray(
+              (Some[Ref.Name]("giver"), ValueParty(clara)),
+              (Some[Ref.Name]("receiver"), ValueParty(clara)))
           ),
           "Transfer",
           ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara))))
@@ -337,7 +339,7 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
-      res shouldBe 'right
+      res shouldBe a[Right[_, _]]
 
     }
 
@@ -356,7 +358,7 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
-      res shouldBe 'right
+      res shouldBe a[Right[_, _]]
     }
 
     "not translate create-and-exercise commands argument wrong label in create arguments" in {
@@ -366,7 +368,9 @@ class EngineTest
           id,
           ValueRecord(
             Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-            ImmArray((None, ValueParty(clara)), (Some("this_is_not_the_one"), ValueParty(clara)))
+            ImmArray(
+              (None, ValueParty(clara)),
+              (Some[Ref.Name]("this_is_not_the_one"), ValueParty(clara)))
           ),
           "Transfer",
           ValueRecord(None, ImmArray((None, ValueParty(clara))))
@@ -375,7 +379,7 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
-      res shouldBe 'left
+      res shouldBe a[Left[_, _]]
     }
 
     "not translate create-and-exercise commands argument wrong label in choice arguments" in {
@@ -393,7 +397,7 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey)
-      res shouldBe 'left
+      res shouldBe a[Left[_, _]]
     }
 
     "translate Optional values" in {
@@ -435,7 +439,7 @@ class EngineTest
           TTyConApp(id, ImmArray.empty),
           wrongRecord
         )
-        .consume(lookupContract, lookupPackage, lookupKey) shouldBe 'left
+        .consume(lookupContract, lookupPackage, lookupKey) shouldBe a[Left[_, _]]
     }
   }
 
@@ -448,13 +452,13 @@ class EngineTest
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
-    res shouldBe 'right
+    res shouldBe a[Right[_, _]]
     val interpretResult = engine
       .submit(Set(party), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
       .consume(lookupContract, lookupPackage, lookupKey)
 
     "be translated" in {
-      interpretResult shouldBe 'right
+      interpretResult shouldBe a[Right[_, _]]
     }
 
     "reinterpret to the same result" in {
@@ -528,7 +532,7 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(cmd))
         .consume(lookupContract, lookupPackage, lookupKey)
-      withClue("Preprocessing result: ")(res shouldBe 'right)
+      withClue("Preprocessing result: ")(res shouldBe a[Right[_, _]])
 
       engine
         .submit(actAs, Commands(ImmArray(cmd), let, "test"), participant, submissionSeed)
@@ -538,7 +542,7 @@ class EngineTest
     "be translated" in {
       forAll(cases) {
         case (templateId, signatories, submitters) =>
-          interpretResult(templateId, signatories, submitters) shouldBe 'right
+          interpretResult(templateId, signatories, submitters) shouldBe a[Right[_, _]]
       }
     }
 
@@ -628,7 +632,7 @@ class EngineTest
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
-    res shouldBe 'right
+    res shouldBe a[Right[_, _]]
     val interpretResult =
       res
         .flatMap {
@@ -707,7 +711,7 @@ class EngineTest
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
-    res shouldBe 'right
+    res shouldBe a[Right[_, _]]
 
     "fail at submission" in {
       val submitResult = engine
@@ -732,7 +736,7 @@ class EngineTest
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
-    res shouldBe 'right
+    res shouldBe a[Right[_, _]]
     val result =
       res
         .flatMap {
@@ -797,7 +801,7 @@ class EngineTest
         case (id, _: Node.NodeExercises[_, _]) => id
       }
       val actualNodes = byKeyNodes(tx)
-      actualNodes shouldBe 'nonEmpty
+      actualNodes shouldBe Symbol("nonEmpty")
       actualNodes shouldBe expectedNodes.toSet
     }
   }
@@ -805,7 +809,7 @@ class EngineTest
   "exercise-by-key" should {
     val seed = hash("exercise-by-key")
 
-    val now = Time.Timestamp.now
+    val now = Time.Timestamp.now()
 
     "crash if use a contract key with an empty set of maintainers" in {
       val templateId =
@@ -843,7 +847,7 @@ class EngineTest
   "fecth-by-key" should {
     val seed = hash("fetch-by-key")
 
-    val now = Time.Timestamp.now
+    val now = Time.Timestamp.now()
 
     "crash if use a contract key with an empty set of maintainers" in {
       val templateId =
@@ -926,7 +930,7 @@ class EngineTest
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
-    res shouldBe 'right
+    res shouldBe a[Right[_, _]]
     val interpretResult =
       res
         .flatMap {
@@ -1019,7 +1023,8 @@ class EngineTest
           TTyConApp(TypeConName(basicTestsPkgId, "BasicTests:Nesting0"), ImmArray.empty),
           nested)
         .consume(lookupContract, lookupPackage, lookupKey)
-        .left
+        .swap
+        .toOption
         .get
         .msg should include("Provided value exceeds maximum nesting level")
     }
@@ -1048,7 +1053,7 @@ class EngineTest
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"), ImmArray.empty),
           rec)
         .consume(lookupContract, lookupPackage, lookupKey)
-      res shouldBe 'right
+      res shouldBe a[Right[_, _]]
     }
 
     "work with fields with type parameters" in {
@@ -1067,7 +1072,7 @@ class EngineTest
           rec)
         .consume(lookupContract, lookupPackage, lookupKey)
 
-      res shouldBe 'right
+      res shouldBe a[Right[_, _]]
     }
 
     "work with fields with labels, in the wrong order" in {
@@ -1086,7 +1091,7 @@ class EngineTest
           rec)
         .consume(lookupContract, lookupPackage, lookupKey)
 
-      res shouldBe 'right
+      res shouldBe a[Right[_, _]]
     }
 
     "fail with fields with labels, with repetitions" in {
@@ -1103,7 +1108,7 @@ class EngineTest
           rec)
         .consume(lookupContract, lookupPackage, lookupKey)
 
-      res shouldBe 'left
+      res shouldBe a[Left[_, _]]
     }
 
     "work with fields without labels, in right order" in {
@@ -1120,7 +1125,7 @@ class EngineTest
           rec)
         .consume(lookupContract, lookupPackage, lookupKey)
 
-      res shouldBe 'right
+      res shouldBe a[Right[_, _]]
     }
 
     "fail with fields without labels, in the wrong order" in {
@@ -1137,7 +1142,7 @@ class EngineTest
           rec)
         .consume(lookupContract, lookupPackage, lookupKey)
 
-      res shouldBe 'left
+      res shouldBe a[Left[_, _]]
     }
 
   }
@@ -1490,7 +1495,7 @@ class EngineTest
           .reinterpret(Set(alice), fetchNode, None, let, let)
           .consume(lookupContract, lookupPackage, lookupKey)
 
-      reinterpreted shouldBe 'right
+      reinterpreted shouldBe a[Right[_, _]]
     }
 
   }
@@ -1550,7 +1555,7 @@ class EngineTest
         case (id, _: Node.NodeLookupByKey[_]) => id
       }
       val actualByKeyNodes = byKeyNodes(tx)
-      actualByKeyNodes shouldBe 'nonEmpty
+      actualByKeyNodes shouldBe Symbol("nonEmpty")
       actualByKeyNodes shouldBe expectedByKeyNodes.toSet
     }
 
@@ -1824,7 +1829,7 @@ class EngineTest
         txMeta,
         let,
         lookupPackage,
-      ) shouldBe 'right
+      ) shouldBe a[Right[_, _]]
 
     }
   }
@@ -1864,7 +1869,7 @@ class EngineTest
           globalCids = globalCids,
         )
         .consume(_ => None, lookupPackage, lookupKey)
-      result shouldBe 'right
+      result shouldBe a[Right[_, _]]
     }
 
     "be evaluated after ensure clause" in {
@@ -1891,7 +1896,7 @@ class EngineTest
           globalCids = globalCids,
         )
         .consume(_ => None, lookupPackage, lookupKey)
-      result shouldBe 'left
+      result shouldBe a[Left[_, _]]
       val Left(err) = result
       err.msg should not include ("Boom")
       err.msg should include("precondition violation")

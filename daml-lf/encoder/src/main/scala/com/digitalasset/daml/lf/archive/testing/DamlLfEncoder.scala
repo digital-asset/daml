@@ -16,7 +16,6 @@ import com.daml.lf.validation.Validation
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
-import scala.collection.breakOut
 import scala.io.Source
 import scala.util.control.NonFatal
 
@@ -52,7 +51,7 @@ private[daml] object DamlLfEncoder extends App {
     }
 
   private def readSources(files: Seq[String]): String =
-    files.flatMap(file => Source.fromFile(Paths.get(file).toFile, "UTF8"))(breakOut)
+    files.view.flatMap(file => Source.fromFile(Paths.get(file).toFile, "UTF8")).mkString
 
   private def makeArchive(source: String)(
       implicit parserParameters: ParserParameters[this.type]) = {

@@ -219,9 +219,11 @@ def _wrap_rule(
         **kwargs
     )
 
-def _wrap_rule_no_plugins(rule, scalacopts = [], **kwargs):
+def _wrap_rule_no_plugins(rule, deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], **kwargs):
+    deps = deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
     rule(
         scalacopts = common_scalacopts + scalacopts,
+        deps = deps,
         **kwargs
     )
 

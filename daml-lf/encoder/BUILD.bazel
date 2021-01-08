@@ -29,6 +29,9 @@ da_scala_library(
         ["src/main/**/*.scala"],
         exclude = ["src/main/scala/com/digitalasset/daml/lf/archive/testing/DamlLfEncoder.scala"],
     ),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
     visibility = [
         "//daml-lf:__subpackages__",
@@ -40,7 +43,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -49,7 +51,16 @@ da_scala_test_suite(
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
     data = [":testing-dar-%s" % target for target in lf_targets],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
+        ],
+    },
     deps = [
         ":encoder",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -60,8 +71,6 @@ da_scala_test_suite(
         "//daml-lf/parser",
         "//daml-lf/validation",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
