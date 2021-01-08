@@ -21,7 +21,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-import static com.daml.ledger.javaapi.data.helper.ListHelper.list;
+import static java.util.Arrays.asList;
 
 public class CommandClientImpl implements CommandClient {
 
@@ -62,7 +62,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull Optional<Duration> deduplicationTime,
             @NonNull List<@NonNull Command> commands) {
         return submitAndWait(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 minLedgerTimeAbs, minLedgerTimeRel, deduplicationTime,
                 commands, Optional.empty());
     }
@@ -95,7 +95,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull Optional<Duration> deduplicationTime,@NonNull List<@NonNull Command> commands,
             @NonNull String accessToken) {
         return submitAndWait(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 minLedgerTimeAbs, minLedgerTimeRel, deduplicationTime,
                 commands, Optional.of(accessToken));
     }
@@ -126,7 +126,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull String party,
             @NonNull List<@NonNull Command> commands) {
         return submitAndWait(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 Optional.empty(), Optional.empty(), Optional.empty(),
                 commands, Optional.empty());
     }
@@ -154,7 +154,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull List<@NonNull Command> commands,
             @NonNull String accessToken) {
         return submitAndWait(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 Optional.empty(), Optional.empty(), Optional.empty(),
                 commands, Optional.of(accessToken));
     }
@@ -204,7 +204,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull Optional<Duration> deduplicationTime,
             @NonNull List<@NonNull Command> commands) {
         return submitAndWaitForTransactionId(
-                workflowId,applicationId, commandId, list(party), list(),
+                workflowId,applicationId, commandId, asList(party), asList(),
                 minLedgerTimeAbs, minLedgerTimeRel, deduplicationTime,
                 commands, Optional.empty());
     }
@@ -238,7 +238,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull List<@NonNull Command> commands,
             @NonNull String accessToken) {
         return submitAndWaitForTransactionId(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 minLedgerTimeAbs, minLedgerTimeRel, deduplicationTime,
                 commands, Optional.of(accessToken));
     }
@@ -269,7 +269,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull String party,
             @NonNull List<@NonNull Command> commands) {
         return submitAndWaitForTransactionId(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 Optional.empty(), Optional.empty(), Optional.empty(),
                 commands, Optional.empty());
     }
@@ -297,7 +297,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull List<@NonNull Command> commands,
             @NonNull String accessToken) {
         return submitAndWaitForTransactionId(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 Optional.empty(), Optional.empty(), Optional.empty(),
                 commands, Optional.of(accessToken));
     }
@@ -348,7 +348,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull Optional<Duration> deduplicationTime,
             @NonNull List<@NonNull Command> commands) {
         return submitAndWaitForTransaction(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 minLedgerTimeAbs, minLedgerTimeRel, deduplicationTime,
                 commands, Optional.empty());
     }
@@ -382,7 +382,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull List<@NonNull Command> commands,
             @NonNull String accessToken) {
         return submitAndWaitForTransaction(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 minLedgerTimeAbs, minLedgerTimeRel, deduplicationTime,
                 commands, Optional.of(accessToken));
     }
@@ -413,7 +413,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull String party,
             @NonNull List<@NonNull Command> commands) {
         return submitAndWaitForTransaction(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 Optional.empty(), Optional.empty(), Optional.empty(),
                 commands, Optional.empty());
     }
@@ -441,7 +441,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull List<@NonNull Command> commands,
             @NonNull String accessToken) {
         return submitAndWaitForTransaction(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 Optional.empty(), Optional.empty(), Optional.empty(),
                 commands, Optional.of(accessToken));
     }
@@ -492,7 +492,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull Optional<Duration> deduplicationTime,
             @NonNull List<@NonNull Command> commands) {
         return submitAndWaitForTransactionTree(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 minLedgerTimeAbs, minLedgerTimeRel, deduplicationTime,
                 commands, Optional.empty());
     }
@@ -526,7 +526,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull List<@NonNull Command> commands,
             @NonNull String accessToken) {
         return submitAndWaitForTransactionTree(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 minLedgerTimeAbs, minLedgerTimeRel, deduplicationTime,
                 commands, Optional.of(accessToken));
     }
@@ -557,7 +557,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull String party,
             @NonNull List<@NonNull Command> commands) {
         return submitAndWaitForTransactionTree(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 Optional.empty(), Optional.empty(), Optional.empty(),
                 commands, Optional.empty());
     }
@@ -585,7 +585,7 @@ public class CommandClientImpl implements CommandClient {
             @NonNull List<@NonNull Command> commands,
             @NonNull String accessToken) {
         return submitAndWaitForTransactionTree(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 Optional.empty(), Optional.empty(), Optional.empty(),
                 commands, Optional.of(accessToken));
     }

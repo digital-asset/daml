@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.daml.ledger.javaapi.data.helper.ListHelper.list;
+import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
 
 public class SubmitCommandsRequest {
@@ -39,7 +39,7 @@ public class SubmitCommandsRequest {
                                  @NonNull Optional<Duration> minLedgerTimeRelative, @NonNull Optional<Duration> deduplicationTime,
                                  @NonNull List<@NonNull Command> commands) {
         this(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 minLedgerTimeAbsolute, minLedgerTimeRelative, deduplicationTime,
                 commands);
     }

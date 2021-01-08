@@ -19,7 +19,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-import static com.daml.ledger.javaapi.data.helper.ListHelper.list;
+import static java.util.Arrays.asList;
 
 public class CommandSubmissionClientImpl implements CommandSubmissionClient {
 
@@ -59,7 +59,7 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
                                                     @NonNull List<@NonNull Command> commands,
                                                     Optional<String> accessToken) {
         return this.submit(
-                workflowId, applicationId, commandId, list(party), list(),
+                workflowId, applicationId, commandId, asList(party), asList(),
                 minLedgerTimeAbs, minLedgerTimeRel, deduplicationTime, commands, accessToken);
     }
 

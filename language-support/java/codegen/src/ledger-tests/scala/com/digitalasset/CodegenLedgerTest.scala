@@ -18,7 +18,7 @@ import alltests.MultiParty
 
 import scala.collection.JavaConverters._
 
-import com.daml.ledger.javaapi.data.helper.ListHelper.list
+import java.util.Arrays.asList
 
 class CodegenLedgerTest extends AsyncFlatSpec with Matchers with TestResourceContext {
 
@@ -169,7 +169,7 @@ class CodegenLedgerTest extends AsyncFlatSpec with Matchers with TestResourceCon
 
   it should "be able to create multi-party templates" in withClient { client =>
     val multi = new MultiParty(Alice, Bob)
-    sendCmd(client, list(Alice, Bob), list[String](), multi.create());
+    sendCmd(client, asList(Alice, Bob), asList[String](), multi.create());
 
     val read = readActiveContracts(MultiParty.Contract.fromCreatedEvent)(client).head
 
@@ -178,12 +178,12 @@ class CodegenLedgerTest extends AsyncFlatSpec with Matchers with TestResourceCon
   }
 
   it should "be able to read as other parties" in withClient { client =>
-    sendCmd(client, list(Charlie, Bob), list[String](), new MultiParty(Charlie, Bob).create())
-    sendCmd(client, list(Alice, Bob), list[String](), new MultiParty(Alice, Bob).create())
+    sendCmd(client, asList(Charlie, Bob), asList[String](), new MultiParty(Charlie, Bob).create())
+    sendCmd(client, asList(Alice, Bob), asList[String](), new MultiParty(Alice, Bob).create())
     sendCmd(
       client,
-      list(Alice),
-      list(Charlie),
+      asList(Alice),
+      asList(Charlie),
       MultiParty.exerciseByKeyMPFetchOtherByKey(new da.types.Tuple2(Alice, Bob), Charlie, Bob))
 
     succeed

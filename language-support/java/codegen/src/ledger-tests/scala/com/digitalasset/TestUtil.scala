@@ -34,7 +34,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
-import com.daml.ledger.javaapi.data.helper.ListHelper.list
+import java.util.Arrays.asList
 
 object TestUtil {
 
@@ -117,7 +117,7 @@ object TestUtil {
   }
 
   def sendCmd(channel: Channel, party: String, cmds: Command*): Empty =
-    sendCmd(channel, list(party), list[String](), cmds: _*)
+    sendCmd(channel, asList(party), asList[String](), cmds: _*)
 
   def readActiveContracts[C <: Contract](fromCreatedEvent: CreatedEvent => C)(
       channel: Channel
