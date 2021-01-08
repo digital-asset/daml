@@ -24,7 +24,7 @@ installer sdkDir logo = do
     unsafeInjectGlobal "!insertmacro MUI_PAGE_WELCOME"
     page InstFiles
     page $ Finish finishOptions
-        { finLinkText = "Open the DAML Quickstart guide"
+        { finLinkText = "Open the Daml Quickstart guide"
         , finLink = "https://docs.daml.com/getting-started/quickstart.html"
         }
     section "" [] $ do
