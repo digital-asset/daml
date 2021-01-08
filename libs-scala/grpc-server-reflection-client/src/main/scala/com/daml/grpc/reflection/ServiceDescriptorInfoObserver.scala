@@ -10,7 +10,7 @@ import io.grpc.Status
 import io.grpc.reflection.v1alpha.{ServerReflectionRequest, ServerReflectionResponse}
 import io.grpc.stub.StreamObserver
 
-import scala.collection.JavaConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{Future, Promise}
 import scala.util.Success
 
@@ -19,7 +19,7 @@ private[reflection] final class ServiceDescriptorInfoObserver(
 ) extends StreamObserver[ServerReflectionResponse] {
 
   private val builder = Set.newBuilder[ServiceDescriptorInfo]
-  private val promise = Promise[Set[ServiceDescriptorInfo]]
+  private val promise = Promise[Set[ServiceDescriptorInfo]]()
   private val servicesLeft = new AtomicInteger(0)
 
   lazy val result: Future[Set[ServiceDescriptorInfo]] = {
