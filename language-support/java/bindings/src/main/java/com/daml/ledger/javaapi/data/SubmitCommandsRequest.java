@@ -54,6 +54,9 @@ public class SubmitCommandsRequest {
             @NonNull Optional<Duration> minLedgerTimeRelative,
             @NonNull Optional<Duration> deduplicationTime,
             @NonNull List<@NonNull Command> commands) {
+        if (actAs.size() == 0) {
+            throw new IllegalArgumentException("actAs must have at least one element");
+        }
         this.workflowId = workflowId;
         this.applicationId = applicationId;
         this.commandId = commandId;
@@ -97,6 +100,9 @@ public class SubmitCommandsRequest {
             @NonNull Optional<Duration> minLedgerTimeRelative,
             @NonNull Optional<Duration> deduplicationTime,
             @NonNull List<@NonNull Command> commands) {
+        if (actAs.size() == 0) {
+            throw new IllegalArgumentException("actAs must have at least one element");
+        }
         ArrayList<CommandsOuterClass.Command> commandsConverted = new ArrayList<>(commands.size());
         for (Command command : commands) {
             commandsConverted.add(command.toProtoCommand());

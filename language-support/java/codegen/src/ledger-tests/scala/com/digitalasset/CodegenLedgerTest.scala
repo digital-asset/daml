@@ -171,7 +171,7 @@ class CodegenLedgerTest extends AsyncFlatSpec with Matchers with TestResourceCon
     val multi = new MultiParty(Alice, Bob)
     sendCmd(client, list(Alice, Bob), list[String](), multi.create());
 
-    val read :: _ = readActiveContracts(MultiParty.Contract.fromCreatedEvent)(client)
+    val read = readActiveContracts(MultiParty.Contract.fromCreatedEvent)(client).head
 
     read.data.p1 shouldBe Alice
     read.data.p2 shouldBe Bob
@@ -186,7 +186,7 @@ class CodegenLedgerTest extends AsyncFlatSpec with Matchers with TestResourceCon
       list(Charlie),
       MultiParty.exerciseByKeyMPFetchOtherByKey(new da.types.Tuple2(Alice, Bob), Charlie, Bob))
 
-    true shouldBe true
+    succeed
   }
 
 }

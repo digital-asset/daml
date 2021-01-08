@@ -4,16 +4,13 @@
 package com.daml.ledger.javaapi.data.helper;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public final class ListHelper {
     private ListHelper() {}
     public static <T> List<T> list(T... args) {
-        List<T> ret = new ArrayList<>();
-        for(T arg : args){
-            ret.add(arg);
-        }
-        return ret;
+        return Arrays.asList(args);
     }
 }
 
