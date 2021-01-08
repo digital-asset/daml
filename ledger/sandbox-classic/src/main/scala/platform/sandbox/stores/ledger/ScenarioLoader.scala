@@ -16,7 +16,6 @@ import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.store.entries.LedgerEntry
 
 import scala.annotation.tailrec
-import scala.collection.breakOut
 import scala.collection.mutable.ArrayBuffer
 
 private[sandbox] object ScenarioLoader {
@@ -145,6 +144,7 @@ private[sandbox] object ScenarioLoader {
   ): List[(Ref.Identifier, Ast.Definition)] = {
     packages
       .listLfPackagesSync()
+      .view
       .flatMap {
         case (packageId, _) =>
           val pkg = packages
@@ -155,7 +155,8 @@ private[sandbox] object ScenarioLoader {
               List((Ref.Identifier(packageId, scenarioQualName) -> x))
             case Left(_) => List()
           }
-      }(breakOut)
+      }
+      .toList
   }
 
   private def getScenarioQualifiedName(

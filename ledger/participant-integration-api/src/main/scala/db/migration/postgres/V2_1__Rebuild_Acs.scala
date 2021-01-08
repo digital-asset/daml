@@ -36,6 +36,7 @@ import com.daml.platform.db.migration.translation.{
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 
+import scala.collection.compat._
 import scala.collection.immutable
 
 /**
@@ -294,8 +295,9 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
           _,
           transaction,
           explicitDisclosure) =>
-        val mappedDisclosure = explicitDisclosure
+        val mappedDisclosure = explicitDisclosure.view
           .mapValues(parties => parties.map(Party.assertFromString))
+          .toMap
 
         final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
@@ -534,7 +536,7 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {
     require(params.size > 0, "batch sql statement must have at least one set of name parameters")
-    BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
+    BatchSql(query, params.head, params.drop(1).toSeq: _*).execute()
   }
 
   private val SQL_TRUNCATE_ACS_TABLES =

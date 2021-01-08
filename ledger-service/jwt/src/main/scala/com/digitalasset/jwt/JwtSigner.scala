@@ -83,7 +83,7 @@ object JwtSigner {
   private def base64Encode(bs: Array[Byte]): Error \/ Array[Byte] =
     Base64
       .encodeWithoutPadding(bs)
-      .leftMap(e => Error('base64Encode, e.shows))
+      .leftMap(e => Error(Symbol("base64Encode"), e.shows))
 
   final case class Error(what: Symbol, message: String)
 

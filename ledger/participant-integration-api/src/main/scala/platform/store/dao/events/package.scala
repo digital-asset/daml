@@ -79,7 +79,7 @@ package object events {
   )(single: A => B, multi: Set[A] => B): B = {
     assume(set.nonEmpty, "Empty set, unable to dispatch to single/multi implementation")
     set.size match {
-      case 1 => single(set.toIterator.next)
+      case 1 => single(set.iterator.next())
       case n if n > 1 => multi(set)
     }
   }

@@ -15,6 +15,8 @@ import com.daml.ledger.participant.state.v1.{
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.BlindingInfo
 
+import scala.collection.compat._
+
 final case class TransactionIndexing(
     transaction: TransactionIndexing.TransactionInfo,
     events: TransactionIndexing.EventsInfo,
@@ -146,7 +148,8 @@ object TransactionIndexing {
       val netCreates = created.filterNot(c => archived(c.coid))
       val netArchives = archived.filterNot(allCreatedContractIds)
       val netDivulgedContracts = divulgedContracts.filterNot(c => allContractIds(c.contractId))
-      val netTransactionVisibility = Relation.from(visibility.result()).filterKeys(!archived(_))
+      val netTransactionVisibility =
+        Relation.from(visibility.result()).view.filterKeys(!archived(_)).toMap
       val netVisibility = Relation.union(netTransactionVisibility, visibility(netDivulgedContracts))
       TransactionIndexing(
         transaction = TransactionInfo(

@@ -160,8 +160,8 @@ private[platform] final class LedgerBackedIndexService(
       implicit loggingContext: LoggingContext,
   ): Future[LedgerOffset.Absolute] = {
     val offset =
-      if (ledger.ledgerEnd == Offset.beforeBegin) ApiOffset.begin
-      else ledger.ledgerEnd
+      if (ledger.ledgerEnd() == Offset.beforeBegin) ApiOffset.begin
+      else ledger.ledgerEnd()
     Future.successful(toAbsolute(offset))
   }
 

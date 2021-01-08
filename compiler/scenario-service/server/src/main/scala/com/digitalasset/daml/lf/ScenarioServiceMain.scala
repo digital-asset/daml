@@ -24,7 +24,7 @@ import io.grpc.netty.NettyServerBuilder
 import scala.concurrent.ExecutionContext
 import scala.util.{Success, Failure}
 import scala.collection.concurrent.TrieMap
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
 object ScenarioServiceMain extends App {

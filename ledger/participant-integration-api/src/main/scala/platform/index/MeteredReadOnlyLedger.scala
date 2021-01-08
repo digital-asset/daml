@@ -58,7 +58,7 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
     : Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     ledger.transactionTrees(startExclusive, endInclusive, requestingParties, verbose)
 
-  override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset = ledger.ledgerEnd
+  override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset = ledger.ledgerEnd()
 
   override def completions(
       startExclusive: Option[Offset],

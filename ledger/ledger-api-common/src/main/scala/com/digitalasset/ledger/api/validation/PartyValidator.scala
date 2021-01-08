@@ -11,7 +11,7 @@ import io.grpc.StatusRuntimeException
 class PartyValidator(partyNameChecker: PartyNameChecker) {
   type Result[X] = Either[StatusRuntimeException, X]
 
-  def requireKnownParties(parties: Traversable[String]): Result[Set[Party]] =
+  def requireKnownParties(parties: Iterable[String]): Result[Set[Party]] =
     for {
       ps <- requireParties(parties.toSet)
       knownParties <- requireKnownParties(ps)

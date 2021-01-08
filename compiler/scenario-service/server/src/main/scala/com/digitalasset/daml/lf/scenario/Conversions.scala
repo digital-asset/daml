@@ -11,7 +11,7 @@ import com.daml.lf.transaction.{GlobalKey, Node => N, NodeId}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 final class Conversions(
     homePackageId: Ref.PackageId,

@@ -75,6 +75,7 @@ da_scala_library(
         # buildozer errors if you add it, so silent_annotations can't be used
         # "@maven//:com_github_ghik_silencer_lib_2_12_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
     ],
 )
 

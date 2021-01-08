@@ -11,9 +11,8 @@ import scalaz.Id.Id
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.tag._
 
-import scala.language.higherKinds
 import scala.collection.{mutable, immutable => imm}
-import scala.collection.generic.CanBuildFrom
+import scala.collection.compat._
 import java.time.{Instant, LocalDate, LocalDateTime}
 import java.util.TimeZone
 
@@ -52,7 +51,7 @@ sealed abstract class Primitive extends PrimitiveInstances {
   type Optional[+A] = scala.Option[A]
   val Optional: scala.Option.type = scala.Option
 
-  type TextMap[+V] <: imm.Map[String, V] with imm.MapLike[String, V, TextMap[V]]
+  type TextMap[+V] <: imm.Map[String, V] with CollectionCompat.MapLike[String, V, TextMap[V]]
   val TextMap: TextMapApi
 
   @deprecated("Use TextMap", since = "0.13.40")
@@ -74,11 +73,10 @@ sealed abstract class Primitive extends PrimitiveInstances {
   type Update[+A] <: DomainCommand
 
   sealed abstract class TextMapApi {
-    type Coll = TextMap[_]
     def empty[V]: TextMap[V]
     def apply[V](elems: (String, V)*): TextMap[V]
     def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]]
-    implicit def canBuildFrom[V]: CanBuildFrom[Coll, (String, V), TextMap[V]]
+    implicit def factory[V]: Factory[(String, V), TextMap[V]]
     final def fromMap[V](map: imm.Map[String, V]): TextMap[V] = leibniz[V].subst[Id](map)
     def subst[F[_[_]]](fa: F[imm.Map[String, *]]): F[TextMap]
     final def leibniz[V]: imm.Map[String, V] === TextMap[V] =
@@ -160,7 +158,8 @@ private[client] object OnlyPrimitive extends Primitive {
     override def empty[V]: TextMap[V] = imm.Map.empty
     override def apply[V](elems: (String, V)*): TextMap[V] = imm.Map(elems: _*)
     override def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]] = imm.Map.newBuilder
-    override def canBuildFrom[V]: CanBuildFrom[Coll, (String, V), TextMap[V]] = imm.Map.canBuildFrom
+    override def factory[V]: Factory[(String, V), TextMap[V]] =
+      implicitly[Factory[(String, V), imm.Map[String, V]]]
     override def subst[F[_[_]]](fa: F[TextMap]): F[TextMap] = fa
   }
 
@@ -288,8 +287,8 @@ object PrimitiveInstances {
   import language.implicitConversions
   import Primitive.TextMap
 
-  implicit def textMapCanBuildFrom[V]: CanBuildFrom[TextMap.Coll, (String, V), TextMap[V]] =
-    TextMap.canBuildFrom
+  implicit def textMapFactory[V]: Factory[(String, V), TextMap[V]] =
+    TextMap.factory
 
   /** Applied in contexts that ''expect'' a `TextMap`, iff -Xsource:2.13. */
   implicit def textMapFromMap[V](m: imm.Map[String, V]): TextMap[V] = TextMap fromMap m

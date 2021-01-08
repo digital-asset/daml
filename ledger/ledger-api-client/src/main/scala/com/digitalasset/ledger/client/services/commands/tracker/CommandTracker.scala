@@ -20,7 +20,8 @@ import com.google.rpc.status.Status
 import io.grpc.{Status => RpcStatus}
 import org.slf4j.LoggerFactory
 
-import scala.collection.{breakOut, immutable, mutable}
+import scala.collection.compat._
+import scala.collection.{immutable, mutable}
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NoStackTrace
@@ -67,7 +68,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
   override def createLogicAndMaterializedValue(
       inheritedAttributes: Attributes): (GraphStageLogic, Future[Map[String, Context]]) = {
 
-    val promise = Promise[immutable.Map[String, Context]]
+    val promise = Promise[immutable.Map[String, Context]]()
 
     val logic: TimerGraphStageLogic = new TimerGraphStageLogic(shape) {
 
@@ -226,28 +227,30 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
 
       private def getOutputForTimeout(instant: Instant) = {
         logger.trace("Checking timeouts at {}", instant)
-        pendingCommands.flatMap {
-          case (commandId, trackingData) =>
-            if (trackingData.commandTimeout.isBefore(instant)) {
-              pendingCommands -= commandId
-              logger.info(
-                s"Command {} (command timeout {}) timed out at checkpoint {}.",
-                commandId,
-                trackingData.commandTimeout,
-                instant)
-              List(
-                Ctx(
-                  trackingData.context,
-                  Completion(
-                    trackingData.commandId,
-                    Some(
-                      com.google.rpc.status.Status(RpcStatus.ABORTED.getCode.value(), "Timeout")),
-                    traceContext = trackingData.traceContext)
-                ))
-            } else {
-              Nil
-            }
-        }(breakOut)
+        pendingCommands.view
+          .flatMap {
+            case (commandId, trackingData) =>
+              if (trackingData.commandTimeout.isBefore(instant)) {
+                pendingCommands -= commandId
+                logger.info(
+                  s"Command {} (command timeout {}) timed out at checkpoint {}.",
+                  commandId,
+                  trackingData.commandTimeout,
+                  instant)
+                List(
+                  Ctx(
+                    trackingData.context,
+                    Completion(
+                      trackingData.commandId,
+                      Some(
+                        com.google.rpc.status.Status(RpcStatus.ABORTED.getCode.value(), "Timeout")),
+                      traceContext = trackingData.traceContext)
+                  ))
+              } else {
+                Nil
+              }
+          }
+          .to(immutable.Seq)
       }
 
       private def getOutputForCompletion(completion: Completion) = {
@@ -282,9 +285,9 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
       }
 
       override def postStop(): Unit = {
-        promise.tryComplete(Success(pendingCommands.map {
+        promise.tryComplete(Success(pendingCommands.view.map {
           case (k, v) => k -> v.context
-        }(breakOut)))
+        }.toMap))
         super.postStop()
       }
     }

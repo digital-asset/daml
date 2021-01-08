@@ -15,6 +15,10 @@ load(
 da_scala_library(
     name = "lf-value-json",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:lf-value-json:__VERSION__"],
     visibility = [
@@ -24,8 +28,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

@@ -13,7 +13,7 @@ import com.daml.ledger.api.v1.command_completion_service.{
 }
 import io.grpc.stub.StreamObserver
 
-import scala.collection.{breakOut, immutable}
+import scala.collection.immutable
 
 object CommandCompletionSource {
 
@@ -21,7 +21,7 @@ object CommandCompletionSource {
       response: CompletionStreamResponse): immutable.Iterable[CompletionStreamElement] = {
 
     val completions: Vector[CompletionStreamElement] =
-      response.completions.map(CompletionStreamElement.CompletionElement)(breakOut)
+      response.completions.view.map(CompletionStreamElement.CompletionElement).toVector
     response.checkpoint.fold(completions)(cp =>
       completions :+ CompletionStreamElement.CheckpointElement(cp))
   }

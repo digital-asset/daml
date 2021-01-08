@@ -212,7 +212,7 @@ object AuthServiceJWTCodec {
     fields.get(name) match {
       case None => None
       case Some(JsNull) => None
-      case Some(JsNumber(epochSeconds)) => Some(Instant.ofEpochSecond(epochSeconds.longValue()))
+      case Some(JsNumber(epochSeconds)) => Some(Instant.ofEpochSecond(epochSeconds.longValue))
       case Some(value) =>
         deserializationError(s"Can't read ${value.prettyPrint} as epoch seconds for $name")
     }

@@ -17,6 +17,7 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
+import scala.collection.compat._
 import scala.collection.immutable
 
 object DomainTransactionMapper {
@@ -114,7 +115,7 @@ class DomainTransactionMapper(decoder: DecoderType) extends LazyLogging {
       eventId = EventId(createdEvent.eventId)
       contractId = ContractId(createdEvent.contractId)
       templateId = TemplateId(tid)
-      witnessParties = createdEvent.witnessParties.map(Party.apply).to[immutable.Seq]
+      witnessParties = createdEvent.witnessParties.map(Party.apply).to(immutable.Seq)
       createArguments = CreateArguments(arguments)
     } yield
       DomainCreatedEvent(eventId, contractId, templateId, witnessParties, createArguments, contract)
@@ -129,7 +130,7 @@ class DomainTransactionMapper(decoder: DecoderType) extends LazyLogging {
       eventId = EventId(archivedEvent.eventId)
       contractId = ContractId(archivedEvent.contractId)
       templateId = TemplateId(tid)
-      witnessParties = archivedEvent.witnessParties.map(Party.apply).to[immutable.Seq]
+      witnessParties = archivedEvent.witnessParties.map(Party.apply).to(immutable.Seq)
     } yield DomainArchivedEvent(eventId, contractId, templateId, witnessParties)
 
 }

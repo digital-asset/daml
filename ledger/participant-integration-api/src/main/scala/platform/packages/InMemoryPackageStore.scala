@@ -60,7 +60,8 @@ private[platform] case class InMemoryPackageStore(
       sourceDescription: Option[String],
       file: File): Either[String, InMemoryPackageStore] = {
     val archivesTry = for {
-      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(file)
+      dar <- DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
+        .readArchiveFromFile(file)
     } yield dar.all
 
     for {
