@@ -14,8 +14,11 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import wolpertinger.color.Grey
 import wolpertinger.{Color, Wolpertinger}
+import alltests.MultiParty
 
 import scala.collection.JavaConverters._
+
+import java.util.Arrays.asList
 
 class CodegenLedgerTest extends AsyncFlatSpec with Matchers with TestResourceContext {
 
@@ -57,7 +60,7 @@ class CodegenLedgerTest extends AsyncFlatSpec with Matchers with TestResourceCon
   }
 
   it should "create correct exercise choice commands" in withClient { client =>
-    sendCmd(client, glookofly.create(), sruquito.create())
+    sendCmd(client, Alice, glookofly.create(), sruquito.create())
 
     val glookoflyContract :: sruquitoContract :: Nil =
       readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client)
@@ -162,6 +165,28 @@ class CodegenLedgerTest extends AsyncFlatSpec with Matchers with TestResourceCon
 
     // no explicit observers and the only choice controller is a signatory
     wolpertinger.observers shouldBe empty
+  }
+
+  it should "be able to create multi-party templates" in withClient { client =>
+    val multi = new MultiParty(Alice, Bob)
+    sendCmd(client, asList(Alice, Bob), asList[String](), multi.create());
+
+    val read = readActiveContracts(MultiParty.Contract.fromCreatedEvent)(client).head
+
+    read.data.p1 shouldBe Alice
+    read.data.p2 shouldBe Bob
+  }
+
+  it should "be able to read as other parties" in withClient { client =>
+    sendCmd(client, asList(Charlie, Bob), asList[String](), new MultiParty(Charlie, Bob).create())
+    sendCmd(client, asList(Alice, Bob), asList[String](), new MultiParty(Alice, Bob).create())
+    sendCmd(
+      client,
+      asList(Alice),
+      asList(Charlie),
+      MultiParty.exerciseByKeyMPFetchOtherByKey(new da.types.Tuple2(Alice, Bob), Charlie, Bob))
+
+    succeed
   }
 
 }

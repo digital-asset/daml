@@ -30,7 +30,28 @@ public interface CommandSubmissionClient {
     Single<Empty> submit(@NonNull String workflowId,
                          @NonNull String applicationId,
                          @NonNull String commandId,
+                         @NonNull List<@NonNull String> actAs,
+                         @NonNull List<@NonNull String> readAs,
+                         @NonNull Optional<Instant> minLedgerTimeAbs,
+                         @NonNull Optional<Duration> minLedgerTimeRel,
+                         @NonNull Optional<Duration> deduplicationTime,
+                         @NonNull List<@NonNull Command> commands);
+
+    Single<Empty> submit(@NonNull String workflowId,
+                         @NonNull String applicationId,
+                         @NonNull String commandId,
                          @NonNull String party,
+                         @NonNull Optional<Instant> minLedgerTimeAbs,
+                         @NonNull Optional<Duration> minLedgerTimeRel,
+                         @NonNull Optional<Duration> deduplicationTime,
+                         @NonNull List<@NonNull Command> commands,
+                         @NonNull String accessToken);
+
+    Single<Empty> submit(@NonNull String workflowId,
+                         @NonNull String applicationId,
+                         @NonNull String commandId,
+                         @NonNull List<@NonNull String> actAs,
+                         @NonNull List<@NonNull String> readAs,
                          @NonNull Optional<Instant> minLedgerTimeAbs,
                          @NonNull Optional<Duration> minLedgerTimeRel,
                          @NonNull Optional<Duration> deduplicationTime,
@@ -46,8 +67,22 @@ public interface CommandSubmissionClient {
     Single<Empty> submit(@NonNull String workflowId,
                          @NonNull String applicationId,
                          @NonNull String commandId,
+                         @NonNull List<@NonNull String> actAs,
+                         @NonNull List<@NonNull String> readAs,
+                         @NonNull List<@NonNull Command> commands);
+
+    Single<Empty> submit(@NonNull String workflowId,
+                         @NonNull String applicationId,
+                         @NonNull String commandId,
                          @NonNull String party,
                          @NonNull List<@NonNull Command> commands,
                          @NonNull String accessToken);
 
+    Single<Empty> submit(@NonNull String workflowId,
+                         @NonNull String applicationId,
+                         @NonNull String commandId,
+                         @NonNull List<@NonNull String> actAs,
+                         @NonNull List<@NonNull String> readAs,
+                         @NonNull List<@NonNull Command> commands,
+                         @NonNull String accessToken);
 }
