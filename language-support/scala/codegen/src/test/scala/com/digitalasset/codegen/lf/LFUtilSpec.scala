@@ -100,7 +100,7 @@ class LFUtilSpec extends AnyWordSpec with Matchers with Inside with ScalaCheckPr
         case TupleNestingCall(r, s, f) =>
           def visit(nesting: TupleNesting[Int], max: Int): Unit = {
             nesting.run.size should be <= max
-            nesting.run.foreach(_ fold (_ => (), visit(_, s)))
+            nesting.run.foreach(_.fold(_ => (), visit(_, s)))
           }
           visit(tupleNesting(f, r, s), r)
       }

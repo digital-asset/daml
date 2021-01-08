@@ -5,6 +5,8 @@ package com.daml.codegen.dependencygraph
 
 import com.daml.codegen.exception.UnsopportedTypeError
 
+import scala.collection.compat._
+
 object Graph {
 
   /**
@@ -13,7 +15,7 @@ object Graph {
     * member of the cycle first.
     */
   def cyclicDependencies[K, A](
-      internalNodes: TraversableOnce[(K, BaseNode[K, A])],
+      internalNodes: IterableOnce[(K, BaseNode[K, A])],
       roots: Iterable[(K, BaseNode[K, A])]): OrderedDependencies[K, A] = {
     type NKA = Node[K, A]
     type Seen = Map[K, Boolean]
@@ -25,7 +27,7 @@ object Graph {
         stack: Set[K],
         id: K,
         node: NKA): (Seen, Vector[(K, NKA)], Boolean, List[UnsopportedTypeError]) = {
-      if (seen.isDefinedAt(id) || stack(id)) (seen, Vector(), seen getOrElse (id, false), List())
+      if (seen.isDefinedAt(id) || stack(id)) (seen, Vector(), seen.getOrElse(id, false), List())
       else {
         val Node(_, deps, collectError @ _) = node
         val (newSeen, newEnts, missing, utes) = visitN(seen, stack + id, deps)
@@ -53,12 +55,12 @@ object Graph {
             case n: NKA =>
               val (newSeen, newEnts, nMissing, newUtes) = visit(seen, stack, k, n)
               (
-                newSeen updated (k, nMissing),
+                newSeen.updated(k, nMissing),
                 ents ++ newEnts,
                 if (nMissing) k :: missing else missing,
                 newUtes ++ utes)
           } getOrElse {
-            (seen updated (k, true), ents, k :: missing, utes)
+            (seen.updated(k, true), ents, k :: missing, utes)
           }
       }
 

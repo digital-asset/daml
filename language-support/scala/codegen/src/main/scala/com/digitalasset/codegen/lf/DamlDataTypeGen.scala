@@ -12,7 +12,6 @@ import com.daml.lf.data.Ref
 import com.typesafe.scalalogging.Logger
 import scalaz.{-\/, \/, \/-}
 
-import scala.collection.breakOut
 import scala.reflect.runtime.{universe => runUni}
 
 /**
@@ -432,11 +431,10 @@ object DamlDataTypeGen {
           q"""val ${TermName(s"ev$s")}: $domainApiAlias.encoding.LfEncodable[${TypeName(s)}]""")
 
       val viewsByName: Map[String, TermName] =
-        fields.zipWithIndex.map { case ((f, _), ix) => f -> TermName(s"view $ix") }(breakOut)
+        fields.zipWithIndex.view.map { case ((f, _), ix) => f -> TermName(s"view $ix") }.toMap
 
       val recordFieldsByName: Map[String, TermName] =
-        fields.zipWithIndex.map { case ((f, _), ix) => f -> TermName(s"recordFields $ix") }(
-          breakOut)
+        fields.zipWithIndex.view.map { case ((f, _), ix) => f -> TermName(s"recordFields $ix") }.toMap
 
       q"""
         implicit def $lfEncodableName[..$typeParams](implicit ..$typeParamEvidences): $domainApiAlias.encoding.LfEncodable[$appliedValueType] =

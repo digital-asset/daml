@@ -166,12 +166,17 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         bazel build --config scala_2_13 -- \
           //libs-scala/... \
-          //daml-lf/...
+          //daml-lf/... \
+          //language-support/scala/... \
+          -//language-support/scala/examples/... \
+          -//language-support/scala/codegen-sample-app/...
           # gatling-utils tests fail with a ClassNotFoundException for scala.collection.SeqLike
         bazel test --config scala_2_13 -- \
           //libs-scala/... \
           //daml-lf/... \
-          -//libs-scala/gatling-utils/...
+          -//libs-scala/gatling-utils/... \
+          -//language-support/scala/examples/... \
+          -//language-support/scala/codegen-sample-app/...
       displayName: 'Build'
     - template: tell-slack-failed.yml
       parameters:

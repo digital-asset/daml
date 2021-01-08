@@ -81,12 +81,19 @@ da_scala_test_suite(
             "src/test/**/*.scala",
         ],
     ),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scala_runtime_deps = [
+        "@maven//:com_typesafe_akka_akka_stream_testkit",
+    ],
     silent_annotations = True,
     visibility = [
         "//visibility:public",
-    ],
-    runtime_deps = [
-        "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
     ],
     deps = [
         ":bindings-akka",
@@ -95,11 +102,6 @@ da_scala_test_suite(
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-client",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_config",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

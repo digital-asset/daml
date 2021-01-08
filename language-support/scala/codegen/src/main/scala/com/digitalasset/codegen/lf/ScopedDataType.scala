@@ -8,7 +8,6 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.iface.{DataType, DefDataType}
 
-import scala.language.higherKinds
 import scalaz.{Apply, Comonad, Traverse1}
 import scalaz.syntax.functor._
 

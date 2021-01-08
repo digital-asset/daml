@@ -740,8 +740,6 @@ object JdbcLedgerDaoSuite {
   import scalaz.syntax.traverse._
   import scalaz.{Free, Monad, NaturalTransformation, Traverse}
 
-  import scala.language.higherKinds
-
   implicit final class `TraverseFM Ops`[T[_], A](private val self: T[A]) extends AnyVal {
 
     /** Like `traverse`, but guarantees that

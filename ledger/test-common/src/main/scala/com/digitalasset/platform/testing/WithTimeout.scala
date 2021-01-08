@@ -13,9 +13,9 @@ object WithTimeout {
   private[this] val timer = new Timer("timeout-timer", true)
 
   def apply[A](t: Duration)(f: => Future[A]): Future[A] = {
-    val p = Promise[A]
+    val p = Promise[A]()
     timer.schedule(new TimeoutTask(p), t.toMillis)
-    p.tryCompleteWith(f).future
+    p.completeWith(f).future
   }
 
 }

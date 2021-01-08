@@ -14,7 +14,7 @@ import scalaz.syntax.bifoldable._
 import scalaz.syntax.foldable._
 import scalaz.Bifoldable
 
-import scala.language.higherKinds
+import scala.collection.compat._
 
 sealed abstract class DependencyGraph[Iface, TmplI] {
   def orderedDependencies(
@@ -27,7 +27,7 @@ private final case class LFDependencyGraph(private val util: lf.LFUtil)
     : OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[DefTemplateWithRecord.FWT]] = {
     val EnvironmentInterface(decls) = library
     // invariant: no type decl name equals any template alias
-    val typeDeclNodes = decls.to[ImmArraySeq].collect {
+    val typeDeclNodes = decls.to(ImmArraySeq).collect {
       case (qualName, InterfaceType.Normal(typeDecl)) =>
         (
           qualName,
@@ -36,7 +36,7 @@ private final case class LFDependencyGraph(private val util: lf.LFUtil)
             symmGenTypeDependencies(typeDecl),
             collectDepError = false))
     }
-    val templateNodes = decls.to[ImmArraySeq].collect {
+    val templateNodes = decls.to(ImmArraySeq).collect {
       case (qualName, InterfaceType.Template(typ, tpl)) =>
         val recDeps = typ.foldMap(Util.genTypeTopLevelDeclNames)
         val choiceAndKeyDeps = tpl.foldMap(Util.genTypeTopLevelDeclNames)

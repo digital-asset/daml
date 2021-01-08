@@ -10,9 +10,8 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 
 import java.io.File
 
+import scala.collection.compat._
 import scala.reflect.runtime.universe._
-import scala.collection.generic.CanBuildFrom
-import scala.collection.TraversableLike
 import scalaz.{Tree => _, _}
 import scalaz.std.list._
 import scalaz.syntax.std.option._
@@ -39,7 +38,7 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
   private[codegen] def orderedDependencies(library: Interface)
     : OrderedDependencies[Ref.Identifier, TypeDeclOrTemplateWrapper[TemplateInterface]]
 
-  def templateAndTypeFiles(wp: WriteParams[TemplateInterface]): TraversableOnce[FilePlan]
+  def templateAndTypeFiles(wp: WriteParams[TemplateInterface]): IterableOnce[FilePlan]
 
   /**
     * Convert the metadataAlias into a [[DamlScalaName]] based on the `codeGenDeclKind`.
@@ -99,12 +98,12 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
 
     override def equals(ojb: Any): Boolean = ojb match {
       case that: DamlScalaName =>
-        that.packageSuffixParts.deep == this.packageSuffixParts.deep && that.name == this.name
+        that.packageSuffixParts.sameElements(this.packageSuffixParts) && that.name == this.name
       case _ =>
         false
     }
 
-    override def hashCode(): Int = (this.packageSuffixParts.deep, this.name).hashCode()
+    override def hashCode(): Int = (this.packageSuffixParts.toIndexedSeq, this.name).hashCode()
   }
 
   /**
@@ -211,11 +210,4 @@ object Util {
       case _ => None
     }
   }
-
-  /** cf. scalaz.MonadPlus#separate */
-  private[codegen] def partitionEithers[A, B, Coll, AS, BS](
-      abs: TraversableLike[Either[A, B], Coll])(
-      implicit AS: CanBuildFrom[Coll, A, AS],
-      BS: CanBuildFrom[Coll, B, BS]): (AS, BS) =
-    (abs collect { case Left(a) => a }, abs collect { case Right(a) => a })
 }
