@@ -14,7 +14,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.scalatest.ParallelTestExecution
@@ -92,7 +92,11 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
 
     // simulate restart of the participant node
     def restart() = this.synchronized {
-      engine = new Engine(EngineConfig.Dev.copy(packageValidation = false))
+      engine = new Engine(
+        EngineConfig(
+          allowedLanguageVersions = LanguageVersion.DevVersions,
+          packageValidation = false,
+        ))
       packageCommitter = new PackageCommitter(engine, metrics, validationMode, preloadingMode)
     }
 

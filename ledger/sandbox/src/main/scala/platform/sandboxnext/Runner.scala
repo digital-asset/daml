@@ -29,6 +29,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.language.LanguageVersion
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.platform.apiserver._
@@ -37,6 +38,7 @@ import com.daml.platform.configuration.PartyConfiguration
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandboxnext.Runner._
@@ -65,12 +67,17 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
   }
 
   private[this] val engine = {
-    val engineConfig =
-      (if (config.devMode) EngineConfig.Dev else EngineConfig.Stable)
-        .copy(
-          profileDir = config.profileDir,
-          stackTraceMode = config.stackTraces,
-        )
+    val languageVersions =
+      config.engineMode match {
+        case EngineMode.Dev => LanguageVersion.DevVersions
+        case EngineMode.EarlyAccess => LanguageVersion.EarlyAccessVersions
+        case EngineMode.Stable => LanguageVersion.StableVersions
+      }
+    val engineConfig = EngineConfig(
+      allowedLanguageVersions = languageVersions,
+      profileDir = config.profileDir,
+      stackTraceMode = config.stackTraces,
+    )
     new Engine(engineConfig)
   }
 

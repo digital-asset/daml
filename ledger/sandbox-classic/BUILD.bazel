@@ -236,6 +236,7 @@ da_scala_test_suite(
     data = [
         "//daml-lf/encoder:testing-dar-dev",
         "//daml-lf/encoder:testing-dar-latest",
+        "//daml-lf/encoder:testing-dar-preview",
         "//ledger/test-common:model-tests.dar",
         "//ledger/test-common/test-certificates",
     ],

@@ -24,10 +24,11 @@ import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.{
   LegacyTransactionCommitter,
   StandardTransactionCommitter,
-  TransactionCommitter,
+  TransactionCommitter
 }
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -37,6 +38,7 @@ import com.daml.platform.configuration.{InvalidConfigException, PartyConfigurati
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
+import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
@@ -143,23 +145,23 @@ final class SandboxServer(
 
   private[this] val engine = {
     val engineConfig = {
-      val baseConfig =
-        if (config.seeding.isEmpty) {
-          if (config.devMode) {
+      val allowedLanguageVersions =
+        config.engineMode match {
+          case EngineMode.Stable if config.seeding.nonEmpty =>
+            LanguageVersion.StableVersions
+          case EngineMode.Stable =>
+            LanguageVersion.LegacyVersions
+          case EngineMode.EarlyAccess if config.seeding.nonEmpty =>
+            LanguageVersion.EarlyAccessVersions
+          case EngineMode.Dev if config.seeding.nonEmpty =>
+            LanguageVersion.DevVersions
+          case mode =>
             throw new InvalidConfigException(
-              s""""${Seeding.NoSeedingModeName}" contract IDs seeding mode is not compatible with development mode"""
+              s""""${Seeding.NoSeedingModeName}" contract IDs seeding mode is not compatible with $mode mode"""
             )
-          } else {
-            EngineConfig.Legacy
-          }
-        } else {
-          if (config.devMode) {
-            EngineConfig.Dev
-          } else {
-            EngineConfig.Stable
-          }
         }
-      baseConfig.copy(
+      EngineConfig(
+        allowedLanguageVersions = allowedLanguageVersions,
         profileDir = config.profileDir,
         stackTraceMode = config.stackTraces,
       )
@@ -189,24 +191,23 @@ final class SandboxServer(
   def portF(implicit executionContext: ExecutionContext): Future[Port] =
     apiServer.map(_.port)
 
-  def resetAndRestartServer()(implicit
-      executionContext: ExecutionContext,
+  def resetAndRestartServer()(
+      implicit executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Unit] = {
     val apiServicesClosed = apiServer.flatMap(_.servicesClosed())
 
     // TODO: eliminate the state mutation somehow
     sandboxState = sandboxState.flatMap(
-      _.reset((materializer, metrics, packageStore, port) =>
-        buildAndStartApiServer(
-          materializer = materializer,
-          metrics = metrics,
-          packageStore = packageStore,
-          startMode = SqlStartMode.AlwaysReset,
-          currentPort = Some(port),
-        )
-      )
-    )
+      _.reset(
+        (materializer, metrics, packageStore, port) =>
+          buildAndStartApiServer(
+            materializer = materializer,
+            metrics = metrics,
+            packageStore = packageStore,
+            startMode = SqlStartMode.AlwaysReset,
+            currentPort = Some(port),
+        )))
 
     // Wait for the services to be closed, so we can guarantee that future API calls after finishing
     // the reset will never be handled by the old one.
@@ -214,10 +215,8 @@ final class SandboxServer(
   }
 
   // if requested, initialize the ledger state with the given scenario
-  private def createInitialState(
-      config: SandboxConfig,
-      packageStore: InMemoryPackageStore,
-  ): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
+  private def createInitialState(config: SandboxConfig, packageStore: InMemoryPackageStore)
+    : (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
     // [[ScenarioLoader]] needs all the packages to be already compiled --
     // make sure that that's the case
     if (config.eagerPackageLoading || config.scenario.nonEmpty) {
@@ -232,7 +231,7 @@ final class SandboxServer(
             packages = packageStore.getLfPackageSync,
             keys = { _ =>
               sys.error("Unexpected request of contract key")
-            },
+            }
           )
           .left
           .foreach(err => sys.error(err.detailMsg))
@@ -354,7 +353,7 @@ final class SandboxServer(
         ledgerConfiguration = ledgerConfiguration,
         commandConfig = config.commandConfig,
         partyConfig = PartyConfiguration.default.copy(
-          implicitPartyAllocation = config.implicitPartyAllocation
+          implicitPartyAllocation = config.implicitPartyAllocation,
         ),
         optTimeServiceBackend = timeServiceBackendO,
         servicesExecutionContext = servicesExecutionContext,
@@ -401,14 +400,21 @@ final class SandboxServer(
       if (config.scenario.nonEmpty) {
         logger.withoutContext.warn(
           """|Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use DAML Script instead. Using scenarios in DAML Studio will continue to work as expected.
-             |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin
+             |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin)
+      }
+      if (config.engineMode == SandboxConfig.EngineMode.EarlyAccess) {
+        logger.withoutContext.warn(
+          """|Using early access mode is dangerous as the backward compatibility of future SDKs is not guaranteed.
+             |Should be used for testing purpose only.""".stripMargin
         )
       }
       if (config.seeding.isEmpty) {
+        // TODO https://github.com/digital-asset/daml/issues/7139
+        //  change the message once LF 1.11 is release
         logger.withoutContext.warn(
-          s"""|'${Seeding.NoSeedingModeName}' contract IDs seeding mode is not compatible with LF 1.11 languages or later. 
+          s"""|'${Seeding.NoSeedingModeName}' contract IDs seeding mode is not compatible with the LF 1.11 languages or later which will be released soon.
               |A ledger stared with ${Seeding.NoSeedingModeName} contract IDs seeding will refuse to load LF 1.11 language or later. 
-              |Use the option '--contract-id-seeding=strong' to set up the contract IDs seeding mode and allow loading of any stable LF languages.""".stripMargin
+              |To make sure you can load LF 1.11 in future releases, use the option '--contract-id-seeding=strong' to set up the contract IDs seeding mode.""".stripMargin
         )
       }
       apiServer

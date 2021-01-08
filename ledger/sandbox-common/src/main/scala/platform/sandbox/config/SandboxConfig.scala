@@ -18,7 +18,8 @@ import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguratio
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 
-/** Defines the basic configuration for running sandbox
+/**
+  * Defines the basic configuration for running sandbox
   */
 final case class SandboxConfig(
     address: Option[String],
@@ -46,8 +47,8 @@ final case class SandboxConfig(
     lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
     profileDir: Option[Path],
     stackTraces: Boolean,
-    devMode: Boolean,
-    managementServiceTimeout: Duration,
+    engineMode: SandboxConfig.EngineMode,
+    managementServiceTimeout: Duration
 )
 
 object SandboxConfig {
@@ -94,8 +95,16 @@ object SandboxConfig {
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,
       stackTraces = true,
-      devMode = false,
+      engineMode = EngineMode.Stable,
       managementServiceTimeout = DefaultManagementServiceTimeout,
     )
+
+  sealed abstract class EngineMode extends Product with Serializable
+
+  object EngineMode {
+    final case object Stable extends EngineMode
+    final case object EarlyAccess extends EngineMode
+    final case object Dev extends EngineMode
+  }
 
 }

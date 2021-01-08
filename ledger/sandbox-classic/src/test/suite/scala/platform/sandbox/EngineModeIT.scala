@@ -16,7 +16,9 @@ import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.ledger.resources.TestResourceContext
+import com.daml.lf.language.LanguageVersion
 import com.daml.platform.apiserver.services.GrpcClientResource
+import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.ports.Port
 import com.google.protobuf
@@ -26,7 +28,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.util.{Failure, Success}
 
-class DevModeIT
+class EngineModeIT
     extends AsyncWordSpec
     with Matchers
     with Inside
@@ -35,12 +37,14 @@ class DevModeIT
   private[this] implicit val esf: ExecutionSequencerFactory =
     new SingleThreadExecutionSequencerPool("testSequencerPool")
 
-  private[this] val List(stableDar, devDar) =
-    List("1.8", "1.dev").map { s =>
-      Paths.get(rlocation(s"daml-lf/encoder/test-$s.dar"))
-    }
+  private[this] val List(maxStableVersion, previewVersion, devVersion) =
+    List(
+      LanguageVersion.StableVersions.max,
+      LanguageVersion.EarlyAccessVersions.max,
+      LanguageVersion.DevVersions.max,
+    )
 
-  private[this] val applicationId = ApplicationId("DevModeIT")
+  private[this] val applicationId = ApplicationId("EngineModeIT")
 
   private[this] def ledgerClientConfiguration =
     ledger.client.configuration.LedgerClientConfiguration(
@@ -48,16 +52,15 @@ class DevModeIT
       ledgerIdRequirement = ledger.client.configuration.LedgerIdRequirement.none,
       commandClient = ledger.client.configuration.CommandClientConfiguration.default,
       sslContext = None,
-      token = None,
+      token = None
     )
 
-  private[this] def buildServer(devMode: Boolean) =
+  private[this] def buildServer(mode: SandboxConfig.EngineMode) =
     SandboxServer.owner(
       DefaultConfig.copy(
         port = Port.Dynamic,
-        devMode = devMode,
-      )
-    )
+        engineMode = mode,
+      ))
 
   private[this] def buildRequest(pkgId: String, ledgerId: LedgerId) = {
     import scalaz.syntax.tag._
@@ -71,12 +74,10 @@ class DevModeIT
             tmplId,
             Seq(
               RecordField(value = Some(Value().withUnit(protobuf.empty.Empty()))),
-              RecordField(value = Some(Value().withParty(party))),
+              RecordField(value = Some(Value().withParty(party)))
             ),
-          )
-        ),
-      )
-    )
+          ))
+      ))
     SubmitAndWaitRequest(
       Some(
         Commands(
@@ -84,10 +85,8 @@ class DevModeIT
           applicationId = applicationId.unwrap,
           ledgerId = ledgerId.unwrap,
           commandId = UUID.randomUUID.toString,
-          commands = Seq(cmd),
-        )
-      )
-    )
+          commands = Seq(cmd)
+        )))
   }
 
   private[this] def run(darPath: Path, server: SandboxServer) =
@@ -110,27 +109,44 @@ class DevModeIT
 
   "SandboxServer" should {
 
-    "accept stable DAML LF when devMode is disable" in
-      buildServer(devMode = false)
-        .use(run(stableDar, _))
-        .map(inside(_) { case Success(_) => succeed })
+    import SandboxConfig.EngineMode
+    import EngineMode._
 
-    "accept stable DAML LF when devMode is enable" in
-      buildServer(devMode = true)
-        .use(run(stableDar, _))
-        .map(inside(_) { case Success(_) => succeed })
+    def load(langVersion: LanguageVersion, mode: EngineMode) =
+      buildServer(mode).use(
+        run(Paths.get(rlocation(s"daml-lf/encoder/test-${langVersion.pretty}.dar")), _))
 
-    "reject dev DAML LF when devMode is disable" in
-      buildServer(devMode = false).use(run(devDar, _)).map {
-        inside(_) { case Failure(exception) =>
-          exception.getMessage should include("Disallowed language version")
+    def accept(langVersion: LanguageVersion, mode: EngineMode) =
+      s"accept LF ${langVersion.pretty} when $mode mode is used" in
+        load(langVersion, mode).map {
+          inside(_) {
+            case Success(_) => succeed
+          }
         }
-      }
 
-    "accept dev DAML LF when devMode is enable" in
-      buildServer(devMode = true)
-        .use(run(devDar, _))
-        .map(inside(_) { case Success(_) => succeed })
+    def reject(langVersion: LanguageVersion, mode: EngineMode) =
+      s"reject LF ${langVersion.pretty} when $mode mode is used" in
+        load(langVersion, mode).map {
+          inside(_) {
+            case Failure(exception) =>
+              exception.getMessage should include("Disallowed language version")
+          }
+        }
+
+    accept(maxStableVersion, Stable)
+    accept(maxStableVersion, EarlyAccess)
+    accept(maxStableVersion, Dev)
+
+    if (LanguageVersion.EarlyAccessVersions != LanguageVersion.StableVersions) {
+      // a preview version is currently available
+      reject(previewVersion, Stable)
+      accept(previewVersion, EarlyAccess)
+      accept(previewVersion, Dev)
+    }
+
+    reject(devVersion, Stable)
+    reject(devVersion, EarlyAccess)
+    accept(devVersion, Dev)
 
   }
 

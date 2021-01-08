@@ -1984,7 +1984,7 @@ class EngineTest
 
     def engine(min: LV, max: LV) =
       new Engine(
-        EngineConfig.Dev.copy(
+        EngineConfig(
           allowedLanguageVersions = VersionRange(min, max)
         )
       )
