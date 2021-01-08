@@ -76,6 +76,8 @@ public class SubmitCommandsRequest {
         String applicationId = commands.getApplicationId();
         String commandId = commands.getCommandId();
         String party = commands.getParty();
+        List<String> actAs = commands.getActAsList();
+        List<String> readAs = commands.getReadAsList();
         Optional<Instant> minLedgerTimeAbs = commands.hasMinLedgerTimeAbs() ?
                 Optional.of(Instant.ofEpochSecond(commands.getMinLedgerTimeAbs().getSeconds(), commands.getMinLedgerTimeAbs().getNanos())) : Optional.empty();
         Optional<Duration> minLedgerTimeRel = commands.hasMinLedgerTimeRel() ?
@@ -86,7 +88,13 @@ public class SubmitCommandsRequest {
         for (CommandsOuterClass.Command command : commands.getCommandsList()) {
             listOfCommands.add(Command.fromProtoCommand(command));
         }
-        return new SubmitCommandsRequest(workflowId, applicationId, commandId, party, minLedgerTimeAbs, minLedgerTimeRel, deduplicationTime, listOfCommands);
+        if (!actAs.contains(party)) {
+            actAs.add(0, party);
+        }
+        return new SubmitCommandsRequest(
+                workflowId, applicationId, commandId, actAs, readAs,
+                minLedgerTimeAbs, minLedgerTimeRel, deduplicationTime,
+                listOfCommands);
     }
 
     public static CommandsOuterClass.Commands toProto(
