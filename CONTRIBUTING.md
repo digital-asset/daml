@@ -1,12 +1,12 @@
 # Contributing to Daml
 
-Welcome! This page gives a high-level overview of how to contribute to the development of DAML.
+Welcome! This page gives a high-level overview of how to contribute to the development of Daml.
 
 There are many ways you can contribute beyond coding. For example, you can report problems, clarify [issues](https://github.com/digital-asset/daml/issues), and write documentation. If you're completely new to open source development, the [Open Source Guides](https://opensource.guide) is a great place to start.
 
 ## Working on the codebase
 
-For information on how to build, test, and work on the codebase, see ["Contributing to DAML" in the README](./README.md#contributing-to-daml).
+For information on how to build, test, and work on the codebase, see ["Contributing to Daml" in the README](./README.md#contributing-to-daml).
 
 ## Code of conduct
 

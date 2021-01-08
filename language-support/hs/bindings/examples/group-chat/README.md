@@ -45,7 +45,7 @@ Messages:
 
 ## Modelling with Daml
 
-`GroupChat.daml` formalizes the above features in DAML. The essence of the model is as follows:
+`GroupChat.daml` formalizes the above features in Daml. The essence of the model is as follows:
 
 - A Message is modelled by a simple `Message` contract.
 - A Group is modelled by a series of `Group` contracts, only one being active at a time.

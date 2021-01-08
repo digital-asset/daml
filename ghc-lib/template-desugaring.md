@@ -139,7 +139,7 @@ _choice_IouTransfer
 
 ### Example (2)
 
-The next contract exercises the "contract keys" feature of DAML.
+The next contract exercises the "contract keys" feature of Daml.
 Contract key syntax desugars to `instance` declarations of the following typeclass.
 
 ```haskell

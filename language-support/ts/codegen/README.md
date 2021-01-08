@@ -96,7 +96,7 @@ See the [SDK docs](https://github.com/digital-asset/daml/tree/main/docs/source/d
 
 #### Records
 
-In DAML, define `Person` like so.
+In Daml, define `Person` like so.
 
 ```haskell
 data Person =
@@ -126,7 +126,7 @@ Two elements have been generated from the Daml type definition : (1) a TypeScrip
 
 #### Variants
 
-A type of additive expressions in DAML.
+A type of additive expressions in Daml.
 ```haskell
 data Expr a =
     Lit a
