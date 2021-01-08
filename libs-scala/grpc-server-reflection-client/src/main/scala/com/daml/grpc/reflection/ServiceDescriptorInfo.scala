@@ -20,7 +20,7 @@ object ServiceDescriptorInfo {
     val fullServiceName: String = s"$packageName.$serviceName"
     ServiceDescriptorInfo(
       fullServiceName = fullServiceName,
-      methods = methods.iterator.map(MethodDescriptorInfo(fullServiceName, _)).toSet,
+      methods = methods.view.map(MethodDescriptorInfo(fullServiceName, _)).toSet,
     )
   }
 
