@@ -267,7 +267,7 @@ export interface Stream<T extends object, K, I extends string, State> {
 }
 
 /**
- * Options for creating a handle to a DAML ledger.
+ * Options for creating a handle to a Daml ledger.
  */
 type LedgerOptions = {
   /** JSON web token used for authentication. */
@@ -294,7 +294,7 @@ type LedgerOptions = {
 }
 
 /**
- * An object of type `Ledger` represents a handle to a DAML ledger.
+ * An object of type `Ledger` represents a handle to a Daml ledger.
  */
 class Ledger {
   private readonly token: string;

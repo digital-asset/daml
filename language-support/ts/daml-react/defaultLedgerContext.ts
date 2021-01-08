@@ -25,7 +25,7 @@ export function DamlLedger(props: React.PropsWithChildren<LedgerProps>): React.R
 export function useParty(): Party { return ledgerContext.useParty(); }
 
 /**
- * React Hook that returns the Ledger instance to interact with the connected DAML ledger.
+ * React Hook that returns the Ledger instance to interact with the connected Daml ledger.
  */
 export function useLedger(): Ledger { return ledgerContext.useLedger(); }
 
