@@ -24,66 +24,92 @@ import GHC.Types
 import DA.Internal.LF
 import DA.Internal.Prelude ( Optional (..) )
 
+--------------------------------------------------------------
+
+-- | Exception typeclass. This should not be implemented directly,
+-- instead, use the `exception` syntax.
 type Exception e =
-    ( HasMessage e
-    , HasThrow e
+    ( HasThrow e
+    , HasMessage e
     , HasToAnyException e
     , HasFromAnyException e
     )
 
-class HasMessage e where
-    message : e -> Text
-
+-- | Part of the `Exception` constraint.
 class HasThrow e where
+    -- | Throw exception in a pure context.
     throwPure : forall t. e -> t
 
+-- | Part of the `Exception` constraint.
+class HasMessage e where
+    -- | Get the error message associated with an exception.
+    message : e -> Text
+
+-- | Part of the `Exception` constraint.
 class HasToAnyException e where
+    -- | Convert an exception type to AnyException.
     toAnyException : e -> AnyException
 
+-- | Part of the `Exception` constraint.
 class HasFromAnyException e where
+    -- | Convert an AnyException back to the underlying exception type, if possible.
     fromAnyException : AnyException -> Optional e
 
-{--
-instance HasMessage AnyException where
-    message = primitive @"BEAnyExceptionMessage"
-instance HasMessage GeneralError where
-    message = primitive @"BEGeneralErrorMessage"
-instance HasMessage ArithmeticError where
-    message = primitive @"BEArithmeticErrorMessage"
-instance HasMessage ContractError where
-    message = primitive @"BEContractErrorMessage"
---}
+--------------------------------------------------------------
 
-{--
-instance HasThrow GeneralError where
-    throwPure = primitive @"EThrow"
-instance HasThrow ArithmeticError where
-    throwPure = primitive @"EThrow"
-instance HasThrow ContractError where
-    throwPure = primitive @"EThrow"
---}
+-- No throw for AnyException.
+
+instance HasMessage AnyException where
+    message = undefined -- primitive @"BEAnyExceptionMessage"
 
 instance HasToAnyException AnyException where
     toAnyException e = e
-{--
-instance HasToAnyException GeneralError where
-    toAnyException = primitive @"EToAnyException"
-instance HasToAnyException ArithmeticError where
-    toAnyException = primitive @"EToAnyException"
-instance HasToAnyException ContractError where
-    toAnyException = primitive @"EToAnyException"
---}
 
 instance HasFromAnyException AnyException where
     fromAnyException = Some
-{--
-instance HasFromAnyException GeneralError where
-    fromAnyException = primitive @"EFromAnyException"
-instance HasFromAnyException ArithmeticError where
-    fromAnyException = primitive @"EFromAnyException"
-instance HasFromAnyException ContractError where
-    fromAnyException = primitive @"EFromAnyException"
---}
 
+--------------------------------------------------------------
+
+instance HasThrow GeneralError where
+    throwPure = undefined -- primitive @"EThrow"
+
+instance HasMessage GeneralError where
+    message = undefined -- primitive @"BEGeneralErrorMessage"
+
+instance HasToAnyException GeneralError where
+    toAnyException = undefined -- primitive @"EToAnyException"
+
+instance HasFromAnyException GeneralError where
+    fromAnyException = undefined -- primitive @"EFromAnyException"
+
+--------------------------------------------------------------
+
+instance HasThrow ArithmeticError where
+    throwPure = undefined -- primitive @"EThrow"
+
+instance HasMessage ArithmeticError where
+    message = undefined -- primitive @"BEArithmeticErrorMessage"
+
+instance HasToAnyException ArithmeticError where
+    toAnyException = undefined -- primitive @"EToAnyException"
+
+instance HasFromAnyException ArithmeticError where
+    fromAnyException = undefined -- primitive @"EFromAnyException"
+
+--------------------------------------------------------------
+
+instance HasThrow ContractError where
+    throwPure = undefined -- primitive @"EThrow"
+
+instance HasMessage ContractError where
+    message = undefined -- primitive @"BEContractErrorMessage"
+
+instance HasToAnyException ContractError where
+    toAnyException = undefined -- primitive @"EToAnyException"
+
+instance HasFromAnyException ContractError where
+    fromAnyException = undefined -- primitive @"EFromAnyException"
+
+--------------------------------------------------------------
 
 #endif
