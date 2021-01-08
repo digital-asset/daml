@@ -1,7 +1,7 @@
-// Copyright (c) 2019 The Daml Authors. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// .proto representation of the first version of the Daml-LF 1.6 language,
+// .proto representation of the first version of the DAML-LF 1.6 language,
 // as specified by
 // <https://github.com/digital-asset/daml/tree/c2e2e007e78828180d73ab7280a52b21376e3189/daml-lf/spec/daml-lf-1.rst>.
 //
@@ -53,7 +53,7 @@ message PackageRef {
 
     // A `Package identifier` for an imported Package.
     // A ascii7 lowercase hex-encoded package identifier. This refers
-    // to the Daml LF Archive Hash.
+    // to the DAML LF Archive Hash.
     string package_id = 2;
 
     // An index into `interned_package_ids` of the Package containing
@@ -315,7 +315,7 @@ enum PrimCon {
 }
 
 // Builtin functions
-// Refer to Daml-LF major version 1 specification for types and behavior of those.
+// Refer to DAML-LF major version 1 specification for types and behavior of those.
 enum BuiltinFunction {
   ADD_DECIMAL = 0;
   SUB_DECIMAL = 1;
@@ -668,7 +668,7 @@ message Expr {
     Expr body = 2;
   }
 
-  // Location of the expression in the Daml code source.
+  // Location of the expression in the DAML code source.
   // Optional
   Location location = 25;
 
@@ -1021,7 +1021,7 @@ message DefTemplate {
   // Name to which the template argument is bound.
   string param = 2;
 
-  // NOTE(MH): The new runtime authorization check for Daml 1.0 does not rely
+  // NOTE(MH): The new runtime authorization check for DAML 1.0 does not rely
   // on the stakeholder signatures produced by the obligables computation
   // anymore but uses the interpreter to compute the signatories and
   // stakeholders of contract instances.
