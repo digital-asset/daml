@@ -1,7 +1,7 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- A DAML file defines a module.
+-- A Daml file defines a module.
 module Token where
 
 -- Contract Templates define a type of contract that can exist on the ledger,

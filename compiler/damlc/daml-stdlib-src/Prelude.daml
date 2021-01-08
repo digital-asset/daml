@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE CPP #-}
 
--- | The pieces that make up the DAML language.
+-- | The pieces that make up the Daml language.
 module Prelude (module X) where
 
 import DA.Internal.Prelude as X hiding (magic)

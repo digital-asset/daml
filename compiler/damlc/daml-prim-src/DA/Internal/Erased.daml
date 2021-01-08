@@ -9,5 +9,5 @@ module DA.Internal.Erased
 
 import GHC.Types()
 
--- | Erased type used for kinds not supported by DAML-LF.
+-- | Erased type used for kinds not supported by Daml-LF.
 data Erased

@@ -80,7 +80,7 @@ ifThenElse c t f = case c of True -> t; False -> f
 
 
 -- NOTE(MH): We're remove all the produced runtime represenations when
--- converting to DAML-LF but still need them here for type checking.
+-- converting to Daml-LF but still need them here for type checking.
 
 {- Note [Runtime representation of modules and tycons]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -137,11 +137,11 @@ data TyCon = TyCon Word# Word#           -- Fingerprint
                    KindRep               -- A representation of the type's kind
 
 
--- | HIDE A DAML-LF call to an external package
+-- | HIDE A Daml-LF call to an external package
 external : forall (f : Symbol) b. b
 external = external --deleted by the compiler
 
--- | HIDE A DAML-LF primitive
+-- | HIDE A Daml-LF primitive
 primitive : forall (f : Symbol) b. b
 primitive = primitive -- deleted by the compiler
 
@@ -149,7 +149,7 @@ primitive = primitive -- deleted by the compiler
 magic : forall (f : Symbol) b. b
 magic = magic -- deleted by the compiler
 
--- | HIDE Dummy type to mark types built into DAML-LF.
+-- | HIDE Dummy type to mark types built into Daml-LF.
 data Opaque = Opaque
 
 -- | A type for text strings, that can represent any unicode code point.

@@ -24,7 +24,7 @@ template NameOfTemplate
           () -- replace () with the actual return type
         with
         party : Party -- parameters here
-      observer party -- optional specification of choice observers (currently only available in DAML-LF 1.11)
+      observer party -- optional specification of choice observers (currently only available in Daml-LF 1.11)
       controller exampleParty
         do
           return () -- replace this line with the choice body

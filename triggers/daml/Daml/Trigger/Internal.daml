@@ -38,7 +38,7 @@ import Daml.Trigger.LowLevel hiding (Trigger)
 -- | HIDE Active contract set, you can use `getContracts` to access the templates of
 -- a given type.
 
--- This will change to a Map once we have proper maps in DAML-LF
+-- This will change to a Map once we have proper maps in Daml-LF
 data ACS = ACS
   { activeContracts :
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
@@ -50,7 +50,7 @@ data ACS = ACS
   , pendingContracts : Map CommandId [AnyContractId]
   }
 
--- | TriggerA is the type used in the `rule` of a DAML trigger.
+-- | TriggerA is the type used in the `rule` of a Daml trigger.
 -- Its main feature is that you can call `emitCommands` to
 -- send commands to the ledger.
 newtype TriggerA s a =
@@ -74,7 +74,7 @@ instance ActionState s (TriggerA s) where
 instance HasTime (TriggerA s) where
   getTime = TriggerA $ const getTime
 
--- | TriggerUpdateA is the type used in the `updateState` of a DAML
+-- | TriggerUpdateA is the type used in the `updateState` of a Daml
 -- trigger.  It has similar actions in common with `TriggerA`, but
 -- cannot use `emitCommands` or `getTime`.
 newtype TriggerUpdateA s a =
@@ -96,7 +96,7 @@ instance ActionState s (TriggerUpdateA s) where
   put = TriggerUpdateA . const . put
   modify = TriggerUpdateA . const . modify
 
--- | TriggerInitializeA is the type used in the `initialize` of a DAML
+-- | TriggerInitializeA is the type used in the `initialize` of a Daml
 -- trigger.  It can query, but not emit commands or update the state.
 newtype TriggerInitializeA a =
   -- | HIDE

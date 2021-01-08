@@ -13,7 +13,7 @@ template Token
   where
     signatory owner
 
--- DAML Scripts are specified as top-level variables of type `Script a`. `do` always
+-- Daml Scripts are specified as top-level variables of type `Script a`. `do` always
 -- introduces a block.
 token_test = do
 

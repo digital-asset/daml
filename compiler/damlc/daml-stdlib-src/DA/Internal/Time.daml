@@ -3,7 +3,7 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 
--- | MOVE DA.Time DAML-LF types and primitives, apart from templates/contracts.
+-- | MOVE DA.Time Daml-LF types and primitives, apart from templates/contracts.
 module DA.Internal.Time where
 
 import DA.Internal.Prelude
