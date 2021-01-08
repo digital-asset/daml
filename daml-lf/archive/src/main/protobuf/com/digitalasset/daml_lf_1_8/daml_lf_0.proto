@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The Daml Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// DAML-LF-0 was a .proto representation of the DAML core stored in
+// Daml-LF-0 was a .proto representation of the Daml core stored in
 // the legacy sdaml format. We used it to ease transition between
-// sdaml and DAML-LF archives. This stub remains so we can
+// sdaml and Daml-LF archives. This stub remains so we can
 // successfully decode LFv0 archives and then report that they are
 // unsupported.
 

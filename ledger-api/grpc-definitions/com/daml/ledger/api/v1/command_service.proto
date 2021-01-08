@@ -20,7 +20,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 service CommandService {
 
   // Submits a single composite command and waits for its result.
-  // Propagates the gRPC error of failed submissions including DAML interpretation errors.
+  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
@@ -31,7 +31,7 @@ service CommandService {
   rpc SubmitAndWait (SubmitAndWaitRequest) returns (google.protobuf.Empty);
 
   // Submits a single composite command, waits for its result, and returns the transaction id.
-  // Propagates the gRPC error of failed submissions including DAML interpretation errors.
+  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
@@ -42,7 +42,7 @@ service CommandService {
   rpc SubmitAndWaitForTransactionId (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionIdResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction.
-  // Propagates the gRPC error of failed submissions including DAML interpretation errors.
+  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
@@ -53,7 +53,7 @@ service CommandService {
   rpc SubmitAndWaitForTransaction (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction tree.
-  // Propagates the gRPC error of failed submissions including DAML interpretation errors.
+  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation

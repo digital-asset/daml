@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 The Daml Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// .proto representation of the first version of the DAML-LF 1.8 language,
+// .proto representation of the first version of the Daml-LF 1.8 language,
 // as specified by
 // <https://github.com/digital-asset/daml/tree/cc7f3e7ad007bbc632af4201e768ddeb108260d5/daml-lf/spec/daml-lf-1.rst>.
 //
@@ -411,7 +411,7 @@ enum PrimCon {
 }
 
 // Builtin functions
-// Refer to DAML-LF major version 1 specification for types and behavior of those.
+// Refer to Daml-LF major version 1 specification for types and behavior of those.
 enum BuiltinFunction {
   ADD_DECIMAL = 0; // *Available in versions < 1.7*
   SUB_DECIMAL = 1; // *Available in versions < 1.7*
@@ -816,7 +816,7 @@ message Expr {
     Expr expr = 2;
   }
 
-  // Location of the expression in the DAML code source.
+  // Location of the expression in the Daml code source.
   // Optional
   Location location = 25;
 
@@ -1260,7 +1260,7 @@ message DefTemplate {
     int32 param_interned_str = 11; // *Available in versions >= 1.7*
   }
 
-  // NOTE(MH): The new runtime authorization check for DAML 1.0 does not rely
+  // NOTE(MH): The new runtime authorization check for Daml 1.0 does not rely
   // on the stakeholder signatures produced by the obligables computation
   // anymore but uses the interpreter to compute the signatories and
   // stakeholders of contract instances.
