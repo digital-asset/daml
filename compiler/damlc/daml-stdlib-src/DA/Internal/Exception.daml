@@ -43,7 +43,7 @@ class HasToAnyException e where
 class HasFromAnyException e where
     fromAnyException : AnyException -> Optional e
 
-{-
+{--
 instance HasMessage AnyException where
     message = primitive @"BEAnyExceptionMessage"
 instance HasMessage GeneralError where
@@ -52,38 +52,38 @@ instance HasMessage ArithmeticError where
     message = primitive @"BEArithmeticErrorMessage"
 instance HasMessage ContractError where
     message = primitive @"BEContractErrorMessage"
--}
+--}
 
-{-
+{--
 instance HasThrow GeneralError where
-    throwPure = magic @"throw"
+    throwPure = primitive @"EThrow"
 instance HasThrow ArithmeticError where
-    throwPure = magic @"throw"
+    throwPure = primitive @"EThrow"
 instance HasThrow ContractError where
-    throwPure = magic @"throw"
--}
+    throwPure = primitive @"EThrow"
+--}
 
 instance HasToAnyException AnyException where
     toAnyException e = e
-{-
+{--
 instance HasToAnyException GeneralError where
-    toAnyException = magic @"toAnyException"
+    toAnyException = primitive @"EToAnyException"
 instance HasToAnyException ArithmeticError where
-    toAnyException = magic @"toAnyException"
+    toAnyException = primitive @"EToAnyException"
 instance HasToAnyException ContractError where
-    toAnyException = magic @"toAnyException"
--}
+    toAnyException = primitive @"EToAnyException"
+--}
 
 instance HasFromAnyException AnyException where
     fromAnyException = Some
-{-
+{--
 instance HasFromAnyException GeneralError where
-    fromAnyException = magic @"fromAnyException"
+    fromAnyException = primitive @"EFromAnyException"
 instance HasFromAnyException ArithmeticError where
-    fromAnyException = magic @"fromAnyException"
+    fromAnyException = primitive @"EFromAnyException"
 instance HasFromAnyException ContractError where
-    fromAnyException = magic @"fromAnyException"
--}
+    fromAnyException = primitive @"EFromAnyException"
+--}
 
 
 #endif
