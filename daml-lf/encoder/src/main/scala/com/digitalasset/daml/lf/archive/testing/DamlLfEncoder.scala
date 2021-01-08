@@ -51,7 +51,7 @@ private[daml] object DamlLfEncoder extends App {
     }
 
   private def readSources(files: Seq[String]): String =
-    files.flatMap(file => Source.fromFile(Paths.get(file).toFile, "UTF8")).mkString
+    files.view.flatMap(file => Source.fromFile(Paths.get(file).toFile, "UTF8")).mkString
 
   private def makeArchive(source: String)(
       implicit parserParameters: ParserParameters[this.type]) = {
