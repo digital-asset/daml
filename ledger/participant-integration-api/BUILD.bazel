@@ -233,12 +233,6 @@ da_scala_test_suite(
         "//ledger/test-common/test-certificates",
         openssl_executable,
     ],
-    # this is not flaky for the usual "flaky tests" reasons. There is actually
-    # an ordering issue in transaction streams; some test failures are listed in
-    # https://github.com/digital-asset/daml/issues/7521 and the linked issues.
-    # We've marked it flaky because we don't want to collect failing cases
-    # anymore, and do not have a solution yet.
-    flaky = True,
     jvm_flags = [
         "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
     ],

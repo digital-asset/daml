@@ -51,6 +51,12 @@ package object events {
     * contiguous stretch of the input [[Source]]. Well suited to perform group-by
     * operations of streams where [[K]] attributes are either sorted or at least
     * show up in blocks.
+    *
+    * Implementation detail: this method _must_ use concatSubstreams instead of
+    * mergeSubstreams to prevent the substreams to be processed in parallel,
+    * potentially causing the outputs to be delivered in a different order.
+    *
+    * Docs: https://doc.akka.io/docs/akka/2.6.10/stream/stream-substream.html#groupby
     */
   private[events] def groupContiguous[A, K, Mat](source: Source[A, Mat])(
       by: A => K): Source[Vector[A], Mat] =
@@ -68,7 +74,7 @@ package object events {
       .splitWhen(_._2)
       .map(_._1)
       .fold(Vector.empty[A])(_ :+ _)
-      .mergeSubstreams
+      .concatSubstreams
 
   // Dispatches the call to either function based on the cardinality of the input
   // This is mostly designed to route requests to queries specialized for single/multi-party subs
