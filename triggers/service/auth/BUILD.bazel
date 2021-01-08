@@ -172,6 +172,7 @@ da_scala_test(
         "//libs-scala/adjustable-clock",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "//libs-scala/scala-utils",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_http_2_12",
