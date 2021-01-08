@@ -81,18 +81,21 @@ private[kvutils] object InputsAndEffects {
     }
 
     def addOrUpdateResolvedContractId(
-        key: DamlContractKey,
-        contractId: Option[Value.ContractId]): Unit =
-      resolvedContractIdsMap.get(key) match {
-        case None => resolvedContractIdsMap += (key -> contractId)
+        key: DamlStateKey,
+        contractId: Option[Value.ContractId]): Unit = {
+      val contractKey = key.getContractKey
+      resolvedContractIdsMap.get(contractKey) match {
+        case None => resolvedContractIdsMap += (contractKey -> contractId)
         case _ => ()
       }
+    }
 
     def updateMappingWithExercisesNode(exe: Node.NodeExercises[NodeId, Value.ContractId]): Unit = {
       if (exe.consuming) {
         exe.key.foreach { keyWithMaintainers =>
           val key = contractKeyStateKey(exe.templateId, keyWithMaintainers.key)
-          addOrUpdateResolvedContractId(key.getContractKey, Some(exe.targetCoid))
+          inputs += key
+          addOrUpdateResolvedContractId(key, Some(exe.targetCoid))
         }
       }
     }
@@ -107,16 +110,16 @@ private[kvutils] object InputsAndEffects {
         case fetch: Node.NodeFetch[Value.ContractId] =>
           fetch.key.foreach { keyWithMaintainers =>
             val key = stateKey(fetch, keyWithMaintainers)
-            addOrUpdateResolvedContractId(key.getContractKey, Some(fetch.coid))
+            addOrUpdateResolvedContractId(key, Some(fetch.coid))
           }
         case create: Node.NodeCreate[Value.ContractId] =>
           create.key.foreach { keyWithMaintainers =>
             val key = stateKey(create, keyWithMaintainers)
-            addOrUpdateResolvedContractId(key.getContractKey, None)
+            addOrUpdateResolvedContractId(key, None)
           }
         case lookup: Node.NodeLookupByKey[Value.ContractId] =>
           val key = stateKey(lookup, lookup.key)
-          addOrUpdateResolvedContractId(key.getContractKey, lookup.result)
+          addOrUpdateResolvedContractId(key, lookup.result)
       }
     }
 
