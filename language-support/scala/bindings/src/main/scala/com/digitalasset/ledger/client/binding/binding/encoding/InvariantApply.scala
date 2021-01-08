@@ -3,7 +3,6 @@
 
 package com.daml.ledger.client.binding.encoding
 
-import scala.language.higherKinds
 import scalaz.{-\/, Apply, Divide, InvariantFunctor, \/, \/-}
 
 /** A variant of [[Apply]] that generalizes with [[Divide]].  Instead of lifting
@@ -104,7 +103,7 @@ object InvariantApply {
   private final class OneOr[F[_]](implicit F: InvariantApply[F])
       extends InvariantApply[Lambda[a => F[a] \/ a]] {
     override def xmap[A, B](fa: F[A] \/ A, f: A => B, g: B => A) =
-      fa bimap (F.xmap(_, f, g), f)
+      fa.bimap(F.xmap(_, f, g), f)
 
     override def xmapN[A, B, Z](faa: F[A] \/ A, fbb: F[B] \/ B)(f: (A, B) => Z)(g: Z => (A, B)) =
       (faa, fbb) match {

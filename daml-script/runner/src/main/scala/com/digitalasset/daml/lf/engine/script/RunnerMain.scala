@@ -7,7 +7,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream._
 import java.nio.file.Files
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.io.Source

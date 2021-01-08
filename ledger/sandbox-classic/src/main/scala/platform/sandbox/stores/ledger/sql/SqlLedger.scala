@@ -282,7 +282,7 @@ private[sandbox] object SqlLedger {
         // This will attempt to run the SQL queries concurrently, but there is no parallelism here,
         // so they will still run sequentially.
         Future
-          .sequence(queue.toIterator.zipWithIndex.map {
+          .sequence(queue.iterator.zipWithIndex.map {
             case (persist, i) =>
               val offset = startOffset + i + 1
               persist(SandboxOffset.toOffset(offset))

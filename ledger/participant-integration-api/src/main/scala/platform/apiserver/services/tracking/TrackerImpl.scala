@@ -41,7 +41,7 @@ private[services] final class TrackerImpl(
       loggingContext: LoggingContext,
   ): Future[Completion] = {
     logger.trace("Tracking command")
-    val promise = Promise[Completion]
+    val promise = Promise[Completion]()
     submitNewRequest(request, promise)
   }
 

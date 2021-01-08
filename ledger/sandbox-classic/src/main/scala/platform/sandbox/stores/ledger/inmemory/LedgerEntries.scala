@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.sandbox.stores.ledger.SandboxOffset
 
+import scala.collection.compat._
 import scala.collection.immutable.TreeMap
 
 private[inmemory] class LedgerEntries[T](identify: T => String) {
@@ -58,7 +59,12 @@ private[inmemory] class LedgerEntries[T](identify: T => String) {
       RangeSource(
         (exclusiveStart, inclusiveEnd) =>
           Source[(Offset, T)](
-            state.get().items.from(exclusiveStart).filter(_._1 > exclusiveStart).to(inclusiveEnd)),
+            state
+              .get()
+              .items
+              .rangeFrom(exclusiveStart)
+              .filter(_._1 > exclusiveStart)
+              .rangeTo(inclusiveEnd)),
       ),
       endInclusive
     )

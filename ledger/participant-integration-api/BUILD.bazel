@@ -12,6 +12,7 @@ load(
     "silencer_plugin",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
+load("@scala_version//:index.bzl", "scala_major_version_suffix")
 
 compile_deps = [
     "//daml-lf/archive:daml_lf_archive_reader",
@@ -44,12 +45,7 @@ compile_deps = [
     "//libs-scala/resources-akka",
     "//libs-scala/scala-utils",
     "//libs-scala/timer-utils",
-    "@maven//:com_github_scopt_scopt_2_12",
     "@maven//:com_google_guava_guava",
-    "@maven//:com_typesafe_akka_akka_actor_2_12",
-    "@maven//:com_typesafe_akka_akka_stream_2_12",
-    "@maven//:org_playframework_anorm_anorm_2_12",
-    "@maven//:org_playframework_anorm_anorm_tokenizer_2_12",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",
     "@maven//:io_dropwizard_metrics_metrics_graphite",
@@ -60,10 +56,18 @@ compile_deps = [
     "@maven//:io_netty_netty_transport",
     "@maven//:net_logstash_logback_logstash_logback_encoder",
     "@maven//:org_flywaydb_flyway_core",
-    "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
-    "@maven//:org_scalaz_scalaz_core_2_12",
     "@maven//:io_opentelemetry_opentelemetry_api",
     "@maven//:org_slf4j_slf4j_api",
+]
+
+scala_compile_deps = [
+    "@maven//:com_github_scopt_scopt",
+    "@maven//:com_typesafe_akka_akka_actor",
+    "@maven//:com_typesafe_akka_akka_stream",
+    "@maven//:org_playframework_anorm_anorm",
+    "@maven//:org_playframework_anorm_anorm_tokenizer",
+    "@maven//:org_scala_lang_modules_scala_java8_compat",
+    "@maven//:org_scalaz_scalaz_core",
 ]
 
 runtime_deps = [
@@ -76,6 +80,7 @@ runtime_deps = [
 da_scala_library(
     name = "participant-integration-api",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [silencer_plugin],
     resources =
         glob(
             ["src/main/resources/**/*"],
@@ -85,6 +90,12 @@ da_scala_library(
         ) + [
             "//ledger-api:api-version-files",
         ],
+    scala_deps = scala_compile_deps + [
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
+    ],
     tags = ["maven_coordinates=com.daml:participant-integration-api:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -103,6 +114,7 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ),
+    scala_deps = scala_compile_deps,
     tags = ["maven_coordinates=com.daml:ledger-api-server:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -267,8 +279,13 @@ scaladoc_jar(
     visibility = [
         "//visibility:public",
     ],
-    deps = compile_deps,
-) if not is_windows else None
+    deps =
+        compile_deps +
+        [
+            "{}_{}".format(d, scala_major_version_suffix)
+            for d in scala_compile_deps + ["@maven//:org_scala_lang_modules_scala_collection_compat"]
+        ],
+) if (not is_windows and scala_major_version_suffix == "2_12") else None
 
 filegroup(
     name = "sources",

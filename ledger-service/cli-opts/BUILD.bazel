@@ -10,13 +10,15 @@ load(
 da_scala_library(
     name = "cli-opts",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:http-json-cli-opts:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//ledger/ledger-api-common",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:io_netty_netty_handler",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

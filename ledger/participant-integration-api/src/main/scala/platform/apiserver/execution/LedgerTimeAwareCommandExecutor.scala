@@ -58,7 +58,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
           // and advance output time or re-execute the command if necessary.
           val usedContractIds: Set[ContractId] = cer.transaction
             .inputContracts[ContractId]
-            .collect[ContractId, Set[ContractId]] {
+            .collect {
               case id: ContractId => id
             }
           if (usedContractIds.isEmpty)

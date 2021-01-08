@@ -335,7 +335,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
     jsValueToApiValue(value.parseJson, id, defs)
 
   private[this] def assertDE[A](ea: Either[String, A]): A =
-    ea fold (deserializationError(_), identity)
+    ea.fold(deserializationError(_), identity)
 
   private[json] def copy(
       encodeDecimalAsString: Boolean = this.encodeDecimalAsString,

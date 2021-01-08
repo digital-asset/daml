@@ -24,6 +24,7 @@ private[auth] abstract class AsyncForwardingListener[ReqT] extends ServerCall.Li
       msg(nextListener.get)
     } else {
       stash.append(msg)
+      ()
     }
   }
 

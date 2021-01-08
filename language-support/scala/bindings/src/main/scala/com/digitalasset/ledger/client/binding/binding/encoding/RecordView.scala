@@ -3,8 +3,6 @@
 
 package com.daml.ledger.client.binding.encoding
 
-import scala.language.higherKinds
-
 import scalaz.~>
 
 /** The API of [[LfEncodable.ViaFields#view]]. */

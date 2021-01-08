@@ -11,6 +11,7 @@ import com.daml.platform.server.api.validation.ErrorFactories.permissionDenied
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import org.slf4j.LoggerFactory
 
+import scala.collection.compat._
 import scala.concurrent.Future
 
 /** A simple helper that allows services to use authorization claims
@@ -63,9 +64,10 @@ final class Authorizer(now: () => Instant, ledgerId: String, participantId: Stri
     }
 
   private[this] def requireForAll[T](
-      xs: TraversableOnce[T],
+      xs: IterableOnce[T],
       f: T => Either[AuthorizationError, Unit]): Either[AuthorizationError, Unit] = {
-    xs.foldLeft[Either[AuthorizationError, Unit]](Right(()))((acc, x) => acc.flatMap(_ => f(x)))
+    xs.iterator.foldLeft[Either[AuthorizationError, Unit]](Right(()))((acc, x) =>
+      acc.flatMap(_ => f(x)))
   }
 
   /** Wraps a streaming call to verify whether some Claims authorize to read as all parties

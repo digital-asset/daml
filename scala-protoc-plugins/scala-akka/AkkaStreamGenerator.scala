@@ -9,7 +9,7 @@ import protocbridge.ProtocCodeGenerator
 import scalapb.compiler._
 import scalapb.options.compiler.Scalapb
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.reflect.io.Streamable
 
 // This file is mostly copied over from ScalaPbCodeGenerator and ProtobufGenerator
@@ -25,7 +25,7 @@ object AkkaStreamCompilerPlugin {
 
 class AkkaStreamGenerator(val params: GeneratorParams, files: Seq[FileDescriptor])
     extends DescriptorImplicits(params, files) {
-  def generateServiceFiles(file: FileDescriptor): Seq[CodeGeneratorResponse.File] = {
+  def generateServiceFiles(file: FileDescriptor): collection.Seq[CodeGeneratorResponse.File] = {
     file.getServices.asScala.flatMap { service =>
       val p = new AkkaGrpcServicePrinter(service, params)
       p.printService(FunctionalPrinter()).fold[List[CodeGeneratorResponse.File]](Nil) { p =>

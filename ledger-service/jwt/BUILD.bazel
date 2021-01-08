@@ -12,6 +12,11 @@ load(
 da_scala_library(
     name = "jwt",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:jwt:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -22,10 +27,7 @@ da_scala_library(
         "//daml-lf/data",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_auth0_jwks_rsa",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_guava_guava",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

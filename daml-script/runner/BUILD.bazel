@@ -14,6 +14,18 @@ script_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart 
 da_scala_library(
     name = "script-runner-lib",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_parsing",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_paiges_core",
+    ],
     scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
     deps = [
@@ -45,14 +57,7 @@ da_scala_library(
         "//libs-scala/auth-utils",
         "//libs-scala/ports",
         "//libs-scala/resources",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_akka_akka_http_2_12",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_typelevel_paiges_core_2_12",
+        "//libs-scala/scala-utils",
     ],
 )
 

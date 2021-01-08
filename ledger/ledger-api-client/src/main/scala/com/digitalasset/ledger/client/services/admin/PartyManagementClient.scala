@@ -51,7 +51,7 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(
     LedgerClient
       .stub(service, token)
       .listKnownParties(PartyManagementClient.listKnownPartiesRequest)
-      .map(_.partyDetails.map(PartyManagementClient.details)(collection.breakOut))
+      .map(_.partyDetails.view.map(PartyManagementClient.details).toList)
 
   def getParties(
       parties: OneAnd[Set, Ref.Party],
@@ -59,7 +59,7 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(
     LedgerClient
       .stub(service, token)
       .getParties(PartyManagementClient.getPartiesRequest(parties))
-      .map(_.partyDetails.map(PartyManagementClient.details)(collection.breakOut))
+      .map(_.partyDetails.view.map(PartyManagementClient.details).toList)
 
   def allocateParty(
       hint: Option[String],

@@ -24,7 +24,7 @@ object TraceIdentifiers {
     setIfNotEmpty(SpanAttribute.TransactionId, transaction.transactionId)
     setIfNotEmpty(SpanAttribute.WorkflowId, transaction.workflowId)
 
-    attributes.result
+    attributes.result()
   }
 
   /**
@@ -40,6 +40,6 @@ object TraceIdentifiers {
     setIfNotEmpty(SpanAttribute.TransactionId, transactionTree.transactionId)
     setIfNotEmpty(SpanAttribute.WorkflowId, transactionTree.workflowId)
 
-    attributes.result
+    attributes.result()
   }
 }
