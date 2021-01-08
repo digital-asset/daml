@@ -10,14 +10,15 @@ import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.grpc.reflection.v1alpha.ServerReflectionGrpc
 import io.grpc.services.HealthStatusManager
-import io.grpc.{BindableService, Channel}
+import io.grpc.{BindableService, Channel, StatusRuntimeException}
 import org.scalatest.Assertion
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 
-final class ServerReflectionClientSpec extends AsyncFlatSpec with Matchers {
+final class ServerReflectionClientSpec extends AsyncFlatSpec with Matchers with ScalaFutures {
 
   import ServerReflectionClientSpec._
 
@@ -26,7 +27,7 @@ final class ServerReflectionClientSpec extends AsyncFlatSpec with Matchers {
   it should "fail if reflection is not supported" in withServices(health) { channel =>
     val stub = ServerReflectionGrpc.newStub(channel)
     val client = new ServerReflectionClient(stub)
-    client.getAllServices().failed.map(_ => succeed)
+    client.getAllServices().failed.futureValue shouldBe a[StatusRuntimeException]
   }
 
   it should "show all if reflection is supported" in withServices(health, reflection) { channel =>
