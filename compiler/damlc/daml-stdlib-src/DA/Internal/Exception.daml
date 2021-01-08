@@ -112,4 +112,22 @@ instance HasFromAnyException ContractError where
 
 --------------------------------------------------------------
 
+-- | Action type in which `throw` is supported.
+class Action m => ActionThrow m where
+    throw : Exception e => e -> m t
+
+-- | Action type in which `try ... catch ...` is supported.
+class ActionThrow m => ActionCatch m where
+    -- | Handle an exception. Use the `try ... catch ...` syntax
+    -- instead of calling this method directly.
+    tryCatchRaw : (() -> m t) -> (AnyException -> Maybe (m t)) -> m t
+
+instance ActionThrow Update where
+    throw e = pure () >>= \_ -> throwPure e
+
+instance ActionCatch Update where
+    tryCatchRaw = undefined -- primitive @"UTryCatch"
+
+--------------------------------------------------------------
+
 #endif
