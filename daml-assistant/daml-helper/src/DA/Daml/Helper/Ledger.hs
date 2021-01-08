@@ -46,6 +46,7 @@ import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
 import Network.HTTP.Simple
 import Network.HTTP.Types (statusCode)
 import Numeric.Natural
+import System.Directory
 import System.Exit
 import System.FilePath
 import System.IO.Extra
@@ -415,6 +416,10 @@ runLedgerNavigator flags remainingArguments = do
             , ["--ignore-project-parties"]
             , remainingArguments
             ]
+    -- We write an empty ui-backend.conf file for backward compatibility. Otherwise navigator will
+    -- not start outside a project file.
+    let dummyNavigatorConf = "ui-backend.conf"
+    unlessM (doesFileExist dummyNavigatorConf) $ writeFile dummyNavigatorConf ""
     withJar
       damlSdkJar
       [logbackArg]
