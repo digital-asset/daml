@@ -8,7 +8,7 @@ import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceMa
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
@@ -40,7 +40,7 @@ final class LedgerClientIT
   )
 
   override protected def config: SandboxConfig = super.config.copy(
-    ledgerIdMode = LedgerIdMode.Static(LedgerId),
+    ledgerIdMode = LedgerIdMode.Static(LedgerId)
   )
 
   "the ledger client" should {
@@ -82,15 +82,14 @@ final class LedgerClientIT
       for {
         client <- LedgerClient(channel, ClientConfiguration)
       } yield {
-        inside(channel) {
-          case channel: ManagedChannel =>
-            channel.isShutdown should be(false)
-            channel.isTerminated should be(false)
+        inside(channel) { case channel: ManagedChannel =>
+          channel.isShutdown should be(false)
+          channel.isTerminated should be(false)
 
-            client.close()
+          client.close()
 
-            channel.isShutdown should be(true)
-            channel.isTerminated should be(true)
+          channel.isShutdown should be(true)
+          channel.isTerminated should be(true)
         }
       }
     }

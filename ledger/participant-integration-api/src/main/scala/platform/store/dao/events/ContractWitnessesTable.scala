@@ -33,7 +33,7 @@ private[events] sealed abstract class ContractWitnessesTable {
     batch(delete, ids.map(id => List[NamedParameter](IdColumn -> id)))
 
   def toExecutables(
-      info: TransactionIndexing.ContractWitnessesInfo,
+      info: TransactionIndexing.ContractWitnessesInfo
   ): ContractWitnessesTable.Executables = {
     ContractWitnessesTable.Executables(
       deleteWitnesses = prepareBatchDelete(info.netArchives.toList),

@@ -10,5 +10,5 @@ case class CompletionStreamRequest(
     ledgerId: LedgerId,
     applicationId: ApplicationId,
     parties: Set[Ref.Party],
-    offset: Option[LedgerOffset]
+    offset: Option[LedgerOffset],
 )

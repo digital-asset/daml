@@ -33,7 +33,7 @@ private[testtool] abstract class LedgerTestSuite {
         runConcurrently,
         participants,
         testCase,
-      ),
+      )
     )
   }
 }

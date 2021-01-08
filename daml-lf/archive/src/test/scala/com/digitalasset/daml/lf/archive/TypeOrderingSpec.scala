@@ -25,7 +25,9 @@ class TypeOrderingSpec extends AnyWordSpec with Matchers {
           .sortBy(_.getNumber)
           .collect(protoMapping)
 
-      primTypesInProtoOrder.sortBy(Ast.TBuiltin)(TypeOrdering.compare) shouldBe primTypesInProtoOrder
+      primTypesInProtoOrder.sortBy(Ast.TBuiltin)(
+        TypeOrdering.compare
+      ) shouldBe primTypesInProtoOrder
     }
   }
 

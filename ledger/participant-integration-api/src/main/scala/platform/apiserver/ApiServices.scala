@@ -24,25 +24,25 @@ import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.execution.{
   LedgerTimeAwareCommandExecutor,
   StoreBackedCommandExecutor,
-  TimedCommandExecutor
+  TimedCommandExecutor,
 }
 import com.daml.platform.apiserver.services._
 import com.daml.platform.apiserver.services.admin.{
   ApiConfigManagementService,
   ApiPackageManagementService,
   ApiParticipantPruningService,
-  ApiPartyManagementService
+  ApiPartyManagementService,
 }
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
-  PartyConfiguration
+  PartyConfiguration,
 }
 import com.daml.platform.server.api.services.grpc.{
   GrpcCommandCompletionService,
   GrpcHealthService,
-  GrpcTransactionService
+  GrpcTransactionService,
 }
 import com.daml.platform.services.time.TimeProviderType
 import io.grpc.BindableService
@@ -86,8 +86,8 @@ private[daml] object ApiServices {
       healthChecks: HealthChecks,
       seedService: SeedService,
       managementServiceTimeout: Duration,
-  )(
-      implicit materializer: Materializer,
+  )(implicit
+      materializer: Materializer,
       esf: ExecutionSequencerFactory,
       loggingContext: LoggingContext,
   ) extends ResourceOwner[ApiServices] {
@@ -116,14 +116,15 @@ private[daml] object ApiServices {
           )(materializer, servicesExecutionContext, loggingContext)
           .acquire()
         services <- Resource(
-          Future(createServices(ledgerId, ledgerConfigProvider)(servicesExecutionContext)))(
-          services =>
-            Future {
-              services.foreach {
-                case closeable: AutoCloseable => closeable.close()
-                case _ => ()
-              }
-          })
+          Future(createServices(ledgerId, ledgerConfigProvider)(servicesExecutionContext))
+        )(services =>
+          Future {
+            services.foreach {
+              case closeable: AutoCloseable => closeable.close()
+              case _ => ()
+            }
+          }
+        )
       } yield ApiServicesBundle(services)
     }
 
@@ -153,7 +154,8 @@ private[daml] object ApiServices {
 
       val apiTimeServiceOpt =
         optTimeServiceBackend.map(tsb =>
-          new TimeServiceAuthorization(ApiTimeService.create(ledgerId, tsb), authorizer))
+          new TimeServiceAuthorization(ApiTimeService.create(ledgerId, tsb), authorizer)
+        )
 
       val writeServiceBackedApiServices =
         intitializeWriteServiceBackedApiServices(
@@ -170,16 +172,16 @@ private[daml] object ApiServices {
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::
         List(
-        new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
-        new PackageServiceAuthorization(apiPackageService, authorizer),
-        new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
-        new TransactionServiceAuthorization(apiTransactionService, authorizer),
-        new CommandCompletionServiceAuthorization(apiCompletionService, authorizer),
-        new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
-        apiReflectionService,
-        apiHealthService,
-        apiVersionService,
-      )
+          new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
+          new PackageServiceAuthorization(apiPackageService, authorizer),
+          new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
+          new TransactionServiceAuthorization(apiTransactionService, authorizer),
+          new CommandCompletionServiceAuthorization(apiCompletionService, authorizer),
+          new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
+          apiReflectionService,
+          apiHealthService,
+          apiVersionService,
+        )
     }
 
     private def intitializeWriteServiceBackedApiServices(
@@ -216,7 +218,7 @@ private[daml] object ApiServices {
           seedService,
           commandExecutor,
           ApiSubmissionService.Configuration(
-            partyConfig.implicitPartyAllocation,
+            partyConfig.implicitPartyAllocation
           ),
           metrics,
         )
@@ -238,7 +240,7 @@ private[daml] object ApiServices {
             r => apiCompletionService.completionStreamSource(r),
             () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
             apiTransactionService.getTransactionById,
-            apiTransactionService.getFlatTransactionById
+            apiTransactionService.getFlatTransactionById,
           ),
           timeProvider,
           ledgerConfigProvider,

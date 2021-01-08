@@ -5,8 +5,7 @@ package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.participant.state.kvutils.Raw
 
-/**
-  * Raw key-value pairs with a distinct log entry.
+/** Raw key-value pairs with a distinct log entry.
   */
 case class RawKeyValuePairsWithLogEntry(
     state: Iterable[Raw.KeyValuePair],

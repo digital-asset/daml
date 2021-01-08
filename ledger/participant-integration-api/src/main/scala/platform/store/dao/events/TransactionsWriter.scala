@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.v1.{
   CommittedTransaction,
   DivulgedContract,
   Offset,
-  SubmitterInfo
+  SubmitterInfo,
 }
 import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding

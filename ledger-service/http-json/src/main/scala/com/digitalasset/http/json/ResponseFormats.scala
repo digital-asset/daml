@@ -30,7 +30,8 @@ private[http] object ResponseFormats {
 
   def resultJsObject[E: Show](
       jsVals: Source[E \/ JsValue, NotUsed],
-      warnings: Option[JsValue]): Source[ByteString, NotUsed] = {
+      warnings: Option[JsValue],
+  ): Source[ByteString, NotUsed] = {
 
     val graph = GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._

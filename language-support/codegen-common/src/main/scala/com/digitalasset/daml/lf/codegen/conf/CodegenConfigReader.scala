@@ -35,14 +35,13 @@ object CodegenConfigReader {
       verbosity <- verbosity(sdkConf, dest): Result[Option[Int]]
       logLevel <- logLevel(verbosity, Level.ERROR)
       root <- root(sdkConf, dest): Result[Option[List[String]]]
-    } yield
-      Conf(
-        darFiles = Map(dar -> packagePrefix),
-        outputDirectory = outputDirectory,
-        decoderPkgAndClass = decoderPkgAndClass,
-        verbosity = logLevel,
-        roots = root.getOrElse(Nil)
-      )
+    } yield Conf(
+      darFiles = Map(dar -> packagePrefix),
+      outputDirectory = outputDirectory,
+      decoderPkgAndClass = decoderPkgAndClass,
+      verbosity = logLevel,
+      roots = root.getOrElse(Nil),
+    )
 
   private def darPath(sdkConf: ProjectConfig): Result[Path] =
     for {
@@ -85,7 +84,8 @@ object CodegenConfigReader {
 
   private def decoderPkgAndClass(
       sdkConf: ProjectConfig,
-      mode: CodegenDest): Result[Option[(String, String)]] =
+      mode: CodegenDest,
+  ): Result[Option[(String, String)]] =
     codegen(sdkConf, mode)
       .downField("decoderClass")
       .as[Option[String]]

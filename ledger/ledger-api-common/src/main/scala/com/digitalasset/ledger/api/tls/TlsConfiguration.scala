@@ -13,17 +13,24 @@ final case class TlsConfiguration(
     keyCertChainFile: Option[File], // mutual auth is disabled if null
     keyFile: Option[File],
     trustCertCollectionFile: Option[File], // System default if null
-    clientAuth: ClientAuth = ClientAuth.REQUIRE, // Client auth setting used by the server. This is not used in the client configuration.
-    enableCertRevocationChecking: Boolean = false
+    clientAuth: ClientAuth =
+      ClientAuth.REQUIRE, // Client auth setting used by the server. This is not used in the client configuration.
+    enableCertRevocationChecking: Boolean = false,
 ) {
 
   def keyFileOrFail: File =
-    keyFile.getOrElse(throw new IllegalStateException(
-      s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyFile."))
+    keyFile.getOrElse(
+      throw new IllegalStateException(
+        s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyFile."
+      )
+    )
 
   def keyCertChainFileOrFail: File =
-    keyCertChainFile.getOrElse(throw new IllegalStateException(
-      s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyCertChainFile."))
+    keyCertChainFile.getOrElse(
+      throw new IllegalStateException(
+        s"Unable to convert ${this.toString} to SSL Context: cannot create SSL context without keyCertChainFile."
+      )
+    )
 
   /** If enabled and all required fields are present, it returns an SslContext suitable for client usage */
   def client: Option[SslContext] = {
@@ -45,7 +52,7 @@ final case class TlsConfiguration(
         GrpcSslContexts
           .forServer(
             keyCertChainFileOrFail,
-            keyFileOrFail
+            keyFileOrFail,
           )
           .trustManager(trustCertCollectionFile.orNull)
           .clientAuth(clientAuth)

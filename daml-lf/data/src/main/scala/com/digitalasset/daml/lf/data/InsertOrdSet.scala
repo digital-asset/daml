@@ -5,8 +5,7 @@ package com.daml.lf.data
 
 import scala.collection.immutable.{HashSet, Queue}
 
-/**
-  * Insert-ordered Set.
+/** Insert-ordered Set.
   *
   * Implemented as (Queue[T], HashSet[T]).
   * Asymptotics:
@@ -31,13 +30,13 @@ final class InsertOrdSet[T] private (_items: Queue[T], _hashSet: HashSet[T])
     else
       new InsertOrdSet(
         elem +: _items,
-        _hashSet + elem
+        _hashSet + elem,
       )
 
   override def excl(elem: T): InsertOrdSet[T] =
     new InsertOrdSet(
       _items.filter(elem2 => elem != elem2),
-      _hashSet - elem
+      _hashSet - elem,
     )
 }
 

@@ -30,7 +30,8 @@ class DarManifestReaderTest extends AnyWordSpec with Matchers with Inside {
     val actual = DarManifestReader.dalfNames(inputStream)
 
     actual shouldBe Success(
-      Dar("com.daml.lf.archive:DarReaderTest:0.1.dalf", List("daml-prim.dalf")))
+      Dar("com.daml.lf.archive:DarReaderTest:0.1.dalf", List("daml-prim.dalf"))
+    )
 
     inputStream.close()
   }
@@ -72,9 +73,8 @@ class DarManifestReaderTest extends AnyWordSpec with Matchers with Inside {
     val inputStream: InputStream = new ByteArrayInputStream(manifest.getBytes(unicode))
     val actual = DarManifestReader.dalfNames(inputStream)
 
-    inside(actual) {
-      case Failure(DarManifestReaderException(msg)) =>
-        msg shouldBe "Unsupported format: anything-different-from-daml-lf"
+    inside(actual) { case Failure(DarManifestReaderException(msg)) =>
+      msg shouldBe "Unsupported format: anything-different-from-daml-lf"
     }
 
     inputStream.close()

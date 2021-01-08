@@ -39,7 +39,7 @@ class BatchedValidatingCommitterSpec
           correlationId = "",
           submissionEnvelope = Raw.Value(ByteString.EMPTY),
           submittingParticipantId = aParticipantId,
-          ledgerStateOperations = mock[LedgerStateOperations[Unit]]
+          ledgerStateOperations = mock[LedgerStateOperations[Unit]],
         )
         .map { actual =>
           actual shouldBe SubmissionResult.Acknowledged
@@ -57,7 +57,7 @@ class BatchedValidatingCommitterSpec
           correlationId = "",
           submissionEnvelope = Raw.Value(ByteString.EMPTY),
           submittingParticipantId = aParticipantId,
-          ledgerStateOperations = mock[LedgerStateOperations[Unit]]
+          ledgerStateOperations = mock[LedgerStateOperations[Unit]],
         )
         .map { actual =>
           actual shouldBe SubmissionResult.InternalError("Validation failure")
@@ -66,7 +66,8 @@ class BatchedValidatingCommitterSpec
   }
 
   private def whenValidateAndCommit(
-      mockValidator: BatchedSubmissionValidator[Unit]): ScalaFirstStubbing[Future[Unit]] =
+      mockValidator: BatchedSubmissionValidator[Unit]
+  ): ScalaFirstStubbing[Future[Unit]] =
     when(
       mockValidator.validateAndCommit(
         any[Raw.Value](),
@@ -74,5 +75,7 @@ class BatchedValidatingCommitterSpec
         any[Instant](),
         any[ParticipantId](),
         any[DamlLedgerStateReader](),
-        any[CommitStrategy[Unit]]())(any[Materializer](), any[ExecutionContext]()))
+        any[CommitStrategy[Unit]](),
+      )(any[Materializer](), any[ExecutionContext]())
+    )
 }

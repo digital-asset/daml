@@ -7,7 +7,7 @@ import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
   PruneRequest,
-  PruneResponse
+  PruneResponse,
 }
 import com.daml.ledger.api.v1.admin.participant_pruning_service.ParticipantPruningServiceGrpc.ParticipantPruningService
 import com.daml.platform.api.grpc.GrpcApiService
@@ -18,7 +18,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ParticipantPruningServiceAuthorization(
     protected val service: ParticipantPruningService with AutoCloseable,
-    private val authorizer: Authorizer)(implicit executionContext: ExecutionContext)
+    private val authorizer: Authorizer,
+)(implicit executionContext: ExecutionContext)
     extends ParticipantPruningService
     with ProxyCloseable
     with GrpcApiService {

@@ -9,8 +9,7 @@ import com.daml.platform.store.Conversions.OffsetToStatement
 
 object EventsTableDelete {
 
-  /**
-    * Delete
+  /** Delete
     * - archive events before or at specified offset and
     * - create events that have been archived before or at the specific offset.
     */

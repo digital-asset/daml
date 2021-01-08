@@ -12,7 +12,7 @@ import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   IsStatusException,
-  TestingException
+  TestingException,
 }
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands

@@ -55,7 +55,7 @@ final class MappedCacheSpec
             Some(Integer.parseInt(value))
           } catch {
             case _: NumberFormatException => None
-        },
+          },
       )
 
       mappedCache.put(1, "one two three")

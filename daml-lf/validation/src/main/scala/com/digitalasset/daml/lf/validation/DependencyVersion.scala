@@ -21,7 +21,7 @@ private[validation] object DependencyVersion {
       pkgId,
       pkg.languageVersion,
       depPkgId,
-      depPkg.languageVersion
+      depPkg.languageVersion,
     )
   }
 

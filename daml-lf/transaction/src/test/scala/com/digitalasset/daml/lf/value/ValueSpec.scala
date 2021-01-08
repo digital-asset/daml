@@ -119,7 +119,8 @@ class ValueSpec
 
   private def checkOrderPreserved[Cid: Arbitrary: Shrink: Order](
       va: VA,
-      scope: Value.LookupVariantEnum) = {
+      scope: Value.LookupVariantEnum,
+  ) = {
     import va.{injord, injarb, injshrink}
     implicit val targetOrd: Order[Value[Cid]] = Tag unsubst Value.orderInstance(scope)
     forAll(minSuccessful(20)) { (a: va.Inj[Cid], b: va.Inj[Cid]) =>
@@ -181,9 +182,8 @@ class ValueSpec
           forEvery(Table("va", details.values.toSeq: _*)) { ea =>
             implicit val arb: Arbitrary[T] = ea.injarb[Cid] map (ea.inj(_))
             forAll(minSuccessful(20)) { (a: T, b: T) =>
-              inside((a, b)) {
-                case (ValueEnum(_, ac), ValueEnum(_, bc)) =>
-                  (a ?|? b) should ===((ea.values indexOf ac) ?|? (ea.values indexOf bc))
+              inside((a, b)) { case (ValueEnum(_, ac), ValueEnum(_, bc)) =>
+                (a ?|? b) should ===((ea.values indexOf ac) ?|? (ea.values indexOf bc))
               }
             }
           }
@@ -212,13 +212,14 @@ object ValueSpec {
     Gen.mapOf(Gen.zip(idGen, Gen.nonEmptyContainerOf[Set, Name](nameGen) map (_.toSeq)))
 
   private val enumDetailsAndScopeGen
-    : Gen[(Map[Identifier, VA.EnumAddend[Seq[Name]]], Value.LookupVariantEnum)] =
+      : Gen[(Map[Identifier, VA.EnumAddend[Seq[Name]]], Value.LookupVariantEnum)] =
     scopeOfEnumsGen flatMap { details =>
       (
         details transform ((name, members) => VA.enum(name, members)._2),
         details
           .transform((_, members) => members.to(ImmArray))
-          .lift)
+          .lift,
+      )
     }
   /*
   private val genFoos: Gen[(ImmArray[Name], ValueAddend)] =
@@ -228,5 +229,5 @@ object ValueSpec {
     fooVariant,
      map ()
   )
- */
+   */
 }

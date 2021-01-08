@@ -44,7 +44,10 @@ class TlsNoClientAuthSpec
             serverCrt,
             serverPem,
             caCrt,
-            clientAuth = ClientAuth.NONE)))
+            clientAuth = ClientAuth.NONE,
+          )
+        )
+      )
 
   "Extractor" should "be able to connect with TLS enabled but no client cert" in {
     val config = baseConfig.copy(

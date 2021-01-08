@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref.Location
   * lookup.
   */
 final case class SDefinition(
-    body: SExpr,
+    body: SExpr
 ) {
   private var _cached: Option[(SValue, List[Location])] = None
   private[speedy] def cached: Option[(SValue, List[Location])] = _cached

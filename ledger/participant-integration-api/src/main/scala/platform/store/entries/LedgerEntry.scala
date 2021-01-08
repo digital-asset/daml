@@ -20,8 +20,8 @@ private[platform] object LedgerEntry {
       commandId: CommandId,
       applicationId: ApplicationId,
       actAs: List[Party],
-      rejectionReason: RejectionReason)
-      extends LedgerEntry
+      rejectionReason: RejectionReason,
+  ) extends LedgerEntry
 
   final case class Transaction(
       commandId: Option[CommandId],
@@ -32,6 +32,6 @@ private[platform] object LedgerEntry {
       ledgerEffectiveTime: Instant,
       recordedAt: Instant,
       transaction: CommittedTransaction,
-      explicitDisclosure: Relation[NodeId, Party])
-      extends LedgerEntry
+      explicitDisclosure: Relation[NodeId, Party],
+  ) extends LedgerEntry
 }

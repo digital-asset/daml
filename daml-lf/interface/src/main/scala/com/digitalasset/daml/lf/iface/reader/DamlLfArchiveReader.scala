@@ -24,7 +24,8 @@ object DamlLfArchiveReader {
   ): String \/ (Ref.PackageId, Ast.Package) = {
     val (pkgId, lf) = pkgIdAndPayLoad
     \/.fromTryCatchNonFatal(
-      new archive.Decode(onlySerializableDataDefs = true).readArchivePayload(pkgId, lf))
+      new archive.Decode(onlySerializableDataDefs = true).readArchivePayload(pkgId, lf)
+    )
       .leftMap(errorMessage)
   }
 

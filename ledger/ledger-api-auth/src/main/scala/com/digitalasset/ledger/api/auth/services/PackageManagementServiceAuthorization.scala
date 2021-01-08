@@ -21,7 +21,8 @@ private[daml] final class PackageManagementServiceAuthorization(
     with GrpcApiService {
 
   override def listKnownPackages(
-      request: ListKnownPackagesRequest): Future[ListKnownPackagesResponse] =
+      request: ListKnownPackagesRequest
+  ): Future[ListKnownPackagesResponse] =
     authorizer.requireAdminClaims(service.listKnownPackages)(request)
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] =

@@ -50,18 +50,15 @@ private[migration] class V5_1__Populate_Event_Data extends BaseJavaMigration {
     val conn = context.getConnection
 
     val txs = loadTransactions(conn)
-    val data = txs.flatMap {
-      case (txId, tx) =>
-        tx.nodes.collect {
-          case (nodeId, NodeCreate(cid, _, _, signatories, stakeholders, _, _)) =>
-            (cid, EventId(txId, nodeId), signatories, stakeholders -- signatories)
-        }
+    val data = txs.flatMap { case (txId, tx) =>
+      tx.nodes.collect { case (nodeId, NodeCreate(cid, _, _, signatories, stakeholders, _, _)) =>
+        (cid, EventId(txId, nodeId), signatories, stakeholders -- signatories)
+      }
     }
 
     data.grouped(batchSize).foreach { batch =>
-      val updateContractsParams = batch.map {
-        case (cid, eventId, _, _) =>
-          Seq[NamedParameter]("event_id" -> eventId, "contract_id" -> cid.coid)
+      val updateContractsParams = batch.map { case (cid, eventId, _, _) =>
+        Seq[NamedParameter]("event_id" -> eventId, "contract_id" -> cid.coid)
       }
       BatchSql(
         "UPDATE contracts SET create_event_id = {event_id} where id = {contract_id}",
@@ -69,10 +66,9 @@ private[migration] class V5_1__Populate_Event_Data extends BaseJavaMigration {
         updateContractsParams.tail: _*
       ).execute()(conn)
 
-      val signatories = batch.flatMap {
-        case (cid, _, signatories, _) =>
-          signatories.map(signatory =>
-            Seq[NamedParameter]("contract_id" -> cid.coid, "party" -> signatory))
+      val signatories = batch.flatMap { case (cid, _, signatories, _) =>
+        signatories
+          .map(signatory => Seq[NamedParameter]("contract_id" -> cid.coid, "party" -> signatory))
       }
       BatchSql(
         "INSERT INTO contract_signatories VALUES ({contract_id}, {party})",
@@ -80,10 +76,9 @@ private[migration] class V5_1__Populate_Event_Data extends BaseJavaMigration {
         signatories.tail: _*
       ).execute()(conn)
 
-      val observers = batch.flatMap {
-        case (cid, _, _, observers) =>
-          observers.map(observer =>
-            Seq[NamedParameter]("contract_id" -> cid.coid, "party" -> observer))
+      val observers = batch.flatMap { case (cid, _, _, observers) =>
+        observers
+          .map(observer => Seq[NamedParameter]("contract_id" -> cid.coid, "party" -> observer))
       }
       if (observers.nonEmpty) {
         BatchSql(

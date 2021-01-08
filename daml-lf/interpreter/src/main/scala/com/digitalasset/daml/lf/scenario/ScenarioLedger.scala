@@ -14,7 +14,7 @@ import com.daml.lf.transaction.{
   GlobalKey,
   NodeId,
   SubmittedTransaction,
-  Transaction => Tx
+  Transaction => Tx,
 }
 import com.daml.lf.value.Value
 import Value.{NodeId => _, _}
@@ -91,8 +91,7 @@ object ScenarioLedger {
 
   object RichTransaction {
 
-    /**
-      * Translate an EnrichedTransaction to a RichTransaction. EnrichedTransaction's contain local
+    /** Translate an EnrichedTransaction to a RichTransaction. EnrichedTransaction's contain local
       * node id's and contain additional information in the most detailed form suitable for different
       * consumers. The RichTransaction is the transaction that we serialize in the sandbox to compare
       * different ledgers. All relative and absolute node id's are translated to absolute node id's of
@@ -229,7 +228,7 @@ object ScenarioLedger {
   sealed trait CommitError
   object CommitError {
     final case class UniqueKeyViolation(
-        error: ScenarioLedger.UniqueKeyViolation,
+        error: ScenarioLedger.UniqueKeyViolation
     ) extends CommitError
   }
 
@@ -258,13 +257,14 @@ object ScenarioLedger {
               scenarioSteps = l.scenarioSteps + (l.scenarioStepId.index -> Commit(
                 l.scenarioStepId,
                 richTr,
-                optLocation)),
+                optLocation,
+              )),
               scenarioStepId = l.scenarioStepId.next,
               ledgerData = updatedCache,
             ),
             l.scenarioStepId,
             richTr,
-          ),
+          )
         )
     }
   }
@@ -317,8 +317,8 @@ object ScenarioLedger {
     def collect(v: Value[ContractId]): Unit =
       v match {
         case ValueRecord(tycon @ _, fs) =>
-          fs.foreach {
-            case (_, v) => collect(v)
+          fs.foreach { case (_, v) =>
+            collect(v)
           }
         case ValueVariant(_, _, arg) => collect(arg)
         case _: ValueEnum => ()
@@ -330,10 +330,9 @@ object ScenarioLedger {
         case ValueOptional(mbV) => mbV.foreach(collect)
         case ValueTextMap(map) => map.values.foreach(collect)
         case ValueGenMap(entries) =>
-          entries.foreach {
-            case (k, v) =>
-              collect(k)
-              collect(v)
+          entries.foreach { case (k, v) =>
+            collect(k)
+            collect(v)
           }
       }
 
@@ -349,8 +348,7 @@ object ScenarioLedger {
     lazy val empty = LedgerData(Set.empty, Map.empty, Map.empty, Map.empty)
   }
 
-  /**
-    * @param activeContracts The contracts that are active in the
+  /** @param activeContracts The contracts that are active in the
     *                        current state of the ledger.
     * @param nodeInfos       Node information used to efficiently navigate
     *                        the transaction graph
@@ -364,18 +362,18 @@ object ScenarioLedger {
     def nodeInfoByCoid(coid: ContractId): LedgerNodeInfo = nodeInfos(coidToNodeId(coid))
 
     def updateLedgerNodeInfo(
-        coid: ContractId,
+        coid: ContractId
     )(f: (LedgerNodeInfo) => LedgerNodeInfo): LedgerData =
       coidToNodeId.get(coid).map(updateLedgerNodeInfo(_)(f)).getOrElse(this)
 
     def updateLedgerNodeInfo(
-        nodeId: EventId,
+        nodeId: EventId
     )(f: (LedgerNodeInfo) => LedgerNodeInfo): LedgerData =
       copy(
         nodeInfos = nodeInfos
           .get(nodeId)
           .map(ni => nodeInfos.updated(nodeId, f(ni)))
-          .getOrElse(nodeInfos),
+          .getOrElse(nodeInfos)
       )
 
     def markAsActive(coid: ContractId): LedgerData =
@@ -458,18 +456,19 @@ object ScenarioLedger {
                     case NodeFetch(referencedCoid, templateId @ _, optLoc @ _, _, _, _, _, _, _) =>
                       val newCacheP =
                         newCache.updateLedgerNodeInfo(referencedCoid)(info =>
-                          info.copy(referencedBy = info.referencedBy + eventId))
+                          info.copy(referencedBy = info.referencedBy + eventId)
+                        )
 
                       processNodes(Right(newCacheP), idsToProcess)
 
                     case ex: NodeExercises[NodeId, ContractId] =>
                       val newCache0 =
-                        newCache.updateLedgerNodeInfo(ex.targetCoid)(
-                          info =>
-                            info.copy(
-                              referencedBy = info.referencedBy + eventId,
-                              consumedBy = if (ex.consuming) Some(eventId) else info.consumedBy,
-                          ))
+                        newCache.updateLedgerNodeInfo(ex.targetCoid)(info =>
+                          info.copy(
+                            referencedBy = info.referencedBy + eventId,
+                            consumedBy = if (ex.consuming) Some(eventId) else info.consumedBy,
+                          )
+                        )
                       val newCache1 =
                         if (ex.consuming) {
                           val newCache0_1 = newCache0.markAsInactive(ex.targetCoid)
@@ -485,7 +484,7 @@ object ScenarioLedger {
                                   ex.templateId,
                                   // FIXME: we probably should'nt crash here !
                                   assertNoContractId(keyWithMaintainers.key),
-                                ),
+                                )
                               )
                           }
                         } else newCache0
@@ -502,7 +501,8 @@ object ScenarioLedger {
                         case Some(referencedCoid) =>
                           val newCacheP =
                             newCache.updateLedgerNodeInfo(referencedCoid)(info =>
-                              info.copy(referencedBy = info.referencedBy + eventId))
+                              info.copy(referencedBy = info.referencedBy + eventId)
+                            )
 
                           processNodes(Right(newCacheP), idsToProcess)
                       }
@@ -523,12 +523,14 @@ object ScenarioLedger {
         richTr.blindingInfo.disclosure.foldLeft(cacheAfterProcess) {
           case (cacheP, (nodeId, witnesses)) =>
             cacheP.updateLedgerNodeInfo(EventId(richTr.transactionId, nodeId))(
-              _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = true)).toMap))
+              _.addDisclosures(witnesses.map(_ -> Disclosure(since = trId, explicit = true)).toMap)
+            )
         }
       richTr.blindingInfo.divulgence.foldLeft(cacheWithExplicitDisclosures) {
         case (cacheP, (coid, divulgees)) =>
           cacheP.updateLedgerNodeInfo(cacheAfterProcess.coidToNodeId(coid))(
-            _.addDisclosures(divulgees.map(_ -> Disclosure(since = trId, explicit = false)).toMap))
+            _.addDisclosures(divulgees.map(_ -> Disclosure(since = trId, explicit = false)).toMap)
+          )
       }
     }
   }
@@ -539,8 +541,7 @@ object ScenarioLedger {
 // The ledger
 // ----------------------------------------------------------------
 
-/**
-  * @param currentTime        The current time of the ledger. We only use
+/** @param currentTime        The current time of the ledger. We only use
   *                           that to implement the 'pass'
   *                           scenario-statement and to have a
   *                           ledger-effective-time for executing 'commit'
@@ -577,7 +578,8 @@ case class ScenarioLedger(
   def insertAssertMustFail(
       actAs: Set[Party],
       readAs: Set[Party],
-      optLocation: Option[Location]): ScenarioLedger = {
+      optLocation: Option[Location],
+  ): ScenarioLedger = {
     val id = scenarioStepId
     val effAt = currentTime
     val newIMS = scenarioSteps + (id.index -> AssertMustFail(actAs, readAs, optLocation, effAt, id))
@@ -594,8 +596,8 @@ case class ScenarioLedger(
   ): Seq[LookupOk] = {
     ledgerData.activeContracts.toList
       .map(cid => lookupGlobalContract(view, effectiveAt, cid))
-      .collect {
-        case l @ LookupOk(_, _, _) => l
+      .collect { case l @ LookupOk(_, _, _) =>
+        l
       }
   }
 

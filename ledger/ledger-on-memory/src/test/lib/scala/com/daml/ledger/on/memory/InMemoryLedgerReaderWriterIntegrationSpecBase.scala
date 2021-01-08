@@ -7,7 +7,7 @@ import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpec
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriterConfig,
-  KeyValueParticipantState
+  KeyValueParticipantState,
 }
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.daml.ledger.resources.ResourceOwner
@@ -20,7 +20,8 @@ import scala.concurrent.duration.DurationInt
 abstract class InMemoryLedgerReaderWriterIntegrationSpecBase(enableBatching: Boolean)
     extends ParticipantStateIntegrationSpecBase(
       s"In-memory ledger/participant with parallel validation ${if (enableBatching) "enabled"
-      else "disabled"}") {
+      else "disabled"}"
+    ) {
 
   private val batchingLedgerWriterConfig =
     BatchingLedgerWriterConfig(
@@ -33,7 +34,7 @@ abstract class InMemoryLedgerReaderWriterIntegrationSpecBase(enableBatching: Boo
       maxBatchSizeBytes = 4L * 1024L * 1024L /* 4MB */,
       maxBatchWaitDuration = 100.millis,
       // In-memory ledger doesn't support concurrent commits.
-      maxBatchConcurrentCommits = 1
+      maxBatchConcurrentCommits = 1,
     )
 
   override val isPersistent: Boolean = false
@@ -49,7 +50,7 @@ abstract class InMemoryLedgerReaderWriterIntegrationSpecBase(enableBatching: Boo
       batchingLedgerWriterConfig,
       participantId,
       metrics = metrics,
-      engine = Engine.DevEngine()
+      engine = Engine.DevEngine(),
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
 
 }

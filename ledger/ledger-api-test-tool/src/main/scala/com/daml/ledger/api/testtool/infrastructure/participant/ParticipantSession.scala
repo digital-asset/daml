@@ -37,16 +37,15 @@ private[infrastructure] final class ParticipantSession private (
   ): Future[ParticipantTestContext] =
     for {
       end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
-    } yield
-      new ParticipantTestContext(
-        ledgerId,
-        endpointId,
-        applicationId,
-        identifierSuffix,
-        end,
-        services,
-        config.partyAllocation,
-      )
+    } yield new ParticipantTestContext(
+      ledgerId,
+      endpointId,
+      applicationId,
+      identifierSuffix,
+      end,
+      services,
+      config.partyAllocation,
+    )
 }
 
 object ParticipantSession {
@@ -64,15 +63,14 @@ object ParticipantSession {
           services.identity
             .getLedgerIdentity(new GetLedgerIdentityRequest)
             .map(_.ledgerId)
-            .andThen {
-              case Failure(_) =>
-                logger.info(
-                  s"Could not connect to the participant (attempt #$attempt). Trying again in $wait...")
+            .andThen { case Failure(_) =>
+              logger.info(
+                s"Could not connect to the participant (attempt #$attempt). Trying again in $wait..."
+              )
             }
         }
-        .recoverWith {
-          case NonFatal(exception) =>
-            Future.failed(new Errors.ParticipantConnectionException(config.address, exception))
+        .recoverWith { case NonFatal(exception) =>
+          Future.failed(new Errors.ParticipantConnectionException(config.address, exception))
         }
     } yield new ParticipantSession(config, services, ledgerId)
   }

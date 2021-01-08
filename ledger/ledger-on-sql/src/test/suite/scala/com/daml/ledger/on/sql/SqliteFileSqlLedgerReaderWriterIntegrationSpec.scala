@@ -6,7 +6,9 @@ package com.daml.ledger.on.sql
 import java.nio.file.Files
 
 class SqliteFileSqlLedgerReaderWriterIntegrationSpec
-    extends SqlLedgerReaderWriterIntegrationSpecBase("SQL implementation using SQLite with a file") {
+    extends SqlLedgerReaderWriterIntegrationSpecBase(
+      "SQL implementation using SQLite with a file"
+    ) {
 
   private val root = Files.createTempDirectory(getClass.getSimpleName)
 

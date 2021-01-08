@@ -10,7 +10,7 @@ import com.daml.resources.ExecutorServiceResourceOwner._
 import scala.concurrent.{ExecutionContextExecutorService, Future}
 
 class ExecutorServiceResourceOwner[Context: HasExecutionContext, T <: ExecutorService](
-    acquireExecutorService: () => T,
+    acquireExecutorService: () => T
 ) extends AbstractResourceOwner[Context, T] {
   override def acquire()(implicit context: Context): Resource[Context, T] =
     Resource.apply(Future {
@@ -46,11 +46,10 @@ class ExecutorServiceResourceOwner[Context: HasExecutionContext, T <: ExecutorSe
         case _ =>
       }
       executorService
-    })(
-      executorService =>
-        Future {
-          executorService.shutdown()
-          val _ = executorService.awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
+    })(executorService =>
+      Future {
+        executorService.shutdown()
+        val _ = executorService.awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
       }
     )
 }
@@ -59,6 +58,7 @@ object ExecutorServiceResourceOwner {
 
   class CannotAcquireExecutionContext
       extends RuntimeException(
-        "The execution context used by resource acquisition cannot itself be acquired. This is to prevent deadlock upon release.")
+        "The execution context used by resource acquisition cannot itself be acquired. This is to prevent deadlock upon release."
+      )
 
 }

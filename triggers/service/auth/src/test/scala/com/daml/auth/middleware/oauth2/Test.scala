@@ -26,7 +26,8 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
   private def makeToken(
       claims: Request.Claims,
       secret: String = "secret",
-      expiresIn: Option[Duration] = None): OAuthResponse.Token = {
+      expiresIn: Option[Duration] = None,
+  ): OAuthResponse.Token = {
     val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
     val jwtPayload = AuthServiceJWTPayload(
       ledgerId = Some("test-ledger"),
@@ -35,7 +36,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       exp = expiresIn.map(in => clock.instant.plus(in)),
       admin = claims.admin,
       actAs = claims.actAs.map(ApiTypes.Party.unwrap(_)),
-      readAs = claims.readAs.map(ApiTypes.Party.unwrap(_))
+      readAs = claims.readAs.map(ApiTypes.Party.unwrap(_)),
     )
     OAuthResponse.Token(
       accessToken = JwtSigner.HMAC256
@@ -47,7 +48,7 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
       tokenType = "bearer",
       expiresIn = expiresIn.map(in => in.getSeconds.toInt),
       refreshToken = None,
-      scope = Some(claims.toQueryString())
+      scope = Some(claims.toQueryString()),
     )
   }
   "the /auth endpoint" should {
@@ -84,11 +85,14 @@ class Test extends AsyncWordSpec with TestFixture with SuiteResourceManagementAr
     "return unauthorized on insufficient app id claims" in {
       val claims = Request.Claims(
         actAs = List(ApiTypes.Party("Alice")),
-        applicationId = Some(ApiTypes.ApplicationId("other-id")))
+        applicationId = Some(ApiTypes.ApplicationId("other-id")),
+      )
       val token = makeToken(
         Request.Claims(
           actAs = List(ApiTypes.Party("Alice")),
-          applicationId = Some(ApiTypes.ApplicationId("my-app-id"))))
+          applicationId = Some(ApiTypes.ApplicationId("my-app-id")),
+        )
+      )
       val cookieHeader = Cookie("daml-ledger-token", token.toCookieValue)
       for {
         result <- middlewareClient.requestAuth(claims, List(cookieHeader))

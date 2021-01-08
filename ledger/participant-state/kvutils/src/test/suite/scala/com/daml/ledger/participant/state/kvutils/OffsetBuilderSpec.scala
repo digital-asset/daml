@@ -17,7 +17,8 @@ class OffsetBuilderSpec extends AnyWordSpec with Matchers {
       (
         OffsetBuilder.highestIndex(offset),
         OffsetBuilder.middleIndex(offset),
-        OffsetBuilder.lowestIndex(offset))
+        OffsetBuilder.lowestIndex(offset),
+      )
 
     "set 0 bytes" in {
       OffsetBuilder.fromLong(0).bytes shouldEqual zeroBytes

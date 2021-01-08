@@ -34,7 +34,8 @@ abstract class PerfBenchState extends InfiniteRetries {
     akkaState = new AkkaState()
     akkaState.setup()
     server = LedgerFactories.createSandboxResource(store, List(darFile))(
-      ResourceContext(mat.executionContext))
+      ResourceContext(mat.executionContext)
+    )
     server.setup()
   }
 

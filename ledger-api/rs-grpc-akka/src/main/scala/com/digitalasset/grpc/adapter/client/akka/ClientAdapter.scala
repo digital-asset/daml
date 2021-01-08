@@ -13,10 +13,12 @@ import io.grpc.stub.StreamObserver
 
 object ClientAdapter {
 
-  def serverStreaming[Req, Resp](req: Req, stub: (Req, StreamObserver[Resp]) => Unit)(
-      implicit executionSequencerFactory: ExecutionSequencerFactory): Source[Resp, NotUsed] =
+  def serverStreaming[Req, Resp](req: Req, stub: (Req, StreamObserver[Resp]) => Unit)(implicit
+      executionSequencerFactory: ExecutionSequencerFactory
+  ): Source[Resp, NotUsed] =
     Source.fromPublisher(
-      new ClientPublisher[Req, Resp](req, adaptStub(stub), executionSequencerFactory))
+      new ClientPublisher[Req, Resp](req, adaptStub(stub), executionSequencerFactory)
+    )
 
   private def adaptStub[Req, Resp](
       stub: (Req, StreamObserver[Resp]) => Unit

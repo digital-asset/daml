@@ -15,8 +15,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-/**
-  * A pre-executing validating committer based on [[LedgerStateAccess]] (that does not provide
+/** A pre-executing validating committer based on [[LedgerStateAccess]] (that does not provide
   * fingerprints alongside values), parametric in the logic that produces a fingerprint given a
   * value.
   *
@@ -39,8 +38,7 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  /**
-    * Pre-executes and then commits a submission.
+  /** Pre-executes and then commits a submission.
     */
   def commit(
       correlationId: String,
@@ -59,10 +57,9 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
             submittingParticipantId,
             stateReader,
           )
-          _ <- retry {
-            case _: ConflictDetectedException =>
-              logger.error("Conflict detected during post-execution. Retrying...")
-              true
+          _ <- retry { case _: ConflictDetectedException =>
+            logger.error("Conflict detected during post-execution. Retrying...")
+            true
           } { (_, _) =>
             postExecutionConflictDetector.detectConflicts(preExecutionOutput, stateReader)
           }.transform {
@@ -73,7 +70,8 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
           }
           submissionResult <- postExecutionFinalizer.finalizeSubmission(
             preExecutionOutput,
-            ledgerStateOperations)
+            ledgerStateOperations,
+          )
         } yield submissionResult
       }
     }

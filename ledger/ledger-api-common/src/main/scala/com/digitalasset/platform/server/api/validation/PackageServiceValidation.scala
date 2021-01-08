@@ -30,7 +30,7 @@ class PackageServiceValidation(
       .map(const(request))
       .fold(
         Future.failed,
-        service.listPackages
+        service.listPackages,
       )
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
@@ -38,16 +38,17 @@ class PackageServiceValidation(
       .map(const(request))
       .fold(
         Future.failed,
-        service.getPackage
+        service.getPackage,
       )
 
   override def getPackageStatus(
-      request: GetPackageStatusRequest): Future[GetPackageStatusResponse] =
+      request: GetPackageStatusRequest
+  ): Future[GetPackageStatusResponse] =
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
         Future.failed,
-        service.getPackageStatus
+        service.getPackageStatus,
       )
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, executionContext)

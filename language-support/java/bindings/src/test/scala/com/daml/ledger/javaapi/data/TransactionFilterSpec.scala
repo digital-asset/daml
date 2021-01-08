@@ -14,7 +14,8 @@ class TransactionFilterSpec extends AnyFlatSpec with Matchers with ScalaCheckDri
     PropertyCheckConfiguration(minSize = 1, sizeRange = 3)
 
   "TransactionFilter.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
-    transactionFilterGen) { transactionFilter =>
+    transactionFilterGen
+  ) { transactionFilter =>
     val converted = TransactionFilter.fromProto(transactionFilter)
     TransactionFilter.fromProto(converted.toProto) shouldEqual converted
   }

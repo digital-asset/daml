@@ -28,7 +28,10 @@ object HttpCodec {
           StatusCodes.BadRequest,
           ResponseFormats.errorsJsObject(
             StatusCodes.BadRequest,
-            s"JSON parser error: ${e.msg}" +: unfoldCauses(e.cause).map(_.description): _*)))
+            s"JSON parser error: ${e.msg}" +: unfoldCauses(e.cause).map(_.description): _*
+          ),
+        )
+      )
   }
 
   private[this] def unfoldCauses(t: Throwable): Seq[Throwable] =

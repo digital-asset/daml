@@ -7,4 +7,5 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
 
 final class KeyNotPresentInInputException(key: DamlStateKey)
     extends IllegalStateException(
-      s"The committer accessed a key that was not present in the input.\nKey: $key")
+      s"The committer accessed a key that was not present in the input.\nKey: $key"
+    )

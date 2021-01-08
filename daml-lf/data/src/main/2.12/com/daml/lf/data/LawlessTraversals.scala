@@ -10,8 +10,9 @@ import scala.annotation.tailrec
 private[daml] object LawlessTraversals {
   implicit final class `Lawless iterable traversal`[A, This](private val seq: IterableLike[A, This])
       extends AnyVal {
-    def traverseEitherStrictly[E, B, That](f: A => Either[E, B])(
-        implicit cbf: CanBuildFrom[This, B, That]): Either[E, That] = {
+    def traverseEitherStrictly[E, B, That](
+        f: A => Either[E, B]
+    )(implicit cbf: CanBuildFrom[This, B, That]): Either[E, That] = {
       val that = cbf(seq.repr)
       that.sizeHint(seq)
       val i = seq.iterator
@@ -21,7 +22,8 @@ private[daml] object LawlessTraversals {
           case Right(c) =>
             that += c
             lp()
-        } else Right(that.result)
+        }
+        else Right(that.result)
       lp()
     }
   }

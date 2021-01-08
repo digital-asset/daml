@@ -17,7 +17,9 @@ class ValueSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyC
       (vc.tName, Value.Decoder[wv.T].read(Value.Encoder[wv.T].write(t))) shouldBe (
         (
           vc.tName,
-          Some(t)))
+          Some(t),
+        ),
+      )
     }
 
     "be found for lists" in {
@@ -31,7 +33,8 @@ class ValueSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyC
       import com.daml.ledger.api.v1.value.Value.{Sum => VSum}
       import com.daml.ledger.api.v1.value.{Value => RpcValue}
       Value.encode(BigDecimal.exact("0.0000000000001"): P.Numeric) shouldBe RpcValue(
-        VSum.Numeric("0.0000000000001"))
+        VSum.Numeric("0.0000000000001")
+      )
     }
     "fail to decode Numeric with exponent" in {
       import com.daml.ledger.client.binding.{Primitive => P}

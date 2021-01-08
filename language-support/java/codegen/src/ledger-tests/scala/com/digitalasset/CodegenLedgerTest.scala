@@ -33,7 +33,7 @@ class CodegenLedgerTest extends AsyncFlatSpec with Matchers with TestResourceCon
     LocalDate.of(1583, 12, 8),
     LocalDate.of(1583, 12, 8).atStartOfDay().toInstant(ZoneOffset.UTC),
     List[Wolpertinger.ContractId]().asJava,
-    List[Color](new Grey(DamlUnit.getInstance())).asJava
+    List[Color](new Grey(DamlUnit.getInstance())).asJava,
   )
 
   val sruquito = new Wolpertinger(
@@ -45,7 +45,7 @@ class CodegenLedgerTest extends AsyncFlatSpec with Matchers with TestResourceCon
     LocalDate.of(1303, 3, 19),
     LocalDate.of(1303, 3, 19).atStartOfDay().toInstant(ZoneOffset.UTC),
     List[Wolpertinger.ContractId]().asJava,
-    List[Color](new Grey(DamlUnit.getInstance())).asJava
+    List[Color](new Grey(DamlUnit.getInstance())).asJava,
   )
 
   behavior of "Generated Java code"
@@ -184,7 +184,8 @@ class CodegenLedgerTest extends AsyncFlatSpec with Matchers with TestResourceCon
       client,
       asList(Alice),
       asList(Charlie),
-      MultiParty.exerciseByKeyMPFetchOtherByKey(new da.types.Tuple2(Alice, Bob), Charlie, Bob))
+      MultiParty.exerciseByKeyMPFetchOtherByKey(new da.types.Tuple2(Alice, Bob), Charlie, Bob),
+    )
 
     succeed
   }

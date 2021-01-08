@@ -18,7 +18,7 @@ import com.daml.ledger.participant.state.v1.{
   SubmissionId,
   SubmissionResult,
   TimeModel,
-  WriteConfigService
+  WriteConfigService,
 }
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.Ref
@@ -67,8 +67,8 @@ final class LedgerConfigProviderSpec
               verifyZeroInteractions(writeService)
               ledgerConfigProvider.latestConfiguration should be(Some(configuration))
             }
-            .andThen {
-              case _ => ledgerConfigProvider.close()
+            .andThen { case _ =>
+              ledgerConfigProvider.close()
             }
         }
     }
@@ -96,8 +96,8 @@ final class LedgerConfigProviderSpec
             .map { _ =>
               ledgerConfigProvider.latestConfiguration should be(Some(configurationToSubmit))
             }
-            .andThen {
-              case _ => ledgerConfigProvider.close()
+            .andThen { case _ =>
+              ledgerConfigProvider.close()
             }
         }
     }
@@ -125,8 +125,8 @@ final class LedgerConfigProviderSpec
             .map { _ =>
               ledgerConfigProvider.latestConfiguration should be(None)
             }
-            .andThen {
-              case _ => ledgerConfigProvider.close()
+            .andThen { case _ =>
+              ledgerConfigProvider.close()
             }
         }
     }
@@ -147,8 +147,8 @@ object LedgerConfigProviderSpec {
   }
 
   private final class FakeWriteConfigService(
-      delay: FiniteDuration = scala.concurrent.duration.Duration.Zero)(
-      implicit materializer: Materializer)
+      delay: FiniteDuration = scala.concurrent.duration.Duration.Zero
+  )(implicit materializer: Materializer)
       extends WriteConfigService {
     private var currentOffset = 0
 
@@ -167,7 +167,8 @@ object LedgerConfigProviderSpec {
         Thread.sleep(delay.toMillis)
         currentOffset += 1
         queue.offer(
-          offset(currentOffset.toString) -> ConfigurationEntry.Accepted(submissionId, config))
+          offset(currentOffset.toString) -> ConfigurationEntry.Accepted(submissionId, config)
+        )
         SubmissionResult.Acknowledged
       }
   }

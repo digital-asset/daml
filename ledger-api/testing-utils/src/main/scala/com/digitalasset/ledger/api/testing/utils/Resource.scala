@@ -5,18 +5,15 @@ package com.daml.ledger.api.testing.utils
 
 import scala.reflect.ClassTag
 
-/**
-  * Some kind of resource that needs to be initialized before usage, and torn down after.
+/** Some kind of resource that needs to be initialized before usage, and torn down after.
   */
 trait Resource[+Value] extends AutoCloseable {
 
-  /**
-    * Access the resource.
+  /** Access the resource.
     */
   def value: Value
 
-  /**
-    * Initialize the resource.
+  /** Initialize the resource.
     */
   def setup(): Unit
 
@@ -24,7 +21,8 @@ trait Resource[+Value] extends AutoCloseable {
 
   def derive[Target: ClassTag](
       transform: Value => Target,
-      tearDown: Target => Unit = (_: Target) => ()): Resource[(Value, Target)] =
+      tearDown: Target => Unit = (_: Target) => (),
+  ): Resource[(Value, Target)] =
     new DerivedResource[Value, Target](this) {
       override protected def construct(source: Value): Target = transform(source)
 

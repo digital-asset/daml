@@ -31,7 +31,8 @@ class EnvelopeSpec extends AnyWordSpec with Matchers {
         .addSubmissions(
           Proto.DamlSubmissionBatch.CorrelatedSubmission.newBuilder
             .setCorrelationId("anId")
-            .setSubmission(ByteString.copyFromUtf8("a submission")))
+            .setSubmission(ByteString.copyFromUtf8("a submission"))
+        )
         .build
       Envelope.open(Envelope.enclose(submissionBatch)) shouldEqual
         Right(Envelope.SubmissionBatchMessage(submissionBatch))

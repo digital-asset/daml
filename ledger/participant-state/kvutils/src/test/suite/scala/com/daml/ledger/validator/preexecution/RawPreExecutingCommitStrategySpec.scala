@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPartyAllocationRejectionEntry,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Raw}
@@ -17,7 +17,7 @@ import com.daml.ledger.validator.TestHelper.{
   aLogEntry,
   aLogEntryId,
   aParticipantId,
-  allDamlStateKeyTypes
+  allDamlStateKeyTypes,
 }
 import com.daml.ledger.validator.preexecution.RawPreExecutingCommitStrategySpec._
 import org.mockito.ArgumentMatchers.any
@@ -54,7 +54,7 @@ final class RawPreExecutingCommitStrategySpec
         instance
           .generateReadSet(
             fetchedInputs = Map.empty,
-            accessedKeys = allDamlStateKeyTypes.toSet
+            accessedKeys = allDamlStateKeyTypes.toSet,
           )
       )
     }
@@ -70,7 +70,7 @@ final class RawPreExecutingCommitStrategySpec
         stateUpdates = (1 to 100).map(key => aStateKey(key) -> aStateValue).toMap,
         outOfTimeBoundsLogEntry = aRejectionLogEntry,
         minimumRecordTime = None,
-        maximumRecordTime = None
+        maximumRecordTime = None,
       )
 
       val mockStateKeySerializationStrategy = newMockStateKeySerializationStrategy
@@ -96,7 +96,8 @@ final class RawPreExecutingCommitStrategySpec
     val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]
     when(mockStateKeySerializationStrategy.serializeStateKey(any[DamlStateKey]()))
       .thenAnswer((invocation: InvocationOnMock) =>
-        Raw.Key(invocation.getArgument[DamlStateKey](0).getContractIdBytes))
+        Raw.Key(invocation.getArgument[DamlStateKey](0).getContractIdBytes)
+      )
     mockStateKeySerializationStrategy
   }
 }
@@ -115,6 +116,7 @@ object RawPreExecutingCommitStrategySpec {
       DamlPartyAllocationRejectionEntry.newBuilder
         .setDuplicateSubmission(DamlKvutils.Duplicate.getDefaultInstance)
         .setParticipantId("a participant ID")
-        .setSubmissionId("a submission"))
+        .setSubmissionId("a submission")
+    )
     .build
 }

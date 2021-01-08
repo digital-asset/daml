@@ -34,7 +34,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       create = nonTransient(tx).loneElement
       _ <- storeCommitedContractDivulgence(
         id = create,
-        divulgees = Set(charlie)
+        divulgees = Set(charlie),
       )
       result <- ledgerDao.lookupActiveOrDivulgedContract(create, Set(charlie))
     } yield {
@@ -93,7 +93,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       contractId = nonTransient(tx).loneElement
       _ <- storeCommitedContractDivulgence(
         id = contractId,
-        divulgees = Set(emma)
+        divulgees = Set(emma),
       )
       result <- ledgerDao.lookupActiveOrDivulgedContract(contractId, Set(david, emma))
     } yield {
@@ -145,7 +145,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
       _ <- storeCommitedContractDivulgence(
         id = nonTransient(tx).loneElement,
-        divulgees = Set(david, emma)
+        divulgees = Set(david, emma),
       )
       key = GlobalKey.assertBuild(someTemplateId, aTextValue)
       result <- ledgerDao.lookupKey(key, Set(david, emma))
@@ -171,8 +171,8 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       (_, tx) <- store(singleCreate)
       result <- ledgerDao.lookupMaximumLedgerTime(nonTransient(tx))
     } yield {
-      inside(result) {
-        case Some(time) => time should be <= Instant.now
+      inside(result) { case Some(time) =>
+        time should be <= Instant.now
       }
     }
   }
@@ -185,14 +185,14 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
           (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
         ),
         blindingInfo = None,
-        offsetAndTx = singleNonConsumingExercise(divulgedContractId)
+        offsetAndTx = singleNonConsumingExercise(divulgedContractId),
       )
       (_, tx) <- store(singleCreate)
       contractIds = nonTransient(tx) + divulgedContractId
       result <- ledgerDao.lookupMaximumLedgerTime(contractIds)
     } yield {
-      inside(result) {
-        case Some(tx.ledgerEffectiveTime) => succeed
+      inside(result) { case Some(tx.ledgerEffectiveTime) =>
+        succeed
       }
     }
   }
@@ -205,7 +205,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
           (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
         ),
         blindingInfo = None,
-        offsetAndTx = singleNonConsumingExercise(divulgedContractId)
+        offsetAndTx = singleNonConsumingExercise(divulgedContractId),
       )
       result <- ledgerDao.lookupMaximumLedgerTime(Set(divulgedContractId))
     } yield {
@@ -222,7 +222,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
           (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
         ),
         blindingInfo = None,
-        offsetAndTx = singleExercise(divulgedContractId)
+        offsetAndTx = singleExercise(divulgedContractId),
       )
       failure <- ledgerDao.lookupMaximumLedgerTime(Set(divulgedContractId)).failed
     } yield {

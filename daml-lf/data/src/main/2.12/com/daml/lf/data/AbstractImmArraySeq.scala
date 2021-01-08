@@ -9,7 +9,7 @@ import scala.collection.generic.{
   CanBuildFrom,
   GenericCompanion,
   GenericTraversableTemplate,
-  IndexedSeqFactory
+  IndexedSeqFactory,
 }
 import scala.collection.{IndexedSeqLike, IndexedSeqOptimized, mutable}
 
@@ -28,15 +28,17 @@ abstract class AbstractImmArraySeq[+A](array: ImmArray[A])
     ()
   }
 
-  override final def map[B, That](f: A => B)(
-      implicit bf: CanBuildFrom[ImmArraySeq[A], B, That]): That =
+  override final def map[B, That](
+      f: A => B
+  )(implicit bf: CanBuildFrom[ImmArraySeq[A], B, That]): That =
     bf match {
       case _: IASCanBuildFrom[B] => array.map(f).toSeq
       case _ => super.map(f)(bf)
     }
 
-  override final def to[Col[_]](
-      implicit bf: CanBuildFrom[Nothing, A, Col[A @uncheckedVariance]]): Col[A @uncheckedVariance] =
+  override final def to[Col[_]](implicit
+      bf: CanBuildFrom[Nothing, A, Col[A @uncheckedVariance]]
+  ): Col[A @uncheckedVariance] =
     bf match {
       case _: IASCanBuildFrom[A] => this
       case _: ImmArrayInstances.IACanBuildFrom[A] => toImmArray

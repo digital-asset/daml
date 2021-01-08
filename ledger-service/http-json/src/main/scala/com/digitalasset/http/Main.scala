@@ -52,7 +52,8 @@ object Main extends StrictLogging {
         s", allowNonHttps=${config.allowNonHttps.shows}" +
         s", accessTokenFile=${config.accessTokenFile: Option[Path]}" +
         s", wsConfig=${config.wsConfig.shows}" +
-        ")")
+        ")"
+    )
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
     implicit val mat: Materializer = Materializer(asys)

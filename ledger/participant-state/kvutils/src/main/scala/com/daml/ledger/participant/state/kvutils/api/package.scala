@@ -10,8 +10,7 @@ import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, Su
 
 import scala.concurrent.Future
 
-/**
-  * This package contains interfaces simplifying implementation of a participant server.
+/** This package contains interfaces simplifying implementation of a participant server.
   *
   * =Interfaces=
   * The main interfaces that you need to implement to be able to run a participant server are as follows:

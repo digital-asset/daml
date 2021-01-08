@@ -15,8 +15,7 @@ import scalaz.syntax.monoid._
 
 object UsedTypeParams {
 
-  /**
-    * Returns only type parameters that specified in fields, not relying on `DataType.typeVars`.
+  /** Returns only type parameters that specified in fields, not relying on `DataType.typeVars`.
     */
   def collectTypeParamsInUse(typeDecl: DataType): Set[String] =
     foldMapGenTypes(typeDecl)(collectTypeParams)

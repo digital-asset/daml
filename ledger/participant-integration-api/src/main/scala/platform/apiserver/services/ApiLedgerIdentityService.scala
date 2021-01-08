@@ -10,7 +10,7 @@ import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   GetLedgerIdentityResponse,
-  LedgerIdentityServiceGrpc
+  LedgerIdentityServiceGrpc,
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
@@ -21,7 +21,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiLedgerIdentityService private (
-    getLedgerId: () => Future[LedgerId],
+    getLedgerId: () => Future[LedgerId]
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends GrpcLedgerIdentityService
     with GrpcApiService {
@@ -31,13 +31,15 @@ private[apiserver] final class ApiLedgerIdentityService private (
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override def getLedgerIdentity(
-      request: GetLedgerIdentityRequest,
+      request: GetLedgerIdentityRequest
   ): Future[GetLedgerIdentityResponse] =
     if (closed)
       Future.failed(
         new ApiException(
           Status.UNAVAILABLE
-            .withDescription("Ledger Identity Service closed.")))
+            .withDescription("Ledger Identity Service closed.")
+        )
+      )
     else
       getLedgerId()
         .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))
@@ -51,9 +53,9 @@ private[apiserver] final class ApiLedgerIdentityService private (
 
 private[apiserver] object ApiLedgerIdentityService {
   def create(
-      getLedgerId: () => Future[LedgerId],
-  )(
-      implicit executionContext: ExecutionContext,
+      getLedgerId: () => Future[LedgerId]
+  )(implicit
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ApiLedgerIdentityService with BindableService = {
     new ApiLedgerIdentityService(getLedgerId)

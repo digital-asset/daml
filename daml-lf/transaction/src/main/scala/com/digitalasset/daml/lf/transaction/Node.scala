@@ -11,8 +11,7 @@ import com.daml.lf.value._
 import scalaz.Equal
 import scalaz.syntax.equal._
 
-/**
-  * Generic transaction node type for both update transactions and the
+/** Generic transaction node type for both update transactions and the
   * transaction graph.
   */
 object Node {
@@ -37,7 +36,6 @@ object Node {
       * 1. settings where no fetch nodes appear (for example, the `validate` method of DAMLe, which uses it on root
       *    nodes, which are guaranteed never to contain a fetch node)
       * 2. DAML ledger implementations that do not store or process any transactions with version < 5
-      *
       */
     def requiredAuthorizers: Set[Party]
 
@@ -129,46 +127,46 @@ object Node {
         f2: B => Unit,
     ): GenNode[A, B] => Unit = {
       case NodeCreate(
-          coid,
-          coinst,
-          optLocation @ _,
-          signatories @ _,
-          stakeholders @ _,
-          key,
-          _,
+            coid,
+            coinst,
+            optLocation @ _,
+            signatories @ _,
+            stakeholders @ _,
+            key,
+            _,
           ) =>
         f2(coid)
         Value.ContractInst.foreach1(Value.foreach1(f2))(coinst)
         key.foreach(KeyWithMaintainers.foreach1(Value.foreach1(f2)))
       case NodeFetch(
-          coid,
-          templateId @ _,
-          optLocationd @ _,
-          actingPartiesd @ _,
-          signatoriesd @ _,
-          stakeholdersd @ _,
-          key,
-          _,
-          _,
+            coid,
+            templateId @ _,
+            optLocationd @ _,
+            actingPartiesd @ _,
+            signatoriesd @ _,
+            stakeholdersd @ _,
+            key,
+            _,
+            _,
           ) =>
         f2(coid)
         key.foreach(KeyWithMaintainers.foreach1(Value.foreach1(f2)))
       case NodeExercises(
-          targetCoid,
-          templateId @ _,
-          choiceId @ _,
-          optLocation @ _,
-          consuming @ _,
-          actingParties @ _,
-          chosenValue,
-          stakeholders @ _,
-          signatories @ _,
-          choiceObservers @ _,
-          children @ _,
-          exerciseResult,
-          key,
-          _,
-          _,
+            targetCoid,
+            templateId @ _,
+            choiceId @ _,
+            optLocation @ _,
+            consuming @ _,
+            actingParties @ _,
+            chosenValue,
+            stakeholders @ _,
+            signatories @ _,
+            choiceObservers @ _,
+            children @ _,
+            exerciseResult,
+            key,
+            _,
+            _,
           ) =>
         f2(targetCoid)
         Value.foreach1(f2)(chosenValue)
@@ -176,11 +174,11 @@ object Node {
         key.foreach(KeyWithMaintainers.foreach1(Value.foreach1(f2)))
         children.foreach(f1)
       case NodeLookupByKey(
-          templateId @ _,
-          optLocation @ _,
-          key,
-          result,
-          _,
+            templateId @ _,
+            optLocation @ _,
+            key,
+            result,
+            _,
           ) =>
         KeyWithMaintainers.foreach1(Value.foreach1(f2))(key)
         result.foreach(f2)
@@ -266,7 +264,7 @@ object Node {
     private[daml] def controllers: actingParties.type = actingParties
 
     override private[lf] def updateVersion(
-        version: TransactionVersion,
+        version: TransactionVersion
     ): NodeExercises[Nid, Cid] =
       copy(version = version)
 
@@ -323,7 +321,7 @@ object Node {
       }
 
     override private[lf] def map1[A, B](
-        f: A => B,
+        f: A => B
     ): KeyWithMaintainers[A] => KeyWithMaintainers[B] =
       x => x.copy(key = f(x.key))
 

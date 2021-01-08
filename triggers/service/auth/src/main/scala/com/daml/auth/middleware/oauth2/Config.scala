@@ -42,7 +42,7 @@ object Config {
       oauthToken = null,
       clientId = null,
       clientSecret = null,
-      tokenVerifier = null
+      tokenVerifier = null,
     )
 
   def parseConfig(args: Seq[String]): Option[Config] =
@@ -60,16 +60,21 @@ object Config {
 
       opt[String]("callback")
         .action((x, c) => c.copy(callbackUri = Some(Uri(x))))
-        .text("URI to the auth middleware's callback endpoint `/cb`. By default constructed from the incoming login request.")
+        .text(
+          "URI to the auth middleware's callback endpoint `/cb`. By default constructed from the incoming login request."
+        )
 
       opt[Int]("max-pending-login-requests")
         .action((x, c) => c.copy(maxLoginRequests = x))
         .text(
-          "Maximum number of simultaneously pending login requests. Requests will be denied when exceeded until earlier requests have been completed or timed out.")
+          "Maximum number of simultaneously pending login requests. Requests will be denied when exceeded until earlier requests have been completed or timed out."
+        )
 
       opt[Long]("login-request-timeout")
         .action((x, c) => c.copy(loginTimeout = FiniteDuration(x, duration.SECONDS)))
-        .text("Login request timeout. Requests will be evicted if the callback endpoint receives no corresponding request in time.")
+        .text(
+          "Login request timeout. Requests will be evicted if the callback endpoint receives no corresponding request in time."
+        )
 
       opt[String]("oauth-auth")
         .action((x, c) => c.copy(oauthAuth = Uri(x)))
@@ -86,14 +91,16 @@ object Config {
         .withFallback(() => sys.env.getOrElse("DAML_CLIENT_ID", ""))
         .validate(x =>
           if (x.isEmpty) failure("Environment variable DAML_CLIENT_ID must not be empty")
-          else success)
+          else success
+        )
 
       opt[String]("secret").hidden
         .action((x, c) => c.copy(clientSecret = x))
         .withFallback(() => sys.env.getOrElse("DAML_CLIENT_SECRET", ""))
         .validate(x =>
           if (x.isEmpty) failure("Environment variable DAML_CLIENT_SECRET must not be empty")
-          else success)
+          else success
+        )
 
       JwtVerifierConfigurationCli.parse(this)((v, c) => c.copy(tokenVerifier = v))
 

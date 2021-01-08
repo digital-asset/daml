@@ -25,7 +25,7 @@ abstract class Reader[+Pkg] {
     protected[this] override def readArchivePayloadOfVersion(
         hash: PackageId,
         lf: DamlLf.ArchivePayload,
-        version: LanguageVersion
+        version: LanguageVersion,
     ): Pkg =
       Reader.this.readArchivePayloadOfVersion(hash, lf, version)
   }
@@ -51,7 +51,8 @@ abstract class Reader[+Pkg] {
         }
         val ourHash =
           PackageId.assertFromString(
-            MessageDigest.getInstance("SHA-256").digest(payload).map("%02x" format _).mkString)
+            MessageDigest.getInstance("SHA-256").digest(payload).map("%02x" format _).mkString
+          )
         if (ourHash != theirHash) {
           throw ParseError(s"Mismatching hashes! Expected $ourHash but got $theirHash")
         }
@@ -73,7 +74,8 @@ abstract class Reader[+Pkg] {
   @throws[ParseError]
   final def readArchivePayloadAndVersion(
       hash: PackageId,
-      lf: DamlLf.ArchivePayload): (Pkg, LanguageMajorVersion) = {
+      lf: DamlLf.ArchivePayload,
+  ): (Pkg, LanguageMajorVersion) = {
     val majorVersion = readArchiveVersion(lf)
     val minorVersion = lf.getMinor
     val version =
@@ -83,7 +85,8 @@ abstract class Reader[+Pkg] {
         majorVersion.acceptedVersions.map(v => s"$majorVersion.${v.identifier}")
       throw ParseError(
         s"LF $majorVersion.$minorVersion unsupported. Supported LF versions are ${supportedVersions
-          .mkString(",")}")
+          .mkString(",")}"
+      )
     }
     (readArchivePayloadOfVersion(hash, lf, version), majorVersion)
   }
@@ -91,7 +94,8 @@ abstract class Reader[+Pkg] {
   protected[this] def readArchivePayloadOfVersion(
       hash: PackageId,
       lf: DamlLf.ArchivePayload,
-      version: LanguageVersion): Pkg
+      version: LanguageVersion,
+  ): Pkg
 }
 
 object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
@@ -100,7 +104,8 @@ object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
 
   def damlLfCodedInputStreamFromBytes(
       payload: Array[Byte],
-      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT): CodedInputStream = {
+      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT,
+  ): CodedInputStream = {
     val cos = com.google.protobuf.CodedInputStream.newInstance(payload)
     cos.setRecursionLimit(recursionLimit)
     cos
@@ -108,7 +113,8 @@ object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
 
   def damlLfCodedInputStream(
       is: InputStream,
-      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT): CodedInputStream = {
+      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT,
+  ): CodedInputStream = {
     val cos = com.google.protobuf.CodedInputStream.newInstance(is)
     cos.setRecursionLimit(recursionLimit)
     cos

@@ -9,14 +9,12 @@ import com.daml.ledger.validator.StateKeySerializationStrategy
 
 import scala.collection.JavaConverters._
 
-/**
-  * Exposes metadata about the commit.
+/** Exposes metadata about the commit.
   * The methods may lazily evaluate.
   */
 sealed trait CommitMetadata {
 
-  /**
-    * @return estimated interpretation cost for a transaction; None in case of non-transaction
+  /** @return estimated interpretation cost for a transaction; None in case of non-transaction
     *         submissions
     */
   def estimatedInterpretationCost: Option[Long]

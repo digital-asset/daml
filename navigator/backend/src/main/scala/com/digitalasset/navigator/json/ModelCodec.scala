@@ -9,9 +9,7 @@ import com.daml.navigator.json.Util._
 import com.daml.navigator.json.DamlLfCodec.JsonImplicits._
 import spray.json._
 
-/**
-  * An encoding of Model types.
-  *
+/** An encoding of Model types.
   */
 object ModelCodec {
 

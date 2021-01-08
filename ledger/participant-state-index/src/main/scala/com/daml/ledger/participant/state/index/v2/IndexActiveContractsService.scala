@@ -9,10 +9,9 @@ import com.daml.ledger.api.domain.TransactionFilter
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.logging.LoggingContext
 
-/**
-  * Serves as a backend to implement
+/** Serves as a backend to implement
   * [[com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService]]
-  **/
+  */
 trait IndexActiveContractsService {
 
   def getActiveContracts(

@@ -49,7 +49,8 @@ final class MetricsReporting(
       }
       // Trigger a report to the SLF4J logger on shutdown.
       _ <- Resource(Future.successful(slf4JReporter))(reporter =>
-        Future.successful(reporter.report()))
+        Future.successful(reporter.report())
+      )
     } yield new Metrics(registry)
   }
 
@@ -67,7 +68,8 @@ final class MetricsReporting(
       .withLoggingLevel(LoggingLevel.DEBUG)
       .build()
 
-  private def acquire[T <: Reporter](reporter: => T)(
-      implicit context: ResourceContext): Resource[T] =
+  private def acquire[T <: Reporter](reporter: => T)(implicit
+      context: ResourceContext
+  ): Resource[T] =
     ResourceOwner.forCloseable(() => reporter).acquire()
 }

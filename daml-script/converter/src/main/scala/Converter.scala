@@ -27,7 +27,8 @@ private[daml] object Converter {
   def daInternalAny(s: String): Identifier =
     Identifier(
       DA_INTERNAL_ANY_PKGID,
-      QualifiedName(DottedName.assertFromString("DA.Internal.Any"), DottedName.assertFromString(s)))
+      QualifiedName(DottedName.assertFromString("DA.Internal.Any"), DottedName.assertFromString(s)),
+    )
 
   def toContractId(v: SValue): ErrorOr[ContractId] =
     v.expect("ContractId", { case SContractId(cid) => cid })
@@ -47,11 +48,14 @@ private[daml] object Converter {
     * with the assumption that `f` is a variant type.
     */
   def unrollFree(v: SValue): ErrorOr[SValue Either (Ast.VariantConName, SValue)] =
-    v.expect("Free with variant or Pure", {
-      case SVariant(_, "Free", _, SVariant(_, variant, _, vv)) =>
-        Right((variant, vv))
-      case SVariant(_, "Pure", _, v) => Left(v)
-    })
+    v.expect(
+      "Free with variant or Pure",
+      {
+        case SVariant(_, "Free", _, SVariant(_, variant, _, vv)) =>
+          Right((variant, vv))
+        case SVariant(_, "Pure", _, v) => Left(v)
+      },
+    )
 
   private[this] val DaTypesTuple2 =
     QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString("Tuple2"))

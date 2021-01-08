@@ -12,18 +12,18 @@ import com.daml.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementA
 import com.daml.ledger.api.v1.admin.package_management_service.{
   PackageManagementServiceGrpc,
   UploadDarFileRequest,
-  UploadDarFileResponse
+  UploadDarFileResponse,
 }
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   AllocatePartyResponse,
-  PartyManagementServiceGrpc
+  PartyManagementServiceGrpc,
 }
 import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
   CompletionEndRequest,
   CompletionStreamRequest,
-  CompletionStreamResponse
+  CompletionStreamResponse,
 }
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -60,7 +60,7 @@ final class CompletionServiceWithEmptyLedgerIT
     super.config.copy(
       damlPackages = List.empty,
       ledgerConfig = super.config.ledgerConfig.copy(
-        initialConfigurationSubmitDelay = Duration.ofDays(5),
+        initialConfigurationSubmitDelay = Duration.ofDays(5)
       ),
       implicitPartyAllocation = false,
     )
@@ -141,7 +141,7 @@ object CompletionServiceWithEmptyLedgerIT {
     new StreamConsumer[CompletionStreamResponse](
       completionService.completionStream(
         CompletionStreamRequest(ledgerId.unwrap, MockMessages.applicationId, parties, Some(offset)),
-        _
+        _,
       )
     ).within(completionTimeout)
       .map(_.flatMap(_.completions).map(_.commandId))

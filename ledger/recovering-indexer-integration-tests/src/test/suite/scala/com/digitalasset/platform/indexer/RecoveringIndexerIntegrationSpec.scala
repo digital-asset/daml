@@ -15,7 +15,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.memory
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriterConfig,
-  KeyValueParticipantState
+  KeyValueParticipantState,
 }
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
@@ -159,11 +159,15 @@ class RecoveringIndexerIntegrationSpec
                 )
                 .toScala
               _ <- eventually { (_, _) =>
-                Future.fromTry(Try(readLog().take(3) should contain theSameElementsInOrderAs Seq(
-                  Level.INFO -> "Starting Indexer Server",
-                  Level.INFO -> "Started Indexer Server",
-                  Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
-                )))
+                Future.fromTry(
+                  Try(
+                    readLog().take(3) should contain theSameElementsInOrderAs Seq(
+                      Level.INFO -> "Starting Indexer Server",
+                      Level.INFO -> "Started Indexer Server",
+                      Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
+                    )
+                  )
+                )
               }
             } yield Instant.now()
           }
@@ -233,15 +237,15 @@ object RecoveringIndexerIntegrationSpec {
     SubmissionId.assertFromString(UUID.randomUUID().toString)
 
   private trait ParticipantStateFactory {
-    def apply(ledgerId: LedgerId, participantId: ParticipantId)(
-        implicit materializer: Materializer,
+    def apply(ledgerId: LedgerId, participantId: ParticipantId)(implicit
+        materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState]
   }
 
   private object SimpleParticipantState extends ParticipantStateFactory {
-    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(
-        implicit materializer: Materializer,
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(implicit
+        materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] = {
       val metrics = new Metrics(new MetricRegistry)
@@ -250,14 +254,14 @@ object RecoveringIndexerIntegrationSpec {
         BatchingLedgerWriterConfig.reasonableDefault,
         participantId,
         metrics = metrics,
-        engine = Engine.DevEngine()
+        engine = Engine.DevEngine(),
       ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
     }
   }
 
   private object ParticipantStateThatFailsOften extends ParticipantStateFactory {
-    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(
-        implicit materializer: Materializer,
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(implicit
+        materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] =
       SimpleParticipantState(ledgerId, participantId)
@@ -267,14 +271,13 @@ object RecoveringIndexerIntegrationSpec {
           val failingParticipantState = spy(delegate)
           doAnswer(invocation => {
             val beginAfter = invocation.getArgument[Option[Offset]](0)
-            delegate.stateUpdates(beginAfter).flatMapConcat {
-              case value @ (offset, _) =>
-                if (lastFailure.isEmpty || lastFailure.get < offset) {
-                  lastFailure = Some(offset)
-                  Source.single(value).concat(Source.failed(new StateUpdatesFailedException))
-                } else {
-                  Source.single(value)
-                }
+            delegate.stateUpdates(beginAfter).flatMapConcat { case value @ (offset, _) =>
+              if (lastFailure.isEmpty || lastFailure.get < offset) {
+                lastFailure = Some(offset)
+                Source.single(value).concat(Source.failed(new StateUpdatesFailedException))
+              } else {
+                Source.single(value)
+              }
             }
           }).when(failingParticipantState).stateUpdates(ArgumentMatchers.any[Option[Offset]]())
           failingParticipantState

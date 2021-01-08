@@ -52,7 +52,8 @@ final class ProgramResource[Context: HasExecutionContext, T](
           case _: SuppressedStartupException =>
           case _: StartupException =>
             logger.error(
-              s"Shutting down because of an initialization error.\n${exception.getMessage}")
+              s"Shutting down because of an initialization error.\n${exception.getMessage}"
+            )
           case NonFatal(_) =>
             logger.error("Shutting down because of an initialization error.", exception)
         }

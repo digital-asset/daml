@@ -14,7 +14,7 @@ import com.daml.lf.value.Value.ContractId
 final class GlobalKey private (
     val templateId: Ref.TypeConName,
     val key: Value[ContractId],
-    val hash: crypto.Hash
+    val hash: crypto.Hash,
 ) extends {
   override def equals(obj: Any): Boolean = obj match {
     case that: GlobalKey => this.hash == that.hash
@@ -40,5 +40,5 @@ object GlobalKey {
 
 final case class GlobalKeyWithMaintainers(
     globalKey: GlobalKey,
-    maintainers: Set[Ref.Party]
+    maintainers: Set[Ref.Party],
 )

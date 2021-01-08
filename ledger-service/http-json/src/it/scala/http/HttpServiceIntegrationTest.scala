@@ -51,7 +51,9 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with
       .singleRequest(
         HttpRequest(
           method = HttpMethods.GET,
-          uri = uri.withPath(Uri.Path(s"/$staticContent/${dummyFile.getName}"))))
+          uri = uri.withPath(Uri.Path(s"/$staticContent/${dummyFile.getName}")),
+        )
+      )
       .flatMap { resp =>
         discard { resp.status shouldBe StatusCodes.OK }
         val bodyF: Future[String] = getResponseDataBytes(resp, debug = false)
@@ -69,7 +71,8 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with
 
     "can 'parse' quoted sample" in {
       Forwarded("for=192.168.0.1;proto = \"https\" ;by=192.168.0.42").proto should ===(
-        Some("https"))
+        Some("https")
+      )
     }
   }
 }

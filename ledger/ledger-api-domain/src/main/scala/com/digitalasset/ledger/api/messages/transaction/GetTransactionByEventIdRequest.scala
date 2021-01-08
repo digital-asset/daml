@@ -11,4 +11,5 @@ final case class GetTransactionByEventIdRequest(
     ledgerId: LedgerId,
     eventId: EventId,
     requestingParties: Set[Party],
-    traceContext: Option[TraceContext])
+    traceContext: Option[TraceContext],
+)

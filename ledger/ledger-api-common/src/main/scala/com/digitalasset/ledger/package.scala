@@ -11,7 +11,7 @@ package object ledger {
   type CommandId = LedgerString
   val CommandId: LedgerString.type = LedgerString
 
-  /** Identifiers used for correlating submission with a workflow.  */
+  /** Identifiers used for correlating submission with a workflow. */
   type WorkflowId = LedgerString
   val WorkflowId: LedgerString.type = LedgerString
 

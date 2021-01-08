@@ -21,9 +21,9 @@ import io.grpc.{BindableService, ServerServiceDefinition}
 import scala.concurrent.ExecutionContext
 
 private[apiserver] final class ApiActiveContractsService private (
-    backend: ACSBackend,
-)(
-    implicit protected val mat: Materializer,
+    backend: ACSBackend
+)(implicit
+    protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
@@ -33,7 +33,7 @@ private[apiserver] final class ApiActiveContractsService private (
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override protected def getActiveContractsSource(
-      request: GetActiveContractsRequest,
+      request: GetActiveContractsRequest
   ): Source[GetActiveContractsResponse, NotUsed] =
     withEnrichedLoggingContext(logging.filters(request.getFilter.filtersByParty)) {
       implicit loggingContext: LoggingContext =>
@@ -50,14 +50,14 @@ private[apiserver] final class ApiActiveContractsService private (
 
 private[apiserver] object ApiActiveContractsService {
 
-  def create(ledgerId: LedgerId, backend: ACSBackend)(
-      implicit mat: Materializer,
+  def create(ledgerId: LedgerId, backend: ACSBackend)(implicit
+      mat: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ActiveContractsService with GrpcApiService =
     new ActiveContractsServiceValidation(new ApiActiveContractsService(backend), ledgerId)
-    with BindableService {
+      with BindableService {
       override def bindService(): ServerServiceDefinition =
         ActiveContractsServiceGrpc.bindService(this, executionContext)
     }

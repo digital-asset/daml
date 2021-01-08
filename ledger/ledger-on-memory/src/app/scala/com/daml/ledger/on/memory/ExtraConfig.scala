@@ -15,5 +15,6 @@ object ExtraConfig {
     ExtraConfig(
       batchingLedgerWriterConfig =
         BatchingLedgerWriterConfig.reasonableDefault.copy(maxBatchConcurrentCommits = 2),
-      alwaysPreExecute = false)
+      alwaysPreExecute = false,
+    )
 }

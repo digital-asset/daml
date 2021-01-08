@@ -11,8 +11,7 @@ import sangria.schema._
 import sangria.validation.ValueCoercionViolation
 import spray.json._
 
-/**
-  * Custom GraphQL scalar type for raw JSON values.
+/** Custom GraphQL scalar type for raw JSON values.
   *
   * The custom ScalarType is necessary to deliver raw JSON values from the platform to the client
   * through the Sangria GraphQL mechanism. We currently use such raw JSON values for contract arguments
@@ -28,14 +27,17 @@ import spray.json._
   Array(
     "org.wartremover.warts.Product",
     "org.wartremover.warts.Serializable",
-    "org.wartremover.warts.Any"))
+    "org.wartremover.warts.Any",
+  )
+)
 object JsonType {
 
   case object JsonCoercionViolation extends ValueCoercionViolation("Not valid JSON")
 
   // TODO: handle exceptions
-  private def coerceJsonInput[T](v: sangria.ast.Value)(
-      implicit fmt: JsonFormat[T]): Either[sangria.validation.Violation, T] = v match {
+  private def coerceJsonInput[T](
+      v: sangria.ast.Value
+  )(implicit fmt: JsonFormat[T]): Either[sangria.validation.Violation, T] = v match {
     case ast.StringValue(jsonStr, _, _, _, _) =>
       jsonStr.parseJson match {
         case jsValue: JsValue => Right(jsValue.convertTo[T])
@@ -45,8 +47,9 @@ object JsonType {
       Left(JsonCoercionViolation)
   }
 
-  private def coerceUserJsonInput[T](v: Any)(
-      implicit fmt: JsonFormat[T]): Either[sangria.validation.Violation, T] = v match {
+  private def coerceUserJsonInput[T](
+      v: Any
+  )(implicit fmt: JsonFormat[T]): Either[sangria.validation.Violation, T] = v match {
     case jsValue: JsValue => Right(jsValue.convertTo[T])
     case _ => Left(JsonCoercionViolation)
   }
@@ -56,7 +59,7 @@ object JsonType {
       name,
       coerceOutput = (value, _) => value.toJson,
       coerceUserInput = coerceUserJsonInput[T],
-      coerceInput = coerceJsonInput[T]
+      coerceInput = coerceJsonInput[T],
     )
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -83,7 +86,7 @@ object JsonType {
           Right(jsonStr.parseJson)
         case _ ⇒
           Left(JsonCoercionViolation)
-      }
+      },
     )
 
   // ------------------------------------------------------------------------------------------------------------------

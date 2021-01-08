@@ -10,7 +10,8 @@ abstract class MismatchException[A](
     val existing: A,
     val provided: A,
 ) extends RuntimeException(
-      s"""The provided $description does not match the existing one. Existing: "$existing", Provided: "$provided".""")
+      s"""The provided $description does not match the existing one. Existing: "$existing", Provided: "$provided"."""
+    )
 
 object MismatchException {
 

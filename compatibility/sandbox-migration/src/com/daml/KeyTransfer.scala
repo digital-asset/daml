@@ -10,7 +10,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.platform.participant.util.ValueConversions._
 import JsonProtocol._
@@ -77,8 +77,8 @@ final class KeyTransfer(
       None,
     )
 
-  override def execute(packageId: String, config: Config.Test)(
-      implicit ec: ExecutionContext,
+  override def execute(packageId: String, config: Config.Test)(implicit
+      ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] =

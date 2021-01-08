@@ -15,7 +15,7 @@ import com.daml.ledger.client.GrpcChannel
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.logging.LoggingContext
@@ -72,7 +72,8 @@ final class TlsCertificateRevocationCheckingSpec
           serverKey,
           caCrt,
           clientRevokedCrt,
-          clientRevokedKey)
+          clientRevokedKey,
+        )
           .makeARequest()
           .failed
           .collect {
@@ -98,7 +99,8 @@ final class TlsCertificateRevocationCheckingSpec
           serverKey,
           caCrt,
           clientRevokedCrt,
-          clientRevokedKey)
+          clientRevokedKey,
+        )
           .makeARequest()
           .map(_ => succeed)
       }
@@ -144,7 +146,7 @@ object TlsCertificateRevocationCheckingSpec {
       keyCertChainFile = Some(serverCrt),
       keyFile = Some(serverKey),
       trustCertCollectionFile = Some(caCrt),
-      enableCertRevocationChecking = true
+      enableCertRevocationChecking = true,
     )
 
     private def apiServerOwner(): ResourceOwner[ApiServer] = {
@@ -163,7 +165,8 @@ object TlsCertificateRevocationCheckingSpec {
               tlsConfiguration = Some(serverTlsConfiguration),
               servicesExecutor = servicesExecutor,
               metrics = new Metrics(new MetricRegistry),
-          ))
+            )
+          )
       }
     }
 
@@ -172,7 +175,7 @@ object TlsCertificateRevocationCheckingSpec {
         enabled = tlsEnabled,
         keyCertChainFile = Some(clientCrt),
         keyFile = Some(clientKey),
-        trustCertCollectionFile = Some(caCrt)
+        trustCertCollectionFile = Some(caCrt),
       )
 
     private val ledgerClientConfiguration = LedgerClientConfiguration(
@@ -180,7 +183,7 @@ object TlsCertificateRevocationCheckingSpec {
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = clientTlsConfiguration.client,
-      token = None
+      token = None,
     )
 
     private def resources(): ResourceOwner[ManagedChannel] =

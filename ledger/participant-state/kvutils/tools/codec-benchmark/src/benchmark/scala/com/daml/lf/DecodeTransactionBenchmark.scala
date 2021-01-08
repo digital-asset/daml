@@ -7,7 +7,7 @@ import com.daml.lf.benchmark.{
   BenchmarkWithLedgerExport,
   DecodedTransaction,
   EncodedTransaction,
-  assertDecode
+  assertDecode,
 }
 import org.openjdk.jmh.annotations.{Benchmark, Setup}
 

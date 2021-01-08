@@ -26,7 +26,6 @@ import com.daml.ledger.api.health.ReportsHealth
   * - allocating a new party using [[WritePartyService!.allocateParty]]
   * - uploading a new package using [[WritePackagesService!.uploadPackages]]
   * - pruning a participant ledger using [[WriteParticipantPruningService!.prune]]
-  *
   */
 trait WriteService
     extends WritePackagesService

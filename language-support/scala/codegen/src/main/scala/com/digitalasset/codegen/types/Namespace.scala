@@ -39,7 +39,8 @@ object Namespace {
       // preorder fold/traversal (there is no inherent notion of an
       // ordering containing both the root and child elements)
       override def traverseImpl[G[_]: Applicative, A, B](fa: Namespace[K, A])(
-          f: A => G[B]): G[Namespace[K, B]] =
+          f: A => G[B]
+      ): G[Namespace[K, B]] =
         ^(f(fa.here), fa.subtree traverse (traverseImpl(_)(f)))(Namespace(_, _))
     }
 
@@ -51,6 +52,7 @@ object Namespace {
     Namespace(
       here.headOption map (_._2),
       ==>>(subs.groupBy(_._1.head).toSeq: _*)
-        .map(children => fromHierarchy(children.map(_.leftMap(_.tail)))))
+        .map(children => fromHierarchy(children.map(_.leftMap(_.tail)))),
+    )
   }
 }

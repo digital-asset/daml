@@ -25,7 +25,8 @@ class GraphQLSchemaSpec extends AnyWordSpec with Matchers {
 
       if (changes.nonEmpty) {
         fail(
-          s"Schema definition does not match:\n- ${changes.map(_.description).mkString("\n- ")}\n")
+          s"Schema definition does not match:\n- ${changes.map(_.description).mkString("\n- ")}\n"
+        )
       }
     }
   }

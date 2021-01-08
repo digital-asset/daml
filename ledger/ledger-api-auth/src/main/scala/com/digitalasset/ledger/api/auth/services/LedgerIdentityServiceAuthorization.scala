@@ -7,7 +7,7 @@ import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   GetLedgerIdentityResponse,
-  LedgerIdentityServiceGrpc
+  LedgerIdentityServiceGrpc,
 }
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
@@ -24,7 +24,8 @@ private[daml] final class LedgerIdentityServiceAuthorization(
     with GrpcApiService {
 
   override def getLedgerIdentity(
-      request: GetLedgerIdentityRequest): Future[GetLedgerIdentityResponse] =
+      request: GetLedgerIdentityRequest
+  ): Future[GetLedgerIdentityResponse] =
     authorizer.requirePublicClaims(service.getLedgerIdentity)(request)
 
   override def bindService(): ServerServiceDefinition =

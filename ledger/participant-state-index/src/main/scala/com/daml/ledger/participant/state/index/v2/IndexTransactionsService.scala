@@ -11,16 +11,15 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
 
-/**
-  * Serves as a backend to implement
+/** Serves as a backend to implement
   * [[com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService]]
-  **/
+  */
 trait IndexTransactionsService extends LedgerEndService {
   def transactions(
       begin: LedgerOffset,

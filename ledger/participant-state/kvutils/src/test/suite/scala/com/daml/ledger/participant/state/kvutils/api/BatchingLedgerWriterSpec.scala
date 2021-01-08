@@ -97,13 +97,15 @@ object BatchingLedgerWriterSpec extends MockitoSugar with ArgumentMatchersSugar 
 
   def immediateBatchingQueue()(implicit executionContext: ExecutionContext): BatchingQueue =
     new BatchingQueue {
-      override def run(commitBatch: Seq[DamlSubmissionBatch.CorrelatedSubmission] => Future[Unit])(
-          implicit materializer: Materializer): RunningBatchingQueueHandle =
+      override def run(
+          commitBatch: Seq[DamlSubmissionBatch.CorrelatedSubmission] => Future[Unit]
+      )(implicit materializer: Materializer): RunningBatchingQueueHandle =
         new RunningBatchingQueueHandle {
           override def state: RunningBatchingQueueState = RunningBatchingQueueState.Alive
 
           override def offer(
-              submission: DamlSubmissionBatch.CorrelatedSubmission): Future[SubmissionResult] =
+              submission: DamlSubmissionBatch.CorrelatedSubmission
+          ): Future[SubmissionResult] =
             commitBatch(Seq(submission))
               .map { _ =>
                 SubmissionResult.Acknowledged
@@ -127,13 +129,13 @@ object BatchingLedgerWriterSpec extends MockitoSugar with ArgumentMatchersSugar 
       .enclose(
         DamlSubmissionBatch.newBuilder
           .addAllSubmissions(
-            correlatedSubmissions.map {
-              case (correlationId, submission) =>
-                DamlSubmissionBatch.CorrelatedSubmission.newBuilder
-                  .setCorrelationId(correlationId)
-                  .setSubmission(submission.bytes)
-                  .build
+            correlatedSubmissions.map { case (correlationId, submission) =>
+              DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+                .setCorrelationId(correlationId)
+                .setSubmission(submission.bytes)
+                .build
             }.asJava
           )
-          .build)
+          .build
+      )
 }

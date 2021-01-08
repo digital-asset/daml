@@ -36,7 +36,7 @@ trait CommonQueries extends Queries {
   }
 
   override final def selectStateValuesByKeys(
-      keys: Iterable[Raw.Key],
+      keys: Iterable[Raw.Key]
   ): Try[immutable.Seq[Option[Raw.Value]]] =
     Try {
       val results =
@@ -49,10 +49,12 @@ trait CommonQueries extends Queries {
     }
 
   override final def updateState(stateUpdates: Iterable[Raw.KeyValuePair]): Try[Unit] = Try {
-    executeBatchSql(updateStateQuery, stateUpdates.map {
-      case (key, value) =>
+    executeBatchSql(
+      updateStateQuery,
+      stateUpdates.map { case (key, value) =>
         Seq[NamedParameter]("key" -> key, "value" -> value)
-    })
+      },
+    )
   }
 
   protected val updateStateQuery: String

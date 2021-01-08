@@ -12,24 +12,25 @@ import scalaz.syntax.tag._
 object Commands {
   def create(
       templateId: lar.TemplateId,
-      payload: lav1.value.Record
+      payload: lav1.value.Record,
   ): lav1.commands.Command.Command.Create =
     lav1.commands.Command.Command.Create(
       lav1.commands
-        .CreateCommand(templateId = Some(templateId.unwrap), createArguments = Some(payload)))
+        .CreateCommand(templateId = Some(templateId.unwrap), createArguments = Some(payload))
+    )
 
   def exercise(
       templateId: lar.TemplateId,
       contractId: lar.ContractId,
       choice: lar.Choice,
-      argument: lav1.value.Value
+      argument: lav1.value.Value,
   ): lav1.commands.Command.Command.Exercise =
     lav1.commands.Command.Command.Exercise(
       lav1.commands.ExerciseCommand(
         templateId = Some(templateId.unwrap),
         contractId = contractId.unwrap,
         choice = choice.unwrap,
-        choiceArgument = Some(argument)
+        choiceArgument = Some(argument),
       )
     )
 
@@ -37,14 +38,14 @@ object Commands {
       templateId: lar.TemplateId,
       contractKey: lav1.value.Value,
       choice: lar.Choice,
-      argument: lav1.value.Value
+      argument: lav1.value.Value,
   ): lav1.commands.Command.Command.ExerciseByKey =
     lav1.commands.Command.Command.ExerciseByKey(
       lav1.commands.ExerciseByKeyCommand(
         templateId = Some(templateId.unwrap),
         contractKey = Some(contractKey),
         choice = choice.unwrap,
-        choiceArgument = Some(argument)
+        choiceArgument = Some(argument),
       )
     )
 
@@ -52,14 +53,14 @@ object Commands {
       templateId: lar.TemplateId,
       payload: lav1.value.Record,
       choice: lar.Choice,
-      argument: lav1.value.Value
+      argument: lav1.value.Value,
   ): lav1.commands.Command.Command.CreateAndExercise =
     lav1.commands.Command.Command.CreateAndExercise(
       lav1.commands.CreateAndExerciseCommand(
         templateId = Some(templateId.unwrap),
         createArguments = Some(payload),
         choice = choice.unwrap,
-        choiceArgument = Some(argument)
+        choiceArgument = Some(argument),
       )
     )
 
@@ -69,7 +70,7 @@ object Commands {
       commandId: lar.CommandId,
       actAs: NonEmptyList[lar.Party],
       readAs: List[lar.Party],
-      command: lav1.commands.Command.Command
+      command: lav1.commands.Command.Command,
   ): lav1.command_service.SubmitAndWaitRequest = {
     val commands = lav1.commands.Commands(
       ledgerId = ledgerId.unwrap,
@@ -85,7 +86,7 @@ object Commands {
       party = actAs.head.unwrap,
       actAs = lar.Party.unsubst(actAs.toList),
       readAs = lar.Party.unsubst(readAs),
-      commands = Seq(lav1.commands.Command(command))
+      commands = Seq(lav1.commands.Command(command)),
     )
     lav1.command_service.SubmitAndWaitRequest(Some(commands))
   }

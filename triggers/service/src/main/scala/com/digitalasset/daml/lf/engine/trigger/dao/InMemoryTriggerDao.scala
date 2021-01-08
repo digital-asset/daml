@@ -21,19 +21,24 @@ final class InMemoryTriggerDao extends RunningTriggerDao {
   override def addRunningTrigger(t: RunningTrigger)(implicit ec: ExecutionContext): Future[Unit] =
     Future {
       triggers += t.triggerInstance -> t
-      triggersByParty += t.triggerParty -> (triggersByParty.getOrElse(t.triggerParty, Set()) + t.triggerInstance)
+      triggersByParty += t.triggerParty -> (triggersByParty.getOrElse(
+        t.triggerParty,
+        Set(),
+      ) + t.triggerInstance)
       ()
     }
 
-  override def getRunningTrigger(triggerInstance: UUID)(
-      implicit ec: ExecutionContext): Future[Option[RunningTrigger]] = Future {
+  override def getRunningTrigger(
+      triggerInstance: UUID
+  )(implicit ec: ExecutionContext): Future[Option[RunningTrigger]] = Future {
     triggers.get(triggerInstance)
   }
 
   override def updateRunningTriggerToken(
       triggerInstance: UUID,
       accessToken: AccessToken,
-      refreshToken: Option[RefreshToken])(implicit ec: ExecutionContext): Future[Unit] = Future {
+      refreshToken: Option[RefreshToken],
+  )(implicit ec: ExecutionContext): Future[Unit] = Future {
     triggers.get(triggerInstance) match {
       case Some(t) =>
         triggers += (triggerInstance -> t
@@ -42,8 +47,9 @@ final class InMemoryTriggerDao extends RunningTriggerDao {
     }
   }
 
-  override def removeRunningTrigger(triggerInstance: UUID)(
-      implicit ec: ExecutionContext): Future[Boolean] = Future {
+  override def removeRunningTrigger(
+      triggerInstance: UUID
+  )(implicit ec: ExecutionContext): Future[Boolean] = Future {
     triggers.get(triggerInstance) match {
       case None => false
       case Some(t) =>
@@ -53,14 +59,16 @@ final class InMemoryTriggerDao extends RunningTriggerDao {
     }
   }
 
-  override def listRunningTriggers(party: Party)(
-      implicit ec: ExecutionContext): Future[Vector[UUID]] = Future {
+  override def listRunningTriggers(
+      party: Party
+  )(implicit ec: ExecutionContext): Future[Vector[UUID]] = Future {
     triggersByParty.getOrElse(party, Set()).toVector.sorted
   }
 
   // This is only possible when running with persistence. For in-memory mode we do nothing.
-  override def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)])(
-      implicit ec: ExecutionContext): Future[Unit] =
+  override def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)])(implicit
+      ec: ExecutionContext
+  ): Future[Unit] =
     Future.successful(())
 
   override def close() = ()

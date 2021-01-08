@@ -22,6 +22,6 @@ class VoidValueRefSpec extends AnyWordSpec with Matchers {
     "never succeed decoding" in forAll(argumentValueGen(1)) { av =>
       Value.decode[TestVoid](av) shouldBe None
     }
-   */
+     */
   }
 }

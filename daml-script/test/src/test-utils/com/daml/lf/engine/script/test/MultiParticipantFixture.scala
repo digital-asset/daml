@@ -77,11 +77,13 @@ trait MultiParticipantFixture
             .copy(
               participants = Seq(
                 participant1,
-                participant2
+                participant2,
               ),
               archiveFiles = Seq(
                 darFile
-              )))
+              ),
+            )
+        )
       } yield (readPortfile(participant1Portfile), readPortfile(participant2Portfile))
     )
   }
@@ -92,14 +94,15 @@ trait MultiParticipantFixture
       None,
       Seq(
         (Participant("one"), ApiParameters("localhost", suiteResource.value._1.value, None, None)),
-        (Participant("two"), ApiParameters("localhost", suiteResource.value._2.value, None, None))
+        (Participant("two"), ApiParameters("localhost", suiteResource.value._2.value, None, None)),
       ).toMap,
-      Map.empty
+      Map.empty,
     )
     Runner.connect(
       params,
       tlsConfig = TlsConfiguration(false, None, None, None),
-      maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize)
+      maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
+    )
   }
 
   override def timeMode: ScriptTimeMode = ScriptTimeMode.WallClock

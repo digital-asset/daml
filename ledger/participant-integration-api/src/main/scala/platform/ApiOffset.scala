@@ -19,7 +19,7 @@ private[daml] object ApiOffset {
       .fromString(s)
       .fold(
         err => Failure(new IllegalArgumentException(err)),
-        b => Success(Offset.fromHexString(b))
+        b => Success(Offset.fromHexString(b)),
       )
 
   def assertFromString(s: String): Offset = fromString(s).get

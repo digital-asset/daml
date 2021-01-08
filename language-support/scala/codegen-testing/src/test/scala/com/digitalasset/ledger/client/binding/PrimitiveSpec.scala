@@ -27,13 +27,16 @@ class PrimitiveSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPrope
         def check[A, B]() = {
           illTyped(
             "implicitly[P.ContractId[A] =:= P.ContractId[B]]",
-            "Cannot prove that .*ContractId\\[A\\] =:= .*ContractId\\[B\\].")
+            "Cannot prove that .*ContractId\\[A\\] =:= .*ContractId\\[B\\].",
+          )
           illTyped(
             "implicitly[P.TemplateId[A] =:= P.TemplateId[B]]",
-            "Cannot prove that .*TemplateId\\[A\\] =:= .*TemplateId\\[B\\].")
+            "Cannot prove that .*TemplateId\\[A\\] =:= .*TemplateId\\[B\\].",
+          )
           illTyped(
             "implicitly[P.Update[A] =:= P.Update[B]]",
-            "Cannot prove that .*Update\\[A\\] =:= .*Update\\[B\\].")
+            "Cannot prove that .*Update\\[A\\] =:= .*Update\\[B\\].",
+          )
         }
         check[Unit, Unit]()
       }
@@ -94,6 +97,7 @@ object PrimitiveSpec {
     Gen
       .zip(
         Gen.choose(Instant.MIN.getEpochSecond, Instant.MAX.getEpochSecond),
-        Gen.choose(0L, 999999999))
+        Gen.choose(0L, 999999999),
+      )
       .map { case (s, n) => Instant.ofEpochSecond(s, n) }
 }

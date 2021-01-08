@@ -86,19 +86,19 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
     "accepts valid qualified names" in {
       QualifiedName.fromString("foo:bar").toOption.get shouldBe QualifiedName(
         module = DottedName.assertFromString("foo"),
-        name = DottedName.assertFromString("bar")
+        name = DottedName.assertFromString("bar"),
       )
       QualifiedName.fromString("foo.bar:baz").toOption.get shouldBe QualifiedName(
         module = DottedName.assertFromString("foo.bar"),
-        name = DottedName.assertFromString("baz")
+        name = DottedName.assertFromString("baz"),
       )
       QualifiedName.fromString("foo:bar.baz").toOption.get shouldBe QualifiedName(
         module = DottedName.assertFromString("foo"),
-        name = DottedName.assertFromString("bar.baz")
+        name = DottedName.assertFromString("bar.baz"),
       )
       QualifiedName.fromString("foo.bar:baz.quux").toOption.get shouldBe QualifiedName(
         module = DottedName.assertFromString("foo.bar"),
-        name = DottedName.assertFromString("baz.quux")
+        name = DottedName.assertFromString("baz.quux"),
       )
     }
   }
@@ -189,11 +189,13 @@ class RefTest extends AnyFreeSpec with Matchers with EitherValues {
         Party.fromString(positiveTestCase) shouldBe a[Left[_, _]]
         LedgerString.fromString(positiveTestCase) shouldBe a[Left[_, _]]
       }
-      for (positiveTestCase <- List(
+      for (
+        positiveTestCase <- List(
           "español",
           "東京",
-          "Λ (τ : ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → (( e @τ ))"
-        )) {
+          "Λ (τ : ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → (( e @τ ))",
+        )
+      ) {
         Party.fromString(positiveTestCase) shouldBe a[Left[_, _]]
         PackageId.fromString(positiveTestCase) shouldBe a[Left[_, _]]
       }

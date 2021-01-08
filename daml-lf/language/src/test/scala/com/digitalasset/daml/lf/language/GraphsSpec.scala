@@ -23,8 +23,8 @@ class GraphsSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCheck
         5 -> Set(11),
         7 -> Set(8, 11),
         8 -> Set(9),
-        11 -> Set(2, 9, 10)
-      )
+        11 -> Set(2, 9, 10),
+      ),
     )
 
     val dcgs = Table[Graph[String]](
@@ -37,7 +37,7 @@ class GraphsSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCheck
         "C" -> Set("D"),
         "D" -> Set("B", "E"),
         "E" -> Set("E"),
-      )
+      ),
     )
 
     "successfully sort all edges of directed acyclic graph" in {
@@ -65,9 +65,8 @@ class GraphsSpec extends AnyWordSpec with Matchers with TableDrivenPropertyCheck
 
         val Left(Cycle(loop)) = result
 
-        ((loop.last :: loop) zip loop).foreach {
-          case (e, e_) =>
-            dcg(e) should contain(e_)
+        ((loop.last :: loop) zip loop).foreach { case (e, e_) =>
+          dcg(e) should contain(e_)
         }
       }
     }

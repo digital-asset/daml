@@ -16,7 +16,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.lf.CompiledPackages
@@ -54,10 +54,11 @@ object TriggerRunnerImpl {
 
   private[this] val logger = ContextualizedLogger get getClass
 
-  def apply(config: Config)(
-      implicit esf: ExecutionSequencerFactory,
+  def apply(config: Config)(implicit
+      esf: ExecutionSequencerFactory,
       mat: Materializer,
-      loggingContext: LoggingContextOf[Config with Trigger]): Behavior[Message] =
+      loggingContext: LoggingContextOf[Config with Trigger],
+  ): Behavior[Message] =
     Behaviors.setup { ctx =>
       val name = ctx.self.path.name
       implicit val ec: ExecutionContext = ctx.executionContext
@@ -69,7 +70,8 @@ object TriggerRunnerImpl {
         applicationId = config.applicationId.unwrap,
         ledgerIdRequirement = LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default.copy(
-          defaultDeduplicationTime = config.ledgerConfig.commandTtl),
+          defaultDeduplicationTime = config.ledgerConfig.commandTtl
+        ),
         sslContext = None,
         token = AccessToken.unsubst(config.accessToken),
         maxInboundMessageSize = config.ledgerConfig.maxInboundMessageSize,
@@ -185,7 +187,8 @@ object TriggerRunnerImpl {
           client,
           config.ledgerConfig.timeProvider,
           config.applicationId,
-          config.party.unwrap)
+          config.party.unwrap,
+        )
         (acs, offset) <- runner.queryACS()
       } yield QueriedACS(runner, acs, offset)
       // Arrange for the completion status to be piped into a message

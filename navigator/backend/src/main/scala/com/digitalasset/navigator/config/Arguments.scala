@@ -31,30 +31,31 @@ case class Arguments(
     startWebServer: Boolean = false,
     useDatabase: Boolean = false,
     ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024, // 50 MiB
-    ignoreProjectParties: Boolean = false
+    ignoreProjectParties: Boolean = false,
 )
 
 trait ArgumentsHelper { self: OptionParser[Arguments] =>
   def hostname: OptionDef[String, Arguments] =
     arg[String]("<host>")
       .text(
-        s"hostname or IP address of the Ledger API server (default ${Arguments.default.participantHost})")
+        s"hostname or IP address of the Ledger API server (default ${Arguments.default.participantHost})"
+      )
       .optional()
-      .action(
-        (ip, arguments) =>
-          arguments.copy(
-            participantHost = ip
-        ))
+      .action((ip, arguments) =>
+        arguments.copy(
+          participantHost = ip
+        )
+      )
 
   def port: OptionDef[Int, Arguments] =
     arg[Int]("<port>")
       .text(s"port number of the Ledger API server (default ${Arguments.default.participantPort})")
       .optional()
-      .action(
-        (port, arguments) =>
-          arguments.copy(
-            participantPort = port
-        ))
+      .action((port, arguments) =>
+        arguments.copy(
+          participantPort = port
+        )
+      )
 }
 
 object Arguments {
@@ -68,9 +69,11 @@ object Arguments {
 
   private val crtConfig = (path: String, arguments: Arguments) =>
     arguments.copy(
-      tlsConfig = arguments.tlsConfig.fold(
-        Some(TlsConfiguration(true, Some(new File(path)), None, None)))(c =>
-        Some(c.copy(keyCertChainFile = Some(new File(path))))))
+      tlsConfig =
+        arguments.tlsConfig.fold(Some(TlsConfiguration(true, Some(new File(path)), None, None)))(
+          c => Some(c.copy(keyCertChainFile = Some(new File(path))))
+        )
+    )
 
   private def argumentParser(defaultConfigFile: Path) =
     new OptionParser[Arguments]("navigator") with ArgumentsHelper {
@@ -86,7 +89,8 @@ object Arguments {
 
       opt[String]("access-token-file")
         .text(
-          s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
+          s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default"
+        )
         .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
         .optional()
 
@@ -106,9 +110,12 @@ object Arguments {
         .text("TLS: The pem file to be used as the private key.")
         .validate(path => validatePath(path, "The file specified via --pem does not exist"))
         .action((path, arguments) =>
-          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-            Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
-            Some(c.copy(keyFile = Some(new File(path)))))))
+          arguments.copy(tlsConfig =
+            arguments.tlsConfig.fold(
+              Some(TlsConfiguration(true, None, Some(new File(path)), None))
+            )(c => Some(c.copy(keyFile = Some(new File(path)))))
+          )
+        )
 
       opt[String]("crt")
         .optional()
@@ -121,53 +128,59 @@ object Arguments {
         .text("TLS: The crt file to be used as the trusted root CA.")
         .validate(path => validatePath(path, "The file specified via --cacrt does not exist"))
         .action((path, arguments) =>
-          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
-            Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
-            Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
+          arguments.copy(tlsConfig =
+            arguments.tlsConfig.fold(
+              Some(TlsConfiguration(true, None, None, Some(new File(path))))
+            )(c => Some(c.copy(trustCertCollectionFile = Some(new File(path)))))
+          )
+        )
 
       opt[Unit]("tls")
         .optional()
         .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
         .action((_, arguments) =>
           arguments.copy(tlsConfig =
-            arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
+            arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))
+          )
+        )
 
       opt[Unit]("database")
         .hidden()
         .text("EXPERIMENTAL: use an SQLite data store")
-        .action(
-          (_, arguments) =>
-            arguments.copy(
-              useDatabase = true
-          ))
+        .action((_, arguments) =>
+          arguments.copy(
+            useDatabase = true
+          )
+        )
 
       opt[Int]("ledger-api-inbound-message-size-max")
         .text(
-          s"Maximum message size in bytes from the ledger API. Default is ${Arguments.default.ledgerInboundMessageSizeMax}.")
+          s"Maximum message size in bytes from the ledger API. Default is ${Arguments.default.ledgerInboundMessageSizeMax}."
+        )
         .valueName("<bytes>")
         .validate(x => Either.cond(x > 0, (), "Buffer size must be positive"))
-        .action(
-          (ledgerInboundMessageSizeMax, arguments) => {
-            arguments.copy(
-              ledgerInboundMessageSizeMax = ledgerInboundMessageSizeMax,
-            )
-          }
-        )
+        .action((ledgerInboundMessageSizeMax, arguments) => {
+          arguments.copy(
+            ledgerInboundMessageSizeMax = ledgerInboundMessageSizeMax
+          )
+        })
 
       opt[Unit]("ignore-project-parties")
         .hidden()
         .optional()
-        .text("Ignore the parties specified in the project configuration file and query the ledger for parties instead.")
+        .text(
+          "Ignore the parties specified in the project configuration file and query the ledger for parties instead."
+        )
         .action((_, arguments) => arguments.copy(ignoreProjectParties = true))
 
       cmd("server")
         .text("serve data from platform")
-        .action(
-          (_, arguments) =>
-            arguments.copy(
-              command = RunServer,
-              startWebServer = true
-          ))
+        .action((_, arguments) =>
+          arguments.copy(
+            command = RunServer,
+            startWebServer = true,
+          )
+        )
         .children(hostname, port)
 
       cmd("dump-graphql-schema")

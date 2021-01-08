@@ -74,11 +74,11 @@ object ScenarioService {
     Status.NOT_FOUND.withDescription(s" context $id not found!").asRuntimeException
 }
 
-class ScenarioService(
-    implicit ec: ExecutionContext,
+class ScenarioService(implicit
+    ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
-    mat: Materializer)
-    extends ScenarioServiceGrpc.ScenarioServiceImplBase {
+    mat: Materializer,
+) extends ScenarioServiceGrpc.ScenarioServiceImplBase {
 
   import ScenarioService._
 
@@ -105,40 +105,42 @@ class ScenarioService(
               scenarioId.getPackage.getPackageId
             case PackageIdentifier.SumCase.SUM_NOT_SET =>
               throw new RuntimeException(
-                s"Package id not set when running scenario, context id $contextId",
+                s"Package id not set when running scenario, context id $contextId"
               )
           }
           context
             .interpretScenario(packageId, scenarioId.getName)
-            .map {
-              case (ledger, machine, errOrValue) =>
-                val builder = RunScenarioResponse.newBuilder
-                machine.withOnLedger("runScenario") { onLedger =>
-                  errOrValue match {
-                    case Left(err) =>
-                      builder.setError(
-                        new Conversions(
-                          context.homePackageId,
-                          ledger,
-                          onLedger.ptx,
-                          machine.traceLog,
-                          onLedger.commitLocation,
-                          machine.stackTrace())
-                          .convertScenarioError(err),
+            .map { case (ledger, machine, errOrValue) =>
+              val builder = RunScenarioResponse.newBuilder
+              machine.withOnLedger("runScenario") { onLedger =>
+                errOrValue match {
+                  case Left(err) =>
+                    builder.setError(
+                      new Conversions(
+                        context.homePackageId,
+                        ledger,
+                        onLedger.ptx,
+                        machine.traceLog,
+                        onLedger.commitLocation,
+                        machine.stackTrace(),
                       )
-                    case Right(value) =>
-                      builder.setResult(
-                        new Conversions(
-                          context.homePackageId,
-                          ledger,
-                          onLedger.ptx,
-                          machine.traceLog,
-                          onLedger.commitLocation,
-                          machine.stackTrace())
-                          .convertScenarioResult(value))
-                  }
+                        .convertScenarioError(err)
+                    )
+                  case Right(value) =>
+                    builder.setResult(
+                      new Conversions(
+                        context.homePackageId,
+                        ledger,
+                        onLedger.ptx,
+                        machine.traceLog,
+                        onLedger.commitLocation,
+                        machine.stackTrace(),
+                      )
+                        .convertScenarioResult(value)
+                    )
                 }
-                builder.build
+              }
+              builder.build
             }
         }
 
@@ -169,41 +171,42 @@ class ScenarioService(
               scenarioId.getPackage.getPackageId
             case PackageIdentifier.SumCase.SUM_NOT_SET =>
               throw new RuntimeException(
-                s"Package id not set when running scenario, context id $contextId",
+                s"Package id not set when running scenario, context id $contextId"
               )
           }
           context
             .interpretScript(packageId, scenarioId.getName)
-            .map(_.map {
-              case (ledger, (clientMachine, ledgerMachine), errOrValue) =>
-                val builder = RunScenarioResponse.newBuilder
-                ledgerMachine.withOnLedger("runScript") {
-                  onLedger =>
-                    errOrValue match {
-                      case Left(err) =>
-                        builder.setError(
-                          new Conversions(
-                            context.homePackageId,
-                            ledger,
-                            onLedger.ptx,
-                            clientMachine.traceLog,
-                            onLedger.commitLocation,
-                            ledgerMachine.stackTrace())
-                            .convertScenarioError(err),
-                        )
-                      case Right(value) =>
-                        builder.setResult(
-                          new Conversions(
-                            context.homePackageId,
-                            ledger,
-                            onLedger.ptx,
-                            clientMachine.traceLog,
-                            onLedger.commitLocation,
-                            ledgerMachine.stackTrace())
-                            .convertScenarioResult(value))
-                    }
+            .map(_.map { case (ledger, (clientMachine, ledgerMachine), errOrValue) =>
+              val builder = RunScenarioResponse.newBuilder
+              ledgerMachine.withOnLedger("runScript") { onLedger =>
+                errOrValue match {
+                  case Left(err) =>
+                    builder.setError(
+                      new Conversions(
+                        context.homePackageId,
+                        ledger,
+                        onLedger.ptx,
+                        clientMachine.traceLog,
+                        onLedger.commitLocation,
+                        ledgerMachine.stackTrace(),
+                      )
+                        .convertScenarioError(err)
+                    )
+                  case Right(value) =>
+                    builder.setResult(
+                      new Conversions(
+                        context.homePackageId,
+                        ledger,
+                        onLedger.ptx,
+                        clientMachine.traceLog,
+                        onLedger.commitLocation,
+                        ledgerMachine.stackTrace(),
+                      )
+                        .convertScenarioResult(value)
+                    )
                 }
-                builder.build
+              }
+              builder.build
             })
         }
         .map(_.flatMap(x => x))
@@ -226,7 +229,7 @@ class ScenarioService(
   ): Unit = {
     val lfVersion = LanguageVersion(
       LanguageVersion.Major.V1,
-      LanguageVersion.Minor(req.getLfMinor)
+      LanguageVersion.Minor(req.getLfMinor),
     )
     val ctx = Context.newContext(lfVersion)
     contexts += (ctx.contextId -> ctx)

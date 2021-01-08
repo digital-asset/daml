@@ -20,7 +20,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
   CommitMetadata,
   LedgerReader,
   LedgerRecord,
-  LedgerWriter
+  LedgerWriter,
 }
 import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v1._
@@ -55,17 +55,21 @@ final class SqlLedgerReaderWriter(
     dispatcher
       .startingAt(
         OffsetBuilder.highestIndex(startExclusive.getOrElse(StartOffset)),
-        RangeSource(
-          (startExclusive, endInclusive) =>
-            Source
-              .future(Timed
-                .value(metrics.daml.ledger.log.read, database.inReadTransaction("read_log") {
-                  queries =>
+        RangeSource((startExclusive, endInclusive) =>
+          Source
+            .future(
+              Timed
+                .value(
+                  metrics.daml.ledger.log.read,
+                  database.inReadTransaction("read_log") { queries =>
                     Future.fromTry(queries.selectFromLog(startExclusive, endInclusive))
-                })
-                .removeExecutionContext)
-              .mapConcat(identity)
-              .mapMaterializedValue(_ => NotUsed)),
+                  },
+                )
+                .removeExecutionContext
+            )
+            .mapConcat(identity)
+            .mapMaterializedValue(_ => NotUsed)
+        ),
       )
       .map { case (_, entry) => entry }
 
@@ -101,9 +105,11 @@ object SqlLedgerReaderWriter {
         uninitializedDatabase <- Database.owner(jdbcUrl, metrics).acquire()
         database <- Resource.fromFuture(
           if (resetOnStartup) uninitializedDatabase.migrateAndReset().removeExecutionContext
-          else sc.Future.successful(uninitializedDatabase.migrate()))
+          else sc.Future.successful(uninitializedDatabase.migrate())
+        )
         ledgerId <- Resource.fromFuture(
-          updateOrRetrieveLedgerId(ledgerId, database).removeExecutionContext)
+          updateOrRetrieveLedgerId(ledgerId, database).removeExecutionContext
+        )
         dispatcher <- new DispatcherOwner(database).acquire()
         validator = SubmissionValidator.createForTimeMode(
           new SqlLedgerStateAccess(database, metrics),
@@ -120,18 +126,18 @@ object SqlLedgerReaderWriter {
         )
         committerExecutionContext <- ResourceOwner
           .forExecutorService(() =>
-            sc.ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor()))
+            sc.ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
+          )
           .acquire()
-      } yield
-        new SqlLedgerReaderWriter(
-          ledgerId,
-          participantId,
-          metrics,
-          database,
-          dispatcher,
-          committer,
-          committerExecutionContext,
-        )
+      } yield new SqlLedgerReaderWriter(
+        ledgerId,
+        participantId,
+        metrics,
+        database,
+        dispatcher,
+        committer,
+        committerExecutionContext,
+      )
     }
   }
 
@@ -149,21 +155,27 @@ object SqlLedgerReaderWriter {
                 new MismatchException.LedgerId(
                   domain.LedgerId(ledgerId),
                   domain.LedgerId(providedLedgerId),
-                ))
+                )
+              )
             } else {
               Success(ledgerId)
             }
-          })
+          }
+      )
     }
 
   private final class DispatcherOwner(database: Database) extends ResourceOwner[Dispatcher[Index]] {
     override def acquire()(implicit context: ResourceContext): Resource[Dispatcher[Index]] =
       for {
-        head <- Resource.fromFuture(database
-          .inReadTransaction("read_head") { queries =>
-            Future.fromTry(queries.selectLatestLogEntryId().map(_.map(_ + 1).getOrElse(StartIndex)))
-          }
-          .removeExecutionContext)
+        head <- Resource.fromFuture(
+          database
+            .inReadTransaction("read_head") { queries =>
+              Future.fromTry(
+                queries.selectLatestLogEntryId().map(_.map(_ + 1).getOrElse(StartIndex))
+              )
+            }
+            .removeExecutionContext
+        )
         dispatcher <- Dispatcher
           .owner(
             name = "sql-participant-state",
@@ -185,8 +197,8 @@ object SqlLedgerReaderWriter {
 
   private final class SqlLedgerStateAccess(database: Database, metrics: Metrics)
       extends LedgerStateAccess[Index] {
-    override def inTransaction[T](body: LedgerStateOperations[Index] => sc.Future[T])(
-        implicit executionContext: sc.ExecutionContext
+    override def inTransaction[T](body: LedgerStateOperations[Index] => sc.Future[T])(implicit
+        executionContext: sc.ExecutionContext
     ): sc.Future[T] =
       database
         .inWriteTransaction("commit") { queries =>
@@ -198,12 +210,12 @@ object SqlLedgerReaderWriter {
   private final class SqlLedgerStateOperations(queries: Queries)
       extends BatchingLedgerStateOperations[Index] {
     override def readState(
-        keys: Iterable[Raw.Key],
+        keys: Iterable[Raw.Key]
     )(implicit executionContext: sc.ExecutionContext): sc.Future[Seq[Option[Raw.Value]]] =
       Future.fromTry(queries.selectStateValuesByKeys(keys)).removeExecutionContext
 
     override def writeState(
-        keyValuePairs: Iterable[Raw.KeyValuePair],
+        keyValuePairs: Iterable[Raw.KeyValuePair]
     )(implicit executionContext: sc.ExecutionContext): sc.Future[Unit] =
       Future.fromTry(queries.updateState(keyValuePairs)).removeExecutionContext
 

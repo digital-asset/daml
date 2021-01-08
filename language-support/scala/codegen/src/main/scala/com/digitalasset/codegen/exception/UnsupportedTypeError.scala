@@ -3,7 +3,6 @@
 
 package com.daml.codegen.exception
 
-/**
-  * The reason why a given type's code can't be generated
+/** The reason why a given type's code can't be generated
   */
 final case class UnsopportedTypeError(msg: String)

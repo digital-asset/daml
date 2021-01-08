@@ -67,15 +67,17 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
   protected final def ` templateId`(
       packageId: String,
       moduleName: String,
-      entityName: String): Primitive.TemplateId[T] =
+      entityName: String,
+  ): Primitive.TemplateId[T] =
     Primitive.TemplateId(packageId, moduleName, entityName)
 
   /** Helper for EventDecoderApi. */
   private[binding] final def decoderEntry
-    : (Primitive.TemplateId[T], rpcevent.CreatedEvent => Option[Template[T]]) = {
+      : (Primitive.TemplateId[T], rpcevent.CreatedEvent => Option[Template[T]]) = {
     type K[+A] = (Primitive.TemplateId[T], rpcevent.CreatedEvent => Option[A])
     Liskov.co[K, T, Template[T]](describesTemplate)(
-      (id, _.createArguments flatMap fromNamedArguments))
+      (id, _.createArguments flatMap fromNamedArguments)
+    )
   }
 
   @com.github.ghik.silencer.silent(" actor .* is never used") // part of generated code API
@@ -83,8 +85,8 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
       actor: Primitive.Party,
       receiver: ExOn,
       choiceId: String,
-      arguments: Option[rpcvalue.Value])(
-      implicit exon: ExerciseOn[ExOn, T]): Primitive.Update[Out] =
+      arguments: Option[rpcvalue.Value],
+  )(implicit exon: ExerciseOn[ExOn, T]): Primitive.Update[Out] =
     Primitive.exercise(this, receiver, choiceId, arguments getOrElse Value.encode(()))
 
   protected final def ` arguments`(elems: (String, rpcvalue.Value)*): rpcvalue.Record =

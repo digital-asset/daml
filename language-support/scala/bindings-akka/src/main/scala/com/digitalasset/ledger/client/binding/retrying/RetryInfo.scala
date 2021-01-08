@@ -14,7 +14,8 @@ case class RetryInfo[C](
     request: SubmitRequest,
     nrOfRetries: Int,
     firstSubmissionTime: Instant,
-    ctx: C) {
+    ctx: C,
+) {
   def newRetry: RetryInfo[C] = copy(nrOfRetries = nrOfRetries + 1)
 }
 

@@ -38,7 +38,9 @@ abstract class AkkaServiceSpecBase(override protected val socketAddress: Option[
       "return the correct number" in {
         await()
           .atMost(5, SECONDS)
-          .until(() => service.getServerStreamingCalls == 7) // The number of calls in the previous tests
+          .until(() =>
+            service.getServerStreamingCalls == 7
+          ) // The number of calls in the previous tests
       }
     }
   }

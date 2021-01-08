@@ -39,10 +39,9 @@ class WebsocketServiceOffsetTickIntTest
         .take(10)
         .runWith(collectResultsAsTextMessage)
     } yield {
-      inside(eventsBlockVector(msgs.toVector)) {
-        case \/-(offsetTicks) =>
-          offsetTicks.forall(isOffsetTick) shouldBe true
-          offsetTicks should have length 10
+      inside(eventsBlockVector(msgs.toVector)) { case \/-(offsetTicks) =>
+        offsetTicks.forall(isOffsetTick) shouldBe true
+        offsetTicks should have length 10
       }
     }
   }
@@ -56,12 +55,11 @@ class WebsocketServiceOffsetTickIntTest
           .take(10)
           .runWith(collectResultsAsTextMessage)
       } yield {
-        inside(eventsBlockVector(msgs.toVector)) {
-          case \/-(acs +: offsetTicks) =>
-            isAcs(acs) shouldBe true
-            acs.events should have length 1
-            offsetTicks.forall(isAbsoluteOffsetTick) shouldBe true
-            offsetTicks should have length 9
+        inside(eventsBlockVector(msgs.toVector)) { case \/-(acs +: offsetTicks) =>
+          isAcs(acs) shouldBe true
+          acs.events should have length 1
+          offsetTicks.forall(isAbsoluteOffsetTick) shouldBe true
+          offsetTicks should have length 9
         }
       }
   }

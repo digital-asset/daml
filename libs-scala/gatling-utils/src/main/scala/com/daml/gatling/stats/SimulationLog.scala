@@ -38,30 +38,29 @@ case class SimulationLog(simulation: String, scenarios: List[ScenarioStats]) {
   private def toCsv: List[ListMap[String, String]] = {
     scenarios
       .flatMap { scenario =>
-        scenario.requestsByType.map {
-          case (requestType, stats) =>
-            ListMap(
-              "simulation" -> simulation.toString,
-              "scenario" -> scenario.label,
-              "maxUsers" -> scenario.maxUsers.toString,
-              "request" -> requestType,
-              "start" -> format(stats.successful.start),
-              "duration" -> format(stats.successful.duration.map(_.toDouble / 1000)),
-              "end" -> format(stats.successful.end),
-              "count" -> stats.count.toString,
-              "successCount" -> stats.successful.count.toString,
-              "errorCount" -> stats.failed.count.toString,
-              "min" -> format(stats.successful.percentile(0.0)),
-              "p90" -> format(stats.successful.percentile(0.9)),
-              "p95" -> format(stats.successful.percentile(0.95)),
-              "p99" -> format(stats.successful.percentile(0.99)),
-              "p999" -> format(stats.successful.percentile(0.999)),
-              "max" -> format(stats.successful.percentile(1.0)),
-              "mean" -> format(stats.successful.geometricMean.map(math.round)),
-              "avg" -> format(stats.successful.mean.map(math.round)),
-              "stddev" -> format(stats.successful.stdDev.map(math.round)),
-              "rps" -> format(stats.successful.requestsPerSecond)
-            )
+        scenario.requestsByType.map { case (requestType, stats) =>
+          ListMap(
+            "simulation" -> simulation.toString,
+            "scenario" -> scenario.label,
+            "maxUsers" -> scenario.maxUsers.toString,
+            "request" -> requestType,
+            "start" -> format(stats.successful.start),
+            "duration" -> format(stats.successful.duration.map(_.toDouble / 1000)),
+            "end" -> format(stats.successful.end),
+            "count" -> stats.count.toString,
+            "successCount" -> stats.successful.count.toString,
+            "errorCount" -> stats.failed.count.toString,
+            "min" -> format(stats.successful.percentile(0.0)),
+            "p90" -> format(stats.successful.percentile(0.9)),
+            "p95" -> format(stats.successful.percentile(0.95)),
+            "p99" -> format(stats.successful.percentile(0.99)),
+            "p999" -> format(stats.successful.percentile(0.999)),
+            "max" -> format(stats.successful.percentile(1.0)),
+            "mean" -> format(stats.successful.geometricMean.map(math.round)),
+            "avg" -> format(stats.successful.mean.map(math.round)),
+            "stddev" -> format(stats.successful.stdDev.map(math.round)),
+            "rps" -> format(stats.successful.requestsPerSecond),
+          )
         }
       }
   }
@@ -79,12 +78,14 @@ object SimulationLog {
   case class ScenarioStats(
       label: String,
       maxUsers: Int = 0,
-      requestsByType: Map[String, RequestTypeStats] = Map.empty)
+      requestsByType: Map[String, RequestTypeStats] = Map.empty,
+  )
 
   case class DurationStatistics(
       durations: Seq[Int],
       start: Option[Timestamp],
-      end: Option[Timestamp]) {
+      end: Option[Timestamp],
+  ) {
 
     def count: Int = durations.size
     def mean: Option[Double] = durations.nonEmptyOpt.map(ds => ds.sum.toDouble / ds.size)
@@ -116,20 +117,22 @@ object SimulationLog {
           DurationStatistics(
             s1.durations ++ s2.durations,
             min(s1.start, s2.start),
-            max(s1.end, s2.end)
+            max(s1.end, s2.end),
           )
       }
 
-    private def min[A](fa: Option[A], fb: Option[A])(
-        implicit ev: scala.math.Ordering[A]): Option[A] = (fa, fb) match {
+    private def min[A](fa: Option[A], fb: Option[A])(implicit
+        ev: scala.math.Ordering[A]
+    ): Option[A] = (fa, fb) match {
       case (Some(x), Some(y)) => Some(ev.min(x, y))
       case (None, x @ Some(_)) => x
       case (x @ Some(_), None) => x
       case (_, _) => None
     }
 
-    private def max[A](fa: Option[A], fb: Option[A])(
-        implicit ev: scala.math.Ordering[A]): Option[A] = (fa, fb) match {
+    private def max[A](fa: Option[A], fb: Option[A])(implicit
+        ev: scala.math.Ordering[A]
+    ): Option[A] = (fa, fb) match {
       case (Some(x), Some(y)) => Some(ev.max(x, y))
       case (None, x @ Some(_)) => x
       case (x @ Some(_), None) => x
@@ -153,13 +156,14 @@ object SimulationLog {
       StatGroup(
         title,
         count,
-        all.durations.nonEmptyOpt.map(ds => count.toDouble / ds.size * 100).getOrElse(0.0))
+        all.durations.nonEmptyOpt.map(ds => count.toDouble / ds.size * 100).getOrElse(0.0),
+      )
     }
 
     def formatted(
         title: String,
         bracket1millis: Int = 5000,
-        bracket2millis: Int = 30000
+        bracket2millis: Int = 30000,
     ): String = {
       require(bracket1millis < bracket2millis)
       List(
@@ -184,8 +188,9 @@ object SimulationLog {
           failed.durations.size,
           all.durations.nonEmptyOpt
             .map(ds => failed.durations.size.toDouble / ds.size * 100)
-            .getOrElse(0.0)).formatted,
-        "=" * lineLength
+            .getOrElse(0.0),
+        ).formatted,
+        "=" * lineLength,
       ).mkString(System.lineSeparator)
     }
 
@@ -200,11 +205,13 @@ object SimulationLog {
         successful = DurationStatistics(
           successful(true).map(_.duration),
           start,
-          successful(true).map(_.end).nonEmptyOpt.map(_.max)),
+          successful(true).map(_.end).nonEmptyOpt.map(_.max),
+        ),
         failed = DurationStatistics(
           successful(false).map(_.duration),
           start,
-          successful(false).map(_.end).nonEmptyOpt.map(_.max))
+          successful(false).map(_.end).nonEmptyOpt.map(_.max),
+        ),
       )
     }
 
@@ -222,7 +229,7 @@ object SimulationLog {
       requestLabel: String,
       start: Timestamp,
       end: Timestamp,
-      successful: Boolean
+      successful: Boolean,
   ) {
     def duration: Int = (end - start).toInt
   }
@@ -238,7 +245,8 @@ object SimulationLog {
       rowsByType <- groupRowsByType(content)
       requests <- processRequests(rowsByType.getOrElse("REQUEST", List.empty))
       scenarios <- processScenarios(requests.groupBy(_.userId))(
-        rowsByType.getOrElse("USER", List.empty))
+        rowsByType.getOrElse("USER", List.empty)
+      )
       simulation <- processSimulation(scenarios)(rowsByType.getOrElse("RUN", List.empty))
     } yield simulation
 
@@ -255,31 +263,33 @@ object SimulationLog {
         .toMap
     }.leftMap(_.getMessage)
 
-  def processScenarios(requestsByUser: Map[Int, Seq[RequestStats]])(
-      userRows: List[Seq[String]]): String \/ List[ScenarioStats] =
+  def processScenarios(
+      requestsByUser: Map[Int, Seq[RequestStats]]
+  )(userRows: List[Seq[String]]): String \/ List[ScenarioStats] =
     if (userRows.isEmpty) "Could not find any USER rows.".left
     else
       userRows
         .collect { case Seq(label, userId, "START", _*) => userId -> label }
-        .foldRight(Map.empty[String, ScenarioStats]) {
-          case ((userId, label), result) =>
-            val requestsByType: Map[String, RequestTypeStats] = requestsByUser
-              .getOrElse(userId.toInt, Seq.empty)
-              .groupBy(_.requestLabel)
-              .view
-              .mapValues(RequestTypeStats.fromRequestStats)
-              .toMap
-            val s = result.getOrElse(label, ScenarioStats(label))
-            result + (label -> s.copy(
-              maxUsers = s.maxUsers + 1,
-              requestsByType = s.requestsByType |+| requestsByType))
+        .foldRight(Map.empty[String, ScenarioStats]) { case ((userId, label), result) =>
+          val requestsByType: Map[String, RequestTypeStats] = requestsByUser
+            .getOrElse(userId.toInt, Seq.empty)
+            .groupBy(_.requestLabel)
+            .view
+            .mapValues(RequestTypeStats.fromRequestStats)
+            .toMap
+          val s = result.getOrElse(label, ScenarioStats(label))
+          result + (label -> s.copy(
+            maxUsers = s.maxUsers + 1,
+            requestsByType = s.requestsByType |+| requestsByType,
+          ))
         }
         .values
         .toList
         .right
 
-  private def processSimulation(scenarios: List[ScenarioStats])(
-      runRows: List[Seq[String]]): String \/ SimulationLog =
+  private def processSimulation(
+      scenarios: List[ScenarioStats]
+  )(runRows: List[Seq[String]]): String \/ SimulationLog =
     if (runRows.size != 1) s"Expected one RUN row in log, but found ${runRows.size}.".left
     else
       runRows.head match {
@@ -291,7 +301,8 @@ object SimulationLog {
     requestRows.traverseU {
       case Seq(userId, _, scenarioName, start, end, status, _*) =>
         \/.fromTryCatchNonFatal( // .toInt/Long throws if column non-numeric
-          RequestStats(userId.toInt, scenarioName, start.toLong, end.toLong, status == "OK"))
+          RequestStats(userId.toInt, scenarioName, start.toLong, end.toLong, status == "OK")
+        )
           .leftMap(_.getMessage)
       case _ =>
         "Received REQUEST row with illegal number of fields".left

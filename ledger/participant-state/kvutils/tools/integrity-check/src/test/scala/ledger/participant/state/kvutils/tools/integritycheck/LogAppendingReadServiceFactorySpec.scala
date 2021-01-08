@@ -12,7 +12,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
-  DamlPartyAllocationEntry
+  DamlPartyAllocationEntry,
 }
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
@@ -83,7 +83,8 @@ final class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matche
   private lazy val aLogEntry = DamlLogEntry
     .newBuilder()
     .setPartyAllocationEntry(
-      DamlPartyAllocationEntry.newBuilder().setParty(APartyName).setParticipantId(AParticipantId))
+      DamlPartyAllocationEntry.newBuilder().setParty(APartyName).setParticipantId(AParticipantId)
+    )
     .setRecordTime(com.google.protobuf.Timestamp.newBuilder.setSeconds(ATimestampInSeconds))
     .build()
 

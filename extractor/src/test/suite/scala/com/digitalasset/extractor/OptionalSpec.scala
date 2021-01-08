@@ -62,7 +62,7 @@ class OptionalSpec
           "deep_optional" : [],
           "party" : "Bob"
         }
-      """
+      """,
     ).traverse(parse)
 
     expected should be('right) // That should only fail if this JSON^^ is ill-formatted

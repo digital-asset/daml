@@ -10,7 +10,7 @@ import com.github.benmanes.caffeine.cache.RemovalCause
 import com.github.benmanes.caffeine.cache.stats.{CacheStats, StatsCounter}
 
 private[caching] final class DropwizardStatsCounter(
-    metrics: CacheMetrics,
+    metrics: CacheMetrics
 ) extends StatsCounter {
 
   override def recordHits(newHits: Int): Unit =

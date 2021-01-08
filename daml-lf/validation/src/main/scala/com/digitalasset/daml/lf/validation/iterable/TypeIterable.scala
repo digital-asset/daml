@@ -173,14 +173,15 @@ private[validation] object TypeIterable {
   private[validation] def iterator(choice: TemplateChoice): Iterator[Type] =
     choice match {
       case TemplateChoice(
-          name @ _,
-          consuming @ _,
-          controllers,
-          observers,
-          selfBinder @ _,
-          (boundedVarName @ _, boundedVarType),
-          retType,
-          update) =>
+            name @ _,
+            consuming @ _,
+            controllers,
+            observers,
+            selfBinder @ _,
+            (boundedVarName @ _, boundedVarType),
+            retType,
+            update,
+          ) =>
         iterator(controllers) ++
           observers.iterator.flatMap(iterator(_)) ++
           iterator(update) ++

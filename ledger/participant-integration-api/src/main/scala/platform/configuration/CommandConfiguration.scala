@@ -5,8 +5,7 @@ package com.daml.platform.configuration
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
-/**
-  * Reaching either [[inputBufferSize]] or [[maxCommandsInFlight]] will trigger
+/** Reaching either [[inputBufferSize]] or [[maxCommandsInFlight]] will trigger
   * back-pressure by [[com.daml.ledger.client.services.commands.CommandClient]].
   *
   * Reaching [[maxParallelSubmissions]] will trigger back-pressure
@@ -32,7 +31,7 @@ final case class CommandConfiguration(
     maxParallelSubmissions: Int,
     maxCommandsInFlight: Int,
     limitMaxCommandsInFlight: Boolean,
-    retentionPeriod: FiniteDuration
+    retentionPeriod: FiniteDuration,
 )
 
 object CommandConfiguration {
@@ -42,6 +41,6 @@ object CommandConfiguration {
       maxParallelSubmissions = 512,
       maxCommandsInFlight = 256,
       limitMaxCommandsInFlight = true,
-      retentionPeriod = 24.hours
+      retentionPeriod = 24.hours,
     )
 }

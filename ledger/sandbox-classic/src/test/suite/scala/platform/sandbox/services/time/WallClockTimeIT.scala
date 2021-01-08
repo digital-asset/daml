@@ -32,11 +32,11 @@ final class WallClockTimeIT
   override val timeLimit: Span = 15.seconds
 
   override protected def config: SandboxConfig = super.config.copy(
-    timeProviderType = Some(TimeProviderType.WallClock),
+    timeProviderType = Some(TimeProviderType.WallClock)
   )
 
-  private val unimplemented: PartialFunction[Any, Unit] = {
-    case GrpcException.UNIMPLEMENTED() => ()
+  private val unimplemented: PartialFunction[Any, Unit] = { case GrpcException.UNIMPLEMENTED() =>
+    ()
   }
 
   "Time Service" when {
@@ -57,8 +57,9 @@ final class WallClockTimeIT
             SetTimeRequest(
               ledgerId().unwrap,
               Some(fromInstant(Instant.EPOCH)),
-              Some(fromInstant(Instant.EPOCH.plusSeconds(1)))
-            ))
+              Some(fromInstant(Instant.EPOCH.plusSeconds(1))),
+            )
+          )
           .failed
           .map(_ should matchPattern(unimplemented))
       }

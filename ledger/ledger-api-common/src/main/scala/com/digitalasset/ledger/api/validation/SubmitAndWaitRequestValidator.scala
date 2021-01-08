@@ -17,15 +17,16 @@ class SubmitAndWaitRequestValidator(commandsValidator: CommandsValidator) {
       req: SubmitAndWaitRequest,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationTime: Option[Duration])
-    : Either[StatusRuntimeException, submission.SubmitRequest] =
+      maxDeduplicationTime: Option[Duration],
+  ): Either[StatusRuntimeException, submission.SubmitRequest] =
     for {
       commands <- requirePresence(req.commands, "commands")
       validatedCommands <- commandsValidator.validateCommands(
         commands,
         currentLedgerTime,
         currentUtcTime,
-        maxDeduplicationTime)
+        maxDeduplicationTime,
+      )
     } yield submission.SubmitRequest(validatedCommands, req.traceContext.map(toBrave))
 
 }

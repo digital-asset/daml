@@ -16,7 +16,7 @@ import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
-  PartyConfiguration
+  PartyConfiguration,
 }
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import io.grpc.ServerInterceptor
@@ -33,7 +33,8 @@ trait ConfigProvider[ExtraConfig] {
 
   def indexerConfig(
       participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig]): IndexerConfig =
+      config: Config[ExtraConfig],
+  ): IndexerConfig =
     IndexerConfig(
       participantConfig.participantId,
       jdbcUrl = participantConfig.serverJdbcUrl,
@@ -44,7 +45,8 @@ trait ConfigProvider[ExtraConfig] {
 
   def apiServerConfig(
       participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig]): ApiServerConfig =
+      config: Config[ExtraConfig],
+  ): ApiServerConfig =
     ApiServerConfig(
       participantId = participantConfig.participantId,
       archiveFiles = config.archiveFiles.map(_.toFile).toList,
@@ -61,12 +63,13 @@ trait ConfigProvider[ExtraConfig] {
 
   def commandConfig(
       participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig]): CommandConfiguration = {
+      config: Config[ExtraConfig],
+  ): CommandConfiguration = {
     val defaultMaxCommandsInFlight = CommandConfiguration.default.maxCommandsInFlight
 
     CommandConfiguration.default.copy(
       maxCommandsInFlight =
-        participantConfig.maxCommandsInFlight.getOrElse(defaultMaxCommandsInFlight),
+        participantConfig.maxCommandsInFlight.getOrElse(defaultMaxCommandsInFlight)
     )
   }
 
@@ -146,18 +149,17 @@ object LedgerFactory {
         config: Config[Unit],
         participantConfig: ParticipantConfig,
         engine: Engine,
-    )(
-        implicit materializer: Materializer,
+    )(implicit
+        materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[KeyValueParticipantState] =
       for {
         readerWriter <- owner(config, participantConfig, engine)
-      } yield
-        new KeyValueParticipantState(
-          readerWriter,
-          readerWriter,
-          createMetrics(participantConfig, config),
-        )
+      } yield new KeyValueParticipantState(
+        readerWriter,
+        readerWriter,
+        createMetrics(participantConfig, config),
+      )
 
     def owner(
         value: Config[Unit],

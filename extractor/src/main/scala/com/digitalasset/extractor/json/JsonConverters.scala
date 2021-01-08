@@ -20,7 +20,7 @@ object JsonConverters {
   private[this] object LfValueSprayEnc
       extends ApiCodecCompressed[String](
         encodeDecimalAsString = true,
-        encodeInt64AsString = false
+        encodeInt64AsString = false,
       )
 
   private[this] def sprayToCirce(s: spray.json.JsValue): Json = {

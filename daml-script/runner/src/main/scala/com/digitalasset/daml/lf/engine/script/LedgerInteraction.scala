@@ -60,7 +60,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
-  toApiIdentifier
+  toApiIdentifier,
 }
 import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.ConverterException
@@ -89,68 +89,77 @@ object ScriptLedgerClient {
   final case class ExerciseResult(
       templateId: Identifier,
       choice: ChoiceName,
-      result: Value[ContractId])
-      extends CommandResult
+      result: Value[ContractId],
+  ) extends CommandResult
 
   final case class ActiveContract(
       templateId: Identifier,
       contractId: ContractId,
-      argument: Value[ContractId])
+      argument: Value[ContractId],
+  )
 }
 
 // This abstracts over the interaction with the ledger. This allows
 // us to plug in something that interacts with the JSON API as well as
 // something that works against the gRPC API.
 trait ScriptLedgerClient {
-  def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]]
+  def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Seq[ScriptLedgerClient.ActiveContract]]
 
   def queryContractId(parties: OneAnd[Set, Ref.Party], templateId: Identifier, cid: ContractId)(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]]
+      implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Option[ScriptLedgerClient.ActiveContract]]
 
   def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: SValue,
-      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue])(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]]
+      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Option[ScriptLedgerClient.ActiveContract]]
 
   def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.Command],
       optLocation: Option[Location],
-  )(implicit ec: ExecutionContext, mat: Materializer)
-    : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]]
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]]
 
   def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.Command],
-      optLocation: Option[Location])(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[Either[Unit, Unit]]
+      optLocation: Option[Location],
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]]
 
-  def allocateParty(partyIdHint: String, displayName: String)(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[Ref.Party]
+  def allocateParty(partyIdHint: String, displayName: String)(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Ref.Party]
 
-  def listKnownParties()(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[List[PartyDetails]]
+  def listKnownParties()(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[List[PartyDetails]]
 
-  def getStaticTime()(
-      implicit ec: ExecutionContext,
+  def getStaticTime()(implicit
+      ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): Future[Time.Timestamp]
+      mat: Materializer,
+  ): Future[Time.Timestamp]
 
-  def setStaticTime(time: Time.Timestamp)(
-      implicit ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      mat: Materializer): Future[Unit]
+  def setStaticTime(
+      time: Time.Timestamp
+  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory, mat: Materializer): Future[Unit]
 
   def tracelogIterator: Iterator[(String, Option[Location])]
 
@@ -159,24 +168,26 @@ trait ScriptLedgerClient {
 
 class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: ApplicationId)
     extends ScriptLedgerClient {
-  override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(
-      implicit ec: ExecutionContext,
-      mat: Materializer) = {
+  override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ) = {
     queryWithKey(parties, templateId).map(_.map(_._1))
   }
 
   private def transactionFilter(
       parties: OneAnd[Set, Ref.Party],
-      templateId: Identifier): TransactionFilter = {
+      templateId: Identifier,
+  ): TransactionFilter = {
     val filters = Filters(Some(InclusiveFilters(Seq(toApiIdentifier(templateId)))))
     TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
   }
 
   // Helper shared by query, queryContractId and queryContractKey
-  private def queryWithKey(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(
-      implicit ec: ExecutionContext,
-      mat: Materializer)
-    : Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value[ContractId]])]] = {
+  private def queryWithKey(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value[ContractId]])]] = {
     val filter = transactionFilter(parties, templateId)
     val acsResponses =
       grpcClient.activeContractSetClient
@@ -200,18 +211,22 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
               .fromString(createdEvent.contractId)
               .fold(
                 err => throw new ConverterException(err),
-                identity
+                identity,
               )
           (ScriptLedgerClient.ActiveContract(templateId, cid, argument), key)
-        })))
+        })
+      )
+    )
   }
 
   override def queryContractId(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      cid: ContractId)(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+      cid: ContractId,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     // We cannot do better than a linear search over query here.
     for {
       activeContracts <- query(parties, templateId)
@@ -224,9 +239,11 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: SValue,
-      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue])(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     // We cannot do better than a linear search over query here.
     import scalaz.syntax.traverse._
     import scalaz.std.vector._
@@ -234,9 +251,8 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     import scalaz.std.scalaFuture._
     for {
       activeContracts <- queryWithKey(parties, templateId)
-      speedyContracts <- activeContracts.traverse {
-        case (t, kOpt) =>
-          Converter.toFuture(kOpt.traverse(translateKey(templateId, _)).map(k => (t, k)))
+      speedyContracts <- activeContracts.traverse { case (t, kOpt) =>
+        Converter.toFuture(kOpt.traverse(translateKey(templateId, _)).map(k => (t, k)))
       }
     } yield {
       // Note that the Equal instance on Value performs structural equality
@@ -252,7 +268,8 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.Command],
-      optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer) = {
+      optLocation: Option[Location],
+  )(implicit ec: ExecutionContext, mat: Materializer) = {
     import scalaz.syntax.traverse._
     val ledgerCommands = commands.traverse(toCommand(_)) match {
       case Left(err) => throw new ConverterException(err)
@@ -288,23 +305,26 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
           case Left(err) => throw new ConverterException(err)
           case Right(results) => results
         }
-      }))
+      })
+    )
   }
 
   override def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.Command],
-      optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer) = {
+      optLocation: Option[Location],
+  )(implicit ec: ExecutionContext, mat: Materializer) = {
     submit(actAs, readAs, commands, optLocation).map({
       case Right(_) => Left(())
       case Left(_) => Right(())
     })
   }
 
-  override def allocateParty(partyIdHint: String, displayName: String)(
-      implicit ec: ExecutionContext,
-      mat: Materializer) = {
+  override def allocateParty(partyIdHint: String, displayName: String)(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ) = {
     grpcClient.partyManagementClient
       .allocateParty(Some(partyIdHint), Some(displayName))
       .map(_.party)
@@ -315,10 +335,11 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       .listKnownParties()
   }
 
-  override def getStaticTime()(
-      implicit ec: ExecutionContext,
+  override def getStaticTime()(implicit
+      ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): Future[Time.Timestamp] = {
+      mat: Materializer,
+  ): Future[Time.Timestamp] = {
     val timeService: TimeServiceStub = TimeServiceGrpc.stub(grpcClient.channel)
     for {
       resp <- ClientAdapter
@@ -327,10 +348,11 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     } yield Time.Timestamp.assertFromInstant(TimestampConversion.toInstant(resp.getCurrentTime))
   }
 
-  override def setStaticTime(time: Time.Timestamp)(
-      implicit ec: ExecutionContext,
+  override def setStaticTime(time: Time.Timestamp)(implicit
+      ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): Future[Unit] = {
+      mat: Materializer,
+  ): Future[Unit] = {
     val timeService: TimeServiceStub = TimeServiceGrpc.stub(grpcClient.channel)
     for {
       oldTime <- ClientAdapter
@@ -340,7 +362,9 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
         SetTimeRequest(
           grpcClient.ledgerId.unwrap,
           oldTime.currentTime,
-          Some(TimestampConversion.fromInstant(time.toInstant))))
+          Some(TimestampConversion.fromInstant(time.toInstant)),
+        )
+      )
     } yield ()
   }
 
@@ -353,31 +377,28 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       case command.ExerciseCommand(templateId, contractId, choice, argument) =>
         for {
           arg <- lfValueToApiValue(true, argument)
-        } yield
-          Command().withExercise(
-            ExerciseCommand(Some(toApiIdentifier(templateId)), contractId.coid, choice, Some(arg)))
+        } yield Command().withExercise(
+          ExerciseCommand(Some(toApiIdentifier(templateId)), contractId.coid, choice, Some(arg))
+        )
       case command.ExerciseByKeyCommand(templateId, key, choice, argument) =>
         for {
           key <- lfValueToApiValue(true, key)
           argument <- lfValueToApiValue(true, argument)
-        } yield
-          Command().withExerciseByKey(
-            ExerciseByKeyCommand(
-              Some(toApiIdentifier(templateId)),
-              Some(key),
-              choice,
-              Some(argument)))
+        } yield Command().withExerciseByKey(
+          ExerciseByKeyCommand(Some(toApiIdentifier(templateId)), Some(key), choice, Some(argument))
+        )
       case command.CreateAndExerciseCommand(templateId, template, choice, argument) =>
         for {
           template <- lfValueToApiRecord(true, template)
           argument <- lfValueToApiValue(true, argument)
-        } yield
-          Command().withCreateAndExercise(
-            CreateAndExerciseCommand(
-              Some(toApiIdentifier(templateId)),
-              Some(template),
-              choice,
-              Some(argument)))
+        } yield Command().withCreateAndExercise(
+          CreateAndExerciseCommand(
+            Some(toApiIdentifier(templateId)),
+            Some(template),
+            choice,
+            Some(argument),
+          )
+        )
     }
 
   private def fromTreeEvent(ev: TreeEvent): Either[String, ScriptLedgerClient.CommandResult] =
@@ -437,32 +458,37 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   val scenarioRunner = ScenarioRunner(machine)
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
-  override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
+  override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
     val acs = scenarioRunner.ledger.query(
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
-      effectiveAt = scenarioRunner.ledger.currentTime)
+      effectiveAt = scenarioRunner.ledger.currentTime,
+    )
     val filtered = acs.collect {
       case ScenarioLedger.LookupOk(cid, Value.ContractInst(tpl, arg, _), stakeholders)
           if tpl == templateId && parties.any(stakeholders.contains(_)) =>
         (cid, arg)
     }
-    Future.successful(filtered.map {
-      case (cid, c) => ScriptLedgerClient.ActiveContract(templateId, cid, c.value)
+    Future.successful(filtered.map { case (cid, c) =>
+      ScriptLedgerClient.ActiveContract(templateId, cid, c.value)
     })
   }
 
   override def queryContractId(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      cid: ContractId)(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+      cid: ContractId,
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     scenarioRunner.ledger.lookupGlobalContract(
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
       effectiveAt = scenarioRunner.ledger.currentTime,
-      cid) match {
+      cid,
+    ) match {
       case ScenarioLedger.LookupOk(_, Value.ContractInst(_, arg, _), stakeholders)
           if parties.any(stakeholders.contains(_)) =>
         Future.successful(Some(ScriptLedgerClient.ActiveContract(templateId, cid, arg.value)))
@@ -481,9 +507,10 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       templateId: Identifier,
       key: SValue,
       translateKey: (Identifier, Value[ContractId]) => Either[String, SValue],
-  )(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
     GlobalKey
       .build(templateId, key.toValue)
       .fold(err => Future.failed(new ConverterException(err)), Future.successful(_))
@@ -500,8 +527,10 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.Command],
-      optLocation: Option[Location])(implicit ec: ExecutionContext)
-    : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = Future {
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext
+  ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = Future {
     // Clear state at the beginning like in SBSBeginCommit for scenarios.
     machine.returnValue = null
     onLedger.commitLocation = optLocation
@@ -542,7 +571,7 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
                 effectiveAt = scenarioRunner.ledger.currentTime,
                 optLocation = onLedger.commitLocation,
                 tx = tx,
-                l = scenarioRunner.ledger
+                l = scenarioRunner.ledger,
               ) match {
                 case Left(fas) =>
                   // Capture the error and exit.
@@ -567,19 +596,24 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
           callback(scenarioRunner.ledger.currentTime)
         case SResultNeedPackage(pkg, callback @ _) =>
           throw new RuntimeException(
-            s"FATAL: Missing package $pkg should have been reported at Script compilation")
+            s"FATAL: Missing package $pkg should have been reported at Script compilation"
+          )
         case SResultScenarioInsertMustFail(committers @ _, optLocation @ _) =>
           throw new RuntimeException(
-            "FATAL: Encountered scenario instruction for submitMustFail in DAML script")
+            "FATAL: Encountered scenario instruction for submitMustFail in DAML script"
+          )
         case SResultScenarioMustFail(ptx @ _, committers @ _, callback @ _) =>
           throw new RuntimeException(
-            "FATAL: Encountered scenario instruction for submitMustFail in DAML Script")
+            "FATAL: Encountered scenario instruction for submitMustFail in DAML Script"
+          )
         case SResultScenarioPassTime(relTime @ _, callback @ _) =>
           throw new RuntimeException(
-            "FATAL: Encountered scenario instruction setTime in DAML Script")
+            "FATAL: Encountered scenario instruction setTime in DAML Script"
+          )
         case SResultScenarioGetParty(partyText @ _, callback @ _) =>
           throw new RuntimeException(
-            "FATAL: Encountered scenario instruction getParty in DAML Script")
+            "FATAL: Encountered scenario instruction getParty in DAML Script"
+          )
       }
     }
     Right(result)
@@ -589,8 +623,11 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.Command],
-      optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer)
-    : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
     unsafeSubmit(actAs, readAs, commands, optLocation).map {
       case Right(x) =>
         // Expected successful commit so clear.
@@ -606,21 +643,19 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.Command],
-      optLocation: Option[Location])(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[Either[Unit, Unit]] = {
+      optLocation: Option[Location],
+  )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] = {
     unsafeSubmit(actAs, readAs, commands, optLocation)
       .map({
         case Right(_) => Left(())
         // We don't expect to hit this case but list it for completeness.
         case Left(_) => Right(())
       })
-      .recoverWith({
-        case _: SError =>
-          // Expected failed commit so clear, we do not clear on
-          // unexpected successes to keep the partial transaction.
-          machine.clearCommit
-          Future.successful(Right(()))
+      .recoverWith({ case _: SError =>
+        // Expected failed commit so clear, we do not clear on
+        // unexpected successes to keep the partial transaction.
+        machine.clearCommit
+        Future.successful(Right(()))
       })
   }
 
@@ -630,28 +665,31 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     scenarioRunner.ledger.ledgerData.nodeInfos.values.flatMap(_.disclosures.keys)
   }
 
-  override def allocateParty(partyIdHint: String, displayName: String)(
-      implicit ec: ExecutionContext,
-      mat: Materializer) = {
+  override def allocateParty(partyIdHint: String, displayName: String)(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ) = {
     val usedNames = getLedgerParties().toSet ++ allocatedParties.keySet
     Future.fromTry(for {
-      name <- if (partyIdHint != "") {
-        // Try to allocate the given hint as party name. Will fail if the name is already taken.
-        if (usedNames contains partyIdHint) {
-          Failure(new ScenarioErrorPartyAlreadyExists(partyIdHint))
+      name <-
+        if (partyIdHint != "") {
+          // Try to allocate the given hint as party name. Will fail if the name is already taken.
+          if (usedNames contains partyIdHint) {
+            Failure(new ScenarioErrorPartyAlreadyExists(partyIdHint))
+          } else {
+            Success(partyIdHint)
+          }
         } else {
-          Success(partyIdHint)
+          // Allocate a fresh name based on the display name.
+          val candidates = displayName #:: LazyList.from(1).map(displayName + _.toString())
+          Success(candidates.find(s => !(usedNames contains s)).get)
         }
-      } else {
-        // Allocate a fresh name based on the display name.
-        val candidates = displayName #:: LazyList.from(1).map(displayName + _.toString())
-        Success(candidates.find(s => !(usedNames contains s)).get)
-      }
       // Create and store the new party.
       partyDetails = PartyDetails(
         party = Ref.Party.assertFromString(name),
         displayName = Some(displayName),
-        isLocal = true)
+        isLocal = true,
+      )
       _ = allocatedParties += (name -> partyDetails)
     } yield partyDetails.party)
   }
@@ -663,17 +701,19 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     Future.successful((ledgerParties ++ allocatedParties).values.toList)
   }
 
-  override def getStaticTime()(
-      implicit ec: ExecutionContext,
+  override def getStaticTime()(implicit
+      ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): Future[Time.Timestamp] = {
+      mat: Materializer,
+  ): Future[Time.Timestamp] = {
     Future.successful(scenarioRunner.ledger.currentTime)
   }
 
-  override def setStaticTime(time: Time.Timestamp)(
-      implicit ec: ExecutionContext,
+  override def setStaticTime(time: Time.Timestamp)(implicit
+      ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): Future[Unit] = {
+      mat: Materializer,
+  ): Future[Unit] = {
     val diff = time.micros - scenarioRunner.ledger.currentTime.micros
     // ScenarioLedger only provides pass, so we have to calculate the diff.
     // Note that ScenarioLedger supports going backwards in time.
@@ -698,8 +738,8 @@ class JsonLedgerClient(
     uri: Uri,
     token: Jwt,
     envIface: EnvironmentInterface,
-    actorSystem: ActorSystem)
-    extends ScriptLedgerClient {
+    actorSystem: ActorSystem,
+) extends ScriptLedgerClient {
   import JsonLedgerClient.JsonProtocol._
   import JsonLedgerClient._
 
@@ -723,21 +763,23 @@ class JsonLedgerClient(
       path: Path,
       reqBody: Option[JsValue],
       respStatus: StatusCode,
-      errors: List[String])
-      extends RuntimeException(
-        s"Request to $path with ${reqBody.map(_.compactPrint)} failed with status $respStatus: $errors")
+      errors: List[String],
+  ) extends RuntimeException(
+        s"Request to $path with ${reqBody.map(_.compactPrint)} failed with status $respStatus: $errors"
+      )
 
-  def request[A, B](path: Path, a: A)(
-      implicit wa: JsonWriter[A],
-      rb: JsonReader[B]): Future[Response[B]] = {
+  def request[A, B](path: Path, a: A)(implicit
+      wa: JsonWriter[A],
+      rb: JsonReader[B],
+  ): Future[Response[B]] = {
     val req = HttpRequest(
       method = HttpMethods.POST,
       uri = uri.withPath(path),
       entity = HttpEntity(
         ContentTypes.`application/json`,
-        a.toJson.compactPrint
+        a.toJson.compactPrint,
       ),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
+      headers = List(Authorization(OAuth2BearerToken(token.value))),
     )
     Http().singleRequest(req).flatMap(resp => Unmarshal(resp.entity).to[Response[B]])
   }
@@ -746,14 +788,15 @@ class JsonLedgerClient(
     val req = HttpRequest(
       method = HttpMethods.GET,
       uri = uri.withPath(path),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
+      headers = List(Authorization(OAuth2BearerToken(token.value))),
     )
     Http().singleRequest(req).flatMap(resp => Unmarshal(resp.entity).to[Response[A]])
   }
 
-  def requestSuccess[A, B](path: Path, a: A)(
-      implicit wa: JsonWriter[A],
-      rb: JsonReader[B]): Future[B] =
+  def requestSuccess[A, B](path: Path, a: A)(implicit
+      wa: JsonWriter[A],
+      rb: JsonReader[B],
+  ): Future[B] =
     request[A, B](path, a).flatMap {
       case ErrorResponse(errors, status) =>
         Future.failed(FailedJsonApiRequest(path, Some(a.toJson), status, errors))
@@ -767,20 +810,23 @@ class JsonLedgerClient(
       case SuccessResponse(result, _) => Future.successful(result)
     }
 
-  override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(
-      implicit ec: ExecutionContext,
-      mat: Materializer) = {
+  override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ) = {
     for {
       () <- validateTokenParties(parties, "query")
       queryResponse <- requestSuccess[QueryArgs, QueryResponse](
         uri.path./("v1")./("query"),
-        QueryArgs(templateId))
+        QueryArgs(templateId),
+      )
     } yield {
       val ctx = templateId.qualifiedName
       val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
       val parsedResults = queryResponse.results.map(r => {
         val payload = r.payload.convertTo[Value[ContractId]](
-          LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_)))
+          LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
+        )
         val cid = ContractId.assertFromString(r.contractId)
         ScriptLedgerClient.ActiveContract(templateId, cid, payload)
       })
@@ -790,18 +836,21 @@ class JsonLedgerClient(
   override def queryContractId(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-      cid: ContractId)(implicit ec: ExecutionContext, mat: Materializer) = {
+      cid: ContractId,
+  )(implicit ec: ExecutionContext, mat: Materializer) = {
     for {
       () <- validateTokenParties(parties, "queryContractId")
       fetchResponse <- requestSuccess[FetchArgs, FetchResponse](
         uri.path./("v1")./("fetch"),
-        FetchArgs(cid))
+        FetchArgs(cid),
+      )
     } yield {
       val ctx = templateId.qualifiedName
       val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
       fetchResponse.result.map(r => {
         val payload = r.payload.convertTo[Value[ContractId]](
-          LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_)))
+          LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
+        )
         val cid = ContractId.assertFromString(r.contractId)
         ScriptLedgerClient.ActiveContract(templateId, cid, payload)
       })
@@ -811,20 +860,21 @@ class JsonLedgerClient(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: SValue,
-      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue])(
-      implicit ec: ExecutionContext,
-      mat: Materializer) = {
+      translateKey: (Identifier, Value[ContractId]) => Either[String, SValue],
+  )(implicit ec: ExecutionContext, mat: Materializer) = {
     for {
       _ <- validateTokenParties(parties, "queryContractKey")
       fetchResponse <- requestSuccess[FetchKeyArgs, FetchResponse](
         uri.path./("v1")./("fetch"),
-        FetchKeyArgs(templateId, key.toValue))
+        FetchKeyArgs(templateId, key.toValue),
+      )
     } yield {
       val ctx = templateId.qualifiedName
       val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).toOption.get
       fetchResponse.result.map(r => {
         val payload = r.payload.convertTo[Value[ContractId]](
-          LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_)))
+          LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_))
+        )
         val cid = ContractId.assertFromString(r.contractId)
         ScriptLedgerClient.ActiveContract(templateId, cid, payload)
       })
@@ -834,8 +884,11 @@ class JsonLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.Command],
-      optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer)
-    : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
+      optLocation: Option[Location],
+  )(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
     for {
       () <- validateSubmitParties(actAs, readAs)
 
@@ -855,7 +908,9 @@ class JsonLedgerClient(
         case _ =>
           Future.failed(
             new RuntimeException(
-              "Multi-command submissions are not supported by the HTTP JSON API."))
+              "Multi-command submissions are not supported by the HTTP JSON API."
+            )
+          )
       }
     } yield result
   }
@@ -863,19 +918,22 @@ class JsonLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.Command],
-      optLocation: Option[Location])(implicit ec: ExecutionContext, mat: Materializer) = {
+      optLocation: Option[Location],
+  )(implicit ec: ExecutionContext, mat: Materializer) = {
     submit(actAs, readAs, commands, optLocation).map({
       case Right(_) => Left(())
       case Left(_) => Right(())
     })
   }
-  override def allocateParty(partyIdHint: String, displayName: String)(
-      implicit ec: ExecutionContext,
-      mat: Materializer) = {
+  override def allocateParty(partyIdHint: String, displayName: String)(implicit
+      ec: ExecutionContext,
+      mat: Materializer,
+  ) = {
     for {
       response <- requestSuccess[AllocatePartyArgs, AllocatePartyResponse](
         uri.path./("v1")./("parties")./("allocate"),
-        AllocatePartyArgs(partyIdHint, displayName))
+        AllocatePartyArgs(partyIdHint, displayName),
+      )
     } yield {
       response.identifier
     }
@@ -885,21 +943,24 @@ class JsonLedgerClient(
     requestSuccess[List[PartyDetails]](uri.path./("v1")./("parties"))
   }
 
-  override def getStaticTime()(
-      implicit ec: ExecutionContext,
+  override def getStaticTime()(implicit
+      ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): Future[Time.Timestamp] = {
+      mat: Materializer,
+  ): Future[Time.Timestamp] = {
     // There is no time service in the JSON API so we default to the Unix epoch.
     Future { Time.Timestamp.assertFromInstant(Instant.EPOCH) }
   }
 
-  override def setStaticTime(time: Time.Timestamp)(
-      implicit ec: ExecutionContext,
+  override def setStaticTime(time: Time.Timestamp)(implicit
+      ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): Future[Unit] = {
+      mat: Materializer,
+  ): Future[Unit] = {
     // No time service in the JSON API
     Future.failed(
-      new RuntimeException("setTime is not supported when running DAML Script over the JSON API."))
+      new RuntimeException("setTime is not supported when running DAML Script over the JSON API.")
+    )
   }
 
   // Check that the parties in the token match the given parties.
@@ -910,7 +971,9 @@ class JsonLedgerClient(
     if (tokenParties.isEmpty) {
       Future.failed(
         new RuntimeException(
-          s"Tried to $what as ${parties.toList.mkString(" ")} but token contains no parties."))
+          s"Tried to $what as ${parties.toList.mkString(" ")} but token contains no parties."
+        )
+      )
     } else if (tokenParties === parties.toSet.toSet[String]) {
       Future.unit
     } else {
@@ -921,32 +984,43 @@ class JsonLedgerClient(
 
   private def validateSubmitParties(
       actAs: OneAnd[Set, Ref.Party],
-      readAs: Set[Ref.Party]): Future[Unit] = {
+      readAs: Set[Ref.Party],
+  ): Future[Unit] = {
     // Relax once the JSON API supports multi-party read/write
     import scalaz.std.string._
     if (tokenPayload.actAs.isEmpty) {
-      Future.failed(new RuntimeException(
-        s"Tried to submit a command with actAs = ${actAs.toList.mkString(", ")} but token contains no actAs parties."))
+      Future.failed(
+        new RuntimeException(
+          s"Tried to submit a command with actAs = ${actAs.toList.mkString(", ")} but token contains no actAs parties."
+        )
+      )
     } else if ((actAs.toList: List[String]) /== tokenPayload.actAs) {
-      Future.failed(new RuntimeException(
-        s"Tried to submit a command with actAs = ${actAs.toList.mkString(", ")} but token provides claims for actAs = ${tokenPayload.actAs
-          .mkString(" ")}"))
+      Future.failed(
+        new RuntimeException(
+          s"Tried to submit a command with actAs = ${actAs.toList.mkString(", ")} but token provides claims for actAs = ${tokenPayload.actAs
+            .mkString(" ")}"
+        )
+      )
     } else if ((readAs.toList: List[String]) /== tokenPayload.readAs) {
-      Future.failed(new RuntimeException(
-        s"Tried to submit a command with readAs = ${readAs.mkString(", ")} but token provides claims for readAs = ${tokenPayload.readAs
-          .mkString(" ")}"))
+      Future.failed(
+        new RuntimeException(
+          s"Tried to submit a command with readAs = ${readAs.mkString(", ")} but token provides claims for readAs = ${tokenPayload.readAs
+            .mkString(" ")}"
+        )
+      )
     } else {
       Future.unit
     }
   }
 
-  private def create(tplId: Identifier, argument: Value[ContractId])
-    : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CreateResult]]] = {
+  private def create(
+      tplId: Identifier,
+      argument: Value[ContractId],
+  ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CreateResult]]] = {
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[CreateArgs, CreateResponse]("create", CreateArgs(tplId, jsonArgument))
-      .map(_.map {
-        case CreateResponse(cid) =>
-          List(ScriptLedgerClient.CreateResult(ContractId.assertFromString(cid)))
+      .map(_.map { case CreateResponse(cid) =>
+        List(ScriptLedgerClient.CreateResult(ContractId.assertFromString(cid)))
       })
   }
 
@@ -954,8 +1028,8 @@ class JsonLedgerClient(
       tplId: Identifier,
       contractId: ContractId,
       choice: ChoiceName,
-      argument: Value[ContractId])
-    : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
+      argument: Value[ContractId],
+  ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
@@ -964,15 +1038,18 @@ class JsonLedgerClient(
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
     commandRequest[ExerciseArgs, ExerciseResponse](
       "exercise",
-      ExerciseArgs(tplId, contractId, choice, jsonArgument))
-      .map(_.map {
-        case ExerciseResponse(result) =>
-          List(
-            ScriptLedgerClient.ExerciseResult(
-              tplId,
-              choice,
-              result.convertTo[Value[ContractId]](
-                LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_)))))
+      ExerciseArgs(tplId, contractId, choice, jsonArgument),
+    )
+      .map(_.map { case ExerciseResponse(result) =>
+        List(
+          ScriptLedgerClient.ExerciseResult(
+            tplId,
+            choice,
+            result.convertTo[Value[ContractId]](
+              LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))
+            ),
+          )
+        )
       })
   }
 
@@ -980,8 +1057,8 @@ class JsonLedgerClient(
       tplId: Identifier,
       key: Value[ContractId],
       choice: ChoiceName,
-      argument: Value[ContractId])
-    : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
+      argument: Value[ContractId],
+  ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
@@ -992,14 +1069,17 @@ class JsonLedgerClient(
     commandRequest[ExerciseByKeyArgs, ExerciseResponse](
       "exercise",
       JsonLedgerClient
-        .ExerciseByKeyArgs(tplId, jsonKey, choice, jsonArgument)).map(_.map {
-      case ExerciseResponse(result) =>
-        List(
-          ScriptLedgerClient.ExerciseResult(
-            tplId,
-            choice,
-            result.convertTo[Value[ContractId]](
-              LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_)))))
+        .ExerciseByKeyArgs(tplId, jsonKey, choice, jsonArgument),
+    ).map(_.map { case ExerciseResponse(result) =>
+      List(
+        ScriptLedgerClient.ExerciseResult(
+          tplId,
+          choice,
+          result.convertTo[Value[ContractId]](
+            LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))
+          ),
+        )
+      )
     })
   }
 
@@ -1007,8 +1087,8 @@ class JsonLedgerClient(
       tplId: Identifier,
       template: Value[ContractId],
       choice: ChoiceName,
-      argument: Value[ContractId])
-    : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CommandResult]]] = {
+      argument: Value[ContractId],
+  ): Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CommandResult]]] = {
     val choiceDef = envIface
       .typeDecls(tplId)
       .asInstanceOf[InterfaceType.Template]
@@ -1019,30 +1099,34 @@ class JsonLedgerClient(
     commandRequest[CreateAndExerciseArgs, CreateAndExerciseResponse](
       "create-and-exercise",
       JsonLedgerClient
-        .CreateAndExerciseArgs(tplId, jsonTemplate, choice, jsonArgument))
-      .map(_.map {
-        case CreateAndExerciseResponse(cid, result) =>
-          List(
-            ScriptLedgerClient
-              .CreateResult(ContractId.assertFromString(cid)): ScriptLedgerClient.CommandResult,
-            ScriptLedgerClient.ExerciseResult(
-              tplId,
-              choice,
-              result.convertTo[Value[ContractId]](
-                LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))))
-          )
+        .CreateAndExerciseArgs(tplId, jsonTemplate, choice, jsonArgument),
+    )
+      .map(_.map { case CreateAndExerciseResponse(cid, result) =>
+        List(
+          ScriptLedgerClient
+            .CreateResult(ContractId.assertFromString(cid)): ScriptLedgerClient.CommandResult,
+          ScriptLedgerClient.ExerciseResult(
+            tplId,
+            choice,
+            result.convertTo[Value[ContractId]](
+              LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))
+            ),
+          ),
+        )
       })
   }
 
-  def commandRequest[In, Out](endpoint: String, argument: In)(
-      implicit argumentWriter: JsonWriter[In],
-      outputReader: RootJsonReader[Out]): Future[Either[StatusRuntimeException, Out]] = {
+  def commandRequest[In, Out](endpoint: String, argument: In)(implicit
+      argumentWriter: JsonWriter[In],
+      outputReader: RootJsonReader[Out],
+  ): Future[Either[StatusRuntimeException, Out]] = {
     request[In, Out](uri.path./("v1")./(endpoint), argument).flatMap {
       case ErrorResponse(errors, status) if status == StatusCodes.InternalServerError =>
         // TODO (MK) Using a grpc exception here doesn’t make that much sense.
         // We should refactor this to provide something more general.
         Future.successful(
-          Left(new StatusRuntimeException(Status.UNKNOWN.withDescription(errors.toString))))
+          Left(new StatusRuntimeException(Status.UNKNOWN.withDescription(errors.toString)))
+        )
       case ErrorResponse(errors, status) =>
         // A non-500 failure is something like invalid JSON or “cannot resolve template ID”.
         // We don’t want to treat that failures as ones that can be caught
@@ -1052,7 +1136,9 @@ class JsonLedgerClient(
             uri.path./("v1")./(endpoint),
             Some(argument.toJson),
             status,
-            errors))
+            errors,
+          )
+        )
       case SuccessResponse(result, _) => Future.successful(Right(result))
     }
   }
@@ -1082,25 +1168,28 @@ object JsonLedgerClient {
       templateId: Identifier,
       contractId: ContractId,
       choice: ChoiceName,
-      argument: JsValue)
+      argument: JsValue,
+  )
   final case class ExerciseResponse(result: JsValue)
 
   final case class ExerciseByKeyArgs(
       templateId: Identifier,
       key: JsValue,
       choice: ChoiceName,
-      argument: JsValue)
+      argument: JsValue,
+  )
 
   final case class CreateAndExerciseArgs(
       templateId: Identifier,
       payload: JsValue,
       choice: ChoiceName,
-      argument: JsValue)
+      argument: JsValue,
+  )
   final case class CreateAndExerciseResponse(contractId: String, result: JsValue)
 
   final case class AllocatePartyArgs(
       identifierHint: String,
-      displayName: String
+      displayName: String,
   )
   final case class AllocatePartyResponse(identifier: Ref.Party)
 
@@ -1110,25 +1199,26 @@ object JsonLedgerClient {
         v match {
           case JsNull => None
           case _ => Some(v.convertTo[A])
-      }
+        }
     implicit def listReader[A: JsonReader]: JsonReader[List[A]] =
       v =>
         v match {
           case JsArray(xs) => xs.toList.map(_.convertTo[A])
           case _ => deserializationError(s"Expected JsArray but got $v")
-      }
+        }
     implicit def responseReader[A: JsonReader]: RootJsonReader[Response[A]] = v => {
       implicit val statusCodeReader: JsonReader[StatusCode] = v =>
         v match {
           case JsNumber(value) => StatusCode.int2StatusCode(value.toIntExact)
           case _ => deserializationError("Expected status code")
-      }
+        }
       val obj = v.asJsObject
       (obj.fields.get("status"), obj.fields.get("errors"), obj.fields.get("result")) match {
         case (Some(status), Some(err), None) =>
           ErrorResponse(
             err.convertTo[List[String]](DefaultJsonProtocol.listFormat),
-            status.convertTo[StatusCode])
+            status.convertTo[StatusCode],
+          )
         case (Some(status), _, Some(res)) =>
           SuccessResponse(res.convertTo[A], status.convertTo[StatusCode])
         case _ => deserializationError("Expected status and either errors or result field")
@@ -1139,7 +1229,7 @@ object JsonLedgerClient {
       v match {
         case JsString(s) => Ref.Party.fromString(s).fold(deserializationError(_), identity)
         case _ => deserializationError(s"Expected Party but got $v")
-    }
+      }
     implicit val partyDetailsReader: JsonReader[PartyDetails] = v => {
       val o = v.asJsObject
       (o.fields.get("identifier"), o.fields.get("displayName"), o.fields.get("isLocal")) match {
@@ -1147,7 +1237,8 @@ object JsonLedgerClient {
           PartyDetails(
             id.convertTo[Party],
             optName.map(_.convertTo[String]),
-            isLocal.convertTo[Boolean])
+            isLocal.convertTo[Boolean],
+          )
         case _ => deserializationError(s"Expected PartyDetails but got $v")
       }
     }
@@ -1155,7 +1246,8 @@ object JsonLedgerClient {
     implicit val choiceNameWriter: JsonWriter[ChoiceName] = choice => JsString(choice.toString)
     implicit val identifierWriter: JsonWriter[Identifier] = identifier =>
       JsString(
-        identifier.packageId + ":" + identifier.qualifiedName.module.toString + ":" + identifier.qualifiedName.name.toString)
+        identifier.packageId + ":" + identifier.qualifiedName.module.toString + ":" + identifier.qualifiedName.name.toString
+      )
 
     implicit val queryWriter: JsonWriter[QueryArgs] = args =>
       JsObject("templateIds" -> JsArray(identifierWriter.write(args.templateId)))
@@ -1166,7 +1258,8 @@ object JsonLedgerClient {
     implicit val fetchKeyWriter: JsonWriter[FetchKeyArgs] = args =>
       JsObject(
         "templateId" -> args.templateId.toJson,
-        "key" -> LfValueCodec.apiValueToJsValue(args.key))
+        "key" -> LfValueCodec.apiValueToJsValue(args.key),
+      )
     implicit val fetchReader: RootJsonReader[FetchResponse] = v =>
       FetchResponse(v.convertTo[Option[ActiveContract]])
 
@@ -1183,32 +1276,35 @@ object JsonLedgerClient {
       v.asJsObject.getFields("contractId") match {
         case Seq(JsString(cid)) => CreateResponse(cid)
         case _ => deserializationError(s"Could not parse CreateResponse: $v")
-    }
+      }
 
     implicit val exerciseWriter: JsonWriter[ExerciseArgs] = args =>
       JsObject(
         "templateId" -> args.templateId.toJson,
         "contractId" -> args.contractId.coid.toString.toJson,
         "choice" -> args.choice.toJson,
-        "argument" -> args.argument)
+        "argument" -> args.argument,
+      )
     implicit val exerciseByKeyWriter: JsonWriter[ExerciseByKeyArgs] = args =>
       JsObject(
         "templateId" -> args.templateId.toJson,
         "key" -> args.key,
         "choice" -> args.choice.toJson,
-        "argument" -> args.argument)
+        "argument" -> args.argument,
+      )
     implicit val exerciseReader: RootJsonReader[ExerciseResponse] = v =>
       v.asJsObject.getFields("exerciseResult") match {
         case Seq(result) => ExerciseResponse(result)
         case _ => deserializationError(s"Could not parse ExerciseResponse: $v")
-    }
+      }
 
     implicit val createAndExerciseWriter: JsonWriter[CreateAndExerciseArgs] = args =>
       JsObject(
         "templateId" -> args.templateId.toJson,
         "payload" -> args.payload,
         "choice" -> args.choice.toJson,
-        "argument" -> args.argument)
+        "argument" -> args.argument,
+      )
     implicit val createAndExerciseReader: RootJsonReader[CreateAndExerciseResponse] = v =>
       v.asJsObject.getFields("exerciseResult", "events") match {
         case Seq(result, events) =>
@@ -1226,13 +1322,13 @@ object JsonLedgerClient {
             case _ => deserializationError(s"Could not parse CreateAndExerciseResponse: $v")
           }
         case _ => deserializationError(s"Could not parse CreateAndExerciseResponse: $v")
-    }
+      }
 
     implicit val allocatePartyWriter: JsonFormat[AllocatePartyArgs] = jsonFormat2(AllocatePartyArgs)
     implicit val allocatePartyReader: RootJsonReader[AllocatePartyResponse] = v =>
       v.asJsObject.getFields("identifier") match {
         case Seq(id) => AllocatePartyResponse(id.convertTo[Party])
         case _ => deserializationError(s"Could not parse AllocatePartyResponse: $v")
-    }
+      }
   }
 }

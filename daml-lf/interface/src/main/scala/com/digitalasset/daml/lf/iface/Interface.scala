@@ -26,11 +26,14 @@ sealed abstract class InterfaceType extends Product with Serializable {
   /** Alias for `type`. */
   def getType: DefDataType.FWT = `type`
   def getTemplate: j.Optional[_ <: DefTemplate.FWT] =
-    fold({ _ =>
-      j.Optional.empty()
-    }, { (_, tpl) =>
-      j.Optional.of(tpl)
-    })
+    fold(
+      { _ =>
+        j.Optional.empty()
+      },
+      { (_, tpl) =>
+        j.Optional.of(tpl)
+      },
+    )
 }
 object InterfaceType {
   final case class Normal(`type`: DefDataType.FWT) extends InterfaceType
@@ -55,8 +58,9 @@ object Interface {
   def read(lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(lf)
 
-  def read(lf: (PackageId, DamlLf.ArchivePayload))
-    : (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
+  def read(
+      lf: (PackageId, DamlLf.ArchivePayload)
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(lf)
 
 }

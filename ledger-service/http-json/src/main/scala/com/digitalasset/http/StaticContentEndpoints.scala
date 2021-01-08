@@ -13,14 +13,14 @@ import scalaz.syntax.show._
 import scala.concurrent.Future
 
 object StaticContentEndpoints {
-  def all(config: StaticContentConfig)(
-      implicit asys: ActorSystem,
+  def all(config: StaticContentConfig)(implicit
+      asys: ActorSystem
   ): HttpRequest PartialFunction Future[HttpResponse] =
     new StaticContentRouter(config)
 }
 
-private class StaticContentRouter(config: StaticContentConfig)(
-    implicit asys: ActorSystem,
+private class StaticContentRouter(config: StaticContentConfig)(implicit
+    asys: ActorSystem
 ) extends PartialFunction[HttpRequest, Future[HttpResponse]]
     with StrictLogging {
 
@@ -33,7 +33,8 @@ private class StaticContentRouter(config: StaticContentConfig)(
     akka.http.scaladsl.server.Route.toFunction(
       Directives.rawPathPrefix(Slash ~ config.prefix)(
         Directives.getFromDirectory(config.directory.getAbsolutePath)
-      ))
+      )
+    )
 
   override def isDefinedAt(x: HttpRequest): Boolean =
     x.uri.path.startsWith(pathPrefix)

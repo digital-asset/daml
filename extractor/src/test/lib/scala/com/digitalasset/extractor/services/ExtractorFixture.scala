@@ -55,14 +55,14 @@ trait ExtractorFixture extends SandboxFixture with PostgresAroundSuite with Type
     outputFormat = outputFormat,
     schemaPerPackage = false,
     mergeIdentical = false,
-    stripPrefix = None
+    stripPrefix = None,
   )
 
   protected implicit lazy val xa: Aux[IO, Unit] = Transactor.fromDriverManager[IO](
     "org.postgresql.Driver", // driver classname
     target.connectUrl, // connect URL (driver-specific)
     target.user,
-    target.password
+    target.password,
   )
 
   protected def getTransactions: List[TransactionResult] = {

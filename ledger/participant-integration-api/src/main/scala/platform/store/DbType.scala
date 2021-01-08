@@ -6,7 +6,8 @@ package com.daml.platform.store
 private[platform] sealed abstract class DbType(
     val name: String,
     val driver: String,
-    val supportsParallelWrites: Boolean)
+    val supportsParallelWrites: Boolean,
+)
 
 private[platform] object DbType {
   object Postgres extends DbType("postgres", "org.postgresql.Driver", true)

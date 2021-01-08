@@ -13,5 +13,5 @@ sealed case class PreExecutionOutput[+ReadSet, +WriteSet](
     successWriteSet: WriteSet,
     outOfTimeBoundsWriteSet: WriteSet,
     readSet: ReadSet,
-    involvedParticipants: Set[ParticipantId]
+    involvedParticipants: Set[ParticipantId],
 )

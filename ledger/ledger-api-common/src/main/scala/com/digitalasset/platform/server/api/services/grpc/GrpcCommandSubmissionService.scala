@@ -11,7 +11,7 @@ import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServic
 }
 import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
-  SubmitRequest => ApiSubmitRequest
+  SubmitRequest => ApiSubmitRequest,
 }
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
 import com.daml.metrics.{Metrics, Timed}
@@ -48,8 +48,9 @@ class GrpcCommandSubmissionService(
         .value(
           metrics.daml.commands.validation,
           validator
-            .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime()))
-        .fold(Future.failed, service.submit(_).map(_ => Empty.defaultInstance))
+            .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime()),
+        )
+        .fold(Future.failed, service.submit(_).map(_ => Empty.defaultInstance)),
     )
 
   override def bindService(): ServerServiceDefinition =

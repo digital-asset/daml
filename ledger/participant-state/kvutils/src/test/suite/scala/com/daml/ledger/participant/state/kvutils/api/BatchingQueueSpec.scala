@@ -33,9 +33,10 @@ class BatchingQueueSpec
       val correlatedSubmission = createCorrelatedSubmission("1")
       val queue = DefaultBatchingQueue(
         maxQueueSize = 10,
-        maxBatchSizeBytes = correlatedSubmission.getSerializedSize / 2L, // To force emitting the batch right away.
+        maxBatchSizeBytes =
+          correlatedSubmission.getSerializedSize / 2L, // To force emitting the batch right away.
         maxWaitDuration = 1.millis,
-        maxConcurrentCommits = 1
+        maxConcurrentCommits = 1,
       ).run { _ =>
         throw new RuntimeException("kill the queue")
       }
@@ -55,9 +56,10 @@ class BatchingQueueSpec
       val correlatedSubmission = createCorrelatedSubmission("1")
       val queue = DefaultBatchingQueue(
         maxQueueSize = 10,
-        maxBatchSizeBytes = correlatedSubmission.getSerializedSize / 2L, // To force emitting the batch right away.
+        maxBatchSizeBytes =
+          correlatedSubmission.getSerializedSize / 2L, // To force emitting the batch right away.
         maxWaitDuration = 1.millis,
-        maxConcurrentCommits = 1
+        maxConcurrentCommits = 1,
       ).run { _ =>
         Future.unit
       }
@@ -76,7 +78,8 @@ class BatchingQueueSpec
         maxQueueSize = 1,
         maxBatchSizeBytes = 1024L,
         maxWaitDuration = maxWaitDuration,
-        maxConcurrentCommits = 1)
+        maxConcurrentCommits = 1,
+      )
       queue.run(mockCommit)
       verify(mockCommit, Mockito.timeout(10 * maxWaitDuration.toMillis).times(0))
         .apply(any[Seq[CorrelatedSubmission]]())
@@ -91,7 +94,8 @@ class BatchingQueueSpec
           maxQueueSize = 10,
           maxBatchSizeBytes = 1024,
           maxWaitDuration = maxWait,
-          maxConcurrentCommits = 1)
+          maxConcurrentCommits = 1,
+        )
           .run { batch =>
             batches += batch
             Future.unit
@@ -126,7 +130,7 @@ class BatchingQueueSpec
           maxQueueSize = 1,
           maxBatchSizeBytes = 1L,
           maxWaitDuration = 1.millis,
-          maxConcurrentCommits = 1
+          maxConcurrentCommits = 1,
         ).run(_ => Future.never)
 
       for {
@@ -159,7 +163,7 @@ class BatchingQueueSpec
           maxQueueSize = 10,
           maxBatchSizeBytes = correlatedSubmission1.getSerializedSize + 1L,
           maxWaitDuration = maxWaitDuration,
-          maxConcurrentCommits = 1
+          maxConcurrentCommits = 1,
         ).run { batch =>
           {
             batches += batch

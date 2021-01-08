@@ -13,4 +13,5 @@ final case class GetTransactionByIdRequest(
     ledgerId: LedgerId,
     transactionId: TransactionId,
     requestingParties: immutable.Set[Party],
-    traceContext: Option[TraceContext])
+    traceContext: Option[TraceContext],
+)

@@ -49,7 +49,7 @@ class TimeSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks 
         Date.MinValue,
         Date.Epoch,
         Date.assertFromString("2001-01-01"),
-        Date.MaxValue
+        Date.MaxValue,
       )
 
       forEvery(testCases) { date =>
@@ -122,7 +122,7 @@ class TimeSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks 
         Timestamp.assertFromString("1969-07-20T20:17:00.1234Z"),
         Timestamp.assertFromString("1969-07-20T20:17:00.12345Z"),
         Timestamp.assertFromString("1969-07-20T20:17:00.123456Z"),
-        Timestamp.MaxValue
+        Timestamp.MaxValue,
       )
 
       forEvery(testCases) { date =>

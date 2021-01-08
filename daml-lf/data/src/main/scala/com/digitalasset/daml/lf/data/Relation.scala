@@ -33,9 +33,8 @@ object Relation {
 
     def invert[A, B](relation: Relation[A, B]): Relation[B, A] = {
       val result = mutable.Map[B, Set[A]]() withDefaultValue Set()
-      relation.foreach {
-        case (a, bs) =>
-          bs.foreach(b => result(b) = result(b) + a)
+      relation.foreach { case (a, bs) =>
+        bs.foreach(b => result(b) = result(b) + a)
       }
       result.toMap
     }

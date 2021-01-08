@@ -17,7 +17,8 @@ private[inner] object VariantRecordClass extends StrictLogging {
       fields: Fields,
       name: String,
       superclass: TypeName,
-      packagePrefixes: Map[PackageId, String]): TypeSpec.Builder =
+      packagePrefixes: Map[PackageId, String],
+  ): TypeSpec.Builder =
     TrackLineage.of("variant-record", name) {
       logger.info("Start")
       val className = ClassName.bestGuess(name)
@@ -33,7 +34,9 @@ private[inner] object VariantRecordClass extends StrictLogging {
             fields,
             className.parameterized(typeParameters),
             typeParameters,
-            packagePrefixes).asJava)
+            packagePrefixes,
+          ).asJava
+        )
       logger.debug("End")
       builder
     }

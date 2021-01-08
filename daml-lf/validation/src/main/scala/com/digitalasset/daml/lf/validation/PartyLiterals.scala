@@ -20,10 +20,9 @@ private[validation] object PartyLiterals {
           throw EForbiddenPartyLiterals(context, ValRefWithPartyLiterals(context.ref))
       case _ =>
     }
-    module.templates.foreach {
-      case (defName, template) =>
-        def context = ContextDefValue(pkgId, module.name, defName)
-        ExprIterable(template).foreach(checkExpr(world, context, _))
+    module.templates.foreach { case (defName, template) =>
+      def context = ContextDefValue(pkgId, module.name, defName)
+      ExprIterable(template).foreach(checkExpr(world, context, _))
     }
   }
 

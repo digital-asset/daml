@@ -8,7 +8,7 @@ import com.daml.ledger.api.auth.services.CommandSubmissionServiceAuthorization
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
-  SubmitRequest
+  SubmitRequest,
 }
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
@@ -31,8 +31,9 @@ final class CommandSubmissionServiceImpl(response: Future[Empty])
 
 object CommandSubmissionServiceImpl {
 
-  def createWithRef(response: Future[Empty], authorizer: Authorizer)(
-      implicit ec: ExecutionContext): (ServerServiceDefinition, CommandSubmissionServiceImpl) = {
+  def createWithRef(response: Future[Empty], authorizer: Authorizer)(implicit
+      ec: ExecutionContext
+  ): (ServerServiceDefinition, CommandSubmissionServiceImpl) = {
     val impl = new CommandSubmissionServiceImpl(response)
     val authImpl = new CommandSubmissionServiceAuthorization(impl, authorizer)
     (CommandSubmissionServiceGrpc.bindService(authImpl, ec), impl)

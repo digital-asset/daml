@@ -30,8 +30,9 @@ abstract class Template[+T] extends ValueRef { self: T =>
 
   // arguments and templateId are provided in lieu of making templateCompanion
   // public, though the latter might be more "powerful"
-  protected[this] def templateCompanion(
-      implicit d: DummyImplicit): TemplateCompanion[_ >: self.type <: T]
+  protected[this] def templateCompanion(implicit
+      d: DummyImplicit
+  ): TemplateCompanion[_ >: self.type <: T]
 }
 
 object Template {

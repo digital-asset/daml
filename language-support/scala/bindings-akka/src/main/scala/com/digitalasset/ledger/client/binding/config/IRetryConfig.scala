@@ -7,14 +7,12 @@ import scala.concurrent.duration._
 
 trait IRetryConfig {
 
-  /**
-    * @return The interval between retries.
+  /** @return The interval between retries.
     */
   def intervalMs: Positive[Long]
   def interval: FiniteDuration = intervalMs.value.millis
 
-  /**
-    * @return The total timeout we allow for the operation to succeed.
+  /** @return The total timeout we allow for the operation to succeed.
     */
   def timeoutMs: Positive[Long]
   def timeout: FiniteDuration = timeoutMs.value.millis

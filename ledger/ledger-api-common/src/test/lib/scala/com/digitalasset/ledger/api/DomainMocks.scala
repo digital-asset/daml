@@ -15,7 +15,8 @@ object DomainMocks {
 
   val identifier = Ref.Identifier(
     Ref.PackageId.assertFromString("package"),
-    Ref.QualifiedName.assertFromString("module:entity"))
+    Ref.QualifiedName.assertFromString("module:entity"),
+  )
 
   val commandId = CommandId(Ref.LedgerString.assertFromString("commandId"))
 

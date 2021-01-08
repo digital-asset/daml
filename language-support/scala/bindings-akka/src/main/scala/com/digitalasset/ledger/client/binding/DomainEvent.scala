@@ -28,12 +28,12 @@ final case class DomainCreatedEvent(
     templateId: TemplateId,
     witnessParties: immutable.Seq[Party],
     createArguments: CreateArguments,
-    contractData: Contract.OfAny)
-    extends DomainEvent
+    contractData: Contract.OfAny,
+) extends DomainEvent
 
 final case class DomainArchivedEvent(
     eventId: EventId,
     contractId: ContractId,
     templateId: TemplateId,
-    witnessParties: immutable.Seq[Party])
-    extends DomainEvent
+    witnessParties: immutable.Seq[Party],
+) extends DomainEvent

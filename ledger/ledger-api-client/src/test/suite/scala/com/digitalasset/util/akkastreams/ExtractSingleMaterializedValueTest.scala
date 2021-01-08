@@ -42,8 +42,8 @@ class ExtractSingleMaterializedValueTest
         val elemToExtract = -1
         val otherCandidateShuffledIn = -2
 
-        val elements = elemToExtract +: Random.shuffle(
-          otherCandidateShuffledIn +: elemsThatPassThrough)
+        val elements =
+          elemToExtract +: Random.shuffle(otherCandidateShuffledIn +: elemsThatPassThrough)
         val (extractedF, restF) = processElements(elements)
 
         whenReady(extractedF)(_ shouldEqual elemToExtract)

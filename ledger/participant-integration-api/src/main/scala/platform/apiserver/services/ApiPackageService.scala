@@ -7,7 +7,7 @@ import com.daml.daml_lf_dev.DamlLf.{Archive, HashFunction}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.package_service.HashFunction.{
   SHA256 => APISHA256,
-  Unrecognized => APIUnrecognized
+  Unrecognized => APIUnrecognized,
 }
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
@@ -22,7 +22,7 @@ import io.grpc.{BindableService, ServerServiceDefinition, Status}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiPackageService private (
-    backend: IndexPackagesService,
+    backend: IndexPackagesService
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends PackageService
     with GrpcApiService {
@@ -45,14 +45,17 @@ private[apiserver] final class ApiPackageService private (
       withValidatedPackageId(request.packageId) { packageId =>
         backend
           .getLfArchive(packageId)
-          .flatMap(_.fold(Future.failed[GetPackageResponse](Status.NOT_FOUND.asRuntimeException()))(
-            archive => Future.successful(toGetPackageResponse(archive))))
+          .flatMap(
+            _.fold(Future.failed[GetPackageResponse](Status.NOT_FOUND.asRuntimeException()))(
+              archive => Future.successful(toGetPackageResponse(archive))
+            )
+          )
           .andThen(logger.logErrorsOnCall[GetPackageResponse])
       }
     }
 
   override def getPackageStatus(
-      request: GetPackageStatusRequest,
+      request: GetPackageStatusRequest
   ): Future[GetPackageStatusResponse] =
     withEnrichedLoggingContext("packageId" -> request.packageId) { implicit loggingContext =>
       withValidatedPackageId(request.packageId) { packageId =>
@@ -78,8 +81,9 @@ private[apiserver] final class ApiPackageService private (
           Future.failed[T](
             Status.INVALID_ARGUMENT
               .withDescription(error)
-              .asRuntimeException()),
-        pId => block(pId)
+              .asRuntimeException()
+          ),
+        pId => block(pId),
       )
 
   private def toGetPackageResponse(archive: Archive): GetPackageResponse = {
@@ -96,8 +100,8 @@ private[platform] object ApiPackageService {
   def create(
       ledgerId: LedgerId,
       backend: IndexPackagesService,
-  )(
-      implicit executionContext: ExecutionContext,
+  )(implicit
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): PackageService with GrpcApiService =
     new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService {

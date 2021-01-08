@@ -38,7 +38,8 @@ object Graphs {
     }
 
     visitSet(graph.keySet).fold[Either[Cycle[X], List[X]]](Right(black.toList))(x =>
-      Left(buildCycle(x, x)))
+      Left(buildCycle(x, x))
+    )
   }
 
 }

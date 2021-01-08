@@ -84,8 +84,8 @@ object domain {
         signatories: immutable.Set[Ref.Party],
         observers: immutable.Set[Ref.Party],
         agreementText: String,
-        contractKey: Option[Value])
-        extends Event
+        contractKey: Option[Value],
+    ) extends Event
         with CreateOrExerciseEvent
         with CreateOrArchiveEvent
 
@@ -93,8 +93,8 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        witnessParties: immutable.Set[Ref.Party])
-        extends Event
+        witnessParties: immutable.Set[Ref.Party],
+    ) extends Event
         with CreateOrArchiveEvent
 
     final case class ExercisedEvent(
@@ -107,8 +107,8 @@ object domain {
         consuming: Boolean,
         override val children: List[EventId],
         witnessParties: immutable.Set[Ref.Party],
-        exerciseResult: Option[Value])
-        extends Event
+        exerciseResult: Option[Value],
+    ) extends Event
         with CreateOrExerciseEvent
 
   }
@@ -136,8 +136,8 @@ object domain {
       offset: LedgerOffset.Absolute,
       eventsById: immutable.Map[EventId, CreateOrExerciseEvent],
       rootEventIds: immutable.Seq[EventId],
-      traceContext: Option[TraceContext])
-      extends TransactionBase
+      traceContext: Option[TraceContext],
+  ) extends TransactionBase
 
   final case class Transaction(
       transactionId: TransactionId,
@@ -146,8 +146,8 @@ object domain {
       effectiveAt: Instant,
       events: immutable.Seq[CreateOrArchiveEvent],
       offset: LedgerOffset.Absolute,
-      traceContext: Option[TraceContext])
-      extends TransactionBase
+      traceContext: Option[TraceContext],
+  ) extends TransactionBase
 
   sealed trait CompletionEvent extends Product with Serializable {
     def offset: LedgerOffset.Absolute
@@ -163,15 +163,15 @@ object domain {
         offset: LedgerOffset.Absolute,
         recordTime: Instant,
         commandId: CommandId,
-        transactionId: TransactionId)
-        extends CompletionEvent
+        transactionId: TransactionId,
+    ) extends CompletionEvent
 
     final case class CommandRejected(
         offset: LedgerOffset.Absolute,
         recordTime: Instant,
         commandId: CommandId,
-        reason: RejectionReason)
-        extends CompletionEvent
+        reason: RejectionReason,
+    ) extends CompletionEvent
   }
 
   sealed trait RejectionReason {
@@ -271,10 +271,10 @@ object domain {
       readAs: Set[Ref.Party],
       submittedAt: Instant,
       deduplicateUntil: Instant,
-      commands: LfCommands)
+      commands: LfCommands,
+  )
 
-  /**
-    * @param party The stable unique identifier of a DAML party.
+  /** @param party The stable unique identifier of a DAML party.
     * @param displayName Human readable name associated with the party. Might not be unique.
     * @param isLocal True if party is hosted by the backing participant.
     */
@@ -316,13 +316,13 @@ object domain {
 
     final case class PackageUploadAccepted(
         submissionId: String,
-        recordTime: Instant
+        recordTime: Instant,
     ) extends PackageEntry
 
     final case class PackageUploadRejected(
         submissionId: String,
         recordTime: Instant,
-        reason: String
+        reason: String,
     ) extends PackageEntry
   }
 

@@ -5,7 +5,7 @@ package com.daml.platform.sandbox.auth
 
 import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
-  CompletionEndRequest
+  CompletionEndRequest,
 }
 
 import scala.concurrent.Future

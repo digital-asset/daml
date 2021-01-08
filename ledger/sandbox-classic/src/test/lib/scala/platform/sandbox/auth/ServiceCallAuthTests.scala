@@ -93,10 +93,12 @@ trait ServiceCallAuthTests
     Option(toHeader(forLedgerId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString))))
   protected val canReadAsRandomPartyActualParticipantId: Option[String] =
     Option(
-      toHeader(forParticipantId("sandbox-participant", readOnlyToken(UUID.randomUUID.toString))))
+      toHeader(forParticipantId("sandbox-participant", readOnlyToken(UUID.randomUUID.toString)))
+    )
   protected val canReadAsRandomPartyRandomParticipantId: Option[String] =
     Option(
-      toHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString))))
+      toHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString)))
+    )
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
   protected lazy val canReadAsAdminActualLedgerId: Option[String] =

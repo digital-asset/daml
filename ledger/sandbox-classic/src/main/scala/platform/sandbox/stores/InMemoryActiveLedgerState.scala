@@ -35,7 +35,8 @@ private[sandbox] case class InMemoryActiveLedgerState(
     activeContracts
       .get(contractId)
       .exists(ac =>
-        ac.signatories.exists(forParties.contains) || ac.observers.exists(forParties.contains))
+        ac.signatories.exists(forParties.contains) || ac.observers.exists(forParties.contains)
+      )
 
   override def lookupContractByKey(key: GlobalKey): Option[ContractId] =
     keys.get(key)
@@ -49,8 +50,7 @@ private[sandbox] case class InMemoryActiveLedgerState(
       .map(c => Let(c.let))
       .orElse[LetLookup](divulgedContracts.get(cid).map(_ => LetUnknown))
 
-  /**
-    * Updates divulgence information on the given active contract with information
+  /** Updates divulgence information on the given active contract with information
     * from the already existing divulged contract.
     */
   private def copyDivulgences(ac: ActiveContract, dc: DivulgedContract): ActiveContract =
@@ -58,7 +58,8 @@ private[sandbox] case class InMemoryActiveLedgerState(
 
   override def addContract(
       c: ActiveContract,
-      keyO: Option[GlobalKey]): InMemoryActiveLedgerState = {
+      keyO: Option[GlobalKey],
+  ): InMemoryActiveLedgerState = {
     val (newKeys, newReverseKeys) = keyO match {
       case None => (keys, reverseKeys)
       case Some(key) => (keys + (key -> c.id), reverseKeys + (c.id -> key))
@@ -68,14 +69,14 @@ private[sandbox] case class InMemoryActiveLedgerState(
         copy(
           activeContracts = activeContracts + (c.id -> c),
           keys = newKeys,
-          reverseKeys = newReverseKeys
+          reverseKeys = newReverseKeys,
         )
       case Some(dc) =>
         copy(
           activeContracts = activeContracts + (c.id -> copyDivulgences(c, dc)),
           divulgedContracts = divulgedContracts - c.id,
           keys = newKeys,
-          reverseKeys = newReverseKeys
+          reverseKeys = newReverseKeys,
         )
     }
   }
@@ -89,7 +90,7 @@ private[sandbox] case class InMemoryActiveLedgerState(
       activeContracts = activeContracts - cid,
       divulgedContracts = divulgedContracts - cid,
       keys = newKeys,
-      reverseKeys = newReverseKeys
+      reverseKeys = newReverseKeys,
     )
   }
 
@@ -99,7 +100,8 @@ private[sandbox] case class InMemoryActiveLedgerState(
   override def divulgeAlreadyCommittedContracts(
       transactionId: TransactionId,
       global: Relation[ContractId, Party],
-      referencedContracts: List[(Value.ContractId, ContractInst)]): InMemoryActiveLedgerState =
+      referencedContracts: List[(Value.ContractId, ContractInst)],
+  ): InMemoryActiveLedgerState =
     if (global.nonEmpty) {
       val referencedContractsM = referencedContracts.toMap
       // Note: each entry in `global` can refer to either:
@@ -126,14 +128,15 @@ private[sandbox] case class InMemoryActiveLedgerState(
                   cid,
                   sys.error(
                     s"Transaction $transactionId says it divulges contract ${cid.coid} to parties ${divulgeTo
-                      .mkString(",")}, but that contract does not exist.")
+                      .mkString(",")}, but that contract does not exist."
+                  ),
                 ),
-              divulgences = Map.empty ++ divulgeTo.map(p => p -> transactionId)
+              divulgences = Map.empty ++ divulgeTo.map(p => p -> transactionId),
             ))
       }
       copy(
         activeContracts = activeContracts ++ updatedAcs,
-        divulgedContracts = divulgedContracts ++ updatedDcs ++ newDcs
+        divulgedContracts = divulgedContracts ++ updatedDcs ++ newDcs,
       )
     } else this
 
@@ -151,7 +154,7 @@ private[sandbox] case class InMemoryActiveLedgerState(
       transaction: CommittedTransaction,
       disclosure: Relation[NodeId, Party],
       divulgence: Relation[ContractId, Party],
-      referencedContracts: List[(Value.ContractId, ContractInst)]
+      referencedContracts: List[(Value.ContractId, ContractInst)],
   ): Either[Set[RejectionReason], InMemoryActiveLedgerState] =
     acManager.addTransaction(
       let,
@@ -161,10 +164,10 @@ private[sandbox] case class InMemoryActiveLedgerState(
       transaction,
       disclosure,
       divulgence,
-      referencedContracts)
+      referencedContracts,
+    )
 
-  /**
-    * Adds a new party to the list of known parties.
+  /** Adds a new party to the list of known parties.
     */
   def addParty(details: PartyDetails): InMemoryActiveLedgerState = {
     assert(!parties.contains(details.party))

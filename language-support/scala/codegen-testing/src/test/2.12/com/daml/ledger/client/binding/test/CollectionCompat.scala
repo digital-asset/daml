@@ -5,6 +5,7 @@ package com.daml.ledger.client.binding.test
 
 object CollectionCompat {
   type IterableFactory[
-      CC[X] <: Traversable[X] with collection.generic.GenericTraversableTemplate[X, CC]] =
+      CC[X] <: Traversable[X] with collection.generic.GenericTraversableTemplate[X, CC]
+  ] =
     collection.generic.TraversableFactory[CC]
 }

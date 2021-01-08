@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.committer
 import com.daml.ledger.participant.state.kvutils.Conversions.{
   buildTimestamp,
   configDedupKey,
-  configurationStateKey
+  configurationStateKey,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
@@ -24,7 +24,7 @@ private[kvutils] object ConfigCommitter {
 private[kvutils] class ConfigCommitter(
     defaultConfig: Configuration,
     maximumRecordTime: Timestamp,
-    override protected val metrics: Metrics
+    override protected val metrics: Metrics,
 ) extends Committer[ConfigCommitter.Result] {
 
   override protected val committerName = "config"
@@ -39,14 +39,15 @@ private[kvutils] class ConfigCommitter(
     if (ctx.recordTime.exists(_ > maximumRecordTime)) {
       rejectionTraceLog(
         s"submission timed out (${ctx.recordTime} > $maximumRecordTime)",
-        result.submission)
+        result.submission,
+      )
       reject(
         ctx.recordTime,
         result.submission,
         _.setTimedOut(
           TimedOut.newBuilder
             .setMaximumRecordTime(buildTimestamp(maximumRecordTime))
-        )
+        ),
       )
     } else {
       if (ctx.preExecute) {
@@ -80,7 +81,7 @@ private[kvutils] class ConfigCommitter(
         _.setParticipantNotAuthorized(
           ParticipantNotAuthorized.newBuilder
             .setDetails(msg)
-        )
+        ),
       )
     } else if (!wellFormed) {
       val msg = s"${ctx.participantId} is not authorized to change configuration."
@@ -91,7 +92,7 @@ private[kvutils] class ConfigCommitter(
         _.setParticipantNotAuthorized(
           ParticipantNotAuthorized.newBuilder
             .setDetails(msg)
-        )
+        ),
       )
     } else {
       StepContinue(result)
@@ -108,8 +109,9 @@ private[kvutils] class ConfigCommitter(
             result.submission,
             _.setInvalidConfiguration(
               Invalid.newBuilder
-                .setDetails(err))
-        ),
+                .setDetails(err)
+            ),
+          ),
         config =>
           if (config.generation != (1 + result.currentConfig._2.generation))
             reject(
@@ -117,10 +119,11 @@ private[kvutils] class ConfigCommitter(
               result.submission,
               _.setGenerationMismatch(
                 GenerationMismatch.newBuilder
-                  .setExpectedGeneration(1 + result.currentConfig._2.generation))
+                  .setExpectedGeneration(1 + result.currentConfig._2.generation)
+              ),
             )
           else
-            StepContinue(result)
+            StepContinue(result),
       )
   }
 
@@ -134,7 +137,7 @@ private[kvutils] class ConfigCommitter(
       reject(
         ctx.recordTime,
         result.submission,
-        _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg))
+        _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg)),
       )
     }
   }
@@ -142,7 +145,8 @@ private[kvutils] class ConfigCommitter(
   private[committer] def buildLogEntry: Step = (ctx, result) => {
     metrics.daml.kvutils.committer.config.accepts.inc()
     logger.trace(
-      s"Configuration accepted, generation=${result.submission.getConfiguration.getGeneration} correlationId=${result.submission.getSubmissionId}")
+      s"Configuration accepted, generation=${result.submission.getConfiguration.getGeneration} correlationId=${result.submission.getSubmissionId}"
+    )
 
     val configurationEntry = DamlConfigurationEntry.newBuilder
       .setSubmissionId(result.submission.getSubmissionId)
@@ -153,19 +157,20 @@ private[kvutils] class ConfigCommitter(
       configurationStateKey,
       DamlStateValue.newBuilder
         .setConfigurationEntry(configurationEntry)
-        .build
+        .build,
     )
 
     ctx.set(
       configDedupKey(ctx.participantId, result.submission.getSubmissionId),
       DamlStateValue.newBuilder
         .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
-        .build
+        .build,
     )
 
     val successLogEntry = buildLogEntryWithOptionalRecordTime(
       ctx.recordTime,
-      _.setConfigurationEntry(configurationEntry))
+      _.setConfigurationEntry(configurationEntry),
+    )
     StepStop(successLogEntry)
   }
 
@@ -180,15 +185,17 @@ private[kvutils] class ConfigCommitter(
 
   private def setOutOfTimeBoundsLogEntry(
       submission: DamlConfigurationSubmission,
-      commitContext: CommitContext): Unit = {
+      commitContext: CommitContext,
+  ): Unit = {
     commitContext.outOfTimeBoundsLogEntry = Some(
-      buildRejectionLogEntry(recordTime = None, submission, identity))
+      buildRejectionLogEntry(recordTime = None, submission, identity)
+    )
   }
 
   private def buildRejectionLogEntry(
       recordTime: Option[Timestamp],
       submission: DamlConfigurationSubmission,
-      addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder
+      addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder,
   ): DamlLogEntry = {
     buildLogEntryWithOptionalRecordTime(
       recordTime,
@@ -199,7 +206,7 @@ private[kvutils] class ConfigCommitter(
             .setParticipantId(submission.getParticipantId)
             .setConfiguration(submission.getConfiguration)
         )
-      )
+      ),
     )
   }
 
@@ -209,7 +216,7 @@ private[kvutils] class ConfigCommitter(
   ): ConfigCommitter.Result =
     ConfigCommitter.Result(
       submission.getConfigurationSubmission,
-      getCurrentConfiguration(defaultConfig, ctx, logger)
+      getCurrentConfiguration(defaultConfig, ctx, logger),
     )
 
   override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
@@ -217,7 +224,7 @@ private[kvutils] class ConfigCommitter(
     "authorize_submission" -> authorizeSubmission,
     "validate_submission" -> validateSubmission,
     "deduplicate_submission" -> deduplicateSubmission,
-    "build_log_entry" -> buildLogEntry
+    "build_log_entry" -> buildLogEntry,
   )
 
 }

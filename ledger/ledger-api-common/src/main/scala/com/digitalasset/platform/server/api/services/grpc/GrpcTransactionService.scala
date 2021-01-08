@@ -27,8 +27,8 @@ final class GrpcTransactionService(
     protected val service: TransactionService,
     val ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
-)(
-    implicit protected val esf: ExecutionSequencerFactory,
+)(implicit
+    protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
     executionContext: ExecutionContext,
 ) extends TransactionServiceAkkaGrpc
@@ -42,7 +42,8 @@ final class GrpcTransactionService(
     new TransactionServiceRequestValidator(ledgerId, partyNameChecker)
 
   override protected def getTransactionsSource(
-      request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] = {
+      request: GetTransactionsRequest
+  ): Source[GetTransactionsResponse, NotUsed] = {
     logger.debug("Received new transaction request {}", request)
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
       val validation = validator.validate(request, ledgerEnd, service.offsetOrdering)
@@ -54,13 +55,14 @@ final class GrpcTransactionService(
         },
         req =>
           if (req.filter.filtersByParty.isEmpty) Source.empty
-          else service.getTransactions(req)
+          else service.getTransactions(req),
       )
     }
   }
 
   override protected def getTransactionTreesSource(
-      request: GetTransactionsRequest): Source[GetTransactionTreesResponse, NotUsed] = {
+      request: GetTransactionsRequest
+  ): Source[GetTransactionTreesResponse, NotUsed] = {
     logger.debug("Received new transaction tree request {}", request)
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
       val validation = validator.validateTree(request, ledgerEnd, service.offsetOrdering)
@@ -73,7 +75,7 @@ final class GrpcTransactionService(
         req => {
           if (req.parties.isEmpty) Source.empty
           else service.getTransactionTrees(req)
-        }
+        },
       )
     }
   }
@@ -81,42 +83,47 @@ final class GrpcTransactionService(
   private def getSingleTransaction[Request, DomainRequest, DomainTx, Response](
       req: Request,
       validate: Request => Result[DomainRequest],
-      fetch: DomainRequest => Future[Response]): Future[Response] =
+      fetch: DomainRequest => Future[Response],
+  ): Future[Response] =
     validate(req).fold(Future.failed, fetch(_))
 
   override def getTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[GetTransactionResponse] = {
+      request: GetTransactionByEventIdRequest
+  ): Future[GetTransactionResponse] = {
     getSingleTransaction(
       request,
       validator.validateTransactionByEventId,
-      service.getTransactionByEventId
+      service.getTransactionByEventId,
     )
   }
 
   override def getTransactionById(
-      request: GetTransactionByIdRequest): Future[GetTransactionResponse] = {
+      request: GetTransactionByIdRequest
+  ): Future[GetTransactionResponse] = {
     getSingleTransaction(
       request,
       validator.validateTransactionById,
-      service.getTransactionById
+      service.getTransactionById,
     )
   }
 
   override def getFlatTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[GetFlatTransactionResponse] = {
+      request: GetTransactionByEventIdRequest
+  ): Future[GetFlatTransactionResponse] = {
     getSingleTransaction(
       request,
       validator.validateTransactionByEventId,
-      service.getFlatTransactionByEventId
+      service.getFlatTransactionByEventId,
     )
   }
 
   override def getFlatTransactionById(
-      request: GetTransactionByIdRequest): Future[GetFlatTransactionResponse] = {
+      request: GetTransactionByIdRequest
+  ): Future[GetFlatTransactionResponse] = {
     getSingleTransaction(
       request,
       validator.validateTransactionById,
-      service.getFlatTransactionById
+      service.getFlatTransactionById,
     )
   }
 
@@ -129,7 +136,8 @@ final class GrpcTransactionService(
         service
           .getLedgerEnd(request.ledgerId)
           .map(abs =>
-            GetLedgerEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value)))))
+            GetLedgerEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value))))
+          ),
     )
   }
 

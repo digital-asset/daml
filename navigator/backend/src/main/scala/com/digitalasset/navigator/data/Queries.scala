@@ -32,7 +32,8 @@ object Queries {
   val contractTemplateIdIsActive = createIndex(
     "contract",
     List("template_id", "archive_transaction_id"),
-    "contract_tmplt_active_idx")
+    "contract_tmplt_active_idx",
+  )
 
   val createEventTable: Fragment = sql"""
         CREATE TABLE

@@ -3,8 +3,7 @@
 
 package com.daml.ledger.api.tls
 
-/**
-  * Enables certificate revocation checks with OCSP.
+/** Enables certificate revocation checks with OCSP.
   * See: https://tersesystems.com/blog/2014/03/22/fixing-certificate-revocation/
   * See: https://www.ibm.com/support/knowledgecenter/en/SSYKE2_8.0.0/com.ibm.java.security.component.80.doc/security-component/jsse2Docs/knowndiffsun.html
   */

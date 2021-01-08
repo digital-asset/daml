@@ -23,8 +23,8 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
 
   def newHeadSinceLastWrite(): Int = lastLogEntryIndex
 
-  def write[A](action: (MutableLog, MutableState) => Future[A])(
-      implicit executionContext: ExecutionContext
+  def write[A](action: (MutableLog, MutableState) => Future[A])(implicit
+      executionContext: ExecutionContext
   ): Future[A] =
     for {
       stamp <- Future {
@@ -33,10 +33,9 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
         }
       }
       result <- action(log, state)
-        .andThen {
-          case _ =>
-            lastLogEntryIndex = log.size - 1
-            lockCurrentState.unlock(stamp)
+        .andThen { case _ =>
+          lastLogEntryIndex = log.size - 1
+          lockCurrentState.unlock(stamp)
         }
     } yield result
 }

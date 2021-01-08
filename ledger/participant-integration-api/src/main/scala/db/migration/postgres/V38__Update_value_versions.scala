@@ -73,16 +73,16 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
   private[this] def updateAndSerialize(
       nameValue: (String, Option[Value]),
       tableName: String,
-      rowKey: String
+      rowKey: String,
   ): NamedParameter = {
     val (label, oldValue) = nameValue
     val newValue =
-      oldValue.map(
-        value =>
-          ValueSerializer.serializeValue(
-            value = value.copy(stableValueVersion),
-            errorContext = s"failed to serialize $label for $tableName $rowKey",
-        ))
+      oldValue.map(value =>
+        ValueSerializer.serializeValue(
+          value = value.copy(stableValueVersion),
+          errorContext = s"failed to serialize $label for $tableName $rowKey",
+        )
+      )
     NamedParameter(label, newValue)
   }
 
@@ -117,7 +117,7 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
 
   private[this] def save(
       sqlUpdate: String,
-      statements: LazyList[List[NamedParameter]]
+      statements: LazyList[List[NamedParameter]],
   )(implicit connection: Connection): Unit =
     statements.grouped(batchSize).foreach { batch =>
       BatchSql(
@@ -138,8 +138,8 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
         rowType = "event",
         rowKeyLabel = "event_id",
         valueLabels =
-          List("create_argument", "create_key_value", "exercise_argument", "exercise_result")
-      )
+          List("create_argument", "create_key_value", "exercise_argument", "exercise_result"),
+      ),
     )
 
     save(
@@ -149,7 +149,7 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
         rowType = "contract",
         rowKeyLabel = "contract_id",
         valueLabels = List("create_argument"),
-      )
+      ),
     )
   }
 

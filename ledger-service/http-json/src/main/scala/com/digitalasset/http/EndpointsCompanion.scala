@@ -57,22 +57,21 @@ object EndpointsCompanion {
               e => -\/(Unauthorized(e.getMessage)),
               payload =>
                 for {
-                  ledgerId <- payload.ledgerId.toRightDisjunction(
-                    Unauthorized("ledgerId missing in access token"))
-                  applicationId <- payload.applicationId.toRightDisjunction(
-                    Unauthorized("applicationId missing in access token"))
+                  ledgerId <- payload.ledgerId
+                    .toRightDisjunction(Unauthorized("ledgerId missing in access token"))
+                  applicationId <- payload.applicationId
+                    .toRightDisjunction(Unauthorized("applicationId missing in access token"))
                   actAs <- payload.actAs match {
                     case p +: ps => \/-(NonEmptyList(p, ps: _*))
                     case _ =>
                       -\/(Unauthorized(s"Expected one or more parties in actAs but got none"))
                   }
-                } yield
-                  JwtWritePayload(
-                    lar.LedgerId(ledgerId),
-                    lar.ApplicationId(applicationId),
-                    lar.Party.subst(actAs),
-                    lar.Party.subst(payload.readAs),
-                )
+                } yield JwtWritePayload(
+                  lar.LedgerId(ledgerId),
+                  lar.ApplicationId(applicationId),
+                  lar.Party.subst(actAs),
+                  lar.Party.subst(payload.readAs),
+                ),
             )
         }
       }
@@ -88,17 +87,17 @@ object EndpointsCompanion {
               e => -\/(Unauthorized(e.getMessage)),
               payload =>
                 for {
-                  ledgerId <- payload.ledgerId.toRightDisjunction(
-                    Unauthorized("ledgerId missing in access token"))
-                  applicationId <- payload.applicationId.toRightDisjunction(
-                    Unauthorized("applicationId missing in access token"))
+                  ledgerId <- payload.ledgerId
+                    .toRightDisjunction(Unauthorized("ledgerId missing in access token"))
+                  applicationId <- payload.applicationId
+                    .toRightDisjunction(Unauthorized("applicationId missing in access token"))
                   payload <- JwtPayload(
                     lar.LedgerId(ledgerId),
                     lar.ApplicationId(applicationId),
                     actAs = payload.actAs.map(lar.Party(_)),
-                    readAs = payload.readAs.map(lar.Party(_))
+                    readAs = payload.readAs.map(lar.Party(_)),
                   ).toRightDisjunction(Unauthorized("No parties in actAs and readAs"))
-                } yield payload
+                } yield payload,
             )
         }
 
@@ -129,13 +128,15 @@ object EndpointsCompanion {
   private[http] def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {
     HttpResponse(
       status = status,
-      entity = HttpEntity.Strict(ContentTypes.`application/json`, format(data)))
+      entity = HttpEntity.Strict(ContentTypes.`application/json`, format(data)),
+    )
   }
 
   private[http] def format(a: JsValue): ByteString = ByteString(a.compactPrint)
 
-  private[http] def decodeAndParsePayload[A](jwt: Jwt, decodeJwt: ValidateJwt)(
-      implicit parse: ParsePayload[A]): Unauthorized \/ (jwt.type, A) = {
+  private[http] def decodeAndParsePayload[A](jwt: Jwt, decodeJwt: ValidateJwt)(implicit
+      parse: ParsePayload[A]
+  ): Unauthorized \/ (jwt.type, A) = {
     for {
       a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
       p <- parse.parsePayload(a)

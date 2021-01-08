@@ -16,12 +16,15 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
   private def create(contractId: Value.ContractId): Event =
     Event(
       Event.Event.Created(
-        CreatedEvent("", contractId.coid, None, None, None, Seq.empty, Seq.empty, Seq.empty, None)))
+        CreatedEvent("", contractId.coid, None, None, None, Seq.empty, Seq.empty, Seq.empty, None)
+      )
+    )
 
   private val create1 = create(contractId1)
   private val create2 = create(contractId2)
   private val archive1 = Event(
-    Event.Event.Archived(ArchivedEvent("", contractId1.coid, None, Seq.empty)))
+    Event.Event.Archived(ArchivedEvent("", contractId1.coid, None, Seq.empty))
+  )
 
   "removeTransient" should {
 

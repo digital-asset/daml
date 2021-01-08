@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.OffsetBuilder
 import com.daml.ledger.participant.state.kvutils.api.{
   KeyValueParticipantStateReader,
   LedgerReader,
-  LedgerRecord
+  LedgerRecord,
 }
 import com.daml.ledger.participant.state.kvutils.export.WriteSet
 import com.daml.ledger.participant.state.v1.{LedgerId, LedgerInitialConditions, Offset, Update}
@@ -21,16 +21,15 @@ import scala.collection.immutable
 import scala.collection.mutable.ListBuffer
 
 final class LogAppendingReadServiceFactory(
-    metrics: Metrics,
+    metrics: Metrics
 ) extends ReplayingReadServiceFactory {
   private val recordedBlocks = ListBuffer.empty[LedgerRecord]
 
   override def appendBlock(writeSet: WriteSet): Unit =
     this.synchronized {
-      writeSet.foreach {
-        case (key, value) =>
-          val offset = OffsetBuilder.fromLong(recordedBlocks.length.toLong)
-          recordedBlocks.append(LedgerRecord(offset, key, value))
+      writeSet.foreach { case (key, value) =>
+        val offset = OffsetBuilder.fromLong(recordedBlocks.length.toLong)
+        recordedBlocks.append(LedgerRecord(offset, key, value))
       }
     }
 
@@ -44,7 +43,9 @@ final class LogAppendingReadServiceFactory(
           if (offset.isDefined) {
             Source.failed(
               new IllegalArgumentException(
-                s"A read offset of $offset is not supported. Must be $None."))
+                s"A read offset of $offset is not supported. Must be $None."
+              )
+            )
           } else {
             Source.fromIterator(() => recordedBlocksSnapshot.toIterator)
           }

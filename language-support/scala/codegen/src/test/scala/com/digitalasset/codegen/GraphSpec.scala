@@ -13,11 +13,13 @@ class GraphSpec extends AnyFlatSpec with Matchers {
 
   private[this] def intNode(
       contentAndId: Int,
-      deps: List[Int] = List.empty[Int]): (Int, BaseNode[Int, Int]) =
+      deps: List[Int] = List.empty[Int],
+  ): (Int, BaseNode[Int, Int]) =
     contentAndId -> Node(contentAndId, deps, true)
 
   private[this] def orderedDependencies[K, A](
-      nodes: Iterable[(K, BaseNode[K, A])]): OrderedDependencies[K, A] =
+      nodes: Iterable[(K, BaseNode[K, A])]
+  ): OrderedDependencies[K, A] =
     cyclicDependencies(Iterable.empty, nodes)
 
   behavior of "Graph.cyclicDependencies"
@@ -47,7 +49,8 @@ class GraphSpec extends AnyFlatSpec with Matchers {
     val node2 = intNode(2)
     orderedDependencies(Seq(node1, node2)).deps should contain theSameElementsInOrderAs Seq(
       node2,
-      node1)
+      node1,
+    )
   }
 
   it should "return the two elements connected ordered and the third one in any position" in {

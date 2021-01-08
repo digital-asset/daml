@@ -27,7 +27,7 @@ class JwtVerifier(verifier: com.auth0.jwt.interfaces.JWTVerifier) extends JwtVer
     \/.fromTryCatchNonFatal(verifier.verify(jwt.value))
       .bimap(
         e => Error(Symbol("verify"), e.getMessage),
-        a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload)
+        a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload),
       )
       .flatMap(base64Decode)
   }
@@ -51,7 +51,8 @@ object HMAC256Verifier extends StrictLogging {
   def apply(secret: String): Error \/ JwtVerifier =
     \/.fromTryCatchNonFatal {
       logger.warn(
-        "HMAC256 JWT Validator is NOT recommended for production environments, please use RSA256!!!")
+        "HMAC256 JWT Validator is NOT recommended for production environments, please use RSA256!!!"
+      )
 
       val algorithm = Algorithm.HMAC256(secret)
       val verifier = JWT.require(algorithm).build()
@@ -69,12 +70,14 @@ object ECDSAVerifier extends StrictLogging {
 
   def fromCrtFile(
       path: String,
-      algorithmPublicKey: ECPublicKey => Algorithm): Error \/ JwtVerifier = {
+      algorithmPublicKey: ECPublicKey => Algorithm,
+  ): Error \/ JwtVerifier = {
     for {
       key <- \/.fromEither(
         KeyUtils
           .readECPublicKeyFromCrt(new File(path))
-          .toEither)
+          .toEither
+      )
         .leftMap(e => Error(Symbol("fromCrtFile"), e.getMessage))
       verifier <- ECDSAVerifier(algorithmPublicKey(key))
     } yield verifier
@@ -99,8 +102,7 @@ object RSA256Verifier extends StrictLogging {
       new JwtVerifier(verifier)
     }.leftMap(e => Error(Symbol("RSA256"), e.getMessage))
 
-  /**
-    * Create a RSA256 validator with the key loaded from the given file.
+  /** Create a RSA256 validator with the key loaded from the given file.
     * The file is assumed to be a X509 encoded certificate.
     * These typically have the .crt file extension.
     */
@@ -109,7 +111,8 @@ object RSA256Verifier extends StrictLogging {
       rsaKey <- \/.fromEither(
         KeyUtils
           .readRSAPublicKeyFromCrt(new File(path))
-          .toEither)
+          .toEither
+      )
         .leftMap(e => Error(Symbol("fromCrtFile"), e.getMessage))
       verfier <- RSA256Verifier.apply(rsaKey)
     } yield verfier

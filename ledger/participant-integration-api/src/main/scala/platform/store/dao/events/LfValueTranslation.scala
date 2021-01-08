@@ -20,7 +20,8 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
 
   private def serializeCreateArgOrThrow(
       contractId: ContractId,
-      arg: VersionedValue[ContractId]): Array[Byte] =
+      arg: VersionedValue[ContractId],
+  ): Array[Byte] =
     ValueSerializer.serializeValue(
       value = arg,
       errorContext = cantSerialize(attribute = "create argument", forContract = contractId),
@@ -30,11 +31,10 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
     serializeCreateArgOrThrow(c.coid, c.versionedCoinst.arg)
 
   private def serializeNullableKeyOrThrow(c: Create): Option[Array[Byte]] =
-    c.versionedKey.map(
-      k =>
-        ValueSerializer.serializeValue(
-          value = k.key,
-          errorContext = cantSerialize(attribute = "key", forContract = c.coid),
+    c.versionedKey.map(k =>
+      ValueSerializer.serializeValue(
+        value = k.key,
+        errorContext = cantSerialize(attribute = "key", forContract = c.coid),
       )
     )
 
@@ -45,17 +45,17 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
     )
 
   private def serializeNullableExerciseResultOrThrow(e: Exercise): Option[Array[Byte]] =
-    e.versionedExerciseResult.map(
-      exerciseResult =>
-        ValueSerializer.serializeValue(
-          value = exerciseResult,
-          errorContext = cantSerialize(attribute = "exercise result", forContract = e.targetCoid),
+    e.versionedExerciseResult.map(exerciseResult =>
+      ValueSerializer.serializeValue(
+        value = exerciseResult,
+        errorContext = cantSerialize(attribute = "exercise result", forContract = e.targetCoid),
       )
     )
 
   def serialize(
       contractId: ContractId,
-      contractArgument: VersionedValue[ContractId]): Array[Byte] = {
+      contractArgument: VersionedValue[ContractId],
+  ): Array[Byte] = {
     cache.contracts.put(
       key = LfValueTranslation.ContractCache.Key(contractId),
       value = LfValueTranslation.ContractCache.Value(contractArgument),
@@ -122,7 +122,7 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
         .getOrElse(
           LfValueTranslation.EventCache.Value.Create(
             argument = ValueSerializer.deserializeValue(raw.createArgument),
-            key = raw.createKeyValue.map(ValueSerializer.deserializeValue)
+            key = raw.createKeyValue.map(ValueSerializer.deserializeValue),
           )
         )
         .assertCreate()
@@ -134,12 +134,11 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
           attribute = "create argument",
         )
       ),
-      contractKey = create.key.map(
-        key =>
-          toApiValue(
-            value = key,
-            verbose = verbose,
-            attribute = "create key",
+      contractKey = create.key.map(key =>
+        toApiValue(
+          value = key,
+          verbose = verbose,
+          attribute = "create key",
         )
       ),
     )
@@ -152,7 +151,7 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
         .getOrElse(
           LfValueTranslation.EventCache.Value.Exercise(
             argument = ValueSerializer.deserializeValue(raw.exerciseArgument),
-            result = raw.exerciseResult.map(ValueSerializer.deserializeValue)
+            result = raw.exerciseResult.map(ValueSerializer.deserializeValue),
           )
         )
         .assertExercise()
@@ -164,12 +163,11 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
           attribute = "exercise argument",
         )
       ),
-      exerciseResult = exercise.result.map(
-        result =>
-          toApiValue(
-            value = result,
-            verbose = verbose,
-            attribute = "exercise result",
+      exerciseResult = exercise.result.map(result =>
+        toApiValue(
+          value = result,
+          verbose = verbose,
+          attribute = "exercise result",
         )
       ),
     )
@@ -189,7 +187,7 @@ object LfValueTranslation {
 
     def newInstance(
         eventConfiguration: caching.SizedCache.Configuration,
-        contractConfiguration: caching.SizedCache.Configuration
+        contractConfiguration: caching.SizedCache.Configuration,
     ): Cache =
       Cache(
         events = EventCache.newInstance(eventConfiguration),
@@ -199,7 +197,7 @@ object LfValueTranslation {
     def newInstrumentedInstance(
         eventConfiguration: caching.SizedCache.Configuration,
         contractConfiguration: caching.SizedCache.Configuration,
-        metrics: Metrics
+        metrics: Metrics,
     ): Cache =
       Cache(
         events = EventCache.newInstrumentedInstance(eventConfiguration, metrics),
@@ -214,7 +212,7 @@ object LfValueTranslation {
 
     def newInstrumentedInstance(
         configuration: caching.SizedCache.Configuration,
-        metrics: Metrics
+        metrics: Metrics,
     ): EventCache =
       caching.SizedCache.from(
         configuration = configuration,
@@ -251,7 +249,7 @@ object LfValueTranslation {
 
     def newInstrumentedInstance(
         configuration: caching.SizedCache.Configuration,
-        metrics: Metrics
+        metrics: Metrics,
     ): ContractCache =
       caching.SizedCache.from(
         configuration = configuration,

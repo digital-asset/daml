@@ -77,8 +77,10 @@ object Utf8 {
   def pack(codePoints: ImmArray[Long]): String = {
     val builder = new StringBuilder()
     for (cp <- codePoints) {
-      if (Character.MIN_VALUE <= cp && cp < Character.MIN_SURROGATE ||
-        Character.MAX_SURROGATE < cp && cp <= Character.MAX_VALUE) {
+      if (
+        Character.MIN_VALUE <= cp && cp < Character.MIN_SURROGATE ||
+        Character.MAX_SURROGATE < cp && cp <= Character.MAX_VALUE
+      ) {
         // cp is a legal code point from the Basic Multilingual Plan,
         // then it needs only one UTF16 Char to be encoded.
         builder += cp.toChar

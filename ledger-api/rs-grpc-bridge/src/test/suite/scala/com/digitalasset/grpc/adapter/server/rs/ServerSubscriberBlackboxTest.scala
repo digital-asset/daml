@@ -15,7 +15,8 @@ class ServerSubscriberBlackboxTest
     val so = new MockServerCallStreamObserver[Integer]
     val sub = new ServerSubscriber[Integer](
       so,
-      TestExecutionSequencerFactory.instance.getExecutionSequencer)
+      TestExecutionSequencerFactory.instance.getExecutionSequencer,
+    )
     so.demandResponse()
     sub
   }

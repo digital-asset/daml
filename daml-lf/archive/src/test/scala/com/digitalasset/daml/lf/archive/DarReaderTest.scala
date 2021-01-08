@@ -35,11 +35,10 @@ class DarReaderTest
     val dar = DarReaderWithVersion.readArchiveFromFile(darFile).success.value
     val ((_, mainArchive), _) = dar.main
 
-    forAll(dar.all) {
-      case ((packageId, archive), ver) =>
-        packageId shouldNot be(Symbol("empty"))
-        archive.getDamlLf1.getModulesCount should be > 0
-        ver should be(LanguageMajorVersion.V1)
+    forAll(dar.all) { case ((packageId, archive), ver) =>
+      packageId shouldNot be(Symbol("empty"))
+      archive.getDamlLf1.getModulesCount should be > 0
+      ver should be(LanguageMajorVersion.V1)
     }
 
     val mainArchiveModules = mainArchive.getDamlLf1.getModulesList.asScala
@@ -47,49 +46,53 @@ class DarReaderTest
     val mainArchiveInternedStrings = mainArchive.getDamlLf1.getInternedStringsList.asScala
     inside(
       mainArchiveModules
-        .find(
-          m =>
-            internedName(
-              mainArchiveInternedDotted,
-              mainArchiveInternedStrings,
-              m.getNameInternedDname) == "DarReaderTest")) {
-      case Some(module) =>
-        val actualTypes: Set[String] =
-          module.getDataTypesList.asScala.toSet.map(
-            (t: DamlLf1.DefDataType) =>
-              internedName(
-                mainArchiveInternedDotted,
-                mainArchiveInternedStrings,
-                t.getNameInternedDname))
-        actualTypes should contain.allOf("Transfer", "Call2", "CallablePayout", "PayOut")
+        .find(m =>
+          internedName(
+            mainArchiveInternedDotted,
+            mainArchiveInternedStrings,
+            m.getNameInternedDname,
+          ) == "DarReaderTest"
+        )
+    ) { case Some(module) =>
+      val actualTypes: Set[String] =
+        module.getDataTypesList.asScala.toSet.map((t: DamlLf1.DefDataType) =>
+          internedName(
+            mainArchiveInternedDotted,
+            mainArchiveInternedStrings,
+            t.getNameInternedDname,
+          )
+        )
+      actualTypes should contain.allOf("Transfer", "Call2", "CallablePayout", "PayOut")
     }
 
-    forExactly(1, dar.dependencies) {
-      case ((_, archive), _) =>
-        val archiveModules = archive.getDamlLf1.getModulesList.asScala
-        val archiveInternedDotted = archive.getDamlLf1.getInternedDottedNamesList.asScala
-        val archiveInternedStrings = archive.getDamlLf1.getInternedStringsList.asScala
-        val archiveModuleNames = archiveModules
-          .map(m =>
-            internedName(archiveInternedDotted, archiveInternedStrings, m.getNameInternedDname))
-          .toSet
-        archiveModuleNames shouldBe Set(
-          "GHC.Enum",
-          "GHC.Show",
-          "GHC.Num",
-          "GHC.Stack.Types",
-          "GHC.Classes",
-          "Control.Exception.Base",
-          "GHC.Err",
-          "GHC.Base",
-          "LibraryModules")
+    forExactly(1, dar.dependencies) { case ((_, archive), _) =>
+      val archiveModules = archive.getDamlLf1.getModulesList.asScala
+      val archiveInternedDotted = archive.getDamlLf1.getInternedDottedNamesList.asScala
+      val archiveInternedStrings = archive.getDamlLf1.getInternedStringsList.asScala
+      val archiveModuleNames = archiveModules
+        .map(m =>
+          internedName(archiveInternedDotted, archiveInternedStrings, m.getNameInternedDname)
+        )
+        .toSet
+      archiveModuleNames shouldBe Set(
+        "GHC.Enum",
+        "GHC.Show",
+        "GHC.Num",
+        "GHC.Stack.Types",
+        "GHC.Classes",
+        "Control.Exception.Base",
+        "GHC.Err",
+        "GHC.Base",
+        "LibraryModules",
+      )
     }
   }
 
   private def internedName(
       internedDotted: collection.Seq[DamlLf1.InternedDottedName],
       internedStrings: collection.Seq[String],
-      n: Int): String = {
+      n: Int,
+  ): String = {
     internedDotted(n).getSegmentsInternedStrList.asScala.map(i => internedStrings(i)).mkString(".")
   }
 

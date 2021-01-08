@@ -27,7 +27,8 @@ class FlowUtilTest
   implicit val materializer: Materializer = Materializer(asys)
 
   "allowOnlyFirstInput" should "pass 1st message through and replace all others with errors" in forAll(
-    nonEmptyVectorOfInts) { xs: Vector[Int] =>
+    nonEmptyVectorOfInts
+  ) { xs: Vector[Int] =>
     val error = "Error"
     val errorNum = Math.max(xs.size - 1, 0)
     val expected: Vector[String \/ Int] =

@@ -18,7 +18,7 @@ object DamlDateGen {
     Gen
       .oneOf(
         Gen.choose(Min.toEpochDay, upTo),
-        Gen.choose(upFrom, Max.toEpochDay)
+        Gen.choose(upFrom, Max.toEpochDay),
       )
       .map(LocalDate.ofEpochDay)
   }

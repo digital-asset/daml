@@ -7,12 +7,11 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.logging.LoggingContext
 
-/**
-  * Serves as a backend to implement
+/** Serves as a backend to implement
   * [[com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService]]
-  **/
+  */
 trait IndexConfigurationService {
-  def getLedgerConfiguration()(
-      implicit loggingContext: LoggingContext,
+  def getLedgerConfiguration()(implicit
+      loggingContext: LoggingContext
   ): Source[LedgerConfiguration, NotUsed]
 }

@@ -15,4 +15,5 @@ case class DomainTransaction(
     commandId: CommandId,
     effectiveAt: Timestamp,
     events: Seq[DomainEvent],
-    traceContext: Option[TraceContext])
+    traceContext: Option[TraceContext],
+)

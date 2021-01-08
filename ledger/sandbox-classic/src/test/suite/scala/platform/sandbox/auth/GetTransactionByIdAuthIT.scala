@@ -7,7 +7,7 @@ import java.util.UUID
 
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByIdRequest,
-  TransactionServiceGrpc
+  TransactionServiceGrpc,
 }
 import io.grpc.Status
 import org.scalatest.Assertion

@@ -31,7 +31,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
         t"Date",
         t"Party",
         t"Bool",
-        t"Unit"
+        t"Unit",
       )
 
       forEvery(testCases) { typ =>
@@ -59,7 +59,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
         t"Scenario",
         t"ContractId",
         t"Arrow",
-        t"< f: serializableType >"
+        t"< f: serializableType >",
       )
 
       forEvery(testCases) { typ =>

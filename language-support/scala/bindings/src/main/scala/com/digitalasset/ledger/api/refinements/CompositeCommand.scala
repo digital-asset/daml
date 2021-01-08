@@ -12,5 +12,5 @@ final case class CompositeCommand(
     party: Party,
     commandId: CommandId,
     workflowId: WorkflowId,
-    traceContext: Option[TraceContext]
+    traceContext: Option[TraceContext],
 )

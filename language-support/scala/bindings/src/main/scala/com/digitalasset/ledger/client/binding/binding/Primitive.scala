@@ -119,7 +119,8 @@ sealed abstract class Primitive extends PrimitiveInstances {
     def apply[Tpl <: Template[Tpl]](
         packageId: String,
         moduleName: String,
-        entityName: String): TemplateId[Tpl]
+        entityName: String,
+    ): TemplateId[Tpl]
 
     private[binding] def substEx[F[_]](fa: F[rpcvalue.Identifier]): F[TemplateId[_]]
 
@@ -132,17 +133,20 @@ sealed abstract class Primitive extends PrimitiveInstances {
 
   private[binding] def createFromArgs[Tpl](
       companion: TemplateCompanion[_ <: Tpl],
-      na: rpcvalue.Record): Update[ContractId[Tpl]]
+      na: rpcvalue.Record,
+  ): Update[ContractId[Tpl]]
 
   private[binding] def exercise[ExOn, Tpl, Out](
       templateCompanion: TemplateCompanion[Tpl],
       receiver: ExOn,
       choiceId: String,
-      argument: rpcvalue.Value)(implicit ev: ExerciseOn[ExOn, Tpl]): Update[Out]
+      argument: rpcvalue.Value,
+  )(implicit ev: ExerciseOn[ExOn, Tpl]): Update[Out]
 
   private[binding] def arguments(
       recordId: rpcvalue.Identifier,
-      args: Seq[(String, rpcvalue.Value)]): rpcvalue.Record
+      args: Seq[(String, rpcvalue.Value)],
+  ): rpcvalue.Record
 }
 
 private[client] object OnlyPrimitive extends Primitive {
@@ -199,11 +203,12 @@ private[client] object OnlyPrimitive extends Primitive {
     override def apply[Tpl <: Template[Tpl]](
         packageId: String,
         moduleName: String,
-        entityName: String
+        entityName: String,
     ): TemplateId[Tpl] =
       ApiTypes.TemplateId(
         rpcvalue
-          .Identifier(packageId = packageId, moduleName = moduleName, entityName = entityName))
+          .Identifier(packageId = packageId, moduleName = moduleName, entityName = entityName)
+      )
 
     private[binding] override def substEx[F[_]](fa: F[rpcvalue.Identifier]) =
       ApiTypes.TemplateId subst fa
@@ -222,22 +227,27 @@ private[client] object OnlyPrimitive extends Primitive {
   }
 
   private[binding] override def substContractId[F[_], Tpl](
-      tc: F[ApiTypes.ContractId]): F[ContractId[Tpl]] = tc
+      tc: F[ApiTypes.ContractId]
+  ): F[ContractId[Tpl]] = tc
 
   private[binding] override def createFromArgs[Tpl](
       companion: TemplateCompanion[_ <: Tpl],
-      na: rpcvalue.Record): Update[ContractId[Tpl]] =
+      na: rpcvalue.Record,
+  ): Update[ContractId[Tpl]] =
     DomainCommand(
       rpccmd.Command(
         rpccmd.Command.Command
-          .Create(rpccmd.CreateCommand(templateId = Some(companion.id.unwrap), Some(na)))),
-      companion)
+          .Create(rpccmd.CreateCommand(templateId = Some(companion.id.unwrap), Some(na)))
+      ),
+      companion,
+    )
 
   private[binding] override def exercise[ExOn, Tpl, Out](
       templateCompanion: TemplateCompanion[Tpl],
       receiver: ExOn,
       choiceId: String,
-      argument: rpcvalue.Value)(implicit ev: ExerciseOn[ExOn, Tpl]): Update[Out] =
+      argument: rpcvalue.Value,
+  )(implicit ev: ExerciseOn[ExOn, Tpl]): Update[Out] =
     DomainCommand(
       rpccmd.Command {
         ev match {
@@ -247,15 +257,16 @@ private[client] object OnlyPrimitive extends Primitive {
                 templateId = Some(templateCompanion.id.unwrap),
                 contractId = (receiver: ContractId[Tpl]).unwrap,
                 choice = choiceId,
-                choiceArgument = Some(argument)
-              ))
+                choiceArgument = Some(argument),
+              )
+            )
           case _: ExerciseOn.CreateAndOnTemplate[Tpl] =>
             rpccmd.Command.Command.CreateAndExercise(
               rpccmd.CreateAndExerciseCommand(
                 templateId = Some(templateCompanion.id.unwrap),
                 createArguments = Some((receiver: Template.CreateForExercise[Tpl]).value.arguments),
                 choice = choiceId,
-                choiceArgument = Some(argument)
+                choiceArgument = Some(argument),
               )
             )
           case _: ExerciseOn.OnKey[Tpl] =>
@@ -264,20 +275,24 @@ private[client] object OnlyPrimitive extends Primitive {
                 templateId = Some(templateCompanion.id.unwrap),
                 contractKey = Some((receiver: Template.Key[Tpl]).encodedKey),
                 choice = choiceId,
-                choiceArgument = Some(argument)
+                choiceArgument = Some(argument),
               )
             )
         }
       },
-      templateCompanion
+      templateCompanion,
     )
 
   private[binding] override def arguments(
       recordId: rpcvalue.Identifier,
-      args: Seq[(String, rpcvalue.Value)]): rpcvalue.Record =
-    rpcvalue.Record(recordId = Some(recordId), args.map {
-      case (k, v) => rpcvalue.RecordField(k, Some(v))
-    })
+      args: Seq[(String, rpcvalue.Value)],
+  ): rpcvalue.Record =
+    rpcvalue.Record(
+      recordId = Some(recordId),
+      args.map { case (k, v) =>
+        rpcvalue.RecordField(k, Some(v))
+      },
+    )
 }
 
 sealed abstract class PrimitiveInstances

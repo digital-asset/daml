@@ -29,13 +29,15 @@ final class LogAppendingCommitStrategySpec
       val instance =
         new LogAppendingCommitStrategy[Long](
           mockLedgerStateOperations,
-          DefaultStateKeySerializationStrategy)
+          DefaultStateKeySerializationStrategy,
+        )
 
       instance
         .commit(aParticipantId, "a correlation ID", aLogEntryId(), aLogEntry, Map.empty, Map.empty)
         .map { actualIndex =>
           verify(mockLedgerStateOperations, times(1)).appendToLog(any[Raw.Key], any[Raw.Value])(
-            anyExecutionContext)
+            anyExecutionContext
+          )
           verify(mockLedgerStateOperations, times(0))
             .writeState(any[Iterable[Raw.KeyValuePair]])(anyExecutionContext)
           actualIndex should be(expectedIndex)
@@ -45,7 +47,8 @@ final class LogAppendingCommitStrategySpec
     "write keys serialized according to strategy" in {
       val mockLedgerStateOperations = mock[LedgerStateOperations[Long]]
       when(
-        mockLedgerStateOperations.writeState(any[Iterable[Raw.KeyValuePair]])(anyExecutionContext))
+        mockLedgerStateOperations.writeState(any[Iterable[Raw.KeyValuePair]])(anyExecutionContext)
+      )
         .thenReturn(Future.unit)
       when(mockLedgerStateOperations.appendToLog(any[Raw.Key], any[Raw.Value])(anyExecutionContext))
         .thenReturn(Future.successful(0L))
@@ -57,7 +60,8 @@ final class LogAppendingCommitStrategySpec
       val instance =
         new LogAppendingCommitStrategy[Long](
           mockLedgerStateOperations,
-          mockStateKeySerializationStrategy)
+          mockStateKeySerializationStrategy,
+        )
 
       instance
         .commit(
@@ -66,7 +70,8 @@ final class LogAppendingCommitStrategySpec
           aLogEntryId(),
           aLogEntry,
           Map.empty,
-          Map(aStateKey -> aStateValue))
+          Map(aStateKey -> aStateValue),
+        )
         .map { _: Long =>
           verify(mockStateKeySerializationStrategy, times(1)).serializeStateKey(aStateKey)
           verify(mockLedgerStateOperations, times(1))

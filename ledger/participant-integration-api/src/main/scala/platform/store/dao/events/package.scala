@@ -6,8 +6,7 @@ package com.daml.platform.store.dao
 import akka.stream.scaladsl.Source
 import anorm.{BatchSql, NamedParameter}
 
-/**
-  * Type aliases used throughout the package
+/** Type aliases used throughout the package
   */
 package object events {
 
@@ -46,8 +45,7 @@ package object events {
   import com.daml.lf.crypto
   private[events] type Hash = crypto.Hash
 
-  /**
-    * Groups together items of type [[A]] that share an attribute [[K]] over a
+  /** Groups together items of type [[A]] that share an attribute [[K]] over a
     * contiguous stretch of the input [[Source]]. Well suited to perform group-by
     * operations of streams where [[K]] attributes are either sorted or at least
     * show up in blocks.
@@ -58,18 +56,18 @@ package object events {
     *
     * Docs: https://doc.akka.io/docs/akka/2.6.10/stream/stream-substream.html#groupby
     */
-  private[events] def groupContiguous[A, K, Mat](source: Source[A, Mat])(
-      by: A => K): Source[Vector[A], Mat] =
+  private[events] def groupContiguous[A, K, Mat](
+      source: Source[A, Mat]
+  )(by: A => K): Source[Vector[A], Mat] =
     source
       .statefulMapConcat(() => {
         var previousSegmentKey: K = null.asInstanceOf[K]
-        entry =>
-          {
-            val keyForEntry = by(entry)
-            val entryWithSplit = entry -> (keyForEntry != previousSegmentKey)
-            previousSegmentKey = keyForEntry
-            List(entryWithSplit)
-          }
+        entry => {
+          val keyForEntry = by(entry)
+          val entryWithSplit = entry -> (keyForEntry != previousSegmentKey)
+          previousSegmentKey = keyForEntry
+          List(entryWithSplit)
+        }
       })
       .splitWhen(_._2)
       .map(_._1)
@@ -81,7 +79,7 @@ package object events {
   // Callers should ensure that the set is not empty, which in the usage this
   // is designed for should be provided by the Ledger API validation layer
   private[events] def route[A, B](
-      set: Set[A],
+      set: Set[A]
   )(single: A => B, multi: Set[A] => B): B = {
     assume(set.nonEmpty, "Empty set, unable to dispatch to single/multi implementation")
     set.size match {

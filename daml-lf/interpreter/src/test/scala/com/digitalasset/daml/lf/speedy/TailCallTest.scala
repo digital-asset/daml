@@ -107,7 +107,8 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
     val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
     Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId, pkg)
     data.assertRight(
-      PureCompiledPackages(rawPkgs, Compiler.Config.Default.copy(stacktracing = FullStackTrace)))
+      PureCompiledPackages(rawPkgs, Compiler.Config.Default.copy(stacktracing = FullStackTrace))
+    )
   }
 
   val pkgs = typeAndCompile(pkg)

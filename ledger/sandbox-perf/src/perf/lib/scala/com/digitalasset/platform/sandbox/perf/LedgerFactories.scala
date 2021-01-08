@@ -53,8 +53,8 @@ object LedgerFactories {
       }
       server <- SandboxServer.owner(sandboxConfig(jdbcUrl, darFiles))
       channel <- GrpcClientResource.owner(server.port)
-    } yield
-      new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))(
-        ExecutionContext.fromExecutorService(executor))
+    } yield new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))(
+      ExecutionContext.fromExecutorService(executor)
+    )
   )
 }

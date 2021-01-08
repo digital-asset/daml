@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.kvutils.{
   Envelope,
   KeyValueCommitting,
   Raw,
-  TestHelpers
+  TestHelpers,
 }
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.ledger.validator.HasDamlStateValue
@@ -88,7 +88,8 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         .addSubmissions(
           CorrelatedSubmission.newBuilder
             .setCorrelationId("correlated submission")
-            .setSubmission(anEnvelope().bytes))
+            .setSubmission(anEnvelope().bytes)
+        )
         .build()
 
       instance
@@ -98,9 +99,8 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
           mock[StateReader[DamlStateKey, TestValue]],
         )
         .failed
-        .map {
-          case ValidationError(actualReason) =>
-            actualReason should include("Batched submissions are not supported")
+        .map { case ValidationError(actualReason) =>
+          actualReason should include("Batched submissions are not supported")
         }
     }
 
@@ -110,9 +110,8 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
       instance
         .validate(anInvalidEnvelope, aParticipantId, mock[StateReader[DamlStateKey, TestValue]])
         .failed
-        .map {
-          case ValidationError(actualReason) =>
-            actualReason should include("Cannot open envelope")
+        .map { case ValidationError(actualReason) =>
+          actualReason should include("Cannot open envelope")
         }
     }
 
@@ -127,9 +126,8 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
           mock[StateReader[DamlStateKey, TestValue]],
         )
         .failed
-        .map {
-          case ValidationError(actualReason) =>
-            actualReason should include("Unexpected message in envelope")
+        .map { case ValidationError(actualReason) =>
+          actualReason should include("Unexpected message in envelope")
         }
     }
   }
@@ -180,7 +178,7 @@ object PreExecutingSubmissionValidatorSpec {
       Map.empty,
       aLogEntry,
       expectedMinRecordTime.map(Timestamp.assertFromInstant),
-      expectedMaxRecordTime.map(Timestamp.assertFromInstant)
+      expectedMaxRecordTime.map(Timestamp.assertFromInstant),
     )
     when(
       mockCommitter.preExecuteSubmission(
@@ -188,7 +186,8 @@ object PreExecutingSubmissionValidatorSpec {
         any[DamlSubmission],
         any[ParticipantId],
         any[DamlStateMap],
-      ))
+      )
+    )
       .thenReturn(result)
 
     val mockCommitStrategy = mock[PreExecutingCommitStrategy[
@@ -198,7 +197,8 @@ object PreExecutingSubmissionValidatorSpec {
       TestWriteSet,
     ]]
     when(
-      mockCommitStrategy.generateReadSet(any[Map[DamlStateKey, TestValue]], any[Set[DamlStateKey]]))
+      mockCommitStrategy.generateReadSet(any[Map[DamlStateKey, TestValue]], any[Set[DamlStateKey]])
+    )
       .thenAnswer[Map[DamlStateKey, TestValue], Set[DamlStateKey]] { (_, accessedKeys) =>
         TestReadSet(accessedKeys)
       }
@@ -208,14 +208,17 @@ object PreExecutingSubmissionValidatorSpec {
         any[DamlLogEntryId],
         any[Map[DamlStateKey, TestValue]],
         same(result),
-      )(any[ExecutionContext]))
+      )(any[ExecutionContext])
+    )
       .thenReturn(
         Future.successful(
           PreExecutionCommitResult(
             expectedSuccessWriteSet,
             expectedOutOfTimeBoundsWriteSet,
             expectedInvolvedParticipants,
-          )))
+          )
+        )
+      )
 
     new PreExecutingSubmissionValidator(mockCommitter, mockCommitStrategy, metrics)
   }

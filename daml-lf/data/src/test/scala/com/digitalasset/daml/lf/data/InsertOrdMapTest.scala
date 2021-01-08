@@ -20,7 +20,8 @@ class InsertOrdMapTest extends AnyWordSpec with Matchers {
       InsertOrdMap(1 -> "a", 2 -> "b").updated(3, "c").toSeq shouldEqual Seq(
         1 -> "a",
         2 -> "b",
-        3 -> "c")
+        3 -> "c",
+      )
     }
 
     "insert without changing order if key is present" in {

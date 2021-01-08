@@ -25,9 +25,9 @@ import io.grpc.ServerServiceDefinition
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiCommandCompletionService private (
-    completionsService: IndexCompletionsService,
-)(
-    implicit protected val materializer: Materializer,
+    completionsService: IndexCompletionsService
+)(implicit
+    protected val materializer: Materializer,
     protected val esf: ExecutionSequencerFactory,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
@@ -38,7 +38,7 @@ private[apiserver] final class ApiCommandCompletionService private (
   private val subscriptionIdCounter = new AtomicLong()
 
   override def completionStreamSource(
-      request: CompletionStreamRequest,
+      request: CompletionStreamRequest
   ): Source[CompletionStreamResponse, NotUsed] =
     withEnrichedLoggingContext(logging.parties(request.parties), logging.offset(request.offset)) {
       implicit loggingContext =>
@@ -62,8 +62,8 @@ private[apiserver] final class ApiCommandCompletionService private (
 
 private[apiserver] object ApiCommandCompletionService {
 
-  def create(ledgerId: LedgerId, completionsService: IndexCompletionsService)(
-      implicit materializer: Materializer,
+  def create(ledgerId: LedgerId, completionsService: IndexCompletionsService)(implicit
+      materializer: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -72,7 +72,7 @@ private[apiserver] object ApiCommandCompletionService {
       new ApiCommandCompletionService(completionsService)
 
     new GrpcCommandCompletionService(ledgerId, impl, PartyNameChecker.AllowAllParties)
-    with GrpcApiService {
+      with GrpcApiService {
       override def bindService(): ServerServiceDefinition =
         CommandCompletionServiceGrpc.bindService(this, executionContext)
     }

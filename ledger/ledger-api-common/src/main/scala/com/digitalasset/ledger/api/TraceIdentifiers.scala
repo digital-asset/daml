@@ -6,13 +6,11 @@ package com.daml.ledger.api
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.metrics.SpanAttribute
 
-/**
-  * Extracts identifiers from Protobuf messages to correlate traces.
+/** Extracts identifiers from Protobuf messages to correlate traces.
   */
 object TraceIdentifiers {
 
-  /**
-    * Extract identifiers from a transaction message.
+  /** Extract identifiers from a transaction message.
     */
   def fromTransaction(transaction: Transaction): Map[String, String] = {
     val attributes = Map.newBuilder[String, String]
@@ -27,8 +25,7 @@ object TraceIdentifiers {
     attributes.result()
   }
 
-  /**
-    * Extract identifiers from a transaction tree message.
+  /** Extract identifiers from a transaction tree message.
     */
   def fromTransactionTree(transactionTree: TransactionTree): Map[String, String] = {
     val attributes = Map.newBuilder[String, String]
