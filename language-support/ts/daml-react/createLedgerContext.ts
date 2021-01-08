@@ -18,7 +18,7 @@ type DamlLedgerState = {
 }
 
 /**
- * React props to initiate a connect to a DAML ledger.
+ * React props to initiate a connect to a Daml ledger.
  */
 export type LedgerProps = {
   token: string;
@@ -57,7 +57,7 @@ export type FetchByKeysResult<T extends object, K, I extends string> = {
 }
 
 /**
- * A LedgerContext is a React context that stores information about a DAML Ledger
+ * A LedgerContext is a React context that stores information about a Daml Ledger
  * and hooks necessary to use it.
  */
 export type LedgerContext = {

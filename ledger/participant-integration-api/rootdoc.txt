@@ -1,5 +1,5 @@
 
-This is the documentation for the DAML participant integration API.
+This is the documentation for the Daml participant integration API.
 
 Notable interfaces to be implemented by ledger integrations include:
 

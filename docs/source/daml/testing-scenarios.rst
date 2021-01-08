@@ -6,9 +6,9 @@
 Testing using scenarios
 #######################
 
-DAML has a built-in mechanism for testing templates called *scenarios*.
+Daml has a built-in mechanism for testing templates called *scenarios*.
 
-Scenarios emulate the ledger. You can specify a linear sequence of actions that various parties take, and these are evaluated in order, according to the same consistency, authorization, and privacy rules as they would be on the sandbox ledger or ledger server. :doc:`DAML Studio </daml/daml-studio>` shows you the resulting Transaction graph.
+Scenarios emulate the ledger. You can specify a linear sequence of actions that various parties take, and these are evaluated in order, according to the same consistency, authorization, and privacy rules as they would be on the sandbox ledger or ledger server. :doc:`Daml Studio </daml/daml-studio>` shows you the resulting Transaction graph.
 
 For more on how scenarios work, see the :ref:`daml-testing-examples` below.
 
@@ -22,7 +22,7 @@ Scenarios
    :language: daml
    :lines: 24-25
 
-A ``scenario`` emulates the ledger, in order to test that a DAML template or sequence of templates are working as they should.
+A ``scenario`` emulates the ledger, in order to test that a Daml template or sequence of templates are working as they should.
 
 It consists of a sequence of transactions to be submitted to the ledger (after ``do``), together with success or failure assertions.
 
@@ -55,10 +55,10 @@ Full syntax
 
 For detailed syntax, see :doc:`reference/scenarios`.
 
-Running scenarios in DAML Studio
+Running scenarios in Daml Studio
 ********************************
 
-When you load a file that includes scenarios into :doc:`DAML Studio </daml/daml-studio>`, it displays a "Scenario results" link above the scenario. Click the link to see a representation of the ledger after the scenario has run.
+When you load a file that includes scenarios into :doc:`Daml Studio </daml/daml-studio>`, it displays a "Scenario results" link above the scenario. Click the link to see a representation of the ledger after the scenario has run.
 
 .. _daml-testing-examples:
 

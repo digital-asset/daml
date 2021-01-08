@@ -170,7 +170,7 @@ instance (MapKey k, Show k, Show v) => Show (Map k v) where
 
 deriving instance MapKey k => Semigroup (Map k v)
 
--- TODO(MH): The converter to DAML-LF can't handle deriving this right now.
+-- TODO(MH): The converter to Daml-LF can't handle deriving this right now.
 -- It fails with "Coercion with symco."
 -- deriving instance MapKey k => Monoid (Map k v)
 instance MapKey k => Monoid (Map k v) where

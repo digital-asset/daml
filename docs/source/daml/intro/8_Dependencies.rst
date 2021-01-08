@@ -9,9 +9,9 @@ The application from Chapter 7 is a complete and secure model for atomic swaps o
 1. Upgrades, which change existing logic. For example, one might want the ``Asset`` template to have multiple signatories.
 2. Extensions, which merely add new functionality though additional templates.
 
-Upgrades are covered in their own section outside this introduction to DAML: :doc:`/upgrade/index` so in this section we will extend the chapter 7 model with a simple second workflow: a multi-leg trade. In doing so, you'll learn about:
+Upgrades are covered in their own section outside this introduction to Daml: :doc:`/upgrade/index` so in this section we will extend the chapter 7 model with a simple second workflow: a multi-leg trade. In doing so, you'll learn about:
 
-- The software architecture of the DAML Stack
+- The software architecture of the Daml Stack
 - Dependencies and Data Dependencies
 - Identifiers
 
@@ -22,10 +22,10 @@ Since we are extending chapter 7, the setup for this chapter is slightly more co
 
 ``8Dependencies`` contains a new module ``Intro.Asset.MultiTrade`` and a corresponding test module ``Test.Intro.Asset.MultiTrade``.
 
-DAR, DALF, DAML-LF, and the Engine
+DAR, DALF, Daml-LF, and the Engine
 ----------------------------------
 
-In :doc:`7_Composing` you already learnt a little about projects, DAML-LF, DAR files, and dependencies. In this chapter we will actually need to have dependencies from the chapter 8 project to the chapter 7 project so it's time to learn a little more about all this.
+In :doc:`7_Composing` you already learnt a little about projects, Daml-LF, DAR files, and dependencies. In this chapter we will actually need to have dependencies from the chapter 8 project to the chapter 7 project so it's time to learn a little more about all this.
 
 Let's have a look inside the DAR file of chapter 7. DAR files, like Java JAR files are just ZIP archives, but the SDK also has a utility to inspect DARs out of the box:
 
@@ -36,11 +36,11 @@ Let's have a look inside the DAR file of chapter 7. DAR files, like Java JAR fil
 You'll get a whole lot of output. Under the header "DAR archive contains the following files:" you'll see that the DAR contains
 
 #. ``*.dalf`` files for the project and all its dependencies
-#. The original DAML source code
+#. The original Daml source code
 #. ``*.hi`` and ``*.hie`` files for each ``*.daml`` file
 #. Some meta-inf and config files
 
-The first file is something like ``7Composing-1.0.0-887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625.dalf`` which is the actual compiled package for the project. ``*.dalf`` files contain DAML-LF, which is DAML's intermediate language. The file contents are a binary encoded protobuf message from the `daml-lf schema <https://github.com/digital-asset/daml/tree/main/daml-lf/archive>`_.  DAML-LF is evaluated on the Ledger by the DAML Engine, which is a JVM component that is part of tools like the IDE's Script runner, the Sandbox, or proper production ledgers. If DAML-LF is to DAML what Java Bytecode is to Java, the DAML Engine is to DAML what the JVM is to Java.
+The first file is something like ``7Composing-1.0.0-887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625.dalf`` which is the actual compiled package for the project. ``*.dalf`` files contain Daml-LF, which is Daml's intermediate language. The file contents are a binary encoded protobuf message from the `daml-lf schema <https://github.com/digital-asset/daml/tree/main/daml-lf/archive>`_.  Daml-LF is evaluated on the Ledger by the Daml Engine, which is a JVM component that is part of tools like the IDE's Script runner, the Sandbox, or proper production ledgers. If Daml-LF is to Daml what Java Bytecode is to Java, the Daml Engine is to Daml what the JVM is to Java.
 
 Hashes and Identifiers
 ----------------------
@@ -74,7 +74,7 @@ For an extension model like this one, ``data-dependencies`` are appropriate so t
   :start-after:   - daml-stdlib
   :end-before: sandbox-options:
 
-You'll notice a module ``Test.Intro.Asset.TradeSetup``, which is almost a carbon copy of the Chapter 7 trade setup Scripts. ``data-dependencies`` is designed to use existing contracts and data types. DAML Script is not imported. In practice, we also shouldn't expect that the DAR file we download from the ledger using ``daml ledger fetch-dar`` contains test scripts. For larger projects it's good practice to keep them separate and only deploy templates to the ledger.
+You'll notice a module ``Test.Intro.Asset.TradeSetup``, which is almost a carbon copy of the Chapter 7 trade setup Scripts. ``data-dependencies`` is designed to use existing contracts and data types. Daml Script is not imported. In practice, we also shouldn't expect that the DAR file we download from the ledger using ``daml ledger fetch-dar`` contains test scripts. For larger projects it's good practice to keep them separate and only deploy templates to the ledger.
 
 Structuring Projects
 --------------------

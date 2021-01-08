@@ -1,4 +1,4 @@
-Here we store some historical dars for older DAML-LF versions. They're
+Here we store some historical dars for older Daml-LF versions. They're
 generally compiled versions of `src/test/damls/Test.daml`.
 
 When you add one, please add a log line below with a link to the commit

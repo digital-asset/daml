@@ -69,7 +69,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
               href='https://www.daml.com/'
               target='_blank'
               src='/daml.svg'
-              alt='DAML Logo'
+              alt='Daml Logo'
               spaced
               size='small'
               verticalAlign='middle'

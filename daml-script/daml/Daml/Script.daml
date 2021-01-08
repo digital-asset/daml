@@ -147,10 +147,10 @@ data SetTimePayload a = SetTimePayload
 -- | Set the time via the time service.
 --
 -- This is only supported in static time mode when running over the gRPC API
--- and in DAML Studio.
+-- and in Daml Studio.
 --
 -- Note that the ledger time service does not support going backwards in time.
--- However, you can go back in time in DAML Studio.
+-- However, you can go back in time in Daml Studio.
 setTime : Time -> Script ()
 setTime time = lift $ Free $ SetTime $ SetTimePayload with
   time
@@ -159,12 +159,12 @@ setTime time = lift $ Free $ SetTime $ SetTimePayload with
 -- | Advance ledger time by the given interval.
 --
 -- Only supported in static time mode when running over the gRPC API
--- and in DAML Studio. Note that this is not an atomic operation over the
+-- and in Daml Studio. Note that this is not an atomic operation over the
 -- gRPC API so no other clients should try to change time while this is
 -- running.
 --
 -- Note that the ledger time service does not support going backwards in time.
--- However, you can go back in time in DAML Studio.
+-- However, you can go back in time in Daml Studio.
 passTime : RelTime -> Script ()
 passTime rt = do
   t <- getTime
@@ -332,7 +332,7 @@ instance HasSubmit Script Commands where
 --
 -- 1. NonEmpty Party -> [Party] -> …
 --    This is the safest one but it’s rather awkward to use since NonEmpty is
---    long and fairly uncommon. Given that DAML Script is primarily used during
+--    long and fairly uncommon. Given that Daml Script is primarily used during
 --    testing and development, the extra safety is also not that crucial.
 --    It is also different from signatories which also needs to be nonempty but
 --    does not enforce this statically.
@@ -375,7 +375,7 @@ submitMultiMustFail actAs readAs cmds =
       continue = const ()
       locations = getCallStack callStack
 
--- | This is the type of A DAML script. `Script` is an instance of `Action`,
+-- | This is the type of A Daml script. `Script` is an instance of `Action`,
 -- so you can use `do` notation.
 data Script a = Script with
     runScript : () -> (Free ScriptF (a, ()))

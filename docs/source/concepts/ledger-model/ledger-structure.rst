@@ -6,7 +6,7 @@
 Structure
 ---------
 
-This section looks at the structure of a DAML ledger and the associated ledger
+This section looks at the structure of a Daml ledger and the associated ledger
 changes. The basic building blocks of changes are *actions*, which get grouped
 into *transactions*.
 
@@ -15,7 +15,7 @@ into *transactions*.
 Actions and Transactions
 ++++++++++++++++++++++++
 
-One of the main features of the DAML ledger model is a *hierarchical action
+One of the main features of the Daml ledger model is a *hierarchical action
 structure*.
 
 This structure is illustrated below on a toy example of a multi-party
@@ -35,7 +35,7 @@ which a new IOU for `P` is *created*.  Second, a new contract is
 
 Thus, the acceptance in this example is reduced to two types of actions: (1)
 creating contracts, and (2) exercising rights on them. These are also the
-two main kinds of actions in the DAML ledger model. The visual notation below
+two main kinds of actions in the Daml ledger model. The visual notation below
 records the relations between the actions during the above acceptance.
 
 .. image:: ./images/action-structure-expanded-paint-offer.svg
@@ -102,7 +102,7 @@ conventions that:
 #. the consequences are ordered left-to-right.
 #. to aid intuitions, exercise actions are annotated with suggestive names
    like "accept" or "transfer". Intuitively, these correspond to names of
-   DAML choices, but they have no semantic meaning.
+   Daml choices, but they have no semantic meaning.
 
 An alternative shorthand notation, shown below uses the abbreviations **Exe** and **ExeN** for exercises, and omits the
 **Create** labels on create actions.
@@ -206,7 +206,7 @@ changes, but not *who requested them*. This information is added by the notion
 of a **commit**: a transaction paired with the parties that
 requested it, called the **requesters** of the commit.
 In the ledger model, a commit is allowed to have multiple requesters,
-although the current DAML Ledger API offers the request functionality only to individual parties.
+although the current Daml Ledger API offers the request functionality only to individual parties.
 Given a commit `(p, tx)` with transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`:sub:`i` is
 called a **top-level action** of the commit. A **ledger** is a sequence of
 commits. A top-level action of any ledger commit is also a top-level action of
@@ -219,7 +219,7 @@ The following EBNF grammar summarizes the structure of commits and ledgers:
    Commit   ::= party Transaction
    Ledger   ::= Commit*
 
-A DAML ledger thus represents the full history of all actions taken by
+A Daml ledger thus represents the full history of all actions taken by
 parties.\ [#ledger-vs-journal]_ Since the ledger is a sequence (of dependent actions), it induces an
 *order* on the commits in the ledger. Visually, a ledger can be represented
 as a sequence growing from left to right as time progresses. Below,
@@ -236,7 +236,7 @@ follows.
 
 
 The definitions presented here are all the ingredients required to
-*record* the interaction between parties in a DAML ledger. That is, they
+*record* the interaction between parties in a Daml ledger. That is, they
 address the first question: "what do changes and ledgers look
 like?". To answer the next question, "who can request which changes",
 a precise definition is needed of which ledgers are permissible,

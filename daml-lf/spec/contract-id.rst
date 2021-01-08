@@ -8,7 +8,7 @@ V1 Contract ID allocation scheme
 Goals
 ^^^^^
 
-* Allows ordering contract IDs and make DAML semantics depend on this
+* Allows ordering contract IDs and make Daml semantics depend on this
   order, e.g., for comparison builtin and maps using IDs as keys.
 * Eliminate all contract ID translations for central committer ledger
 * Allows ledgers to store information about the contract and the
@@ -18,7 +18,7 @@ Goals
 Requirements
 ^^^^^^^^^^^^
 
-**Executability**: DAML engine can determine ordering of the contract
+**Executability**: Daml engine can determine ordering of the contract
 IDs before it hands out the transaction to the write service.
 
 **Validation**: The allocation scheme commutes with transaction

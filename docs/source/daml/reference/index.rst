@@ -4,7 +4,7 @@
 Language reference docs
 #######################
 
-This section contains a reference to writing templates for DAML contracts. It includes:
+This section contains a reference to writing templates for Daml contracts. It includes:
 
 .. toctree::
    :maxdepth: 1
