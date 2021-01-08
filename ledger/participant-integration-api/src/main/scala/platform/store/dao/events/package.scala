@@ -56,7 +56,6 @@ package object events {
     * mergeSubstreams to prevent the substreams to be processed in parallel,
     * potentially causing the outputs to be delivered in a different order.
     *
-    * See: https://github.com/digital-asset/daml/pull/8336
     * Docs: https://doc.akka.io/docs/akka/2.6.10/stream/stream-substream.html#groupby
     */
   private[events] def groupContiguous[A, K, Mat](source: Source[A, Mat])(
