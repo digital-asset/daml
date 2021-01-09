@@ -140,8 +140,8 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         agreementText = someContractInstance.agreementText,
         arg = VersionedValue(
           version = TransactionVersion.V10,
-          value = someContractInstance.arg
-        )
+          value = someContractInstance.arg,
+        ),
       )
 
     val t1 = Instant.now()
@@ -188,7 +188,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           recordedAt = t3,
           transaction = tx3,
           explicitDisclosure = Map.empty,
-        )
+        ),
       )
     } yield {
       succeed

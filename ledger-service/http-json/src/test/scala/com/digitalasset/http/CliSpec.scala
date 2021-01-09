@@ -11,7 +11,8 @@ final class CliSpec extends AnyFreeSpec with Matchers {
 
   private def configParser(
       parameters: Seq[String],
-      getEnvVar: String => Option[String] = (_ => None)): Option[Config] =
+      getEnvVar: String => Option[String] = (_ => None),
+  ): Option[Config] =
     Cli.parseConfig(parameters, getEnvVar)
 
   val jdbcConfig = JdbcConfig(
@@ -19,7 +20,8 @@ final class CliSpec extends AnyFreeSpec with Matchers {
     "jdbc:postgresql://localhost:5432/test?&ssl=true",
     "postgres",
     "password",
-    false)
+    false,
+  )
   val jdbcConfigString =
     "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
 
@@ -37,7 +39,7 @@ final class CliSpec extends AnyFreeSpec with Matchers {
       val jdbcEnvVar = "JDBC_ENV_VAR"
       val config = configParser(
         Seq("--query-store-jdbc-config-env", jdbcEnvVar) ++ sharedOptions,
-        { case `jdbcEnvVar` => Some(jdbcConfigString) }
+        { case `jdbcEnvVar` => Some(jdbcConfigString) },
       ).getOrElse(fail())
       config.jdbcConfig shouldBe Some(jdbcConfig)
     }

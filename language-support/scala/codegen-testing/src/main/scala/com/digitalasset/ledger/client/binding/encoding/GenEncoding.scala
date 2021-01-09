@@ -51,7 +51,8 @@ abstract class GenEncoding extends LfTypeEncoding {
     }
 
   override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
-      select: A PartialFunction B): VariantCases[A] =
+      select: A PartialFunction B
+  ): VariantCases[A] =
     OneAnd(o map inject, Vector.empty)
 
   override val primitive: ValuePrimitiveEncoding[Gen] = new primitiveImpl

@@ -38,7 +38,8 @@ object Request {
       admin: Boolean,
       actAs: List[Party],
       readAs: List[Party],
-      applicationId: Option[ApplicationId]) {
+      applicationId: Option[ApplicationId],
+  ) {
     def toQueryString() = {
       val adminS = if (admin) Stream("admin") else Stream()
       val actAsS = actAs.toStream.map(party => s"actAs:$party")
@@ -52,7 +53,8 @@ object Request {
         admin: Boolean = false,
         actAs: List[Party] = List(),
         readAs: List[Party] = List(),
-        applicationId: Option[ApplicationId] = None): Claims =
+        applicationId: Option[ApplicationId] = None,
+    ): Claims =
       new Claims(admin, actAs, readAs, applicationId)
     implicit val marshalRequestEntity: Marshaller[Claims, String] =
       Marshaller.opaque(_.toQueryString)
@@ -63,25 +65,25 @@ object Request {
         val readAs = ArrayBuffer[Party]()
         var applicationId: Option[ApplicationId] = None
         Future.fromTry(Try {
-          s.split(' ').foreach {
-            w =>
-              if (w == "admin") {
-                admin = true
-              } else if (w.startsWith("actAs:")) {
-                actAs.append(Party(w.stripPrefix("actAs:")))
-              } else if (w.startsWith("readAs:")) {
-                readAs.append(Party(w.stripPrefix("readAs:")))
-              } else if (w.startsWith("applicationId:")) {
-                applicationId match {
-                  case None =>
-                    applicationId = Some(ApplicationId(w.stripPrefix("applicationId:")))
-                  case Some(_) =>
-                    throw new IllegalArgumentException(
-                      "applicationId claim can only be specified once")
-                }
-              } else {
-                throw new IllegalArgumentException(s"Expected claim but got $w")
+          s.split(' ').foreach { w =>
+            if (w == "admin") {
+              admin = true
+            } else if (w.startsWith("actAs:")) {
+              actAs.append(Party(w.stripPrefix("actAs:")))
+            } else if (w.startsWith("readAs:")) {
+              readAs.append(Party(w.stripPrefix("readAs:")))
+            } else if (w.startsWith("applicationId:")) {
+              applicationId match {
+                case None =>
+                  applicationId = Some(ApplicationId(w.stripPrefix("applicationId:")))
+                case Some(_) =>
+                  throw new IllegalArgumentException(
+                    "applicationId claim can only be specified once"
+                  )
               }
+            } else {
+              throw new IllegalArgumentException(s"Expected claim but got $w")
+            }
           }
           Claims(admin, actAs.toList, readAs.toList, applicationId)
         })
@@ -170,7 +172,8 @@ object JsonProtocol extends DefaultJsonProtocol {
 
   implicit object ResponseLoginFormat extends RootJsonFormat[Response.Login] {
     implicit private val errorFormat: RootJsonFormat[Response.LoginError] = jsonFormat2(
-      Response.LoginError)
+      Response.LoginError
+    )
     def write(login: Response.Login) = login match {
       case error: Response.LoginError => error.toJson
       case Response.LoginSuccess => JsNull

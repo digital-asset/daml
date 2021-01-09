@@ -42,8 +42,7 @@ object Bytes {
 
   implicit val ordering: Ordering[Bytes] = {
     val comparator = ByteString.unsignedLexicographicalComparator()
-    (x, y) =>
-      comparator.compare(x.value, y.value)
+    (x, y) => comparator.compare(x.value, y.value)
   }
 
   implicit val order: Order[Bytes] = Order.fromScalaOrdering

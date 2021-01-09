@@ -11,7 +11,8 @@ private[testing] final class SizeBoundObserver[A](sizeCap: Int)(delegate: Stream
 
   if (sizeCap < 0) {
     throw new IllegalArgumentException(
-      s"sizeCap = $sizeCap. The size of the stream cannot be less than 0.")
+      s"sizeCap = $sizeCap. The size of the stream cannot be less than 0."
+    )
   } else if (sizeCap == 0) {
     delegate.onCompleted()
   }

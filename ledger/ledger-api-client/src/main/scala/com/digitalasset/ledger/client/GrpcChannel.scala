@@ -40,7 +40,8 @@ object GrpcChannel {
         Future {
           channel.shutdownNow()
           ()
-      })
+        }
+      )
   }
 
 }

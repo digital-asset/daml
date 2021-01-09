@@ -23,7 +23,7 @@ import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
   PartyConfiguration,
-  ServerRole
+  ServerRole,
 }
 import com.daml.ports.{PortFiles}
 import com.daml.platform.index.JdbcIndex
@@ -90,7 +90,8 @@ final class StandaloneApiServer(
         timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
         timeProviderType =
           timeServiceBackend.fold[TimeProviderType](TimeProviderType.WallClock)(_ =>
-            TimeProviderType.Static),
+            TimeProviderType.Static
+          ),
         ledgerConfiguration = ledgerConfig,
         commandConfig = commandConfig,
         partyConfig = partyConfig,
@@ -115,7 +116,8 @@ final class StandaloneApiServer(
     } yield {
       writePortFile(apiServer.port)
       logger.info(
-        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}, dar file = ${config.archiveFiles}")
+        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}, dar file = ${config.archiveFiles}"
+      )
       apiServer
     }
 
@@ -133,9 +135,10 @@ final class StandaloneApiServer(
           { _ =>
             sys.error("Unexpected request of contract")
           },
-          packageContainer.getLfPackageSync, { _ =>
+          packageContainer.getLfPackageSync,
+          { _ =>
             sys.error("Unexpected request of contract key")
-          }
+          },
         )
       ()
     }

@@ -12,7 +12,7 @@ import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   OwnedResource,
   Resource,
-  SuiteResource
+  SuiteResource,
 }
 import com.daml.ledger.resources.ResourceContext
 import com.daml.ports.Port
@@ -31,7 +31,7 @@ trait TestFixture
   lazy protected val serverBinding: ServerBinding = suiteResource.value._3
   lazy protected val clientBinding: ServerBinding = suiteResource.value._4
   override protected lazy val suiteResource
-    : Resource[(AdjustableClock, Server, ServerBinding, ServerBinding)] = {
+      : Resource[(AdjustableClock, Server, ServerBinding, ServerBinding)] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, (AdjustableClock, Server, ServerBinding, ServerBinding)](
       for {
@@ -41,8 +41,9 @@ trait TestFixture
             port = Port.Dynamic,
             ledgerId = ledgerId,
             jwtSecret = jwtSecret,
-            clock = Some(clock)
-          ))
+            clock = Some(clock),
+          )
+        )
         serverBinding <- Resources.authServerBinding(server)
         clientBinding <- Resources.authClientBinding(
           Client.Config(
@@ -51,10 +52,12 @@ trait TestFixture
               .withScheme("http")
               .withAuthority(
                 serverBinding.localAddress.getHostString,
-                serverBinding.localAddress.getPort),
+                serverBinding.localAddress.getPort,
+              ),
             clientId = "test-client",
-            clientSecret = "test-client-secret"
-          ))
+            clientSecret = "test-client-secret",
+          )
+        )
       } yield { (clock, server, serverBinding, clientBinding) }
     )
   }

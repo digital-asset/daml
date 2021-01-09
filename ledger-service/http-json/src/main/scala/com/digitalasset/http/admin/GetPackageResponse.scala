@@ -28,7 +28,7 @@ object GetPackageResponse {
     GetPackageResponse(
       hashFunction = HashFunction.fromLedgerApi(a.hashFunction),
       archivePayload = a.archivePayload,
-      hash = a.hash
+      hash = a.hash,
     )
   }
 }

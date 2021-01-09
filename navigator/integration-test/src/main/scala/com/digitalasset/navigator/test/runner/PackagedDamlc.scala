@@ -12,8 +12,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 // import scala.sys.error
 
-/**
-  * Run a packaged version of damlc to create a DAR file from a DAML file.
+/** Run a packaged version of damlc to create a DAR file from a DAML file.
   * Update the project dependencies to change the damlc version.
   */
 object PackagedDamlc extends LazyLogging {

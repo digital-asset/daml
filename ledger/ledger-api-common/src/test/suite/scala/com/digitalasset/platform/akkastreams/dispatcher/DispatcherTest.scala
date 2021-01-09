@@ -55,12 +55,11 @@ class DispatcherTest
 
         d.close()
 
-        subscriptions.zip(1 until 10) foreach {
-          case (f, i) =>
-            whenReady(f) { vals =>
-              vals.map(_._1) should contain theSameElementsAs (i to 9)
-              vals.map(_._2) should contain theSameElementsAs (i until 10)
-            }
+        subscriptions.zip(1 until 10) foreach { case (f, i) =>
+          whenReady(f) { vals =>
+            vals.map(_._1) should contain theSameElementsAs (i to 9)
+            vals.map(_._2) should contain theSameElementsAs (i until 10)
+          }
         }
       }
     }

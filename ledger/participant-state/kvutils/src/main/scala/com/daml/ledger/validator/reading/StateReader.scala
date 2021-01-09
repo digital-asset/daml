@@ -5,8 +5,7 @@ package com.daml.ledger.validator.reading
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
-  * Generic interface for reading from the ledger.
+/** Generic interface for reading from the ledger.
   *
   * @tparam Key   The type of the key expected.
   * @tparam Value The type of the value returned.
@@ -14,8 +13,7 @@ import scala.concurrent.{ExecutionContext, Future}
 trait StateReader[-Key, +Value] {
   self =>
 
-  /**
-    * Reads values of a set of keys from the backing store.
+  /** Reads values of a set of keys from the backing store.
     *
     * Reading from the ledger can be time-consuming and resource-intensive; to limit the
     * performance impact, this method must be called at most once per validation.
@@ -25,8 +23,7 @@ trait StateReader[-Key, +Value] {
     */
   def read(keys: Iterable[Key])(implicit executionContext: ExecutionContext): Future[Seq[Value]]
 
-  /**
-    * Create a new StateReader that transforms the keys before reading.
+  /** Create a new StateReader that transforms the keys before reading.
     *
     * This is an instance of a "contravariant functor", in which the mapping is backwards, because
     * it's upon input, not upon output.
@@ -43,8 +40,7 @@ trait StateReader[-Key, +Value] {
         self.read(keys.map(f))
     }
 
-  /**
-    * Create a new StateReader that transforms the values after reading.
+  /** Create a new StateReader that transforms the values after reading.
     *
     * @param f the transformation function
     * @tparam NewValue the type of the values

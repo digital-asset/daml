@@ -72,14 +72,16 @@ private[apiserver] object GrpcServer {
           // Phase 2: Now cut off all remaining connections.
           server.shutdownNow()
           server.awaitTermination()
-      })
+        }
+      )
     }
   }
 
   final class UnableToBind(port: Port, cause: Throwable)
       extends RuntimeException(
         s"The API server was unable to bind to port $port. Terminate the process occupying the port, or choose a different one.",
-        cause)
+        cause,
+      )
       with NoStackTrace
 
   // This exposes the existing services under com.daml also under com.digitalasset.
@@ -106,7 +108,7 @@ private[apiserver] object GrpcServer {
           damlMethodDesc.toBuilder.setFullMethodName(digitalassetMethodName).build()
         val _ = digitalassetDef.addMethod(
           digitalassetMethodDesc.asInstanceOf[MethodDescriptor[Message, Message]],
-          methodDef.getServerCallHandler.asInstanceOf[ServerCallHandler[Message, Message]]
+          methodDef.getServerCallHandler.asInstanceOf[ServerCallHandler[Message, Message]],
         )
       }
       Option(digitalassetDef.build())

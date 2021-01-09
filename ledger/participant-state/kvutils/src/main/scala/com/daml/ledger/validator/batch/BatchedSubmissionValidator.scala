@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.export.{
   LedgerDataExporter,
   SubmissionAggregator,
-  SubmissionInfo
+  SubmissionInfo,
 }
 import com.daml.ledger.participant.state.kvutils.{CorrelationId, Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.ParticipantId
@@ -51,11 +51,13 @@ object BatchedSubmissionValidator {
     )
 
   /** A [[DamlSubmission]] with an associated correlation id and a log entry id computed
-    * from the envelope. */
+    * from the envelope.
+    */
   private case class CorrelatedSubmission(
       correlationId: CorrelationId,
       logEntryId: DamlLogEntryId,
-      submission: DamlSubmission)
+      submission: DamlSubmission,
+  )
 
   private val LogEntryIdPrefix = "0"
 
@@ -78,15 +80,17 @@ object BatchedSubmissionValidator {
       .build
   }
 
-  private def withCorrelationIdLogged[T](correlationId: CorrelationId)(
-      f: LoggingContext => T): T = {
+  private def withCorrelationIdLogged[T](
+      correlationId: CorrelationId
+  )(f: LoggingContext => T): T = {
     newLoggingContext("correlationId" -> correlationId) { loggingContext =>
       f(loggingContext)
     }
   }
 
   private def withSubmissionLoggingContext[T](correlatedSubmission: CorrelatedSubmission)(
-      f: LoggingContext => T): T =
+      f: LoggingContext => T
+  ): T =
     withCorrelationIdLogged(correlatedSubmission.correlationId)(f)
 }
 
@@ -152,7 +156,9 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
             case Right(other) =>
               Future.failed(
                 ValidationFailed.ValidationError(
-                  s"Unexpected message in envelope: ${other.getClass.getSimpleName}"))
+                  s"Unexpected message in envelope: ${other.getClass.getSimpleName}"
+                )
+              )
 
             case Left(error) =>
               Future.failed(ValidationFailed.ValidationError(s"Cannot open envelope: $error"))
@@ -165,41 +171,45 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
               case Success(_) =>
                 ()
             }
-        }
+        },
       )
     }
 
   private def singleSubmissionSource(
       envelope: Raw.Value,
       submission: DamlSubmission,
-      correlationId: CorrelationId): Source[Inputs, NotUsed] = {
+      correlationId: CorrelationId,
+  ): Source[Inputs, NotUsed] = {
     val logEntryId = rawToLogEntryId(envelope)
     Source.single(Indexed(CorrelatedSubmission(correlationId, logEntryId, submission), 0L))
   }
 
-  private def batchSubmissionSource(batch: DamlSubmissionBatch)(
-      implicit executionContext: ExecutionContext): Source[Inputs, NotUsed] =
+  private def batchSubmissionSource(
+      batch: DamlSubmissionBatch
+  )(implicit executionContext: ExecutionContext): Source[Inputs, NotUsed] =
     Source(
       Indexed
-        .fromSeq(batch.getSubmissionsList.asScala
-          .map(cs => cs.getCorrelationId -> cs.getSubmission))
-        .to)
+        .fromSeq(
+          batch.getSubmissionsList.asScala
+            .map(cs => cs.getCorrelationId -> cs.getSubmission)
+        )
+        .to
+    )
       .mapAsyncUnordered(params.cpuParallelism) {
-        _.mapFuture {
-          case (correlationId, submissionEnvelope) =>
-            // Decompress and decode the submissions in parallel.
-            Timed.timedAndTrackedFuture(
-              metrics.decode,
-              metrics.decodeRunning,
-              Future {
-                val rawEnvelope = Raw.Value(submissionEnvelope)
-                val submission = Envelope
-                  .openSubmission(rawEnvelope)
-                  .fold(error => throw validator.ValidationFailed.ValidationError(error), identity)
-                metrics.receivedSubmissionBytes.update(submission.getSerializedSize)
-                CorrelatedSubmission(correlationId, rawToLogEntryId(rawEnvelope), submission)
-              }
-            )
+        _.mapFuture { case (correlationId, submissionEnvelope) =>
+          // Decompress and decode the submissions in parallel.
+          Timed.timedAndTrackedFuture(
+            metrics.decode,
+            metrics.decodeRunning,
+            Future {
+              val rawEnvelope = Raw.Value(submissionEnvelope)
+              val submission = Envelope
+                .openSubmission(rawEnvelope)
+                .fold(error => throw validator.ValidationFailed.ValidationError(error), identity)
+              metrics.receivedSubmissionBytes.update(submission.getSerializedSize)
+              CorrelatedSubmission(correlationId, rawToLogEntryId(rawEnvelope), submission)
+            },
+          )
         }
       }
 
@@ -250,33 +260,31 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       damlLedgerStateReader: DamlLedgerStateReader,
       commitStrategy: CommitStrategy[CommitResult],
       exporterAggregator: SubmissionAggregator,
-  )(
-      implicit materializer: Materializer,
+  )(implicit
+      materializer: Materializer,
       executionContext: ExecutionContext,
   ): Future[Unit] =
     indexedSubmissions
-    // Fetch the submission inputs in parallel.
+      // Fetch the submission inputs in parallel.
       .mapAsyncUnordered[Outputs1](params.readParallelism) {
         _.mapFuture(fetchSubmissionInputs(_, damlLedgerStateReader))
       }
       // Validate the submissions in parallel.
       .mapAsyncUnordered[Outputs2](params.cpuParallelism) {
-        _.mapFuture {
-          case (correlatedSubmission, inputState) =>
-            val exporterWriteSet = exporterAggregator.addChild()
-            validateSubmission(
-              participantId,
-              recordTime,
-              correlatedSubmission,
-              inputState,
-              exporterWriteSet,
-            )
+        _.mapFuture { case (correlatedSubmission, inputState) =>
+          val exporterWriteSet = exporterAggregator.addChild()
+          validateSubmission(
+            participantId,
+            recordTime,
+            correlatedSubmission,
+            inputState,
+            exporterWriteSet,
+          )
         }
       }
       // Collect the results.
-      .fold(List.empty[Outputs2]) {
-        case (results: Outputs3, result: Outputs2) =>
-          result :: results
+      .fold(List.empty[Outputs2]) { case (results: Outputs3, result: Outputs2) =>
+        result :: results
       }
       // Sort the results and drop the index.
       .mapConcat[Outputs4] { results: Outputs3 =>
@@ -288,10 +296,10 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
 
         {
           case ValidatedSubmission(
-              correlatedSubmission,
-              inputState,
-              logEntryAndOutputState,
-              exporterWriteSet,
+                correlatedSubmission,
+                inputState,
+                logEntryAndOutputState,
+                exporterWriteSet,
               ) =>
             detectConflictsAndRecover(
               correlatedSubmission,
@@ -305,10 +313,10 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       // Commit the results. This must be done serially to ensure a deterministic set of writes.
       .mapAsync[Outputs6](1) {
         case ValidatedSubmission(
-            correlatedSubmission,
-            inputState,
-            logEntryAndOutputState,
-            exporterWriteSet,
+              correlatedSubmission,
+              inputState,
+              logEntryAndOutputState,
+              exporterWriteSet,
             ) =>
           commitResult(
             participantId,
@@ -324,8 +332,8 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
 
   private def fetchSubmissionInputs(
       correlatedSubmission: CorrelatedSubmission,
-      ledgerStateReader: DamlLedgerStateReader)(
-      implicit executionContext: ExecutionContext): Future[FetchedInput] = {
+      ledgerStateReader: DamlLedgerStateReader,
+  )(implicit executionContext: ExecutionContext): Future[FetchedInput] = {
     val inputKeys = correlatedSubmission.submission.getInputDamlStateList.asScala
     withSubmissionLoggingContext(correlatedSubmission) { _ =>
       Timed.timedAndTrackedFuture(
@@ -335,7 +343,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
           .read(inputKeys)
           .map { values =>
             (correlatedSubmission, inputKeys.zip(values).toMap)
-          }
+          },
       )
     }
   }
@@ -358,10 +366,10 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
             LedgerReader.DefaultConfiguration,
             correlatedSubmission.submission,
             participantId,
-            inputState
+            inputState,
           )
           ValidatedSubmission(correlatedSubmission, inputState, logEntryAndState, exporterWriteSet)
-        }
+        },
       )
     }
 
@@ -381,24 +389,24 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
               invalidatedKeys,
               inputState,
               logEntry,
-              outputState
+              outputState,
             )
-            .map {
-              case (newInvalidatedKeys, (newLogEntry, newState)) =>
-                invalidatedKeys ++= newInvalidatedKeys
-                ValidatedSubmission(
-                  correlatedSubmission,
-                  inputState,
-                  (newLogEntry, newState),
-                  exporterWriteSet,
-                ) :: Nil
+            .map { case (newInvalidatedKeys, (newLogEntry, newState)) =>
+              invalidatedKeys ++= newInvalidatedKeys
+              ValidatedSubmission(
+                correlatedSubmission,
+                inputState,
+                (newLogEntry, newState),
+                exporterWriteSet,
+              ) :: Nil
             }
             .getOrElse {
               logger.info(
-                s"Submission ${correlatedSubmission.correlationId} dropped as it conflicted and recovery was not possible")
+                s"Submission ${correlatedSubmission.correlationId} dropped as it conflicted and recovery was not possible"
+              )
               Nil
             }
-        }
+        },
       )
     }
   }
@@ -426,7 +434,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
               inputState,
               outputState,
               Some(exporterWriteSet),
-            )
+            ),
         )
         .map(_ => ())
     }

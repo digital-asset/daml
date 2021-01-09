@@ -9,7 +9,7 @@ import spray.json.DefaultJsonProtocol
 case class ApplicationInfo(
     id: String,
     name: String,
-    version: String
+    version: String,
 )
 
 trait ApplicationInfoJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {

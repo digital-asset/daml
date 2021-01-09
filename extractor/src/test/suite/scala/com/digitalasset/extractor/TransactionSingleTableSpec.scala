@@ -42,12 +42,12 @@ class TransactionSingleTableSpec
     forAll(getTransactions) { transaction =>
       inside(transaction) {
         case TransactionResult(
-            transaction_id,
-            seq,
-            workflow_id,
-            effective_at,
-            extracted_at,
-            ledger_offset
+              transaction_id,
+              seq,
+              workflow_id,
+              effective_at,
+              extracted_at,
+              ledger_offset,
             ) =>
           transaction_id should not be empty
           seq should be >= 1
@@ -96,7 +96,8 @@ class TransactionSingleTableSpec
 
     // ... while it resulted in `contract2`
     exercise1.child_event_ids.asArray.toList.toVector.flatten should contain(
-      contract2.event_id.asJson)
+      contract2.event_id.asJson
+    )
     contract2.transaction_id shouldEqual transaction2.transaction_id
     // which is not archived
     contract2.archived_by_transaction_id shouldEqual None

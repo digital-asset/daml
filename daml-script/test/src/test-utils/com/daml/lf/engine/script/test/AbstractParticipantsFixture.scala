@@ -29,8 +29,8 @@ trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
   protected def timeMode: ScriptTimeMode
 
   protected def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {
-    val dar = DarReader().readArchiveFromFile(file).get.map {
-      case (pkgId, archive) => Decode.readArchivePayload(pkgId, archive)
+    val dar = DarReader().readArchiveFromFile(file).get.map { case (pkgId, archive) =>
+      Decode.readArchivePayload(pkgId, archive)
     }
     val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
     val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
@@ -41,7 +41,8 @@ trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
       clients: Participants[ScriptLedgerClient],
       name: QualifiedName,
       inputValue: Option[JsValue] = None,
-      dar: Dar[(PackageId, Package)])(implicit ec: ExecutionContext): Future[SValue] = {
+      dar: Dar[(PackageId, Package)],
+  )(implicit ec: ExecutionContext): Future[SValue] = {
     val scriptId = Identifier(dar.main._1, name)
     Runner.run(dar, scriptId, inputValue, clients, timeMode)
   }
@@ -53,10 +54,12 @@ trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
     SRecord(
       id = Identifier(
         PackageId.assertFromString(
-          "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"),
-        QualifiedName.assertFromString("DA.Types:Tuple2")),
+          "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
+        ),
+        QualifiedName.assertFromString("DA.Types:Tuple2"),
+      ),
       fields = ImmArray(Name.assertFromString("_1"), Name.assertFromString("_2")),
-      values = vals
+      values = vals,
     )
   }
 }

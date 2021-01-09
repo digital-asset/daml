@@ -14,6 +14,6 @@ case class Count[T](total: T, ok: T, ko: T) {
       name,
       printN(total),
       printN(ok),
-      printN(ko)
+      printN(ko),
     )
 }

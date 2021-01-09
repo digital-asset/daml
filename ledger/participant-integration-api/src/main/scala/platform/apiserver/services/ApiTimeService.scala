@@ -28,8 +28,8 @@ import scala.util.control.NoStackTrace
 private[apiserver] final class ApiTimeService private (
     val ledgerId: LedgerId,
     backend: TimeServiceBackend,
-)(
-    implicit protected val mat: Materializer,
+)(implicit
+    protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
@@ -40,13 +40,15 @@ private[apiserver] final class ApiTimeService private (
   private val logger = ContextualizedLogger.get(this.getClass)
 
   logger.debug(
-    s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}")
+    s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}"
+  )
 
   private val dispatcher = SignalDispatcher[Instant]()
 
   override protected def getTimeSource(request: GetTimeRequest): Source[GetTimeResponse, NotUsed] =
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
-      Source.failed, { ledgerId =>
+      Source.failed,
+      { ledgerId =>
         logger.trace(s"Request for time with ledger ID $ledgerId")
         dispatcher
           .subscribe()
@@ -60,25 +62,29 @@ private[apiserver] final class ApiTimeService private (
             case Some(t) => List(GetTimeResponse(Some(fromInstant(t))))
           }
           .via(logger.logErrorsOnStream)
-      }
+      },
     )
 
   @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
   override def setTime(request: SetTimeRequest): Future[Empty] = {
     def updateTime(
         expectedTime: Instant,
-        requestedTime: Instant): Future[Either[StatusRuntimeException, Instant]] =
+        requestedTime: Instant,
+    ): Future[Either[StatusRuntimeException, Instant]] =
       backend
         .setCurrentTime(expectedTime, requestedTime)
         .map(success =>
           if (success) Right(requestedTime)
           else
             Left(
-              new StatusRuntimeException(Status.INVALID_ARGUMENT
-                .withDescription(
-                  s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"))
-              with NoStackTrace
-          ))
+              new StatusRuntimeException(
+                Status.INVALID_ARGUMENT
+                  .withDescription(
+                    s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"
+                  )
+              ) with NoStackTrace
+            )
+        )
 
     val result = for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
@@ -89,10 +95,13 @@ private[apiserver] final class ApiTimeService private (
           Right(())
         else
           Left(
-            new StatusRuntimeException(Status.INVALID_ARGUMENT
-              .withDescription(
-                s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."))
-            with NoStackTrace)
+            new StatusRuntimeException(
+              Status.INVALID_ARGUMENT
+                .withDescription(
+                  s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."
+                )
+            ) with NoStackTrace
+          )
       }
     } yield {
       updateTime(expectedTime, requestedTime)
@@ -103,10 +112,13 @@ private[apiserver] final class ApiTimeService private (
         .andThen(logger.logErrorsOnCall[Empty])
     }
 
-    result.fold({ error =>
-      logger.warn(s"Failed to set time for request $request: ${error.getMessage}")
-      Future.failed(error)
-    }, identity)
+    result.fold(
+      { error =>
+        logger.warn(s"Failed to set time for request $request: ${error.getMessage}")
+        Future.failed(error)
+      },
+      identity,
+    )
   }
 
   override def bindService(): ServerServiceDefinition =
@@ -121,8 +133,8 @@ private[apiserver] final class ApiTimeService private (
 }
 
 private[apiserver] object ApiTimeService {
-  def create(ledgerId: LedgerId, backend: TimeServiceBackend)(
-      implicit mat: Materializer,
+  def create(ledgerId: LedgerId, backend: TimeServiceBackend)(implicit
+      mat: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,

@@ -260,7 +260,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           T"AnyException → (( Option Mod:E ))",
         // UpdTryCatch
         E"Λ (σ : ⋆). λ (e₁ : Update σ) (e₂: AnyException → Option (Update σ)) → (( try @σ e₁ catch x → e₂ x ))" ->
-          T"∀ (σ : ⋆). Update σ → (AnyException → Option (Update σ)) → Update σ"
+          T"∀ (σ : ⋆). Update σ → (AnyException → Option (Update σ)) → Update σ",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -357,7 +357,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         E"(( uget_time ))" ->
           T"(( Update Timestamp ))",
         E"Λ (τ : ⋆). λ (e: Update τ) →(( uembed_expr @τ e ))" ->
-          T"∀ (τ : ⋆). Update τ -> (( Update τ ))"
+          T"∀ (τ : ⋆). Update τ -> (( Update τ ))",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -981,7 +981,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         "PositiveTestCase_ChoiceObserversMustBeListParty",
         "PositiveTestCase3",
         "PositiveTestCase6",
-        "PositiveTestCase7"
+        "PositiveTestCase7",
       )
 
       val kindMismatchCases = Table(
@@ -993,14 +993,16 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       def checkModule(pkg: Package, modName: String) = Typing.checkModule(
         new World(Map(defaultPackageId -> pkg)),
         defaultPackageId,
-        pkg.modules(DottedName.assertFromString(modName))
+        pkg.modules(DottedName.assertFromString(modName)),
       )
 
       checkModule(pkg, "NegativeTestCase")
       forAll(typeMismatchCases)(module =>
-        an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))) // and
+        an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))
+      ) // and
       forAll(kindMismatchCases)(module =>
-        an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module)))
+        an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module))
+      )
       an[EUnknownExprVar] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase8"))
       an[EExpectedTemplatableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase9"))
       an[EUnknownDefinition] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase10"))
@@ -1061,7 +1063,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
     def checkModule(pkg: Package, modName: String) = Typing.checkModule(
       new World(Map(defaultPackageId -> pkg)),
       defaultPackageId,
-      pkg.modules(DottedName.assertFromString(modName))
+      pkg.modules(DottedName.assertFromString(modName)),
     )
 
     checkModule(pkg, "NegativeTestCase")

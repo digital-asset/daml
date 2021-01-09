@@ -34,11 +34,10 @@ final class CachingStateReader[Key, Value](
         .read(keysToRead)
         .map { readStateValues =>
           val readValues = keysToRead.zip(readStateValues).toMap
-          readValues.foreach {
-            case (key, value) =>
-              if (shouldCache(key)) {
-                cache.put(key, value)
-              }
+          readValues.foreach { case (key, value) =>
+            if (shouldCache(key)) {
+              cache.put(key, value)
+            }
           }
           val all = cachedValues ++ readValues
           keys.view.map(all(_)).toVector

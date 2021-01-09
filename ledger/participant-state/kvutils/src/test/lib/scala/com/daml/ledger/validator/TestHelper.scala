@@ -17,7 +17,8 @@ private[validator] object TestHelper {
     DamlLogEntry
       .newBuilder()
       .setPartyAllocationEntry(
-        DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId(aParticipantId))
+        DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId(aParticipantId)
+      )
       .build()
 
   lazy val allDamlStateKeyTypes: Seq[DamlStateKey] = Seq(
@@ -32,7 +33,8 @@ private[validator] object TestHelper {
     DamlStateKey.newBuilder
       .setContractKey(
         DamlContractKey.newBuilder
-          .setTemplateId(Identifier.newBuilder.addName("a name"))),
+          .setTemplateId(Identifier.newBuilder.addName("a name"))
+      ),
     DamlStateKey.newBuilder
       .setConfiguration(Empty.getDefaultInstance),
     DamlStateKey.newBuilder
@@ -68,7 +70,8 @@ private[validator] object TestHelper {
   def makeContractKeyStateKey(templateId: String): DamlStateKey =
     DamlStateKey.newBuilder
       .setContractKey(
-        DamlContractKey.newBuilder.setTemplateId(Identifier.newBuilder.addName(templateId)))
+        DamlContractKey.newBuilder.setTemplateId(Identifier.newBuilder.addName(templateId))
+      )
       .build
 
   def makeContractKeyStateValue(contractId: String): DamlStateValue =

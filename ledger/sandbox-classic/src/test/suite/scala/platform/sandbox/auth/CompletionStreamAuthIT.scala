@@ -6,7 +6,7 @@ package com.daml.platform.sandbox.auth
 import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
   CompletionStreamRequest,
-  CompletionStreamResponse
+  CompletionStreamResponse,
 }
 import io.grpc.stub.StreamObserver
 
@@ -20,10 +20,11 @@ final class CompletionStreamAuthIT
       unwrappedLedgerId,
       serviceCallName,
       List(mainActor),
-      Some(ledgerBegin))
+      Some(ledgerBegin),
+    )
 
   override protected def stream
-    : Option[String] => StreamObserver[CompletionStreamResponse] => Unit =
+      : Option[String] => StreamObserver[CompletionStreamResponse] => Unit =
     token =>
       observer =>
         stub(CommandCompletionServiceGrpc.stub(channel), token).completionStream(request, observer)

@@ -17,7 +17,8 @@ object Resources {
     new ResourceOwner[AdjustableClock] {
       override def acquire()(implicit context: ResourceContext): Resource[AdjustableClock] = {
         Resource(Future(AdjustableClock(Clock.fixed(start, zoneId), Duration.ZERO)))(_ =>
-          Future(()))
+          Future(())
+        )
       }
     }
   def authServerBinding(server: Server)(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
@@ -25,8 +26,9 @@ object Resources {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
         Resource(server.start())(_.unbind().map(_ => ()))
     }
-  def authClientBinding(config: Client.Config)(
-      implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
+  def authClientBinding(
+      config: Client.Config
+  )(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
         Resource(Client.start(config))(_.unbind().map(_ => ()))

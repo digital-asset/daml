@@ -7,8 +7,7 @@ import ch.qos.logback.classic.filter.ThresholdFilter
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.spi.FilterReply
 
-/**
-  * Logs at specific level and above, excluded logger logs everything.
+/** Logs at specific level and above, excluded logger logs everything.
   * If you don't have exclusions, use regular ThresholdFilter. Without provided excludeLogger this
   * implementation logs every event with no filtering at all.
   */

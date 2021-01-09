@@ -16,7 +16,7 @@ class MachineImportValueBenchmark extends BenchmarkWithLedgerExport {
 
   // Construct a machine for testing.
   private def testingMachine(
-      compiledPackages: CompiledPackages,
+      compiledPackages: CompiledPackages
   ): Machine = Machine(
     compiledPackages = compiledPackages,
     submissionTime = Time.Timestamp.MinValue,

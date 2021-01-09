@@ -11,4 +11,5 @@ private[tracker] final case class TrackingData[Context](
     commandId: String,
     commandTimeout: Instant,
     traceContext: Option[TraceContext],
-    context: Context)
+    context: Context,
+)

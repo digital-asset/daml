@@ -116,7 +116,8 @@ object Ordering extends scala.math.Ordering[SValue] {
           Bytes.ordering.compare(suffix1, suffix2)
         else
           throw SError.SErrorCrash(
-            "Conflicting discriminators between a local and global contract id")
+            "Conflicting discriminators between a local and global contract id"
+          )
     }
 
 }

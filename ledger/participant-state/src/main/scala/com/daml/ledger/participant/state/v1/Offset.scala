@@ -19,7 +19,6 @@ import com.daml.lf.data.{Bytes, Ref}
   * This way it is possible in the future to switch to a different versioning
   * scheme, while making sure that previously created offsets are always
   * less than newer offsets.
-  *
   */
 final case class Offset(bytes: Bytes) extends Ordered[Offset] {
   override def compare(that: Offset): Int =

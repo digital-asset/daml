@@ -15,15 +15,15 @@ import scala.collection.immutable
 final class DispatcherImpl[Index: Ordering](
     name: String,
     zeroIndex: Index,
-    headAtInitialization: Index)
-    extends Dispatcher[Index] {
+    headAtInitialization: Index,
+) extends Dispatcher[Index] {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
   require(
     !indexIsBeforeZero(headAtInitialization),
     s"head supplied at Dispatcher initialization $headAtInitialization is before zero index $zeroIndex. " +
-      s"This would imply that the ledger end is before the ledger begin, which makes this invalid configuration."
+      s"This would imply that the ledger end is before the ledger begin, which makes this invalid configuration.",
   )
 
   private sealed abstract class State extends Product with Serializable {
@@ -60,8 +60,7 @@ final class DispatcherImpl[Index: Ordering](
   /** returns the head index where this Dispatcher is at */
   override def getHead(): Index = state.get.getLastIndex
 
-  /**
-    * Signal to this Dispatcher that there's a new head `Index`.
+  /** Signal to this Dispatcher that there's a new head `Index`.
     * The Dispatcher will emit values on all streams until the new head is reached.
     */
   override def signalNewHead(head: Index): Unit =
@@ -81,48 +80,54 @@ final class DispatcherImpl[Index: Ordering](
   override def startingAt[T](
       startExclusive: Index,
       subsource: SubSource[Index, T],
-      endInclusive: Option[Index] = None): Source[(Index, T), NotUsed] =
+      endInclusive: Option[Index] = None,
+  ): Source[(Index, T), NotUsed] =
     if (indexIsBeforeZero(startExclusive))
       Source.failed(
         new IllegalArgumentException(
-          s"$name: Invalid start index: '$startExclusive' before zero index '$zeroIndex'"))
+          s"$name: Invalid start index: '$startExclusive' before zero index '$zeroIndex'"
+        )
+      )
     else if (endInclusive.exists(Ordering[Index].gt(startExclusive, _)))
       Source.failed(
         new IllegalArgumentException(
-          s"$name: Invalid index section: start '$startExclusive' is after end '$endInclusive'"))
+          s"$name: Invalid index section: start '$startExclusive' is after end '$endInclusive'"
+        )
+      )
     else {
       val subscription = state.get.getSignalDispatcher.fold(Source.failed[Index](closedError))(
         _.subscribe(signalOnSubscribe = true)
         // This needs to call getHead directly, otherwise this subscription might miss a Signal being emitted
-          .map(_ => getHead()))
+          .map(_ => getHead())
+      )
 
       val withOptionalEnd =
-        endInclusive.fold(subscription)(
-          maxLedgerEnd =>
-            // If we detect that the __signal__ (i.e. new ledger end updates) goes beyond the provided max ledger end,
-            // we can complete the stream from the upstream direction and are not dependent on doing the filtering
-            // on actual ledger entries (which might not even exist, e.g. due to duplicate submissions or
-            // the ledger end having moved after a package upload or party allocation)
-            subscription
+        endInclusive.fold(subscription)(maxLedgerEnd =>
+          // If we detect that the __signal__ (i.e. new ledger end updates) goes beyond the provided max ledger end,
+          // we can complete the stream from the upstream direction and are not dependent on doing the filtering
+          // on actual ledger entries (which might not even exist, e.g. due to duplicate submissions or
+          // the ledger end having moved after a package upload or party allocation)
+          subscription
             // accept ledger end signals until the signal exceeds the requested max ledger end.
             // the last offset that we should emit here is maxLedgerEnd-1, but we cannot do this
             // because here we only know that the Index type is order-able.
-              .takeWhile(Ordering[Index].lt(_, maxLedgerEnd), inclusive = true)
-              .map(Ordering[Index].min(_, maxLedgerEnd))
+            .takeWhile(Ordering[Index].lt(_, maxLedgerEnd), inclusive = true)
+            .map(Ordering[Index].min(_, maxLedgerEnd))
         )
 
       withOptionalEnd
         .statefulMapConcat(() => new ContinuousRangeEmitter(startExclusive))
-        .flatMapConcat {
-          case (previousHead, head) => subsource(previousHead, head)
+        .flatMapConcat { case (previousHead, head) =>
+          subsource(previousHead, head)
         }
     }
 
-  private class ContinuousRangeEmitter(private var max: Index) // var doesn't need to be synchronized, it is accessed in a GraphStage.
+  private class ContinuousRangeEmitter(
+      private var max: Index
+  ) // var doesn't need to be synchronized, it is accessed in a GraphStage.
       extends (Index => immutable.Iterable[(Index, Index)]) {
 
-    /**
-      * @return if param  > [[max]] : a list with a single pair representing a ([max, param[) range, and also stores param in [[max]].
+    /** @return if param  > [[max]] : a list with a single pair representing a ([max, param[) range, and also stores param in [[max]].
       *         Nil otherwise.
       */
     override def apply(newHead: Index): immutable.Iterable[(Index, Index)] =

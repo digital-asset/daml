@@ -14,7 +14,7 @@ import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse
+  SubmitAndWaitForTransactionTreeResponse,
 }
 import com.google.protobuf.empty.Empty
 import io.reactivex.Single
@@ -40,7 +40,7 @@ class CommandClientImplTest
       Future.successful(SubmitAndWaitForTransactionIdResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance),
-      authService
+      authService,
     ) _
   }
 
@@ -62,7 +62,7 @@ class CommandClientImplTest
           commands.getMinLedgerTimeAbsolute,
           commands.getMinLedgerTimeRelative,
           commands.getDeduplicationTime,
-          commands.getCommands
+          commands.getCommands,
         )
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
@@ -87,7 +87,7 @@ class CommandClientImplTest
           commands.getMinLedgerTimeAbsolute,
           commands.getMinLedgerTimeRelative,
           commands.getDeduplicationTime,
-          commands.getCommands
+          commands.getCommands,
         )
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
@@ -137,7 +137,8 @@ class CommandClientImplTest
         Optional[Instant],
         Optional[Duration],
         Optional[Duration],
-        java.util.List[Command]) => Single[A]
+        java.util.List[Command],
+    ) => Single[A]
   private type SubmitAndWaitWithToken[A] =
     (
         String,
@@ -148,12 +149,13 @@ class CommandClientImplTest
         Optional[Duration],
         Optional[Duration],
         java.util.List[Command],
-        String) => Single[A]
+        String,
+    ) => Single[A]
 
-  private def submitAndWaitFor[A](noToken: SubmitAndWait[A], withToken: SubmitAndWaitWithToken[A])(
-      commands: java.util.List[Command],
-      party: String,
-      token: Option[String]): A =
+  private def submitAndWaitFor[A](
+      noToken: SubmitAndWait[A],
+      withToken: SubmitAndWaitWithToken[A],
+  )(commands: java.util.List[Command], party: String, token: Option[String]): A =
     token
       .fold(
         noToken(
@@ -164,7 +166,9 @@ class CommandClientImplTest
           Optional.empty(),
           Optional.empty(),
           Optional.empty(),
-          dummyCommands))(
+          dummyCommands,
+        )
+      )(
         withToken(
           UUID.randomUUID.toString,
           UUID.randomUUID.toString,
@@ -174,7 +178,9 @@ class CommandClientImplTest
           Optional.empty(),
           Optional.empty(),
           commands,
-          _))
+          _,
+        )
+      )
       .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
       .blockingGet()
 
@@ -188,7 +194,10 @@ class CommandClientImplTest
     submitAndWaitFor(client.submitAndWaitForTransactionId, client.submitAndWaitForTransactionId) _
 
   private def submitAndWaitForTransactionTree(client: CommandClient) =
-    submitAndWaitFor(client.submitAndWaitForTransactionTree, client.submitAndWaitForTransactionTree) _
+    submitAndWaitFor(
+      client.submitAndWaitForTransactionTree,
+      client.submitAndWaitForTransactionTree,
+    ) _
 
   behavior of "Authorization"
 
@@ -229,7 +238,8 @@ class CommandClientImplTest
           submitAndWaitForTransaction(client)(
             dummyCommands,
             someParty,
-            Option(someOtherPartyReadWriteToken))
+            Option(someOtherPartyReadWriteToken),
+          )
         }
       }
       withClue("submitAndWaitForTransactionId") {
@@ -237,7 +247,8 @@ class CommandClientImplTest
           submitAndWaitForTransactionId(client)(
             dummyCommands,
             someParty,
-            Option(someOtherPartyReadWriteToken))
+            Option(someOtherPartyReadWriteToken),
+          )
         }
       }
       withClue("submitAndWaitForTransactionTree") {
@@ -245,7 +256,8 @@ class CommandClientImplTest
           submitAndWaitForTransactionTree(client)(
             dummyCommands,
             someParty,
-            Option(someOtherPartyReadWriteToken))
+            Option(someOtherPartyReadWriteToken),
+          )
         }
       }
     }
@@ -261,19 +273,22 @@ class CommandClientImplTest
         submitAndWaitForTransaction(client)(
           dummyCommands,
           someParty,
-          Option(somePartyReadWriteToken))
+          Option(somePartyReadWriteToken),
+        )
       }
       withClue("submitAndWaitForTransactionId") {
         submitAndWaitForTransactionId(client)(
           dummyCommands,
           someParty,
-          Option(somePartyReadWriteToken))
+          Option(somePartyReadWriteToken),
+        )
       }
       withClue("submitAndWaitForTransactionTree") {
         submitAndWaitForTransactionTree(client)(
           dummyCommands,
           someParty,
-          Option(somePartyReadWriteToken))
+          Option(somePartyReadWriteToken),
+        )
       }
     }
   }

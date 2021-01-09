@@ -10,8 +10,7 @@ import com.daml.lf.data.Ref._
 
 import scala.reflect.runtime.universe._
 
-/**
-  *  This object is used for generating code that decodes incoming CreatedEvent`s
+/**  This object is used for generating code that decodes incoming CreatedEvent`s
   *  from the Ledger Client API.
   *
   *  The decoder will take a CreatedEvent and return a value of type of one of the Ref

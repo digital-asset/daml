@@ -43,8 +43,7 @@ object InstrumentedSource {
     }
   }
 
-  /**
-    * Returns a `Source` that can be fed via the materialized queue.
+  /** Returns a `Source` that can be fed via the materialized queue.
     *
     * The queue length counter can at most be eventually consistent due to
     * the counter increment and decrement operation being scheduled separately
@@ -67,8 +66,9 @@ object InstrumentedSource {
       overflowStrategy: OverflowStrategy,
       capacityCounter: Counter,
       lengthCounter: Counter,
-      delayTimer: Timer)(
-      implicit materializer: Materializer,
+      delayTimer: Timer,
+  )(implicit
+      materializer: Materializer
   ): Source[T, QueueWithComplete[T]] = {
     val (queue, source) =
       Source.queue[(Timer.Context, T)](bufferSize, overflowStrategy).preMaterialize()
@@ -80,15 +80,14 @@ object InstrumentedSource {
     capacityCounter.inc(bufferSize.toLong)
     instrumentedQueue
       .watchCompletion()
-      .andThen {
-        case _ => capacityCounter.dec(bufferSize.toLong)
+      .andThen { case _ =>
+        capacityCounter.dec(bufferSize.toLong)
       }(DirectExecutionContext)
 
-    source.mapMaterializedValue(_ => instrumentedQueue).map {
-      case (timingContext, item) =>
-        timingContext.stop()
-        lengthCounter.dec()
-        item
+    source.mapMaterializedValue(_ => instrumentedQueue).map { case (timingContext, item) =>
+      timingContext.stop()
+      lengthCounter.dec()
+      item
     }
   }
 

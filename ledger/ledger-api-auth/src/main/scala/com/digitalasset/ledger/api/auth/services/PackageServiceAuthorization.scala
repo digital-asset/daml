@@ -27,7 +27,8 @@ private[daml] final class PackageServiceAuthorization(
     authorizer.requirePublicClaims(service.getPackage)(request)
 
   override def getPackageStatus(
-      request: GetPackageStatusRequest): Future[GetPackageStatusResponse] =
+      request: GetPackageStatusRequest
+  ): Future[GetPackageStatusResponse] =
     authorizer.requirePublicClaims(service.getPackageStatus)(request)
 
   override def bindService(): ServerServiceDefinition =

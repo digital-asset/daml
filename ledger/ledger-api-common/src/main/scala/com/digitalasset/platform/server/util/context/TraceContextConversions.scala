@@ -15,7 +15,7 @@ object TraceContextConversions {
       spanId = braveContext.spanId(),
       parentSpanId =
         if (braveContext.parentId == null) None else Some(braveContext.parentId.toLong),
-      sampled = braveContext.sampled()
+      sampled = braveContext.sampled(),
     )
 
   def toBrave(protoContext: ProtoContext): BraveContext =

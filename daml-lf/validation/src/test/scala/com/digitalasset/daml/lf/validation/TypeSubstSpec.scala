@@ -26,7 +26,7 @@ class TypeSubstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matc
         t"beta1 beta2",
         t"beta1 -> beta2",
         t"< field1 : beta1, field2: beta2 >",
-        t"M:C (beta1 beta2) ((beta2 -> beta1) beta2)"
+        t"M:C (beta1 beta2) ((beta2 -> beta1) beta2)",
       )
 
       forEvery(testCases) { typ: Type =>
@@ -59,7 +59,7 @@ class TypeSubstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matc
         t"<a: alpha, b: beta, c: alpha, d: beta>" ->
           t"<a: gamma, b: beta, c: gamma, d: beta>",
         t"M:C (alpha beta) ((beta -> alpha) beta)" ->
-          t"M:C (gamma beta) ((beta -> gamma) beta)"
+          t"M:C (gamma beta) ((beta -> gamma) beta)",
       )
 
       forEvery(testCases) { (input: Type, expectedOutput: Type) =>

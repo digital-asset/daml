@@ -10,8 +10,7 @@ import com.daml.metrics.Metrics
 
 import scala.concurrent.Future
 
-/**
-  * Sends commits to [[cheapTransactionsDelegate]] in case estimated interpretation cost is below
+/** Sends commits to [[cheapTransactionsDelegate]] in case estimated interpretation cost is below
   * [[estimatedInterpretationCostThreshold]] otherwise to [[expensiveTransactionsDelegate]].
   * Submissions that don't have an estimated interpretation cost will be forwarded to
   * [[cheapTransactionsDelegate]].
@@ -59,7 +58,8 @@ object InterpretationCostBasedLedgerWriterChooser {
       estimatedInterpretationCostThreshold: Long,
       cheapTransactionsDelegate: LedgerWriter,
       expensiveTransactionsDelegate: LedgerWriter,
-      damlMetrics: Metrics): InterpretationCostBasedLedgerWriterChooser = {
+      damlMetrics: Metrics,
+  ): InterpretationCostBasedLedgerWriterChooser = {
     val metrics = damlMetrics.daml.kvutils.writer
     new InterpretationCostBasedLedgerWriterChooser(
       estimatedInterpretationCostThreshold,
@@ -68,7 +68,7 @@ object InterpretationCostBasedLedgerWriterChooser {
       incrementCheapCounter = metrics.committedCount.inc,
       incrementExpensiveCounter = metrics.preExecutedCount.inc,
       addInterpretationCostBelowThreshold = metrics.committedInterpretationCosts.update,
-      addInterpretationCostAboveThreshold = metrics.preExecutedInterpretationCosts.update
+      addInterpretationCostAboveThreshold = metrics.preExecutedInterpretationCosts.update,
     )
   }
 }

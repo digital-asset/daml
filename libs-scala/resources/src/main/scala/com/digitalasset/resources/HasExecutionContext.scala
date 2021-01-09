@@ -13,8 +13,8 @@ object HasExecutionContext {
   def apply[Context](implicit self: HasExecutionContext[Context]): HasExecutionContext[Context] =
     Option(self).get
 
-  implicit def executionContext[Context: HasExecutionContext](
-      implicit context: Context
+  implicit def executionContext[Context: HasExecutionContext](implicit
+      context: Context
   ): ExecutionContext =
     apply[Context].executionContext(context)
 

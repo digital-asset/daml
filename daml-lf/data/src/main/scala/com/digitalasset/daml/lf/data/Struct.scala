@@ -15,7 +15,7 @@ import scalaz.syntax.order._
 import scalaz.{Equal, Order}
 
 /** We use this container to describe structural record as sorted flat list in various parts of the codebase.
-    `entries` are sorted by their first component without duplicate.
+  *    `entries` are sorted by their first component without duplicate.
   */
 final case class Struct[+X] private (private val sortedFields: ImmArray[(Ref.Name, X)])
     extends NoCopy {

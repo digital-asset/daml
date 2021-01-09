@@ -33,7 +33,7 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
     }
 
     private def buildSubmissionInfo(
-        submissionInfo: SubmissionInfo,
+        submissionInfo: SubmissionInfo
     ): LedgerExportEntry.SubmissionInfo =
       LedgerExportEntry.SubmissionInfo.newBuilder
         .setParticipantId(submissionInfo.participantId: String)
@@ -43,12 +43,11 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
         .build()
 
     private def buildWriteSet(writeSet: WriteSet): Iterable[LedgerExportEntry.WriteEntry] =
-      writeSet.map {
-        case (key, value) =>
-          LedgerExportEntry.WriteEntry.newBuilder
-            .setKey(key.bytes)
-            .setValue(value.bytes)
-            .build()
+      writeSet.map { case (key, value) =>
+        LedgerExportEntry.WriteEntry.newBuilder
+          .setKey(key.bytes)
+          .setValue(value.bytes)
+          .build()
       }
   }
 

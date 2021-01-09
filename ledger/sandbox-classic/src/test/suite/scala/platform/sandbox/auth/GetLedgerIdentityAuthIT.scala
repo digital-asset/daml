@@ -5,7 +5,7 @@ package com.daml.platform.sandbox.auth
 
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
-  LedgerIdentityServiceGrpc
+  LedgerIdentityServiceGrpc,
 }
 
 import scala.concurrent.Future

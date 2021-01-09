@@ -87,6 +87,6 @@ final class TestTemplateIdentifiers(testPackageId: String) {
       divulgence2,
       witnesses,
       maintainerNotSignatory,
-      createAndFetch
+      createAndFetch,
     )
 }

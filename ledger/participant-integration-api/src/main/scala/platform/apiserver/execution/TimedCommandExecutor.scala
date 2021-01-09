@@ -19,13 +19,14 @@ private[apiserver] class TimedCommandExecutor(
   override def execute(
       commands: domain.Commands,
       submissionSeed: crypto.Hash,
-  )(
-      implicit ec: ExecutionContext,
+  )(implicit
+      ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
     Timed.timedAndTrackedFuture(
       metrics.daml.execution.total,
       metrics.daml.execution.totalRunning,
-      delegate.execute(commands, submissionSeed))
+      delegate.execute(commands, submissionSeed),
+    )
 
 }

@@ -20,7 +20,7 @@ class CompositeCommandAdapter(
       applicationId.unwrap,
       c.commandId.unwrap,
       c.party.unwrap,
-      c.commands
+      c.commands,
     )
 
     SubmitRequest(Some(commands), c.traceContext)

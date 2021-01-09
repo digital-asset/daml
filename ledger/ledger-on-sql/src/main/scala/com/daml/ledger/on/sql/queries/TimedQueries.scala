@@ -17,34 +17,40 @@ final class TimedQueries(delegate: Queries, metrics: Metrics) extends Queries {
   override def selectLatestLogEntryId(): Try[Option[Index]] =
     Timed.value(
       metrics.daml.ledger.database.queries.selectLatestLogEntryId,
-      delegate.selectLatestLogEntryId())
+      delegate.selectLatestLogEntryId(),
+    )
 
   override def selectFromLog(start: Index, end: Index): Try[immutable.Seq[(Index, LedgerRecord)]] =
     Timed.value(
       metrics.daml.ledger.database.queries.selectFromLog,
-      delegate.selectFromLog(start, end))
+      delegate.selectFromLog(start, end),
+    )
 
   override def selectStateValuesByKeys(
       keys: Iterable[Raw.Key]
   ): Try[immutable.Seq[Option[Raw.Value]]] =
     Timed.value(
       metrics.daml.ledger.database.queries.selectStateValuesByKeys,
-      delegate.selectStateValuesByKeys(keys))
+      delegate.selectStateValuesByKeys(keys),
+    )
 
   override def updateOrRetrieveLedgerId(providedLedgerId: LedgerId): Try[LedgerId] =
     Timed.value(
       metrics.daml.ledger.database.queries.updateOrRetrieveLedgerId,
-      delegate.updateOrRetrieveLedgerId(providedLedgerId))
+      delegate.updateOrRetrieveLedgerId(providedLedgerId),
+    )
 
   override def insertRecordIntoLog(key: Raw.Key, value: Raw.Value): Try[Index] =
     Timed.value(
       metrics.daml.ledger.database.queries.insertRecordIntoLog,
-      delegate.insertRecordIntoLog(key, value))
+      delegate.insertRecordIntoLog(key, value),
+    )
 
   override def updateState(stateUpdates: Iterable[Raw.KeyValuePair]): Try[Unit] =
     Timed.value(
       metrics.daml.ledger.database.queries.updateState,
-      delegate.updateState(stateUpdates))
+      delegate.updateState(stateUpdates),
+    )
 
   override def truncate(): Try[Unit] =
     Timed.value(metrics.daml.ledger.database.queries.truncate, delegate.truncate())

@@ -80,7 +80,7 @@ object ConfigParser {
                 s"${colSpacer}Optional, default is 1000."
             )
             .optional()
-            .action((h, c) => c.copy(pprintHeight = h))
+            .action((h, c) => c.copy(pprintHeight = h)),
         )
 
       note("") // newline
@@ -154,7 +154,7 @@ object ConfigParser {
             .text(
               "Parts of template names to cut from the beginning when using the multi-table strategy\n" +
                 s"${colSpacer}Optional."
-            )
+            ),
         )
 
       note("\nCommon options:\n")
@@ -180,13 +180,16 @@ object ConfigParser {
       opt[ExtractorConfig.Parties]("party")
         .required()
         .action((x, c) => c.copy(party = x))
-        .text("The party or parties whose contract data should be extracted.\n" +
-          s"${colSpacer}Specify multiple parties separated by a comma, e.g. Foo,Bar")
+        .text(
+          "The party or parties whose contract data should be extracted.\n" +
+            s"${colSpacer}Specify multiple parties separated by a comma, e.g. Foo,Bar"
+        )
 
       opt[Seq[TemplateConfig]]('t', "templates")
         .optional()
         .validate(x =>
-          validateUniqueElements(x, s"The list of templates must contain unique elements"))
+          validateUniqueElements(x, s"The list of templates must contain unique elements")
+        )
         .action((x, c) => c.copy(templateConfigs = x.toSet))
         .valueName("<module1>:<entity1>,<module2>:<entity2>...")
         .text("The list of templates to subscribe for. Optional, defaults to all ledger templates.")
@@ -217,28 +220,35 @@ object ConfigParser {
       note("\nTLS configuration:")
 
       TlsConfigurationCli.parse(this, colSpacer)((f, c) =>
-        c copy (tlsConfiguration = f(c.tlsConfiguration)))
+        c copy (tlsConfiguration = f(c.tlsConfiguration))
+      )
 
       note("\nAuthorization:")
 
       opt[String]("access-token-file")
         .text(
-          s"provide the path from which the access token will be read, required if the Ledger API server verifies authorization, no default")
+          s"provide the path from which the access token will be read, required if the Ledger API server verifies authorization, no default"
+        )
         .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
         .optional()
 
       checkConfig { c =>
-        if (c.postgresMultiTableUseSchemes && !List("multi-table", "combined").contains(
-            c.postgresOutputFormat)) {
+        if (
+          c.postgresMultiTableUseSchemes && !List("multi-table", "combined").contains(
+            c.postgresOutputFormat
+          )
+        ) {
           failure(
             "\n`--schema-per-package` was set `true`, while the data format strategy wasn't set to\n" +
               "use separate tables per contract. This setting won't have any effects.\n" +
               "Change the `--output-format` parameter to \"multi-table\" or \"combined\" to have a multi-table setup,\n" +
               "or remove this parameter.\n"
           )
-        } else if (c.postgresMultiTableMergeIdentical && !List("multi-table", "combined").contains(
+        } else if (
+          c.postgresMultiTableMergeIdentical && !List("multi-table", "combined").contains(
             c.postgresOutputFormat
-          )) {
+          )
+        ) {
           failure(
             "\n`--merge-identical` was set `true`, while the data format strategy wasn't set to\n" +
               "use separate tables per contract. This setting won't have any effects.\n" +
@@ -282,7 +292,7 @@ object ConfigParser {
         cliParams.party,
         cliParams.templateConfigs,
         tlsConfig,
-        cliParams.accessTokenFile
+        cliParams.accessTokenFile,
       )
 
       val target = cliParams.target match {
@@ -296,7 +306,7 @@ object ConfigParser {
             cliParams.postgresOutputFormat,
             cliParams.postgresMultiTableUseSchemes,
             cliParams.postgresMultiTableMergeIdentical,
-            cliParams.postgresStripPrefix
+            cliParams.postgresStripPrefix,
           )
       }
 

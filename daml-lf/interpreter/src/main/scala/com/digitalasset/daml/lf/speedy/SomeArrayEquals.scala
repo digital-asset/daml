@@ -35,10 +35,16 @@ trait SomeArrayEquals extends Product with Serializable {
       @tailrec def lp(i: Int, seed: Int): Int =
         if (i >= arr) seed
         else
-          lp(i + 1, mix(seed, productElement(i) match {
-            case a: Array[_] => arrayHash(a)
-            case a => a.##
-          }))
+          lp(
+            i + 1,
+            mix(
+              seed,
+              productElement(i) match {
+                case a: Array[_] => arrayHash(a)
+                case a => a.##
+              },
+            ),
+          )
       finalizeHash(lp(0, productSeed), arr)
     }
   }

@@ -73,7 +73,8 @@ private[daml] object ScalazEqual {
 
   private[this] final class OrderBy[A, I](
       val k: A => I,
-      override val inductiveNaturalEqual: Boolean)(implicit val I: Order[I])
+      override val inductiveNaturalEqual: Boolean,
+  )(implicit val I: Order[I])
       extends Order[A]
       with EqualBy[A, I] {
     override def order(a: A, b: A) =

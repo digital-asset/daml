@@ -39,7 +39,7 @@ class AlphaEquivSpec extends AnyWordSpec with TableDrivenPropertyChecks with Mat
       val types1 = List(
         t"beta (forall beta1 . beta1 alpha)",
         t"beta (forall gamma . gamma alpha)",
-        t"beta (forall beta . beta alpha)"
+        t"beta (forall beta . beta alpha)",
       )
 
       for (t1 <- types1; t2 <- types1) t1 should ===(t2)

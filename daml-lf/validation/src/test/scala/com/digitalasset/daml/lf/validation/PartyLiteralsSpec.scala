@@ -149,7 +149,8 @@ class PartyLiteralsSpec extends AnyWordSpec with TableDrivenPropertyChecks with 
       checkModule(
         world,
         defaultPackageId,
-        pkg.modules(DottedName.assertFromString("NegativeTestCase")))
+        pkg.modules(DottedName.assertFromString("NegativeTestCase")),
+      )
       forEvery(positiveTestCases) { modName =>
         an[EForbiddenPartyLiterals] should be thrownBy
           checkModule(world, defaultPackageId, pkg.modules(DottedName.assertFromString(modName)))

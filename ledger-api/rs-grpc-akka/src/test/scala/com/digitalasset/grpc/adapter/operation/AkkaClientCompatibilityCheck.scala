@@ -46,11 +46,10 @@ trait AkkaClientCompatibilityCheck {
       whenReady(for {
         elems1 <- elemsF1
         elems2 <- elemsF2
-      } yield elems1 -> elems2)({
-        case (elems1, elems2) =>
-          val check = assertElementsAreInOrder(elemCount.toLong) _
-          check(elems1)
-          check(elems2)
+      } yield elems1 -> elems2)({ case (elems1, elems2) =>
+        val check = assertElementsAreInOrder(elemCount.toLong) _
+        check(elems1)
+        check(elems2)
       })
     }
 

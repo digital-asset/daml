@@ -12,13 +12,14 @@ import com.daml.lf.speedy.Compiler
   * add new packages.
   */
 abstract class MutableCompiledPackages(
-    compilerConfig: Compiler.Config,
+    compilerConfig: Compiler.Config
 ) extends CompiledPackages(compilerConfig) {
 
   def addPackage(pkgId: PackageId, pkg: Package): Result[Unit]
 
   /** Get the transitive dependencies of the given package.
-    * Returns 'None' if the package does not exist. */
+    * Returns 'None' if the package does not exist.
+    */
   def getPackageDependencies(pkgId: PackageId): Option[Set[PackageId]]
 
   def clear(): Unit

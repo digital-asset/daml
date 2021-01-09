@@ -14,8 +14,8 @@ private[validation] object Recursion {
 
   @throws[ValidationError]
   def checkPackage(pkgId: PackageId, pkg: Package): Unit = {
-    val g = pkg.modules.map {
-      case (name, mod) => name -> (modRefs(pkgId, mod).toSet - name)
+    val g = pkg.modules.map { case (name, mod) =>
+      name -> (modRefs(pkgId, mod).toSet - name)
     }
 
     Graphs.topoSort(g).left.foreach(cycle => throw EImportCycle(NoContext, cycle.vertices))
@@ -63,10 +63,9 @@ private[validation] object Recursion {
 
   private def checkModule(pkgId: PackageId, modName: ModuleName, mod: Module): Unit = {
     val g =
-      mod.definitions.collect {
-        case (dottedName, DTypeSyn(_, replacementTyp)) =>
-          val name = Identifier(pkgId, QualifiedName(modName, dottedName))
-          (name, synRefsOfType(Set.empty, replacementTyp))
+      mod.definitions.collect { case (dottedName, DTypeSyn(_, replacementTyp)) =>
+        val name = Identifier(pkgId, QualifiedName(modName, dottedName))
+        (name, synRefsOfType(Set.empty, replacementTyp))
       }
     Graphs.topoSort(g).left.foreach(cycle => throw ETypeSynCycle(NoContext, cycle.vertices))
   }

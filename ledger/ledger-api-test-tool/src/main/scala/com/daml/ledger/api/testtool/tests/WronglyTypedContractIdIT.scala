@@ -14,18 +14,18 @@ import io.grpc.Status.Code
 
 final class WronglyTypedContractIdIT extends LedgerTestSuite {
   test("WTExerciseFails", "Exercising on a wrong type fails", allocate(SingleParty))(
-    implicit ec => {
-      case Participants(Participant(ledger, party)) =>
-        for {
-          dummy <- ledger.create(party, Dummy(party))
-          fakeDummyWithParam = dummy.asInstanceOf[Primitive.ContractId[DummyWithParam]]
-          exerciseFailure <- ledger
-            .exercise(party, fakeDummyWithParam.exerciseDummyChoice2(_, "txt"))
-            .failed
-        } yield {
-          assertGrpcError(exerciseFailure, Code.INVALID_ARGUMENT, "wrongly typed contract id")
-        }
-    })
+    implicit ec => { case Participants(Participant(ledger, party)) =>
+      for {
+        dummy <- ledger.create(party, Dummy(party))
+        fakeDummyWithParam = dummy.asInstanceOf[Primitive.ContractId[DummyWithParam]]
+        exerciseFailure <- ledger
+          .exercise(party, fakeDummyWithParam.exerciseDummyChoice2(_, "txt"))
+          .failed
+      } yield {
+        assertGrpcError(exerciseFailure, Code.INVALID_ARGUMENT, "wrongly typed contract id")
+      }
+    }
+  )
 
   test("WTFetchFails", "Fetching of the wrong type fails", allocate(SingleParty))(implicit ec => {
     case Participants(Participant(ledger, party)) =>

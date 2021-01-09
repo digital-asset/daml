@@ -23,7 +23,8 @@ object GrpcCommandCompletionService {
   private[this] val completionStreamDefaultOffset = Some(domain.LedgerOffset.LedgerEnd)
 
   private def fillInWithDefaults(
-      request: ValidatedCompletionStreamRequest): ValidatedCompletionStreamRequest =
+      request: ValidatedCompletionStreamRequest
+  ): ValidatedCompletionStreamRequest =
     if (request.offset.isDefined) {
       request
     } else {
@@ -35,9 +36,9 @@ object GrpcCommandCompletionService {
 class GrpcCommandCompletionService(
     ledgerId: LedgerId,
     service: CommandCompletionService,
-    partyNameChecker: PartyNameChecker
-)(
-    implicit protected val mat: Materializer,
+    partyNameChecker: PartyNameChecker,
+)(implicit
+    protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
     executionContext: ExecutionContext,
 ) extends CommandCompletionServiceAkkaGrpc {
@@ -45,13 +46,14 @@ class GrpcCommandCompletionService(
   private val validator = new CompletionServiceRequestValidator(ledgerId, partyNameChecker)
 
   override def completionStreamSource(
-      request: CompletionStreamRequest): Source[CompletionStreamResponse, akka.NotUsed] = {
+      request: CompletionStreamRequest
+  ): Source[CompletionStreamResponse, akka.NotUsed] = {
     Source.future(service.getLedgerEnd(LedgerId(request.ledgerId))).flatMapConcat { ledgerEnd =>
       validator
         .validateCompletionStreamRequest(request, ledgerEnd, service.offsetOrdering)
         .fold(
           Source.failed[CompletionStreamResponse],
-          GrpcCommandCompletionService.fillInWithDefaults _ andThen service.completionStreamSource
+          GrpcCommandCompletionService.fillInWithDefaults _ andThen service.completionStreamSource,
         )
     }
   }
@@ -65,7 +67,8 @@ class GrpcCommandCompletionService(
           service
             .getLedgerEnd(req.ledgerId)
             .map(abs =>
-              CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value)))))
+              CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value))))
+            ),
       )
 
 }

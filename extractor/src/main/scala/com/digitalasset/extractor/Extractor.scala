@@ -42,8 +42,8 @@ import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
 class Extractor[T](config: ExtractorConfig, target: T)(
-    writerSupplier: (ExtractorConfig, T, String) => Writer = Writer.apply _)
-    extends StrictLogging {
+    writerSupplier: (ExtractorConfig, T, String) => Writer = Writer.apply _
+) extends StrictLogging {
 
   private val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
   private val parties: Set[String] = config.parties.toSet.map[String, Set[String]](identity)
@@ -94,7 +94,8 @@ class Extractor[T](config: ExtractorConfig, target: T)(
       _ = logger.info(s"All available template ids: ${allTemplateIds}")
 
       requestedTemplateIds <- Future.successful(
-        TemplateIds.intersection(allTemplateIds, config.templateConfigs))
+        TemplateIds.intersection(allTemplateIds, config.templateConfigs)
+      )
 
       streamUntil: Option[LedgerOffset] = config.to match {
         case SnapshotEndSetting.Head => Some(endOffset)
@@ -113,10 +114,9 @@ class Extractor[T](config: ExtractorConfig, target: T)(
     result flatMap { _ =>
       logger.info("Success: extraction finished, exiting...")
       shutdown()
-    } recoverWith {
-      case NonFatal(fail) =>
-        logger.error(s"FAILURE:\n$fail.\nExiting...")
-        shutdown *> Future.failed(fail)
+    } recoverWith { case NonFatal(fail) =>
+      logger.error(s"FAILURE:\n$fail.\nExiting...")
+      shutdown *> Future.failed(fail)
     }
   }
 
@@ -125,8 +125,8 @@ class Extractor[T](config: ExtractorConfig, target: T)(
   }
 
   private def keepRetryingOnPermissionDenied[A](f: () => Future[A]): Future[A] =
-    RetryStrategy.constant(waitTime = 1.second) {
-      case GrpcException.PERMISSION_DENIED() => true
+    RetryStrategy.constant(waitTime = 1.second) { case GrpcException.PERMISSION_DENIED() =>
+      true
     } { (attempt, wait) =>
       logger.error(s"Failed to authenticate with Ledger API on attempt $attempt, next one in $wait")
       tokenHolder.foreach(_.refresh())
@@ -134,7 +134,8 @@ class Extractor[T](config: ExtractorConfig, target: T)(
     }
 
   private def doFetchPackages(
-      packageClient: PackageClient): Future[LedgerReader.Error \/ Option[PackageStore]] =
+      packageClient: PackageClient
+  ): Future[LedgerReader.Error \/ Option[PackageStore]] =
     keepRetryingOnPermissionDenied { () =>
       LedgerReader.loadPackageStoreUpdates(packageClient, tokenHolder.flatMap(_.token))(Set.empty)
     }
@@ -159,7 +160,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
       client: LedgerClient,
       writer: Writer,
       streamUntil: Option[LedgerOffset],
-      requestedTemplateIds: Set[api.value.Identifier]
+      requestedTemplateIds: Set[api.value.Identifier],
   ): Future[Unit] = {
     logger.info(s"Requested template IDs: ${requestedTemplateIds}")
 
@@ -171,8 +172,9 @@ class Extractor[T](config: ExtractorConfig, target: T)(
         RestartSettings(
           minBackoff = 3.seconds,
           maxBackoff = 30.seconds,
-          randomFactor = 0.2 // adds 20% "noise" to vary the intervals slightly
-        )) { () =>
+          randomFactor = 0.2, // adds 20% "noise" to vary the intervals slightly
+        )
+      ) { () =>
         tokenHolder.foreach(_.refresh())
         logger.info(s"Starting streaming transactions from ${startOffSet}...")
         client.transactionClient
@@ -181,7 +183,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
             streamUntil,
             transactionFilter,
             verbose = true,
-            tokenHolder.flatMap(_.token)
+            tokenHolder.flatMap(_.token),
           )
           .via(killSwitch.flow)
           .collect {
@@ -193,7 +195,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
               .flatMap(
                 _.fold(
                   handleUnwitnessedType(t, client, writer),
-                  _ => transactionHandled(t)
+                  _ => transactionHandled(t),
                 )
               )
           }
@@ -204,7 +206,8 @@ class Extractor[T](config: ExtractorConfig, target: T)(
   }
 
   private def convertTransactionTree(parties: Set[String], templateIds: Set[Identifier])(
-      t: api.transaction.TransactionTree): Option[TransactionTree] = {
+      t: api.transaction.TransactionTree
+  ): Option[TransactionTree] = {
     val tree = t.convert(parties, templateIds).fold(e => throw DataIntegrityError(e), identity)
     if (tree.events.nonEmpty) {
       Some(tree)
@@ -213,14 +216,13 @@ class Extractor[T](config: ExtractorConfig, target: T)(
     }
   }
 
-  /**
-    * We encountered a transaction that reference a previously not witnessed type.
+  /** We encountered a transaction that reference a previously not witnessed type.
     * This is normal. Try re-fetch the packages first without reporting any errors.
     */
   private def handleUnwitnessedType(
       t: TransactionTree,
       client: LedgerClient,
-      writer: Writer
+      writer: Writer,
   )(
       c: RefreshPackages
   ): Future[Unit] = {
@@ -240,8 +242,8 @@ class Extractor[T](config: ExtractorConfig, target: T)(
         _ =>
           Future.failed(
             DataIntegrityError(s"Could not find information for type ${c.missing}")
-        ),
-        _ => transactionHandled(t)
+          ),
+        _ => transactionHandled(t),
       )
     } yield ()
   }
@@ -262,7 +264,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
         sslContext = config.tlsConfig.client,
         token = tokenHolder.flatMap(_.token),
         maxInboundMessageSize = config.ledgerInboundMessageSizeMax,
-      )
+      ),
     )
 
 }

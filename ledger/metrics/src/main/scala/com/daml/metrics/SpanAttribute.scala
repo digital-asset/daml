@@ -3,8 +3,7 @@
 
 package com.daml.metrics
 
-/**
-  * Represents a well-known span attribute key.
+/** Represents a well-known span attribute key.
   */
 sealed case class SpanAttribute(key: String)
 object SpanAttribute {

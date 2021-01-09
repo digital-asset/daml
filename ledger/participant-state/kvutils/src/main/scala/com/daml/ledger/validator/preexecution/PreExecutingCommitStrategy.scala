@@ -12,7 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
 sealed case class PreExecutionCommitResult[WriteSet](
     successWriteSet: WriteSet,
     outOfTimeBoundsWriteSet: WriteSet,
-    involvedParticipants: Set[ParticipantId]
+    involvedParticipants: Set[ParticipantId],
 )
 
 trait PreExecutingCommitStrategy[StateKey, StateValue, ReadSet, WriteSet] {

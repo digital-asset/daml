@@ -36,26 +36,30 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
     commit(
       correlationId = submitterInfo.commandId,
       submission = submission,
-      metadata = Some(metadata))
+      metadata = Some(metadata),
+    )
   }
 
   override def uploadPackages(
       submissionId: SubmissionId,
       archives: List[DamlLf.Archive],
-      sourceDescription: Option[String]): CompletionStage[SubmissionResult] = {
+      sourceDescription: Option[String],
+  ): CompletionStage[SubmissionResult] = {
     val submission = keyValueSubmission
       .archivesToSubmission(
         submissionId,
         archives,
         sourceDescription.getOrElse(""),
-        writer.participantId)
+        writer.participantId,
+      )
     commit(submissionId, submission)
   }
 
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
-      config: Configuration): CompletionStage[SubmissionResult] = {
+      config: Configuration,
+  ): CompletionStage[SubmissionResult] = {
     val submission =
       keyValueSubmission
         .configurationToSubmission(maxRecordTime, submissionId, writer.participantId, config)
@@ -65,14 +69,16 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
   override def allocateParty(
       hint: Option[Party],
       displayName: Option[String],
-      submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
+      submissionId: SubmissionId,
+  ): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(generateRandomParty())
     val submission =
       keyValueSubmission.partyToSubmission(
         submissionId,
         Some(party),
         displayName,
-        writer.participantId)
+        writer.participantId,
+      )
     commit(submissionId, submission)
   }
 
@@ -90,11 +96,14 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       writer.commit(
         correlationId,
         Envelope.enclose(submission),
-        metadata.getOrElse(CommitMetadata(submission, None))))
+        metadata.getOrElse(CommitMetadata(submission, None)),
+      )
+    )
 
   override def prune(
       pruneUpToInclusive: Offset,
-      submissionId: SubmissionId): CompletionStage[PruningResult] =
+      submissionId: SubmissionId,
+  ): CompletionStage[PruningResult] =
     // kvutils has no participant local state to prune, so return success to let participant pruning proceed elsewhere.
     CompletableFuture.completedFuture(PruningResult.ParticipantPruned)
 }

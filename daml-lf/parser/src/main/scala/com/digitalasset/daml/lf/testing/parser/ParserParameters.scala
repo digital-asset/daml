@@ -8,5 +8,5 @@ import com.daml.lf.language.LanguageVersion
 
 private[daml] case class ParserParameters[P](
     defaultPackageId: PackageId,
-    languageVersion: LanguageVersion
+    languageVersion: LanguageVersion,
 )

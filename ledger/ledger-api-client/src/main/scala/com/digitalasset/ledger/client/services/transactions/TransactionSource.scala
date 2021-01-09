@@ -11,7 +11,7 @@ import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsRequest,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.daml.util.akkastreams.ImmutableIterable
 import io.grpc.stub.StreamObserver
@@ -20,8 +20,8 @@ object TransactionSource {
 
   def trees(
       stub: (GetTransactionsRequest, StreamObserver[GetTransactionTreesResponse]) => Unit,
-      request: GetTransactionsRequest)(
-      implicit esf: ExecutionSequencerFactory): Source[TransactionTree, NotUsed] = {
+      request: GetTransactionsRequest,
+  )(implicit esf: ExecutionSequencerFactory): Source[TransactionTree, NotUsed] = {
 
     ClientAdapter
       .serverStreaming(request, stub)
@@ -30,8 +30,8 @@ object TransactionSource {
 
   def flat(
       stub: (GetTransactionsRequest, StreamObserver[GetTransactionsResponse]) => Unit,
-      request: GetTransactionsRequest)(
-      implicit esf: ExecutionSequencerFactory): Source[Transaction, NotUsed] = {
+      request: GetTransactionsRequest,
+  )(implicit esf: ExecutionSequencerFactory): Source[Transaction, NotUsed] = {
 
     ClientAdapter
       .serverStreaming(request, stub)

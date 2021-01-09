@@ -14,7 +14,8 @@ class GetActiveContractsRequestSpec
     with ScalaCheckDrivenPropertyChecks {
 
   "GetActiveContractsRequestSpec.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
-    getActiveContractRequestGen) { activeContractRequest =>
+    getActiveContractRequestGen
+  ) { activeContractRequest =>
     val converted =
       GetActiveContractsRequest.fromProto(activeContractRequest)
     GetActiveContractsRequest.fromProto(converted.toProto) shouldEqual converted

@@ -14,7 +14,7 @@ object Identifier {
     def convert: Identifier =
       Identifier(
         apiIdentifier.packageId,
-        apiIdentifier.moduleName + separator.toString + apiIdentifier.entityName
+        apiIdentifier.moduleName + separator.toString + apiIdentifier.entityName,
       )
   }
 }

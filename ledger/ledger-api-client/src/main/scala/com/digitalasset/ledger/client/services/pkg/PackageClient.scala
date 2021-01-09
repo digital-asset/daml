@@ -21,7 +21,8 @@ class PackageClient(ledgerId: LedgerId, service: PackageServiceStub) {
 
   def getPackageStatus(
       packageId: String,
-      token: Option[String] = None): Future[GetPackageStatusResponse] =
+      token: Option[String] = None,
+  ): Future[GetPackageStatusResponse] =
     LedgerClient
       .stub(service, token)
       .getPackageStatus(GetPackageStatusRequest(ledgerId.unwrap, packageId))

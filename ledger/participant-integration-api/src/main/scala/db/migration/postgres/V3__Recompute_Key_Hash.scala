@@ -26,8 +26,8 @@ private[migration] class V3__Recompute_Key_Hash extends BaseJavaMigration {
     updateKeyHashed(loadContractKeys)
   }
 
-  private def loadContractKeys(
-      implicit connection: Connection
+  private def loadContractKeys(implicit
+      connection: Connection
   ): Iterator[(ContractId, GlobalKey)] = {
 
     val SQL_SELECT_CONTRACT_KEYS =
@@ -53,7 +53,7 @@ private[migration] class V3__Recompute_Key_Hash extends BaseJavaMigration {
         val contractId = ContractId.assertFromString(rows.getString("contract_id"))
         val templateId = Ref.Identifier(
           packageId = Ref.PackageId.assertFromString(rows.getString("package_id")),
-          qualifiedName = Ref.QualifiedName.assertFromString(rows.getString("template_name"))
+          qualifiedName = Ref.QualifiedName.assertFromString(rows.getString("template_name")),
         )
         val key = ValueSerializer
           .deserializeValue(rows.getBinaryStream("contract_key"))
@@ -66,8 +66,9 @@ private[migration] class V3__Recompute_Key_Hash extends BaseJavaMigration {
 
   }
 
-  private def updateKeyHashed(contractKeys: Iterator[(ContractId, GlobalKey)])(
-      implicit conn: Connection): Unit = {
+  private def updateKeyHashed(
+      contractKeys: Iterator[(ContractId, GlobalKey)]
+  )(implicit conn: Connection): Unit = {
 
     val SQL_UPDATE_CONTRACT_KEYS_HASH =
       """
@@ -79,9 +80,8 @@ private[migration] class V3__Recompute_Key_Hash extends BaseJavaMigration {
         |  contract_id = {contractId}
       """.stripMargin
 
-    val statements = contractKeys.map {
-      case (cid, key) =>
-        Seq[NamedParameter]("contractId" -> cid.coid, "valueHash" -> KeyHasher.hashKeyString(key))
+    val statements = contractKeys.map { case (cid, key) =>
+      Seq[NamedParameter]("contractId" -> cid.coid, "valueHash" -> KeyHasher.hashKeyString(key))
     }
 
     statements.to(LazyList).grouped(batchSize).foreach { batch =>

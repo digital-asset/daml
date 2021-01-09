@@ -11,10 +11,9 @@ import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
 
-/**
-  * Serves as a backend to implement
+/** Serves as a backend to implement
   * [[com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc]]
-  **/
+  */
 trait IndexSubmissionService {
   def deduplicateCommand(
       commandId: CommandId,

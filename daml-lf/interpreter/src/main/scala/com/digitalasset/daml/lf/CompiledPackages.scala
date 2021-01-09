@@ -13,7 +13,7 @@ import com.daml.lf.speedy.{Compiler, SDefinition}
   * compiled speedy expressions.
   */
 private[lf] abstract class CompiledPackages(
-    compilerConfig: Compiler.Config,
+    compilerConfig: Compiler.Config
 ) {
   def getSignature(pkgId: PackageId): Option[PackageSignature]
   def getDefinition(dref: SDefinitionRef): Option[SDefinition]

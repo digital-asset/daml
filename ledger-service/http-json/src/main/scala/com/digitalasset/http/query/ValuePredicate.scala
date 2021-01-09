@@ -56,14 +56,15 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         }
 
       case OptionalMatch(oq) =>
-        oq map go cata (csq => { case V.ValueOptional(Some(v)) => csq(v); case _ => false },
-        { case V.ValueOptional(None) => true; case _ => false })
+        oq map go cata (csq => { case V.ValueOptional(Some(v)) => csq(v); case _ => false }, {
+          case V.ValueOptional(None) => true; case _ => false
+        })
 
       case range: Range[a] =>
         implicit val ord: Order[a] = range.ord
         range.project andThen { a =>
-          range.ltgt.bifoldMap {
-            case (incl, ceil) => Conjunction(if (incl) a <= ceil else a < ceil)
+          range.ltgt.bifoldMap { case (incl, ceil) =>
+            Conjunction(if (incl) a <= ceil else a < ceil)
           } { case (incl, floor) => Conjunction(if (incl) a >= floor else a > floor) }.unwrap
         } orElse { case _ => false }
     }
@@ -77,7 +78,8 @@ sealed abstract class ValuePredicate extends Product with Serializable {
     final case class Rec(
         raw: SqlWhereClause,
         safe_== : Option[JsValue],
-        safe_@> : Option[JsValue]) {
+        safe_@> : Option[JsValue],
+    ) {
       def flush_@>(path: Path): Option[Fragment] =
         safe_@> map (jq => path ++ sql" @> $jq::jsonb")
       def flush_==(path: Path): Option[Fragment] =
@@ -85,11 +87,11 @@ sealed abstract class ValuePredicate extends Product with Serializable {
     }
 
     def goObject(path: Path, cqs: ImmArraySeq[(String, Rec)], count: Int): Rec = {
-      val allSafe_== = cqs collect {
-        case (k, Rec(_, Some(eqv), _)) => (k, eqv)
+      val allSafe_== = cqs collect { case (k, Rec(_, Some(eqv), _)) =>
+        (k, eqv)
       }
-      val allSafe_@> = cqs collect {
-        case (k, Rec(_, _, Some(ssv))) => (k, ssv)
+      val allSafe_@> = cqs collect { case (k, Rec(_, _, Some(ssv))) =>
+        (k, ssv)
       }
       // collecting raw, but overriding with an element = if it's =-safe
       // but not @>-safe (equality of @>-safe elements is represented
@@ -102,7 +104,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
       Rec(
         eqOrRaw.toVector.flatten,
         (allSafe_==.length == count) option JsObject(allSafe_== : _*),
-        Some(JsObject(allSafe_@> : _*))
+        Some(JsObject(allSafe_@> : _*)),
       )
     }
 
@@ -122,7 +124,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           Rec(
             vraw,
             v_== map (jv => JsonVariant(dc, jv)),
-            v_@> map (jv => JsonVariant(dc, jv))
+            v_@> map (jv => JsonVariant(dc, jv)),
           )
 
         case OptionalMatch(None) =>
@@ -132,7 +134,8 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           Rec(
             Vector(sql"jsonb_array_length(" ++ path ++ sql") = 0"),
             Some(JsArray()),
-            Some(JsArray()))
+            Some(JsArray()),
+          )
 
         case OptionalMatch(Some(oq @ OptionalMatch(Some(_)))) =>
           val cq = go(path ++ sql"->0", oq)
@@ -155,12 +158,13 @@ sealed abstract class ValuePredicate extends Product with Serializable {
               // numbers-as-numbers in LfValueDatabaseCodec, and why ISO-8601 strings
               // for dates and timestamps are so important.
               val exprs = range.ltgt
-                .umap(_ map (boundary =>
-                  sql" ${dbApiValueToJsValue(range.normalize(boundary))}::jsonb"))
-                .bifoldMap {
-                  case (incl, ceil) => Vector(path ++ (if (incl) sql" <=" else sql" <") ++ ceil)
-                } {
-                  case (incl, floor) => Vector(path ++ (if (incl) sql" >=" else sql" >") ++ floor)
+                .umap(
+                  _ map (boundary => sql" ${dbApiValueToJsValue(range.normalize(boundary))}::jsonb")
+                )
+                .bifoldMap { case (incl, ceil) =>
+                  Vector(path ++ (if (incl) sql" <=" else sql" <") ++ ceil)
+                } { case (incl, floor) =>
+                  Vector(path ++ (if (incl) sql" >=" else sql" >") ++ floor)
                 }
               Rec(exprs, None, None)
           }
@@ -195,13 +199,14 @@ object ValuePredicate {
       ltgt: Boundaries[A],
       ord: Order[A],
       project: LfV PartialFunction A,
-      normalize: A => LfV)
-      extends ValuePredicate
+      normalize: A => LfV,
+  ) extends ValuePredicate
 
   private[http] def fromTemplateJsObject(
       it: Map[String, JsValue],
       typ: domain.TemplateId.RequiredPkg,
-      defs: TypeLookup): ValuePredicate =
+      defs: TypeLookup,
+  ): ValuePredicate =
     fromJsObject(it, iface.TypeCon(iface.TypeConName(lfIdentifier(typ)), ImmArraySeq.empty), defs)
 
   def fromJsObject(it: Map[String, JsValue], typ: iface.Type, defs: TypeLookup): ValuePredicate = {
@@ -210,10 +215,9 @@ object ValuePredicate {
     def fromValue(it: JsValue, typ: iface.Type): Result =
       (typ, it).match2 {
         case p @ iface.TypePrim(_, _) => { case _ => fromPrim(it, p) }
-        case tc @ iface.TypeCon(iface.TypeConName(id), _) => {
-          case _ =>
-            val ddt = defs(id).getOrElse(predicateParseError(s"Type $id not found"))
-            fromCon(it, id, tc instantiate ddt)
+        case tc @ iface.TypeCon(iface.TypeConName(id), _) => { case _ =>
+          val ddt = defs(id).getOrElse(predicateParseError(s"Type $id not found"))
+          fromCon(it, id, tc instantiate ddt)
         }
         case iface.TypeNumeric(scale) =>
           numericRangeExpr(scale).toQueryParser
@@ -222,30 +226,28 @@ object ValuePredicate {
 
     def fromCon(it: JsValue, id: Ref.Identifier, typ: iface.DataType.FWT): Result =
       (typ, it).match2 {
-        case rec @ iface.Record(_) => {
-          case JsObject(fields) =>
-            fromRecord(fields, id, rec)
+        case rec @ iface.Record(_) => { case JsObject(fields) =>
+          fromRecord(fields, id, rec)
         }
-        case iface.Variant(fieldTyps) => {
-          case JsonVariant(tag, nestedValue) =>
-            fromVariant(tag, nestedValue, id, fieldTyps)
+        case iface.Variant(fieldTyps) => { case JsonVariant(tag, nestedValue) =>
+          fromVariant(tag, nestedValue, id, fieldTyps)
         }
-        case e @ iface.Enum(_) => {
-          case JsString(s) => fromEnum(s, id, e)
+        case e @ iface.Enum(_) => { case JsString(s) =>
+          fromEnum(s, id, e)
         }
       }(fallback = illTypedQuery(it, id))
 
     def fromRecord(
         fields: Map[String, JsValue],
         id: Ref.Identifier,
-        typ: iface.Record.FWT): Result = {
+        typ: iface.Record.FWT,
+    ): Result = {
       val iface.Record(fieldTyps) = typ
       val invalidKeys = fields.keySet diff fieldTyps.iterator.map(_._1).toSet
       if (invalidKeys.nonEmpty)
         predicateParseError(s"$id does not have fields $invalidKeys")
-      RecordSubset(fieldTyps map {
-        case (fName, fTy) =>
-          fields get fName map (fSpec => (fName, fromValue(fSpec, fTy)))
+      RecordSubset(fieldTyps map { case (fName, fTy) =>
+        fields get fName map (fSpec => (fName, fromValue(fSpec, fTy)))
       })
     }
 
@@ -253,7 +255,8 @@ object ValuePredicate {
         tag: String,
         nestedValue: JsValue,
         id: Ref.Identifier,
-        fieldTyps: ImmArraySeq[(Ref.Name, Ty)]): Result = {
+        fieldTyps: ImmArraySeq[(Ref.Name, Ty)],
+    ): Result = {
 
       val fieldP: Option[(Ref.Name, ValuePredicate)] =
         fieldTyps.collectFirst {
@@ -297,12 +300,11 @@ object ValuePredicate {
         case Text => TextRangeExpr.toQueryParser(Order fromScalaOrdering Utf8.Ordering)
         case Date => DateRangeExpr.toQueryParser
         case Timestamp => TimestampRangeExpr.toQueryParser
-        case Party => {
-          case jq @ JsString(q) => Literal({ case V.ValueParty(v) if q == (v: String) => }, jq)
+        case Party => { case jq @ JsString(q) =>
+          Literal({ case V.ValueParty(v) if q == (v: String) => }, jq)
         }
-        case ContractId => {
-          case jq @ JsString(q) =>
-            Literal({ case V.ValueContractId(v) if q == (v.coid: String) => }, jq)
+        case ContractId => { case jq @ JsString(q) =>
+          Literal({ case V.ValueContractId(v) if q == (v.coid: String) => }, jq)
         }
         case Unit => {
           case jq @ JsObject(q) if q.isEmpty =>
@@ -310,10 +312,9 @@ object ValuePredicate {
             // position, so the ambiguity never yields incorrect results
             Literal({ case V.ValueUnit => }, jq)
         }
-        case Optional => {
-          case q =>
-            val elemTy = soleTypeArg("Optional")
-            fromOptional(q, elemTy)
+        case Optional => { case q =>
+          val elemTy = soleTypeArg("Optional")
+          fromOptional(q, elemTy)
         }
         case List | TextMap | GenMap =>
           predicateParseError(s"${typ.typ} not supported")
@@ -330,31 +331,44 @@ object ValuePredicate {
     }) getOrElse predicateParseError(s"No record type found for $typ")
   }
 
-  private[this] val Int64RangeExpr = RangeExpr({
-    case JsNumber(q) if q.isValidLong =>
-      q.toLongExact
-    case JsString(q) =>
-      q.parseLong.fold(e => throw e, identity)
-  }, { case V.ValueInt64(v) => v })(V.ValueInt64)
-  private[this] val TextRangeExpr = RangeExpr({ case JsString(s) => s }, {
-    case V.ValueText(v) => v
-  })(V.ValueText)
-  private[this] val DateRangeExpr = RangeExpr({
-    case JsString(q) =>
+  private[this] val Int64RangeExpr = RangeExpr(
+    {
+      case JsNumber(q) if q.isValidLong =>
+        q.toLongExact
+      case JsString(q) =>
+        q.parseLong.fold(e => throw e, identity)
+    },
+    { case V.ValueInt64(v) => v },
+  )(V.ValueInt64)
+  private[this] val TextRangeExpr = RangeExpr(
+    { case JsString(s) => s },
+    { case V.ValueText(v) =>
+      v
+    },
+  )(V.ValueText)
+  private[this] val DateRangeExpr = RangeExpr(
+    { case JsString(q) =>
       Time.Date fromString q fold (predicateParseError(_), identity)
-  }, { case V.ValueDate(v) => v })(V.ValueDate)
-  private[this] val TimestampRangeExpr = RangeExpr({
-    case JsString(q) =>
+    },
+    { case V.ValueDate(v) => v },
+  )(V.ValueDate)
+  private[this] val TimestampRangeExpr = RangeExpr(
+    { case JsString(q) =>
       Time.Timestamp fromString q fold (predicateParseError(_), identity)
-  }, { case V.ValueTimestamp(v) => v })(V.ValueTimestamp)
+    },
+    { case V.ValueTimestamp(v) => v },
+  )(V.ValueTimestamp)
   private[this] def numericRangeExpr(scale: Numeric.Scale) =
     RangeExpr(
       {
         case JsString(q) =>
-          Numeric checkWithinBoundsAndRound (scale, BigDecimal(q)) fold (predicateParseError, identity)
+          Numeric checkWithinBoundsAndRound (scale, BigDecimal(
+            q
+          )) fold (predicateParseError, identity)
         case JsNumber(q) =>
           Numeric checkWithinBoundsAndRound (scale, q) fold (predicateParseError, identity)
-      }, { case V.ValueNumeric(v) => v setScale scale }
+      },
+      { case V.ValueNumeric(v) => v setScale scale },
     )(qv => V.ValueNumeric(Numeric assertFromBigDecimal (scale, qv)))
 
   private[this] implicit val `jBD order`: Order[java.math.BigDecimal] =
@@ -368,7 +382,8 @@ object ValuePredicate {
 
   private[this] final case class RangeExpr[A](
       scalar: JsValue PartialFunction A,
-      lfvScalar: LfV PartialFunction A)(normalized: A => LfV) {
+      lfvScalar: LfV PartialFunction A,
+  )(normalized: A => LfV) {
     import RangeExpr._
 
     private def scalarE(it: JsValue): PredicateParseError \/ A =
@@ -407,7 +422,8 @@ object ValuePredicate {
                 case (None, Some(r)) => That(r)
                 case (None, None) => sys.error("impossible; denied by 'fields.keySet exists keys'")
               }
-            })
+            }
+          )
         case _ => None
       }
 

@@ -37,8 +37,7 @@ trait CommitStrategySupport[LogResult] {
 
   def newReadServiceFactory(): ReplayingReadServiceFactory
 
-  /**
-    * Determines if there's an actual difference and tries to explain it in case there is.
+  /** Determines if there's an actual difference and tries to explain it in case there is.
     * A None return value signals that no difference should be signaled to the user.
     */
   def explainMismatchingValue(
@@ -47,8 +46,7 @@ trait CommitStrategySupport[LogResult] {
       actualValue: Raw.Value,
   ): Option[String]
 
-  /**
-    * Validates that a single write set entry is readable.
+  /** Validates that a single write set entry is readable.
     *
     * @param rawKey   The serialized key.
     * @param rawValue The serialized value.

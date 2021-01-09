@@ -22,7 +22,7 @@ object CustomRunner extends StrictLogging {
   def runWith(
       system: ActorSystem,
       overrides: ConfigOverrides,
-      mbSimulation: Option[Class[Simulation]] = None
+      mbSimulation: Option[Class[Simulation]] = None,
   ): Try[(Int, File)] = {
     logger.trace("Starting")
 

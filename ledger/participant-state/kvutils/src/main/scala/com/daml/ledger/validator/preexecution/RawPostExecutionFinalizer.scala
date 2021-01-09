@@ -11,8 +11,7 @@ import com.daml.ledger.validator.LedgerStateOperations
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
-  * An in-transasaction finalizer that persists both the ledger state and the log entry.
+/** An in-transasaction finalizer that persists both the ledger state and the log entry.
   *
   * This implementation verifies that the output respects the time bounds before writing to the
   * ledger. If the output is outside the time window, an alternative log entry is written to

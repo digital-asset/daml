@@ -15,7 +15,7 @@ import anorm.{
   SqlMappingError,
   SqlParser,
   SqlRequestError,
-  ToStatement
+  ToStatement,
 }
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.google.protobuf.ByteString
@@ -59,7 +59,8 @@ object Queries {
         case inputStream: InputStream => Right(ByteString.readFrom(inputStream))
         case _ =>
           Left[SqlRequestError, ByteString](
-            SqlMappingError(s"Cannot convert value of column ${meta.column} to ByteString"))
+            SqlMappingError(s"Cannot convert value of column ${meta.column} to ByteString")
+          )
       }
     }
 

@@ -10,8 +10,7 @@ import scala.compat.java8.FutureConverters._
 import scala.concurrent.Future
 import scala.util.Try
 
-/**
-  * Convenient [[ResourceOwner]] factory methods.
+/** Convenient [[ResourceOwner]] factory methods.
   */
 trait ResourceOwnerFactories[Context] {
   protected implicit val hasExecutionContext: HasExecutionContext[Context]

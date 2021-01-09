@@ -23,12 +23,16 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
-      DamlLfDottedName.assertFromString("T0")))
+      DamlLfDottedName.assertFromString("T0"),
+    ),
+  )
   val damlLfId1 = DamlLfIdentifier(
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
-      DamlLfDottedName.assertFromString("T1")))
+      DamlLfDottedName.assertFromString("T1"),
+    ),
+  )
 
   val damlLfRecord0 = DamlLfDefDataType(
     DamlLfImmArraySeq(),
@@ -36,20 +40,26 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
       DamlLfImmArraySeq(
         DamlLfRef.Name
           .assertFromString("foo") -> DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
-      )))
+      )
+    ),
+  )
   val damlLfRecord1 = DamlLfDefDataType(
     DamlLfImmArraySeq(),
     DamlLfRecord(
       DamlLfImmArraySeq(
         DamlLfRef.Name
           .assertFromString("int") -> DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
-      )))
+      )
+    ),
+  )
 
   val damlLfIdKey = DamlLfIdentifier(
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
-      DamlLfDottedName.assertFromString("K1")))
+      DamlLfDottedName.assertFromString("K1"),
+    ),
+  )
 
   val damlLfRecordKey = DamlLfDefDataType(
     DamlLfImmArraySeq(),
@@ -57,7 +67,9 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
       DamlLfImmArraySeq(
         DamlLfRef.Name
           .assertFromString("foo") -> DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
-      )))
+      )
+    ),
+  )
 
   val damlLfKeyType =
     DamlLfTypeCon(DamlLfTypeConName(damlLfIdKey), DamlLfImmArraySeq.empty[DamlLfType])
@@ -65,7 +77,7 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
   val damlLfDefDataTypes: Map[DamlLfIdentifier, DamlLfDefDataType] = Map(
     damlLfId0 -> damlLfRecord0,
     damlLfId1 -> damlLfRecord1,
-    damlLfIdKey -> damlLfRecordKey
+    damlLfIdKey -> damlLfRecordKey,
   )
 
   val template1 = Template(damlLfId0, List.empty, None)
@@ -82,7 +94,8 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
     None,
     List(alice),
     List(bob, charlie),
-    None)
+    None,
+  )
   val contract2 = Contract(
     ApiTypes.ContractId("id2"),
     template2,
@@ -90,7 +103,7 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
     Some(""),
     List(alice),
     List(bob, charlie),
-    Some(record("foo" -> ValueText("bar")))
+    Some(record("foo" -> ValueText("bar"))),
   )
   val contract3 = Contract(
     ApiTypes.ContractId("id3"),
@@ -99,7 +112,8 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
     Some("agreement"),
     List(alice),
     List(bob, charlie),
-    None)
+    None,
+  )
 
   val templates = List(template1, template2)
   val contracts = List(contract1, contract2, contract3)

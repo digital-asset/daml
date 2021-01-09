@@ -10,7 +10,7 @@ import com.daml.lf.command.{
   CreateAndExerciseCommand,
   CreateCommand,
   ExerciseByKeyCommand,
-  ExerciseCommand
+  ExerciseCommand,
 }
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.data.{ImmArray, Ref}
@@ -86,7 +86,9 @@ class SimplePackage(additionalContractDataType: String) {
         Some(
           Ast.PackageMetadata(
             Ref.PackageName.assertFromString("kvutils-tests"),
-            Ref.PackageVersion.assertFromString("1.0.0")))
+            Ref.PackageVersion.assertFromString("1.0.0"),
+          )
+        )
       } else None
     damlPackageWithContractData.copy(metadata = metadata)
   }
@@ -133,8 +135,8 @@ class SimplePackage(additionalContractDataType: String) {
       packageId,
       Ref.QualifiedName(
         Ref.ModuleName.assertFromString("Simple"),
-        Ref.DottedName.assertFromString("SimpleTemplate")
-      )
+        Ref.DottedName.assertFromString("SimpleTemplate"),
+      ),
     )
 
   private val simpleHolderTemplateId: Ref.Identifier =
@@ -142,8 +144,8 @@ class SimplePackage(additionalContractDataType: String) {
       packageId,
       Ref.QualifiedName(
         Ref.ModuleName.assertFromString("Simple"),
-        Ref.DottedName.assertFromString("SimpleTemplateHolder")
-      )
+        Ref.DottedName.assertFromString("SimpleTemplateHolder"),
+      ),
     )
 
   private val simpleConsumeChoiceName: Ref.ChoiceName =
@@ -173,11 +175,13 @@ class SimplePackage(additionalContractDataType: String) {
       Some(simpleTemplateId),
       ImmArray(
         Some(Ref.Name.assertFromString("owner")) -> Value.ValueParty(
-          Ref.Party.assertFromString(owner)),
+          Ref.Party.assertFromString(owner)
+        ),
         Some(Ref.Name.assertFromString("observer")) -> Value.ValueParty(
-          Ref.Party.assertFromString(observer)),
-        Some(Ref.Name.assertFromString("contractData")) -> additionalContractValue
-      )
+          Ref.Party.assertFromString(observer)
+        ),
+        Some(Ref.Name.assertFromString("contractData")) -> additionalContractValue,
+      ),
     )
 
   private val simpleHolderReplaceHeldByKeyChoiceName: Ref.ChoiceName =
@@ -192,6 +196,6 @@ class SimplePackage(additionalContractDataType: String) {
   def mkSimpleHolderTemplateArg(owner: Ref.Party): Value[Value.ContractId] =
     Value.ValueRecord(
       Some(simpleHolderTemplateId),
-      ImmArray(Some(Ref.Name.assertFromString("owner")) -> Value.ValueParty(owner))
+      ImmArray(Some(Ref.Name.assertFromString("owner")) -> Value.ValueParty(owner)),
     )
 }

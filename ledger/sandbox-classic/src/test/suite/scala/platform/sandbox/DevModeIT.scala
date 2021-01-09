@@ -48,7 +48,7 @@ class DevModeIT
       ledgerIdRequirement = ledger.client.configuration.LedgerIdRequirement.none,
       commandClient = ledger.client.configuration.CommandClientConfiguration.default,
       sslContext = None,
-      token = None
+      token = None,
     )
 
   private[this] def buildServer(devMode: Boolean) =
@@ -56,7 +56,8 @@ class DevModeIT
       DefaultConfig.copy(
         port = Port.Dynamic,
         devMode = devMode,
-      ))
+      )
+    )
 
   private[this] def buildRequest(pkgId: String, ledgerId: LedgerId) = {
     import scalaz.syntax.tag._
@@ -70,10 +71,12 @@ class DevModeIT
             tmplId,
             Seq(
               RecordField(value = Some(Value().withUnit(protobuf.empty.Empty()))),
-              RecordField(value = Some(Value().withParty(party)))
+              RecordField(value = Some(Value().withParty(party))),
             ),
-          ))
-      ))
+          )
+        ),
+      )
+    )
     SubmitAndWaitRequest(
       Some(
         Commands(
@@ -81,8 +84,10 @@ class DevModeIT
           applicationId = applicationId.unwrap,
           ledgerId = ledgerId.unwrap,
           commandId = UUID.randomUUID.toString,
-          commands = Seq(cmd)
-        )))
+          commands = Seq(cmd),
+        )
+      )
+    )
   }
 
   private[this] def run(darPath: Path, server: SandboxServer) =
@@ -117,9 +122,8 @@ class DevModeIT
 
     "reject dev DAML LF when devMode is disable" in
       buildServer(devMode = false).use(run(devDar, _)).map {
-        inside(_) {
-          case Failure(exception) =>
-            exception.getMessage should include("Disallowed language version")
+        inside(_) { case Failure(exception) =>
+          exception.getMessage should include("Disallowed language version")
         }
       }
 

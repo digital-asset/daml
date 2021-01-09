@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.admin.party_management_service._
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
-  LedgerEndService
+  LedgerEndService,
 }
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
@@ -33,8 +33,8 @@ private[apiserver] final class ApiPartyManagementService private (
     transactionService: IndexTransactionsService,
     writeService: WritePartyService,
     managementServiceTimeout: Duration,
-)(
-    implicit materializer: Materializer,
+)(implicit
+    materializer: Materializer,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends PartyManagementService
@@ -94,15 +94,16 @@ private[apiserver] final class ApiPartyManagementService private (
 
     synchronousResponse
       .submitAndWait(submissionId, (party, displayName))
-      .map {
-        case PartyEntry.AllocationAccepted(_, partyDetails) =>
-          AllocatePartyResponse(
-            Some(
-              PartyDetails(
-                partyDetails.party,
-                partyDetails.displayName.getOrElse(""),
-                partyDetails.isLocal,
-              )))
+      .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
+        AllocatePartyResponse(
+          Some(
+            PartyDetails(
+              partyDetails.party,
+              partyDetails.displayName.getOrElse(""),
+              partyDetails.isLocal,
+            )
+          )
+        )
       }
       .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
   }
@@ -116,8 +117,8 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService: IndexTransactionsService,
       writeBackend: WritePartyService,
       managementServiceTimeout: Duration,
-  )(
-      implicit materializer: Materializer,
+  )(implicit
+      materializer: Materializer,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
@@ -154,13 +155,13 @@ private[apiserver] object ApiPartyManagementService {
       partyManagementService.partyEntries(offset)
 
     override def accept(
-        submissionId: SubmissionId,
+        submissionId: SubmissionId
     ): PartialFunction[PartyEntry, PartyEntry.AllocationAccepted] = {
       case entry @ PartyEntry.AllocationAccepted(Some(`submissionId`), _) => entry
     }
 
     override def reject(
-        submissionId: SubmissionId,
+        submissionId: SubmissionId
     ): PartialFunction[PartyEntry, StatusRuntimeException] = {
       case PartyEntry.AllocationRejected(`submissionId`, reason) =>
         ErrorFactories.invalidArgument(reason)

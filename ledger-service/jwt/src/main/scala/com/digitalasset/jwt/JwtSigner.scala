@@ -28,9 +28,9 @@ object JwtSigner {
 
         base64Signature <- base64Encode(signature)
 
-      } yield
-        domain.Jwt(
-          s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}")
+      } yield domain.Jwt(
+        s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}"
+      )
   }
 
   object RSA256 {
@@ -46,16 +46,17 @@ object JwtSigner {
 
         base64Signature <- base64Encode(signature)
 
-      } yield
-        domain.Jwt(
-          s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}")
+      } yield domain.Jwt(
+        s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}"
+      )
   }
 
   object ECDSA {
     def sign(
         jwt: domain.DecodedJwt[String],
         privateKey: ECPrivateKey,
-        algorithm: ECPrivateKey => Algorithm): Error \/ domain.Jwt =
+        algorithm: ECPrivateKey => Algorithm,
+    ): Error \/ domain.Jwt =
       for {
         base64Jwt <- base64Encode(jwt)
 
@@ -67,9 +68,9 @@ object JwtSigner {
 
         base64Signature <- base64Encode(signature)
 
-      } yield
-        domain.Jwt(
-          s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}")
+      } yield domain.Jwt(
+        s"${str(base64Jwt.header): String}.${str(base64Jwt.payload)}.${str(base64Signature): String}"
+      )
   }
 
   private def str(bs: Array[Byte]) = new String(bs, charset)

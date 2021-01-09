@@ -29,29 +29,32 @@ object LedgerReader {
   // FIXME Find a more suitable execution context for these helpers
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  /**
-    * @return [[UpToDate]] if packages did not change
+  /** @return [[UpToDate]] if packages did not change
     */
   def loadPackageStoreUpdates(client: PackageClient, token: Option[String])(
-      loadedPackageIds: Set[String]): Future[Error \/ Option[PackageStore]] =
+      loadedPackageIds: Set[String]
+  ): Future[Error \/ Option[PackageStore]] =
     for {
       newPackageIds <- client.listPackages(token).map(_.packageIds.toList)
       diffIds = newPackageIds.filterNot(loadedPackageIds): List[String] // keeping the order
-      result <- if (diffIds.isEmpty) UpToDate
-      else load(client, diffIds, token)
+      result <-
+        if (diffIds.isEmpty) UpToDate
+        else load(client, diffIds, token)
     } yield result
 
   private def load(
       client: PackageClient,
       packageIds: List[String],
-      token: Option[String]): Future[Error \/ Some[PackageStore]] =
+      token: Option[String],
+  ): Future[Error \/ Some[PackageStore]] =
     packageIds
       .traverse(client.getPackage(_, token))
       .map(createPackageStoreFromArchives)
       .map(_.map(Some(_)))
 
   private def createPackageStoreFromArchives(
-      packageResponses: List[GetPackageResponse]): Error \/ PackageStore = {
+      packageResponses: List[GetPackageResponse]
+  ): Error \/ PackageStore = {
     packageResponses
       .traverse { packageResponse: GetPackageResponse =>
         decodeInterfaceFromPackageResponse(packageResponse).map { interface =>
@@ -62,7 +65,8 @@ object LedgerReader {
   }
 
   private def decodeInterfaceFromPackageResponse(
-      packageResponse: GetPackageResponse): Error \/ Interface = {
+      packageResponse: GetPackageResponse
+  ): Error \/ Interface = {
     import packageResponse._
     \/.fromTryCatchNonFatal {
       val cos = Reader.damlLfCodedInputStream(archivePayload.newInput)

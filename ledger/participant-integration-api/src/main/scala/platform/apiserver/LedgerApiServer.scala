@@ -49,7 +49,8 @@ private[daml] final class LedgerApiServer(
       // Notify the caller that the services have been closed, so a reset request can complete
       // without blocking on the server terminating.
       _ <- Resource(Future.unit)(_ =>
-        apiServicesResource.release().map(_ => servicesClosedPromise.success(())))
+        apiServicesResource.release().map(_ => servicesClosedPromise.success(()))
+      )
     } yield {
       val host = address.getOrElse("localhost")
       val actualPort = server.getPort

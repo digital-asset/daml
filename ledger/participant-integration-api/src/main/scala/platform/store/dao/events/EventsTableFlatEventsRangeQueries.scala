@@ -246,7 +246,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
         formatPartiesAndTemplatesWhereClause(
           sqlFunctions,
           "flat_event_witnesses",
-          partiesAndTemplateIds)
+          partiesAndTemplateIds,
+        )
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       val submittersInPartiesClause =
@@ -274,7 +275,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
         formatPartiesAndTemplatesWhereClause(
           sqlFunctions,
           "flat_event_witnesses",
-          partiesAndTemplateIds)
+          partiesAndTemplateIds,
+        )
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", wildcardParties)
       val filteredWitnesses =
@@ -395,7 +397,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
         formatPartiesAndTemplatesWhereClause(
           sqlFunctions,
           "flat_event_witnesses",
-          partiesAndTemplateIds)
+          partiesAndTemplateIds,
+        )
       val filteredWitnesses =
         sqlFunctions.arrayIntersectionValues("flat_event_witnesses", parties)
       val submittersInPartiesClause =
@@ -422,7 +425,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
         formatPartiesAndTemplatesWhereClause(
           sqlFunctions,
           "flat_event_witnesses",
-          partiesAndTemplateIds)
+          partiesAndTemplateIds,
+        )
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", wildcardParties)
       val filteredWitnesses =
@@ -446,12 +450,11 @@ private[events] object EventsTableFlatEventsRangeQueries {
   private def formatPartiesAndTemplatesWhereClause(
       sqlFunctions: SqlFunctions,
       witnessesAggregationColumn: String,
-      partiesAndTemplateIds: Set[(Party, Identifier)]
+      partiesAndTemplateIds: Set[(Party, Identifier)],
   ): String =
     partiesAndTemplateIds.view
-      .map {
-        case (p, i) =>
-          s"(${sqlFunctions.arrayIntersectionWhereClause(witnessesAggregationColumn, p)} and template_id = '$i')"
+      .map { case (p, i) =>
+        s"(${sqlFunctions.arrayIntersectionWhereClause(witnessesAggregationColumn, p)} and template_id = '$i')"
       }
       .mkString("(", " or ", ")")
 }

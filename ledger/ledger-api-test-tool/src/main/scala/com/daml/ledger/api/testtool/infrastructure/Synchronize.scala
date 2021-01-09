@@ -12,8 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object Synchronize {
 
-  /**
-    * Create a synchronization point between two participants by ensuring that a
+  /** Create a synchronization point between two participants by ensuring that a
     * contract with two distributed stakeholders both see an update on a shared contract.
     *
     * Useful to ensure two parties distributed across participants both view the
@@ -25,8 +24,8 @@ object Synchronize {
     *
     * FIXME This will _NOT_ work with distributed committers
     */
-  final def synchronize(alpha: ParticipantTestContext, beta: ParticipantTestContext)(
-      implicit ec: ExecutionContext,
+  final def synchronize(alpha: ParticipantTestContext, beta: ParticipantTestContext)(implicit
+      ec: ExecutionContext
   ): Future[Unit] = {
     for {
       alice <- alpha.allocateParty()

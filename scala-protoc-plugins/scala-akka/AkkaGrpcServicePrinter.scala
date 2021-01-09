@@ -32,7 +32,8 @@ final class AkkaGrpcServicePrinter(service: ServiceDescriptor, params: Generator
           .add("} else {")
           .indent
           .add(
-            "val sink = com.daml.grpc.adapter.server.akka.ServerAdapter.toSink(responseObserver)")
+            "val sink = com.daml.grpc.adapter.server.akka.ServerAdapter.toSink(responseObserver)"
+          )
           .add(s"${method.name}Source(request).via(killSwitch.flow).runWith(sink)")
           .add("()")
           .outdent
@@ -40,7 +41,8 @@ final class AkkaGrpcServicePrinter(service: ServiceDescriptor, params: Generator
           .outdent
           .add("}")
           .add(
-            s"protected def ${method.name}Source(request: ${method.inputType.scalaType}): akka.stream.scaladsl.Source[${method.outputType.scalaType}, akka.NotUsed]")
+            s"protected def ${method.name}Source(request: ${method.inputType.scalaType}): akka.stream.scaladsl.Source[${method.outputType.scalaType}, akka.NotUsed]"
+          )
           .newline
       case StreamType.Bidirectional =>
         p
@@ -64,7 +66,9 @@ final class AkkaGrpcServicePrinter(service: ServiceDescriptor, params: Generator
     p.newline
       .add(s"protected val killSwitch = akka.stream.KillSwitches.shared($killSwitchName)")
       .add("protected val closed = new java.util.concurrent.atomic.AtomicBoolean(false)")
-      .add("protected def closingError = new io.grpc.StatusRuntimeException(io.grpc.Status.UNAVAILABLE.withDescription(\"Server is shutting down\")) with scala.util.control.NoStackTrace")
+      .add(
+        "protected def closingError = new io.grpc.StatusRuntimeException(io.grpc.Status.UNAVAILABLE.withDescription(\"Server is shutting down\")) with scala.util.control.NoStackTrace"
+      )
       .add("def close(): Unit = {")
       .indent
       .add("if (closed.compareAndSet(false, true)) killSwitch.abort(closingError)")
@@ -82,13 +86,14 @@ final class AkkaGrpcServicePrinter(service: ServiceDescriptor, params: Generator
         .add(
           "package " + service.getFile.scalaPackageName,
           "",
-          s"trait ${service.name}AkkaGrpc extends ${service.getName}Grpc.${service.getName} with AutoCloseable {"
+          s"trait ${service.name}AkkaGrpc extends ${service.getName}Grpc.${service.getName} with AutoCloseable {",
         )
         .indent
         .call(traitBody)
         .newline
         .outdent
         .add("}")
-    } else None
+    }
+    else None
   }
 }

@@ -31,9 +31,11 @@ final class AuthIT
             clients,
             QualifiedName.assertFromString("ScriptTest:auth"),
             inputValue = Some(JsObject(("_1", JsString("Alice")), ("_2", JsString("Bob")))),
-            dar = dar)
-        } yield
-          assert(r == SUnit) // Boring assertion, we just want to see that we do not get an authorization error
+            dar = dar,
+          )
+        } yield assert(
+          r == SUnit
+        ) // Boring assertion, we just want to see that we do not get an authorization error
       }
     }
   }

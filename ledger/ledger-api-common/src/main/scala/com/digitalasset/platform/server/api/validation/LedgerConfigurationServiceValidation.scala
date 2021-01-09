@@ -8,7 +8,7 @@ import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfigurationSe
 import com.daml.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   GetLedgerConfigurationResponse,
-  LedgerConfigurationServiceGrpc
+  LedgerConfigurationServiceGrpc,
 }
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
@@ -31,10 +31,11 @@ class LedgerConfigurationServiceValidation(
 
   override def getLedgerConfiguration(
       request: GetLedgerConfigurationRequest,
-      responseObserver: StreamObserver[GetLedgerConfigurationResponse]): Unit =
+      responseObserver: StreamObserver[GetLedgerConfigurationResponse],
+  ): Unit =
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
       t => responseObserver.onError(t),
-      _ => service.getLedgerConfiguration(request, responseObserver)
+      _ => service.getLedgerConfiguration(request, responseObserver),
     )
 
   override def bindService(): ServerServiceDefinition =

@@ -54,8 +54,8 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     "Direction",
     values = List(
       EnumValue("ASCENDING", value = SortDirection.ASCENDING),
-      EnumValue("DESCENDING", value = SortDirection.DESCENDING)
-    )
+      EnumValue("DESCENDING", value = SortDirection.DESCENDING),
+    ),
   )
 
   val TimeTypeType = EnumType(
@@ -63,16 +63,17 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     values = List(
       EnumValue("static", value = TimeProviderType.Static),
       EnumValue("wallclock", value = TimeProviderType.WallClock),
-      EnumValue("simulated", value = TimeProviderType.Simulated)
-    )
+      EnumValue("simulated", value = TimeProviderType.Simulated),
+    ),
   )
 
   val SortingType = ObjectType(
     "Sorting",
     fields[Unit, SortCriterion](
       Field("field", StringType, resolve = _.value.field),
-      Field("direction", DirectionType, resolve = _.value.direction)
-    ))
+      Field("direction", DirectionType, resolve = _.value.direction),
+    ),
+  )
 
   val TimeType: ScalarType[Instant] = ScalarType[Instant](
     "Time",
@@ -84,7 +85,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     coerceInput = {
       case StringValue(s, _, _, _, _) => parseInstant(s)
       case _ => Left(InstantCoercionViolation)
-    }
+    },
   )
 
   val PartyType = StringAliasType("Party")
@@ -99,8 +100,8 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     fields[Unit, TimeProviderWithType](
       Field("id", IDType, resolve = _ => "CURRENT"),
       Field("time", TimeType, resolve = _.value.time.getCurrentTime),
-      Field("type", TimeTypeType, resolve = _.value.`type`)
-    )
+      Field("type", TimeTypeType, resolve = _.value.`type`),
+    ),
   )
 
   //noinspection ForwardReference
@@ -108,18 +109,19 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     "Node",
     fields[GraphQLContext, Node[_]](
       Field("id", IDType, resolve = _.value.idString)
-    )).withPossibleTypes(
-    () =>
-      List(
-        TransactionType,
-        TemplateType,
-        ContractType,
-        CreateCommandType,
-        ExerciseCommandType,
-        CreatedEventType,
-        ExercisedEventType,
-        DamlLfDefDataTypeType
-    ))
+    ),
+  ).withPossibleTypes(() =>
+    List(
+      TransactionType,
+      TemplateType,
+      ContractType,
+      CreateCommandType,
+      ExerciseCommandType,
+      CreatedEventType,
+      ExercisedEventType,
+      DamlLfDefDataTypeType,
+    )
+  )
 
   //noinspection ForwardReference
   val DamlLfNodeType: InterfaceType[GraphQLContext, DamlLfNode] = InterfaceType(
@@ -128,14 +130,14 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       Field("id", IDType, resolve = _.value.idString),
       Field("package", StringType, resolve = _.value.id.packageId),
       Field("module", StringType, resolve = _.value.id.qualifiedName.module.toString()),
-      Field("name", StringType, resolve = _.value.id.qualifiedName.name.toString())
+      Field("name", StringType, resolve = _.value.id.qualifiedName.name.toString()),
+    ),
+  ).withPossibleTypes(() =>
+    List(
+      DamlLfDefDataTypeType,
+      TemplateType,
     )
-  ).withPossibleTypes(
-    () =>
-      List(
-        DamlLfDefDataTypeType,
-        TemplateType
-    ))
+  )
 
   val ChoiceType = ObjectType(
     "Choice",
@@ -143,10 +145,11 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       Field(
         "name",
         StringType,
-        resolve = context => Tag.unwrap[String, ApiTypes.ChoiceTag](context.value.name)),
+        resolve = context => Tag.unwrap[String, ApiTypes.ChoiceTag](context.value.name),
+      ),
       Field("parameter", JsonType.DamlLfTypeType, resolve = _.value.parameter),
-      Field("consuming", BooleanType, resolve = _.value.consuming)
-    )
+      Field("consuming", BooleanType, resolve = _.value.consuming),
+    ),
   )
 
   //noinspection ForwardReference
@@ -165,25 +168,27 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
             context.ctx.templates
               .damlLfDefDataType(context.value.id)
               .map(DamlLfDefDataTypeBoxed(context.value.id, _))
-              .get
+              .get,
         ),
         Field("choices", ListType(ChoiceType), resolve = _.value.choices),
         Field(
           "contracts",
           ContractPaginationType,
-          arguments = SearchArg :: FilterArg :: IncludeArchivedArg :: CountArg :: StartArg :: SortArg :: Nil,
+          arguments =
+            SearchArg :: FilterArg :: IncludeArchivedArg :: CountArg :: StartArg :: SortArg :: Nil,
           resolve = context =>
-            buildTemplateContractPager(context).fetch(context.ctx.ledger, context.ctx.templates)
-        )
-    )
+            buildTemplateContractPager(context).fetch(context.ctx.ledger, context.ctx.templates),
+        ),
+      ),
   )
 
   val TemplateEdgeType = ObjectType(
     "TemplateEdge",
     fields[GraphQLContext, Template](
       Field("node", TemplateType, resolve = _.value),
-      Field("cursor", StringType, resolve = _.value.idString)
-    ))
+      Field("cursor", StringType, resolve = _.value.idString),
+    ),
+  )
 
   val TemplatePaginationType = ObjectType(
     "TemplatePagination",
@@ -191,8 +196,8 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       Field("beforeCount", IntType, resolve = _.value.offset),
       Field("totalCount", IntType, resolve = _.value.total),
       Field("sortings", OptionType(ListType(SortingType)), resolve = _.value.sortedLike),
-      Field("edges", ListType(TemplateEdgeType), resolve = _.value.rows)
-    )
+      Field("edges", ListType(TemplateEdgeType), resolve = _.value.rows),
+    ),
   )
 
   //noinspection ForwardReference
@@ -206,21 +211,26 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
           OptionType(EventType),
           resolve = context =>
             context.value.parentId.flatMap(pid =>
-              context.ctx.ledger.event(pid, context.ctx.templates))),
+              context.ctx.ledger.event(pid, context.ctx.templates)
+            ),
+        ),
         Field(
           "transaction",
           TransactionType,
           resolve = context =>
-            context.ctx.ledger.transaction(context.value.transactionId, context.ctx.templates).get),
+            context.ctx.ledger.transaction(context.value.transactionId, context.ctx.templates).get,
+        ),
         Field(
           "witnessParties",
           ListType(PartyType),
-          resolve = _.value.witnessParties.map(Tag.unwrap)),
+          resolve = _.value.witnessParties.map(Tag.unwrap),
+        ),
         Field(
           "workflowId",
           StringType,
-          resolve = context => Tag.unwrap[String, ApiTypes.WorkflowIdTag](context.value.workflowId))
-    )
+          resolve = context => Tag.unwrap[String, ApiTypes.WorkflowIdTag](context.value.workflowId),
+        ),
+      ),
   ).withPossibleTypes(() => List(CreatedEventType, ExercisedEventType))
 
   //noinspection ForwardReference
@@ -233,14 +243,16 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
           "transaction",
           TransactionType,
           resolve = context =>
-            context.ctx.ledger.transaction(context.value.transactionId, context.ctx.templates).get),
+            context.ctx.ledger.transaction(context.value.transactionId, context.ctx.templates).get,
+        ),
         Field(
           "contract",
           ContractType,
           resolve = context =>
-            context.ctx.ledger.contract(context.value.contractId, context.ctx.templates).get),
-        Field("argument", JsonType.ApiRecordType, resolve = _.value.argument)
-    )
+            context.ctx.ledger.contract(context.value.contractId, context.ctx.templates).get,
+        ),
+        Field("argument", JsonType.ApiRecordType, resolve = _.value.argument),
+      ),
   )
 
   //noinspection ForwardReference
@@ -253,28 +265,33 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
           "transaction",
           TransactionType,
           resolve = context =>
-            context.ctx.ledger.transaction(context.value.transactionId, context.ctx.templates).get),
+            context.ctx.ledger.transaction(context.value.transactionId, context.ctx.templates).get,
+        ),
         Field(
           "contract",
           ContractType,
           resolve = context =>
-            context.ctx.ledger.contract(context.value.contractId, context.ctx.templates).get),
+            context.ctx.ledger.contract(context.value.contractId, context.ctx.templates).get,
+        ),
         Field(
           "choice",
           StringType,
-          resolve = context => Tag.unwrap[String, ApiTypes.ChoiceTag](context.value.choice)),
+          resolve = context => Tag.unwrap[String, ApiTypes.ChoiceTag](context.value.choice),
+        ),
         Field("argument", JsonType.ApiValueType, resolve = _.value.argument),
         Field(
           "actingParties",
           ListType(PartyType),
-          resolve = _.value.actingParties.map(Tag.unwrap)),
+          resolve = _.value.actingParties.map(Tag.unwrap),
+        ),
         Field("consuming", BooleanType, resolve = _.value.consuming),
         Field(
           "children",
           ListType(EventType),
           resolve =
-            context => context.ctx.ledger.childEvents(context.value.id, context.ctx.templates))
-    )
+            context => context.ctx.ledger.childEvents(context.value.id, context.ctx.templates),
+        ),
+      ),
   )
 
   val TransactionType = ObjectType(
@@ -286,8 +303,8 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
         Field("offset", OffsetType, resolve = context => context.value.offset),
         Field("effectiveAt", TimeType, resolve = _.value.effectiveAt),
         Field("commandId", OptionType(CommandIdType), resolve = _.value.commandId),
-        Field("events", ListType(EventType), resolve = _.value.events)
-    )
+        Field("events", ListType(EventType), resolve = _.value.events),
+      ),
   )
 
   //noinspection ForwardReference
@@ -302,31 +319,35 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
           "createEvent",
           CreatedEventType,
           resolve =
-            context => context.ctx.ledger.createEventOf(context.value, context.ctx.templates)),
+            context => context.ctx.ledger.createEventOf(context.value, context.ctx.templates),
+        ),
         Field(
           "archiveEvent",
           OptionType(ExercisedEventType),
           resolve =
-            context => context.ctx.ledger.archiveEventOf(context.value, context.ctx.templates)),
+            context => context.ctx.ledger.archiveEventOf(context.value, context.ctx.templates),
+        ),
         Field(
           "exerciseEvents",
           ListType(ExercisedEventType),
           resolve =
-            context => context.ctx.ledger.exercisedEventsOf(context.value, context.ctx.templates)),
+            context => context.ctx.ledger.exercisedEventsOf(context.value, context.ctx.templates),
+        ),
         Field("argument", JsonType.ApiRecordType, resolve = _.value.argument),
         Field("agreementText", OptionType(StringType), resolve = _.value.agreementText),
         Field("signatories", ListType(StringType), resolve = _.value.signatories.map(Tag.unwrap)),
         Field("observers", ListType(StringType), resolve = _.value.observers.map(Tag.unwrap)),
-        Field("key", OptionType(JsonType.ApiValueType), resolve = _.value.key)
-    )
+        Field("key", OptionType(JsonType.ApiValueType), resolve = _.value.key),
+      ),
   )
 
   val ContractEdgeType = ObjectType(
     "ContractEdge",
     fields[Unit, Contract](
       Field("node", ContractType, resolve = _.value),
-      Field("cursor", StringType, resolve = _.value.idString)
-    ))
+      Field("cursor", StringType, resolve = _.value.idString),
+    ),
+  )
 
   val ContractPaginationType = ObjectType(
     "ContractPagination",
@@ -334,23 +355,25 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       Field("beforeCount", IntType, resolve = _.value.offset),
       Field("totalCount", IntType, resolve = _.value.total),
       Field("sortings", OptionType(ListType(SortingType)), resolve = _.value.sortedLike),
-      Field("edges", ListType(ContractEdgeType), resolve = _.value.rows)
-    )
+      Field("edges", ListType(ContractEdgeType), resolve = _.value.rows),
+    ),
   )
 
   val FilterCriterionType = InputObjectType(
     "FilterCriterion",
     List(
       InputField("field", StringType),
-      InputField("value", StringType)
-    ))
+      InputField("value", StringType),
+    ),
+  )
 
   val SortCriterionType = InputObjectType(
     "SortCriterion",
     List(
       InputField("field", StringType),
-      InputField("direction", DirectionType)
-    ))
+      InputField("direction", DirectionType),
+    ),
+  )
 
   //noinspection ForwardReference
   val CommandStatusType: InterfaceType[GraphQLContext, CommandStatus] = InterfaceType(
@@ -358,14 +381,15 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     () =>
       fields[GraphQLContext, CommandStatus](
         Field("completed", BooleanType, resolve = _.value.isCompleted)
-    )).withPossibleTypes(
-    () =>
-      List(
-        CommandStatusErrorType,
-        CommandStatusWaitingType,
-        CommandStatusSuccessType,
-        CommandStatusUnknownType
-    ))
+      ),
+  ).withPossibleTypes(() =>
+    List(
+      CommandStatusErrorType,
+      CommandStatusWaitingType,
+      CommandStatusSuccessType,
+      CommandStatusUnknownType,
+    )
+  )
 
   val CommandStatusErrorType: ObjectType[GraphQLContext, CommandStatusError] = ObjectType(
     "CommandStatusError",
@@ -373,8 +397,8 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     () =>
       fields[GraphQLContext, CommandStatusError](
         Field("code", StringType, resolve = _.value.code),
-        Field("details", StringType, resolve = _.value.details)
-    )
+        Field("details", StringType, resolve = _.value.details),
+      ),
   )
 
   val CommandStatusWaitingType: ObjectType[GraphQLContext, CommandStatusWaiting] = ObjectType(
@@ -382,14 +406,16 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     interfaces[GraphQLContext, CommandStatusWaiting](CommandStatusType),
     () =>
       fields[GraphQLContext, CommandStatusWaiting](
-      ))
+      ),
+  )
 
   val CommandStatusUnknownType: ObjectType[GraphQLContext, CommandStatusUnknown] = ObjectType(
     "CommandStatusUnknown",
     interfaces[GraphQLContext, CommandStatusUnknown](CommandStatusType),
     () =>
       fields[GraphQLContext, CommandStatusUnknown](
-      ))
+      ),
+  )
 
   val CommandStatusSuccessType: ObjectType[GraphQLContext, CommandStatusSuccess] = ObjectType(
     "CommandStatusSuccess",
@@ -397,7 +423,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
     () =>
       fields[GraphQLContext, CommandStatusSuccess](
         Field("transaction", TransactionType, resolve = _.value.tx)
-    )
+      ),
   )
 
   //noinspection ForwardReference
@@ -410,7 +436,8 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
         Field(
           "workflowId",
           IDType,
-          resolve = context => Tag.unwrap[String, ApiTypes.WorkflowIdTag](context.value.workflowId)),
+          resolve = context => Tag.unwrap[String, ApiTypes.WorkflowIdTag](context.value.workflowId),
+        ),
         Field("platformTime", TimeType, resolve = _.value.platformTime),
         Field(
           "status",
@@ -418,8 +445,9 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
           resolve = context =>
             context.ctx.ledger
               .statusOf(context.value.id, context.ctx.templates)
-              .getOrElse(CommandStatusUnknown()))
-    )
+              .getOrElse(CommandStatusUnknown()),
+        ),
+      ),
   ).withPossibleTypes(() => List(CreateCommandType, ExerciseCommandType))
 
   val CreateCommandType: ObjectType[GraphQLContext, CreateCommand] = ObjectType(
@@ -430,10 +458,11 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
         Field(
           "template",
           OptionType(TemplateType),
-          resolve = context => context.ctx.templates.template(context.value.template)),
+          resolve = context => context.ctx.templates.template(context.value.template),
+        ),
         Field("templateId", StringType, resolve = context => context.value.template.asOpaqueString),
-        Field("argument", JsonType.ApiRecordType, resolve = _.value.argument)
-    )
+        Field("argument", JsonType.ApiRecordType, resolve = _.value.argument),
+      ),
   )
 
   val ExerciseCommandType: ObjectType[GraphQLContext, ExerciseCommand] = ObjectType(
@@ -445,25 +474,29 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
           "contract",
           OptionType(ContractType),
           resolve =
-            context => context.ctx.ledger.contract(context.value.contract, context.ctx.templates)),
+            context => context.ctx.ledger.contract(context.value.contract, context.ctx.templates),
+        ),
         Field(
           "contractId",
           StringType,
-          resolve = context => Tag.unwrap[String, ApiTypes.ContractIdTag](context.value.contract)),
+          resolve = context => Tag.unwrap[String, ApiTypes.ContractIdTag](context.value.contract),
+        ),
         Field(
           "choice",
           StringType,
-          resolve = context => Tag.unwrap[String, ApiTypes.ChoiceTag](context.value.choice)),
-        Field("argument", JsonType.ApiValueType, resolve = _.value.argument)
-    )
+          resolve = context => Tag.unwrap[String, ApiTypes.ChoiceTag](context.value.choice),
+        ),
+        Field("argument", JsonType.ApiValueType, resolve = _.value.argument),
+      ),
   )
 
   val CommandEdgeType = ObjectType(
     "CommandEdge",
     fields[GraphQLContext, Command](
       Field("node", CommandType, resolve = _.value),
-      Field("cursor", StringType, resolve = _.value.idString)
-    ))
+      Field("cursor", StringType, resolve = _.value.idString),
+    ),
+  )
 
   val CommandPaginationType = ObjectType(
     "CommandPagination",
@@ -471,8 +504,8 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       Field("beforeCount", IntType, resolve = _.value.offset),
       Field("totalCount", IntType, resolve = _.value.total),
       Field("sortings", OptionType(ListType(SortingType)), resolve = _.value.sortedLike),
-      Field("edges", ListType(CommandEdgeType), resolve = _.value.rows)
-    )
+      Field("edges", ListType(CommandEdgeType), resolve = _.value.rows),
+    ),
   )
 
   //noinspection ForwardReference
@@ -491,17 +524,17 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
             context.ctx.templates
               .typeDependencies(context.value.value, context.arg(DepthArg).getOrElse(Int.MaxValue))
               .toList
-              .map(t => DamlLfDefDataTypeBoxed(t._1, t._2))
-        )
-    )
+              .map(t => DamlLfDefDataTypeBoxed(t._1, t._2)),
+        ),
+      ),
   )
 
   val DamlLfFieldWithTypeType = ObjectType(
     "DamlLfFieldWithType",
     fields[GraphQLContext, DamlLfFieldWithType](
       Field("name", StringType, resolve = _.value._1),
-      Field("type", JsonType.DamlLfTypeType, resolve = _.value._2)
-    )
+      Field("type", JsonType.DamlLfTypeType, resolve = _.value._2),
+    ),
   )
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -531,12 +564,12 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
         resolve = context =>
           (context.ctx.store ? ReportCurrentTime)
             .mapTo[Try[TimeProviderWithType]]
-            .map(t => t.get)
+            .map(t => t.get),
       ),
       Field(
         "latestTransaction",
         OptionType(TransactionType),
-        resolve = context => context.ctx.ledger.latestTransaction(context.ctx.templates)
+        resolve = context => context.ctx.ledger.latestTransaction(context.ctx.templates),
       ),
       Field(
         "node",
@@ -563,13 +596,13 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
                 ddt <- context.ctx.templates.damlLfDefDataType(id)
               } yield DamlLfDefDataTypeBoxed(id, ddt)
             case _ => None
-        }
+          },
       ),
       Field(
         "template",
         ListType(TemplateType),
         arguments = DeclarationArg :: Nil,
-        resolve = context => context.ctx.templates.templatesByName(context.arg(DeclarationArg))
+        resolve = context => context.ctx.templates.templatesByName(context.arg(DeclarationArg)),
       ),
       Field(
         "nodes",
@@ -606,28 +639,29 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
                 .toSeq
             case _ => Seq.empty[Node[_]]
           }
-        }
+        },
       ),
       Field(
         "templates",
         TemplatePaginationType,
         arguments = SearchArg :: FilterArg :: CountArg :: StartArg :: SortArg :: Nil,
         resolve =
-          context => buildTemplatePager(context).fetch(context.ctx.ledger, context.ctx.templates)
+          context => buildTemplatePager(context).fetch(context.ctx.ledger, context.ctx.templates),
       ),
       Field(
         "contracts",
         ContractPaginationType,
-        arguments = SearchArg :: FilterArg :: IncludeArchivedArg :: CountArg :: StartArg :: SortArg :: Nil,
+        arguments =
+          SearchArg :: FilterArg :: IncludeArchivedArg :: CountArg :: StartArg :: SortArg :: Nil,
         resolve =
-          context => buildContractPager(context).fetch(context.ctx.ledger, context.ctx.templates)
+          context => buildContractPager(context).fetch(context.ctx.ledger, context.ctx.templates),
       ),
       Field(
         "commands",
         CommandPaginationType,
         arguments = SearchArg :: FilterArg :: CountArg :: StartArg :: SortArg :: Nil,
         resolve =
-          context => buildCommandPager(context).fetch(context.ctx.ledger, context.ctx.templates)
+          context => buildCommandPager(context).fetch(context.ctx.ledger, context.ctx.templates),
       ),
       Field(
         "commandStatus",
@@ -636,9 +670,9 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
         resolve = context =>
           context.ctx.ledger
             .statusOf(ApiTypes.CommandId(context.arg(IDArg)), context.ctx.templates)
-            .getOrElse(CommandStatusUnknown())
-      )
-    ) ++ customEndpoints.map(_.endpoint)
+            .getOrElse(CommandStatusUnknown()),
+      ),
+    ) ++ customEndpoints.map(_.endpoint),
   )
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -660,7 +694,7 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
         resolve = context =>
           (context.ctx.store ? AdvanceTime(context.arg(TimeArgument)))
             .mapTo[Try[TimeProviderWithType]]
-            .map(t => t.get)
+            .map(t => t.get),
       ),
       Field(
         "create",
@@ -670,10 +704,10 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
           val command = CreateContract(
             context.ctx.party,
             TemplateStringId(context.arg(TemplateIdArgument)),
-            context.arg(AnyArgument).collect({ case r: ApiRecord => r }).orNull
+            context.arg(AnyArgument).collect({ case r: ApiRecord => r }).orNull,
           )
           wrapError((context.ctx.store ? command).mapTo[Try[ApiTypes.CommandId]])
-        }
+        },
       ),
       Field(
         "exercise",
@@ -684,12 +718,12 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
             context.ctx.party,
             ApiTypes.ContractId(context.arg(ContractIdArgument)),
             ApiTypes.Choice(context.arg(ChoiceIdArgument)),
-            context.arg(AnyArgument).orNull
+            context.arg(AnyArgument).orNull,
           )
           wrapError((context.ctx.store ? command).mapTo[Try[ApiTypes.CommandId]])
-        }
-      )
-    )
+        },
+      ),
+    ),
   )
 
   val QuerySchema = Schema(QueryType, Some(MutationType))
@@ -699,17 +733,19 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
   private def buildContractPager(context: Context[GraphQLContext, _]): Pager[Contract] =
     buildContractPager(
       context,
-      if (shouldIncludeArchived(context)) AllContractsPager else ActiveContractsPager)
+      if (shouldIncludeArchived(context)) AllContractsPager else ActiveContractsPager,
+    )
 
   private def buildTemplateContractPager(
-      context: Context[GraphQLContext, Template]): Pager[Contract] =
+      context: Context[GraphQLContext, Template]
+  ): Pager[Contract] =
     buildContractPager(
       context,
       if (shouldIncludeArchived(context)) {
         new TemplateContractPager(context.value)
       } else {
         new ActiveTemplateContractPager(context.value)
-      }
+      },
     )
 
   private def shouldIncludeArchived(context: Context[_, _]): Boolean =
@@ -720,12 +756,14 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
       List(
         FilterCriterion("id", search),
         FilterCriterion("template.id", search),
-        FilterCriterion("template.topLevelDecl", search)
-      ))
+        FilterCriterion("template.topLevelDecl", search),
+      )
+    )
 
   private def buildContractPager(
       context: Context[GraphQLContext, _],
-      base: Pager[Contract]): Pager[Contract] = {
+      base: Pager[Contract],
+  ): Pager[Contract] = {
     val ps = context.ctx.templates.damlLfDefDataType(_)
     val searched = context
       .arg(SearchArg)
@@ -747,7 +785,8 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
 
   private def buildTemplatePager(
       context: Context[GraphQLContext, _],
-      base: Pager[Template] = TemplatePager): Pager[Template] = {
+      base: Pager[Template] = TemplatePager,
+  ): Pager[Template] = {
     val ps = context.ctx.templates.damlLfDefDataType(_)
     val searched = context
       .arg(SearchArg)
@@ -769,7 +808,8 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
 
   private def buildCommandPager(
       context: Context[GraphQLContext, _],
-      base: Pager[Command] = CommandPager): Pager[Command] = {
+      base: Pager[Command] = CommandPager,
+  ): Pager[Command] = {
     val ps = context.ctx.templates.damlLfDefDataType(_)
     val searched = context
       .arg(SearchArg)
@@ -794,22 +834,23 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
 
   def sortCriteria(arg: Seq[DefaultInput]): List[SortCriterion] =
     arg
-      .map(
-        input =>
-          SortCriterion(
-            input("field").toString,
-            SortDirection.withName(input("direction").toString)
-        ))
+      .map(input =>
+        SortCriterion(
+          input("field").toString,
+          SortDirection.withName(input("direction").toString),
+        )
+      )
       .toList
 
   def filterCriteria(arg: Seq[DefaultInput]): AndFilterCriterion =
     AndFilterCriterion(
-      arg.map(
-        input =>
-          FilterCriterion(
-            input("field").toString,
-            input("value").toString
-        ))(collection.breakOut))
+      arg.map(input =>
+        FilterCriterion(
+          input("field").toString,
+          input("value").toString,
+        )
+      )(collection.breakOut)
+    )
 
   private def parseInstant(s: String): Either[Violation, Instant] = Try(Instant.parse(s)) match {
     case Success(instant) => Right(instant)

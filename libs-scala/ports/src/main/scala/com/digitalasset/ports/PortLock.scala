@@ -9,7 +9,7 @@ import java.nio.channels.{
   ClosedChannelException,
   FileChannel,
   FileLock,
-  OverlappingFileLockException
+  OverlappingFileLockException,
 }
 import java.nio.file.{Files, Path, Paths}
 

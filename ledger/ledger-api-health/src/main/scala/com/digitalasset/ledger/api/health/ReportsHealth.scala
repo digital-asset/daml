@@ -5,8 +5,7 @@ package com.daml.ledger.api.health
 
 trait ReportsHealth {
 
-  /**
-    * Reports the current health of the object. This should always return immediately.
+  /** Reports the current health of the object. This should always return immediately.
     */
   def currentHealth(): HealthStatus
 }

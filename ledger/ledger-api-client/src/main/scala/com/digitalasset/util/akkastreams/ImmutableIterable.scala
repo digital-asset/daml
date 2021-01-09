@@ -5,8 +5,7 @@ package com.daml.util.akkastreams
 
 import scala.collection.immutable
 
-/**
-  * Added to make akka-streams .mapConcat accept collections parsed from proto.
+/** Added to make akka-streams .mapConcat accept collections parsed from proto.
   */
 final case class ImmutableIterable[T](iterable: Iterable[T]) extends immutable.Iterable[T] {
 

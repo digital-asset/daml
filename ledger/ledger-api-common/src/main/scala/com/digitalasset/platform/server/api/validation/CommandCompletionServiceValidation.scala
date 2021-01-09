@@ -29,7 +29,8 @@ class CommandCompletionServiceValidation(
 
   override def completionStream(
       request: CompletionStreamRequest,
-      responseObserver: StreamObserver[CompletionStreamResponse]): Unit = {
+      responseObserver: StreamObserver[CompletionStreamResponse],
+  ): Unit = {
     val validation = for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       _ <- requireNonEmptyString(request.applicationId, "application_id")
@@ -38,7 +39,7 @@ class CommandCompletionServiceValidation(
 
     validation.fold(
       exception => responseObserver.onError(exception),
-      value => service.completionStream(value, responseObserver)
+      value => service.completionStream(value, responseObserver),
     )
   }
 

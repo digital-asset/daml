@@ -24,9 +24,11 @@ trait SubmitAndWaitMultiPartyDummyCommand extends TestCommands { self: ServiceCa
         s"$serviceCallName-${UUID.randomUUID}",
         party,
         actAs,
-        readAs)
+        readAs,
+      )
         .update(_.commands.applicationId := serviceCallName)
-        .commands)
+        .commands
+    )
 
   private def service(token: Option[String]) =
     stub(CommandServiceGrpc.stub(channel), token)

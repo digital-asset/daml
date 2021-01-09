@@ -8,7 +8,7 @@ import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrp
 import com.daml.ledger.api.v1.active_contracts_service.{
   ActiveContractsServiceGrpc,
   GetActiveContractsRequest,
-  GetActiveContractsResponse
+  GetActiveContractsResponse,
 }
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
@@ -31,7 +31,8 @@ class ActiveContractsServiceValidation(
 
   override def getActiveContracts(
       request: GetActiveContractsRequest,
-      responseObserver: StreamObserver[GetActiveContractsResponse]): Unit = {
+      responseObserver: StreamObserver[GetActiveContractsResponse],
+  ): Unit = {
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .fold(responseObserver.onError, _ => service.getActiveContracts(request, responseObserver))
   }

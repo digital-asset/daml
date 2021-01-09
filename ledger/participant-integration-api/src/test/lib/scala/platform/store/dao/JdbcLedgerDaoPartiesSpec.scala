@@ -118,18 +118,20 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     recoverToSucceededIf[LedgerEndUpdateError](
       ledgerDao.storePartyEntry(
         IncrementalOffsetStep(nextOffset(), nextOffset()),
-        allocationAccepted(fred)
-      ))
+        allocationAccepted(fred),
+      )
+    )
   }
 
   private def storePartyEntry(
       partyDetails: PartyDetails,
       offset: Offset,
-      shouldUpdateLegerEnd: Boolean = true) =
+      shouldUpdateLegerEnd: Boolean = true,
+  ) =
     ledgerDao
       .storePartyEntry(
         OffsetStep(previousOffset.get(), offset),
-        allocationAccepted(partyDetails)
+        allocationAccepted(partyDetails),
       )
       .map { response =>
         if (shouldUpdateLegerEnd) previousOffset.set(Some(offset))

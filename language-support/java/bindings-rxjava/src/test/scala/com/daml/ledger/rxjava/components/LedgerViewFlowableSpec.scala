@@ -22,7 +22,7 @@ class LedgerViewFlowableSpec extends AnyFlatSpec with Matchers {
       Flowable.never[LedgerViewFlowable.CompletionFailure](),
       Flowable.never[WorkflowEvent](),
       Flowable.never[CommandsAndPendingSet](),
-      _ => ()
+      _ => (),
     )
 
     intercept[RuntimeException] {
@@ -48,7 +48,7 @@ class LedgerViewFlowableSpec extends AnyFlatSpec with Matchers {
       Flowable.never[LedgerViewFlowable.CompletionFailure](),
       Flowable.never[WorkflowEvent](),
       Flowable.never[CommandsAndPendingSet](),
-      _ => ()
+      _ => (),
     )
 
     ledgerViewFlowable

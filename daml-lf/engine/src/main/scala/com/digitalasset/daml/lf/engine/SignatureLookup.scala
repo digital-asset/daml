@@ -10,7 +10,8 @@ import com.daml.lf.language.Ast._
 object SignatureLookup {
   def lookupDefinition(
       pkg: PackageSignature,
-      identifier: QualifiedName): Either[Error, DefinitionSignature] =
+      identifier: QualifiedName,
+  ): Either[Error, DefinitionSignature] =
     pkg.lookupDefinition(identifier).fold(err => Left(Error(err)), Right(_))
 
   def lookupDataType(pkg: PackageSignature, identifier: QualifiedName): Either[Error, DDataType] =
@@ -22,7 +23,8 @@ object SignatureLookup {
           Left(Error(s"Got value definition instead of datatype when looking up $identifier"))
         case _: DTypeSyn =>
           Left(
-            Error(s"Got type synonym definition instead of datatype when looking up $identifier"))
+            Error(s"Got type synonym definition instead of datatype when looking up $identifier")
+          )
       }
     } yield dataTyp
 
@@ -71,7 +73,8 @@ object SignatureLookup {
 
   def lookupTemplate(
       pkg: PackageSignature,
-      identifier: QualifiedName): Either[Error, TemplateSignature] =
+      identifier: QualifiedName,
+  ): Either[Error, TemplateSignature] =
     pkg.lookupTemplate(identifier).left.map(Error(_))
 
 }

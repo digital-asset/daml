@@ -37,22 +37,21 @@ private[validation] object Collision {
   private def namedEntitiesFromPkg(
       modules: Iterable[(ModuleName, Ast.Module)]
   ): Iterable[NamedEntity] =
-    modules.flatMap {
-      case (modName, module) =>
-        val namedModule = NModDef(modName, module.definitions.toList)
-        namedModule :: namedEntitiesFromMod(namedModule, module.definitions.toList)
+    modules.flatMap { case (modName, module) =>
+      val namedModule = NModDef(modName, module.definitions.toList)
+      namedModule :: namedEntitiesFromMod(namedModule, module.definitions.toList)
     }
 
   private def namedEntitiesFromMod(
       module: NModDef,
-      defns: List[(DottedName, Ast.Definition)]
+      defns: List[(DottedName, Ast.Definition)],
   ): List[NamedEntity] =
     defns.flatMap { case (defName, defn) => namedEntitiesFromDef(module, defName, defn) }
 
   private def namedEntitiesFromDef(
       module: NModDef,
       defName: DottedName,
-      defn: Ast.Definition
+      defn: Ast.Definition,
   ): List[NamedEntity] =
     defn match {
       case dDef @ Ast.DDataType(_, _, Ast.DataRecord(fields)) =>

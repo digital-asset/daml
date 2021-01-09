@@ -9,21 +9,18 @@ import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 
 import scala.concurrent.Future
 
-/**
-  * Defines how we initiate a commit to the ledger.
+/** Defines how we initiate a commit to the ledger.
   *
   * For example, the implementation may call the committer node through RPC and transmit the
   * submission, or in case of an in-memory implementation the validator may be directly called.
   */
 trait LedgerWriter extends ReportsHealth {
 
-  /**
-    * @return participant ID of the participant on which this LedgerWriter instance runs
+  /** @return participant ID of the participant on which this LedgerWriter instance runs
     */
   def participantId: ParticipantId
 
-  /**
-    * Sends a submission to be committed to the ledger.
+  /** Sends a submission to be committed to the ledger.
     *
     * @param correlationId correlation ID to be used for logging purposes
     * @param envelope      opaque submission; may be compressed

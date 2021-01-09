@@ -24,7 +24,7 @@ object StringAliasType {
       coerceInput = {
         case StringValue(s, _, _, _, _) => Right(s)
         case _ ⇒ Left(StringCoercionViolation)
-      }
+      },
     )
 
   def tagged[T](name: String, description: Option[String] = None): ScalarType[String @@ T] =
@@ -39,6 +39,6 @@ object StringAliasType {
       coerceInput = {
         case StringValue(s, _, _, _, _) => Right(Tag.of[T](s))
         case _ ⇒ Left(StringCoercionViolation)
-      }
+      },
     )
 }

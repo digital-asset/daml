@@ -15,7 +15,7 @@ final class StateSerializationStrategy(keyStrategy: StateKeySerializationStrateg
   def serializeStateUpdates(
       state: Map[DamlStateKey, DamlStateValue]
   ): SortedMap[Raw.Key, Raw.Value] =
-    state.map {
-      case (key, value) => serializeState(key, value)
+    state.map { case (key, value) =>
+      serializeState(key, value)
     }(breakOut)
 }

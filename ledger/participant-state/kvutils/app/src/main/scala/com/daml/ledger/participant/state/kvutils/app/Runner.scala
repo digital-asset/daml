@@ -51,30 +51,32 @@ final class Runner[T <: ReadWriteService, Extra](
     }
   }
 
-  private def dumpIndexMetadata(jdbcUrls: Seq[String])(
-      implicit resourceContext: ResourceContext): Resource[Unit] = {
+  private def dumpIndexMetadata(
+      jdbcUrls: Seq[String]
+  )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     val logger = ContextualizedLogger.get(this.getClass)
     import ExecutionContext.Implicits.global
     Resource.sequenceIgnoringValues(for (jdbcUrl <- jdbcUrls) yield {
-      newLoggingContext("jdbcUrl" -> jdbcUrl) {
-        implicit loggingContext: LoggingContext =>
-          Resource.fromFuture(IndexMetadata.read(jdbcUrl).andThen {
-            case Failure(exception) =>
-              logger.error("Error while retrieving the index metadata", exception)
-            case Success(metadata) =>
-              logger.warn(s"ledger_id: ${metadata.ledgerId}")
-              logger.warn(s"participant_id: ${metadata.participantId}")
-              logger.warn(s"ledger_end: ${metadata.ledgerEnd}")
-              logger.warn(s"version: ${metadata.participantIntegrationApiVersion}")
-          })
+      newLoggingContext("jdbcUrl" -> jdbcUrl) { implicit loggingContext: LoggingContext =>
+        Resource.fromFuture(IndexMetadata.read(jdbcUrl).andThen {
+          case Failure(exception) =>
+            logger.error("Error while retrieving the index metadata", exception)
+          case Success(metadata) =>
+            logger.warn(s"ledger_id: ${metadata.ledgerId}")
+            logger.warn(s"participant_id: ${metadata.participantId}")
+            logger.warn(s"ledger_end: ${metadata.ledgerEnd}")
+            logger.warn(s"version: ${metadata.participantIntegrationApiVersion}")
+        })
       }
     })
   }
 
-  private def run(config: Config[Extra])(
-      implicit resourceContext: ResourceContext): Resource[Unit] = {
+  private def run(
+      config: Config[Extra]
+  )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     implicit val actorSystem: ActorSystem = ActorSystem(
-      "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
+      "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-")
+    )
     implicit val materializer: Materializer = Materializer(actorSystem)
 
     val sharedEngine = Engine.StableEngine()
@@ -97,12 +99,12 @@ final class Runner[T <: ReadWriteService, Extra](
               metrics = metrics,
             )
           for {
-            _ <- config.metricsReporter.fold(Resource.unit)(
-              reporter =>
-                ResourceOwner
-                  .forCloseable(() => reporter.register(metrics.registry))
-                  .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
-                  .acquire())
+            _ <- config.metricsReporter.fold(Resource.unit)(reporter =>
+              ResourceOwner
+                .forCloseable(() => reporter.register(metrics.registry))
+                .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+                .acquire()
+            )
             ledger <- factory
               .readWriteServiceOwner(config, participantConfig, sharedEngine)
               .acquire()
@@ -112,8 +114,11 @@ final class Runner[T <: ReadWriteService, Extra](
               "read" -> readService,
               "write" -> writeService,
             )
-            _ <- Resource.sequence(config.archiveFiles.map(path =>
-              Resource.fromFuture(uploadDar(path, writeService)(resourceContext.executionContext))))
+            _ <- Resource.sequence(
+              config.archiveFiles.map(path =>
+                Resource.fromFuture(uploadDar(path, writeService)(resourceContext.executionContext))
+              )
+            )
             servicesExecutionContext <- ResourceOwner
               .forExecutorService(() => Executors.newWorkStealingPool())
               .map(ExecutionContext.fromExecutorService)
@@ -156,13 +161,14 @@ final class Runner[T <: ReadWriteService, Extra](
     }
   }
 
-  private def uploadDar(from: Path, to: WritePackagesService)(
-      implicit executionContext: ExecutionContext
+  private def uploadDar(from: Path, to: WritePackagesService)(implicit
+      executionContext: ExecutionContext
   ): Future[Unit] = {
     val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
     for {
       dar <- Future(
-        DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from.toFile).get)
+        DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from.toFile).get
+      )
       _ <- to.uploadPackages(submissionId, dar.all, None).toScala
     } yield ()
   }

@@ -18,7 +18,7 @@ object FlowUtil {
             Some(x)
         }
       }
-      .collect {
-        case Some(x) => x
+      .collect { case Some(x) =>
+        x
       }
 }

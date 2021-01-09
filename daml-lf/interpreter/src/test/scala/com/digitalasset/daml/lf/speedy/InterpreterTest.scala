@@ -119,7 +119,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
     }
 
     a[Compiler.CompilationError] shouldBe thrownBy(
-      runExpr(e"""(/\ (n: nat). /\ (n: *). FROM_TEXT_NUMERIC @n n) @4 @Text"""),
+      runExpr(e"""(/\ (n: nat). /\ (n: *). FROM_TEXT_NUMERIC @n n) @4 @Text""")
     )
   }
 
@@ -196,18 +196,18 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
                   name = modName,
                   definitions = Map(
                     DottedName.assertFromString("bar") ->
-                      DValue(TBuiltin(BTBool), true, ETrue, false),
+                      DValue(TBuiltin(BTBool), true, ETrue, false)
                   ),
                   templates = Map.empty,
                   exceptions = Map.empty,
                   featureFlags = FeatureFlags.default,
-                ),
+                )
               ),
               Set.empty[PackageId],
               LanguageVersion.default,
               None,
-            ),
-        ),
+            )
+        )
       ).toOption.get
     val pkgs3 = PureCompiledPackages(
       Map(
@@ -220,13 +220,13 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
                 templates = Map.empty,
                 exceptions = Map.empty,
                 featureFlags = FeatureFlags.default,
-              ),
+              )
             ),
             Set.empty[PackageId],
             LanguageVersion.default,
             None,
-          ),
-      ),
+          )
+      )
     ).toOption.get
 
     "succeeds" in {

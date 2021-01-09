@@ -204,8 +204,8 @@ final case class ETypeSynAppWrongArity(
     context: Context,
     expectedArity: Int,
     syn: TypeSynName,
-    args: ImmArray[Type])
-    extends ValidationError {
+    args: ImmArray[Type],
+) extends ValidationError {
   protected def prettyInternal: String =
     s"wrong arity in type synonym application: ${syn.qualifiedName} ${args.toSeq.map(_.pretty).mkString(" ")}"
 }
@@ -236,8 +236,8 @@ final case class EExpectedRecordType(context: Context, conApp: TypeConApp) exten
 final case class EFieldMismatch(
     context: Context,
     conApp: TypeConApp,
-    fields: ImmArray[(FieldName, Expr)])
-    extends ValidationError {
+    fields: ImmArray[(FieldName, Expr)],
+) extends ValidationError {
   protected def prettyInternal: String =
     s"field mismatch: * expected: $conApp * record expression: $fields"
 }
@@ -272,8 +272,8 @@ final case class ETypeMismatch(
     context: Context,
     foundType: Type,
     expectedType: Type,
-    expr: Option[Expr])
-    extends ValidationError {
+    expr: Option[Expr],
+) extends ValidationError {
   protected def prettyInternal: String =
     s"""type mismatch:
        | * expected type: ${expectedType.pretty}
@@ -326,8 +326,8 @@ final case class EExpectedSerializableType(
     context: Context,
     requirement: SerializabilityRequirement,
     typ: Type,
-    reason: UnserializabilityReason)
-    extends ValidationError {
+    reason: UnserializabilityReason,
+) extends ValidationError {
   protected def prettyInternal: String =
     s"""expected serializable type:
        | * reason: ${reason.pretty}
@@ -338,8 +338,8 @@ final case class EExpectedSerializableType(
 final case class ETypeConMismatch(
     context: Context,
     foundConName: TypeConName,
-    expectedConName: TypeConName)
-    extends ValidationError {
+    expectedConName: TypeConName,
+) extends ValidationError {
   protected def prettyInternal: String =
     s"""type constructor mismatch:
        | * expected: ${expectedConName.qualifiedName}
@@ -409,7 +409,7 @@ final case class EForbiddenPartyLiterals(context: Context, ref: PartyLiteralRef)
 final case class ECollision(
     pkgId: PackageId,
     entity1: NamedEntity,
-    entity2: NamedEntity
+    entity2: NamedEntity,
 ) extends ValidationError {
 
   assert(entity1.fullyResolvedName == entity2.fullyResolvedName)

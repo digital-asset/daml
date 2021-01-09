@@ -14,8 +14,8 @@ import scala.concurrent.{ExecutionContext, Future}
 final class PackageServiceImpl(
     listPackagesResponse: Future[ListPackagesResponse],
     getPackageResponse: Future[GetPackageResponse],
-    getPackageStatusResponse: Future[GetPackageStatusResponse])
-    extends PackageService
+    getPackageStatusResponse: Future[GetPackageStatusResponse],
+) extends PackageService
     with FakeAutoCloseable {
 
   private var lastListPackageRequest: Option[ListPackagesRequest] = None
@@ -33,7 +33,8 @@ final class PackageServiceImpl(
   }
 
   override def getPackageStatus(
-      request: GetPackageStatusRequest): Future[GetPackageStatusResponse] = {
+      request: GetPackageStatusRequest
+  ): Future[GetPackageStatusResponse] = {
     this.lastGetPackageStatusRequest = Some(request)
     getPackageStatusResponse
   }
@@ -50,8 +51,8 @@ object PackageServiceImpl {
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
       getPackageStatusResponse: Future[GetPackageStatusResponse],
-      authorizer: Authorizer)(
-      implicit ec: ExecutionContext): (ServerServiceDefinition, PackageServiceImpl) = {
+      authorizer: Authorizer,
+  )(implicit ec: ExecutionContext): (ServerServiceDefinition, PackageServiceImpl) = {
     val impl =
       new PackageServiceImpl(listPackagesResponse, getPackageResponse, getPackageStatusResponse)
     val authImpl = new PackageServiceAuthorization(impl, authorizer)

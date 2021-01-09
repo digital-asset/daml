@@ -68,7 +68,8 @@ object Config {
   ): ResourceOwner[Config[Extra]] =
     parse(name, extraOptions, defaultExtra, args)
       .fold[ResourceOwner[Config[Extra]]](ResourceOwner.failed(new ConfigParseException))(
-        ResourceOwner.successful)
+        ResourceOwner.successful
+      )
 
   def parse[Extra](
       name: String,
@@ -95,7 +96,9 @@ object Config {
 
       opt[Map[String, String]]("participant")
         .unbounded()
-        .text("The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight, management-service-timeout, run-mode, shard-name]")
+        .text(
+          "The configuration of a participant. Comma-separated pairs in the form key=value, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url, max-commands-in-flight, management-service-timeout, run-mode, shard-name]"
+        )
         .action((kv, config) => {
           val participantId = ParticipantId.assertFromString(kv("participant-id"))
           val port = Port(kv("port").toInt)
@@ -108,14 +111,16 @@ object Config {
             case Some("ledger-api-server") => ParticipantRunMode.LedgerApiServer
             case Some(unknownMode) =>
               throw new RuntimeException(
-                s"$unknownMode is not a valid run mode. Valid modes are: combined, indexer, ledger-api-server. Default mode is combined.")
+                s"$unknownMode is not a valid run mode. Valid modes are: combined, indexer, ledger-api-server. Default mode is combined."
+              )
           }
           val jdbcUrlFromEnv =
             kv.get("server-jdbc-url-env").flatMap(getEnvVar(_))
           val jdbcUrl =
             kv.getOrElse(
               "server-jdbc-url",
-              jdbcUrlFromEnv.getOrElse(ParticipantConfig.defaultIndexJdbcUrl(participantId)))
+              jdbcUrlFromEnv.getOrElse(ParticipantConfig.defaultIndexJdbcUrl(participantId)),
+            )
           val maxCommandsInFlight = kv.get("max-commands-in-flight").map(_.toInt)
           val managementServiceTimeout = kv
             .get("management-service-timeout")
@@ -139,7 +144,9 @@ object Config {
 
       opt[String]("ledger-id")
         .optional()
-        .text("The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID.")
+        .text(
+          "The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID."
+        )
         .action((ledgerId, config) => config.copy(ledgerId = ledgerId))
 
       opt[String]("pem")
@@ -148,59 +155,75 @@ object Config {
         .action((path, config) => config.withTlsConfig(c => c.copy(keyFile = Some(new File(path)))))
       opt[String]("crt")
         .optional()
-        .text("TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.")
+        .text(
+          "TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set."
+        )
         .action((path, config) =>
-          config.withTlsConfig(c => c.copy(keyCertChainFile = Some(new File(path)))))
+          config.withTlsConfig(c => c.copy(keyCertChainFile = Some(new File(path))))
+        )
       opt[String]("cacrt")
         .optional()
         .text("TLS: The crt file to be used as the trusted root CA.")
         .action((path, config) =>
-          config.withTlsConfig(c => c.copy(trustCertCollectionFile = Some(new File(path)))))
+          config.withTlsConfig(c => c.copy(trustCertCollectionFile = Some(new File(path))))
+        )
       opt[Boolean]("cert-revocation-checking")
         .optional()
         .text(
-          "TLS: enable/disable certificate revocation checks with the OCSP. Disabled by default.")
+          "TLS: enable/disable certificate revocation checks with the OCSP. Disabled by default."
+        )
         .action((checksEnabled, config) =>
-          config.withTlsConfig(c => c.copy(enableCertRevocationChecking = checksEnabled)))
+          config.withTlsConfig(c => c.copy(enableCertRevocationChecking = checksEnabled))
+        )
 
       arg[File]("<archive>...")
         .optional()
         .unbounded()
-        .text("DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default.")
+        .text(
+          "DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default."
+        )
         .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
 
       opt[Int]("max-inbound-message-size")
         .optional()
         .text(
-          s"Max inbound message size in bytes. Defaults to ${Config.DefaultMaxInboundMessageSize}.")
+          s"Max inbound message size in bytes. Defaults to ${Config.DefaultMaxInboundMessageSize}."
+        )
         .action((maxInboundMessageSize, config) =>
-          config.copy(maxInboundMessageSize = maxInboundMessageSize))
+          config.copy(maxInboundMessageSize = maxInboundMessageSize)
+        )
 
       opt[Int]("events-page-size")
         .optional()
         .text(
-          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}.")
+          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}."
+        )
         .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
       opt[Long]("max-state-value-cache-size")
         .optional()
         .text(
-          s"The maximum size of the cache used to deserialize state values, in MB. By default, nothing is cached.")
+          s"The maximum size of the cache used to deserialize state values, in MB. By default, nothing is cached."
+        )
         .action((maximumStateValueCacheSize, config) =>
           config.copy(stateValueCache =
-            config.stateValueCache.copy(maximumWeight = maximumStateValueCacheSize * 1024 * 1024)))
+            config.stateValueCache.copy(maximumWeight = maximumStateValueCacheSize * 1024 * 1024)
+          )
+        )
 
       opt[Long]("max-lf-value-translation-cache-entries")
         .optional()
         .text(
-          s"The maximum size of the cache used to deserialize DAML-LF values, in number of allowed entries. By default, nothing is cached.")
+          s"The maximum size of the cache used to deserialize DAML-LF values, in number of allowed entries. By default, nothing is cached."
+        )
         .action((maximumLfValueTranslationCacheEntries, config) =>
           config.copy(
-            lfValueTranslationEventCache = config.lfValueTranslationEventCache.copy(
-              maximumSize = maximumLfValueTranslationCacheEntries),
-            lfValueTranslationContractCache = config.lfValueTranslationContractCache.copy(
-              maximumSize = maximumLfValueTranslationCacheEntries),
-        ))
+            lfValueTranslationEventCache = config.lfValueTranslationEventCache
+              .copy(maximumSize = maximumLfValueTranslationCacheEntries),
+            lfValueTranslationContractCache = config.lfValueTranslationContractCache
+              .copy(maximumSize = maximumLfValueTranslationCacheEntries),
+          )
+        )
 
       private val seedingMap =
         Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)
@@ -208,13 +231,15 @@ object Config {
       opt[String]("contract-id-seeding")
         .optional()
         .text(s"""Set the seeding of contract ids. Possible values are ${seedingMap.keys.mkString(
-          ",")}. Default is "strong".""")
-        .validate(
-          v =>
-            Either.cond(
-              seedingMap.contains(v.toLowerCase),
-              (),
-              s"seeding must be ${seedingMap.keys.mkString(",")}"))
+          ","
+        )}. Default is "strong".""")
+        .validate(v =>
+          Either.cond(
+            seedingMap.contains(v.toLowerCase),
+            (),
+            s"seeding must be ${seedingMap.keys.mkString(",")}",
+          )
+        )
         .action((text, config) => config.copy(seeding = seedingMap(text)))
         .hidden()
 
@@ -241,7 +266,8 @@ object Config {
                   Mode.DumpIndexMetadata(Vector(jdbcUrl))
                 case Mode.DumpIndexMetadata(jdbcUrls) =>
                   Mode.DumpIndexMetadata(jdbcUrls :+ jdbcUrl)
-              }))
+              })
+            )
         }
 
       checkConfig(c => {
@@ -256,8 +282,9 @@ object Config {
             participantsIdsWithNonUniqueShardNames.mkString(
               "The following participant IDs are duplicate, but the individual shards don't have unique names: ",
               ",",
-              ". Use the optional 'shard-name' key when specifying horizontally scaled participants."
-            ))
+              ". Use the optional 'shard-name' key when specifying horizontally scaled participants.",
+            )
+          )
         else
           success
       })

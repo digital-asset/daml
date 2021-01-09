@@ -26,7 +26,8 @@ class CliSpec
         DefaultConfig.copy(
           ledgerIdMode = LedgerIdMode.Static(LedgerId("test-ledger")),
           jdbcUrl = Some(exampleJdbcUrl),
-        )),
+        )
+      ),
     )
     with BeforeAndAfterEach {
 

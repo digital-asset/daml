@@ -57,7 +57,7 @@ trait TestCommands {
       commands = List(
         createWithOperator(templateIds.dummy, party),
         createWithOperator(templateIds.dummyWithParam, party),
-        createWithOperator(templateIds.dummyFactory, party)
+        createWithOperator(templateIds.dummyFactory, party),
       ),
       party = party,
     )
@@ -82,9 +82,13 @@ trait TestCommands {
 
   protected def createWithOperator(templateId: Identifier, party: String = M.party): Command =
     Command(
-      Create(CreateCommand(
-        Some(templateId),
-        Some(Record(Some(templateId), List(RecordField("operator", Some(Value(Party(party))))))))))
+      Create(
+        CreateCommand(
+          Some(templateId),
+          Some(Record(Some(templateId), List(RecordField("operator", Some(Value(Party(party))))))),
+        )
+      )
+    )
 
   private def oneKilobyteString: String = {
     val numChars = 500 // each char takes 2 bytes for now in Java 8
@@ -103,9 +107,13 @@ trait TestCommands {
               Some(templateId),
               List(
                 RecordField("operator", Some(Value(Party("party")))),
-                RecordField("text", Some(Value(Text(oneKilobyteString))))
-              )))
-        )))
+                RecordField("text", Some(Value(Text(oneKilobyteString)))),
+              ),
+            )
+          ),
+        )
+      )
+    )
 
   protected def paramShowcaseArgs: Record = {
     val variant = Value(Value.Sum.Variant(Variant(None, "SomeInteger", 1.asInt64)))
@@ -120,10 +128,13 @@ trait TestCommands {
         RecordField("text", Value(Text("text"))),
         RecordField("bool", Value(Bool(true))),
         RecordField("time", Value(Timestamp(0))),
-        RecordField("relTime", 42.asInt64), // RelTime gets now compiled to Integer with the new primitive types
+        RecordField(
+          "relTime",
+          42.asInt64,
+        ), // RelTime gets now compiled to Integer with the new primitive types
         RecordField("nestedOptionalInteger", nestedVariant),
         RecordField("integerList", integerList),
-      )
+      ),
     )
   }
 
@@ -134,8 +145,12 @@ trait TestCommands {
     "cmd",
     "Alice",
     Seq(
-      Command(Command.Command.Create(
-        CreateCommand(Some(templateIds.parameterShowcase), Option(paramShowcaseArgs)))))
+      Command(
+        Command.Command.Create(
+          CreateCommand(Some(templateIds.parameterShowcase), Option(paramShowcaseArgs))
+        )
+      )
+    ),
   )
 
   protected def oneKbCommandRequest(ledgerId: domain.LedgerId, commandId: String): SubmitRequest =
@@ -145,7 +160,7 @@ trait TestCommands {
       templateId: Identifier,
       contractId: String,
       choice: String,
-      args: Option[Value] = Some(Value(Sum.Record(Record.defaultInstance)))
+      args: Option[Value] = Some(Value(Sum.Record(Record.defaultInstance))),
   ): Command =
     Command(Exercise(ExerciseCommand(Some(templateId), contractId, choice, args)))
 

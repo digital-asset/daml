@@ -17,7 +17,7 @@ import com.daml.ledger.api.v1.admin.package_management_service._
 import com.daml.ledger.participant.state.index.v2.{
   IndexPackagesService,
   IndexTransactionsService,
-  LedgerEndService
+  LedgerEndService,
 }
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
 import com.daml.lf.archive.{Dar, DarReader, Decode}
@@ -39,8 +39,8 @@ private[apiserver] final class ApiPackageManagementService private (
     packagesWrite: WritePackagesService,
     managementServiceTimeout: Duration,
     engine: Engine,
-)(
-    implicit materializer: Materializer,
+)(implicit
+    materializer: Materializer,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends PackageManagementService
@@ -68,13 +68,13 @@ private[apiserver] final class ApiPackageManagementService private (
     packagesIndex
       .listLfPackages()
       .map { pkgs =>
-        ListKnownPackagesResponse(pkgs.toSeq.map {
-          case (pkgId, details) =>
-            PackageDetails(
-              pkgId.toString,
-              details.size,
-              Some(Timestamp(details.knownSince.getEpochSecond, details.knownSince.getNano)),
-              details.sourceDescription.getOrElse(""))
+        ListKnownPackagesResponse(pkgs.toSeq.map { case (pkgId, details) =>
+          PackageDetails(
+            pkgId.toString,
+            details.size,
+            Some(Timestamp(details.knownSince.getEpochSecond, details.knownSince.getNano)),
+            details.sourceDescription.getOrElse(""),
+          )
         })
       }
       .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
@@ -105,7 +105,7 @@ private[apiserver] final class ApiPackageManagementService private (
     val response = for {
       dar <- decodeAndValidate(stream).fold(
         err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
-        Future.successful
+        Future.successful,
       )
       _ <- synchronousResponse.submitAndWait(submissionId, dar)(executionContext, materializer)
     } yield {
@@ -128,8 +128,8 @@ private[apiserver] object ApiPackageManagementService {
       writeBackend: WritePackagesService,
       managementServiceTimeout: Duration,
       engine: Engine,
-  )(
-      implicit materializer: Materializer,
+  )(implicit
+      materializer: Materializer,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
@@ -162,13 +162,13 @@ private[apiserver] object ApiPackageManagementService {
       packagesIndex.packageEntries(offset)
 
     override def accept(
-        submissionId: SubmissionId,
+        submissionId: SubmissionId
     ): PartialFunction[PackageEntry, PackageEntry.PackageUploadAccepted] = {
       case entry @ PackageEntry.PackageUploadAccepted(`submissionId`, _) => entry
     }
 
     override def reject(
-        submissionId: SubmissionId,
+        submissionId: SubmissionId
     ): PartialFunction[PackageEntry, StatusRuntimeException] = {
       case PackageEntry.PackageUploadRejected(`submissionId`, _, reason) =>
         ErrorFactories.invalidArgument(reason)

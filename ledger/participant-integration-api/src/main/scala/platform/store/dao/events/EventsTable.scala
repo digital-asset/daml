@@ -15,13 +15,13 @@ import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
   TreeEvent,
   Transaction => ApiTransaction,
-  TransactionTree => ApiTransactionTree
+  TransactionTree => ApiTransactionTree,
 }
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
@@ -131,17 +131,17 @@ private[events] object EventsTable {
       }
 
     def toGetTransactionsResponse(
-        events: Vector[Entry[Event]],
+        events: Vector[Entry[Event]]
     ): List[GetTransactionsResponse] =
       flatTransaction(events).toList.map(tx => GetTransactionsResponse(Seq(tx)))
 
     def toGetFlatTransactionResponse(
-        events: Vector[Entry[Event]],
+        events: Vector[Entry[Event]]
     ): Option[GetFlatTransactionResponse] =
       flatTransaction(events).map(tx => GetFlatTransactionResponse(Some(tx)))
 
     def toGetActiveContractsResponse(
-        events: Vector[Entry[Event]],
+        events: Vector[Entry[Event]]
     ): Vector[GetActiveContractsResponse] = {
       events.map {
         case entry if entry.event.isCreated =>
@@ -159,7 +159,7 @@ private[events] object EventsTable {
     }
 
     private def treeOf(
-        events: Vector[Entry[TreeEvent]],
+        events: Vector[Entry[TreeEvent]]
     ): (Map[String, TreeEvent], Vector[String]) = {
 
       // The identifiers of all visible events in this transactions, preserving
@@ -187,7 +187,7 @@ private[events] object EventsTable {
     }
 
     private def transactionTree(
-        events: Vector[Entry[TreeEvent]],
+        events: Vector[Entry[TreeEvent]]
     ): Option[ApiTransactionTree] =
       events.headOption.map { first =>
         val (eventsById, rootEventIds) = treeOf(events)
@@ -204,12 +204,12 @@ private[events] object EventsTable {
       }
 
     def toGetTransactionTreesResponse(
-        events: Vector[Entry[TreeEvent]],
+        events: Vector[Entry[TreeEvent]]
     ): List[GetTransactionTreesResponse] =
       transactionTree(events).toList.map(tx => GetTransactionTreesResponse(Seq(tx)))
 
     def toGetTransactionResponse(
-        events: Vector[Entry[TreeEvent]],
+        events: Vector[Entry[TreeEvent]]
     ): Option[GetTransactionResponse] =
       transactionTree(events).map(tx => GetTransactionResponse(Some(tx)))
 

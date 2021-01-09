@@ -22,11 +22,13 @@ object TimestampConversion {
   def instantToMicros(t: Instant): Value.Sum.Timestamp = {
     if (t.getNano % 1000 != 0)
       throw new IllegalArgumentException(
-        s"Conversion of Instant $t to microsecond granularity would result in loss of precision.")
+        s"Conversion of Instant $t to microsecond granularity would result in loss of precision."
+      )
     else
       Value.Sum.Timestamp(
         TimeUnit.SECONDS.toMicros(t.getEpochSecond) + TimeUnit.NANOSECONDS
-          .toMicros(t.getNano.toLong))
+          .toMicros(t.getNano.toLong)
+      )
 
   }
 

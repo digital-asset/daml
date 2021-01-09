@@ -28,16 +28,15 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     implicit val materializer: Materializer,
-    implicit val loggingContext: LoggingContext)
-    extends LedgerWriter
+    implicit val loggingContext: LoggingContext,
+) extends LedgerWriter
     with Closeable {
 
   implicit val executionContext: ExecutionContext = materializer.executionContext
   private val logger = ContextualizedLogger.get(getClass)
   private val queueHandle = queue.run(commitBatch)
 
-  /**
-    * Buffers the submission for the next batch.
+  /** Buffers the submission for the next batch.
     * Note that the [[CommitMetadata]] written to the delegate along with a batched submission will
     * be Empty as output keys cannot be determined due to potential conflicts among input/output
     * keys in the batch.
@@ -63,7 +62,8 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
       HealthStatus.unhealthy
 
   private def commitBatch(
-      submissions: Seq[DamlSubmissionBatch.CorrelatedSubmission]): Future[Unit] = {
+      submissions: Seq[DamlSubmissionBatch.CorrelatedSubmission]
+  ): Future[Unit] = {
     assert(submissions.nonEmpty) // Empty batches should never happen
 
     // Pick a correlation id for the batch.
@@ -95,8 +95,8 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
 }
 
 object BatchingLedgerWriter {
-  def apply(batchingLedgerWriterConfig: BatchingLedgerWriterConfig, delegate: LedgerWriter)(
-      implicit materializer: Materializer,
+  def apply(batchingLedgerWriterConfig: BatchingLedgerWriterConfig, delegate: LedgerWriter)(implicit
+      materializer: Materializer,
       loggingContext: LoggingContext,
   ): BatchingLedgerWriter = {
     val batchingQueue = batchingQueueFrom(batchingLedgerWriterConfig)
@@ -104,13 +104,14 @@ object BatchingLedgerWriter {
   }
 
   private def batchingQueueFrom(
-      batchingLedgerWriterConfig: BatchingLedgerWriterConfig): BatchingQueue =
+      batchingLedgerWriterConfig: BatchingLedgerWriterConfig
+  ): BatchingQueue =
     if (batchingLedgerWriterConfig.enableBatching) {
       DefaultBatchingQueue(
         maxQueueSize = batchingLedgerWriterConfig.maxBatchQueueSize,
         maxBatchSizeBytes = batchingLedgerWriterConfig.maxBatchSizeBytes,
         maxWaitDuration = batchingLedgerWriterConfig.maxBatchWaitDuration,
-        maxConcurrentCommits = batchingLedgerWriterConfig.maxBatchConcurrentCommits
+        maxConcurrentCommits = batchingLedgerWriterConfig.maxBatchConcurrentCommits,
       )
     } else {
       batchingQueueForSerialValidation(batchingLedgerWriterConfig.maxBatchQueueSize)
@@ -121,6 +122,6 @@ object BatchingLedgerWriter {
       maxQueueSize = maxBatchQueueSize,
       maxBatchSizeBytes = 1,
       maxWaitDuration = Duration(1, MILLISECONDS),
-      maxConcurrentCommits = 1
+      maxConcurrentCommits = 1,
     )
 }

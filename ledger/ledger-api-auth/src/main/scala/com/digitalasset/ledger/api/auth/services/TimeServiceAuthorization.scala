@@ -24,7 +24,8 @@ private[daml] final class TimeServiceAuthorization(
 
   override def getTime(
       request: GetTimeRequest,
-      responseObserver: StreamObserver[GetTimeResponse]): Unit =
+      responseObserver: StreamObserver[GetTimeResponse],
+  ): Unit =
     authorizer.requirePublicClaimsOnStream(service.getTime)(request, responseObserver)
 
   override def setTime(request: SetTimeRequest): Future[Empty] =

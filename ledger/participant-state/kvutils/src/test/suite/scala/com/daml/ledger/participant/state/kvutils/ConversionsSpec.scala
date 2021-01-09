@@ -6,15 +6,15 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions.{
   commandDedupKey,
   decodeBlindingInfo,
-  encodeBlindingInfo
+  encodeBlindingInfo,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlSubmitterInfo,
-  DamlTransactionBlindingInfo
+  DamlTransactionBlindingInfo,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
   DisclosureEntry,
-  DivulgenceEntry
+  DivulgenceEntry,
 }
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash

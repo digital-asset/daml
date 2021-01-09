@@ -18,13 +18,13 @@ trait DummyCommands extends TestCommands {
         val next = i + 1
         Some((next, next))
       }
-      .map(
-        i =>
-          buildRequest(
-            ledgerId = ledgerId,
-            commandId = s"command-id-create-$i",
-            commands = Seq(createWithOperator(templates.dummy)),
-            applicationId = "app1",
-          ).toSync)
+      .map(i =>
+        buildRequest(
+          ledgerId = ledgerId,
+          commandId = s"command-id-create-$i",
+          commands = Seq(createWithOperator(templates.dummy)),
+          applicationId = "app1",
+        ).toSync
+      )
   }
 }

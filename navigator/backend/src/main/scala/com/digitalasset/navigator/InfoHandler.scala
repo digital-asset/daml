@@ -18,8 +18,7 @@ import com.daml.navigator.time.TimeProviderType
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
-  * Provides a way of getting debug information about the application state.
+/** Provides a way of getting debug information about the application state.
   * The information is returned in an opaque JSON format,
   * and is useful for displaying debug information in the frontend.
   */
@@ -27,8 +26,8 @@ trait InfoHandler {
   def getInfo: Future[JsValue]
 }
 
-case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(
-    implicit executionContext: ExecutionContext
+case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(implicit
+    executionContext: ExecutionContext
 ) extends InfoHandler {
 
   private case class Info(arguments: Arguments, appInfo: Either[String, ApplicationStateInfo])
@@ -44,10 +43,13 @@ case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(
             "enabled" -> c.enabled.toJson,
             "keyFile" -> c.keyFile.fold[JsValue](JsNull)(f => JsString(f.toString)),
             "keyCertChainFile" -> c.keyCertChainFile.fold[JsValue](JsNull)(f =>
-              JsString(f.toString)),
+              JsString(f.toString)
+            ),
             "trustCertCollectionFile" -> c.trustCertCollectionFile.fold[JsValue](JsNull)(f =>
-              JsString(f.toString))
-        ))
+              JsString(f.toString)
+            ),
+          )
+        ),
     )
   }
   private implicit object actorInfoWriter extends RootJsonWriter[PartyActorInfo] {
@@ -71,7 +73,7 @@ case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(
           "platformHost" -> info.platformHost.toJson,
           "platformPort" -> info.platformPort.toJson,
           "tls" -> info.tls.toJson,
-          "applicationId" -> info.applicationId.toJson
+          "applicationId" -> info.applicationId.toJson,
         )
       case info: ApplicationStateConnected =>
         JsObject(
@@ -85,11 +87,11 @@ case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(
             "time" -> DateTimeFormatter.ISO_INSTANT
               .format(info.ledgerTime.time.getCurrentTime)
               .toJson,
-            "type" -> TimeProviderType.write(info.ledgerTime.`type`).toJson
+            "type" -> TimeProviderType.write(info.ledgerTime.`type`).toJson,
           ),
           "partyActors" -> JsObject(
             info.partyActors.map { case (p, s) => p -> s.toJson }.toMap
-          )
+          ),
         )
       case info: ApplicationStateFailed =>
         JsObject(
@@ -98,14 +100,14 @@ case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(
           "platformPort" -> info.platformPort.toJson,
           "tls" -> info.tls.toJson,
           "applicationId" -> info.applicationId.toJson,
-          "error" -> info.error.toString.toJson
+          "error" -> info.error.toString.toJson,
         )
     }
   }
   private implicit object infoWriter extends RootJsonWriter[Info] {
     override def write(obj: Info): JsValue = JsObject(
       "arguments" -> obj.arguments.toJson,
-      "appInfo" -> obj.appInfo.fold(_.toJson, _.toJson)
+      "appInfo" -> obj.appInfo.fold(_.toJson, _.toJson),
     )
   }
 

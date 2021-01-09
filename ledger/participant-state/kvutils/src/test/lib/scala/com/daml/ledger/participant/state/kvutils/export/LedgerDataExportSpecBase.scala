@@ -8,7 +8,7 @@ import java.io.{
   InputStream,
   OutputStream,
   PipedInputStream,
-  PipedOutputStream
+  PipedOutputStream,
 }
 import java.time.Instant
 
@@ -51,7 +51,8 @@ abstract class LedgerDataExportSpecBase(name: String) extends AnyWordSpec with M
           keyValuePairOf("i", "j"),
           keyValuePairOf("e", "f"),
           keyValuePairOf("c", "d"),
-        ))
+        )
+      )
     }
 
     "flush between writes" in {

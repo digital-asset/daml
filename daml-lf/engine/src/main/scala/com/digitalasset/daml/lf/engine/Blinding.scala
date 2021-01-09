@@ -14,8 +14,7 @@ import scala.annotation.tailrec
 
 object Blinding {
 
-  /**
-    * Given a transaction provide concise information on visibility
+  /** Given a transaction provide concise information on visibility
     * for all stakeholders
     *
     * We keep this in Engine since it needs the packages and your
@@ -44,7 +43,8 @@ object Blinding {
   def divulgedTransaction[Nid, Cid](
       divulgences: Relation[Nid, Party],
       party: Party,
-      tx: GenTransaction[Nid, Cid]): GenTransaction[Nid, Cid] = {
+      tx: GenTransaction[Nid, Cid],
+  ): GenTransaction[Nid, Cid] = {
     val partyDivulgences = Relation.invert(divulgences)(party)
     // Note that this relies on the local divulgence to be well-formed:
     // if an exercise node is divulged to A but some of its descendants
@@ -71,7 +71,7 @@ object Blinding {
 
     GenTransaction(
       roots = go(BackStack.empty, FrontStack(tx.roots)),
-      nodes = filteredNodes
+      nodes = filteredNodes,
     )
   }
 }

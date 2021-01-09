@@ -7,7 +7,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlStateKey,
   DamlStateValue,
-  DamlSubmission
+  DamlSubmission,
 }
 import com.daml.ledger.participant.state.kvutils.DamlStateMap
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult

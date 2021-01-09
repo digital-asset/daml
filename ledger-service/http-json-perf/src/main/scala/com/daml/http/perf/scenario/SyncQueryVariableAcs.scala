@@ -37,7 +37,7 @@ class SyncQueryVariableAcs
           // run query in parallel with archive and create
           randomAmountQueryRequest.notSilent.resources(
             archiveRequest.silent,
-            randomAmountCreateRequest.silent
+            randomAmountCreateRequest.silent,
           )
         }
       }

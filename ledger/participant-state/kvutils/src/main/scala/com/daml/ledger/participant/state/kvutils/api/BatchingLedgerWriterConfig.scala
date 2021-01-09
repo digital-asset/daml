@@ -18,7 +18,7 @@ final case class BatchingLedgerWriterConfig(
     maxBatchQueueSize: Int,
     maxBatchSizeBytes: Long,
     maxBatchWaitDuration: FiniteDuration,
-    maxBatchConcurrentCommits: Int
+    maxBatchConcurrentCommits: Int,
 )
 
 object BatchingLedgerWriterConfig {
@@ -28,6 +28,6 @@ object BatchingLedgerWriterConfig {
       maxBatchQueueSize = 200,
       maxBatchSizeBytes = 4L * 1024L * 1024L /* 4MB */,
       maxBatchWaitDuration = 100.millis,
-      maxBatchConcurrentCommits = 5
+      maxBatchConcurrentCommits = 5,
     )
 }

@@ -5,8 +5,7 @@ package com.daml.metrics
 
 import io.opentelemetry.common.Attributes
 
-/**
-  * Wraps [[io.opentelemetry.trace.Event]].
+/** Wraps [[io.opentelemetry.trace.Event]].
   */
 final case class Event(name: String, attributeMap: Map[String, String])
     extends io.opentelemetry.trace.Event {

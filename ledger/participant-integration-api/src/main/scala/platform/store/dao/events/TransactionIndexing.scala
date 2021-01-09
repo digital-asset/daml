@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.v1.{
   CommittedTransaction,
   DivulgedContract,
   Offset,
-  SubmitterInfo
+  SubmitterInfo,
 }
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.BlindingInfo
@@ -130,7 +130,7 @@ object TransactionIndexing {
 
     private def visibility(contracts: Iterable[DivulgedContract]): WitnessRelation[ContractId] =
       Relation.from(
-        contracts.map(c => c.contractId -> blinding.divulgence.getOrElse(c.contractId, Set.empty)),
+        contracts.map(c => c.contractId -> blinding.divulgence.getOrElse(c.contractId, Set.empty))
       )
 
     def build(
@@ -173,7 +173,7 @@ object TransactionIndexing {
         contractWitnesses = ContractWitnessesInfo(
           netArchives = netArchives,
           netVisibility = netVisibility,
-        )
+        ),
       )
     }
   }

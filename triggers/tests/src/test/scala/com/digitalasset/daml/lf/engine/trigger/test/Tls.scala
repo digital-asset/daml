@@ -47,8 +47,12 @@ class Tls
     def asset(party: String): CreateCommand =
       CreateCommand(
         templateId = Some(assetId),
-        createArguments = Some(LedgerApi.Record(
-          fields = Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party)))))))
+        createArguments = Some(
+          LedgerApi.Record(
+            fields = Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party))))
+          )
+        ),
+      )
     "1 create" in {
       for {
         client <- ledgerClient()

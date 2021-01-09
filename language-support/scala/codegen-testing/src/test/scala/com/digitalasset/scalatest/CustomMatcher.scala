@@ -19,8 +19,9 @@ object CustomMatcher {
       if (eqEv.equal(underlying, other)) reportFailure(underlying, " === ", other)
       else Succeeded
 
-    private def reportFailure(underlying: A, str: String, other: A)(
-        implicit showEv: Show[A]): Assertion =
+    private def reportFailure(underlying: A, str: String, other: A)(implicit
+        showEv: Show[A]
+    ): Assertion =
       throw CustomMatcherException(s"${underlying.shows}$str${other.shows}")
   }
 

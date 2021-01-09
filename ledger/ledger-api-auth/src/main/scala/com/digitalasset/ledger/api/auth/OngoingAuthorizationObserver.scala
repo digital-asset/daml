@@ -9,8 +9,8 @@ private[auth] final class OngoingAuthorizationObserver[A](
     observer: ServerCallStreamObserver[A],
     claims: Claims,
     authorized: Claims => Either[AuthorizationError, Unit],
-    throwOnFailure: AuthorizationError => Throwable)
-    extends ServerCallStreamObserver[A] {
+    throwOnFailure: AuthorizationError => Throwable,
+) extends ServerCallStreamObserver[A] {
 
   override def isCancelled: Boolean = observer.isCancelled
 

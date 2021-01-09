@@ -16,8 +16,7 @@ import com.daml.metrics.{Metrics, Timed}
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
-  * Validator for pre-executing submissions.
+/** Validator for pre-executing submissions.
   *
   * @param committer      Generates the pre-execution result from the submission.
   * @param commitStrategy The strategy used to generate the data committed to the ledger.
@@ -43,8 +42,8 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
       submissionEnvelope: Raw.Value,
       submittingParticipantId: ParticipantId,
       ledgerStateReader: StateReader[DamlStateKey, StateValue],
-  )(
-      implicit executionContext: ExecutionContext,
+  )(implicit
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[PreExecutionOutput[ReadSet, WriteSet]] =
     Timed.timedAndTrackedFuture(
@@ -68,7 +67,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
             logEntryId,
             fetchedInputs,
             preExecutionResult,
-          )
+          ),
         )
       } yield {
         PreExecutionOutput(
@@ -77,13 +76,13 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
           successWriteSet = generatedWriteSets.successWriteSet,
           outOfTimeBoundsWriteSet = generatedWriteSets.outOfTimeBoundsWriteSet,
           readSet = commitStrategy.generateReadSet(fetchedInputs, preExecutionResult.readSet),
-          involvedParticipants = generatedWriteSets.involvedParticipants
+          involvedParticipants = generatedWriteSets.involvedParticipants,
         )
-      }
+      },
     )
 
-  private def decodeSubmission(submissionEnvelope: Raw.Value)(
-      implicit executionContext: ExecutionContext,
+  private def decodeSubmission(submissionEnvelope: Raw.Value)(implicit
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[DamlSubmission] =
     Timed.timedAndTrackedFuture(
@@ -99,16 +98,18 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
           case Right(Envelope.SubmissionBatchMessage(_)) =>
             logger.error("Batched submissions are not supported for pre-execution")
             throw ValidationFailed.ValidationError(
-              "Batched submissions are not supported for pre-execution")
+              "Batched submissions are not supported for pre-execution"
+            )
 
           case Right(other) =>
             throw ValidationFailed.ValidationError(
-              s"Unexpected message in envelope: ${other.getClass.getSimpleName}")
+              s"Unexpected message in envelope: ${other.getClass.getSimpleName}"
+            )
 
           case Left(error) =>
             throw ValidationFailed.ValidationError(s"Cannot open envelope: $error")
         }
-      }
+      },
     )
 
   private def fetchSubmissionInputs(
@@ -125,7 +126,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
         assert(inputKeys.size == inputValues.size)
         val inputPairs = inputKeys.toIterator zip inputValues.toIterator
         inputPairs.toMap
-      }
+      },
     )
   }
 }

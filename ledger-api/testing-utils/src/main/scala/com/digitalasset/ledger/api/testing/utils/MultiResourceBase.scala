@@ -18,8 +18,8 @@ trait MultiResourceBase[FixtureId, TestContext]
   protected def constructResource(index: Int, fixtureId: FixtureId): Resource[TestContext]
 
   override protected lazy val suiteResource: Resource[Map[FixtureId, () => TestContext]] = {
-    MultiResource(fixtureIdsEnabled.zipWithIndex.map {
-      case (backend, idx) => backend -> constructResource(idx, backend)
+    MultiResource(fixtureIdsEnabled.zipWithIndex.map { case (backend, idx) =>
+      backend -> constructResource(idx, backend)
     }.toMap)
   }
 

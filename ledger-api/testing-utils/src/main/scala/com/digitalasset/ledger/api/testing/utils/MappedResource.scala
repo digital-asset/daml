@@ -5,8 +5,8 @@ package com.daml.ledger.api.testing.utils
 
 final case class MappedResource[Source, +Target](
     underlying: Resource[Source],
-    transform: Source => Target)
-    extends Resource[Target] {
+    transform: Source => Target,
+) extends Resource[Target] {
 
   override def value: Target = transform(underlying.value)
 

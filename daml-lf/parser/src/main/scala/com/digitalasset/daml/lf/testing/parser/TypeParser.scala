@@ -38,11 +38,8 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
   )
 
   private[parser] def fullIdentifier: Parser[Ref.Identifier] =
-    opt(pkgId <~ `:`) ~ dottedName ~ `:` ~ dottedName ^^ {
-      case pkgId ~ modName ~ _ ~ name =>
-        Ref.Identifier(
-          pkgId.getOrElse(parameters.defaultPackageId),
-          Ref.QualifiedName(modName, name))
+    opt(pkgId <~ `:`) ~ dottedName ~ `:` ~ dottedName ^^ { case pkgId ~ modName ~ _ ~ name =>
+      Ref.Identifier(pkgId.getOrElse(parameters.defaultPackageId), Ref.QualifiedName(modName, name))
     }
 
   private[parser] lazy val typeBinder: Parser[(TypeVarName, Kind)] =
@@ -50,9 +47,12 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
       id ^^ (_ -> KStar)
 
   private[parser] def tNat: Parser[TNat] =
-    accept("Number", {
-      case Number(l) if l.toInt == l => TNat(data.Numeric.Scale.assertFromLong(l))
-    })
+    accept(
+      "Number",
+      {
+        case Number(l) if l.toInt == l => TNat(data.Numeric.Scale.assertFromLong(l))
+      },
+    )
 
   private lazy val tForall: Parser[Type] =
     `forall` ~>! rep1(typeBinder) ~ `.` ~ typ ^^ { case bs ~ _ ~ t => (bs foldRight t)(TForall) }

@@ -14,5 +14,5 @@ import com.daml.lf.data.Time.Timestamp
 final case class LedgerInitialConditions(
     ledgerId: LedgerId,
     config: Configuration,
-    initialRecordTime: Timestamp
+    initialRecordTime: Timestamp,
 )

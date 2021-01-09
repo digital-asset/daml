@@ -18,13 +18,15 @@ object LogCollector {
     TrieMap
       .empty[String, TrieMap[String, mutable.Builder[(Level, String), Vector[(Level, String)]]]]
 
-  def read[Test, Logger](
-      implicit test: ClassTag[Test],
-      logger: ClassTag[Logger]): IndexedSeq[(Level, String)] =
+  def read[Test, Logger](implicit
+      test: ClassTag[Test],
+      logger: ClassTag[Logger],
+  ): IndexedSeq[(Level, String)] =
     read[Test](logger.runtimeClass.getName)
 
-  def read[Test](loggerClassName: String)(
-      implicit test: ClassTag[Test]): IndexedSeq[(Level, String)] =
+  def read[Test](
+      loggerClassName: String
+  )(implicit test: ClassTag[Test]): IndexedSeq[(Level, String)] =
     log
       .get(test.runtimeClass.getName)
       .flatMap(_.get(loggerClassName))

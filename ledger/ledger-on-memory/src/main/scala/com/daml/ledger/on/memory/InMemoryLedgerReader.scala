@@ -17,8 +17,8 @@ class InMemoryLedgerReader(
     override val ledgerId: LedgerId,
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
-    metrics: Metrics)
-    extends LedgerReader {
+    metrics: Metrics,
+) extends LedgerReader {
   override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
       .startingAt(
@@ -31,9 +31,12 @@ class InMemoryLedgerReader(
               metrics.daml.ledger.log.read,
               state
                 .readLog(
-                  _.view.zipWithIndex.map(_.swap).slice(startExclusive + 1, endInclusive + 1))
-                .iterator)
-          }))
+                  _.view.zipWithIndex.map(_.swap).slice(startExclusive + 1, endInclusive + 1)
+                )
+                .iterator,
+            )
+          })
+        ),
       )
       .map { case (_, updates) => updates }
 

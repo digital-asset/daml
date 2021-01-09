@@ -46,7 +46,7 @@ object ServiceMain {
       restartConfig: TriggerRestartConfig,
       encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
-      logTriggerStatus: (UUID, String) => Unit = (_, _) => ()
+      logTriggerStatus: (UUID, String) => Unit = (_, _) => (),
   ): Future[(ServerBinding, ActorSystem[Server.Message])] = {
 
     val system: ActorSystem[Server.Message] =
@@ -64,9 +64,9 @@ object ServiceMain {
           restartConfig,
           encodedDars,
           jdbcConfig,
-          logTriggerStatus
+          logTriggerStatus,
         ),
-        "TriggerService"
+        "TriggerService",
       )
 
     implicit val scheduler: Scheduler = system.scheduler
@@ -114,7 +114,9 @@ object ServiceMain {
               Try(
                 Await.result(
                   DbTriggerDao(c)(DirectExecutionContext).initialize(DirectExecutionContext),
-                  Duration(30, SECONDS))) match {
+                  Duration(30, SECONDS),
+                )
+              ) match {
                 case Failure(exception) =>
                   logger.withoutContext.error(s"Failed to initialize database: $exception")
                   sys.exit(1)
@@ -141,7 +143,7 @@ object ServiceMain {
               encodedDars,
               config.jdbcConfig,
             ),
-            "TriggerService"
+            "TriggerService",
           )
 
         implicit val scheduler: Scheduler = system.scheduler
@@ -152,7 +154,9 @@ object ServiceMain {
           system.ask((ref: ActorRef[ServerBinding]) => Server.GetServerBinding(ref))
         config.portFile.foreach(portFile =>
           serviceF.foreach(serverBinding =>
-            PortFiles.write(portFile, Port(serverBinding.localAddress.getPort))))
+            PortFiles.write(portFile, Port(serverBinding.localAddress.getPort))
+          )
+        )
         val _: ShutdownHookThread = sys.addShutdownHook {
           system ! Server.Stop
           serviceF.onComplete {

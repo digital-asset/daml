@@ -34,8 +34,9 @@ private[dao] final class CommandCompletionsReader(
       endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party],
-  )(implicit loggingContext: LoggingContext)
-    : Source[(Offset, CompletionStreamResponse), NotUsed] = {
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
     val query = CommandCompletionsTable.prepareGet(
       startExclusive = startExclusive,
       endInclusive = endInclusive,
@@ -51,10 +52,11 @@ private[dao] final class CommandCompletionsReader(
               query.as(CommandCompletionsTable.parser.*),
               startExclusive,
               pruned =>
-                s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}"
+                s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}",
             )
           }
-          .flatMap(_.fold(Future.failed, Future.successful))(executionContext))
+          .flatMap(_.fold(Future.failed, Future.successful))(executionContext)
+      )
       .mapConcat(_.map(response => offsetFor(response) -> response))
   }
 

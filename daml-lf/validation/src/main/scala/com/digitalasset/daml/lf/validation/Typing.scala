@@ -53,7 +53,9 @@ private[validation] object Typing {
         alpha.name -> KNat,
         TForall(
           beta.name -> KNat,
-          TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma))))
+          TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma)),
+        ),
+      )
     val tNumConversion =
       TForall(alpha.name -> KNat, TForall(beta.name -> KNat, TNumeric(alpha) ->: TNumeric(beta)))
     val tComparison: Type = TForall(alpha.name -> KStar, alpha ->: alpha ->: TBool)
@@ -87,46 +89,45 @@ private[validation] object Typing {
       BFoldl ->
         TForall(
           alpha.name -> KStar,
-          TForall(
-            beta.name -> KStar,
-            (beta ->: alpha ->: beta) ->: beta ->: TList(alpha) ->: beta)),
+          TForall(beta.name -> KStar, (beta ->: alpha ->: beta) ->: beta ->: TList(alpha) ->: beta),
+        ),
       BFoldr ->
         TForall(
           alpha.name -> KStar,
-          TForall(
-            beta.name -> KStar,
-            (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta)),
+          TForall(beta.name -> KStar, (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta),
+        ),
       // Maps
       BTextMapEmpty ->
         TForall(
           alpha.name -> KStar,
-          TTextMap(alpha)
+          TTextMap(alpha),
         ),
       BTextMapInsert ->
         TForall(
           alpha.name -> KStar,
-          TText ->: alpha ->: TTextMap(alpha) ->: TTextMap(alpha)
+          TText ->: alpha ->: TTextMap(alpha) ->: TTextMap(alpha),
         ),
       BTextMapLookup ->
         TForall(
           alpha.name -> KStar,
-          TText ->: TTextMap(alpha) ->: TOptional(alpha)
+          TText ->: TTextMap(alpha) ->: TOptional(alpha),
         ),
       BTextMapDelete ->
         TForall(
           alpha.name -> KStar,
-          TText ->: TTextMap(alpha) ->: TTextMap(alpha)
+          TText ->: TTextMap(alpha) ->: TTextMap(alpha),
         ),
       BTextMapToList ->
         TForall(
           alpha.name -> KStar,
           TTextMap(alpha) ->: TList(
-            TStruct(Struct.assertFromSeq(List(keyFieldName -> TText, valueFieldName -> alpha))))
+            TStruct(Struct.assertFromSeq(List(keyFieldName -> TText, valueFieldName -> alpha)))
+          ),
         ),
       BTextMapSize ->
         TForall(
           alpha.name -> KStar,
-          TTextMap(alpha) ->: TInt64
+          TTextMap(alpha) ->: TInt64,
         ),
       // GenMaps
       BGenMapEmpty ->
@@ -136,42 +137,49 @@ private[validation] object Typing {
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            alpha ->: beta ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta))),
+            alpha ->: beta ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta),
+          ),
+        ),
       BGenMapLookup ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            alpha ->: TGenMap(alpha, beta) ->: TOptional(beta)
-          )),
+            alpha ->: TGenMap(alpha, beta) ->: TOptional(beta),
+          ),
+        ),
       BGenMapDelete ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            alpha ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta)
-          )),
+            alpha ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta),
+          ),
+        ),
       BGenMapKeys ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            TGenMap(alpha, beta) ->: TList(alpha)
-          )),
+            TGenMap(alpha, beta) ->: TList(alpha),
+          ),
+        ),
       BGenMapValues ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            TGenMap(alpha, beta) ->: TList(beta)
-          )),
+            TGenMap(alpha, beta) ->: TList(beta),
+          ),
+        ),
       BGenMapSize ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            TGenMap(alpha, beta) ->: TInt64
-          )),
+            TGenMap(alpha, beta) ->: TInt64,
+          ),
+        ),
       // Text functions
       BExplodeText -> (TText ->: TList(TText)),
       BAppendText -> tBinop(TText),
@@ -200,7 +208,8 @@ private[validation] object Typing {
       BEqualList ->
         TForall(
           alpha.name -> KStar,
-          (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool),
+          (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool,
+        ),
       BEqualContractId ->
         TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
       BEqual -> tComparison,
@@ -211,7 +220,8 @@ private[validation] object Typing {
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,
-          TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta))),
+          TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta)),
+        ),
       // Exception functions
       BMakeGeneralError -> (TText ->: TGeneralError),
       BMakeArithmeticError -> (TText ->: TArithmeticError),
@@ -264,27 +274,25 @@ private[validation] object Typing {
         checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         env.checkType(replacementTyp, KStar)
     }
-    mod.templates.foreach {
-      case (dfnName, template) =>
-        val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
-        val env = Env(languageVersion, world, ContextTemplate(tyConName), Map.empty)
-        world.lookupDataType(env.ctx, tyConName) match {
-          case DDataType(_, ImmArray(), DataRecord(_)) =>
-            env.checkTemplate(tyConName, template)
-          case _ =>
-            throw EExpectedTemplatableType(env.ctx, tyConName)
-        }
+    mod.templates.foreach { case (dfnName, template) =>
+      val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
+      val env = Env(languageVersion, world, ContextTemplate(tyConName), Map.empty)
+      world.lookupDataType(env.ctx, tyConName) match {
+        case DDataType(_, ImmArray(), DataRecord(_)) =>
+          env.checkTemplate(tyConName, template)
+        case _ =>
+          throw EExpectedTemplatableType(env.ctx, tyConName)
+      }
     }
-    mod.exceptions.foreach {
-      case (exnName, message) =>
-        val tyConName = TypeConName(pkgId, QualifiedName(mod.name, exnName))
-        val env = Env(languageVersion, world, ContextDefException(tyConName), Map.empty)
-        world.lookupDataType(env.ctx, tyConName) match {
-          case DDataType(_, ImmArray(), DataRecord(_)) =>
-            env.checkDefException(tyConName, message)
-          case _ =>
-            throw EExpectedExceptionableType(env.ctx, tyConName)
-        }
+    mod.exceptions.foreach { case (exnName, message) =>
+      val tyConName = TypeConName(pkgId, QualifiedName(mod.name, exnName))
+      val env = Env(languageVersion, world, ContextDefException(tyConName), Map.empty)
+      world.lookupDataType(env.ctx, tyConName) match {
+        case DDataType(_, ImmArray(), DataRecord(_)) =>
+          env.checkDefException(tyConName, message)
+        case _ =>
+          throw EExpectedExceptionableType(env.ctx, tyConName)
+      }
     }
   }
 
@@ -293,7 +301,7 @@ private[validation] object Typing {
       world: World,
       ctx: Context,
       tVars: Map[TypeVarName, Kind] = Map.empty,
-      eVars: Map[ExprVarName, Type] = Map.empty
+      eVars: Map[ExprVarName, Type] = Map.empty,
   ) {
 
     import world._
@@ -347,7 +355,7 @@ private[validation] object Typing {
     def checkEnumType[X](
         tyConName: => TypeConName,
         params: ImmArray[X],
-        values: ImmArray[EnumConName]
+        values: ImmArray[EnumConName],
     ): Unit = {
       if (params.nonEmpty) throw EIllegalHigherEnumType(ctx, tyConName)
       checkUniq[Name](values.iterator, EDuplicateEnumCon(ctx, _))
@@ -379,14 +387,15 @@ private[validation] object Typing {
     private def checkChoice(tplName: TypeConName, choice: TemplateChoice): Unit =
       choice match {
         case TemplateChoice(
-            name @ _,
-            consuming @ _,
-            controllers,
-            choiceObservers @ _,
-            selfBinder,
-            (param, paramType),
-            returnType,
-            update) =>
+              name @ _,
+              consuming @ _,
+              controllers,
+              choiceObservers @ _,
+              selfBinder,
+              (param, paramType),
+              returnType,
+              update,
+            ) =>
           checkType(paramType, KStar)
           checkType(returnType, KStar)
           introExprVar(param, paramType).checkExpr(controllers, TParties)
@@ -610,7 +619,7 @@ private[validation] object Typing {
         scrutTCon: TypeConName,
         scrutTArgs: ImmArray[Type],
         tparams: ImmArray[TypeVarName],
-        cons: ImmArray[(VariantConName, Type)]
+        cons: ImmArray[(VariantConName, Type)],
     ): PartialFunction[CasePat, Env] = {
       case CPVariant(patnTCon, con, bodyVar) if scrutTCon == patnTCon =>
         val conArgType = cons.lookup(con, EUnknownVariantCon(ctx, con))
@@ -719,12 +728,12 @@ private[validation] object Typing {
                 case DataVariant(cons) =>
                   (
                     variantExpectedPatterns(scrutTCon, cons),
-                    introPatternVariant(scrutTCon, scrutTArgs, dataParams.map(_._1), cons)
+                    introPatternVariant(scrutTCon, scrutTArgs, dataParams.map(_._1), cons),
                   )
                 case DataEnum(cons) =>
                   (
                     enumExpectedPatterns(scrutTCon, cons),
-                    introPatternEnum(scrutTCon, cons)
+                    introPatternEnum(scrutTCon, cons),
                   )
               }
           }
@@ -740,12 +749,15 @@ private[validation] object Typing {
           (defaultExpectedPatterns, introOnlyPatternDefault(scrutType))
       }
 
-      val types = alts.iterator.map { case CaseAlt(patn, rhs) => introPattern(patn).typeOf(rhs) }.toList
+      val types = alts.iterator.map { case CaseAlt(patn, rhs) =>
+        introPattern(patn).typeOf(rhs)
+      }.toList
 
       types match {
         case t :: ts =>
           ts.foreach(otherType =>
-            if (!alphaEquiv(t, otherType)) throw ETypeMismatch(ctx, otherType, t, None))
+            if (!alphaEquiv(t, otherType)) throw ETypeMismatch(ctx, otherType, t, None)
+          )
           checkPatternExhaustiveness(expectedPatterns, alts, scrutType)
           t
         case Nil =>
@@ -777,11 +789,10 @@ private[validation] object Typing {
     }
 
     private def typeOfScenarioBlock(bindings: ImmArray[Binding], body: Expr): Type = {
-      val env = bindings.foldLeft(this) {
-        case (env, Binding(vName, typ, bound)) =>
-          env.checkType(typ, KStar)
-          env.checkExpr(bound, TScenario(typ))
-          env.introExprVar(vName, typ)
+      val env = bindings.foldLeft(this) { case (env, Binding(vName, typ, bound)) =>
+        env.checkType(typ, KStar)
+        env.checkExpr(bound, TScenario(typ))
+        env.introExprVar(vName, typ)
       }
       env.typeOf(body) match {
         case bodyTyp @ TScenario(_) => bodyTyp
@@ -790,11 +801,10 @@ private[validation] object Typing {
     }
 
     private def typeOfUpdateBlock(bindings: ImmArray[Binding], body: Expr): Type = {
-      val env = bindings.foldLeft(this) {
-        case (env, Binding(vName, typ, bound)) =>
-          env.checkType(typ, KStar)
-          env.checkExpr(bound, TUpdate(typ))
-          env.introExprVar(vName, typ)
+      val env = bindings.foldLeft(this) { case (env, Binding(vName, typ, bound)) =>
+        env.checkType(typ, KStar)
+        env.checkExpr(bound, TUpdate(typ))
+        env.introExprVar(vName, typ)
       }
       env.typeOf(body) match {
         case bodyTyp @ TUpdate(_) => bodyTyp
@@ -812,7 +822,7 @@ private[validation] object Typing {
         tpl: TypeConName,
         chName: ChoiceName,
         cid: Expr,
-        arg: Expr
+        arg: Expr,
     ): Type = {
       val choice = lookupChoice(ctx, tpl, chName)
       checkExpr(cid, TContractId(TTyCon(tpl)))
@@ -824,7 +834,7 @@ private[validation] object Typing {
         tmplId: TypeConName,
         chName: ChoiceName,
         key: Expr,
-        arg: Expr
+        arg: Expr,
     ): Type = {
       checkByKey(tmplId, key)
       val choice = lookupChoice(ctx, tmplId, chName)
@@ -875,8 +885,11 @@ private[validation] object Typing {
             Struct.assertFromSeq(
               List(
                 contractIdFieldName -> TContractId(TTyCon(retrieveByKey.templateId)),
-                contractFieldName -> TTyCon(retrieveByKey.templateId)
-              ))))
+                contractFieldName -> TTyCon(retrieveByKey.templateId),
+              )
+            )
+          )
+        )
       case UpdateLookupByKey(retrieveByKey) =>
         checkByKey(retrieveByKey.templateId, retrieveByKey.key)
         TUpdate(TOptional(TContractId(TTyCon(retrieveByKey.templateId))))

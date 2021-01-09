@@ -40,7 +40,7 @@ object BlindingTransaction {
     def divulgeCoidTo(witnesses: Set[Party], acoid: ContractId): BlindState = {
       copy(
         divulgences = divulgences
-          .updated(acoid, witnesses union divulgences.getOrElse(acoid, Set.empty)),
+          .updated(acoid, witnesses union divulgences.getOrElse(acoid, Set.empty))
       )
     }
 
@@ -48,7 +48,7 @@ object BlindingTransaction {
 
   /** Calculate blinding information for a transaction. */
   def calculateBlindingInfo(
-      tx: Tx.Transaction,
+      tx: Tx.Transaction
   ): BlindingInfo = {
 
     val initialParentExerciseWitnesses: Set[Party] = Set.empty
@@ -63,7 +63,9 @@ object BlindingTransaction {
           .getOrElse(
             nodeId,
             throw new IllegalArgumentException(
-              s"processNode - precondition violated: node $nodeId not present"))
+              s"processNode - precondition violated: node $nodeId not present"
+            ),
+          )
       val witnesses = parentExerciseWitnesses union node.informeesOfNode
 
       // nodes of every type are disclosed to their witnesses
@@ -83,7 +85,8 @@ object BlindingTransaction {
           val state1 =
             state.divulgeCoidTo(
               (parentExerciseWitnesses union ex.choiceObservers) -- ex.stakeholders,
-              ex.targetCoid)
+              ex.targetCoid,
+            )
 
           ex.children.foldLeft(state1) { (s, childNodeId) =>
             processNode(

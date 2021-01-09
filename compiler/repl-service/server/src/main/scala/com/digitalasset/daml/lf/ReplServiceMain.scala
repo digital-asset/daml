@@ -49,7 +49,8 @@ object ReplServiceMain extends App {
     ): Config = {
       if (config.timeMode.exists(_ != timeMode)) {
         throw new IllegalStateException(
-          "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+          "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous."
+        )
       }
       config.copy(timeMode = Some(timeMode))
     }
@@ -80,13 +81,15 @@ object ReplServiceMain extends App {
         }
 
       TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
-        c copy (tlsConfig = f(c.tlsConfig)))
+        c copy (tlsConfig = f(c.tlsConfig))
+      )
 
       opt[Int]("max-inbound-message-size")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .optional()
         .text(
-          s"Optional max inbound message size in bytes. Defaults to ${RunnerConfig.DefaultMaxInboundMessageSize}")
+          s"Optional max inbound message size in bytes. Defaults to ${RunnerConfig.DefaultMaxInboundMessageSize}"
+        )
 
       opt[Unit]('w', "wall-clock-time")
         .action { (_, c) =>
@@ -107,7 +110,8 @@ object ReplServiceMain extends App {
           case (None, Some(_)) =>
             failure("Must specified either both --ledger-host and --ledger-port or neither")
           case _ => success
-      })
+        }
+      )
     }
     def parse(args: Array[String]): Option[Config] =
       parser.parse(
@@ -121,7 +125,7 @@ object ReplServiceMain extends App {
           maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
           timeMode = None,
           applicationId = None,
-        )
+        ),
       )
   }
 
@@ -150,7 +154,8 @@ object ReplServiceMain extends App {
   val clients = Await.result(
     Runner
       .connect(participantParams, config.tlsConfig, config.maxInboundMessageSize),
-    30.seconds)
+    30.seconds,
+  )
   val timeMode = config.timeMode.getOrElse(ScriptTimeMode.WallClock)
 
   val server =
@@ -179,8 +184,8 @@ class ReplService(
     timeMode: ScriptTimeMode,
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
-    mat: Materializer)
-    extends ReplServiceGrpc.ReplServiceImplBase
+    mat: Materializer,
+) extends ReplServiceGrpc.ReplServiceImplBase
     with StrictLogging {
   var signatures: Map[PackageId, PackageSignature] = Map.empty
   var compiledDefinitions: Map[SDefinitionRef, SDefinition] = Map.empty
@@ -195,7 +200,8 @@ class ReplService(
 
   override def loadPackage(
       req: LoadPackageRequest,
-      respObs: StreamObserver[LoadPackageResponse]): Unit = {
+      respObs: StreamObserver[LoadPackageResponse],
+  ): Unit = {
     val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
     val newSignatures = signatures.updated(pkgId, AstUtil.toSignature(pkg))
     val newCompiledDefinitions = compiledDefinitions ++
@@ -208,7 +214,8 @@ class ReplService(
 
   override def runScript(
       req: RunScriptRequest,
-      respObs: StreamObserver[RunScriptResponse]): Unit = {
+      respObs: StreamObserver[RunScriptResponse],
+  ): Unit = {
     val lfVer = LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor(req.getMinor))
     val dop: Decode.OfPackage[_] = Decode.decoders
       .lift(lfVer)
@@ -228,7 +235,9 @@ class ReplService(
 
     var scriptExpr: SExpr = SEVal(
       LfDefRef(
-        Identifier(homePackageId, QualifiedName(mod.name, DottedName.assertFromString("expr")))))
+        Identifier(homePackageId, QualifiedName(mod.name, DottedName.assertFromString("expr")))
+      )
+    )
     if (!results.isEmpty) {
       scriptExpr = SEApp(scriptExpr, results.map(SEValue(_)).toArray)
     }
@@ -246,24 +255,27 @@ class ReplService(
       .runWithClients(clients)
       ._2
       .map { v =>
-        (v, req.getFormat match {
-          case RunScriptRequest.Format.TEXT_ONLY =>
-            v match {
-              case SValue.SText(t) => t
-              case _ => ""
-            }
-          case RunScriptRequest.Format.JSON =>
-            try {
-              LfValueCodec.apiValueToJsValue(v.toValue).compactPrint
-            } catch {
-              case e @ SError.SErrorCrash(_) => {
-                logger.error(s"Cannot convert non-serializable value to JSON")
-                throw e
+        (
+          v,
+          req.getFormat match {
+            case RunScriptRequest.Format.TEXT_ONLY =>
+              v match {
+                case SValue.SText(t) => t
+                case _ => ""
               }
-            }
-          case RunScriptRequest.Format.UNRECOGNIZED =>
-            throw new RuntimeException("Unrecognized response format")
-        })
+            case RunScriptRequest.Format.JSON =>
+              try {
+                LfValueCodec.apiValueToJsValue(v.toValue).compactPrint
+              } catch {
+                case e @ SError.SErrorCrash(_) => {
+                  logger.error(s"Cannot convert non-serializable value to JSON")
+                  throw e
+                }
+              }
+            case RunScriptRequest.Format.UNRECOGNIZED =>
+              throw new RuntimeException("Unrecognized response format")
+          },
+        )
       }
       .onComplete {
         case Failure(e: SError.SError) =>
@@ -282,7 +294,8 @@ class ReplService(
 
   override def clearResults(
       req: ClearResultsRequest,
-      respObs: StreamObserver[ClearResultsResponse]): Unit = {
+      respObs: StreamObserver[ClearResultsResponse],
+  ): Unit = {
     results = Seq()
     respObs.onNext(ClearResultsResponse.newBuilder.build)
     respObs.onCompleted

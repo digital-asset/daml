@@ -22,19 +22,20 @@ abstract class EventDecoderApi(val templateTypes: Seq[TemplateCompanion[_]]) {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   final def createdEventToContractRef(
-      createdEvent: rpcevent.CreatedEvent): Either[EventDecoderError, Contract.OfAny] = {
+      createdEvent: rpcevent.CreatedEvent
+  ): Either[EventDecoderError, Contract.OfAny] = {
     for {
       templateToContract <- createdEvent.templateId flatMap dtl toRight DecoderTableLookupFailure
       tadt <- templateToContract(createdEvent).toRight(
-        CreateEventToContractMappingError: EventDecoderError)
-    } yield
-      Contract(
-        Primitive.substContractId[Id, Nothing](ApiTypes.ContractId(createdEvent.contractId)),
-        tadt,
-        createdEvent.agreementText,
-        createdEvent.signatories,
-        createdEvent.observers,
-        createdEvent.contractKey
+        CreateEventToContractMappingError: EventDecoderError
       )
+    } yield Contract(
+      Primitive.substContractId[Id, Nothing](ApiTypes.ContractId(createdEvent.contractId)),
+      tadt,
+      createdEvent.agreementText,
+      createdEvent.signatories,
+      createdEvent.observers,
+      createdEvent.contractKey,
+    )
   }
 }

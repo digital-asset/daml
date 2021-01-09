@@ -25,7 +25,8 @@ class DecimalSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
         "1.234",
         "12.34",
         "00000",
-        "01")
+        "01",
+      )
 
       val signs = Table("sign", "", "+", "-")
 
@@ -81,7 +82,7 @@ class DecimalSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
         "..1",
         "112..123",
         "0.0.",
-        ".1."
+        ".1.",
       )
 
       forEvery(testCases)(testCase => Decimal.fromString(testCase) shouldBe a[Left[_, _]])
@@ -94,7 +95,7 @@ class DecimalSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
         "decimal without sign",
         "1",
         "123",
-        "12.34"
+        "12.34",
       )
 
       val signs = Table("sign", "++", "-+", "+-", "--", "+++", "-+-")
@@ -132,7 +133,8 @@ class DecimalSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
       )
 
       forEvery(negativeTestCases)(testCase =>
-        Decimal.fromString(testCase) shouldBe Right(d(testCase)))
+        Decimal.fromString(testCase) shouldBe Right(d(testCase))
+      )
 
       forEvery(positiveTestCases)(testCase => Decimal.fromString(testCase) shouldBe a[Left[_, _]])
     }

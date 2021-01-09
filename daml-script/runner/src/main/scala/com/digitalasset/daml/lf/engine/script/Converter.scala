@@ -36,7 +36,8 @@ case class ScriptIds(val scriptPackageId: PackageId) {
   def damlScript(s: String) =
     Identifier(
       scriptPackageId,
-      QualifiedName(ModuleName.assertFromString("Daml.Script"), DottedName.assertFromString(s)))
+      QualifiedName(ModuleName.assertFromString("Daml.Script"), DottedName.assertFromString(s)),
+    )
 }
 
 object ScriptIds {
@@ -68,7 +69,8 @@ object Converter {
   private def daTypes(s: String): Identifier =
     Identifier(
       DA_TYPES_PKGID,
-      QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString(s)))
+      QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString(s)),
+    )
 
   private def toNonEmptySet[A](as: OneAnd[FrontStack, A]): OneAnd[Set, A] = {
     import scalaz.syntax.foldable._
@@ -138,11 +140,10 @@ object Converter {
       case SRecord(_, _, vals) if vals.size == 2 => {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
-        } yield
-          command.CreateCommand(
-            templateId = anyTemplate.ty,
-            argument = anyTemplate.arg.toValue
-          )
+        } yield command.CreateCommand(
+          templateId = anyTemplate.ty,
+          argument = anyTemplate.arg.toValue,
+        )
       }
       case _ => Left(s"Expected Create but got $v")
     }
@@ -155,13 +156,12 @@ object Converter {
           tplId <- typeRepToIdentifier(vals.get(0))
           cid <- toContractId(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
-        } yield
-          command.ExerciseCommand(
-            templateId = tplId,
-            contractId = cid,
-            choiceId = anyChoice.name,
-            argument = anyChoice.arg.toValue,
-          )
+        } yield command.ExerciseCommand(
+          templateId = tplId,
+          contractId = cid,
+          choiceId = anyChoice.name,
+          argument = anyChoice.arg.toValue,
+        )
       }
       case _ => Left(s"Expected Exercise but got $v")
     }
@@ -174,13 +174,12 @@ object Converter {
           tplId <- typeRepToIdentifier(vals.get(0))
           anyKey <- toAnyContractKey(vals.get(1))
           anyChoice <- toAnyChoice(vals.get(2))
-        } yield
-          command.ExerciseByKeyCommand(
-            templateId = tplId,
-            contractKey = anyKey.key.toValue,
-            choiceId = anyChoice.name,
-            argument = anyChoice.arg.toValue,
-          )
+        } yield command.ExerciseByKeyCommand(
+          templateId = tplId,
+          contractKey = anyKey.key.toValue,
+          choiceId = anyChoice.name,
+          argument = anyChoice.arg.toValue,
+        )
       }
       case _ => Left(s"Expected ExerciseByKey but got $v")
     }
@@ -191,13 +190,12 @@ object Converter {
         for {
           anyTemplate <- toAnyTemplate(vals.get(0))
           anyChoice <- toAnyChoice(vals.get(1))
-        } yield
-          command.CreateAndExerciseCommand(
-            templateId = anyTemplate.ty,
-            createArgument = anyTemplate.arg.toValue,
-            choiceId = anyChoice.name,
-            choiceArgument = anyChoice.arg.toValue,
-          )
+        } yield command.CreateAndExerciseCommand(
+          templateId = anyTemplate.ty,
+          createArgument = anyTemplate.arg.toValue,
+          choiceId = anyChoice.name,
+          choiceArgument = anyChoice.arg.toValue,
+        )
       }
       case _ => Left(s"Expected CreateAndExercise but got $v")
     }
@@ -280,7 +278,8 @@ object Converter {
   def translateExerciseResult(
       choiceType: (Identifier, Name) => Either[String, Type],
       translator: preprocessing.ValueTranslator,
-      result: ScriptLedgerClient.ExerciseResult) = {
+      result: ScriptLedgerClient.ExerciseResult,
+  ) = {
     for {
       choice <- Name.fromString(result.choice)
       resultType <- choiceType(result.templateId, choice)
@@ -298,13 +297,16 @@ object Converter {
       choiceType: (Identifier, Name) => Either[String, Type],
       translator: preprocessing.ValueTranslator,
       initialFreeAp: SValue,
-      allEventResults: Seq[ScriptLedgerClient.CommandResult]): Either[String, SExpr] = {
+      allEventResults: Seq[ScriptLedgerClient.CommandResult],
+  ): Either[String, SExpr] = {
 
     // Given one CommandsF command and the list of events starting at this one
     // apply the continuation in the command to the event result
     // and return the remaining events.
-    def fillResult(v: SValue, eventResults: Seq[ScriptLedgerClient.CommandResult])
-      : Either[String, (SExpr, Seq[ScriptLedgerClient.CommandResult])] = {
+    def fillResult(
+        v: SValue,
+        eventResults: Seq[ScriptLedgerClient.CommandResult],
+    ): Either[String, (SExpr, Seq[ScriptLedgerClient.CommandResult])] = {
       v match {
 
         // We already validate these records during toCommands so we don’t bother doing proper validation again here.
@@ -348,7 +350,8 @@ object Converter {
     def go(
         freeAp: SValue,
         eventResults: Seq[ScriptLedgerClient.CommandResult],
-        acc: List[SExpr]): Either[String, SExpr] =
+        acc: List[SExpr],
+    ): Either[String, SExpr] =
       freeAp match {
         case SVariant(_, "PureA", _, v) =>
           Right(acc.foldLeft[SExpr](SEValue(v))({ case (acc, v) => SEApp(acc, Array(v)) }))
@@ -381,7 +384,9 @@ object Converter {
       case SList(FrontStackCons(x, xs)) =>
         OneAnd(x, xs).traverse(toParty(_)).map(toNonEmptySet(_))
       case SParty(p) =>
-        Right(OneAnd(p, Set())) // For backwards compatibility, we support a single part here as well.
+        Right(
+          OneAnd(p, Set())
+        ) // For backwards compatibility, we support a single part here as well.
       case _ => Left(s"Expected non-empty SList but got $v")
     }
 
@@ -398,7 +403,8 @@ object Converter {
 
   def toOptionLocation(
       knownPackages: Map[String, PackageId],
-      v: SValue): Either[String, Option[Location]] =
+      v: SValue,
+  ): Either[String, Option[Location]] =
     v match {
       case SList(list) =>
         list.pop match {
@@ -425,13 +431,13 @@ object Converter {
                         startCol <- toInt(vals.get(4))
                         endLine <- toInt(vals.get(5))
                         endCol <- toInt(vals.get(6))
-                      } yield
-                        Location(
-                          packageId,
-                          module,
-                          definition,
-                          (startLine, startCol),
-                          (endLine, endCol))
+                      } yield Location(
+                        packageId,
+                        module,
+                        definition,
+                        (startLine, startCol),
+                        (endLine, endCol),
+                      )
                     case _ => Left("Expected SRecord of Daml.Script.SrcLoc")
                   }
                 } yield Some(loc)
@@ -451,23 +457,23 @@ object Converter {
   // Convert an active contract to AnyTemplate
   def fromContract(
       translator: preprocessing.ValueTranslator,
-      contract: ScriptLedgerClient.ActiveContract): Either[String, SValue] = {
+      contract: ScriptLedgerClient.ActiveContract,
+  ): Either[String, SValue] = {
     val anyTemplateTyCon = daInternalAny("AnyTemplate")
     val tyCon = contract.templateId
     for {
       argSValue <- translator
         .translateValue(TTyCon(tyCon), contract.argument)
         .left
-        .map(
-          err => s"Failure to translate value in create: $err"
-        )
+        .map(err => s"Failure to translate value in create: $err")
     } yield record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), argSValue)))
   }
 
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
   def fromCreated(
       translator: preprocessing.ValueTranslator,
-      contract: ScriptLedgerClient.ActiveContract): Either[String, SValue] = {
+      contract: ScriptLedgerClient.ActiveContract,
+  ): Either[String, SValue] = {
     val pairTyCon = daTypes("Tuple2")
     for {
       anyTpl <- fromContract(translator, contract)
@@ -476,14 +482,16 @@ object Converter {
 
   def fromStatusException(
       scriptIds: ScriptIds,
-      ex: StatusRuntimeException): Either[String, SValue] = {
+      ex: StatusRuntimeException,
+  ): Either[String, SValue] = {
     val status = ex.getStatus
     Right(
       record(
         scriptIds.damlScript("SubmitFailure"),
         ("status", SInt64(status.getCode.value.asInstanceOf[Long])),
-        ("description", SText(status.getDescription))
-      ))
+        ("description", SText(status.getDescription)),
+      )
+    )
   }
 
   def fromPartyDetails(scriptIds: ScriptIds, details: PartyDetails): Either[String, SValue] = {
@@ -492,8 +500,9 @@ object Converter {
         scriptIds.damlScript("PartyDetails"),
         ("party", SParty(details.party)),
         ("displayName", SOptional(details.displayName.map(SText))),
-        ("isLocal", SBool(details.isLocal))
-      ))
+        ("isLocal", SBool(details.isLocal)),
+      )
+    )
   }
 
   def toIfaceType(
@@ -510,7 +519,7 @@ object Converter {
       environmentInterface: EnvironmentInterface,
       compiledPackages: CompiledPackages,
       ty: Type,
-      jsValue: JsValue
+      jsValue: JsValue,
   ): Either[String, SValue] = {
     def damlLfTypeLookup(id: Identifier): Option[iface.DefDataType.FWT] =
       environmentInterface.typeDecls.get(id).map(_.`type`)
@@ -519,13 +528,16 @@ object Converter {
         .toIfaceType(ctx, ty)
         .left
         .map(s => s"Failed to convert $ty: $s")
-      lfValue <- try {
-        Right(
-          jsValue.convertTo[Value[ContractId]](
-            LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_))))
-      } catch {
-        case e: Exception => Left(s"LF conversion failed: ${e.toString}")
-      }
+      lfValue <-
+        try {
+          Right(
+            jsValue.convertTo[Value[ContractId]](
+              LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_))
+            )
+          )
+        } catch {
+          case e: Exception => Left(s"LF conversion failed: ${e.toString}")
+        }
       valueTranslator = new preprocessing.ValueTranslator(compiledPackages)
       sValue <- valueTranslator
         .translateValue(ty, lfValue)

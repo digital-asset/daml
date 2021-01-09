@@ -5,8 +5,7 @@ package com.daml.platform.db.migration.postgres
 
 // Copied here to make it safe against future refactoring
 // in production code
-/**
-  * Type aliases used throughout the package
+/** Type aliases used throughout the package
   */
 package object v25_backfill_participant_events {
 

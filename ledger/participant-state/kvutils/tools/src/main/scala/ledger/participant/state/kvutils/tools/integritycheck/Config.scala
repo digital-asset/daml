@@ -32,7 +32,8 @@ object Config {
     new OptionParser[Config]("integrity-checker") {
       head("kvutils Integrity Checker")
       note(
-        s"You can produce a ledger export on a kvutils ledger by setting ${LedgerDataExporter.EnvironmentVariableName}=/path/to/file${System.lineSeparator}")
+        s"You can produce a ledger export on a kvutils ledger by setting ${LedgerDataExporter.EnvironmentVariableName}=/path/to/file${System.lineSeparator}"
+      )
       help("help")
       arg[Path]("PATH")
         .text("The path to the ledger export file (uncompressed).")
@@ -42,11 +43,13 @@ object Config {
         .action((_, config) => config.copy(performByteComparison = false))
       opt[Unit]("sort-write-set")
         .text(
-          "Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally.")
+          "Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally."
+        )
         .action((_, config) => config.copy(sortWriteSet = true))
       opt[Unit]("index-only")
         .text(
-          "Run only the indexing step of the integrity checker (useful tp benchmark the indexer).")
+          "Run only the indexing step of the integrity checker (useful tp benchmark the indexer)."
+        )
         .action((_, config) => config.copy(indexOnly = true))
       opt[String]("jdbc-url")
         .text("External JDBC URL (useful for running against PostgreSQL).")

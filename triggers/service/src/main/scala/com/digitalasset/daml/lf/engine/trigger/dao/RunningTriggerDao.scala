@@ -17,14 +17,17 @@ import scala.concurrent.{ExecutionContext, Future}
 
 trait RunningTriggerDao extends Closeable {
   def addRunningTrigger(t: RunningTrigger)(implicit ec: ExecutionContext): Future[Unit]
-  def getRunningTrigger(triggerInstance: UUID)(
-      implicit ec: ExecutionContext): Future[Option[RunningTrigger]]
+  def getRunningTrigger(triggerInstance: UUID)(implicit
+      ec: ExecutionContext
+  ): Future[Option[RunningTrigger]]
   def updateRunningTriggerToken(
       triggerInstance: UUID,
       accessToken: AccessToken,
-      refreshToken: Option[RefreshToken])(implicit ec: ExecutionContext): Future[Unit]
+      refreshToken: Option[RefreshToken],
+  )(implicit ec: ExecutionContext): Future[Unit]
   def removeRunningTrigger(triggerInstance: UUID)(implicit ec: ExecutionContext): Future[Boolean]
   def listRunningTriggers(party: Party)(implicit ec: ExecutionContext): Future[Vector[UUID]]
-  def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)])(
-      implicit ec: ExecutionContext): Future[Unit]
+  def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)])(implicit
+      ec: ExecutionContext
+  ): Future[Unit]
 }

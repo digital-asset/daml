@@ -20,19 +20,19 @@ private[memory] final class InMemoryLedgerStateOperations(
   import InMemoryLedgerStateOperations.appendEntry
 
   override def readState(
-      keys: Iterable[Raw.Key],
+      keys: Iterable[Raw.Key]
   )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Value]]] =
     Future.successful(keys.map(state.get)(breakOut))
 
   override def writeState(
-      keyValuePairs: Iterable[Raw.KeyValuePair],
+      keyValuePairs: Iterable[Raw.KeyValuePair]
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
     state ++= keyValuePairs
     Future.unit
   }
 
-  override def appendToLog(key: Raw.Key, value: Raw.Value)(
-      implicit executionContext: ExecutionContext
+  override def appendToLog(key: Raw.Key, value: Raw.Value)(implicit
+      executionContext: ExecutionContext
   ): Future[Index] =
     Future.successful(appendEntry(log, LedgerRecord(_, key, value)))
 }

@@ -18,7 +18,7 @@ import org.scalatest.prop.TableFor2
 import org.scalatestplus.scalacheck.{
   Checkers,
   ScalaCheckDrivenPropertyChecks,
-  ScalaCheckPropertyChecks
+  ScalaCheckPropertyChecks,
 }
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -45,8 +45,8 @@ class OrderingSpec
 
   private val randomComparableValues: TableFor2[String, Gen[SValue]] = {
     import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
-    implicit val ordNo
-      : Order[Nothing] = Order order [Nothing]((_: Any, _: Any) => sys.error("impossible"))
+    implicit val ordNo: Order[Nothing] =
+      Order order [Nothing] ((_: Any, _: Any) => sys.error("impossible"))
     def r(name: String, va: VA)(sv: va.Inj[Nothing] => SValue) =
       (name, va.injarb[Nothing].arbitrary map sv)
     Table(
@@ -58,8 +58,8 @@ class OrderingSpec
           SList(loi.map(oi => SOptional(oi map SInt64)).to(FrontStack))
         },
       ) ++
-        comparableCoidsGen.zipWithIndex.map {
-          case (g, ix) => (s"ContractId $ix", g map SContractId)
+        comparableCoidsGen.zipWithIndex.map { case (g, ix) =>
+          (s"ContractId $ix", g map SContractId)
         }: _*
     )
   }

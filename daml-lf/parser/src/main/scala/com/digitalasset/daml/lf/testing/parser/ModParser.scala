@@ -35,13 +35,13 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   }
 
   lazy val pkg: Parser[Package] =
-    opt(metadata) ~ rep(mod) ^^ {
-      case metadata ~ modules => Package(modules, Set.empty, parameters.languageVersion, metadata)
+    opt(metadata) ~ rep(mod) ^^ { case metadata ~ modules =>
+      Package(modules, Set.empty, parameters.languageVersion, metadata)
     }
 
   private lazy val metadata: Parser[PackageMetadata] =
-    Id("metadata") ~ `(` ~> pkgName ~ `:` ~ pkgVersion <~ `)` ^^ {
-      case name ~ _ ~ version => PackageMetadata(name, version)
+    Id("metadata") ~ `(` ~> pkgName ~ `:` ~ pkgVersion <~ `)` ^^ { case name ~ _ ~ version =>
+      PackageMetadata(name, version)
     }
 
   lazy val mod: Parser[Module] =
@@ -61,7 +61,8 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
         if (!allowed(t))
           throw ParsingError(
             s"found tag $t but expected one of ${allowed.toList.mkString(",")}.",
-            in.pos)
+            in.pos,
+          )
       }
       tags.toSet
     }
@@ -73,37 +74,34 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private lazy val synDefinition: Parser[DataDef] =
     Id("synonym") ~>! dottedName ~ rep(typeBinder) ~
-      (`=` ~> typ) ^^ {
-      case id ~ params ~ typ =>
+      (`=` ~> typ) ^^ { case id ~ params ~ typ =>
         DataDef(id, DTypeSyn(ImmArray(params), typ))
-    }
+      }
 
   private lazy val recDefinition: Parser[DataDef] =
     Id("record") ~>! tags(dataDefTags) ~ dottedName ~ rep(typeBinder) ~
-      (`=` ~ `{` ~> repsep(binder, `,`) <~ `}`) ^^ {
-      case defTags ~ id ~ params ~ fields =>
+      (`=` ~ `{` ~> repsep(binder, `,`) <~ `}`) ^^ { case defTags ~ id ~ params ~ fields =>
         DataDef(
           id,
-          DDataType(defTags(serializableTag), ImmArray(params), DataRecord(ImmArray(fields)))
+          DDataType(defTags(serializableTag), ImmArray(params), DataRecord(ImmArray(fields))),
         )
-    }
+      }
 
   private lazy val variantDefinition: Parser[DataDef] =
     Id("variant") ~>! tags(dataDefTags) ~ dottedName ~ rep(typeBinder) ~
-      (`=` ~> repsep(binder, `|`)) ^^ {
-      case defTags ~ id ~ params ~ variants =>
+      (`=` ~> repsep(binder, `|`)) ^^ { case defTags ~ id ~ params ~ variants =>
         DataDef(
           id,
-          DDataType(defTags(serializableTag), ImmArray(params), DataVariant(ImmArray(variants)))
+          DDataType(defTags(serializableTag), ImmArray(params), DataVariant(ImmArray(variants))),
         )
-    }
+      }
 
   private lazy val enumDefinition: Parser[DataDef] =
     Id("enum") ~>! tags(dataDefTags) ~ dottedName ~ (`=` ~> repsep(id, `|`)) ^^ {
       case defTags ~ id ~ constructors =>
         DataDef(
           id,
-          DDataType(defTags(serializableTag), ImmArray.empty, DataEnum(ImmArray(constructors)))
+          DDataType(defTags(serializableTag), ImmArray.empty, DataEnum(ImmArray(constructors))),
         )
     }
 
@@ -114,8 +112,8 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
     }
 
   private lazy val templateKey: Parser[TemplateKey] =
-    argTyp ~ expr0 ~ expr0 ^^ {
-      case t ~ body ~ maintainers => TemplateKey(t, body, maintainers)
+    argTyp ~ expr0 ~ expr0 ^^ { case t ~ body ~ maintainers =>
+      TemplateKey(t, body, maintainers)
     }
 
   private lazy val templateDefinition: Parser[TemplDef] =
@@ -128,12 +126,12 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       opt(`,` ~> Id("key") ~> templateKey) <~
       `}`) ^^ {
       case x ~ _ ~ tycon ~ _ ~ _ ~ _ ~
-            precon ~
-            signatories ~
-            observers ~
-            agreement ~
-            choices ~
-            key =>
+          precon ~
+          signatories ~
+          observers ~
+          agreement ~
+          choices ~
+          key =>
         TemplDef(tycon, Template(x, precon, signatories, agreement, choices, observers, key))
     }
 
@@ -154,18 +152,18 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
       (`,` ~> Id("controllers") ~> expr) ~
       opt(`,` ~> Id("observers") ~> expr) ~
       (`to` ~> expr) ^^ {
-      case choiceTags ~ name ~ self ~ param ~ retTyp ~ controllers ~ choiceObservers ~ update =>
-        name -> TemplateChoice(
-          name,
-          !choiceTags(nonConsumingTag),
-          controllers,
-          choiceObservers,
-          self,
-          param,
-          retTyp,
-          update,
-        )
-    }
+        case choiceTags ~ name ~ self ~ param ~ retTyp ~ controllers ~ choiceObservers ~ update =>
+          name -> TemplateChoice(
+            name,
+            !choiceTags(nonConsumingTag),
+            controllers,
+            choiceObservers,
+            self,
+            param,
+            retTyp,
+            update,
+          )
+      }
 
   private val serializableTag = Name.assertFromString("serializable")
   private val noPartyLitsTag = Name.assertFromString("noPartyLiterals")

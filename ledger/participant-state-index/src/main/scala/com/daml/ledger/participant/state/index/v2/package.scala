@@ -26,13 +26,14 @@ package v2 {
         contractKey: Option[Value.VersionedValue[Value.ContractId]],
         signatories: Set[Ref.Party],
         observers: Set[Ref.Party],
-        agreementText: String
+        agreementText: String,
     )
   }
 
   final case class ActiveContractSetSnapshot(
       takenAt: LedgerOffset.Absolute,
-      activeContracts: Source[(Option[WorkflowId], AcsUpdateEvent.Create), NotUsed])
+      activeContracts: Source[(Option[WorkflowId], AcsUpdateEvent.Create), NotUsed],
+  )
 
   /** Information provided by the submitter of changes submitted to the ledger.
     *
@@ -48,12 +49,11 @@ package v2 {
     * @param commandId: a submitter provided identifier that he can use to
     *   correlate the stream of changes to the participant state with the
     *   changes he submitted.
-    *
     */
   final case class SubmitterInfo(
       submitter: Ref.Party,
       applicationId: ApplicationId,
-      commandId: CommandId
+      commandId: CommandId,
   )
 
   /** Meta-data of a transaction visible to all parties that can see a part of
@@ -65,7 +65,7 @@ package v2 {
     *   Implementors are free to make it equal to the 'offset' of this event.
     *
     * @param offset: The offset of this event, which uniquely identifies it.
-
+    *
     * @param ledgerEffectiveTime: the submitter-provided time at which the
     *   transaction should be interpreted. This is the time returned by the
     *   DAML interpreter on a `getTime :: Update Time` call.
@@ -74,7 +74,6 @@ package v2 {
     *   The time at which this event was recorded. Depending on the
     *   implementation this time can be local to a Participant node or global
     *   to the whole ledger.
-    *
     *
     * @param workflowId: a submitter-provided identifier used for monitoring
     *   and to traffic-shape the work handled by DAML applications
@@ -86,7 +85,8 @@ package v2 {
       offset: LedgerOffset.Absolute,
       ledgerEffectiveTime: Instant,
       recordTime: Instant,
-      workflowId: WorkflowId)
+      workflowId: WorkflowId,
+  )
 
   final case class LedgerConfiguration(maxDeduplicationTime: Duration)
 
@@ -99,7 +99,6 @@ package v2 {
     *
     * @param sourceDescription : Optional description provided by the backing
     *   participant describing where it got the package from.
-    *
     */
   final case class PackageDetails(
       size: Long,

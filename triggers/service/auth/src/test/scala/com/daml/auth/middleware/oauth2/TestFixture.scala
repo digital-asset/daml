@@ -19,7 +19,7 @@ import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   OwnedResource,
   Resource,
-  SuiteResource
+  SuiteResource,
 }
 import com.daml.ledger.resources.ResourceContext
 import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
@@ -35,7 +35,8 @@ case class TestResources(
     authServerBinding: ServerBinding,
     authMiddlewareBinding: ServerBinding,
     authMiddlewareClient: Client,
-    authMiddlewareClientBinding: ServerBinding)
+    authMiddlewareClientBinding: ServerBinding,
+)
 
 trait TestFixture
     extends AkkaBeforeAndAfterAll
@@ -73,13 +74,15 @@ trait TestFixture
             ledgerId = ledgerId,
             jwtSecret = jwtSecret,
             clock = Some(clock),
-          ))
+          )
+        )
         serverBinding <- Resources.authServerBinding(server)
         serverUri = Uri()
           .withScheme("http")
           .withAuthority(
             serverBinding.localAddress.getHostString,
-            serverBinding.localAddress.getPort)
+            serverBinding.localAddress.getPort,
+          )
         middlewareBinding <- Resources.authMiddlewareBinding(
           Config(
             port = Port.Dynamic,
@@ -97,15 +100,17 @@ trait TestFixture
                 .build(new Auth0Clock {
                   override def getToday: Date = Date.from(clock.instant())
                 })
-            )
-          ))
+            ),
+          )
+        )
         middlewareClientPort <- Resources.port()
         middlewareClientConfig = Client.Config(
           authMiddlewareUri = Uri()
             .withScheme("http")
             .withAuthority(
               middlewareBinding.localAddress.getHostName,
-              middlewareBinding.localAddress.getPort),
+              middlewareBinding.localAddress.getPort,
+            ),
           callbackUri = Uri()
             .withScheme("http")
             .withAuthority("localhost", middlewareClientPort.value)
@@ -113,20 +118,19 @@ trait TestFixture
           maxAuthCallbacks = maxClientAuthCallbacks,
           authCallbackTimeout = FiniteDuration(1, duration.MINUTES),
           maxHttpEntityUploadSize = 4194304,
-          httpEntityUploadTimeout = FiniteDuration(1, duration.MINUTES)
+          httpEntityUploadTimeout = FiniteDuration(1, duration.MINUTES),
         )
         middlewareClient = Client(middlewareClientConfig)
         middlewareClientBinding <- Resources
           .authMiddlewareClientBinding(middlewareClientConfig, middlewareClient)
-      } yield
-        TestResources(
-          clock = clock,
-          authServer = server,
-          authServerBinding = serverBinding,
-          authMiddlewareBinding = middlewareBinding,
-          authMiddlewareClient = middlewareClient,
-          authMiddlewareClientBinding = middlewareClientBinding,
-        )
+      } yield TestResources(
+        clock = clock,
+        authServer = server,
+        authServerBinding = serverBinding,
+        authMiddlewareBinding = middlewareBinding,
+        authMiddlewareClient = middlewareClient,
+        authMiddlewareClientBinding = middlewareClientBinding,
+      )
     )
   }
 

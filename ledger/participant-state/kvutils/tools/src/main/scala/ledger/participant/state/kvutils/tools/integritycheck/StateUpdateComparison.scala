@@ -17,8 +17,8 @@ trait StateUpdateComparison {
 final class ReadServiceStateUpdateComparison(
     expectedReadService: ReplayingReadService,
     actualReadService: ReplayingReadService,
-)(
-    implicit materializer: Materializer,
+)(implicit
+    materializer: Materializer,
     executionContext: ExecutionContext,
 ) extends StateUpdateComparison {
 
@@ -27,21 +27,23 @@ final class ReadServiceStateUpdateComparison(
   def compare(): Future[Unit] = {
     println("Comparing expected and actual state updates.".white)
     if (expectedReadService.updateCount() != actualReadService.updateCount()) {
-      Future.failed(new ComparisonFailureException(
-        s"Expected ${expectedReadService.updateCount()} state updates but got ${actualReadService.updateCount()}.",
-      ))
+      Future.failed(
+        new ComparisonFailureException(
+          s"Expected ${expectedReadService.updateCount()} state updates but got ${actualReadService.updateCount()}."
+        )
+      )
     } else {
       expectedReadService
         .stateUpdates(None)
         .zip(actualReadService.stateUpdates(None))
-        .mapAsync(1) {
-          case ((expectedOffset, expectedUpdate), (actualOffset, actualUpdate)) =>
-            println(s"Comparing offset $expectedOffset...")
-            Future.sequence(
-              Seq(
-                compareOffsets(expectedOffset, actualOffset),
-                compareUpdates(expectedUpdate, actualUpdate),
-              ))
+        .mapAsync(1) { case ((expectedOffset, expectedUpdate), (actualOffset, actualUpdate)) =>
+          println(s"Comparing offset $expectedOffset...")
+          Future.sequence(
+            Seq(
+              compareOffsets(expectedOffset, actualOffset),
+              compareUpdates(expectedUpdate, actualUpdate),
+            )
+          )
         }
         .runWith(Sink.fold(0)((n, _) => n + 1))
         .map { counter =>
@@ -71,7 +73,8 @@ object ReadServiceStateUpdateComparison {
           expectedNormalizedUpdate.toString,
           "Actual:",
           actualNormalizedUpdate.toString,
-        ))
+        )
+      )
     } else {
       Future.unit
     }

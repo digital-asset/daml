@@ -38,7 +38,7 @@ private[daml] object DamlLfEncoder extends App {
       implicit val parserParameters: ParserParameters[this.type] =
         ParserParameters(
           defaultPackageId = pkgId,
-          languageVersion = appArgs.languageVersion
+          languageVersion = appArgs.languageVersion,
         )
 
       makeDar(readSources(appArgs.inputFiles), Paths.get(appArgs.outputFile).toFile)
@@ -53,8 +53,9 @@ private[daml] object DamlLfEncoder extends App {
   private def readSources(files: Seq[String]): String =
     files.view.flatMap(file => Source.fromFile(Paths.get(file).toFile, "UTF8")).mkString
 
-  private def makeArchive(source: String)(
-      implicit parserParameters: ParserParameters[this.type]) = {
+  private def makeArchive(
+      source: String
+  )(implicit parserParameters: ParserParameters[this.type]) = {
 
     val modules = parseModules[this.type](source).fold(error, identity)
 
@@ -63,7 +64,9 @@ private[daml] object DamlLfEncoder extends App {
         Some(
           Ast.PackageMetadata(
             Ref.PackageName.assertFromString("encoder_binary"),
-            Ref.PackageVersion.assertFromString("1.0.0")))
+            Ref.PackageVersion.assertFromString("1.0.0"),
+          )
+        )
       } else None
 
     val pkg = Ast.Package(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
@@ -74,8 +77,9 @@ private[daml] object DamlLfEncoder extends App {
     encodeArchive(pkgId -> pkgs(pkgId), parserParameters.languageVersion)
   }
 
-  private def makeDar(source: String, file: File)(
-      implicit parserParameters: ParserParameters[this.type]) = {
+  private def makeDar(source: String, file: File)(implicit
+      parserParameters: ParserParameters[this.type]
+  ) = {
     import java.io.FileOutputStream
     import java.util.zip.ZipOutputStream
 
@@ -96,7 +100,7 @@ private[daml] object DamlLfEncoder extends App {
   private case class Arguments(
       inputFiles: List[String],
       outputFile: String,
-      languageVersion: LanguageVersion
+      languageVersion: LanguageVersion,
   )
 
   private def parseArgs() = {
@@ -105,7 +109,7 @@ private[daml] object DamlLfEncoder extends App {
     @tailrec
     def go(
         appArgs: Arguments = Arguments(List.empty, "", LanguageVersion.default),
-        i: Int = 0
+        i: Int = 0,
     ): Arguments =
       if (i == nAgrs) {
         if (appArgs.outputFile.isEmpty)
@@ -122,7 +126,8 @@ private[daml] object DamlLfEncoder extends App {
             go(appArgs.copy(outputFile = args(i + 1)), i + 2)
           case _ if i + 1 >= nAgrs =>
             error(
-              s"usage: encoder_binary inputFile1 ... inputFileN --output outputFile [--target version]")
+              s"usage: encoder_binary inputFile1 ... inputFileN --output outputFile [--target version]"
+            )
           case x =>
             go(appArgs.copy(inputFiles = x :: appArgs.inputFiles), i + 1)
         }

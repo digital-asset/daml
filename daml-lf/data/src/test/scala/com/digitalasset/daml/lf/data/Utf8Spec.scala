@@ -31,7 +31,7 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
       5 -> asciiCodepoints,
       5 -> twoWordsCodepoints,
       1 -> lowCodepoints,
-      1 -> highCodepoints
+      1 -> highCodepoints,
     )
 
   private val strings =
@@ -123,8 +123,8 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
 
     "be strict on individual code points" in {
-      (legalCodePoints zip legalCodePoints.tail).foreach {
-        case (x, y) => Utf8.Ordering.compare(x, y) should be < 0
+      (legalCodePoints zip legalCodePoints.tail).foreach { case (x, y) =>
+        Utf8.Ordering.compare(x, y) should be < 0
       }
     }
 
@@ -135,8 +135,10 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
     def makeImmArray(cp: Long) = ImmArray('-'.toLong, cp, '-'.toLong)
 
     "properly converts any legal code points" in {
-      for (cp <- (Character.MIN_CODE_POINT until Character.MIN_SURROGATE) ++
-          ((Character.MAX_SURROGATE + 1) to Character.MAX_CODE_POINT))
+      for (
+        cp <- (Character.MIN_CODE_POINT until Character.MIN_SURROGATE) ++
+          ((Character.MAX_SURROGATE + 1) to Character.MAX_CODE_POINT)
+      )
         Utf8.pack(makeImmArray(cp.toLong)) shouldBe "-" + new String(Character.toChars(cp)) + "-"
     }
 
@@ -154,7 +156,7 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
         Character.MAX_CODE_POINT + 1L,
         Character.MAX_CODE_POINT + 2L,
         Int.MaxValue.toLong,
-        Long.MaxValue
+        Long.MaxValue,
       )
 
       for (cp <- testCases)

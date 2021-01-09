@@ -34,7 +34,7 @@ private[events] object EventsTableTreeEvents {
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
             eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
-          )
+          ),
         )
     }
 
@@ -62,7 +62,7 @@ private[events] object EventsTableTreeEvents {
             exerciseActors = ArraySeq.unsafeWrapArray(exerciseActors),
             exerciseChildEventIds = ArraySeq.unsafeWrapArray(exerciseChildEventIds),
             eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
-          )
+          ),
         )
     }
 
@@ -161,7 +161,7 @@ private[events] object EventsTableTreeEvents {
         order by event_sequential_id #$limitExpr""",
       rawTreeEventParser,
       range,
-      pageSize
+      pageSize,
     )
   }
 
@@ -187,7 +187,7 @@ private[events] object EventsTableTreeEvents {
         order by event_sequential_id #$limitExpr""",
       rawTreeEventParser,
       range,
-      pageSize
+      pageSize,
     )
   }
 

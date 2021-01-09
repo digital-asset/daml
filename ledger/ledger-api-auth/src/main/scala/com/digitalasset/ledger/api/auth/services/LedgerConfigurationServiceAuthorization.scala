@@ -23,10 +23,12 @@ private[daml] final class LedgerConfigurationServiceAuthorization(
 
   override def getLedgerConfiguration(
       request: GetLedgerConfigurationRequest,
-      responseObserver: StreamObserver[GetLedgerConfigurationResponse]): Unit =
+      responseObserver: StreamObserver[GetLedgerConfigurationResponse],
+  ): Unit =
     authorizer.requirePublicClaimsOnStream(service.getLedgerConfiguration)(
       request,
-      responseObserver)
+      responseObserver,
+    )
 
   override def bindService(): ServerServiceDefinition =
     LedgerConfigurationServiceGrpc.bindService(this, executionContext)

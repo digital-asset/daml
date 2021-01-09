@@ -5,4 +5,5 @@ package com.daml.ledger.validator.preexecution
 
 final class ConflictDetectedException
     extends RuntimeException(
-      "A conflict has been detected with other submissions during post-execution.")
+      "A conflict has been detected with other submissions during post-execution."
+    )

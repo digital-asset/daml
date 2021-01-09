@@ -14,8 +14,9 @@ private[events] trait PostCommitValidationData {
 
   def lookupContractKeyGlobally(key: Key)(implicit connection: Connection): Option[ContractId]
 
-  def lookupMaximumLedgerTime(ids: Set[ContractId])(
-      implicit connection: Connection): Try[Option[Instant]]
+  def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
+      connection: Connection
+  ): Try[Option[Instant]]
 
   def lookupParties(parties: Seq[Party])(implicit connection: Connection): List[PartyDetails]
 }

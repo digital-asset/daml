@@ -12,7 +12,7 @@ import io.grpc.{
   ServerCall,
   ServerCallHandler,
   ServerInterceptor,
-  Status
+  Status,
 }
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -20,8 +20,7 @@ import scala.compat.java8.FutureConverters
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
-/**
-  * This interceptor uses the given [[AuthService]] to get [[Claims]] for the current request,
+/** This interceptor uses the given [[AuthService]] to get [[Claims]] for the current request,
   * and then stores them in the current [[Context]].
   */
 final class AuthorizationInterceptor(protected val authService: AuthService, ec: ExecutionContext)
@@ -36,7 +35,8 @@ final class AuthorizationInterceptor(protected val authService: AuthService, ec:
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
       headers: Metadata,
-      nextListener: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
+      nextListener: ServerCallHandler[ReqT, RespT],
+  ): ServerCall.Listener[ReqT] = {
     // Note: Context uses ThreadLocal storage, we need to capture it outside of the async block below.
     // Contexts are immutable and safe to pass around.
     val prevCtx = Context.current

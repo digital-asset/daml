@@ -23,7 +23,7 @@ final class InMemorySubmissionAggregator(submissionInfo: SubmissionInfo, writer:
 object InMemorySubmissionAggregator {
 
   final class InMemoryWriteSetBuilder private[InMemorySubmissionAggregator] (
-      aggregate: mutable.Buffer[WriteItem],
+      aggregate: mutable.Buffer[WriteItem]
   ) extends WriteSetBuilder {
     override def +=(data: WriteItem): Unit = aggregate.synchronized {
       aggregate += data

@@ -13,8 +13,7 @@ import scala.concurrent.{ExecutionContext, Future}
 package object validator {
   type SubmittingParticipantId = ParticipantId
 
-  /**
-    * Orchestrates committing to a ledger after validating submissions.
+  /** Orchestrates committing to a ledger after validating submissions.
     */
   type ValidateAndCommit = (
       CorrelationId,

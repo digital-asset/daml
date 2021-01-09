@@ -12,7 +12,7 @@ object BatchingQueueFactory {
         maxQueueSize = batchingLedgerWriterConfig.maxBatchQueueSize,
         maxBatchSizeBytes = batchingLedgerWriterConfig.maxBatchSizeBytes,
         maxWaitDuration = batchingLedgerWriterConfig.maxBatchWaitDuration,
-        maxConcurrentCommits = batchingLedgerWriterConfig.maxBatchConcurrentCommits
+        maxConcurrentCommits = batchingLedgerWriterConfig.maxBatchConcurrentCommits,
       )
     } else {
       batchingQueueForSerialValidation(batchingLedgerWriterConfig.maxBatchQueueSize)
@@ -23,6 +23,6 @@ object BatchingQueueFactory {
       maxQueueSize = maxBatchQueueSize,
       maxBatchSizeBytes = 1,
       maxWaitDuration = Duration(1, MILLISECONDS),
-      maxConcurrentCommits = 1
+      maxConcurrentCommits = 1,
     )
 }

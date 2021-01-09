@@ -36,8 +36,9 @@ abstract class EqualityEncoding extends LfTypeEncoding {
 
   override def variant[A](variantId: Identifier, cases: VariantCases[A]): Out[A] = cases
 
-  override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
-      select: PartialFunction[A, B]): VariantCases[A] = { (a1: A, a2: A) =>
+  override def variantCase[B, A](caseName: String, o: Out[B])(
+      inject: B => A
+  )(select: PartialFunction[A, B]): VariantCases[A] = { (a1: A, a2: A) =>
     (select.lift(a1), select.lift(a2)) match {
       case (Some(b1), Some(b2)) => o(b1, b2)
       case (None, None) => true

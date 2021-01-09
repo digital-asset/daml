@@ -50,8 +50,9 @@ object ValuePrimitiveEncoding {
   /** Proof that `ValuePrimitiveEncoding`, and therefore the primitive types and
     * Value, have an instance for any possible primitive value.
     */
-  private[binding] def coreInstance[TC[_]](te: ValuePrimitiveEncoding[TC])(
-      sCase: VSum): Option[TC[_]] = {
+  private[binding] def coreInstance[TC[_]](
+      te: ValuePrimitiveEncoding[TC]
+  )(sCase: VSum): Option[TC[_]] = {
     import te._, VSum._
     sCase match {
       // if you remove a case here, also delete the member referenced on the RHS
@@ -85,14 +86,16 @@ object ValuePrimitiveEncoding {
       valueTimestamp,
       valueUnit,
       valueBool,
-      valueContractId[P.Text])
+      valueContractId[P.Text],
+    )
   }
 
   // def const[F[_]](fa: Forall[F]): ValuePrimitiveEncoding[F] =
 
   def product[F[_], G[_]](
       vpef: ValuePrimitiveEncoding[F],
-      vpeg: ValuePrimitiveEncoding[G]): ValuePrimitiveEncoding[Lambda[a => (F[a], G[a])]] =
+      vpeg: ValuePrimitiveEncoding[G],
+  ): ValuePrimitiveEncoding[Lambda[a => (F[a], G[a])]] =
     new ValuePrimitiveEncoding[Lambda[a => (F[a], G[a])]] {
       override def valueInt64 = (vpef.valueInt64, vpeg.valueInt64)
 

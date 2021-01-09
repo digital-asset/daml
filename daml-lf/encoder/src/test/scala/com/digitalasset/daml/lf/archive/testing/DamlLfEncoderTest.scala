@@ -56,7 +56,7 @@ class DamlLfEncoderTest
         "1.7" -> modules_1_7,
         "1.8" -> modules_1_8,
         "1.11" -> modules_1_11,
-        "1.dev" -> modules_1_dev
+        "1.dev" -> modules_1_dev,
       )
 
       forEvery(versions) { (version, expectedModules) =>

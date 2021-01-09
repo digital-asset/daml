@@ -42,7 +42,7 @@ private[parser] object Lexer extends RegexParsers {
     "to_any_exception" -> `to_any_exception`,
     "from_any_exception" -> `from_any_exception`,
     "throw" -> `throw`,
-    "catch" -> `catch`
+    "catch" -> `catch`,
   )
 
   val token: Parser[Token] =
@@ -86,7 +86,7 @@ private[parser] object Lexer extends RegexParsers {
         case Right(x) => Success(Timestamp(x), in)
         case Left(_) =>
           Error(s"cannot interpret $s as a Timestamp", in)
-    }
+      }
 
   private def toDate(s: String): Parser[Date] =
     (in: Input) =>
@@ -94,14 +94,14 @@ private[parser] object Lexer extends RegexParsers {
         case Right(x) => Success(Date(x), in)
         case Left(_) =>
           Error(s"cannot interpret $s as a Timestamp", in)
-    }
+      }
 
   private def toNumeric(s: String): Parser[Numeric] =
     (in: Input) =>
       data.Numeric.fromString(s) match {
         case Right(x) => Success(Numeric(x), in)
         case Left(_) => Error(s"cannot interpret $s as a Decimal", in)
-    }
+      }
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   private def toNumber(s: String): Parser[Number] =

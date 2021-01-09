@@ -20,8 +20,8 @@ object LoadDarFunction extends App {
 
     val packages = UniversalArchiveReader().readFile(darFile).get
     val packagesMap =
-      packages.all.map {
-        case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+      packages.all.map { case (pkgId, pkgArchive) =>
+        Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
       }.toMap
 
     val compilerConfig =

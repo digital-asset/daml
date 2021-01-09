@@ -12,7 +12,7 @@ import com.daml.ledger.validator.{
   CommitStrategy,
   LedgerStateOperations,
   LogAppendingCommitStrategy,
-  StateKeySerializationStrategy
+  StateKeySerializationStrategy,
 }
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,8 +34,8 @@ final class CachingCommitStrategy[Result](
   ): Future[Result] =
     for {
       _ <- Future {
-        outputState.view.filter { case (key, _) => shouldCache(key) }.foreach {
-          case (key, value) => cache.put(key, value)
+        outputState.view.filter { case (key, _) => shouldCache(key) }.foreach { case (key, value) =>
+          cache.put(key, value)
         }
       }
       result <- delegate.commit(

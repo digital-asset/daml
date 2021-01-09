@@ -42,8 +42,9 @@ final class TlsIT
               enabled = true,
               keyCertChainFile = clientCrt,
               keyFile = clientPem,
-              trustCertCollectionFile = caCrt
-            ))
+              trustCertCollectionFile = caCrt,
+            )
+          )
           _ <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test0"),

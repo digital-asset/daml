@@ -8,9 +8,7 @@ import com.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
-  *
-  * @param suite To which collection of tests this case belongs to
+/** @param suite To which collection of tests this case belongs to
   * @param shortIdentifier A unique identifier used to generate party names, command identifiers, etc.
   * @param description A human-readable description of what this case tests
   * @param timeoutScale The factor applied to the default

@@ -7,8 +7,7 @@ import java.time.Instant
 
 import com.daml.lf.data.Ref
 
-/**
-  * A claim is a single statement about what an authenticated user can do with the ledger API.
+/** A claim is a single statement about what an authenticated user can do with the ledger API.
   *
   * Note: this ADT is expected to evolve in the future by adding new cases for more fine grained claims.
   * The existing cases should be treated as immutable in order to guarantee backwards compatibility for
@@ -47,8 +46,7 @@ final case class ClaimActAsParty(name: Ref.Party) extends Claim
   */
 final case class ClaimReadAsParty(name: Ref.Party) extends Claim
 
-/**
-  * [[Claims]] define what actions an authenticated user can perform on the Ledger API.
+/** [[Claims]] define what actions an authenticated user can perform on the Ledger API.
   *
   * They also optionally specify an expiration epoch time that statically specifies the
   * time on or after which the token will no longer be considered valid by the Ledger API.
@@ -94,20 +92,23 @@ final case class Claims(
     Either.cond(
       participantId.forall(_ == id),
       (),
-      AuthorizationError.InvalidParticipant(participantId.get, id))
+      AuthorizationError.InvalidParticipant(participantId.get, id),
+    )
 
   def validForApplication(id: String): Either[AuthorizationError, Unit] =
     Either.cond(
       applicationId.forall(_ == id),
       (),
-      AuthorizationError.InvalidApplication(applicationId.get, id))
+      AuthorizationError.InvalidApplication(applicationId.get, id),
+    )
 
   /** Returns false if the expiration timestamp exists and is greater than or equal to the current time */
   def notExpired(now: Instant): Either[AuthorizationError, Unit] =
     Either.cond(
       expiration.forall(now.isBefore),
       (),
-      AuthorizationError.Expired(expiration.get, now))
+      AuthorizationError.Expired(expiration.get, now),
+    )
 
   /** Returns true if the set of claims authorizes the user to use admin services, unless the claims expired */
   def isAdmin: Either[AuthorizationError, Unit] =
@@ -119,11 +120,15 @@ final case class Claims(
 
   /** Returns true if the set of claims authorizes the user to act as the given party, unless the claims expired */
   def canActAs(party: String): Either[AuthorizationError, Unit] = {
-    Either.cond(claims.exists {
-      case ClaimActAsAnyParty => true
-      case ClaimActAsParty(p) if p == party => true
-      case _ => false
-    }, (), AuthorizationError.MissingActClaim(party))
+    Either.cond(
+      claims.exists {
+        case ClaimActAsAnyParty => true
+        case ClaimActAsParty(p) if p == party => true
+        case _ => false
+      },
+      (),
+      AuthorizationError.MissingActClaim(party),
+    )
   }
 
   /** Returns true if the set of claims authorizes the user to read data for the given party, unless the claims expired */
@@ -136,7 +141,7 @@ final case class Claims(
         case _ => false
       },
       (),
-      AuthorizationError.MissingReadClaim(party)
+      AuthorizationError.MissingReadClaim(party),
     )
   }
 }
