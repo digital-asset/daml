@@ -195,6 +195,8 @@ object Arguments {
   def parse(args: Array[String], defaultConfigFile: Path): Option[Arguments] =
     this.argumentParser(defaultConfigFile).parse(args, Arguments.default)
 
-  def showUsage(defaultConfigFile: Path): Unit =
-    this.argumentParser(defaultConfigFile).showUsage()
+  def showUsage(defaultConfigFile: Path): Unit = {
+    val parser = this.argumentParser(defaultConfigFile)
+    parser.displayToOut(parser.usage)
+  }
 }

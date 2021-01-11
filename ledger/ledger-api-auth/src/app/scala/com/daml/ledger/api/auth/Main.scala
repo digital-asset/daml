@@ -145,7 +145,7 @@ object Main {
 
         ()
       case Some(_) =>
-        configParser.showUsage()
+        configParser.displayToErr(configParser.usage)
         sys.exit(ErrorCodes.InvalidUsage)
       case None =>
         sys.exit(ErrorCodes.InvalidUsage)

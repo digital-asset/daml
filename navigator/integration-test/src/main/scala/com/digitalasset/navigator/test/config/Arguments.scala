@@ -66,5 +66,5 @@ object Arguments extends LazyLogging {
   }
 
   def showUsage(): Unit =
-    argumentParser.showUsage()
+    argumentParser.displayToOut(argumentParser.usage)
 }
