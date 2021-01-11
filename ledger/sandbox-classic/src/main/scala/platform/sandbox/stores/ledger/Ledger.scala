@@ -57,7 +57,7 @@ private[sandbox] object Ledger {
   def convertToCommittedTransaction(
       committer: TransactionCommitter,
       transactionId: TransactionId,
-      transaction: SubmittedTransaction
+      transaction: SubmittedTransaction,
   ): (CommittedTransaction, Relation[NodeId, Party], Divulgence) = {
 
     // First we "commit" the transaction by converting all relative contractIds to absolute ones

@@ -3,8 +3,7 @@
 
 package com.daml.ledger.client.configuration
 
-/**
-  * @param optionalLedgerId The ID of the target ledger. If defined, the client will only
+/** @param optionalLedgerId The ID of the target ledger. If defined, the client will only
   *                         communicate with ledgers that have the expected LedgerId.
   *                         Note that this setting only affects the binding process, when the ledger
   *                         ID on the server is checked.

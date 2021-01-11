@@ -6,8 +6,7 @@ package com.daml.ledger.participant.state.kvutils.api
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.Offset
 
-/**
-  * A log entry read from the ledger.
+/** A log entry read from the ledger.
   *
   * @param offset   offset of log entry
   * @param entryId  opaque ID of log entry

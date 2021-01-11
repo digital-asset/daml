@@ -9,14 +9,12 @@ sealed trait PruningResult extends Product with Serializable
 
 object PruningResult {
 
-  /**
-    * Pruning has been performed. Commits the ledger api server to prune at the same offset as passed to the
+  /** Pruning has been performed. Commits the ledger api server to prune at the same offset as passed to the
     * WriteService.
     */
   case object ParticipantPruned extends PruningResult
 
-  /**
-    * Pruning was not performed. Indicates to ledger api server not to proceed with pruning either.
+  /** Pruning was not performed. Indicates to ledger api server not to proceed with pruning either.
     *
     * @param grpcStatus grpcStatus to return as a reason according to the GRPC guidelines
     *                   (https://grpc.github.io/grpc/core/md_doc_statuscodes.html). Examples specific to pruning:

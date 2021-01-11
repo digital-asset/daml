@@ -3,8 +3,7 @@
 
 package com.daml.util
 
-/**
-  * Ctx wraps a value with some contextual information.
+/** Ctx wraps a value with some contextual information.
   */
 final case class Ctx[+Context, +Value](context: Context, value: Value) {
 

@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
@@ -74,7 +74,8 @@ object CachingCommitStrategySpec {
         any[Map[DamlStateKey, Option[DamlStateValue]]],
         any[Map[DamlStateKey, DamlStateValue]],
         any[Option[SubmissionAggregator.WriteSetBuilder]],
-      ))
+      )
+    )
       .thenReturn(Future.unit)
     new CachingCommitStrategy[Unit](cache, _ => shouldCache, mockCommitStrategy)
   }

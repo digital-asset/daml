@@ -23,8 +23,7 @@ private[events] object EventsRange {
     A.gteq(range.startExclusive, range.endInclusive)
   }
 
-  /**
-    * Converts Offset range to Event Sequential ID range.
+  /** Converts Offset range to Event Sequential ID range.
     *
     * @param range offset range
     * @param connection SQL connection
@@ -38,11 +37,10 @@ private[events] object EventsRange {
     else
       EventsRange(
         startExclusive = readEventSeqId(range.startExclusive)(connection),
-        endInclusive = readEventSeqId(range.endInclusive)(connection)
+        endInclusive = readEventSeqId(range.endInclusive)(connection),
       )
 
-  /**
-    * Converts ledger end offset to Event Sequential ID.
+  /** Converts ledger end offset to Event Sequential ID.
     *
     * @param endInclusive ledger end offset
     * @param connection SQL connection
@@ -69,13 +67,15 @@ private[events] object EventsRange {
       read: (EventsRange[Long], String) => SimpleSql[Row], // takes range and limit sub-expression
       row: RowParser[A],
       range: EventsRange[Long],
-      pageSize: Int): SqlSequence[Vector[A]] = {
+      pageSize: Int,
+  ): SqlSequence[Vector[A]] = {
     val minPageSize = 10 min pageSize max (pageSize / 10)
     val guessedPageEnd = range.endInclusive min (range.startExclusive + pageSize)
     SqlSequence
       .vector(
         read(range copy (endInclusive = guessedPageEnd), "") withFetchSize Some(pageSize),
-        row)
+        row,
+      )
       .flatMap { arithPage =>
         val found = arithPage.size
         if (guessedPageEnd == range.endInclusive || found >= minPageSize)
@@ -85,8 +85,10 @@ private[events] object EventsRange {
             .vector(
               read(
                 range copy (startExclusive = guessedPageEnd),
-                s"limit ${minPageSize - found: Int}") withFetchSize Some(minPageSize - found),
-              row)
+                s"limit ${minPageSize - found: Int}",
+              ) withFetchSize Some(minPageSize - found),
+              row,
+            )
             .map(arithPage ++ _)
       }
   }

@@ -12,7 +12,7 @@ import com.daml.logging.LoggingContext
   * [[com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService]]
   */
 trait IndexTimeService {
-  def getLedgerRecordTimeStream()(
-      implicit loggingContext: LoggingContext,
+  def getLedgerRecordTimeStream()(implicit
+      loggingContext: LoggingContext
   ): Source[Time.Timestamp, NotUsed]
 }

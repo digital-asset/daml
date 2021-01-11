@@ -18,7 +18,9 @@ class CliSpec extends CommonCliSpecBase(Cli) {
       checkOption(
         Array("--ledgerid", ledgerId),
         _.copy(ledgerIdMode =
-          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))))
+          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))
+        ),
+      )
     }
 
     "parse the sql-backend-jdbcurl flag when given" in {

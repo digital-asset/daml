@@ -33,7 +33,7 @@ final case class ExtractorConfig(
     templateConfigs: Set[TemplateConfig],
     tlsConfig: TlsConfiguration,
     accessTokenFile: Option[Path],
-    appId: String = s"Extractor-${UUID.randomUUID().toString}"
+    appId: String = s"Extractor-${UUID.randomUUID().toString}",
 ) {
   def partySpec: String = parties.widen[String] intercalate ","
 }

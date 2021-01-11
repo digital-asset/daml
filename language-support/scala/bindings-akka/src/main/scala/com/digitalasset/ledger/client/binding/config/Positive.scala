@@ -28,11 +28,14 @@ object Positive {
 
   private def convertPositive[T: Numeric](readStr: String => T) = {
 
-    ConfigConvert.viaStringTry[Positive[T]]({ s =>
-      for {
-        number <- Try(readStr(s))
-        positive <- apply(number)
-      } yield positive
-    }, _.toString)
+    ConfigConvert.viaStringTry[Positive[T]](
+      { s =>
+        for {
+          number <- Try(readStr(s))
+          positive <- apply(number)
+        } yield positive
+      },
+      _.toString,
+    )
   }
 }

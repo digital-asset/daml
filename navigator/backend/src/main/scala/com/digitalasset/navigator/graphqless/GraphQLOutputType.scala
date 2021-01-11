@@ -16,16 +16,14 @@ object GraphQLOutputType {
 
 trait DerivedGraphQLOutputType {
 
-  implicit def graphQLLeafToGraphQLOutputType[T](
-      implicit
+  implicit def graphQLLeafToGraphQLOutputType[T](implicit
       graphQLLeaf: GraphQLLeaf[T]
   ): GraphQLOutputType[T] = new GraphQLOutputType[T] {
     override def outputType[Ctx]: OutputType[T] =
       graphQLLeaf.to
   }
 
-  implicit def graphQLObjectToGraphQLOutputType[T](
-      implicit
+  implicit def graphQLObjectToGraphQLOutputType[T](implicit
       graphQLObject: GraphQLObject[T]
   ): GraphQLOutputType[T] = new GraphQLOutputType[T] {
     override def outputType[Ctx]: OutputType[T] =

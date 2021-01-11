@@ -19,7 +19,7 @@ import iface.{
   TypeNumeric,
   TypePrim,
   Variant,
-  PrimType => PT
+  PrimType => PT,
 }
 import scala.collection.compat._
 import scalaz.{@@, Order, Ordering, Tag, ~>}
@@ -63,11 +63,11 @@ object TypedValueGenerators {
       type Inj[_] = Inj0
     }
 
-    private sealed abstract class NoCid0[Inj0](
-        implicit ord: Order[Inj0],
+    private sealed abstract class NoCid0[Inj0](implicit
+        ord: Order[Inj0],
         arb: Arbitrary[Inj0],
-        shr: Shrink[Inj0])
-        extends ValueAddend {
+        shr: Shrink[Inj0],
+    ) extends ValueAddend {
       type Inj[Cid] = Inj0
       override final def injord[Cid: Order] = ord
       override final def injarb[Cid: Arbitrary: IntroCtx] = arb
@@ -75,7 +75,8 @@ object TypedValueGenerators {
     }
 
     def noCid[Inj0: Order: Arbitrary: Shrink](pt: PT, inj0: Inj0 => Value[Nothing])(
-        prj0: Value[Any] PartialFunction Inj0): NoCid[Inj0] = new NoCid0[Inj0] {
+        prj0: Value[Any] PartialFunction Inj0
+    ): NoCid[Inj0] = new NoCid0[Inj0] {
       override val t = TypePrim(pt, ImmArraySeq.empty)
       override def inj[Cid: IntroCtx](v: Inj0) = inj0(v)
       override def prj[Cid] = prj0.lift
@@ -231,66 +232,78 @@ object TypedValueGenerators {
 
     /** See [[RecVarSpec]] companion for usage examples. */
     def record(name: Ref.Identifier, spec: RecVarSpec): (DefDataType.FWT, Aux[spec.HRec]) =
-      (DefDataType(ImmArraySeq.empty, Record(spec.t.to(ImmArraySeq))), new ValueAddend {
-        private[this] val lfvFieldNames = spec.t map { case (n, _) => Some(n) }
-        type Inj[Cid] = spec.HRec[Cid]
-        override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
-        override def inj[Cid: IntroCtx](hl: Inj[Cid]) =
-          ValueRecord(
-            Some(name),
-            implicitly[
-              Factory[(Some[Ref.Name], Value[Cid]), ImmArray[(Some[Ref.Name], Value[Cid])]]]
-              .fromSpecific(lfvFieldNames zip spec.injRec(hl)))
-        override def prj[Cid] = {
-          case ValueRecord(_, fields) if fields.length == spec.t.length =>
-            spec.prjRec(fields)
-          case _ => None
-        }
-        override def injord[Cid: Order] = spec.record[Cid]
-        override def injarb[Cid: Arbitrary: IntroCtx] = spec.recarb[Cid]
-        override def injshrink[Cid: Shrink] = spec.recshrink
-      })
+      (
+        DefDataType(ImmArraySeq.empty, Record(spec.t.to(ImmArraySeq))),
+        new ValueAddend {
+          private[this] val lfvFieldNames = spec.t map { case (n, _) => Some(n) }
+          type Inj[Cid] = spec.HRec[Cid]
+          override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
+          override def inj[Cid: IntroCtx](hl: Inj[Cid]) =
+            ValueRecord(
+              Some(name),
+              implicitly[
+                Factory[(Some[Ref.Name], Value[Cid]), ImmArray[(Some[Ref.Name], Value[Cid])]]
+              ]
+                .fromSpecific(lfvFieldNames zip spec.injRec(hl)),
+            )
+          override def prj[Cid] = {
+            case ValueRecord(_, fields) if fields.length == spec.t.length =>
+              spec.prjRec(fields)
+            case _ => None
+          }
+          override def injord[Cid: Order] = spec.record[Cid]
+          override def injarb[Cid: Arbitrary: IntroCtx] = spec.recarb[Cid]
+          override def injshrink[Cid: Shrink] = spec.recshrink
+        },
+      )
 
     /** See [[RecVarSpec]] companion for usage examples. */
     def variant(name: Ref.Identifier, spec: RecVarSpec): (DefDataType.FWT, Aux[spec.HVar]) =
-      (DefDataType(ImmArraySeq.empty, Variant(spec.t.to(ImmArraySeq))), new ValueAddend {
-        type Inj[Cid] = spec.HVar[Cid]
-        override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
-        override def inj[Cid: IntroCtx](cp: Inj[Cid]) = {
-          val (ctor, v) = spec.injVar(cp)
-          ValueVariant(Some(name), ctor, v)
-        }
-        override def prj[Cid] = {
-          case ValueVariant(_, name, vv) =>
-            spec.prjVar get name flatMap (_(vv))
-          case _ => None
-        }
-        override def injord[Cid: Order] = spec.varord[Cid]
-        override def injarb[Cid: Arbitrary: IntroCtx] =
-          Arbitrary(Gen.oneOf(spec.vararb[Cid].toSeq).flatMap(_._2))
-        override def injshrink[Cid: Shrink] = spec.varshrink
-      })
+      (
+        DefDataType(ImmArraySeq.empty, Variant(spec.t.to(ImmArraySeq))),
+        new ValueAddend {
+          type Inj[Cid] = spec.HVar[Cid]
+          override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
+          override def inj[Cid: IntroCtx](cp: Inj[Cid]) = {
+            val (ctor, v) = spec.injVar(cp)
+            ValueVariant(Some(name), ctor, v)
+          }
+          override def prj[Cid] = {
+            case ValueVariant(_, name, vv) =>
+              spec.prjVar get name flatMap (_(vv))
+            case _ => None
+          }
+          override def injord[Cid: Order] = spec.varord[Cid]
+          override def injarb[Cid: Arbitrary: IntroCtx] =
+            Arbitrary(Gen.oneOf(spec.vararb[Cid].toSeq).flatMap(_._2))
+          override def injshrink[Cid: Shrink] = spec.varshrink
+        },
+      )
 
     def enum(
         name: Ref.Identifier,
-        members: Seq[Ref.Name]): (DefDataType.FWT, EnumAddend[members.type]) =
-      (DefDataType(ImmArraySeq.empty, Enum(members.to(ImmArraySeq))), new EnumAddend[members.type] {
-        type Member = Ref.Name
-        override val values = members
-        override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
-        override def inj[Cid: IntroCtx](v: Inj[Cid]) = ValueEnum(Some(name), v)
-        override def prj[Cid] = {
-          case ValueEnum(_, dc) => get(dc)
-          case _ => None
-        }
-        override def injord[Cid: Order] = Order.orderBy(values.indexOf)
-        override def injarb[Cid: Arbitrary: IntroCtx] = Arbitrary(Gen.oneOf(values))
-        override def injshrink[Cid: Shrink] =
-          Shrink { ev =>
-            if (!(values.headOption contains ev)) values.headOption.toStream
-            else Stream.empty
+        members: Seq[Ref.Name],
+    ): (DefDataType.FWT, EnumAddend[members.type]) =
+      (
+        DefDataType(ImmArraySeq.empty, Enum(members.to(ImmArraySeq))),
+        new EnumAddend[members.type] {
+          type Member = Ref.Name
+          override val values = members
+          override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
+          override def inj[Cid: IntroCtx](v: Inj[Cid]) = ValueEnum(Some(name), v)
+          override def prj[Cid] = {
+            case ValueEnum(_, dc) => get(dc)
+            case _ => None
           }
-      })
+          override def injord[Cid: Order] = Order.orderBy(values.indexOf)
+          override def injarb[Cid: Arbitrary: IntroCtx] = Arbitrary(Gen.oneOf(values))
+          override def injshrink[Cid: Shrink] =
+            Shrink { ev =>
+              if (!(values.headOption contains ev)) values.headOption.toStream
+              else Stream.empty
+            }
+        },
+      )
 
     sealed abstract class EnumAddend[+Values <: Seq[Ref.Name]] extends ValueAddend {
       type Inj[Cid] = Member
@@ -334,19 +347,17 @@ object TypedValueGenerators {
 
         override def recarb[Cid: Arbitrary: IntroCtx] = {
           import self.{recarb => tailarb}, h.{injarb => headarb}
-          Arbitrary(arbitrary[(h.Inj[Cid], self.HRec[Cid])] map {
-            case (vh, vt) =>
-              field[K](vh) :: vt
+          Arbitrary(arbitrary[(h.Inj[Cid], self.HRec[Cid])] map { case (vh, vt) =>
+            field[K](vh) :: vt
           })
         }
 
         override def recshrink[Cid: Shrink]: Shrink[HRec[Cid]] = {
           import h.{injshrink => hshrink}, self.{recshrink => tshrink}
-          Shrink {
-            case vh :: vt =>
-              (Shrink.shrink(vh: h.Inj[Cid]) zip Shrink.shrink(vt)) map {
-                case (nh, nt) => field[K](nh) :: nt
-              }
+          Shrink { case vh :: vt =>
+            (Shrink.shrink(vh: h.Inj[Cid]) zip Shrink.shrink(vt)) map { case (nh, nt) =>
+              field[K](nh) :: nt
+            }
           }
         }
 
@@ -361,7 +372,8 @@ object TypedValueGenerators {
           }
           r.updated(
             fname,
-            Lambda[Value ~> PrjResult](hv => h.prj(hv) map (pv => Inl(field[K](pv)))))
+            Lambda[Value ~> PrjResult](hv => h.prj(hv) map (pv => Inl(field[K](pv)))),
+          )
         }
 
         override def varord[Cid: Order] =
@@ -371,17 +383,19 @@ object TypedValueGenerators {
               case (Inl(_), Inr(_)) => Ordering.LT
               case (Inr(_), Inl(_)) => Ordering.GT
               case (Inl(ah), Inl(bh)) => h.injord[Cid].order(ah, bh)
-          }
+            }
 
         override def vararb[Cid: Arbitrary: IntroCtx] = {
           val r =
             self.vararb[Cid] transform { (_, ta) =>
               ta map (Inr(_))
             }
-          r.updated(fname, {
-            import h.{injarb => harb}
-            arbitrary[h.Inj[Cid]] map (hv => Inl(field[K](hv)))
-          })
+          r.updated(
+            fname, {
+              import h.{injarb => harb}
+              arbitrary[h.Inj[Cid]] map (hv => Inl(field[K](hv)))
+            },
+          )
         }
 
         override def varshrink[Cid: Shrink] = {
@@ -399,7 +413,7 @@ object TypedValueGenerators {
     private[TypedValueGenerators] def prjRec[Cid](v: ImmArray[(_, Value[Cid])]): Option[HRec[Cid]]
     private[TypedValueGenerators] implicit def record[Cid: Order]: Order[HRec[Cid]]
     private[TypedValueGenerators] implicit def recarb[Cid: Arbitrary: IntroCtx]
-      : Arbitrary[HRec[Cid]]
+        : Arbitrary[HRec[Cid]]
     private[TypedValueGenerators] implicit def recshrink[Cid: Shrink]: Shrink[HRec[Cid]]
 
     private[TypedValueGenerators] def injVar[Cid: IntroCtx](v: HVar[Cid]): (Ref.Name, Value[Cid])
@@ -409,7 +423,7 @@ object TypedValueGenerators {
     private[TypedValueGenerators] val prjVar: Map[Ref.Name, Value ~> PrjResult]
     private[TypedValueGenerators] implicit def varord[Cid: Order]: Order[HVar[Cid]]
     private[TypedValueGenerators] implicit def vararb[Cid: Arbitrary: IntroCtx]
-      : Map[Ref.Name, Gen[HVar[Cid]]]
+        : Map[Ref.Name, Gen[HVar[Cid]]]
     private[TypedValueGenerators] implicit def varshrink[Cid: Shrink]: Shrink[HVar[Cid]]
   }
 
@@ -447,8 +461,10 @@ object TypedValueGenerators {
       ValueAddend.record(
         Ref.Identifier(
           Ref.PackageId assertFromString "hash",
-          Ref.QualifiedName assertFromString "Foo.SomeRecord"),
-        sample)
+          Ref.QualifiedName assertFromString "Foo.SomeRecord",
+        ),
+        sample,
+      )
     import shapeless.record.Record
     // supposing Cid = String, you can ascribe a matching value
     // using either the spec,
@@ -474,8 +490,10 @@ object TypedValueGenerators {
       ValueAddend.variant(
         Ref.Identifier(
           Ref.PackageId assertFromString "hash",
-          Ref.QualifiedName assertFromString "Foo.SomeVariant"),
-        sample)
+          Ref.QualifiedName assertFromString "Foo.SomeVariant",
+        ),
+        sample,
+      )
     // supposing Cid = String, you can create a matching value with Coproduct
     import shapeless.Coproduct, shapeless.syntax.singleton._
     val sampleVt =
@@ -506,7 +524,8 @@ object TypedValueGenerators {
     * ValueAddend gen.
     */
   def indGenAddend(
-      f: (Gen[ValueAddend], Gen[ValueAddend]) => Seq[Gen[ValueAddend]]): Gen[ValueAddend] = {
+      f: (Gen[ValueAddend], Gen[ValueAddend]) => Seq[Gen[ValueAddend]]
+  ): Gen[ValueAddend] = {
     object Knot {
       val tie: Gen[ValueAddend] = Gen.sized { sz =>
         val keySelf = Gen.resize(sz / 10, tie)
@@ -517,7 +536,7 @@ object TypedValueGenerators {
             ((sz max 1) * ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
             (sz max 1, Gen.const(ValueAddend.contractId)),
             (sz max 1, Gen.oneOf(Numeric.Scale.values).map(ValueAddend.numeric)),
-            (nestSize, self.map(ValueAddend.optional(_)))
+            (nestSize, self.map(ValueAddend.optional(_))),
           ) ++
             f(keySelf, self).map((nestSize, _)): _*
         )

@@ -23,11 +23,12 @@ private[codegen] final case class Type(typ: Option[InterfaceType], types: Map[St
 
 private[codegen] final case class InterfaceTree(
     modules: Map[String, Module],
-    interface: Interface) {
+    interface: Interface,
+) {
 
   def process(f: NodeWithContext => Future[Unit])(implicit ec: ExecutionContext): Future[Unit] = {
-    bfs(Future.unit) {
-      case (a, nodeWithContext) => a.zipWith(f(nodeWithContext))((_, _) => ())(ec)
+    bfs(Future.unit) { case (a, nodeWithContext) =>
+      a.zipWith(f(nodeWithContext))((_, _) => ())(ec)
     }
   }
 
@@ -65,13 +66,12 @@ private[codegen] final case class ModuleWithContext(
     interface: Interface,
     modulesLineage: BackStack[(String, Module)],
     name: String,
-    module: Module)
-    extends NodeWithContext {
+    module: Module,
+) extends NodeWithContext {
   override def childrenLineages: Iterable[NodeWithContext] = {
     val newModulesLineage = modulesLineage :+ (name -> module)
-    module.modules.map {
-      case (childName, childModule) =>
-        ModuleWithContext(interface, newModulesLineage, childName, childModule)
+    module.modules.map { case (childName, childModule) =>
+      ModuleWithContext(interface, newModulesLineage, childName, childModule)
     } ++ [NodeWithContext, Iterable[NodeWithContext]] typesLineages
   }
 
@@ -82,7 +82,8 @@ private[codegen] final case class ModuleWithContext(
         modulesLineage :+ (name -> module),
         BackStack.empty,
         childName,
-        childType)
+        childType,
+      )
   }
   override def lineage: ImmArray[(String, Node)] = (modulesLineage :+ (name -> module)).toImmArray
 }
@@ -92,8 +93,8 @@ private[codegen] final case class TypeWithContext(
     modulesLineage: BackStack[(String, Module)],
     typesLineage: BackStack[(String, Type)],
     name: String,
-    `type`: Type)
-    extends NodeWithContext {
+    `type`: Type,
+) extends NodeWithContext {
   override def childrenLineages: Iterable[NodeWithContext] = typesLineages
   override def typesLineages: Iterable[TypeWithContext] = `type`.types.map {
     case (childName, childType) =>
@@ -102,7 +103,8 @@ private[codegen] final case class TypeWithContext(
         modulesLineage,
         typesLineage :+ (name -> `type`),
         childName,
-        childType)
+        childType,
+      )
   }
   override def lineage: ImmArray[(String, Node)] =
     modulesLineage.toImmArray.slowAppend[(String, Node)](typesLineage.toImmArray)
@@ -123,8 +125,8 @@ private[codegen] object InterfaceTree extends StrictLogging {
 
   def fromInterface(interface: Interface): InterfaceTree = {
     val builder = InterfaceTreeBuilder.fromPackageId(interface.packageId)
-    interface.getTypeDecls.asScala.foreach {
-      case (identifier, typ) => builder.insert(identifier, typ)
+    interface.getTypeDecls.asScala.foreach { case (identifier, typ) =>
+      builder.insert(identifier, typ)
     }
     builder.build(interface)
   }
@@ -133,8 +135,8 @@ private[codegen] object InterfaceTree extends StrictLogging {
 
   private final class ModuleBuilder(
       modules: mutable.HashMap[String, ModuleBuilder],
-      types: mutable.HashMap[String, TypeBuilder])
-      extends NodeBuilder {
+      types: mutable.HashMap[String, TypeBuilder],
+  ) extends NodeBuilder {
     def build(): Module =
       Module(modules.mapValues(_.build()).toMap, types.mapValues(_.build()).toMap)
 
@@ -161,8 +163,8 @@ private[codegen] object InterfaceTree extends StrictLogging {
 
   private final class TypeBuilder(
       var typ: Option[InterfaceType],
-      children: mutable.HashMap[String, TypeBuilder])
-      extends NodeBuilder {
+      children: mutable.HashMap[String, TypeBuilder],
+  ) extends NodeBuilder {
     def build(): Type = {
       typ match {
         // we allow TypeBuilder nodes with no InterfaceType if they have children nodes
@@ -188,7 +190,8 @@ private[codegen] object InterfaceTree extends StrictLogging {
       this.typ match {
         case Some(otherTyp) if typ != otherTyp =>
           throw new IllegalStateException(
-            s"Found a Type node with two different types, $typ and $otherTyp. This should not happen")
+            s"Found a Type node with two different types, $typ and $otherTyp. This should not happen"
+          )
         case _ => this.typ = Some(typ)
       }
     }
@@ -201,7 +204,8 @@ private[codegen] object InterfaceTree extends StrictLogging {
 
   private final class InterfaceTreeBuilder(
       val name: Ref.PackageId,
-      children: mutable.HashMap[String, ModuleBuilder]) {
+      children: mutable.HashMap[String, ModuleBuilder],
+  ) {
 
     def build(interface: Interface): InterfaceTree =
       InterfaceTree(children.mapValues(_.build()).toMap, interface)

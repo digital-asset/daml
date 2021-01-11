@@ -22,17 +22,22 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
-      DamlLfDottedName.assertFromString("T0")))
+      DamlLfDottedName.assertFromString("T0"),
+    ),
+  )
   val damlLfId1 = DamlLfIdentifier(
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
-      DamlLfDottedName.assertFromString("T1")))
+      DamlLfDottedName.assertFromString("T1"),
+    ),
+  )
   val damlLfDirectionId = DamlLfIdentifier(
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
-      DamlLfDottedName.assertFromString("Direction"))
+      DamlLfDottedName.assertFromString("Direction"),
+    ),
   )
 
   val DirectionType: DamlLfType =
@@ -46,26 +51,30 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
           DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq()),
         name("direction") ->
           DirectionType,
-      ))
+      )
+    ),
   )
   val damlLfRecord1 = DamlLfDefDataType(
     DamlLfImmArraySeq(),
     DamlLfRecord(
       DamlLfImmArraySeq(
         name("int") ->
-          DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq()),
-      ))
+          DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
+      )
+    ),
   )
   val damlLfEnum = DamlLfDefDataType(
     DamlLfImmArraySeq(),
-    DamlLfEnum(DamlLfImmArraySeq(name("North"), name("East"), name("South"), name("West")))
+    DamlLfEnum(DamlLfImmArraySeq(name("North"), name("East"), name("South"), name("West"))),
   )
 
   val damlLfIdKey = DamlLfIdentifier(
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
-      DamlLfDottedName.assertFromString("K1")))
+      DamlLfDottedName.assertFromString("K1"),
+    ),
+  )
 
   val damlLfRecordKey = DamlLfDefDataType(
     DamlLfImmArraySeq(),
@@ -73,7 +82,9 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
       DamlLfImmArraySeq(
         DamlLfRef.Name
           .assertFromString("foo") -> DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
-      )))
+      )
+    ),
+  )
 
   val damlLfKeyType =
     DamlLfTypeCon(DamlLfTypeConName(damlLfIdKey), DamlLfImmArraySeq.empty[DamlLfType])
@@ -159,7 +170,7 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
   test(List("id" -> DESCENDING), contracts.sortBy(_.id.unwrap)(Ordering[String].reverse))
   test(
     List("agreementText" -> ASCENDING),
-    contracts.sortBy(_.agreementText.getOrElse(""))
+    contracts.sortBy(_.agreementText.getOrElse("")),
   )
   test(List("signatories" -> ASCENDING), contracts.sortBy(_.signatories))
   test(List("observers" -> ASCENDING), contracts.sortBy(_.observers))
@@ -170,17 +181,20 @@ class ContractSortSpec extends AnyFlatSpec with Matchers {
   // FIXME contract2 and contract4 are not compatible with the criteria and should go at the end
   test(
     List("argument.foo" -> ASCENDING, "id" -> DESCENDING),
-    List(contract4, contract2, contract3, contract1))
+    List(contract4, contract2, contract3, contract1),
+  )
 
   // FIXME contract1 and contract3 are not compatible with the criteria and should go at the end
   test(
     List("argument.int" -> ASCENDING, "id" -> DESCENDING),
-    List(contract3, contract1, contract2, contract4))
+    List(contract3, contract1, contract2, contract4),
+  )
 
   // FIXME check this test case according to the issues signaled above
   test(
     List("argument.int" -> DESCENDING, "id" -> DESCENDING),
-    List(contract4, contract2, contract3, contract1))
+    List(contract4, contract2, contract3, contract1),
+  )
 
   // FIXME contract1 and contract3 are not compatible with the criteria and should go at the end
   test(List("key.foo" -> ASCENDING), List(contract1, contract3, contract4, contract2))

@@ -13,21 +13,24 @@ private[codegen] object ObjectMethods extends StrictLogging {
   def apply(
       className: ClassName,
       typeParameters: IndexedSeq[String],
-      fieldNames: IndexedSeq[String]): Vector[MethodSpec] =
+      fieldNames: IndexedSeq[String],
+  ): Vector[MethodSpec] =
     Vector(
       generateEquals(className.asWildcardType(typeParameters), fieldNames),
       generateHashCode(fieldNames),
-      generateToString(className, fieldNames, None))
+      generateToString(className, fieldNames, None),
+    )
 
   def apply(
       className: ClassName,
       typeParameters: IndexedSeq[String],
       fieldNames: IndexedSeq[String],
-      enclosingClassName: ClassName): Vector[MethodSpec] =
+      enclosingClassName: ClassName,
+  ): Vector[MethodSpec] =
     Vector(
       generateEquals(className.asWildcardType(typeParameters), fieldNames),
       generateHashCode(fieldNames),
-      generateToString(className, fieldNames, Some(enclosingClassName))
+      generateToString(className, fieldNames, Some(enclosingClassName)),
     )
 
   private def initEqualsBuilder(className: TypeName): MethodSpec.Builder =
@@ -72,7 +75,8 @@ private[codegen] object ObjectMethods extends StrictLogging {
     initHashCodeBuilder()
       .addStatement(
         s"return $$T.hash(${List.fill(fieldNames.size)("this.$L").mkString(", ")})",
-        (IndexedSeq(classOf[java.util.Objects]) ++ fieldNames): _*)
+        (IndexedSeq(classOf[java.util.Objects]) ++ fieldNames): _*
+      )
       .build()
 
   private def initToStringBuilder(): MethodSpec.Builder =
@@ -85,14 +89,16 @@ private[codegen] object ObjectMethods extends StrictLogging {
   private def template(
       className: ClassName,
       fieldNames: IndexedSeq[String],
-      enclosingClassName: Option[ClassName]): String =
+      enclosingClassName: Option[ClassName],
+  ): String =
     s"${enclosingClassName.fold("")(n => s"$n.")}$className(${List.fill(fieldNames.size)("%s").mkString(", ")})"
 
   @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
   def generateToString(
       className: ClassName,
       fieldNames: IndexedSeq[String],
-      enclosingClassName: Option[ClassName]): MethodSpec = {
+      enclosingClassName: Option[ClassName],
+  ): MethodSpec = {
     if (fieldNames.isEmpty) {
       initToStringBuilder().addStatement("return $S", className).build()
     } else {
@@ -101,7 +107,8 @@ private[codegen] object ObjectMethods extends StrictLogging {
           s"return $$T.format($$S, ${List.fill(fieldNames.size)("this.$L").mkString(", ")})",
           (IndexedSeq(
             classOf[java.lang.String],
-            template(className, fieldNames, enclosingClassName)) ++ fieldNames): _*
+            template(className, fieldNames, enclosingClassName),
+          ) ++ fieldNames): _*
         )
         .build()
     }

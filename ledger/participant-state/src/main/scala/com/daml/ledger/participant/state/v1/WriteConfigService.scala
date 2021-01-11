@@ -19,7 +19,7 @@ trait WriteConfigService {
     *
     * If configuration changes are not supported by the implementation then the
     * [[SubmissionResult.NotSupported]] should be returned.
-    **
+    * *
     * @param maxRecordTime: The maximum record time after which the request is rejected.
     * @param submissionId: Client picked submission identifier for matching the responses with the request.
     * @param config: The new ledger configuration.
@@ -28,6 +28,6 @@ trait WriteConfigService {
   def submitConfiguration(
       maxRecordTime: Timestamp,
       submissionId: SubmissionId,
-      config: Configuration
+      config: Configuration,
   ): CompletionStage[SubmissionResult]
 }

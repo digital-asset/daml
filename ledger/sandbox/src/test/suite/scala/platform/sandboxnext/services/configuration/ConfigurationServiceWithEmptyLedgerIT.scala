@@ -8,7 +8,7 @@ import java.time.Duration
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundEach
 import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
-  CompletionEndRequest
+  CompletionEndRequest,
 }
 import com.daml.platform.ApiOffset
 import com.daml.platform.sandbox.SandboxBackend
@@ -36,7 +36,7 @@ final class ConfigurationServiceWithEmptyLedgerIT
     super.config.copy(
       damlPackages = List.empty,
       ledgerConfig = super.config.ledgerConfig.copy(
-        initialConfigurationSubmitDelay = Duration.ofDays(5),
+        initialConfigurationSubmitDelay = Duration.ofDays(5)
       ),
       implicitPartyAllocation = false,
     )

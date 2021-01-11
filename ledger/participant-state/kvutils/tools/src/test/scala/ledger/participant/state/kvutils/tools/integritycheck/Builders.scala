@@ -10,8 +10,7 @@ import com.google.protobuf.ByteString
 object Builders {
 
   def writeSet(values: (String, String)*): WriteSet =
-    values.map {
-      case (key, value) =>
-        Raw.Key(ByteString.copyFromUtf8(key)) -> Raw.Value(ByteString.copyFromUtf8(value))
+    values.map { case (key, value) =>
+      Raw.Key(ByteString.copyFromUtf8(key)) -> Raw.Value(ByteString.copyFromUtf8(value))
     }
 }

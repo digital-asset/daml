@@ -9,7 +9,7 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
-  DamlPackageUploadRejectionEntry
+  DamlPackageUploadRejectionEntry,
 }
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
@@ -38,7 +38,8 @@ class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
         // NOTE(JM): 'runTest' always uploads 'simpleArchive' by default.
         logEntry <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
         archiveState <- getDamlState(
-          Conversions.packageStateKey(Ref.PackageId.assertFromString(simplePackage.archiveHash)))
+          Conversions.packageStateKey(Ref.PackageId.assertFromString(simplePackage.archiveHash))
+        )
 
         // Submit again and verify that the uploaded archive didn't appear again.
         logEntry2 <- submitArchives("simple-archive-submission-2", simpleArchive)
@@ -70,7 +71,8 @@ class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
       for {
         preExecutionResult <- preExecuteArchives(
           "model-test-submission",
-          testStablePackages.all: _*)
+          testStablePackages.all: _*
+        )
           .map(_._2)
         actualLogEntry = preExecutionResult.successfulLogEntry
       } yield {

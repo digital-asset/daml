@@ -37,7 +37,8 @@ final class ContextualizedLoggerSpec
       verify(logger.withoutContext).error(
         toStringEqTo[Marker]("{id=foo}"),
         eqTo("a (context: {id=foo})"),
-        withMessage[IllegalArgumentException]("quux"))
+        withMessage[IllegalArgumentException]("quux"),
+      )
     }
 
   def thisThrows(): String = throw new RuntimeException("failed on purpose")

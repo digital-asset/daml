@@ -35,7 +35,7 @@ private[migration] object TransactionSerializer extends TransactionSerializer {
       .encodeTransaction(
         TransactionCoder.EventIdEncoder(trId),
         ValueCoder.CidEncoder,
-        transaction
+        transaction,
       )
       .map(_.toByteArray())
 
@@ -49,8 +49,8 @@ private[migration] object TransactionSerializer extends TransactionSerializer {
           .decodeTransaction(
             TransactionCoder.EventIdDecoder(trId),
             ValueCoder.CidDecoder,
-            TransactionOuterClass.Transaction.parseFrom(
-              Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT))
+            TransactionOuterClass.Transaction
+              .parseFrom(Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT)),
           )
       )
       .map(CommittedTransaction(_))

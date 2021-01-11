@@ -21,7 +21,8 @@ private[inner] object FromValueGenerator extends StrictLogging {
       className: TypeName,
       typeParameters: IndexedSeq[String],
       recordValueExtractor: (String, String) => CodeBlock,
-      packagePrefixes: Map[PackageId, String]): MethodSpec = {
+      packagePrefixes: Map[PackageId, String],
+  ): MethodSpec = {
     logger.debug("Generating fromValue method")
 
     val converterParams = FromValueExtractorParameters
@@ -40,17 +41,19 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .addStatement(
         "$T record$$ = recordValue$$.asRecord().orElseThrow(() -> new IllegalArgumentException($S))",
         classOf[javaapi.data.Record],
-        "Contracts must be constructed from Records"
+        "Contracts must be constructed from Records",
       )
       .addStatement(
         "$T fields$$ = record$$.getFields()",
-        ParameterizedTypeName.get(classOf[java.util.List[_]], classOf[javaapi.data.Record.Field]))
+        ParameterizedTypeName.get(classOf[java.util.List[_]], classOf[javaapi.data.Record.Field]),
+      )
       .addStatement("int numberOfFields = fields$$.size()")
       .beginControlFlow(s"if (numberOfFields != ${fields.size})")
       .addStatement(
         "throw new $T($S + numberOfFields)",
         classOf[IllegalArgumentException],
-        s"Expected ${fields.size} arguments, got ")
+        s"Expected ${fields.size} arguments, got ",
+      )
       .endControlFlow()
 
     fields.toIterator.zip(accessors).foreach {
@@ -74,13 +77,13 @@ private[inner] object FromValueGenerator extends StrictLogging {
         classOf[javaapi.data.Variant],
         inputVar,
         s"Expected: Variant. Actual: ",
-        inputVar
+        inputVar,
       )
       .addStatement(
         "if (!$S.equals(variant$$.getConstructor())) throw new $T($S + variant$$.getConstructor())",
         constructorName,
         classOf[IllegalArgumentException],
-        s"Invalid constructor. Expected: $constructorName. Actual: "
+        s"Invalid constructor. Expected: $constructorName. Actual: ",
       )
       .addStatement("$T $L = variant$$.getValue()", classOf[javaapi.data.Value], outputVar)
       .build()
@@ -90,12 +93,14 @@ private[inner] object FromValueGenerator extends StrictLogging {
       fieldType: Type,
       field: String,
       accessor: CodeBlock,
-      packagePrefixes: Map[PackageId, String]): CodeBlock =
+      packagePrefixes: Map[PackageId, String],
+  ): CodeBlock =
     CodeBlock.of(
       "$T $L = $L",
       toJavaTypeName(fieldType, packagePrefixes),
       field,
-      extractor(fieldType, field, accessor, newNameGenerator, packagePrefixes))
+      extractor(fieldType, field, accessor, newNameGenerator, packagePrefixes),
+    )
 
   // Primitive extractors that map a type to the method to retrieve it
   // Missing on purpose: `Record` and `Variant` -- those should be dealt
@@ -108,7 +113,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       (PrimTypeTimestamp, ("asTimestamp", Some(".getValue()"))),
       (PrimTypeParty, ("asParty", Some(".getValue()"))),
       (PrimTypeUnit, ("asUnit", None)),
-      (PrimTypeDate, ("asDate", Some(".getValue()")))
+      (PrimTypeDate, ("asDate", Some(".getValue()"))),
     )
 
   // If [[typeName]] is defined in the primitive extractors map, create an extractor for it
@@ -116,27 +121,28 @@ private[inner] object FromValueGenerator extends StrictLogging {
       damlType: PrimType,
       apiType: TypeName,
       field: String,
-      accessor: CodeBlock): Option[CodeBlock] =
+      accessor: CodeBlock,
+  ): Option[CodeBlock] =
     extractors
       .get(damlType)
-      .map {
-        case (extractor, converter) =>
-          logger.debug(s"Generating primitive extractor for $field of type $apiType")
-          CodeBlock.of(
-            "$L.$L()$L$L",
-            accessor,
-            extractor,
-            orElseThrow(apiType, field),
-            converter.getOrElse(""))
+      .map { case (extractor, converter) =>
+        logger.debug(s"Generating primitive extractor for $field of type $apiType")
+        CodeBlock.of(
+          "$L.$L()$L$L",
+          accessor,
+          extractor,
+          orElseThrow(apiType, field),
+          converter.getOrElse(""),
+        )
       }
 
   private def orElseThrow(typeName: TypeName, field: String) =
     CodeBlock.of(
       ".orElseThrow(() -> new IllegalArgumentException($S))",
-      s"Expected $field to be of type $typeName")
+      s"Expected $field to be of type $typeName",
+    )
 
-  /**
-    * Generates extractor for types that are not immediately covered by primitive extractors
+  /** Generates extractor for types that are not immediately covered by primitive extractors
     * @param damlType The type of the field being accessed
     * @param field The name of the field being accessed
     * @param accessor The [[CodeBlock]] that defines how to access the item in the first place
@@ -148,7 +154,8 @@ private[inner] object FromValueGenerator extends StrictLogging {
       field: String,
       accessor: CodeBlock,
       args: Iterator[String],
-      packagePrefixes: Map[PackageId, String]): CodeBlock = {
+      packagePrefixes: Map[PackageId, String],
+  ): CodeBlock = {
 
     lazy val apiType = toAPITypeName(damlType)
     lazy val javaType = toJavaTypeName(damlType, packagePrefixes)
@@ -177,7 +184,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
           optMapArg,
           listMapArg,
           extractor(param, listMapArg, CodeBlock.of("$L", listMapArg), args, packagePrefixes),
-          orElseThrow(apiType, field)
+          orElseThrow(apiType, field),
         )
 
       case TypePrim(PrimTypeOptional, ImmArraySeq(param)) =>
@@ -195,7 +202,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
           optOptArg,
           valArg,
           extractor(param, valArg, CodeBlock.of("$L", valArg), args, packagePrefixes),
-          orElseThrow(apiType, field)
+          orElseThrow(apiType, field),
         )
 
       case TypePrim(PrimTypeContractId, _) =>
@@ -203,7 +210,8 @@ private[inner] object FromValueGenerator extends StrictLogging {
           "new $T($L.asContractId()$L.getValue())",
           javaType,
           accessor,
-          orElseThrow(apiType, field))
+          orElseThrow(apiType, field),
+        )
 
       case TypePrim(PrimTypeTextMap, ImmArraySeq(param)) =>
         val optMapArg = args.next()
@@ -220,7 +228,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
           optMapArg,
           entryArg,
           extractor(param, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
-          orElseThrow(apiType, field)
+          orElseThrow(apiType, field),
         )
 
       case TypePrim(PrimTypeGenMap, ImmArraySeq(keyType, valueType)) =>
@@ -241,7 +249,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
           extractor(keyType, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
           entryArg,
           extractor(valueType, entryArg, CodeBlock.of("$L", entryArg), args, packagePrefixes),
-          orElseThrow(apiType, field)
+          orElseThrow(apiType, field),
         )
 
       case TypeNumeric(_) =>
@@ -249,7 +257,8 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
       case TypePrim(prim, _) =>
         primitive(prim, apiType, field, accessor).getOrElse(
-          sys.error(s"Unhandled primitive type $prim"))
+          sys.error(s"Unhandled primitive type $prim")
+        )
 
       case TypeCon(_, ImmArraySeq()) =>
         CodeBlock.of("$T.fromValue($L)", javaType, accessor)
@@ -260,7 +269,8 @@ private[inner] object FromValueGenerator extends StrictLogging {
           toJavaTypeName(targ, packagePrefixes) -> CodeBlock.of(
             "$L -> $L",
             innerArg,
-            extractor(targ, field, CodeBlock.of("$L", innerArg), args, packagePrefixes))
+            extractor(targ, field, CodeBlock.of("$L", innerArg), args, packagePrefixes),
+          )
         }.unzip
 
         val targsCode = CodeBlock.join(targs.map(CodeBlock.of("$L", _)).asJava, ", ")

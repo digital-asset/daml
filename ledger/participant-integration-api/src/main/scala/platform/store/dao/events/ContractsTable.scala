@@ -52,15 +52,14 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
     val localInserts =
       for {
         create <- info.netCreates.iterator
-      } yield
-        insertContract(
-          contractId = create.coid,
-          templateId = create.templateId,
-          createArgument = serialized.createArgumentsByContract(create.coid),
-          ledgerEffectiveTime = Some(tx.ledgerEffectiveTime),
-          stakeholders = create.stakeholders,
-          key = create.versionedKey.map(convert(create.templateId, _))
-        )
+      } yield insertContract(
+        contractId = create.coid,
+        templateId = create.templateId,
+        createArgument = serialized.createArgumentsByContract(create.coid),
+        ledgerEffectiveTime = Some(tx.ledgerEffectiveTime),
+        stakeholders = create.stakeholders,
+        key = create.versionedKey.map(convert(create.templateId, _)),
+      )
     val divulgedInserts =
       for {
         DivulgedContract(contractId, contractInst) <- info.divulgedContracts.iterator
@@ -81,13 +80,15 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
     )
   }
 
-  override final def lookupContractKeyGlobally(key: Key)(
-      implicit connection: Connection): Option[ContractId] =
+  override final def lookupContractKeyGlobally(
+      key: Key
+  )(implicit connection: Connection): Option[ContractId] =
     SQL"select participant_contracts.contract_id from participant_contracts where create_key_hash = ${key.hash}"
       .as(contractId("contract_id").singleOpt)
 
-  override final def lookupMaximumLedgerTime(ids: Set[ContractId])(
-      implicit connection: Connection): Try[Option[Instant]] =
+  override final def lookupMaximumLedgerTime(
+      ids: Set[ContractId]
+  )(implicit connection: Connection): Try[Option[Instant]] =
     if (ids.isEmpty) {
       Failure(ContractsTable.emptyContractIds)
     } else {
@@ -97,11 +98,13 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
             .map {
               case result ~ numContracts if numContracts == ids.size => Success(result)
               case _ => Failure(ContractsTable.notFound(ids))
-            })
+            }
+        )
     }
 
-  override final def lookupParties(parties: Seq[Party])(
-      implicit connection: Connection): List[PartyDetails] =
+  override final def lookupParties(parties: Seq[Party])(implicit
+      connection: Connection
+  ): List[PartyDetails] =
     JdbcLedgerDao.selectParties(parties).map(JdbcLedgerDao.constructPartyDetails)
 }
 

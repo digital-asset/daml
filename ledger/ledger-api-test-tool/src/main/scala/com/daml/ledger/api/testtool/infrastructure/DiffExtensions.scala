@@ -25,11 +25,11 @@ trait DiffExtensions {
           .zipWithIndex
           .map { case ((l, r), index) => index -> diffShowT.diff(l, r) }
           .collect { case (index, diff) if !diff.isIdentical => index.toString -> diff.string }
-        val removed = left.toStream.zipWithIndex.drop(right.length).map {
-          case (value, index) => index.toString -> red(diffShowT.show(value))
+        val removed = left.toStream.zipWithIndex.drop(right.length).map { case (value, index) =>
+          index.toString -> red(diffShowT.show(value))
         }
-        val added = right.toStream.zipWithIndex.drop(left.length).map {
-          case (value, index) => index.toString -> green(diffShowT.show(value))
+        val added = right.toStream.zipWithIndex.drop(left.length).map { case (value, index) =>
+          index.toString -> green(diffShowT.show(value))
         }
 
         assert(

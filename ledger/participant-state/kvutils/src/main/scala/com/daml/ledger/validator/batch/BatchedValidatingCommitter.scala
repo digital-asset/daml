@@ -17,8 +17,7 @@ import com.daml.ledger.validator.reading.DamlLedgerStateReader
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-/**
-  * Orchestrates committing to a ledger after validating submissions. Supports parallel validation.
+/** Orchestrates committing to a ledger after validating submissions. Supports parallel validation.
   * Example usage, assuming a [[com.daml.ledger.participant.state.kvutils.api.BatchingLedgerWriter]] sends the
   * batched submissions over the wire:
   * {{{
@@ -70,7 +69,7 @@ class BatchedValidatingCommitter[LogResult](
         now(),
         submittingParticipantId,
         ledgerStateReader,
-        commitStrategy
+        commitStrategy,
       )
       .transformWith {
         case Success(_) =>
@@ -81,8 +80,8 @@ class BatchedValidatingCommitter[LogResult](
   }
 
   private def readerAndCommitStrategyFrom(ledgerStateOperations: LedgerStateOperations[LogResult])(
-      implicit executionContext: ExecutionContext)
-    : (DamlLedgerStateReader, CommitStrategy[LogResult]) =
+      implicit executionContext: ExecutionContext
+  ): (DamlLedgerStateReader, CommitStrategy[LogResult]) =
     if (stateValueCache == Cache.none) {
       BatchedSubmissionValidatorFactory
         .readerAndCommitStrategyFrom(ledgerStateOperations, keySerializationStrategy)
@@ -98,7 +97,8 @@ class BatchedValidatingCommitter[LogResult](
 
 object BatchedValidatingCommitter {
   def apply[LogResult](now: () => Instant, validator: BatchedSubmissionValidator[LogResult])(
-      implicit materializer: Materializer): BatchedValidatingCommitter[LogResult] =
+      implicit materializer: Materializer
+  ): BatchedValidatingCommitter[LogResult] =
     new BatchedValidatingCommitter[LogResult](
       now,
       DefaultStateKeySerializationStrategy,
@@ -110,8 +110,8 @@ object BatchedValidatingCommitter {
   def apply[LogResult](
       now: () => Instant,
       validator: BatchedSubmissionValidator[LogResult],
-      stateValueCache: Cache[DamlStateKey, DamlStateValue])(
-      implicit materializer: Materializer): BatchedValidatingCommitter[LogResult] =
+      stateValueCache: Cache[DamlStateKey, DamlStateValue],
+  )(implicit materializer: Materializer): BatchedValidatingCommitter[LogResult] =
     new BatchedValidatingCommitter[LogResult](
       now,
       DefaultStateKeySerializationStrategy,

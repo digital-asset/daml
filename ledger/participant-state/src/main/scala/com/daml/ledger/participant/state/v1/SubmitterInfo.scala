@@ -12,7 +12,6 @@ import java.time.Instant
   *
   * @param actAs: the non-empty set of parties that submitted the change.
   *
-  *
   * @param applicationId: an identifier for the DAML application that
   *   submitted the command. This is used for monitoring and to allow DAML
   *   applications subscribe to their own submissions only.

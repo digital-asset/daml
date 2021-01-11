@@ -54,7 +54,8 @@ class MultiPartySpec
 
   "Party parser" should "permit spaces in parties" in {
     readParties.reads("foo bar,baz quux, a b ") should ===(
-      OneAnd("foo bar", List("baz quux", " a b ")))
+      OneAnd("foo bar", List("baz quux", " a b "))
+    )
   }
 
   "Party parser" should "reject non-comma bad characters" in {

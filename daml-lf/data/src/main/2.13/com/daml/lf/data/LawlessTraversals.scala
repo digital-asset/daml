@@ -8,10 +8,11 @@ import scala.collection.BuildFrom
 
 private[daml] object LawlessTraversals {
   implicit final class `Lawless iterable traversal`[A, This <: Iterable[A]](
-      private val seq: This with Iterable[A])
-      extends AnyVal {
-    def traverseEitherStrictly[E, B, That](f: A => Either[E, B])(
-        implicit cbf: BuildFrom[This, B, That]): Either[E, That] = {
+      private val seq: This with Iterable[A]
+  ) extends AnyVal {
+    def traverseEitherStrictly[E, B, That](
+        f: A => Either[E, B]
+    )(implicit cbf: BuildFrom[This, B, That]): Either[E, That] = {
       val that = cbf.newBuilder(seq)
       that.sizeHint(seq)
       val i = seq.iterator
@@ -21,7 +22,8 @@ private[daml] object LawlessTraversals {
           case Right(c) =>
             that += c
             lp()
-        } else Right(that.result())
+        }
+        else Right(that.result())
       lp()
     }
   }

@@ -28,7 +28,8 @@ object Transactions {
 
   def transactionFilterFor(
       parties: OneAnd[Set, lar.Party],
-      templateIds: List[TemplateId.RequiredPkg]): TransactionFilter = {
+      templateIds: List[TemplateId.RequiredPkg],
+  ): TransactionFilter = {
     val filters =
       if (templateIds.isEmpty) Filters.defaultInstance
       else Filters(Some(InclusiveFilters(templateIds.map(apiIdentifier))))

@@ -11,8 +11,8 @@ final case class Slf4JLogger[T, U](
     logger: Logger,
     prefix: String,
     project: T => U,
-    logDemand: Boolean = false)
-    extends GraphStage[FlowShape[T, T]] {
+    logDemand: Boolean = false,
+) extends GraphStage[FlowShape[T, T]] {
 
   override def toString = "Slf4JLog"
 

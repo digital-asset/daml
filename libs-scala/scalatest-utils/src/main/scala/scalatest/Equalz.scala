@@ -41,8 +41,8 @@ trait Equalz extends Matchers {
           MatchResult(
             ev.equal(expected, actual),
             s"$actual did not equal $expected",
-            s"$actual equalled $expected"
-        )
+            s"$actual equalled $expected",
+          )
     }
 
   /** An improved design for [[MatcherFactory1]]; see [[XMatcherFactory1]]. */

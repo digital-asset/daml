@@ -13,7 +13,8 @@ private[validation] object ExprIterable {
   private[iterable] def iterator(x: Expr): Iterator[Expr] = {
     x match {
       case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EVal(_) | EEnumCon(_, _) | ETypeRep(
-            _) =>
+            _
+          ) =>
         Iterator.empty
       case ELocation(_, expr) =>
         Iterator(expr)
@@ -132,14 +133,15 @@ private[validation] object ExprIterable {
   private[iterable] def iterator(x: TemplateChoice): Iterator[Expr] =
     x match {
       case TemplateChoice(
-          name @ _,
-          consuming @ _,
-          controllers,
-          observers,
-          selfBinder @ _,
-          binder @ _,
-          returnType @ _,
-          update) =>
+            name @ _,
+            consuming @ _,
+            controllers,
+            observers,
+            selfBinder @ _,
+            binder @ _,
+            returnType @ _,
+            update,
+          ) =>
         Iterator(controllers) ++
           observers.iterator ++
           Iterator(update)

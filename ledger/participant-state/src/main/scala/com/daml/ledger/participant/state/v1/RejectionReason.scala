@@ -47,7 +47,6 @@ object RejectionReason {
     * explicit on-boarding steps for a party to exist; e.g., generating key
     * material and registering the party with the ledger-wise
     * identity-manager.
-    *
     */
   final case class PartyNotKnownOnLedger(reason: String) extends RejectionReason {
     override def description: String = s"Party not known on ledger: $reason"
@@ -58,7 +57,6 @@ object RejectionReason {
     * @param reason: details on why the submitter cannot act; e.g., because
     *   it is not hosted on the participant or because its write access to
     *   the ledger has been deactivated.
-    *
     */
   final case class SubmitterCannotActViaParticipant(reason: String) extends RejectionReason {
     override def description: String = s"Submitter cannot act via participant: $reason"

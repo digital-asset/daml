@@ -32,7 +32,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
@@ -67,11 +67,12 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       leakPasswords: LeakPasswords = LeakPasswords.FiresheepStyle,
       useTls: UseTls = UseTls.NoTls,
       wsConfig: Option[WebsocketConfig] = None,
-  )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A])(
-      implicit asys: ActorSystem,
+  )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A])(implicit
+      asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
-      ec: ExecutionContext): Future[A] = {
+      ec: ExecutionContext,
+  ): Future[A] = {
 
     val applicationId = ApplicationId(testName)
 
@@ -96,14 +97,16 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         HttpService.start(
           startSettings = config,
           contractDao = contractDao,
-        ))
+        )
+      )
     } yield httpService
 
     val clientF: Future[LedgerClient] = for {
       client <- LedgerClient.singleHost(
         "localhost",
         ledgerPort.value,
-        clientConfig(applicationId, useTls = useTls))
+        clientConfig(applicationId, useTls = useTls),
+      )
     } yield client
 
     val codecsF: Future[(DomainJsonEncoder, DomainJsonDecoder)] = for {
@@ -124,8 +127,9 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       Future
         .sequence(
           Seq(
-            httpServiceF.flatMap(_.unbind()),
-          ) map (_ fallbackTo Future.unit))
+            httpServiceF.flatMap(_.unbind())
+          ) map (_ fallbackTo Future.unit)
+        )
         .transform(_ => ta)
     }
   }
@@ -135,17 +139,20 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       testName: String,
       token: Option[String] = None,
       useTls: UseTls = UseTls.NoTls,
-      authService: Option[AuthService] = None)(testFn: (Port, LedgerClient) => Future[A])(
-      implicit mat: Materializer,
+      authService: Option[AuthService] = None,
+  )(testFn: (Port, LedgerClient) => Future[A])(implicit
+      mat: Materializer,
       aesf: ExecutionSequencerFactory,
-      ec: ExecutionContext): Future[A] = {
+      ec: ExecutionContext,
+  ): Future[A] = {
 
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
 
     val ledgerF = for {
       ledger <- Future(
-        new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, authService, useTls), mat))
+        new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, authService, useTls), mat)
+      )
       port <- ledger.portF
     } yield (ledger, port)
 
@@ -154,7 +161,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       client <- LedgerClient.singleHost(
         "localhost",
         ledgerPort.value,
-        clientConfig(applicationId, token, useTls))
+        clientConfig(applicationId, token, useTls),
+      )
     } yield client
 
     val fa: Future[A] = for {
@@ -189,27 +197,31 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   private def clientConfig[A](
       applicationId: ApplicationId,
       token: Option[String] = None,
-      useTls: UseTls): LedgerClientConfiguration =
+      useTls: UseTls,
+  ): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement.none,
       commandClient = CommandClientConfiguration.default,
       sslContext = if (useTls) clientTlsConfig.client else None,
-      token = token
+      token = token,
     )
 
-  def jsonCodecs(client: LedgerClient)(
-      implicit ec: ExecutionContext): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
+  def jsonCodecs(
+      client: LedgerClient
+  )(implicit ec: ExecutionContext): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
     val packageService = new PackageService(
-      HttpService.loadPackageStoreUpdates(client.packageClient, holderM = None))
+      HttpService.loadPackageStoreUpdates(client.packageClient, holderM = None)
+    )
     packageService
       .reload(ec)
       .flatMap(x => FutureUtil.toFuture(x))
       .map(_ => HttpService.buildJsonCodecs(packageService))
   }
 
-  private def stripLeft(fa: Future[HttpService.Error \/ ServerBinding])(
-      implicit ec: ExecutionContext): Future[ServerBinding] =
+  private def stripLeft(
+      fa: Future[HttpService.Error \/ ServerBinding]
+  )(implicit ec: ExecutionContext): Future[ServerBinding] =
     fa.flatMap {
       case -\/(e) =>
         Future.failed(new IllegalStateException(s"Cannot start HTTP Service: ${e.message}"))
@@ -256,8 +268,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
         participantId = None,
         exp = None,
         admin = false,
-        readAs = readAs
-      ).toJson.prettyPrint
+        readAs = readAs,
+      ).toJson.prettyPrint,
     )
     JwtSigner.HMAC256
       .sign(decodedJwt, "secret")
@@ -270,17 +282,19 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   def authorizationHeader(token: Jwt): List[Authorization] =
     List(Authorization(OAuth2BearerToken(token.value)))
 
-  def postRequest(uri: Uri, json: JsValue, headers: List[HttpHeader] = Nil)(
-      implicit as: ActorSystem,
+  def postRequest(uri: Uri, json: JsValue, headers: List[HttpHeader] = Nil)(implicit
+      as: ActorSystem,
       ec: ExecutionContext,
-      mat: Materializer): Future[(StatusCode, JsValue)] = {
+      mat: Materializer,
+  ): Future[(StatusCode, JsValue)] = {
     Http()
       .singleRequest(
         HttpRequest(
           method = HttpMethods.POST,
           uri = uri,
           headers = headers,
-          entity = HttpEntity(ContentTypes.`application/json`, json.prettyPrint))
+          entity = HttpEntity(ContentTypes.`application/json`, json.prettyPrint),
+        )
       )
       .flatMap { resp =>
         val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
@@ -290,10 +304,11 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       }
   }
 
-  def postJsonStringRequestEncoded(uri: Uri, jsonString: String, headers: List[HttpHeader])(
-      implicit as: ActorSystem,
+  def postJsonStringRequestEncoded(uri: Uri, jsonString: String, headers: List[HttpHeader])(implicit
+      as: ActorSystem,
       ec: ExecutionContext,
-      mat: Materializer): Future[(StatusCode, String)] = {
+      mat: Materializer,
+  ): Future[(StatusCode, String)] = {
     logger.info(s"postJson: ${uri.toString} json: ${jsonString: String}")
     Http()
       .singleRequest(
@@ -301,7 +316,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
           method = HttpMethods.POST,
           uri = uri,
           headers = headers,
-          entity = HttpEntity(ContentTypes.`application/json`, jsonString))
+          entity = HttpEntity(ContentTypes.`application/json`, jsonString),
+        )
       )
       .flatMap { resp =>
         val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
@@ -309,28 +325,32 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       }
   }
 
-  def postJsonStringRequest(uri: Uri, jsonString: String, headers: List[HttpHeader])(
-      implicit as: ActorSystem,
+  def postJsonStringRequest(uri: Uri, jsonString: String, headers: List[HttpHeader])(implicit
+      as: ActorSystem,
       ec: ExecutionContext,
-      mat: Materializer): Future[(StatusCode, JsValue)] =
-    postJsonStringRequestEncoded(uri, jsonString, headers).map {
-      case (status, body) => (status, body.parseJson)
+      mat: Materializer,
+  ): Future[(StatusCode, JsValue)] =
+    postJsonStringRequestEncoded(uri, jsonString, headers).map { case (status, body) =>
+      (status, body.parseJson)
     }
 
-  def postJsonRequest(uri: Uri, json: JsValue, headers: List[HttpHeader])(
-      implicit as: ActorSystem,
+  def postJsonRequest(uri: Uri, json: JsValue, headers: List[HttpHeader])(implicit
+      as: ActorSystem,
       ec: ExecutionContext,
-      mat: Materializer): Future[(StatusCode, JsValue)] =
+      mat: Materializer,
+  ): Future[(StatusCode, JsValue)] =
     postJsonStringRequest(uri, json.prettyPrint, headers)
 
   def postCreateCommand(
       cmd: domain.CreateCommand[v.Record],
       encoder: DomainJsonEncoder,
       uri: Uri,
-      headers: List[HttpHeader])(
-      implicit as: ActorSystem,
+      headers: List[HttpHeader],
+  )(implicit
+      as: ActorSystem,
       ec: ExecutionContext,
-      mat: Materializer): Future[(StatusCode, JsValue)] = {
+      mat: Materializer,
+  ): Future[(StatusCode, JsValue)] = {
     import encoder.implicits._
     for {
       json <- FutureUtil.toFuture(SprayJson.encode1(cmd)): Future[JsValue]
@@ -343,10 +363,12 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       contractId: domain.ContractId,
       encoder: DomainJsonEncoder,
       uri: Uri,
-      headers: List[HttpHeader])(
-      implicit as: ActorSystem,
+      headers: List[HttpHeader],
+  )(implicit
+      as: ActorSystem,
       ec: ExecutionContext,
-      mat: Materializer): Future[(StatusCode, JsValue)] = {
+      mat: Materializer,
+  ): Future[(StatusCode, JsValue)] = {
     val ref = domain.EnrichedContractId(Some(templateId), contractId)
     val cmd = archiveCommand(ref)
     for {
@@ -355,10 +377,11 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     } yield result
   }
 
-  def getRequestEncoded(uri: Uri, headers: List[HttpHeader] = List())(
-      implicit as: ActorSystem,
+  def getRequestEncoded(uri: Uri, headers: List[HttpHeader] = List())(implicit
+      as: ActorSystem,
       ec: ExecutionContext,
-      mat: Materializer): Future[(StatusCode, String)] = {
+      mat: Materializer,
+  ): Future[(StatusCode, String)] = {
     Http()
       .singleRequest(
         HttpRequest(method = HttpMethods.GET, uri = uri, headers = headers)
@@ -369,12 +392,13 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       }
   }
 
-  def getRequest(uri: Uri, headers: List[HttpHeader])(
-      implicit as: ActorSystem,
+  def getRequest(uri: Uri, headers: List[HttpHeader])(implicit
+      as: ActorSystem,
       ec: ExecutionContext,
-      mat: Materializer): Future[(StatusCode, JsValue)] =
-    getRequestEncoded(uri, headers).map {
-      case (status, body) => (status, body.parseJson)
+      mat: Materializer,
+  ): Future[(StatusCode, JsValue)] =
+    getRequestEncoded(uri, headers).map { case (status, body) =>
+      (status, body.parseJson)
     }
 
   def archiveCommand[Ref](reference: Ref): domain.ExerciseCommand[v.Value, Ref] = {
@@ -386,8 +410,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
   def accountCreateCommand(
       owner: domain.Party,
       number: String,
-      time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now))
-    : domain.CreateCommand[v.Record] = {
+      time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now),
+  ): domain.CreateCommand[v.Record] = {
     val templateId = domain.TemplateId(None, "Account", "Account")
     val timeValue = v.Value(time)
     val enabledVariantValue =
@@ -396,15 +420,16 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       fields = List(
         v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(owner.unwrap)))),
         v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
-        v.RecordField("status", Some(enabledVariantValue))
-      ))
+        v.RecordField("status", Some(enabledVariantValue)),
+      )
+    )
 
     domain.CreateCommand(templateId, arg, None)
   }
 
   def getContractId(result: JsValue): domain.ContractId =
-    inside(result.asJsObject.fields.get("contractId")) {
-      case Some(JsString(contractId)) => domain.ContractId(contractId)
+    inside(result.asJsObject.fields.get("contractId")) { case Some(JsString(contractId)) =>
+      domain.ContractId(contractId)
     }
 
   def getResult(output: JsValue): JsValue = getChild(output, "result")

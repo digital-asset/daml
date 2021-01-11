@@ -36,7 +36,8 @@ private[daml] final class CommandServiceAuthorization(
   }
 
   override def submitAndWaitForTransaction(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] = {
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionResponse] = {
     val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
@@ -47,7 +48,8 @@ private[daml] final class CommandServiceAuthorization(
   }
 
   override def submitAndWaitForTransactionId(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] = {
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionIdResponse] = {
     val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
@@ -58,7 +60,8 @@ private[daml] final class CommandServiceAuthorization(
   }
 
   override def submitAndWaitForTransactionTree(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] = {
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionTreeResponse] = {
     val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,

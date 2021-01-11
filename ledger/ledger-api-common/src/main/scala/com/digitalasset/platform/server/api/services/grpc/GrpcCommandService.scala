@@ -22,7 +22,7 @@ class GrpcCommandService(
     val ledgerId: LedgerId,
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
-    maxDeduplicationTime: () => Option[Duration]
+    maxDeduplicationTime: () => Option[Duration],
 )(implicit executionContext: ExecutionContext)
     extends CommandService
     with GrpcApiService
@@ -39,19 +39,22 @@ class GrpcCommandService(
       .fold(Future.failed, _ => service.submitAndWait(request))
 
   override def submitAndWaitForTransactionId(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] =
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionIdResponse] =
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
       .fold(Future.failed, _ => service.submitAndWaitForTransactionId(request))
 
   override def submitAndWaitForTransaction(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] =
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionResponse] =
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
       .fold(Future.failed, _ => service.submitAndWaitForTransaction(request))
 
   override def submitAndWaitForTransactionTree(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] =
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionTreeResponse] =
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
       .fold(Future.failed, _ => service.submitAndWaitForTransactionTree(request))

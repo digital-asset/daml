@@ -39,7 +39,8 @@ object Debug {
       participantId: String,
       entryId: DamlLogEntryId,
       logEntry: DamlLogEntry,
-      outputState: Map[DamlStateKey, DamlStateValue]): Unit =
+      outputState: Map[DamlStateKey, DamlStateValue],
+  ): Unit =
     optLedgerDumpStream.foreach { outs =>
       val dumpEntry = DamlKvutils.LedgerDumpEntry.newBuilder
         .setSubmission(Envelope.enclose(submission).bytes)
@@ -47,12 +48,11 @@ object Debug {
         .setParticipantId(participantId)
         .setLogEntry(Envelope.enclose(logEntry).bytes)
         .addAllOutputState(
-          outputState.map {
-            case (k, v) =>
-              DamlKvutils.LedgerDumpEntry.StatePair.newBuilder
-                .setStateKey(k)
-                .setStateValue(Envelope.enclose(v).bytes)
-                .build
+          outputState.map { case (k, v) =>
+            DamlKvutils.LedgerDumpEntry.StatePair.newBuilder
+              .setStateKey(k)
+              .setStateValue(Envelope.enclose(v).bytes)
+              .build
           }.asJava
         )
         .build

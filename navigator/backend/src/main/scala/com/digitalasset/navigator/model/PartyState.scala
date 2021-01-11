@@ -17,14 +17,16 @@ class PartyState(val config: UserConfig) {
   val name = config.party
   val useDatabase = config.useDatabase
   private val stateRef: AtomicReference[State] = new AtomicReference(
-    State(Ledger(name, None, useDatabase), new PackageRegistry))
+    State(Ledger(name, None, useDatabase), new PackageRegistry)
+  )
 
   def ledger: Ledger = stateRef.get.ledger
   def packageRegistry: PackageRegistry = stateRef.get.packageRegistry
 
   def addLatestTransaction(tx: Transaction): Unit = {
     stateRef.updateAndGet(state =>
-      state.copy(ledger = state.ledger.withTransaction(tx, packageRegistry)))
+      state.copy(ledger = state.ledger.withTransaction(tx, packageRegistry))
+    )
     ()
   }
 
@@ -40,7 +42,8 @@ class PartyState(val config: UserConfig) {
 
   def addPackages(packs: List[DamlLfIface.Interface]): Unit = {
     stateRef.updateAndGet(state =>
-      state.copy(packageRegistry = packageRegistry.withPackages(packs)))
+      state.copy(packageRegistry = packageRegistry.withPackages(packs))
+    )
     ()
   }
 

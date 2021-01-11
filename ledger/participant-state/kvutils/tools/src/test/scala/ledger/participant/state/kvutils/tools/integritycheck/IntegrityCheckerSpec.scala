@@ -23,11 +23,15 @@ final class IntegrityCheckerSpec
       val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
       when(
         mockCommitStrategySupport
-          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value]))
+          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value])
+      )
         .thenReturn(None)
       val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
 
-      instance.compareSameSizeWriteSets(writeSet("key" -> "a"), writeSet("key" -> "b")) shouldBe None
+      instance.compareSameSizeWriteSets(
+        writeSet("key" -> "a"),
+        writeSet("key" -> "b"),
+      ) shouldBe None
     }
 
     "return None in case of no difference" in {
@@ -41,7 +45,8 @@ final class IntegrityCheckerSpec
       val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
       when(
         mockCommitStrategySupport
-          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value]))
+          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value])
+      )
         .thenReturn(Some("expected explanation"))
       val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
 
@@ -58,14 +63,16 @@ final class IntegrityCheckerSpec
       val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
       when(
         mockCommitStrategySupport
-          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value]))
+          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value])
+      )
         .thenReturn(Some("first explanation"), Some("second explanation"))
       val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
 
       val actual =
         instance.compareSameSizeWriteSets(
           writeSet("key1" -> "a", "key2" -> "a"),
-          writeSet("key1" -> "b", "key2" -> "b"))
+          writeSet("key1" -> "b", "key2" -> "b"),
+        )
 
       actual match {
         case Some(explanation) =>
@@ -106,10 +113,13 @@ final class IntegrityCheckerSpec
 
       instance
         .compareStateUpdates(config, mockStateUpdates)
-        .transform(_ => {
-          verify(mockStateUpdates, times(1)).compare()
-          succeed
-        }, _ => fail())
+        .transform(
+          _ => {
+            verify(mockStateUpdates, times(1)).compare()
+            succeed
+          },
+          _ => fail(),
+        )
     }
 
     "skip compare if in index-only mode" in {
@@ -120,10 +130,13 @@ final class IntegrityCheckerSpec
 
       instance
         .compareStateUpdates(config, mockStateUpdates)
-        .transform(_ => {
-          verify(mockStateUpdates, times(0)).compare()
-          succeed
-        }, _ => fail())
+        .transform(
+          _ => {
+            verify(mockStateUpdates, times(0)).compare()
+            succeed
+          },
+          _ => fail(),
+        )
     }
   }
 
@@ -138,7 +151,8 @@ final class IntegrityCheckerSpec
       val aFilePath = "aFilePath"
       val config = Config.ParseInput.copy(exportFilePath = Paths.get(aFilePath))
       IntegrityChecker.createIndexerConfig(config).jdbcUrl should be(
-        IntegrityChecker.defaultJdbcUrl(aFilePath))
+        IntegrityChecker.defaultJdbcUrl(aFilePath)
+      )
     }
   }
 

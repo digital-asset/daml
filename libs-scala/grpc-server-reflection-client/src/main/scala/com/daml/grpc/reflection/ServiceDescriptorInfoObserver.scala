@@ -15,7 +15,7 @@ import scala.concurrent.{Future, Promise}
 import scala.util.Success
 
 private[reflection] final class ServiceDescriptorInfoObserver(
-    serverReflectionStream: => StreamObserver[ServerReflectionRequest],
+    serverReflectionStream: => StreamObserver[ServerReflectionRequest]
 ) extends StreamObserver[ServerReflectionResponse] {
 
   private val builder = Set.newBuilder[ServiceDescriptorInfo]

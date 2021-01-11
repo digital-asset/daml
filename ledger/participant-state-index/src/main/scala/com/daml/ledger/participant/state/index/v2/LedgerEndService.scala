@@ -8,9 +8,8 @@ import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
 
-/**
-  * Serves as a backend to implement ledger end related API calls.
-  **/
+/** Serves as a backend to implement ledger end related API calls.
+  */
 trait LedgerEndService {
   def currentLedgerEnd()(implicit loggingContext: LoggingContext): Future[LedgerOffset.Absolute]
 }

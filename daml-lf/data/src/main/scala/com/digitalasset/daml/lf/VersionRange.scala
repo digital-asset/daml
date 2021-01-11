@@ -5,8 +5,7 @@ package com.daml.lf
 
 import scala.Ordering.Implicits.infixOrderingOps
 
-/**
-  * [[VersionRange]] represents a range of versions of
+/** [[VersionRange]] represents a range of versions of
   * [[com.daml.lf.language.LanguageVersion]] or
   * [[com.daml.lf.transaction.TransactionVersion]].
   *

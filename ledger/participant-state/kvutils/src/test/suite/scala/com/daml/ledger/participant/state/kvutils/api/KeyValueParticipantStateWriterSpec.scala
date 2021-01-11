@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.{
   DefaultStateKeySerializationStrategy,
-  StateKeySerializationStrategy
+  StateKeySerializationStrategy,
 }
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
@@ -48,7 +48,8 @@ class KeyValueParticipantStateWriterSpec
         submitterInfo(recordTime, aParty, expectedCorrelationId),
         transactionMeta(recordTime),
         TransactionBuilder.EmptySubmitted,
-        anInterpretationCost)
+        anInterpretationCost,
+      )
 
       verify(writer, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
       verifyEnvelope(transactionCaptor.getValue)(_.hasTransactionEntry)
@@ -140,7 +141,8 @@ object KeyValueParticipantStateWriterSpec {
     val writer = mock[LedgerWriter]
     when(
       writer
-        .commit(correlationIdCaptor.capture(), envelopeCaptor.capture(), metadataCaptor.capture()))
+        .commit(correlationIdCaptor.capture(), envelopeCaptor.capture(), metadataCaptor.capture())
+    )
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     writer
@@ -159,10 +161,11 @@ object KeyValueParticipantStateWriterSpec {
     workflowId = Some(Ref.LedgerString.assertFromString("tests")),
     submissionTime = let.addMicros(1000),
     submissionSeed = crypto.Hash.assertFromString(
-      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    ),
     optUsedPackages = Some(Set.empty),
     optNodeSeeds = None,
-    optByKeyNodes = None
+    optByKeyNodes = None,
   )
 
   private def newMetrics(): Metrics = new Metrics(new MetricRegistry)

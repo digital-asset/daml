@@ -62,7 +62,8 @@ class LedgerClientConfigTest extends AnyWordSpec with Matchers {
 
     "return the expected type of Throwable on parse errors" in {
       LedgerClientConfig.create(ConfigFactory.empty()).failed.get should be(
-        a[MalformedTypesafeConfig])
+        a[MalformedTypesafeConfig]
+      )
     }
   }
 }

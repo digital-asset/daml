@@ -62,8 +62,8 @@ class SubmissionValidatorSpec
         engine = Engine.DevEngine(),
       )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
-        inside(_) {
-          case Left(MissingInputState(keys)) => keys should have size 1
+        inside(_) { case Left(MissingInputState(keys)) =>
+          keys should have size 1
         }
       }
     }
@@ -83,8 +83,8 @@ class SubmissionValidatorSpec
           aParticipantId(),
         )
         .map {
-          inside(_) {
-            case Left(ValidationError(reason)) => reason should include("Failed to parse")
+          inside(_) { case Left(ValidationError(reason)) =>
+            reason should include("Failed to parse")
           }
         }
     }
@@ -106,8 +106,8 @@ class SubmissionValidatorSpec
         metrics = new Metrics(new MetricRegistry),
       )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
-        inside(_) {
-          case Left(ValidationError(reason)) => reason should include("Validation failed")
+        inside(_) { case Left(ValidationError(reason)) =>
+          reason should include("Validation failed")
         }
       }
     }
@@ -123,7 +123,9 @@ class SubmissionValidatorSpec
       val logEntryValueCaptor = captor[Raw.Value]
       when(
         mockStateOperations.appendToLog(logEntryIdCaptor.capture(), logEntryValueCaptor.capture())(
-          anyExecutionContext))
+          anyExecutionContext
+        )
+      )
         .thenReturn(Future.successful(expectedLogResult))
       val expectedLogEntryId = aLogEntryId()
       val mockLogEntryIdGenerator = mockFunctionReturning(expectedLogEntryId)
@@ -140,15 +142,14 @@ class SubmissionValidatorSpec
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
         .map {
-          inside(_) {
-            case Right(actualLogResult) =>
-              actualLogResult should be(expectedLogResult)
-              verify(mockLogEntryIdGenerator, times(1)).apply()
-              verify(mockStateOperations, times(0))
-                .writeState(any[Iterable[Raw.KeyValuePair]])(anyExecutionContext)
-              logEntryValueCaptor.getAllValues should have size 1
-              logEntryIdCaptor.getAllValues should have size 1
-              logEntryIdCaptor.getValue should be(Raw.Key(expectedLogEntryId.toByteString))
+          inside(_) { case Right(actualLogResult) =>
+            actualLogResult should be(expectedLogResult)
+            verify(mockLogEntryIdGenerator, times(1)).apply()
+            verify(mockStateOperations, times(0))
+              .writeState(any[Iterable[Raw.KeyValuePair]])(anyExecutionContext)
+            logEntryValueCaptor.getAllValues should have size 1
+            logEntryIdCaptor.getAllValues should have size 1
+            logEntryIdCaptor.getValue should be(Raw.Key(expectedLogEntryId.toByteString))
           }
         }
     }
@@ -163,8 +164,8 @@ class SubmissionValidatorSpec
         .thenReturn(Future.unit)
       val logEntryCaptor = captor[Raw.Value]
       when(
-        mockStateOperations.appendToLog(any[Raw.Key], logEntryCaptor.capture())(
-          anyExecutionContext))
+        mockStateOperations.appendToLog(any[Raw.Key], logEntryCaptor.capture())(anyExecutionContext)
+      )
         .thenReturn(Future.successful(expectedLogResult))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
@@ -178,14 +179,15 @@ class SubmissionValidatorSpec
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
         .map {
-          inside(_) {
-            case Right(actualLogResult) =>
-              actualLogResult should be(expectedLogResult)
-              writtenKeyValuesCaptor.getAllValues should have size 1
-              val writtenKeyValues = writtenKeyValuesCaptor.getValue
-              writtenKeyValues should have size 1
-              Try(SubmissionValidator.stateValueFromRaw(writtenKeyValues.head._2)).isSuccess shouldBe true
-              logEntryCaptor.getAllValues should have size 1
+          inside(_) { case Right(actualLogResult) =>
+            actualLogResult should be(expectedLogResult)
+            writtenKeyValuesCaptor.getAllValues should have size 1
+            val writtenKeyValues = writtenKeyValuesCaptor.getValue
+            writtenKeyValues should have size 1
+            Try(
+              SubmissionValidator.stateValueFromRaw(writtenKeyValues.head._2)
+            ).isSuccess shouldBe true
+            logEntryCaptor.getAllValues should have size 1
           }
         }
     }
@@ -200,8 +202,8 @@ class SubmissionValidatorSpec
         .thenReturn(Future.unit)
       val logEntryCaptor = captor[Raw.Value]
       when(
-        mockStateOperations.appendToLog(any[Raw.Key], logEntryCaptor.capture())(
-          anyExecutionContext))
+        mockStateOperations.appendToLog(any[Raw.Key], logEntryCaptor.capture())(anyExecutionContext)
+      )
         .thenReturn(Future.successful(expectedLogResult))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
@@ -218,19 +220,22 @@ class SubmissionValidatorSpec
             .addSubmissions(
               DamlSubmissionBatch.CorrelatedSubmission.newBuilder
                 .setCorrelationId("aCorrelationId")
-                .setSubmission(anEnvelope().bytes))
-            .build)
+                .setSubmission(anEnvelope().bytes)
+            )
+            .build
+        )
       instance
         .validateAndCommit(batchEnvelope, "aBatchCorrelationId", newRecordTime(), aParticipantId())
         .map {
-          inside(_) {
-            case Right(actualLogResult) =>
-              actualLogResult should be(expectedLogResult)
-              writtenKeyValuesCaptor.getAllValues should have size 1
-              val writtenKeyValues = writtenKeyValuesCaptor.getValue
-              writtenKeyValues should have size 1
-              Try(SubmissionValidator.stateValueFromRaw(writtenKeyValues.head._2)).isSuccess shouldBe true
-              logEntryCaptor.getAllValues should have size 1
+          inside(_) { case Right(actualLogResult) =>
+            actualLogResult should be(expectedLogResult)
+            writtenKeyValuesCaptor.getAllValues should have size 1
+            val writtenKeyValues = writtenKeyValuesCaptor.getValue
+            writtenKeyValues should have size 1
+            Try(
+              SubmissionValidator.stateValueFromRaw(writtenKeyValues.head._2)
+            ).isSuccess shouldBe true
+            logEntryCaptor.getAllValues should have size 1
           }
         }
     }
@@ -249,19 +254,23 @@ class SubmissionValidatorSpec
       val batchEnvelope =
         Envelope.enclose(
           DamlSubmissionBatch.newBuilder
-            .addSubmissions(DamlSubmissionBatch.CorrelatedSubmission.newBuilder
-              .setCorrelationId("aCorrelationId")
-              .setSubmission(anEnvelope().bytes))
-            .addSubmissions(DamlSubmissionBatch.CorrelatedSubmission.newBuilder
-              .setCorrelationId("aCorrelationId2")
-              .setSubmission(anEnvelope().bytes))
-            .build)
+            .addSubmissions(
+              DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+                .setCorrelationId("aCorrelationId")
+                .setSubmission(anEnvelope().bytes)
+            )
+            .addSubmissions(
+              DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+                .setCorrelationId("aCorrelationId2")
+                .setSubmission(anEnvelope().bytes)
+            )
+            .build
+        )
       instance
         .validateAndCommit(batchEnvelope, "aBatchCorrelationId", newRecordTime(), aParticipantId())
         .map {
-          inside(_) {
-            case Left(ValidationError(reason)) =>
-              reason should include("Unsupported batch size")
+          inside(_) { case Left(ValidationError(reason)) =>
+            reason should include("Unsupported batch size")
           }
         }
     }
@@ -286,8 +295,8 @@ class SubmissionValidatorSpec
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
         .map {
-          inside(_) {
-            case Left(ValidationError(reason)) => reason should include("Write error")
+          inside(_) { case Left(ValidationError(reason)) =>
+            reason should include("Write error")
           }
         }
     }
@@ -301,7 +310,8 @@ object SubmissionValidatorSpec {
     DamlLogEntry
       .newBuilder()
       .setPartyAllocationEntry(
-        DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId("aParticipant"))
+        DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId("aParticipant")
+      )
       .build()
 
   private def aLogEntryId(): DamlLogEntryId = SubmissionValidator.allocateRandomLogEntryId()
@@ -341,7 +351,7 @@ object SubmissionValidatorSpec {
   private class FakeStateAccess[LogResult](mockStateOperations: LedgerStateOperations[LogResult])
       extends LedgerStateAccess[LogResult] {
     override def inTransaction[T](
-        body: LedgerStateOperations[LogResult] => Future[T],
+        body: LedgerStateOperations[LogResult] => Future[T]
     )(implicit executionContext: ExecutionContext): Future[T] =
       body(mockStateOperations)
   }

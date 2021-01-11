@@ -13,11 +13,11 @@ object TemplateIds {
     interfaces.flatMap(getTemplateIds)
 
   private def getTemplateIds(interface: Interface): Set[Identifier] =
-    interface.typeDecls.iterator.collect {
-      case (qn: QualifiedName, _: Template) =>
-        Identifier(
-          packageId = interface.packageId,
-          moduleName = qn.module.dottedName,
-          entityName = qn.name.dottedName)
+    interface.typeDecls.iterator.collect { case (qn: QualifiedName, _: Template) =>
+      Identifier(
+        packageId = interface.packageId,
+        moduleName = qn.module.dottedName,
+        entityName = qn.name.dottedName,
+      )
     }.toSet
 }

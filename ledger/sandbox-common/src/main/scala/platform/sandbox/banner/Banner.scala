@@ -15,7 +15,8 @@ object Banner {
         Source
           .fromResource(resourceName)
           .getLines()
-          .mkString("\n"))
+          .mkString("\n")
+      )
     else
       out.println("Banner resource missing from classpath.")
   }

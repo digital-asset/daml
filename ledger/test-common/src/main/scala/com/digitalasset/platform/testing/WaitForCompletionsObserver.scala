@@ -15,8 +15,11 @@ object WaitForCompletionsObserver {
 
   def apply(n: Int)(attach: StreamObserver[CompletionStreamResponse] => Unit): Future[Unit] = {
     if (n < 1) {
-      Future.failed(new IllegalArgumentException(
-        s"Invalid argument $n, `WaitForCompletionsObserver` requires a strictly positive integer as an argument"))
+      Future.failed(
+        new IllegalArgumentException(
+          s"Invalid argument $n, `WaitForCompletionsObserver` requires a strictly positive integer as an argument"
+        )
+      )
     } else {
       val observer = new WaitForCompletionsObserver(n)
       attach(observer)

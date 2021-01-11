@@ -27,7 +27,8 @@ class UtilTest extends UtilTestHelpers with ScalaCheckDrivenPropertyChecks {
     lf.LFUtil(
       scalaPackage,
       I.EnvironmentInterface fromReaderInterfaces packageInterface,
-      outputDir.toFile)
+      outputDir.toFile,
+    )
 
   def damlScalaName(damlNameSpace: Array[String], name: String): util.DamlScalaName =
     util.DamlScalaName(damlNameSpace, name)
@@ -78,7 +79,7 @@ abstract class UtilTestHelpers extends AnyFlatSpec with Matchers with BeforeAndA
           Files.delete(file)
           FileVisitResult.CONTINUE
         }
-      }
+      },
     )
     ()
   }

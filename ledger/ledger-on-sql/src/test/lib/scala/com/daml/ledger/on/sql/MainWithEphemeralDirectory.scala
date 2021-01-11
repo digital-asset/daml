@@ -34,8 +34,8 @@ object MainWithEphemeralDirectory {
         config: Config[ExtraConfig],
         participantConfig: ParticipantConfig,
         engine: Engine,
-    )(
-        implicit materializer: Materializer,
+    )(implicit
+        materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ReadWriteService] =
       new Owner(config, participantConfig, engine)

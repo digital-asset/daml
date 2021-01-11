@@ -20,7 +20,8 @@ trait SubmitAndWaitDummyCommand extends TestCommands { self: ServiceCallWithMain
     SubmitAndWaitRequest(
       dummyCommands(wrappedLedgerId, s"$serviceCallName-${UUID.randomUUID}", mainActor)
         .update(_.commands.applicationId := serviceCallName, _.commands.party := mainActor)
-        .commands)
+        .commands
+    )
 
   private def service(token: Option[String]) =
     stub(CommandServiceGrpc.stub(channel), token)

@@ -9,23 +9,21 @@ import com.daml.ledger.api.v1.event.{
   ArchivedEvent => PbArchivedEvent,
   CreatedEvent => PbCreatedEvent,
   Event => PbFlatEvent,
-  ExercisedEvent => PbExercisedEvent
+  ExercisedEvent => PbExercisedEvent,
 }
 import com.daml.ledger.api.v1.transaction.{TreeEvent => PbTreeEvent}
 import com.daml.platform.participant.util.LfEngineToApi
 
 import scala.collection.compat.immutable.ArraySeq
 
-/**
-  * An event as it's fetched from the participant index, before
+/** An event as it's fetched from the participant index, before
   * the deserialization the values contained therein. Allows to
   * wrap events from the database while delaying deserialization
   * so that it doesn't happen on the database thread pool.
   */
 private[events] sealed trait Raw[+E] {
 
-  /**
-    * Fill the blanks left in the raw event by running
+  /** Fill the blanks left in the raw event by running
     * the deserialization on contained values.
     *
     * @param lfValueTranslation The delegate in charge of applying deserialization
@@ -37,8 +35,7 @@ private[events] sealed trait Raw[+E] {
 
 private[events] object Raw {
 
-  /**
-    * Since created events can be both a flat event or a tree event
+  /** Since created events can be both a flat event or a tree event
     * we share common code between the two variants here. What's left
     * out is wrapping the result in the proper envelope.
     */
@@ -112,18 +109,17 @@ private[events] object Raw {
             createSignatories = createSignatories,
             createObservers = createObservers,
             createAgreementText = createAgreementText,
-            eventWitnesses = eventWitnesses
+            eventWitnesses = eventWitnesses,
           ),
           createArgument = createArgument,
           createKeyValue = createKeyValue,
         )
     }
 
-    /**
-      * Archived events don't actually have anything to deserialize
+    /** Archived events don't actually have anything to deserialize
       */
     final class Archived private[Raw] (
-        raw: PbArchivedEvent,
+        raw: PbArchivedEvent
     ) extends FlatEvent {
       override def applyDeserialization(
           lfValueTranslation: LfValueTranslation,
@@ -186,7 +182,7 @@ private[events] object Raw {
             createSignatories = createSignatories,
             createObservers = createObservers,
             createAgreementText = createAgreementText,
-            eventWitnesses = eventWitnesses
+            eventWitnesses = eventWitnesses,
           ),
           createArgument = createArgument,
           createKeyValue = createKeyValue,

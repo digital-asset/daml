@@ -15,4 +15,5 @@ final case class GetTransactionTreesRequest(
     endInclusive: Option[LedgerOffset],
     parties: immutable.Set[Party],
     verbose: Boolean,
-    traceContext: Option[TraceContext])
+    traceContext: Option[TraceContext],
+)

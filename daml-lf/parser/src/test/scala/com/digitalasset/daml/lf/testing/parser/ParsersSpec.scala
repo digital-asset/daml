@@ -35,7 +35,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
       )
 
       forEvery(testCases)((stringToParse, expectedKind) =>
-        parseKind(stringToParse) shouldBe Right(expectedKind))
+        parseKind(stringToParse) shouldBe Right(expectedKind)
+      )
     }
 
     "does not parse keywords alone" in {
@@ -72,7 +73,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltinType) =>
-        parseType(stringToParse) shouldBe Right(TBuiltin(expectedBuiltinType)))
+        parseType(stringToParse) shouldBe Right(TBuiltin(expectedBuiltinType))
+      )
     }
 
     "parses properly type constructor" in {
@@ -84,11 +86,14 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           defaultPackageId,
           QualifiedName(
             DottedName.assertFromSegments(ImmArray("A", "B").toSeq),
-            DottedName.assertFromSegments(ImmArray("C", "D").toSeq)))
+            DottedName.assertFromSegments(ImmArray("C", "D").toSeq),
+          ),
+        ),
       )
 
       forEvery(testCases)((stringToParse, expectedTypeConstructor) =>
-        parseType(stringToParse) shouldBe Right(TTyCon(expectedTypeConstructor)))
+        parseType(stringToParse) shouldBe Right(TTyCon(expectedTypeConstructor))
+      )
     }
 
     "parses properly types" in {
@@ -103,11 +108,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "a -> b -> a" -> TApp(TApp(TBuiltin(BTArrow), α), TApp(TApp(TBuiltin(BTArrow), β), α)),
         "forall (a: *). Mod:T a" -> TForall((α.name, KStar), TApp(T, α)),
         "<f1: a, f2: Bool, f3:Mod:T>" ->
-          TStruct(Struct.assertFromSeq(List(n"f1" -> α, n"f2" -> TBuiltin(BTBool), n"f3" -> T)))
+          TStruct(Struct.assertFromSeq(List(n"f1" -> α, n"f2" -> TBuiltin(BTBool), n"f3" -> T))),
       )
 
       forEvery(testCases)((stringToParse, expectedType) =>
-        parseType(stringToParse) shouldBe Right(expectedType))
+        parseType(stringToParse) shouldBe Right(expectedType)
+      )
     }
 
     "does not parse keywords alone" in {
@@ -122,11 +128,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "string to parse" -> "expected primitive constructor",
         "()" -> PCUnit,
         "False" -> PCFalse,
-        "True" -> PCTrue
+        "True" -> PCTrue,
       )
 
       forEvery(testCases)((stringToParse, expectedCons) =>
-        parseExpr(stringToParse) shouldBe Right(EPrimCon(expectedCons)))
+        parseExpr(stringToParse) shouldBe Right(EPrimCon(expectedCons))
+      )
     }
 
     "parses properly literal" in {
@@ -149,7 +156,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
       )
 
       forEvery(testCases)((stringToParse, expectedCons) =>
-        parseExpr(stringToParse) shouldBe Right(EPrimLit(expectedCons)))
+        parseExpr(stringToParse) shouldBe Right(EPrimLit(expectedCons))
+      )
     }
 
     "reject literal that do not map a valid value" in {
@@ -167,7 +175,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "1970-01-01T00:61:00.000000Z",
         """ "\a" """,
         """ '\a' """,
-        """ 'français' """
+        """ 'français' """,
       )
 
       forEvery(testCases)(
@@ -232,7 +240,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>
-        parseExpr(stringToParse) shouldBe Right(EBuiltin(expectedBuiltin)))
+        parseExpr(stringToParse) shouldBe Right(EBuiltin(expectedBuiltin))
+      )
     }
 
     "parses properly expressions " in {
@@ -274,7 +283,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         """\ (x:Int64) (y:Bool) -> <f1=x, f2=y>""" -> EAbs(
           (x.value, t"Int64"),
           e"""\ (y:Bool) -> <f1=x, f2=y>""",
-          None),
+          None,
+        ),
         """/\ (a:*). x @a""" ->
           ETyAbs(n"a" -> KStar, e"x @a"),
         "Nil @a" ->
@@ -306,17 +316,19 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "case e of True -> False | False -> True" ->
           ECase(
             e"e",
-            ImmArray(CaseAlt(CPPrimCon(PCTrue), e"False"), CaseAlt(CPPrimCon(PCFalse), e"True"))),
+            ImmArray(CaseAlt(CPPrimCon(PCTrue), e"False"), CaseAlt(CPPrimCon(PCFalse), e"True")),
+          ),
         "to_any_exception @Mod:E exception" ->
           EToAnyException(E, e"exception"),
         "from_any_exception @Mod:E anyException" ->
           EFromAnyException(E, e"anyException"),
         "throw @Unit @Mod:E exception" ->
-          EThrow(TUnit, E, e"exception")
+          EThrow(TUnit, E, e"exception"),
       )
 
       forEvery(testCases)((stringToParse, expectedExp) =>
-        parseExpr(stringToParse) shouldBe Right(expectedExp))
+        parseExpr(stringToParse) shouldBe Right(expectedExp)
+      )
     }
 
     "parses properly scenarios" in {
@@ -330,7 +342,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "sbind x: tau <- e1 ; y: sigma <- e2 in f x y" ->
           ScenarioBlock(
             ImmArray(Binding(Some(n"x"), t"tau", e"e1"), Binding(Some(n"y"), t"sigma", e"e2")),
-            e"f x y"),
+            e"f x y",
+          ),
         "commit @tau party body" ->
           ScenarioCommit(e"party", e"body", t"tau"),
         "must_fail_at @tau party update" ->
@@ -341,11 +354,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           ScenarioGetTime,
         "sget_party party" ->
           ScenarioGetParty(e"party"),
-        "sembed_expr @tau e" -> ScenarioEmbedExpr(t"tau", e"e")
+        "sembed_expr @tau e" -> ScenarioEmbedExpr(t"tau", e"e"),
       )
 
       forEvery(testCases)((stringToParse, expectedScenario) =>
-        parseExpr(stringToParse) shouldBe Right(EScenario(expectedScenario)))
+        parseExpr(stringToParse) shouldBe Right(EScenario(expectedScenario))
+      )
     }
 
     "parses update properly" in {
@@ -359,7 +373,8 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "ubind x: tau <- e1; y: sigma <- e2 in f x y" ->
           UpdateBlock(
             ImmArray(Binding(Some(n"x"), t"tau", e"e1"), Binding(Some(n"y"), t"sigma", e"e2")),
-            e"f x y"),
+            e"f x y",
+          ),
         "create @Mod:T e" ->
           UpdateCreate(T.tycon, e"e"),
         "fetch @Mod:T e" ->
@@ -377,11 +392,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "uembed_expr @tau e" ->
           UpdateEmbedExpr(t"tau", e"e"),
         "try @tau body catch err -> handler err" ->
-          UpdateTryCatch(t"tau", e"body", n"err", e"handler err")
+          UpdateTryCatch(t"tau", e"body", n"err", e"handler err"),
       )
 
       forEvery(testCases)((stringToParse, expectedUpdate) =>
-        parseExpr(stringToParse) shouldBe Right(EUpdate(expectedUpdate)))
+        parseExpr(stringToParse) shouldBe Right(EUpdate(expectedUpdate))
+      )
     }
 
     "does not parse keywords alone" in {
@@ -409,31 +425,34 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
       val varDef = DDataType(
         false,
         ImmArray(n"a" -> KStar),
-        DataVariant(ImmArray(n"Leaf" -> t"Unit", n"Node" -> t"Mod:Tree.Node a"))
+        DataVariant(ImmArray(n"Leaf" -> t"Unit", n"Node" -> t"Mod:Tree.Node a")),
       )
       val recDef = DDataType(
         false,
         ImmArray(n"a" -> KStar),
-        DataRecord(ImmArray(n"value" -> t"a", n"left" -> t"Mod:Tree a", n"right" -> t"Mod:Tree a"))
+        DataRecord(ImmArray(n"value" -> t"a", n"left" -> t"Mod:Tree a", n"right" -> t"Mod:Tree a")),
       )
       val enumDef = DDataType(
         false,
         ImmArray.empty,
-        DataEnum(ImmArray(n"Red", n"Green", n"Blue"))
+        DataEnum(ImmArray(n"Red", n"Green", n"Blue")),
       )
 
       parseModules(p) shouldBe Right(
-        List(Module(
-          name = modName,
-          definitions = List(
-            DottedName.assertFromSegments(ImmArray("Tree", "Node").toSeq) -> recDef,
-            DottedName.assertFromSegments(ImmArray("Tree").toSeq) -> varDef,
-            DottedName.assertFromSegments(ImmArray("Color").toSeq) -> enumDef
-          ),
-          templates = List.empty,
-          exceptions = List.empty,
-          featureFlags = FeatureFlags.default
-        )))
+        List(
+          Module(
+            name = modName,
+            definitions = List(
+              DottedName.assertFromSegments(ImmArray("Tree", "Node").toSeq) -> recDef,
+              DottedName.assertFromSegments(ImmArray("Tree").toSeq) -> varDef,
+              DottedName.assertFromSegments(ImmArray("Color").toSeq) -> enumDef,
+            ),
+            templates = List.empty,
+            exceptions = List.empty,
+            featureFlags = FeatureFlags.default,
+          )
+        )
+      )
 
     }
 
@@ -452,13 +471,16 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         DValue(t"Int64 -> Int64", true, e"""\(x: Int64) -> ERROR @INT64 "not implemented"""", false)
 
       parseModules(p) shouldBe Right(
-        List(Module(
-          name = modName,
-          definitions = List(DottedName.assertFromString("fact") -> valDef),
-          templates = List.empty,
-          exceptions = List.empty,
-          featureFlags = FeatureFlags.default
-        )))
+        List(
+          Module(
+            name = modName,
+            definitions = List(DottedName.assertFromString("fact") -> valDef),
+            templates = List.empty,
+            exceptions = List.empty,
+            featureFlags = FeatureFlags.default,
+          )
+        )
+      )
 
     }
 
@@ -508,7 +530,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               selfBinder = n"self",
               argBinder = n"u" -> TUnit,
               returnType = t"ContractId Mod:Person",
-              update = e"upure @(ContractId Mod:Person) self"
+              update = e"upure @(ContractId Mod:Person) self",
             ),
             n"Nap" -> TemplateChoice(
               name = n"Nap",
@@ -518,7 +540,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               selfBinder = n"self",
               argBinder = n"i" -> TInt64,
               returnType = t"Int64",
-              update = e"upure @Int64 i"
+              update = e"upure @Int64 i",
             ),
             n"PowerNap" -> TemplateChoice(
               name = n"PowerNap",
@@ -528,17 +550,17 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
               selfBinder = n"self",
               argBinder = n"i" -> TInt64,
               returnType = t"Int64",
-              update = e"upure @Int64 i"
-            )
+              update = e"upure @Int64 i",
+            ),
           ),
           observers = e"Cons @Party ['Alice'] (Nil @Party)",
-          key = Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p"""))
+          key = Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p""")),
         )
 
       val recDef = DDataType(
         true,
         ImmArray.empty,
-        DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text"))
+        DataRecord(ImmArray(n"person" -> t"Party", n"name" -> t"Text")),
       )
       val name = DottedName.assertFromString("Person")
       parseModules(p) shouldBe Right(
@@ -548,8 +570,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             definitions = List(name -> recDef),
             templates = List(name -> template),
             exceptions = List.empty,
-            featureFlags = FeatureFlags.default
-          )))
+            featureFlags = FeatureFlags.default,
+          )
+        )
+      )
 
     }
 
@@ -579,13 +603,13 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           agreementText = e""" "Agreement" """,
           choices = Map.empty,
           observers = e"Nil @Unit",
-          key = None
+          key = None,
         )
 
       val recDef = DDataType(
         true,
         ImmArray.empty,
-        DataRecord(ImmArray.empty)
+        DataRecord(ImmArray.empty),
       )
       val name = DottedName.assertFromString("R")
       parseModules(p) shouldBe Right(
@@ -596,7 +620,9 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
             templates = List(name -> template),
             exceptions = List.empty,
             featureFlags = FeatureFlags.default,
-          )))
+          )
+        )
+      )
 
     }
   }
@@ -618,7 +644,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
     val recDef = DDataType(
       true,
       ImmArray.empty,
-      DataRecord(ImmArray(n"message" -> TText))
+      DataRecord(ImmArray(n"message" -> TText)),
     )
     val name = DottedName.assertFromString("Exception")
     val exception = DefException(e"""\(e: Mod:Exception) -> Mod:Exception {message} e""")
@@ -629,8 +655,10 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           definitions = List(name -> recDef),
           templates = List.empty,
           exceptions = List(name -> exception),
-          featureFlags = FeatureFlags.default
-        )))
+          featureFlags = FeatureFlags.default,
+        )
+      )
+    )
 
   }
 
@@ -642,7 +670,7 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           ModuleName.assertFromString("Mod"),
           "def",
           (0, 1),
-          (2, 3)
+          (2, 3),
         ),
         EVar(n"f"),
       )

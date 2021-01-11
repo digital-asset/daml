@@ -37,9 +37,9 @@ object Assertions extends DiffExtensions {
   }
 
   /** Match the given exception against a status code and a regex for the expected message.
-      Succeeds if the exception is a GrpcException with the expected code and
-      the regex matches some part of the message or there is no message and the pattern is
-      None.
+    *      Succeeds if the exception is a GrpcException with the expected code and
+    *      the regex matches some part of the message or there is no message and the pattern is
+    *      None.
     */
   def assertGrpcError(t: Throwable, expectedCode: Status.Code, optPattern: Option[Pattern]): Unit =
     (t, optPattern) match {
@@ -64,6 +64,7 @@ object Assertions extends DiffExtensions {
     assertGrpcError(
       t,
       expectedCode,
-      if (pattern.isEmpty) None else Some(Pattern.compile(Pattern.quote(pattern))))
+      if (pattern.isEmpty) None else Some(Pattern.compile(Pattern.quote(pattern))),
+    )
   }
 }

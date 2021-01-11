@@ -45,14 +45,15 @@ object JdbcIndexer {
 
     private val logger = ContextualizedLogger.get(this.getClass)
 
-    def validateSchema()(
-        implicit resourceContext: ResourceContext): Future[ResourceOwner[JdbcIndexer]] =
+    def validateSchema()(implicit
+        resourceContext: ResourceContext
+    ): Future[ResourceOwner[JdbcIndexer]] =
       new FlywayMigrations(config.jdbcUrl)
         .validate()
         .map(_ => initialized())(resourceContext.executionContext)
 
     def migrateSchema(
-        allowExistingSchema: Boolean,
+        allowExistingSchema: Boolean
     )(implicit resourceContext: ResourceContext): Future[ResourceOwner[JdbcIndexer]] =
       new FlywayMigrations(config.jdbcUrl)
         .migrate(allowExistingSchema)
@@ -93,7 +94,8 @@ object JdbcIndexer {
             existingLedgerId <- dao.lookupLedgerId()
             providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
             _ <- existingLedgerId.fold(initializeLedgerData(providedLedgerId, dao))(
-              checkLedgerIds(_, providedLedgerId))
+              checkLedgerIds(_, providedLedgerId)
+            )
             _ <- initOrCheckParticipantId(dao)
             initialLedgerEnd <- dao.lookupInitialLedgerEnd()
           } yield initialLedgerEnd)
@@ -119,7 +121,7 @@ object JdbcIndexer {
     }
 
     private def initOrCheckParticipantId(
-        dao: LedgerDao,
+        dao: LedgerDao
     )(implicit resourceContext: ResourceContext): Future[Unit] = {
       val id = ParticipantId(Ref.ParticipantId.assertFromString(config.participantId))
       dao
@@ -149,11 +151,11 @@ object JdbcIndexer {
           "updatedMaxDeduplicationTime" -> newConfiguration.maxDeduplicationTime.toString,
         )
       case ConfigurationChangeRejected(
-          _,
-          submissionId,
-          participantId,
-          proposedConfiguration,
-          rejectionReason,
+            _,
+            submissionId,
+            participantId,
+            proposedConfiguration,
+            rejectionReason,
           ) =>
         Map(
           "updateSubmissionId" -> submissionId,
@@ -178,7 +180,7 @@ object JdbcIndexer {
       case PublicPackageUpload(_, sourceDescription, _, submissionId) =>
         Map(
           "updateSubmissionId" -> submissionId.getOrElse(""),
-          "updateSourceDescription" -> sourceDescription.getOrElse("")
+          "updateSourceDescription" -> sourceDescription.getOrElse(""),
         )
       case PublicPackageUploadRejected(submissionId, _, rejectionReason) =>
         Map(
@@ -192,14 +194,14 @@ object JdbcIndexer {
           "updateWorkflowId" -> transactionMeta.workflowId.getOrElse(""),
           "updateSubmissionTime" -> transactionMeta.submissionTime.toInstant.toString,
         ) ++ optSubmitterInfo
-          .map(
-            info =>
-              Map(
-                "updateSubmitter" -> loggingContextPartiesValue(info.actAs),
-                "updateApplicationId" -> info.applicationId,
-                "updateCommandId" -> info.commandId,
-                "updateDeduplicateUntil" -> info.deduplicateUntil.toString,
-            ))
+          .map(info =>
+            Map(
+              "updateSubmitter" -> loggingContextPartiesValue(info.actAs),
+              "updateApplicationId" -> info.applicationId,
+              "updateCommandId" -> info.commandId,
+              "updateDeduplicateUntil" -> info.deduplicateUntil.toString,
+            )
+          )
           .getOrElse(Map.empty)
       case CommandRejected(_, submitterInfo, reason) =>
         Map(
@@ -220,8 +222,7 @@ object JdbcIndexer {
 
 }
 
-/**
-  * @param startExclusive The last offset received from the read service.
+/** @param startExclusive The last offset received from the read service.
   */
 private[daml] class JdbcIndexer private[indexer] (
     startExclusive: Option[Offset],
@@ -236,28 +237,27 @@ private[daml] class JdbcIndexer private[indexer] (
   override def subscription(readService: ReadService): ResourceOwner[IndexFeedHandle] =
     new SubscriptionResourceOwner(readService)
 
-  private def handleStateUpdate(
-      implicit loggingContext: LoggingContext): Flow[OffsetUpdate, Unit, NotUsed] =
+  private def handleStateUpdate(implicit
+      loggingContext: LoggingContext
+  ): Flow[OffsetUpdate, Unit, NotUsed] =
     Flow[OffsetUpdate]
-      .wireTap(Sink.foreach[OffsetUpdate] {
-        case OffsetUpdate(offsetStep, update) =>
-          val lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
+      .wireTap(Sink.foreach[OffsetUpdate] { case OffsetUpdate(offsetStep, update) =>
+        val lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
 
-          logger.trace(update.description)
+        logger.trace(update.description)
 
-          metrics.daml.indexer.lastReceivedRecordTime.updateValue(lastReceivedRecordTime)
-          metrics.daml.indexer.lastReceivedOffset.updateValue(offsetStep.offset.toApiString)
+        metrics.daml.indexer.lastReceivedRecordTime.updateValue(lastReceivedRecordTime)
+        metrics.daml.indexer.lastReceivedOffset.updateValue(offsetStep.offset.toApiString)
       })
       .mapAsync(1)(prepareTransactionInsert)
-      .mapAsync(1) {
-        case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
-          withEnrichedLoggingContext(JdbcIndexer.loggingContextFor(offsetStep.offset, update)) {
-            implicit loggingContext =>
-              Timed.future(
-                metrics.daml.indexer.stateUpdateProcessing,
-                executeUpdate(offsetUpdate),
-              )
-          }
+      .mapAsync(1) { case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
+        withEnrichedLoggingContext(JdbcIndexer.loggingContextFor(offsetStep.offset, update)) {
+          implicit loggingContext =>
+            Timed.future(
+              metrics.daml.indexer.stateUpdateProcessing,
+              executeUpdate(offsetUpdate),
+            )
+        }
       }
       .map(_ => ())
 
@@ -279,28 +279,30 @@ private[daml] class JdbcIndexer private[indexer] (
                 transaction = tx.transaction,
                 divulgedContracts = tx.divulgedContracts,
                 blindingInfo = tx.blindingInfo,
-              )
+              ),
             )
-          }(mat.executionContext)
+          }(mat.executionContext),
         )
       case offsetUpdate => Future.successful(offsetUpdate)
     }
 
-  private def executeUpdate(offsetUpdate: OffsetUpdate)(
-      implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
+  private def executeUpdate(
+      offsetUpdate: OffsetUpdate
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     offsetUpdate match {
       case OffsetUpdate.PreparedTransactionInsert(
-          offsetStep,
-          TransactionAccepted(
-            optSubmitterInfo,
-            transactionMeta,
-            transaction,
-            transactionId,
-            recordTime,
-            divulgedContracts,
-            blindingInfo,
-          ),
-          preparedInsert) =>
+            offsetStep,
+            TransactionAccepted(
+              optSubmitterInfo,
+              transactionMeta,
+              transaction,
+              transactionId,
+              recordTime,
+              divulgedContracts,
+              blindingInfo,
+            ),
+            preparedInsert,
+          ) =>
         ledgerDao.storeTransaction(
           preparedInsert,
           submitterInfo = optSubmitterInfo,
@@ -315,24 +317,24 @@ private[daml] class JdbcIndexer private[indexer] (
       case OffsetUpdate.OffsetStepUpdatePair(offsetStep, update) =>
         update match {
           case PartyAddedToParticipant(
-              party,
-              displayName,
-              hostingParticipantId,
-              recordTime,
-              submissionId,
+                party,
+                displayName,
+                hostingParticipantId,
+                recordTime,
+                submissionId,
               ) =>
             val entry = PartyLedgerEntry.AllocationAccepted(
               submissionId,
               recordTime.toInstant,
-              domain.PartyDetails(party, Some(displayName), participantId == hostingParticipantId)
+              domain.PartyDetails(party, Some(displayName), participantId == hostingParticipantId),
             )
             ledgerDao.storePartyEntry(offsetStep, entry)
 
           case PartyAllocationRejected(
-              submissionId,
-              _,
-              recordTime,
-              rejectionReason,
+                submissionId,
+                _,
+                recordTime,
+                rejectionReason,
               ) =>
             val entry = PartyLedgerEntry.AllocationRejected(
               submissionId,
@@ -343,16 +345,17 @@ private[daml] class JdbcIndexer private[indexer] (
 
           case PublicPackageUpload(archives, optSourceDescription, recordTime, optSubmissionId) =>
             val recordTimeInstant = recordTime.toInstant
-            val packages: List[(DamlLf.Archive, v2.PackageDetails)] = archives.map(
-              archive =>
-                archive -> v2.PackageDetails(
-                  size = archive.getPayload.size.toLong,
-                  knownSince = recordTimeInstant,
-                  sourceDescription = optSourceDescription,
-              ))
+            val packages: List[(DamlLf.Archive, v2.PackageDetails)] = archives.map(archive =>
+              archive -> v2.PackageDetails(
+                size = archive.getPayload.size.toLong,
+                knownSince = recordTimeInstant,
+                sourceDescription = optSourceDescription,
+              )
+            )
             val optEntry: Option[PackageLedgerEntry] =
               optSubmissionId.map(submissionId =>
-                PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTimeInstant))
+                PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTimeInstant)
+              )
             ledgerDao.storePackageEntry(offsetStep, packages, optEntry)
 
           case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
@@ -387,7 +390,8 @@ private[daml] class JdbcIndexer private[indexer] (
             import update._
             logger.warn(
               """For performance considerations, TransactionAccepted should be handled in a different branch.
-                |Recomputing PreparedInsert..""".stripMargin)
+                |Recomputing PreparedInsert..""".stripMargin
+            )
             ledgerDao.storeTransaction(
               preparedInsert = ledgerDao.prepareTransactionInsert(
                 submitterInfo = optSubmitterInfo,
@@ -412,7 +416,8 @@ private[daml] class JdbcIndexer private[indexer] (
     }
 
   private def zipWithPreviousOffset(
-      initialOffset: Option[Offset]): Flow[(Offset, Update), OffsetStepUpdatePair, NotUsed] =
+      initialOffset: Option[Offset]
+  ): Flow[(Offset, Update), OffsetStepUpdatePair, NotUsed] =
     Flow[(Offset, Update)]
       .statefulMapConcat { () =>
         val previousOffsetRef = new AtomicReference(initialOffset)
@@ -434,7 +439,7 @@ private[daml] class JdbcIndexer private[indexer] (
       }
 
   private class SubscriptionResourceOwner(
-      readService: ReadService,
+      readService: ReadService
   )(implicit loggingContext: LoggingContext)
       extends ResourceOwner[IndexFeedHandle] {
     override def acquire()(implicit context: ResourceContext): Resource[IndexFeedHandle] =
@@ -448,12 +453,11 @@ private[daml] class JdbcIndexer private[indexer] (
           .run()
 
         new SubscriptionIndexFeedHandle(killSwitch, completionFuture.map(_ => ()))
-      })(
-        handle =>
-          for {
-            _ <- Future(handle.killSwitch.shutdown())
-            _ <- handle.completed.recover { case NonFatal(_) => () }
-          } yield ()
+      })(handle =>
+        for {
+          _ <- Future(handle.killSwitch.shutdown())
+          _ <- handle.completed.recover { case NonFatal(_) => () }
+        } yield ()
       )
   }
 

@@ -33,7 +33,7 @@ object Util {
     guesses
       .find(Files.exists(_))
       .getOrElse(throw new IllegalStateException(s"""Could not find ${filenames
-                                                      .mkString(", ")}, having searched:
+        .mkString(", ")}, having searched:
                                          |${guesses.mkString("\n")}""".stripMargin))
   }
 

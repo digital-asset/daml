@@ -73,11 +73,11 @@ class KeyValueSubmission(metrics: Metrics) {
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.archivesToSubmission.time { () =>
       val archivesDamlState =
-        archives.map(
-          archive =>
-            DamlStateKey.newBuilder
-              .setPackageId(archive.getHash)
-              .build)
+        archives.map(archive =>
+          DamlStateKey.newBuilder
+            .setPackageId(archive.getHash)
+            .build
+        )
 
       DamlSubmission.newBuilder
         .addInputDamlState(packageUploadDedupKey(participantId, submissionId))

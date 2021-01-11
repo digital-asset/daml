@@ -15,7 +15,7 @@ import io.grpc.health.v1.health.{
   HealthAkkaGrpc,
   HealthCheckRequest,
   HealthCheckResponse,
-  HealthGrpc
+  HealthGrpc,
 }
 import io.grpc.{ServerServiceDefinition, Status, StatusException}
 
@@ -26,8 +26,8 @@ import scala.util.{Failure, Success, Try}
 class GrpcHealthService(
     healthChecks: HealthChecks,
     maximumWatchFrequency: FiniteDuration = 1.second,
-)(
-    implicit protected val esf: ExecutionSequencerFactory,
+)(implicit
+    protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
     executionContext: ExecutionContext,
 ) extends HealthAkkaGrpc

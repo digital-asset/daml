@@ -9,14 +9,14 @@ import scala.collection.compat._
 
 object Graph {
 
-  /**
-    * Orders the nodes such that given a node n, its dependencies are placed in the resultant vector before n
+  /** Orders the nodes such that given a node n, its dependencies are placed in the resultant vector before n
     * This method checks for circular dependencies and will place the last-discovered
     * member of the cycle first.
     */
   def cyclicDependencies[K, A](
       internalNodes: IterableOnce[(K, BaseNode[K, A])],
-      roots: Iterable[(K, BaseNode[K, A])]): OrderedDependencies[K, A] = {
+      roots: Iterable[(K, BaseNode[K, A])],
+  ): OrderedDependencies[K, A] = {
     type NKA = Node[K, A]
     type Seen = Map[K, Boolean]
     import collection.immutable.Set
@@ -26,7 +26,8 @@ object Graph {
         seen: Seen,
         stack: Set[K],
         id: K,
-        node: NKA): (Seen, Vector[(K, NKA)], Boolean, List[UnsopportedTypeError]) = {
+        node: NKA,
+    ): (Seen, Vector[(K, NKA)], Boolean, List[UnsopportedTypeError]) = {
       if (seen.isDefinedAt(id) || stack(id)) (seen, Vector(), seen.getOrElse(id, false), List())
       else {
         val Node(_, deps, collectError @ _) = node
@@ -39,7 +40,9 @@ object Graph {
             true,
             UnsopportedTypeError(
               s"Type $id is not supported as dependencies have unsupported type: '${missing
-                .mkString("', '")}'.") :: utes)
+                .mkString("', '")}'."
+            ) :: utes,
+          )
         else
           (newSeen, newEnts :+ ((id, node)), false, utes)
       }
@@ -48,17 +51,18 @@ object Graph {
     def visitN(
         seen: Seen,
         stack: Set[K],
-        deps: Iterable[K]): (Seen, Vector[(K, NKA)], List[K], List[UnsopportedTypeError]) =
+        deps: Iterable[K],
+    ): (Seen, Vector[(K, NKA)], List[K], List[UnsopportedTypeError]) =
       deps.foldLeft((seen, Vector[(K, NKA)](), List[K](), List[UnsopportedTypeError]())) {
         case ((seen, ents, missing, utes), k) =>
-          graph get k collect {
-            case n: NKA =>
-              val (newSeen, newEnts, nMissing, newUtes) = visit(seen, stack, k, n)
-              (
-                newSeen.updated(k, nMissing),
-                ents ++ newEnts,
-                if (nMissing) k :: missing else missing,
-                newUtes ++ utes)
+          graph get k collect { case n: NKA =>
+            val (newSeen, newEnts, nMissing, newUtes) = visit(seen, stack, k, n)
+            (
+              newSeen.updated(k, nMissing),
+              ents ++ newEnts,
+              if (nMissing) k :: missing else missing,
+              newUtes ++ utes,
+            )
           } getOrElse {
             (seen.updated(k, true), ents, k :: missing, utes)
           }
@@ -69,12 +73,11 @@ object Graph {
   }
 }
 
-/**
-  * Ordered dependencies where the dependant node always comes after the dependency.
+/** Ordered dependencies where the dependant node always comes after the dependency.
   * @param deps The ordered dependencies
   * @param errors The errors that came up when producing the list
   */
 final case class OrderedDependencies[+K, +A](
     deps: Vector[(K, Node[K, A])],
-    errors: List[UnsopportedTypeError]
+    errors: List[UnsopportedTypeError],
 )

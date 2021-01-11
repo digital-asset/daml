@@ -48,7 +48,7 @@ object ServerReflectionClientSpec {
       methods = Set(
         MethodDescriptorInfo(HealthGrpc.getCheckMethod),
         MethodDescriptorInfo(HealthGrpc.getWatchMethod),
-      )
+      ),
     )
 
   private def reflection: BindableService = ProtoReflectionService.newInstance()
@@ -57,11 +57,12 @@ object ServerReflectionClientSpec {
       fullServiceName = ServerReflectionGrpc.SERVICE_NAME,
       methods = Set(
         MethodDescriptorInfo(ServerReflectionGrpc.getServerReflectionInfoMethod)
-      )
+      ),
     )
 
   private def withServices(service: BindableService, services: BindableService*)(
-      f: Channel => Future[Assertion]): Future[Assertion] = {
+      f: Channel => Future[Assertion]
+  ): Future[Assertion] = {
     val serverName = InProcessServerBuilder.generateName()
     val serverBuilder = InProcessServerBuilder.forName(serverName).addService(service)
     for (additionalService <- services) {

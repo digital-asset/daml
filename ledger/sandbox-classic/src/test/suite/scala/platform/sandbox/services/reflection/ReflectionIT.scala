@@ -9,7 +9,7 @@ import com.daml.platform.testing.StreamConsumer
 import io.grpc.reflection.v1alpha.{
   ServerReflectionGrpc,
   ServerReflectionRequest,
-  ServerReflectionResponse
+  ServerReflectionResponse,
 }
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -56,7 +56,8 @@ final class ReflectionIT
             // We filter for this string due to an exotic bug in the bazel-grpc setup, see grpc-definitions/BUILD.bazel.
             assert(
               !p.toStringUtf8.contains("bazel-out"),
-              s"filedescriptor ${p.toStringUtf8} contains string 'bazel-out'. This means grpc reflection will not work.")
+              s"filedescriptor ${p.toStringUtf8} contains string 'bazel-out'. This means grpc reflection will not work.",
+            )
           }
           all(symbolResponses) should have('hasErrorResponse (false))
         }

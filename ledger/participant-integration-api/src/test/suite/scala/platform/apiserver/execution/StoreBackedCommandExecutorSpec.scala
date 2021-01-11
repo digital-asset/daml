@@ -40,7 +40,9 @@ class StoreBackedCommandExecutorSpec
           any[Set[Ref.Party]],
           any[com.daml.lf.command.Commands],
           any[ParticipantId],
-          any[Hash]))
+          any[Hash],
+        )
+      )
         .thenReturn(
           ResultDone[(SubmittedTransaction, Transaction.Metadata)](
             (TransactionBuilder.EmptySubmitted, emptyTransactionMetadata)
@@ -51,7 +53,8 @@ class StoreBackedCommandExecutorSpec
         Ref.ParticipantId.assertFromString("anId"),
         mock[IndexPackagesService],
         mock[ContractStore],
-        new Metrics(new MetricRegistry))
+        new Metrics(new MetricRegistry),
+      )
       val mockDomainCommands = mock[Commands]
       val mockLfCommands = mock[com.daml.lf.command.Commands]
       when(mockLfCommands.ledgerEffectiveTime).thenReturn(Time.Timestamp.now())

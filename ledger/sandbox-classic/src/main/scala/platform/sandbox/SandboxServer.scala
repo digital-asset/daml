@@ -27,7 +27,7 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.transaction.{
   LegacyTransactionCommitter,
   StandardTransactionCommitter,
-  TransactionCommitter
+  TransactionCommitter,
 }
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -147,7 +147,8 @@ final class SandboxServer(
         if (config.seeding.isEmpty) {
           if (config.devMode) {
             throw new InvalidConfigException(
-              s""""${Seeding.NoSeedingModeName}" contract IDs seeding mode is not compatible with development mode""")
+              s""""${Seeding.NoSeedingModeName}" contract IDs seeding mode is not compatible with development mode"""
+            )
           } else {
             EngineConfig.Legacy
           }
@@ -188,23 +189,24 @@ final class SandboxServer(
   def portF(implicit executionContext: ExecutionContext): Future[Port] =
     apiServer.map(_.port)
 
-  def resetAndRestartServer()(
-      implicit executionContext: ExecutionContext,
+  def resetAndRestartServer()(implicit
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Unit] = {
     val apiServicesClosed = apiServer.flatMap(_.servicesClosed())
 
     // TODO: eliminate the state mutation somehow
     sandboxState = sandboxState.flatMap(
-      _.reset(
-        (materializer, metrics, packageStore, port) =>
-          buildAndStartApiServer(
-            materializer = materializer,
-            metrics = metrics,
-            packageStore = packageStore,
-            startMode = SqlStartMode.AlwaysReset,
-            currentPort = Some(port),
-        )))
+      _.reset((materializer, metrics, packageStore, port) =>
+        buildAndStartApiServer(
+          materializer = materializer,
+          metrics = metrics,
+          packageStore = packageStore,
+          startMode = SqlStartMode.AlwaysReset,
+          currentPort = Some(port),
+        )
+      )
+    )
 
     // Wait for the services to be closed, so we can guarantee that future API calls after finishing
     // the reset will never be handled by the old one.
@@ -212,8 +214,10 @@ final class SandboxServer(
   }
 
   // if requested, initialize the ledger state with the given scenario
-  private def createInitialState(config: SandboxConfig, packageStore: InMemoryPackageStore)
-    : (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
+  private def createInitialState(
+      config: SandboxConfig,
+      packageStore: InMemoryPackageStore,
+  ): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
     // [[ScenarioLoader]] needs all the packages to be already compiled --
     // make sure that that's the case
     if (config.eagerPackageLoading || config.scenario.nonEmpty) {
@@ -228,7 +232,7 @@ final class SandboxServer(
             packages = packageStore.getLfPackageSync,
             keys = { _ =>
               sys.error("Unexpected request of contract key")
-            }
+            },
           )
           .left
           .foreach(err => sys.error(err.detailMsg))
@@ -350,7 +354,7 @@ final class SandboxServer(
         ledgerConfiguration = ledgerConfiguration,
         commandConfig = config.commandConfig,
         partyConfig = PartyConfiguration.default.copy(
-          implicitPartyAllocation = config.implicitPartyAllocation,
+          implicitPartyAllocation = config.implicitPartyAllocation
         ),
         optTimeServiceBackend = timeServiceBackendO,
         servicesExecutionContext = servicesExecutionContext,
@@ -397,7 +401,8 @@ final class SandboxServer(
       if (config.scenario.nonEmpty) {
         logger.withoutContext.warn(
           """|Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use DAML Script instead. Using scenarios in DAML Studio will continue to work as expected.
-             |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin)
+             |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin
+        )
       }
       if (config.seeding.isEmpty) {
         logger.withoutContext.warn(

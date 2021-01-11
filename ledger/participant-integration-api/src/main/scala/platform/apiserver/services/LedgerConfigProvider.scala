@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.v1.{
   Configuration,
   SubmissionId,
   SubmissionResult,
-  WriteConfigService
+  WriteConfigService,
 }
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
@@ -28,8 +28,7 @@ import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.{DurationInt, DurationLong}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-/**
-  * Subscribes to ledger configuration updates coming from the index,
+/** Subscribes to ledger configuration updates coming from the index,
   * and makes the latest ledger configuration available to consumers.
   *
   * This class helps avoiding code duplication and limiting the number of
@@ -51,7 +50,8 @@ private[apiserver] final class LedgerConfigProvider private (
   private[this] val state: AtomicReference[StateType] = new AtomicReference(None -> None)
   private[this] val closed: AtomicBoolean = new AtomicBoolean(false)
   private[this] val killSwitch: AtomicReference[Option[UniqueKillSwitch]] = new AtomicReference(
-    None)
+    None
+  )
   private[this] val readyPromise: Promise[Unit] = Promise()
 
   // At startup, do the following:
@@ -64,16 +64,20 @@ private[apiserver] final class LedgerConfigProvider private (
     () => {
       if (readyPromise.trySuccess(())) {
         logger.warn(
-          s"No ledger configuration found after ${config.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found.")
+          s"No ledger configuration found after ${config.configurationLoadTimeout}. The ledger API server will now start but all services that depend on the ledger configuration will return UNAVAILABLE until at least one ledger configuration is found."
+        )
       }
       ()
-    }
+    },
   )
   optWriteService.foreach { writeService =>
-    materializer.scheduleOnce(config.initialConfigurationSubmitDelay.toNanos.nanos, () => {
-      if (latestConfiguration.isEmpty && !closed.get) submitInitialConfig(writeService)
-      ()
-    })
+    materializer.scheduleOnce(
+      config.initialConfigurationSubmitDelay.toNanos.nanos,
+      () => {
+        if (latestConfiguration.isEmpty && !closed.get) submitInitialConfig(writeService)
+        ()
+      },
+    )
   }
 
   // Looks up the latest ledger configuration, then subscribes to a
@@ -86,11 +90,13 @@ private[apiserver] final class LedgerConfigProvider private (
       .map {
         case Some(result) =>
           logger.info(
-            s"Initial ledger configuration lookup found configuration ${result._2} at ${result._1}. Looking for new ledger configurations from this offset.")
+            s"Initial ledger configuration lookup found configuration ${result._2} at ${result._1}. Looking for new ledger configurations from this offset."
+          )
           configFound(result._1, result._2)
         case None =>
           logger.info(
-            s"Initial ledger configuration lookup did not find any configuration. Looking for new ledger configurations from the ledger beginning.")
+            s"Initial ledger configuration lookup did not find any configuration. Looking for new ledger configurations from the ledger beginning."
+          )
           state.set(None -> None)
       }
       .map(_ => startStreamingUpdates())
@@ -126,7 +132,9 @@ private[apiserver] final class LedgerConfigProvider private (
           }
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .toMat(Sink.ignore)(Keep.left[UniqueKillSwitch, Future[Done]])
-          .run()(materializer)))
+          .run()(materializer)
+      )
+    )
     ()
   }
 
@@ -142,8 +150,9 @@ private[apiserver] final class LedgerConfigProvider private (
         writeService.submitConfiguration(
           Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
           submissionId,
-          config.initialConfiguration
-        ))
+          config.initialConfiguration,
+        )
+      )
       .map {
         case SubmissionResult.Acknowledged =>
           logger.info(s"Initial configuration submission $submissionId was successful")
@@ -153,7 +162,8 @@ private[apiserver] final class LedgerConfigProvider private (
           ()
         case result =>
           logger.warn(
-            s"Initial configuration submission $submissionId failed. Reason: ${result.description}")
+            s"Initial configuration submission $submissionId failed. Reason: ${result.description}"
+          )
           ()
       }
   }
@@ -182,14 +192,15 @@ private[apiserver] object LedgerConfigProvider {
       optWriteService: Option[WriteConfigService],
       timeProvider: TimeProvider,
       config: LedgerConfiguration,
-  )(
-      implicit materializer: Materializer,
+  )(implicit
+      materializer: Materializer,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ResourceOwner[LedgerConfigProvider] =
     for {
       provider <- ResourceOwner.forCloseable(() =>
-        new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer))
+        new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer)
+      )
       _ <- ResourceOwner.forFuture(() => provider.ready.map(_ => provider))
     } yield provider
 }

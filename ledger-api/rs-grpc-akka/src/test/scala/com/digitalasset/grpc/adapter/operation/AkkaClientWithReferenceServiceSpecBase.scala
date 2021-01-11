@@ -18,8 +18,8 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.net.SocketAddress
 
 abstract class AkkaClientWithReferenceServiceSpecBase(
-    override protected val socketAddress: Option[SocketAddress])
-    extends AnyWordSpec
+    override protected val socketAddress: Option[SocketAddress]
+) extends AnyWordSpec
     with Matchers
     with BeforeAndAfterAll
     with AkkaBeforeAndAfterAll

@@ -3,8 +3,7 @@
 
 package com.daml.navigator.dotnot
 
-/**
-  * A zipper for a property-like structure, such as dot-notation
+/** A zipper for a property-like structure, such as dot-notation
   *
   * For instance, given the property `foo.bar.baz.doh`, a cursor `PropertyCursor(List("foo"), "bar", List("baz", "doh"))`
   * is pointing at the `"bar"` part of the property.
@@ -16,7 +15,8 @@ package com.daml.navigator.dotnot
 final case class PropertyCursor(
     reversedBefore: List[String],
     current: String,
-    after: List[String]) {
+    after: List[String],
+) {
 
   /** @return whether [[current]] is the last */
   def isLast: Boolean = after.isEmpty

@@ -73,7 +73,7 @@ class LoggerReporter extends Reporter {
       case t: TestFailed =>
         results.put(
           s"  Test failed: ${t.testName}",
-          t.throwable.map(_.getMessage).map(e => s"      error: $e")
+          t.throwable.map(_.getMessage).map(e => s"      error: $e"),
         )
         ()
 

@@ -13,8 +13,7 @@ import com.google.common.cache.{Cache, CacheBuilder}
 import scalaz.{-\/, Show, \/}
 import scalaz.syntax.show._
 
-/**
-  * A JWK verifier, where the public keys are automatically fetched from the given JWKS URL.
+/** A JWK verifier, where the public keys are automatically fetched from the given JWKS URL.
   *
   * In JWKS, each key ID uniquely identifies a public key.
   * The keys are kept in cache, in order to prevent having to do a remove network access for each token validation.
@@ -61,7 +60,8 @@ class JwksVerifier(
   }
 
   /** Looks up the verifier for the given keyId from the local cache.
-    * On a cache miss, creates a new verifier by fetching the public key from the JWKS URL. */
+    * On a cache miss, creates a new verifier by fetching the public key from the JWKS URL.
+    */
   private[this] def getCachedVerifier(keyId: String): Error \/ JwtVerifier = {
     if (keyId == null)
       -\/(Error(Symbol("getCachedVerifier"), "No Key ID found"))

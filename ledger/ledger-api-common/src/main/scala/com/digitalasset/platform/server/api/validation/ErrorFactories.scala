@@ -14,7 +14,9 @@ trait ErrorFactories {
   def ledgerIdMismatch(expected: LedgerId, received: LedgerId): StatusRuntimeException =
     grpcError(
       Status.NOT_FOUND.withDescription(
-        s"Ledger ID '${received.unwrap}' not found. Actual Ledger ID is '${expected.unwrap}'."))
+        s"Ledger ID '${received.unwrap}' not found. Actual Ledger ID is '${expected.unwrap}'."
+      )
+    )
 
   def missingField(fieldName: String): StatusRuntimeException =
     grpcError(Status.INVALID_ARGUMENT.withDescription(s"Missing field: $fieldName"))

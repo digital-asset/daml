@@ -102,10 +102,12 @@ final class RecordLikeMethodsSpec
   private val methods = RecordMethods(
     getFieldsWithTypes(
       ImmArraySeq(Ref.Name.assertFromString("bool") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)),
-      Map()),
+      Map(),
+    ),
     name,
     IndexedSeq.empty,
-    Map())
+    Map(),
+  )
   private val Vector(constructor, fromValue, toValue) = methods.take(3)
 
 }

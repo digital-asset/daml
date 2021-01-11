@@ -12,7 +12,7 @@ import scala.collection.mutable
   * From then on, all future messages are sent directly to the given listener.
   *
   * The target listener is usually created through `Contexts.interceptCall` or `ServerCallHandler.startCall`.
-  * */
+  */
 private[auth] abstract class AsyncForwardingListener[ReqT] extends ServerCall.Listener[ReqT] {
   protected type Listener = ServerCall.Listener[ReqT]
   private[this] val lock = new Object

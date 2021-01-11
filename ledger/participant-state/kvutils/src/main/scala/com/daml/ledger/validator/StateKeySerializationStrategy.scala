@@ -6,8 +6,7 @@ package com.daml.ledger.validator
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
 import com.daml.ledger.participant.state.kvutils.Raw
 
-/**
-  * Determines how we namespace and serialize state keys.
+/** Determines how we namespace and serialize state keys.
   */
 trait StateKeySerializationStrategy {
   def serializeStateKey(key: DamlStateKey): Raw.Key

@@ -10,7 +10,7 @@ import com.daml.assistant.config.{
   ProjectConfig,
   ConfigLoadError => SdkConfigLoadError,
   ConfigMissing => SdkConfigMissing,
-  ConfigParseError => SdkConfigParseError
+  ConfigParseError => SdkConfigParseError,
 }
 import com.daml.ledger.api.refinements.ApiTypes
 import com.github.ghik.silencer.silent
@@ -69,10 +69,12 @@ object Config {
 
   def loadNavigatorConfig(
       configFile: Path,
-      useDatabase: Boolean): Either[ConfigReadError, Config] = {
+      useDatabase: Boolean,
+  ): Either[ConfigReadError, Config] = {
     @silent(" userConfigConvert .* is never used") // false positive; macro uses aren't seen
     implicit val userConfigConvert: ConfigConvert[UserConfig] = mkUserConfigConvert(
-      useDatabase = useDatabase)
+      useDatabase = useDatabase
+    )
     if (Files.exists(configFile)) {
       logger.info(s"Loading Navigator config file from $configFile")
       val config = ConfigFactory.parseFileAnySyntax(configFile.toAbsolutePath.toFile)
@@ -101,7 +103,9 @@ object Config {
           Config(
             parties
               .map(p => p -> UserConfig(ApiTypes.Party(p), None, useDatabase))
-              .toMap))
+              .toMap
+          )
+        )
       case Right(None) =>
         // Pick up parties from party management service
         Right(Config())
@@ -120,12 +124,14 @@ object Config {
     Config(
       Map(
         "OPERATOR" -> UserConfig(ApiTypes.Party("party"), None, useDatabase)
-      ))
+      )
+    )
 
   def writeTemplateToPath(configFile: Path, useDatabase: Boolean): Unit = {
     @silent(" userConfigConvert .* is never used") // false positive; macro uses aren't seen
     implicit val userConfigConvert: ConfigConvert[UserConfig] = mkUserConfigConvert(
-      useDatabase = useDatabase)
+      useDatabase = useDatabase
+    )
     val config = ConfigWriter[Config].to(template(useDatabase))
     val cro = ConfigRenderOptions
       .defaults()
@@ -147,6 +153,6 @@ object Config {
         }
         UserConfig(ApiTypes.Party(helper.party), helper.role, useDatabase)
       },
-      conf => UserConfigHelper(None, Tag.unwrap(conf.party), conf.role)
+      conf => UserConfigHelper(None, Tag.unwrap(conf.party), conf.role),
     )
 }

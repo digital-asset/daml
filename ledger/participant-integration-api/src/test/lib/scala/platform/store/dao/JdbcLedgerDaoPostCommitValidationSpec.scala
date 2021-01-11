@@ -19,8 +19,8 @@ import org.scalatest.matchers.should.Matchers
 private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
-  override protected def daoOwner(eventsPageSize: Int)(
-      implicit loggingContext: LoggingContext,
+  override protected def daoOwner(eventsPageSize: Int)(implicit
+      loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] =
     JdbcLedgerDao
       .validatingWriteOwner(

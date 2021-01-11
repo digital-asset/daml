@@ -35,7 +35,7 @@ private[events] object EventsTableFlatEvents {
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
             eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
-          )
+          ),
         )
     }
 
@@ -57,7 +57,7 @@ private[events] object EventsTableFlatEvents {
             contractId = contractId,
             templateId = templateId,
             eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
-          )
+          ),
         )
     }
 
@@ -165,11 +165,11 @@ private[events] object EventsTableFlatEvents {
   def preparePagedGetActiveContracts(sqlFunctions: SqlFunctions)(
       range: EventsRange[(Offset, Long)],
       filter: FilterRelation,
-      pageSize: Int
+      pageSize: Int,
   ): SqlSequence[Vector[EventsTable.Entry[Raw.FlatEvent]]] =
     getActiveContractsQueries(sqlFunctions)(
       range,
       filter,
-      pageSize
+      pageSize,
     )
 }

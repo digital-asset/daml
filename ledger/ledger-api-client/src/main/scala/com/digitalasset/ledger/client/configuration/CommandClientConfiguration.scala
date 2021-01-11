@@ -5,8 +5,7 @@ package com.daml.ledger.client.configuration
 
 import java.time.Duration
 
-/**
-  * @param maxCommandsInFlight The maximum number of unconfirmed commands the client may track.
+/** @param maxCommandsInFlight The maximum number of unconfirmed commands the client may track.
   *                            The client will backpressure when this number is reached.
   * @param maxParallelSubmissions The maximum number of parallel command submissions at a given time.
   *                               The client will backpressure when this number is reached.

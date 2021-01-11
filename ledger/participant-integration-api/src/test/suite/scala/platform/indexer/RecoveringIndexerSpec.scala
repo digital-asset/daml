@@ -47,7 +47,7 @@ final class RecoveringIndexerSpec
     "work when the stream completes" in {
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.millis),
+        SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.millis)
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
@@ -75,7 +75,7 @@ final class RecoveringIndexerSpec
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       // Stream completes after 10s, but is released before that happens
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.seconds),
+        SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.seconds)
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
@@ -105,7 +105,7 @@ final class RecoveringIndexerSpec
     "wait until the subscription completes" in {
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SuccessfullyCompletes, 100.millis, 10.millis),
+        SubscribeResult("A", SuccessfullyCompletes, 100.millis, 10.millis)
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
@@ -215,8 +215,8 @@ final class RecoveringIndexerSpec
 
 object RecoveringIndexerSpec {
 
-  def finallyRelease[T](resource: Resource[_])(
-      implicit executionContext: ExecutionContext
+  def finallyRelease[T](resource: Resource[_])(implicit
+      executionContext: ExecutionContext
   ): Try[T] => Future[T] = {
     case Success(value) => resource.release().map(_ => value)
     case Failure(exception) => resource.release().flatMap(_ => Future.failed(exception))
@@ -233,8 +233,8 @@ object RecoveringIndexerSpec {
 
     def actions: Seq[IndexerEvent] = actionsQueue.toArray(Array.empty[IndexerEvent]).toSeq
 
-    class TestIndexerFeedHandle(result: SubscribeResult)(
-        implicit executionContext: ExecutionContext
+    class TestIndexerFeedHandle(result: SubscribeResult)(implicit
+        executionContext: ExecutionContext
     ) extends IndexFeedHandle {
       private[this] val promise = Promise[Unit]()
 
@@ -283,15 +283,13 @@ object RecoveringIndexerSpec {
               throw new RuntimeException("Random simulated failure: subscribe")
             }
           })
-        })(
-          handle => {
-            val complete = handle.stop()
-            complete.onComplete { _ =>
-              openSubscriptions -= handle
-            }
-            complete
+        })(handle => {
+          val complete = handle.stop()
+          complete.onComplete { _ =>
+            openSubscriptions -= handle
           }
-        )
+          complete
+        })
       }
     }
 

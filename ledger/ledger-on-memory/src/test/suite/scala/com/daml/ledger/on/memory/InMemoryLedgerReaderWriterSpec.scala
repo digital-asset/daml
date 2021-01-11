@@ -31,7 +31,8 @@ class InMemoryLedgerReaderWriterSpec
       val mockCommitter = mock[ValidateAndCommit]
       when(mockCommitter(any[String], any[Raw.Value], any[ParticipantId]))
         .thenReturn(
-          Future.successful(SubmissionResult.InternalError("Validation failed with an exception")))
+          Future.successful(SubmissionResult.InternalError("Validation failed with an exception"))
+        )
       val instance = new InMemoryLedgerReaderWriter(
         "ledger ID",
         Ref.ParticipantId.assertFromString("participant ID"),

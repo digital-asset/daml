@@ -17,25 +17,25 @@ private[platform] object PackageLedgerEntry {
 
   final case class PackageUploadAccepted(
       submissionId: SubmissionId,
-      recordTime: Instant
+      recordTime: Instant,
   ) extends PackageLedgerEntry {
     override def toDomain: PackageEntry =
       PackageEntry.PackageUploadAccepted(
         submissionId,
-        recordTime
+        recordTime,
       )
   }
 
   final case class PackageUploadRejected(
       submissionId: SubmissionId,
       recordTime: Instant,
-      reason: String
+      reason: String,
   ) extends PackageLedgerEntry {
     override def toDomain: PackageEntry =
       PackageEntry.PackageUploadRejected(
         submissionId,
         recordTime,
-        reason
+        reason,
       )
   }
 }

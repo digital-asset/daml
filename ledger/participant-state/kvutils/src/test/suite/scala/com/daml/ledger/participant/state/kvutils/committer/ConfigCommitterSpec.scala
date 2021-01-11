@@ -38,7 +38,8 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
           actualLogEntry.hasConfigurationRejectionEntry shouldBe true
           actualLogEntry.getConfigurationRejectionEntry.hasTimedOut shouldBe true
           actualLogEntry.getConfigurationRejectionEntry.getTimedOut.getMaximumRecordTime shouldBe buildTimestamp(
-            aRecordTime)
+            aRecordTime
+          )
       }
     }
 

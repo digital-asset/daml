@@ -21,7 +21,8 @@ class GetLedgerIdentityIT(service: => LedgerIdentityService, expectedLedgerId: S
       "return it" in {
 
         whenReady(service.getLedgerIdentity(GetLedgerIdentityRequest()))(
-          _.ledgerId shouldEqual expectedLedgerId)
+          _.ledgerId shouldEqual expectedLedgerId
+        )
       }
     }
   }

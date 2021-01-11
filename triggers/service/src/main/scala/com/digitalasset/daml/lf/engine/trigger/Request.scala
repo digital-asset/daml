@@ -25,7 +25,8 @@ object Request {
   final case class StartParams(
       triggerName: Identifier,
       party: Party,
-      applicationId: Option[ApplicationId])
+      applicationId: Option[ApplicationId],
+  )
   object StartParams {
     implicit val applicationIdFormat: JsonFormat[ApplicationId] =
       Tag.subst(implicitly[JsonFormat[String]])

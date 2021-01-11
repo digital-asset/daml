@@ -16,7 +16,7 @@ import com.daml.lf.value.{Value => V}
 object LedgerValue {
 
   import scala.language.higherKinds
-  type OfCid[F[+ _]] = F[String]
+  type OfCid[F[+_]] = F[String]
 
   private val variantValueLens = ReqFieldLens.create[api.value.Variant, api.value.Value]('value)
 
@@ -99,15 +99,18 @@ object LedgerValue {
       .traverse { entry =>
         for {
           k <- entry.key.fold[String \/ OfCid[V]](-\/("key field of GenMap.Entry must be defined"))(
-            _.convert)
+            _.convert
+          )
           v <- entry.value.fold[String \/ OfCid[V]](
-            -\/("value field of GenMap.Entry must be defined"))(_.convert)
+            -\/("value field of GenMap.Entry must be defined")
+          )(_.convert)
         } yield k -> v
       }
       .map(entries => V.ValueGenMap(ImmArray(entries)))
 
   private def convertIdentifier(
-      apiIdentifier: api.value.Identifier): String \/ Option[Ref.Identifier] = {
+      apiIdentifier: api.value.Identifier
+  ): String \/ Option[Ref.Identifier] = {
     val api.value.Identifier(packageId, moduleName, entityName) = apiIdentifier
     some(packageId)
       .filter(_.nonEmpty)

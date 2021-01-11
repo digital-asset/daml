@@ -25,10 +25,13 @@ final case class Errors[K, A](run: A \/ (K ==>> Errors[K, A])) {
 
   def collectAndPrune[B](f: A PartialFunction B)(implicit K: Order[K]): Errors[K, B] = {
     def go(self: Errors[K, A]): Option[Errors[K, B]] =
-      self.run.fold(a => f.lift(a) map Errors.point, { m =>
-        val m2 = m mapOption go
-        if (m2.isEmpty) None else Some(Errors(\/-(m2)))
-      })
+      self.run.fold(
+        a => f.lift(a) map Errors.point,
+        { m =>
+          val m2 = m mapOption go
+          if (m2.isEmpty) None else Some(Errors(\/-(m2)))
+        },
+      )
     go(this) getOrElse Errors.zeroErrors
   }
 
@@ -61,7 +64,8 @@ object Errors {
 
       // inorder fold/traversal
       override def traverseImpl[G[_]: Applicative, A, B](fa: Errors[K, A])(
-          f: A => G[B]): G[Errors[K, B]] =
+          f: A => G[B]
+      ): G[Errors[K, B]] =
         fa.run.bitraverse(f, (_ traverse (traverseImpl(_)(f)))).map(Errors(_))
     }
 
@@ -69,7 +73,7 @@ object Errors {
     object Rec { // inst recurs on inst
       implicit val inst: Monoid[Errors[K, A]] = Monoid.instance(
         (l, r) => Errors(l.run |+| r.run),
-        zeroErrors
+        zeroErrors,
       )
     }
     Rec.inst
@@ -81,8 +85,9 @@ object Errors {
   implicit def identifierKeyedErr(s: Name): ErrorLoc = Tag(\/-(s))
   implicit def definitionErr(s: DottedName): ErrorLoc = Tag(\/-(s.toString))
 
-  def locate[K, Loc, E, A](loc: K, fa: Errors[Loc, E] \/ A)(
-      implicit kloc: K => Loc): Errors[Loc, E] \/ A =
+  def locate[K, Loc, E, A](loc: K, fa: Errors[Loc, E] \/ A)(implicit
+      kloc: K => Loc
+  ): Errors[Loc, E] \/ A =
     fa leftMap (_ locate loc)
 
   def rootErr[E, A, Loc](fa: E \/ A): Errors[Loc, E] \/ A = fa leftMap point
@@ -97,11 +102,11 @@ object Errors {
     * successes in the _2.
     */
   private[reader] def partitionIndexedErrs[K, A, Loc: Order, E: Semigroup, B](
-      map: Iterable[(K, A)])(f: A => (Errors[Loc, E] \/ B))(
-      implicit kloc: K => Loc): (Errors[Loc, E], Map[K, B]) = {
+      map: Iterable[(K, A)]
+  )(f: A => (Errors[Loc, E] \/ B))(implicit kloc: K => Loc): (Errors[Loc, E], Map[K, B]) = {
     import scalaz.std.iterable._
-    val (errs, successes) = map.partitionMap {
-      case (k, a) => locate(kloc(k), f(a)).map((k, _)).toEither
+    val (errs, successes) = map.partitionMap { case (k, a) =>
+      locate(kloc(k), f(a)).map((k, _)).toEither
     }
     (errs.suml, successes.toMap)
   }
@@ -111,24 +116,27 @@ object Errors {
     * probably what you want).
     */
   private[reader] def traverseIndexedErrs[F[_]: Traverse, K, A, Loc: Order, E: Semigroup, B](
-      map: F[(K, A)])(f: A => (Errors[Loc, E] \/ B))(
-      implicit kloc: K => Loc): Errors[Loc, E] \/ F[B] =
+      map: F[(K, A)]
+  )(f: A => (Errors[Loc, E] \/ B))(implicit kloc: K => Loc): Errors[Loc, E] \/ F[B] =
     map.traverse { case (k, a) => locate(kloc(k), f(a)).validation }.disjunction
 
   /** Like `traverseIndexedErrs` for maps specifically. If result is
     * right, the keyset is guaranteed to be the same.
     */
   private[reader] def traverseIndexedErrsMap[K, A, Loc: Order, E: Semigroup, B](map: Map[K, A])(
-      f: A => (Errors[Loc, E] \/ B))(implicit kloc: K => Loc): Errors[Loc, E] \/ Map[K, B] =
+      f: A => (Errors[Loc, E] \/ B)
+  )(implicit kloc: K => Loc): Errors[Loc, E] \/ Map[K, B] =
     map.transform((k, a) => locate(kloc(k), f(a)).validation).sequence.disjunction
 
   private[reader] def stringReport[Loc, E](
-      errors: Errors[Loc, E])(loc: Loc => Cord, msg: E => Cord): Cord = {
+      errors: Errors[Loc, E]
+  )(loc: Loc => Cord, msg: E => Cord): Cord = {
     import scalaz.std.vector._
     errors
       .fold[Vector[Cord]](
         e => Vector(msg(e)),
-        _ foldMapWithKey ((l, cs) => loc(l) +: cs.map("  " +: _)))
+        _ foldMapWithKey ((l, cs) => loc(l) +: cs.map("  " +: _)),
+      )
       .suml
   }
 

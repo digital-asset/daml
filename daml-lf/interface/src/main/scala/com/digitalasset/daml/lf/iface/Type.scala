@@ -14,8 +14,7 @@ import scalaz.syntax.monoid._
 
 import scala.jdk.CollectionConverters._
 
-/**
-  * [[Type]] is an intermediate form from
+/** [[Type]] is an intermediate form from
   * which record/variant objects or type aliases are generated from.
   *
   * You might be wondering, why so many data structures for types
@@ -53,7 +52,8 @@ sealed abstract class Type extends Product with Serializable {
       typeCon: TypeCon => Z,
       typePrim: TypePrim => Z,
       typeVar: TypeVar => Z,
-      typeNum: TypeNumeric => Z): Z =
+      typeNum: TypeNumeric => Z,
+  ): Z =
     this match {
       case t @ TypeCon(_, _) => typeCon(t)
       case t @ TypePrim(_, _) => typePrim(t)
@@ -88,7 +88,8 @@ final case class TypeCon(name: TypeConName, typArgs: ImmArraySeq[Type])
   def instantiate(defn: DefDataType.FWT): DataType.FWT =
     if (defn.typeVars.length != typArgs.length) {
       throw new RuntimeException(
-        s"Mismatching type vars and applied types, expected ${defn.typeVars} but got ${typArgs.length} types")
+        s"Mismatching type vars and applied types, expected ${defn.typeVars} but got ${typArgs.length} types"
+      )
     } else {
       if (defn.typeVars.isEmpty) { // optimization
         defn.dataType

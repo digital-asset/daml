@@ -8,7 +8,7 @@ import com.daml.caching
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriterConfig,
   KeyValueLedger,
-  KeyValueParticipantState
+  KeyValueParticipantState,
 }
 import com.daml.ledger.participant.state.kvutils.app.batch.BatchingLedgerWriterConfigReader
 import com.daml.ledger.participant.state.kvutils.app.batch.BatchingLedgerWriterConfigReader.optionsReader
@@ -29,21 +29,20 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(
-      implicit materializer: Materializer,
+  )(implicit
+      materializer: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[KeyValueParticipantState] =
     for {
       readerWriter <- owner(config, participantConfig, engine)
-    } yield
-      new KeyValueParticipantState(
-        readerWriter,
-        readerWriter,
-        createMetrics(participantConfig, config),
-      )
+    } yield new KeyValueParticipantState(
+      readerWriter,
+      readerWriter,
+      createMetrics(participantConfig, config),
+    )
 
   def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig, engine: Engine)(
-      implicit materializer: Materializer,
+      implicit materializer: Materializer
   ): ResourceOwner[KeyValueLedger] = {
     val metrics = createMetrics(participantConfig, config)
     if (config.extra.alwaysPreExecute)
@@ -93,25 +92,23 @@ private[memory] object InMemoryLedgerFactory {
       .opt[BatchingLedgerWriterConfig]("batching")
       .optional()
       .text(BatchingLedgerWriterConfigReader.UsageText)
-      .action {
-        case (parsedBatchingConfig, config) =>
-          config.copy(
-            extra = config.extra.copy(
-              batchingLedgerWriterConfig = parsedBatchingConfig
-            )
+      .action { case (parsedBatchingConfig, config) =>
+        config.copy(
+          extra = config.extra.copy(
+            batchingLedgerWriterConfig = parsedBatchingConfig
           )
+        )
       }
     parser
       .opt[Boolean]("force-pre-execution")
       .optional()
       .text("Force pre-execution (mutually exclusive with batching)")
-      .action {
-        case (preExecute, config) =>
-          config.copy(
-            extra = config.extra.copy(
-              alwaysPreExecute = preExecute
-            )
+      .action { case (preExecute, config) =>
+        config.copy(
+          extra = config.extra.copy(
+            alwaysPreExecute = preExecute
           )
+        )
       }
     parser.checkConfig { config =>
       if (config.extra.alwaysPreExecute && config.extra.batchingLedgerWriterConfig.enableBatching)

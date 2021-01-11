@@ -42,7 +42,7 @@ private[lf] object Pretty {
     val ptx = PartialTransaction.initial(
       (_ => TransactionVersion.minVersion),
       submissionTime = Time.Timestamp.MinValue,
-      initialSeeds = InitialSeeding.NoSeed
+      initialSeeds = InitialSeeding.NoSeed,
     )
     prettyError(err, ptx)
   }
@@ -70,22 +70,24 @@ private[lf] object Pretty {
       case DamlELocalContractNotActive(coid, tid, consumedBy) =>
         text("Update failed due to fetch of an inactive contract") & prettyContractId(coid) &
           char('(') + (prettyTypeConName(tid)) + text(").") /
-            text(s"The contract had been consumed in sub-transaction #$consumedBy:") +
-            (ptx.nodes.get(consumedBy) match {
-              // FIXME(JM): How should we show this? If the node pointed to by consumedBy
-              // is not in nodes, it must not be done yet, hence the contract is recursively
-              // exercised.
-              case None =>
-                (line + text("Recursive exercise of ") + prettyTypeConName(tid)).nested(4)
-              case Some(node) =>
-                (line + prettyPartialTransactionNode(node)).nested(4)
-            })
+          text(s"The contract had been consumed in sub-transaction #$consumedBy:") +
+          (ptx.nodes.get(consumedBy) match {
+            // FIXME(JM): How should we show this? If the node pointed to by consumedBy
+            // is not in nodes, it must not be done yet, hence the contract is recursively
+            // exercised.
+            case None =>
+              (line + text("Recursive exercise of ") + prettyTypeConName(tid)).nested(4)
+            case Some(node) =>
+              (line + prettyPartialTransactionNode(node)).nested(4)
+          })
 
       case DamlEWronglyTypedContract(coid, expected, actual) =>
         text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
-          text("Expected contract of type") & prettyTypeConName(expected) & text("but got") & prettyTypeConName(
-          actual,
-        )
+          text("Expected contract of type") & prettyTypeConName(expected) & text(
+            "but got"
+          ) & prettyTypeConName(
+            actual
+          )
 
       case DamlECreateEmptyContractKeyMaintainers(tid, arg, key) =>
         text("Update failed due to a contract key with an empty sey of maintainers when creating") &
@@ -94,9 +96,10 @@ private[lf] object Pretty {
 
       case DamlEFetchEmptyContractKeyMaintainers(tid, key) =>
         text(
-          "Update failed due to a contract key with an empty sey of maintainers when fetching or looking up by key") &
+          "Update failed due to a contract key with an empty sey of maintainers when fetching or looking up by key"
+        ) &
           prettyTypeConName(tid) /
-            text("The provided key is") & prettyValue(true)(key)
+          text("The provided key is") & prettyValue(true)(key)
 
     }
 
@@ -130,36 +133,36 @@ private[lf] object Pretty {
       case ScenarioErrorContractNotActive(coid, tid, consumedBy) =>
         text("due to a fetch of a consumed contract") & prettyContractId(coid) &
           char('(') + (prettyIdentifier(tid)) + text(").") /
-            text("The contract had been consumed in transaction") & prettyEventId(consumedBy)
+          text("The contract had been consumed in transaction") & prettyEventId(consumedBy)
       case ScenarioErrorContractNotVisible(coid, tid, actAs, readAs, observers) =>
         text("due to the failure to fetch the contract") & prettyContractId(coid) &
           char('(') + (prettyIdentifier(tid)) + text(").") /
-            text("The contract had not been disclosed to the reading parties:") &
+          text("The contract had not been disclosed to the reading parties:") &
           text("actAs:") & intercalate(comma + space, actAs.map(prettyParty))
-          .tightBracketBy(char('{'), char('}')) &
+            .tightBracketBy(char('{'), char('}')) &
           text("readAs:") & intercalate(comma + space, readAs.map(prettyParty))
-          .tightBracketBy(char('{'), char('}')) +
+            .tightBracketBy(char('{'), char('}')) +
           char('.') / text("The contract had been disclosed to:") & intercalate(
-          comma + space,
-          observers.map(prettyParty),
-        ) + char('.')
+            comma + space,
+            observers.map(prettyParty),
+          ) + char('.')
       case ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
         text("due to the failure to fetch the contract") & prettyContractId(coid) &
           char('(') + (prettyIdentifier(gk.templateId)) + text(") associated with key ") +
-            prettyValue(false)(gk.key) &
+          prettyValue(false)(gk.key) &
           text("The contract had not been disclosed to the reading parties:") &
           text("actAs:") & intercalate(comma + space, actAs.map(prettyParty))
-          .tightBracketBy(char('{'), char('}')) &
+            .tightBracketBy(char('{'), char('}')) &
           text("readAs:") & intercalate(comma + space, readAs.map(prettyParty))
-          .tightBracketBy(char('{'), char('}')) +
+            .tightBracketBy(char('{'), char('}')) +
           char('.') / text("Stakeholders:") & intercalate(
-          comma + space,
-          stakeholders.map(prettyParty),
-        ) + char('.')
+            comma + space,
+            stakeholders.map(prettyParty),
+          ) + char('.')
 
       case ScenarioErrorCommitError(ScenarioLedger.CommitError.UniqueKeyViolation(gk)) =>
         (text("due to unique key violation for key:") & prettyValue(false)(gk.gk.key) & text(
-          "for template",
+          "for template"
         ) & prettyIdentifier(gk.gk.templateId))
 
       case ScenarioErrorMustFailSucceeded(tx @ _) =>
@@ -205,11 +208,11 @@ private[lf] object Pretty {
 
   def prettyLoc(optLoc: Option[Location]): Doc =
     optLoc
-      .map(
-        l =>
-          text("[" + l.module.toString + ":")
-            + str(l.start._1 + 1 /* 0-indexed */ )
-            + text("]"))
+      .map(l =>
+        text("[" + l.module.toString + ":")
+          + str(l.start._1 + 1 /* 0-indexed */ )
+          + text("]")
+      )
       .getOrElse(text("[unknown source]"))
 
   def prettyScenarioStep(l: ScenarioLedger)(step: ScenarioLedger.ScenarioStep): Doc =
@@ -218,16 +221,17 @@ private[lf] object Pretty {
         val children =
           intercalate(line + line, rtx.transaction.roots.toList.map(prettyEventInfo(l, txId)))
         text("TX") & char('#') + str(txId.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) & text(
-          "version:") & str(rtx.transaction.version.protoValue) /
+          "version:"
+        ) & str(rtx.transaction.version.protoValue) /
           children
       case ScenarioLedger.PassTime(dt) =>
         "pass" &: str(dt)
       case amf: ScenarioLedger.AssertMustFail =>
         text("mustFailAt") &
           text("actAs:") & intercalate(comma + space, amf.actAs.map(prettyParty))
-          .tightBracketBy(char('{'), char('}')) &
+            .tightBracketBy(char('{'), char('}')) &
           text("readAs:") & intercalate(comma + space, amf.readAs.map(prettyParty))
-          .tightBracketBy(char('{'), char('}')) &
+            .tightBracketBy(char('{'), char('}')) &
           prettyLoc(amf.optLocation)
     }
 
@@ -281,16 +285,14 @@ private[lf] object Pretty {
             intercalate(
               comma + space,
               ni.disclosures.toSeq
-                .sortWith {
-                  case ((p1, d1), (p2, d2)) =>
-                    // FIXME(MH): Does this order make any sense?
-                    d1.since <= d2.since && p1 < p2
+                .sortWith { case ((p1, d1), (p2, d2)) =>
+                  // FIXME(MH): Does this order make any sense?
+                  d1.since <= d2.since && p1 < p2
                 }
-                .map {
-                  case (p, d) =>
-                    text(p) & text("(#") + str(d.since.id) + char(')')
+                .map { case (p, d) =>
+                  text(p) & text("(#") + str(d.since.id) + char(')')
                 },
-            ),
+            )
         )
       else
         text("")
@@ -298,7 +300,7 @@ private[lf] object Pretty {
       if (ni.referencedBy.nonEmpty)
         meta(
           text("referenced by") &
-            intercalate(comma + space, ni.referencedBy.toSeq.map(prettyEventId)),
+            intercalate(comma + space, ni.referencedBy.toSeq.map(prettyEventId))
         )
       else
         text("")
@@ -309,7 +311,7 @@ private[lf] object Pretty {
       }
     prettyEventId(eventId) & text("version:") & str(ni.node.version.protoValue) / stack(
       Seq(ppArchivedBy, ppReferencedBy, ppDisclosedTo, arrowRight(ppNode))
-        .filter(_.nonEmpty),
+        .filter(_.nonEmpty)
     )
   }
 
@@ -335,7 +337,7 @@ private[lf] object Pretty {
       comma + space,
       c.activeContracts.toList
         .sortBy(_.toString)
-        .map(prettyContractId)
+        .map(prettyContractId),
     )
 
   def prettyPackageId(pkgId: PackageId): Doc =
@@ -359,11 +361,14 @@ private[lf] object Pretty {
           case Some(id) => if (verbose) prettyIdentifier(id) else text("")
         }) +
           char('{') &
-          fill(text(", "), fs.toList.map {
-            case (Some(k), v) => text(k) & char('=') & prettyValue(true)(v)
-            case (None, v) =>
-              text("<no-label>") & char('=') & prettyValue(true)(v)
-          }) &
+          fill(
+            text(", "),
+            fs.toList.map {
+              case (Some(k), v) => text(k) & char('=') & prettyValue(true)(v)
+              case (None, v) =>
+                text("<no-label>") & char('=') & prettyValue(true)(v)
+            },
+          ) &
           char('}')
       case ValueVariant(mbId, variant, value) =>
         (mbId match {
@@ -395,7 +400,7 @@ private[lf] object Pretty {
       case ValueBool(b) => str(b)
       case ValueList(lst) =>
         char('[') + intercalate(text(", "), lst.map(prettyValue(true)(_)).toImmArray.toSeq) + char(
-          ']',
+          ']'
         )
       case ValueTimestamp(t) => str(t)
       case ValueDate(days) => str(days)
@@ -403,13 +408,13 @@ private[lf] object Pretty {
       case ValueOptional(Some(v1)) => text("Option(") + prettyValue(verbose)(v1) + char(')')
       case ValueOptional(None) => text("None")
       case ValueTextMap(map) =>
-        val list = map.toImmArray.map {
-          case (k, v) => text(k) + text(" -> ") + prettyValue(verbose)(v)
+        val list = map.toImmArray.map { case (k, v) =>
+          text(k) + text(" -> ") + prettyValue(verbose)(v)
         }
         text("TextMap(") + intercalate(text(", "), list.toSeq) + text(")")
       case ValueGenMap(entries) =>
-        val list = entries.map {
-          case (k, v) => prettyValue(verbose)(k) + text(" -> ") + prettyValue(verbose)(v)
+        val list = entries.map { case (k, v) =>
+          prettyValue(verbose)(k) + text(" -> ") + prettyValue(verbose)(v)
         }
         text("GenMap(") + intercalate(text(", "), list.toSeq) + text(")")
     }
@@ -471,7 +476,7 @@ private[lf] object Pretty {
             case SBCons => text(s"$$cons")
             case SBRecCon(id, fields) =>
               text("$record") + char('[') + text(id.qualifiedName.toString) + char('^') + str(
-                fields.length,
+                fields.length
               ) + char(']')
             case _: SBRecUpd =>
               text("$update")
@@ -479,11 +484,13 @@ private[lf] object Pretty {
               text("$updateMulti")
             case SBRecProj(id, field) =>
               text("$project") + char('[') + text(id.qualifiedName.toString) + char(':') + str(
-                field,
+                field
               ) + char(']')
             case SBVariantCon(id, v, _) =>
-              text("$variant") + char('[') + text(id.qualifiedName.toString) + char(':') + text(v) + char(
-                ']',
+              text("$variant") + char('[') + text(id.qualifiedName.toString) + char(':') + text(
+                v
+              ) + char(
+                ']'
               )
             case SBUCreate(ref) =>
               text("$create") + char('[') + text(ref.qualifiedName.toString) + char(']')
@@ -533,10 +540,12 @@ private[lf] object Pretty {
 
         case SELet(bounds, body) =>
           // let [a, b, c] in X
-          intercalate(comma + lineOrSpace, (bounds.zipWithIndex.map {
-            case (x, n) =>
+          intercalate(
+            comma + lineOrSpace,
+            (bounds.zipWithIndex.map { case (x, n) =>
               str(index + n) & char('=') & prettySExpr(index + n)(x)
-          })).tightBracketBy(text("let ["), char(']')) +
+            }),
+          ).tightBracketBy(text("let ["), char(']')) +
             lineOrSpace + text("in") & prettySExpr(index + bounds.length)(body)
         case SELet1General(rhs, body) =>
           prettySExpr(index)(SELet(List(rhs), body))

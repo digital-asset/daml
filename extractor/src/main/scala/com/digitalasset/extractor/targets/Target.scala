@@ -11,7 +11,7 @@ final case class PostgreSQLTarget(
     outputFormat: String,
     schemaPerPackage: Boolean,
     mergeIdentical: Boolean,
-    stripPrefix: Option[String]
+    stripPrefix: Option[String],
 ) extends Target
 final case object TextPrintTarget extends Target
 final case class PrettyPrintTarget(width: Int, height: Int) extends Target

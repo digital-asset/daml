@@ -33,7 +33,8 @@ private[sandboxnext] object Cli extends SandboxCli {
       .opt[String]("sql-backend-jdbcurl")
       .optional()
       .text(
-        s"Deprecated: Use the Daml Driver for PostgreSQL if you need persistence.\nThe JDBC connection URL to a Postgres database containing the username and password as well. If present, $Name will use the database to persist its data.")
+        s"Deprecated: Use the Daml Driver for PostgreSQL if you need persistence.\nThe JDBC connection URL to a Postgres database containing the username and password as well. If present, $Name will use the database to persist its data."
+      )
       .action((url, config) => config.copy(jdbcUrl = Some(url)))
     parser
   }

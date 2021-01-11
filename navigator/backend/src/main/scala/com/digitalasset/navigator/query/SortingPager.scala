@@ -13,7 +13,7 @@ import scala.annotation.tailrec
 sealed abstract class SortingPager[N <: Node[_]](
     criteria: List[SortCriterion],
     project: OnTreeReady[N, ProjectValue, DamlLfTypeLookup],
-    ps: DamlLfTypeLookup
+    ps: DamlLfTypeLookup,
 ) extends PagerDecorator[N]
     with LazyLogging {
 
@@ -32,7 +32,8 @@ sealed abstract class SortingPager[N <: Node[_]](
         def loop(
             l1: List[Option[ProjectValue]],
             l2: List[Option[ProjectValue]],
-            criteria: List[SortCriterion]): Int = {
+            criteria: List[SortCriterion],
+        ): Int = {
           l1 match {
             case Nil => 0
             case x1 :: xs1 =>
@@ -71,17 +72,17 @@ sealed abstract class SortingPager[N <: Node[_]](
 final class ContractSorter(
     val criteria: List[SortCriterion],
     ps: DamlLfTypeLookup,
-    val delegate: Pager[Contract])
-    extends SortingPager[Contract](criteria, contractProject, ps)
+    val delegate: Pager[Contract],
+) extends SortingPager[Contract](criteria, contractProject, ps)
 
 final class TemplateSorter(
     val criteria: List[SortCriterion],
     ps: DamlLfTypeLookup,
-    val delegate: Pager[Template])
-    extends SortingPager[Template](criteria, templateProject, ps)
+    val delegate: Pager[Template],
+) extends SortingPager[Template](criteria, templateProject, ps)
 
 final class CommandSorter(
     val criteria: List[SortCriterion],
     ps: DamlLfTypeLookup,
-    val delegate: Pager[Command])
-    extends SortingPager[Command](criteria, commandProject, ps)
+    val delegate: Pager[Command],
+) extends SortingPager[Command](criteria, commandProject, ps)

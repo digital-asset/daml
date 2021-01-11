@@ -21,7 +21,7 @@ import com.daml.ledger.api.testing.utils.{
   OwnedResource,
   SuiteResource,
   SuiteResourceManagementAroundAll,
-  Resource => TestResource
+  Resource => TestResource,
 }
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
@@ -70,8 +70,13 @@ trait JsonApiFixture
     super.config
       .copy(
         ledgerIdMode = LedgerIdMode.Static(LedgerId("MyLedger")),
-        authService = Some(AuthServiceJWT(HMAC256Verifier(secret).valueOr(err =>
-          sys.error(s"Failed to create HMAC256 verifierd $err")))),
+        authService = Some(
+          AuthServiceJWT(
+            HMAC256Verifier(secret).valueOr(err =>
+              sys.error(s"Failed to create HMAC256 verifierd $err")
+            )
+          )
+        ),
       )
   def httpPort: Int = suiteResource.value._3.localAddress.getPort
   protected val secret: String = "secret"
@@ -115,13 +120,14 @@ trait JsonApiFixture
   }
 
   override protected lazy val suiteResource
-    : TestResource[(SandboxServer, Channel, ServerBinding)] = {
+      : TestResource[(SandboxServer, Channel, ServerBinding)] = {
     implicit val context: ResourceContext = ResourceContext(system.dispatcher)
     new OwnedResource[ResourceContext, (SandboxServer, Channel, ServerBinding)](
       for {
         jdbcUrl <- database
-          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(info =>
-            Some(info.jdbcUrl)))
+          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(
+            _.map(info => Some(info.jdbcUrl))
+          )
         server <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(server.port)
         httpService <- new ResourceOwner[ServerBinding] {
@@ -144,7 +150,8 @@ trait JsonApiFixture
                   jsonApiActorSystem,
                   jsonApiMaterializer,
                   jsonApiExecutionSequencerFactory,
-                  jsonApiActorSystem.dispatcher)
+                  jsonApiActorSystem.dispatcher,
+                )
                 .flatMap({
                   case -\/(e) => Future.failed(new IllegalStateException(e.toString))
                   case \/-(a) => Future.successful(a)
@@ -166,8 +173,8 @@ final class JsonApiIt
     with TryValues {
 
   private def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {
-    val dar = DarReader().readArchiveFromFile(file).get.map {
-      case (pkgId, archive) => Decode.readArchivePayload(pkgId, archive)
+    val dar = DarReader().readArchiveFromFile(file).get.map { case (pkgId, archive) =>
+      Decode.readArchivePayload(pkgId, archive)
     }
     val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
     val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
@@ -182,7 +189,8 @@ final class JsonApiIt
       defaultParty: Option[String] = None,
       admin: Boolean = false,
       applicationId: Option[ApplicationId] = None,
-      envIface: EnvironmentInterface = envIface) = {
+      envIface: EnvironmentInterface = envIface,
+  ) = {
     // We give the default participant some nonsense party so the checks for party mismatch fail
     // due to the mismatch and not because the token does not allow inferring a party
     val defaultParticipant =
@@ -190,18 +198,21 @@ final class JsonApiIt
         "http://localhost",
         httpPort,
         Some(getToken(defaultParty.toList, List(), true)),
-        applicationId)
+        applicationId,
+      )
     val partyMap = parties.map(p => (Party.assertFromString(p), Participant(p))).toMap
     val participantMap = parties
-      .map(
-        p =>
-          (
-            Participant(p),
-            ApiParameters(
-              "http://localhost",
-              httpPort,
-              Some(getToken(List(p), List(), admin)),
-              applicationId)))
+      .map(p =>
+        (
+          Participant(p),
+          ApiParameters(
+            "http://localhost",
+            httpPort,
+            Some(getToken(List(p), List(), admin)),
+            applicationId,
+          ),
+        )
+      )
       .toMap
     val participantParams = Participants(Some(defaultParticipant), participantMap, partyMap)
     Runner.jsonClients(participantParams, envIface)
@@ -211,7 +222,8 @@ final class JsonApiIt
       parties: List[String],
       readAs: List[String] = List(),
       applicationId: Option[ApplicationId] = None,
-      envIface: EnvironmentInterface = envIface) = {
+      envIface: EnvironmentInterface = envIface,
+  ) = {
     // We give the default participant some nonsense party so the checks for party mismatch fail
     // due to the mismatch and not because the token does not allow inferring a party
     val defaultParticipant =
@@ -219,7 +231,8 @@ final class JsonApiIt
         "http://localhost",
         httpPort,
         Some(getToken(parties, readAs, true)),
-        applicationId)
+        applicationId,
+      )
     val participantParams = Participants(Some(defaultParticipant), Map.empty, Map.empty)
     Runner.jsonClients(participantParams, envIface)
   }
@@ -230,7 +243,8 @@ final class JsonApiIt
       clients: Participants[ScriptLedgerClient],
       name: QualifiedName,
       inputValue: Option[JsValue] = Some(JsString(party)),
-      dar: Dar[(PackageId, Package)] = dar): Future[SValue] = {
+      dar: Dar[(PackageId, Package)] = dar,
+  ): Future[SValue] = {
     val scriptId = Identifier(dar.main._1, name)
     Runner.run(dar, scriptId, inputValue, clients, ScriptTimeMode.WallClock)
   }
@@ -277,25 +291,30 @@ final class JsonApiIt
           run(
             clients,
             QualifiedName.assertFromString("ScriptTest:jsonCreate"),
-            Some(JsString("Bob"))))
+            Some(JsString("Bob")),
+          )
+        )
       } yield {
         assert(
-          exception.getMessage === "Tried to submit a command with actAs = Bob but token provides claims for actAs = Alice")
+          exception.getMessage === "Tried to submit a command with actAs = Bob but token provides claims for actAs = Alice"
+        )
       }
     }
     "application id mismatch" in {
       for {
         exception <- recoverToExceptionIf[RuntimeException](
-          getClients(applicationId = Some(ApplicationId("wrong"))))
-      } yield
-        assert(
-          exception.getMessage === "ApplicationId specified in token Some(foobar) must match Some(wrong)")
+          getClients(applicationId = Some(ApplicationId("wrong")))
+        )
+      } yield assert(
+        exception.getMessage === "ApplicationId specified in token Some(foobar) must match Some(wrong)"
+      )
     }
     "application id correct" in {
       for {
         clients <- getClients(
           defaultParty = Some("Alice"),
-          applicationId = Some(ApplicationId("foobar")))
+          applicationId = Some(ApplicationId("foobar")),
+        )
         r <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonCreateAndExercise"))
       } yield assert(r == SInt64(42))
     }
@@ -306,7 +325,9 @@ final class JsonApiIt
           run(
             clients,
             QualifiedName.assertFromString("ScriptTest:jsonQuery"),
-            Some(JsString("Bob"))))
+            Some(JsString("Bob")),
+          )
+        )
       } yield {
         assert(exception.getMessage === "Tried to query as Bob but token provides claims for Alice")
       }
@@ -315,17 +336,20 @@ final class JsonApiIt
       for {
         clients <- getClients(parties = List())
         exception <- recoverToExceptionIf[RuntimeException](
-          run(clients, QualifiedName.assertFromString("ScriptTest:jsonCreate")))
+          run(clients, QualifiedName.assertFromString("ScriptTest:jsonCreate"))
+        )
       } yield {
         assert(
-          exception.getMessage === "Tried to submit a command with actAs = Alice but token contains no actAs parties.")
+          exception.getMessage === "Tried to submit a command with actAs = Alice but token contains no actAs parties."
+        )
       }
     }
     "submit fails on assertion failure" in {
       for {
         clients <- getClients()
         exception <- recoverToExceptionIf[DamlEUserError](
-          run(clients, QualifiedName.assertFromString("ScriptTest:jsonFailingCreateAndExercise")))
+          run(clients, QualifiedName.assertFromString("ScriptTest:jsonFailingCreateAndExercise"))
+        )
       } yield {
         exception.message should include("Error: User abort: Assertion failed.")
       }
@@ -335,7 +359,8 @@ final class JsonApiIt
         clients <- getClients()
         result <- run(
           clients,
-          QualifiedName.assertFromString("ScriptTest:jsonExpectedFailureCreateAndExercise"))
+          QualifiedName.assertFromString("ScriptTest:jsonExpectedFailureCreateAndExercise"),
+        )
       } yield {
         assert(result == SUnit)
       }
@@ -346,7 +371,8 @@ final class JsonApiIt
         result <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonAllocateParty"),
-          Some(JsString("Eve")))
+          Some(JsString("Eve")),
+        )
       } yield {
         assert(result == SParty(Party.assertFromString("Eve")))
       }
@@ -357,7 +383,8 @@ final class JsonApiIt
         result <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonMultiParty"),
-          Some(JsArray(JsString("Alice"), JsString("Bob"))))
+          Some(JsArray(JsString("Alice"), JsString("Bob"))),
+        )
       } yield {
         assert(result == SUnit)
       }
@@ -369,8 +396,9 @@ final class JsonApiIt
           run(
             clients,
             QualifiedName.assertFromString("ScriptTest:jsonMissingTemplateId"),
-            dar = darNoLedger
-          ))
+            dar = darNoLedger,
+          )
+        )
       } yield {
         assert(ex.toString.contains("Cannot resolve template ID"))
       }
@@ -391,7 +419,8 @@ final class JsonApiIt
         result <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:jsonQueryContractKey"),
-          inputValue = Some(JsString(party)))
+          inputValue = Some(JsString(party)),
+        )
       } yield {
         assert(result == SUnit)
       }
@@ -407,7 +436,8 @@ final class JsonApiIt
         cids <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:multiPartyQueryCreate"),
-          inputValue = Some(JsArray(JsString(party0), JsString(party1))))
+          inputValue = Some(JsArray(JsString(party0), JsString(party1))),
+        )
         multiClients <- getMultiPartyClients(parties = List(party0, party1))
         cids <- run(
           multiClients,
@@ -415,7 +445,9 @@ final class JsonApiIt
           inputValue = Some(
             JsArray(
               JsArray(JsString(party0), JsString(party1)),
-              ApiCodecCompressed.apiValueToJsValue(cids.toValue.mapContractId(_.coid))))
+              ApiCodecCompressed.apiValueToJsValue(cids.toValue.mapContractId(_.coid)),
+            )
+          ),
         )
       } yield {
         assert(cids == SUnit)
@@ -429,19 +461,21 @@ final class JsonApiIt
         cidSingle <- run(
           clients1,
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreateSingle"),
-          inputValue = Some(JsString(party1)))
+          inputValue = Some(JsString(party1)),
+        )
           .map(v => ApiCodecCompressed.apiValueToJsValue(v.toValue.mapContractId(_.coid)))
         clientsBoth <- getMultiPartyClients(List(party1, party2))
         cidBoth <- run(
           clientsBoth,
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionCreate"),
-          inputValue = Some(JsArray(JsString(party1), JsString(party2))))
+          inputValue = Some(JsArray(JsString(party1), JsString(party2))),
+        )
           .map(v => ApiCodecCompressed.apiValueToJsValue(v.toValue.mapContractId(_.coid)))
         clients2 <- getMultiPartyClients(List(party2), List(party1))
         r <- run(
           clients2,
           QualifiedName.assertFromString("ScriptTest:jsonMultiPartySubmissionExercise"),
-          inputValue = Some(JsArray(JsString(party1), JsString(party2), cidBoth, cidSingle))
+          inputValue = Some(JsArray(JsString(party1), JsString(party2), cidBoth, cidSingle)),
         )
       } yield {
         assert(r == SUnit)

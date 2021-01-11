@@ -14,7 +14,7 @@ private[validation] object SpecUtil {
       right match {
         case rightType: Type => AlphaEquiv.alphaEquiv(leftType, rightType)
         case _ => false
-    }
+      }
 
   private val r = Map(
     'α' -> "alpha",

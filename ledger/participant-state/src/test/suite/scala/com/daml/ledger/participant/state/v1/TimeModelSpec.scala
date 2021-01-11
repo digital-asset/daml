@@ -106,7 +106,8 @@ class TimeModelSpec extends AnyWordSpec with Matchers {
 
         timeModel
           .checkTime(Instant.parse(ledgerTime), Instant.parse(recordTime)) shouldEqual Left(
-          expectedMessage)
+          expectedMessage
+        )
       }
     }
   }

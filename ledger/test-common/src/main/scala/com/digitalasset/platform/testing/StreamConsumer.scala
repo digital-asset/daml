@@ -10,8 +10,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class StreamConsumer[A](attach: StreamObserver[A] => Unit) {
 
-  /**
-    * THIS WILL NEVER COMPLETE IF FED AN UNBOUND STREAM!!!
+  /** THIS WILL NEVER COMPLETE IF FED AN UNBOUND STREAM!!!
     */
   def all(): Future[Vector[A]] = {
     val observer = new FiniteStreamObserver[A]
@@ -19,8 +18,7 @@ final class StreamConsumer[A](attach: StreamObserver[A] => Unit) {
     observer.result
   }
 
-  /**
-    * Filters the items coming via the observer and takes the first N.
+  /** Filters the items coming via the observer and takes the first N.
     */
   def filterTake(predicate: A => Boolean)(sizeCap: Int): Future[Vector[A]] = {
     val observer = new FiniteStreamObserver[A]

@@ -74,7 +74,9 @@ object project {
                 case Left((description, fields)) =>
                   cursor.next match {
                     case Some(nextCursor) =>
-                      fields.collectFirst { case (nextCursor.current, fieldType) => fieldType } match {
+                      fields.collectFirst { case (nextCursor.current, fieldType) =>
+                        fieldType
+                      } match {
                         case Some(nextType) =>
                           loop(nextType, nextCursor, ps)
                         case None =>
@@ -112,16 +114,19 @@ object project {
       rootArgument: Option[ApiValue],
       cursor: PropertyCursor,
       expectedValue: String,
-      ps: DamlLfTypeLookup): Either[DotNotFailure, ProjectValue] =
+      ps: DamlLfTypeLookup,
+  ): Either[DotNotFailure, ProjectValue] =
     rootArgument.fold[Either[DotNotFailure, ProjectValue]](Right(StringValue("")))(
-      checkValue(_, cursor, expectedValue, ps))
+      checkValue(_, cursor, expectedValue, ps)
+    )
 
   @silent(" ps .* is never used") // conforms to `opaque`'s signature
   def checkValue(
       rootArgument: ApiValue,
       cursor: PropertyCursor,
       expectedValue: String,
-      ps: DamlLfTypeLookup): Either[DotNotFailure, ProjectValue] = {
+      ps: DamlLfTypeLookup,
+  ): Either[DotNotFailure, ProjectValue] = {
 
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, ProjectValue] =
@@ -222,11 +227,13 @@ object project {
 
   lazy val parameterProject =
     opaque[DamlLfType, ProjectValue, DamlLfTypeLookup]("parameter")((t, c, e, p) =>
-      checkParameter(t, c, e, p))
+      checkParameter(t, c, e, p)
+    )
 
   lazy val parameterIdProject =
     opaque[DamlLfIdentifier, ProjectValue, DamlLfTypeLookup]("parameter")((id, c, e, p) =>
-      checkParameter(DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq()), c, e, p))
+      checkParameter(DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq()), c, e, p)
+    )
 
   lazy val argumentProject =
     opaque[ApiValue, ProjectValue, DamlLfTypeLookup]("argument")(checkValue)

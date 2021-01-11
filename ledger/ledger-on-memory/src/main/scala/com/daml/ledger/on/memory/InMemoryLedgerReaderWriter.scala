@@ -20,7 +20,7 @@ import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
   BatchedSubmissionValidatorFactory,
   BatchedValidatingCommitter,
-  ConflictDetection
+  ConflictDetection,
 }
 import com.daml.ledger.validator.caching.{CachingStateReader, ImmutablesOnlyCacheUpdatePolicy}
 import com.daml.ledger.validator.preexecution._
@@ -49,9 +49,8 @@ final class InMemoryLedgerReaderWriter private[memory] (
       metadata: CommitMetadata,
   ): Future[SubmissionResult] =
     validateAndCommit(correlationId, envelope, participantId)
-      .andThen {
-        case Success(SubmissionResult.Acknowledged) =>
-          dispatcher.signalNewHead(state.newHeadSinceLastWrite())
+      .andThen { case Success(SubmissionResult.Acknowledged) =>
+        dispatcher.signalNewHead(state.newHeadSinceLastWrite())
       }(DirectExecutionContext)
 
   override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
@@ -190,7 +189,8 @@ object InMemoryLedgerReaderWriter {
   )(implicit materializer: Materializer): ValidateAndCommit = {
     val validator = BatchedSubmissionValidator[Index](
       BatchedSubmissionValidatorFactory.defaultParametersFor(
-        batchingLedgerWriterConfig.enableBatching),
+        batchingLedgerWriterConfig.enableBatching
+      ),
       keyValueCommitting,
       new ConflictDetection(metrics),
       metrics,
@@ -272,12 +272,13 @@ object InMemoryLedgerReaderWriter {
       ImmutablesOnlyCacheUpdatePolicy,
       stateReader
         .contramapKeys(keySerializationStrategy.serializeStateKey)
-        .mapValues(
-          value =>
-            value.map(
-              Envelope
-                .openStateValue(_)
-                .getOrElse(sys.error("Opening enveloped DamlStateValue failed")))),
+        .mapValues(value =>
+          value.map(
+            Envelope
+              .openStateValue(_)
+              .getOrElse(sys.error("Opening enveloped DamlStateValue failed"))
+          )
+        ),
     )
   }
 

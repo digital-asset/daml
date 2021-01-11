@@ -77,7 +77,8 @@ class ImmArrayTest extends AnyFlatSpec with Matchers with FlatSpecCheckLaws {
         ImmArray(0, 2),
         ImmArray(1, 0),
         ImmArray(1, 1),
-        ImmArray(1, 2))
+        ImmArray(1, 2),
+      )
   }
 
   it should "work with Either as applicative" in {
@@ -87,8 +88,10 @@ class ImmArrayTest extends AnyFlatSpec with Matchers with FlatSpecCheckLaws {
     type F[A] = Either[Int, A]
 
     ImmArray(1, 2, 3).traverse[F, Int](n => Right(n)) shouldBe Right(ImmArray(1, 2, 3))
-    ImmArray(1, 2, 3).traverse[F, Int](n => if (n >= 2) { Left(n) } else { Right(n) }) shouldBe Left(
-      2)
+    ImmArray(1, 2, 3).traverse[F, Int](n =>
+      if (n >= 2) { Left(n) }
+      else { Right(n) }
+    ) shouldBe Left(2)
   }
 
   it should "work with Writer as applicative" in {

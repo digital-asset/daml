@@ -16,8 +16,7 @@ import scalaz.{Tree => _, _}
 import scalaz.std.list._
 import scalaz.syntax.std.option._
 
-/**
-  *  In order to avoid endlessly passing around "packageName" and "iface" to
+/**  In order to avoid endlessly passing around "packageName" and "iface" to
   *  utility functions we initialise a class with these values and allow all the
   *  methods to have access to them.
   */
@@ -35,13 +34,13 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
 
   val packageNameElems: Array[String] = packageName.split('.')
 
-  private[codegen] def orderedDependencies(library: Interface)
-    : OrderedDependencies[Ref.Identifier, TypeDeclOrTemplateWrapper[TemplateInterface]]
+  private[codegen] def orderedDependencies(
+      library: Interface
+  ): OrderedDependencies[Ref.Identifier, TypeDeclOrTemplateWrapper[TemplateInterface]]
 
   def templateAndTypeFiles(wp: WriteParams[TemplateInterface]): IterableOnce[FilePlan]
 
-  /**
-    * Convert the metadataAlias into a [[DamlScalaName]] based on the `codeGenDeclKind`.
+  /** Convert the metadataAlias into a [[DamlScalaName]] based on the `codeGenDeclKind`.
     *
     * {{{
     *   > mkDamlScalaName(Contract, QualifiedName.assertFromString("foo.bar:Test"))
@@ -50,10 +49,10 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
     */
   def mkDamlScalaName(
       codeGenDeclKind: CodeGenDeclKind,
-      metadataAlias: Ref.QualifiedName): DamlScalaName
+      metadataAlias: Ref.QualifiedName,
+  ): DamlScalaName
 
-  /**
-    * A Scala class/object package suffix and name.
+  /** A Scala class/object package suffix and name.
     *
     * @param packageSuffixParts the package suffix of the class. This will be appended to
     *                           the [[packageNameElems]] to create the package for this
@@ -106,8 +105,7 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
     override def hashCode(): Int = (this.packageSuffixParts.toIndexedSeq, this.name).hashCode()
   }
 
-  /**
-    *  This method is responsible for generating Scala reflection API "tree"s.
+  /**  This method is responsible for generating Scala reflection API "tree"s.
     *  It maps from Core package interface types to:
     *  a) the wrapper types defined in the typed-ledger-api project
     *  b) the classes that will be generated for the user defined types defined in
@@ -115,8 +113,7 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
     */
   def genTypeToScalaType(genType: IType): Tree
 
-  /**
-    * Generate the function that converts an `ArgumentValue` into the given `Type`
+  /** Generate the function that converts an `ArgumentValue` into the given `Type`
     *
     * @param genType the output type of the generated function
     * @return the function that converts an `ArgumentValue` into the given `Type`
@@ -135,7 +132,8 @@ object Util {
 
   final case class WriteParams[+TmplI](
       templateIds: Map[Ref.Identifier, TmplI],
-      definitions: List[lf.ScopedDataType.FWT])
+      definitions: List[lf.ScopedDataType.FWT],
+  )
 
   val reservedNames: Set[String] =
     Set("id", "template", "namedArguments", "archive")

@@ -6,7 +6,7 @@ package com.daml.ledger.validator
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlPartyAllocation,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.validator.ArgumentMatchers.anyExecutionContext

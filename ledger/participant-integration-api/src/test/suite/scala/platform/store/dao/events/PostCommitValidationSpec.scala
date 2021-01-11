@@ -222,7 +222,8 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
             id = committedContract.coid.coid,
             ledgerEffectiveTime = committedContractLedgerEffectiveTime,
             key = committedContract.key.map(x =>
-              GlobalKey.assertBuild(committedContract.coinst.template, x.key))
+              GlobalKey.assertBuild(committedContract.coinst.template, x.key)
+            ),
           ),
         ),
         validatePartyAllocation = false,
@@ -434,15 +435,17 @@ object PostCommitValidationSpec {
 
   private final case class ContractStoreFixture private (
       contracts: Set[ContractFixture],
-      parties: List[PartyDetails])
-      extends PostCommitValidationData {
+      parties: List[PartyDetails],
+  ) extends PostCommitValidationData {
 
-    override def lookupContractKeyGlobally(key: Key)(
-        implicit connection: Connection = null): Option[ContractId] =
+    override def lookupContractKeyGlobally(key: Key)(implicit
+        connection: Connection = null
+    ): Option[ContractId] =
       contracts.find(c => c.key.contains(key)).map(_.id)
 
-    override def lookupMaximumLedgerTime(ids: Set[ContractId])(
-        implicit connection: Connection = null): Try[Option[Instant]] = {
+    override def lookupMaximumLedgerTime(
+        ids: Set[ContractId]
+    )(implicit connection: Connection = null): Try[Option[Instant]] = {
       val lookup = contracts.collect {
         case c if ids.contains(c.id) => c.ledgerEffectiveTime
       }
@@ -450,8 +453,9 @@ object PostCommitValidationSpec {
       else Success(lookup.fold[Option[Instant]](None)(pickTheGreatest))
     }
 
-    override def lookupParties(parties: Seq[Party])(
-        implicit connection: Connection): List[PartyDetails] =
+    override def lookupParties(
+        parties: Seq[Party]
+    )(implicit connection: Connection): List[PartyDetails] =
       this.parties.filter { party =>
         parties.contains(party.party)
       }
@@ -471,7 +475,7 @@ object PostCommitValidationSpec {
   private def committedContracts(
       parties: List[PartyDetails],
       contractFixture: ContractFixture,
-      contractFixtures: ContractFixture*,
+      contractFixtures: ContractFixture*
   ): ContractStoreFixture =
     ContractStoreFixture((contractFixture +: contractFixtures).toSet, parties)
 

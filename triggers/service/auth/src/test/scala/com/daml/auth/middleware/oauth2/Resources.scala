@@ -24,17 +24,20 @@ object Resources {
     new ResourceOwner[AdjustableClock] {
       override def acquire()(implicit context: ResourceContext): Resource[AdjustableClock] = {
         Resource(Future(AdjustableClock(Clock.fixed(start, zoneId), Duration.ZERO)))(_ =>
-          Future(()))
+          Future(())
+        )
       }
     }
-  def authServerBinding(server: OAuthServer)(
-      implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
+  def authServerBinding(
+      server: OAuthServer
+  )(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
         Resource(server.start())(_.unbind().map(_ => ()))
     }
-  def authMiddlewareBinding(config: Config)(
-      implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
+  def authMiddlewareBinding(
+      config: Config
+  )(implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
         Resource(Server.start(config))(_.unbind().map(_ => ()))
@@ -44,15 +47,17 @@ object Resources {
       override def acquire()(implicit context: ResourceContext): Resource[Port] =
         Resource(Future(LockedFreePort.find()))(lock => Future(lock.unlock())).map(_.port)
     }
-  def authMiddlewareClientBinding(config: Client.Config, client: Client)(
-      implicit sys: ActorSystem): ResourceOwner[ServerBinding] =
+  def authMiddlewareClientBinding(config: Client.Config, client: Client)(implicit
+      sys: ActorSystem
+  ): ResourceOwner[ServerBinding] =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
         Resource {
           Http()
             .newServerAt(
               config.callbackUri.authority.host.toString(),
-              config.callbackUri.authority.port)
+              config.callbackUri.authority.port,
+            )
             .bind {
               concat(
                 path("login") {

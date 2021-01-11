@@ -56,11 +56,12 @@ private[platform] final class HikariConnection(
     Resource(
       RetryStrategy.constant(
         attempts = maxInitialConnectRetryAttempts,
-        waitTime = 1.second
+        waitTime = 1.second,
       ) { (i, _) =>
         Future {
           logger.info(
-            s"Attempting to connect to $jdbcUrl (attempt $i/$maxInitialConnectRetryAttempts)")
+            s"Attempting to connect to $jdbcUrl (attempt $i/$maxInitialConnectRetryAttempts)"
+          )
           new HikariDataSource(config)
         }
       }
@@ -79,8 +80,8 @@ private[platform] object HikariConnection {
       maxPoolSize: Int,
       connectionTimeout: FiniteDuration,
       metrics: Option[MetricRegistry],
-  )(
-      implicit loggingContext: LoggingContext
+  )(implicit
+      loggingContext: LoggingContext
   ): HikariConnection =
     new HikariConnection(
       serverRole,
@@ -126,11 +127,11 @@ private[platform] class HikariJdbcConnectionProvider(
     try {
       val res = Timed.value(
         databaseMetrics.queryTimer,
-        block(conn)
+        block(conn),
       )
       Timed.value(
         databaseMetrics.commitTimer,
-        conn.commit()
+        conn.commit(),
       )
       res
     } catch {
@@ -168,6 +169,7 @@ private[platform] object HikariJdbcConnectionProvider {
         Some(metrics),
       )
       healthPoller <- ResourceOwner.forTimer(() =>
-        new Timer(s"${classOf[HikariJdbcConnectionProvider].getName}#healthPoller"))
+        new Timer(s"${classOf[HikariJdbcConnectionProvider].getName}#healthPoller")
+      )
     } yield new HikariJdbcConnectionProvider(dataSource, healthPoller)
 }

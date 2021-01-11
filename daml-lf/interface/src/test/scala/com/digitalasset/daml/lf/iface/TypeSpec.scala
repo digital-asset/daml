@@ -100,7 +100,7 @@ class TypeSpec extends AnyWordSpec with Matchers {
     val inst = tyCon.instantiate(
       DefDataType(
         ImmArraySeq(n"a", n"b"),
-        Record(ImmArraySeq(n"fld1" -> t"List a", n"fld2" -> t"Mod:V b"))
+        Record(ImmArraySeq(n"fld1" -> t"List a", n"fld2" -> t"Mod:V b")),
       )
     )
     inst shouldBe Record[Type](ImmArraySeq(n"fld1" -> t"List Int64", n"fld2" -> t"Mod:V Text"))
@@ -130,7 +130,8 @@ class TypeSpec extends AnyWordSpec with Matchers {
       Record(
         ImmArraySeq(
           n"f" -> TypeCon(id2, ImmArraySeq(t"a"))
-        ))
+        )
+      ),
     )
     val result = tc.instantiate(ddt)
 

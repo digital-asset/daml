@@ -37,7 +37,8 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
     "make an exercise-by-key command" in {
       inside((KeyedNumber key alice exerciseIncrement (alice, 42)).command.command) {
         case rpccmd.Command.Command.ExerciseByKey(
-            rpccmd.ExerciseByKeyCommand(Some(tid), Some(k), "Increment", Some(choiceArg))) =>
+              rpccmd.ExerciseByKeyCommand(Some(tid), Some(k), "Increment", Some(choiceArg))
+            ) =>
           import com.daml.ledger.client.binding.Value.encode
           tid should ===(KeyedNumber.id)
           k should ===(encode(alice))

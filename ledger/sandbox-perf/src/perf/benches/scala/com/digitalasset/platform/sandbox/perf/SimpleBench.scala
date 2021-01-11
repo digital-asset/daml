@@ -23,7 +23,8 @@ class SimpleBench extends DummyCommands with InfAwait {
       dummyCreates(state.ledger.ledgerId)
         .take(commandCount)
         .mapAsync(100)(state.ledger.commandService.submitAndWait _)
-        .runWith(Sink.ignore)(state.mat))
+        .runWith(Sink.ignore)(state.mat)
+    )
     ()
   }
 }

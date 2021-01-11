@@ -13,15 +13,15 @@ import com.daml.scalautil.Statement.discard
 object SimulationLogSyntax {
   implicit class SimulationLogOps(val log: SimulationLog) extends AnyVal {
 
-    /**
-      * Will write a summary.csv given a Gatling result directory.
+    /** Will write a summary.csv given a Gatling result directory.
       * @param targetDirectory the directory where the summary.csv will be created.
       */
     def writeSummaryCsv(targetDirectory: File): Unit = {
       discard {
         Files.write(
           new File(targetDirectory, "summary.csv").toPath,
-          log.toCsvString.getBytes(StandardCharsets.UTF_8))
+          log.toCsvString.getBytes(StandardCharsets.UTF_8),
+        )
       }
     }
 
@@ -30,7 +30,8 @@ object SimulationLogSyntax {
       discard {
         Files.write(
           new File(targetDirectory, "summary.txt").toPath,
-          summary.getBytes(StandardCharsets.UTF_8))
+          summary.getBytes(StandardCharsets.UTF_8),
+        )
       }
       summary
     }
@@ -38,9 +39,8 @@ object SimulationLogSyntax {
     private def formatTextReport(scenarios: List[ScenarioStats]): String = {
       val buf = new StringBuffer()
       scenarios.foreach { x =>
-        x.requestsByType.foreach {
-          case (name, stats) =>
-            buf.append(stats.formatted(name))
+        x.requestsByType.foreach { case (name, stats) =>
+          buf.append(stats.formatted(name))
         }
       }
       buf.toString

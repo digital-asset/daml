@@ -7,7 +7,7 @@ import java.util.UUID
 
 import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
-  SubmitRequest
+  SubmitRequest,
 }
 import com.daml.platform.sandbox.auth.ServiceCallWithMainActorAuthTests
 import com.google.protobuf.empty.Empty
@@ -20,7 +20,8 @@ trait SubmitDummyCommand extends TestCommands { self: ServiceCallWithMainActorAu
     SubmitRequest(
       dummyCommands(wrappedLedgerId, s"$serviceCallName-${UUID.randomUUID}", mainActor)
         .update(_.commands.applicationId := serviceCallName, _.commands.party := mainActor)
-        .commands)
+        .commands
+    )
 
   protected def submit(token: Option[String]): Future[Empty] =
     stub(CommandSubmissionServiceGrpc.stub(channel), token).submit(dummySubmitRequest)

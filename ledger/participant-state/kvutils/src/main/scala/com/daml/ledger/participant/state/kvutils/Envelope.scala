@@ -45,7 +45,8 @@ object Envelope {
             Proto.Envelope.CompressionSchema.NONE
         )
         .build
-        .toByteString)
+        .toByteString
+    )
 
   def enclose(sub: Proto.DamlSubmission): Raw.Value =
     enclose(sub, compression = DefaultCompression)
@@ -80,7 +81,8 @@ object Envelope {
       _ <- Either.cond(
         envelope.getVersion == Version.version,
         (),
-        s"Unsupported version ${envelope.getVersion}")
+        s"Unsupported version ${envelope.getVersion}",
+      )
       uncompressedMessage <- envelope.getCompression match {
         case Proto.Envelope.CompressionSchema.GZIP =>
           parseMessageSafe(() => decompress(envelope.getMessage))

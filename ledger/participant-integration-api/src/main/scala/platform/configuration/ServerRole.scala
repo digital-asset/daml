@@ -3,8 +3,7 @@
 
 package com.daml.platform.configuration
 
-/**
-  * Used to disambiguate thread pool names.
+/** Used to disambiguate thread pool names.
   *
   * This is necessary because Hikari connection pools use the pool name when registering metrics.
   * If we were to register two connection pools with the same names with a single metrics registry,

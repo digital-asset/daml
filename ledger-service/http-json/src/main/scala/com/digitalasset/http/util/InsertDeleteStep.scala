@@ -16,7 +16,8 @@ import scala.language.higherKinds
 
 private[http] final case class InsertDeleteStep[+D, +C](
     inserts: InsertDeleteStep.Inserts[C],
-    deletes: Map[String, D]) {
+    deletes: Map[String, D],
+) {
   import InsertDeleteStep._
 
   def append[DD >: D, CC >: C: Cid](o: InsertDeleteStep[DD, CC]): InsertDeleteStep[DD, CC] =
@@ -35,14 +36,15 @@ private[http] final case class InsertDeleteStep[+D, +C](
 
   /** Results undefined if cid(d) != cid(c) */
   def partitionMapPreservingIds[LC, CC](
-      f: C => (LC \/ CC)): (Inserts[LC], InsertDeleteStep[D, CC]) = {
+      f: C => (LC \/ CC)
+  ): (Inserts[LC], InsertDeleteStep[D, CC]) = {
     val (_, lcs, step) = partitionBimap(\/-(_), f)
     (lcs, step)
   }
 
   /** Results undefined if cid(cc) != cid(c) */
-  def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(
-      implicit LDS: CanBuildFrom[Map[String, D], LD, LDS],
+  def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(implicit
+      LDS: CanBuildFrom[Map[String, D], LD, LDS]
   ): (LDS, Inserts[LC], InsertDeleteStep[DD, CC]) = {
     import Collections._
     import scalaz.std.tuple._, scalaz.syntax.traverse._
@@ -73,7 +75,7 @@ private[http] object InsertDeleteStep extends WithLAV1[InsertDeleteStep] {
     Monoid instance (_ append _, Empty)
 
   def appendForgettingDeletes[D, C](leftInserts: Inserts[C], right: InsertDeleteStep[Any, C])(
-      implicit cid: Cid[C],
+      implicit cid: Cid[C]
   ): Inserts[C] =
     (if (right.deletes.isEmpty) leftInserts
      else leftInserts.filter(c => !right.deletes.isDefinedAt(cid(c)))) ++ right.inserts

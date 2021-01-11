@@ -7,8 +7,7 @@ import scalaz.{Cord, Show}
 
 import scala.collection.immutable.{HashMap, Queue}
 
-/**
-  * Insert-ordered Map (like ListMap), but with efficient lookups.
+/** Insert-ordered Map (like ListMap), but with efficient lookups.
   *
   * Implemented as (Queue[K], HashMap[K, V]).
   * Asymptotics:
@@ -19,7 +18,7 @@ import scala.collection.immutable.{HashMap, Queue}
   */
 final class InsertOrdMap[K, +V] private (
     override val keys: Queue[K],
-    hashMap: HashMap[K, V]
+    hashMap: HashMap[K, V],
 ) extends AbstractInsertOrdMap[K, V] {
 
   override def empty: InsertOrdMap[K, V] = InsertOrdMap.empty[K, V]
@@ -57,9 +56,12 @@ object InsertOrdMap extends InsertOrdMapCompanion {
   implicit def insertMapShow[K: Show, V: Show]: Show[InsertOrdMap[K, V]] =
     Show.show { m =>
       "InsertOrdMap[" +:
-        Cord.mkCord(", ", m.toSeq.map { x =>
-        Cord(implicitly[Show[K]] show x._1, "->", implicitly[Show[V]] show x._2)
-      }: _*) :+ "]"
+        Cord.mkCord(
+          ", ",
+          m.toSeq.map { x =>
+            Cord(implicitly[Show[K]] show x._1, "->", implicitly[Show[V]] show x._2)
+          }: _*
+        ) :+ "]"
     }
 
 }

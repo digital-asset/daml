@@ -25,8 +25,7 @@ final case class ConfigLoadError(reason: String) extends ConfigLoadingError
 /** Config file is readable, but content could not be parsed */
 final case class ConfigParseError(reason: String) extends ConfigLoadingError
 
-/**
-  * Note: The SDK project configuration does not have an explicit schema.
+/** Note: The SDK project configuration does not have an explicit schema.
   * The original parsed Yaml/Json object is therefore kept, with additional
   * getters for commonly used properties.
   *
@@ -37,7 +36,7 @@ final case class ConfigParseError(reason: String) extends ConfigLoadingError
   */
 case class ProjectConfig(
     content: Json,
-    projectPath: Path
+    projectPath: Path,
 ) {
   type Result[A] = Either[ConfigParseError, A]
   type OptionalResult[A] = Either[ConfigParseError, Option[A]]
@@ -98,29 +97,34 @@ object ProjectConfig {
 
   /** The DAML_PROJECT environment variable determines the path of
     * the current daml project. By default, this is done by traversing
-    * up the directory structure until we find a "daml.yaml" file. */
+    * up the directory structure until we find a "daml.yaml" file.
+    */
   val envVarProjectPath = "DAML_PROJECT"
 
   /** File name of config file in DAML_PROJECT (the project path). */
   val projectConfigName = "daml.yaml"
 
   /** Returns the path of the current daml project, if any.
-    * The path is given by environment variables set by the SDK Assistant. */
+    * The path is given by environment variables set by the SDK Assistant.
+    */
   def projectPath(): Either[ConfigLoadingError, String] =
     sys.env
       .get(envVarProjectPath)
       .toRight(ConfigMissing(s"Environment variable $envVarProjectPath not found"))
 
   /** Returns the path of the current daml project config file, if any.
-    * The path is given by environment variables set by the SDK Assistant. */
+    * The path is given by environment variables set by the SDK Assistant.
+    */
   def projectConfigPath(): Either[ConfigLoadingError, File] =
     projectPath().flatMap(path =>
-      Try(new File(path, projectConfigName)).toEither.left.map(t => ConfigMissing(t.getMessage)))
+      Try(new File(path, projectConfigName)).toEither.left.map(t => ConfigMissing(t.getMessage))
+    )
 
   /** Loads a project configuration from a string */
   def loadFromString(
       projectPath: Path,
-      content: String): Either[ConfigLoadingError, ProjectConfig] = {
+      content: String,
+  ): Either[ConfigLoadingError, ProjectConfig] = {
     for {
       json <- yaml.parser.parse(content).left.map(e => ConfigParseError(e.getMessage))
     } yield ProjectConfig(json, projectPath)
@@ -132,19 +136,23 @@ object ProjectConfig {
       _ <- Either.cond(
         Files.exists(file.toPath),
         true,
-        ConfigMissing(s"Config file ${file.toPath} does not exist"))
+        ConfigMissing(s"Config file ${file.toPath} does not exist"),
+      )
       source <- Try(Source.fromFile(file, "UTF-8")).toEither.left.map(e =>
-        ConfigLoadError(e.getMessage))
+        ConfigLoadError(e.getMessage)
+      )
       content <- Try(
         try source.mkString
-        finally source.close()).toEither.left.map(e => ConfigLoadError(e.getMessage))
+        finally source.close()
+      ).toEither.left.map(e => ConfigLoadError(e.getMessage))
       result <- loadFromString(file.getParentFile.toPath, content)
     } yield result
   }
 
   /** Loads the project configuration from a config file,
     * with the path to the config file given by environment variables set by the SDK Assistant.
-    * This is the preferred way of loading the SDK project configuration. */
+    * This is the preferred way of loading the SDK project configuration.
+    */
   def loadFromEnv(): Either[ConfigLoadingError, ProjectConfig] = {
     for {
       path <- projectConfigPath()

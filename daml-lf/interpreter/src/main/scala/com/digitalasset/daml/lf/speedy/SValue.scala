@@ -40,7 +40,7 @@ sealed trait SValue {
           ImmArray(
             fields.toSeq
               .zip(svalues.asScala)
-              .map({ case (fld, sv) => (Some(fld), sv.toValue) }),
+              .map({ case (fld, sv) => (Some(fld), sv.toValue) })
           ),
         )
       case SVariant(id, variant, _, sv) =>
@@ -149,8 +149,8 @@ object SValue {
       id: Identifier,
       variant: VariantConName,
       constructorRank: Int,
-      value: SValue)
-      extends SValue
+      value: SValue,
+  ) extends SValue
 
   final case class SEnum(id: Identifier, constructor: Name, constructorRank: Int) extends SValue
 
@@ -178,7 +178,8 @@ object SValue {
         isTextMap,
         implicitly[Factory[(SValue, SValue), TreeMap[SValue, SValue]]].fromSpecific(entries.map {
           case p @ (k, _) => comparable(k); p
-        }))
+        }),
+      )
     }
 
     def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SGenMap =
@@ -253,10 +254,12 @@ object SValue {
     SList(
       FrontStack(
         entries.iterator
-          .map {
-            case (k, v) => entry(k, v)
+          .map { case (k, v) =>
+            entry(k, v)
           }
-          .to(ImmArray)))
+          .to(ImmArray)
+      )
+    )
 
   private def mapArrayList(
       as: util.ArrayList[SValue],

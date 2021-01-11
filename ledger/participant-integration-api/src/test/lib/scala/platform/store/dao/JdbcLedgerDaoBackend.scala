@@ -37,8 +37,8 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
 
   protected def jdbcUrl: String
 
-  protected def daoOwner(eventsPageSize: Int)(
-      implicit loggingContext: LoggingContext
+  protected def daoOwner(eventsPageSize: Int)(implicit
+      loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] =
     JdbcLedgerDao.writeOwner(
       serverRole = ServerRole.Testing(getClass),

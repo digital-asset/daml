@@ -9,7 +9,7 @@ import scala.collection.generic.{
   ImmutableSetFactory,
   GenericCompanion,
   CanBuildFrom,
-  GenericSetTemplate
+  GenericSetTemplate,
 }
 
 abstract class AbstractInsertOrdSet[T]

@@ -13,12 +13,12 @@ import com.daml.ledger.api.testtool.infrastructure.{
   Allocation,
   Assertions,
   Envelope,
-  LedgerTestSuite
+  LedgerTestSuite,
 }
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
   CompletionStreamRequest,
-  CompletionStreamResponse
+  CompletionStreamResponse,
 }
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands}
@@ -71,7 +71,8 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
       from: Participant,
       to: Participant,
       workflowIds: List[String],
-      payload: String)(implicit ec: ExecutionContext): Future[(Duration, List[Duration])] = {
+      payload: String,
+  )(implicit ec: ExecutionContext): Future[(Duration, List[Duration])] = {
 
     val (participantAlice, alice) = (from.ledger, from.parties.head)
     val (participantBob, bob) = (to.ledger, to.parties.head)
@@ -98,7 +99,8 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
           participantAlice,
           alice,
           PingPongModule.Ping(payload, alice, List(bob)).create.command,
-          workflowId)
+          workflowId,
+        )
         _ = {
           logger.info(s"Submitting ping with workflowId=$workflowId")
           timings += workflowId -> Left(Instant.now)
@@ -115,7 +117,8 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
       workflowIds.length,
       queued,
       inflight,
-      timings)
+      timings,
+    )
     for {
       end <- participantAlice.completionEnd(CompletionEndRequest(participantAlice.ledgerId))
       _ = listenCompletions(tracker, participantAlice, alice, end.offset)
@@ -129,7 +132,8 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
           val finished = Instant.now
           (
             Duration.between(started, finished),
-            timings.values.flatMap(_.right.toOption.toList).toList)
+            timings.values.flatMap(_.right.toOption.toList).toList,
+          )
       }
     }
   }
@@ -138,7 +142,8 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
       participant: ParticipantTestContext,
       party: P.Party,
       command: Command,
-      commandAndWorkflowId: String) = {
+      commandAndWorkflowId: String,
+  ) = {
     new SubmitRequest(
       Some(
         new Commands(
@@ -148,8 +153,8 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
           workflowId = commandAndWorkflowId,
           party = party.unwrap,
           commands = Seq(command),
-        ),
-      ),
+        )
+      )
     )
   }
 
@@ -160,8 +165,8 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
       numPings: Int,
       queue: ConcurrentLinkedQueue[Promise[Unit]],
       inflight: AtomicInteger,
-      timings: TrieMap[String, Either[Instant, Duration]])(
-      implicit ec: ExecutionContext): Future[Either[String, Unit]] = {
+      timings: TrieMap[String, Either[Instant, Duration]],
+  )(implicit ec: ExecutionContext): Future[Either[String, Unit]] = {
 
     val observed = new AtomicInteger(0)
     val context = Context.ROOT.withCancellation()
@@ -169,62 +174,61 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
     for {
       offset <- participant.currentEnd()
     } yield {
-      context.run(
-        () =>
-          participant.transactionStream(
-            GetTransactionsRequest(
-              ledgerId = participant.ledgerId,
-              begin = Some(offset),
-              end = None,
-              verbose = false,
-              filter = Some(
-                TransactionFilter(filtersByParty = Map(party.unwrap -> Filters(inclusive = None))))
+      context.run(() =>
+        participant.transactionStream(
+          GetTransactionsRequest(
+            ledgerId = participant.ledgerId,
+            begin = Some(offset),
+            end = None,
+            verbose = false,
+            filter = Some(
+              TransactionFilter(filtersByParty = Map(party.unwrap -> Filters(inclusive = None)))
             ),
-            new StreamObserver[GetTransactionsResponse] {
-              // find workflow ids and signal if we observed all expected
-              @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
-              override def onNext(value: GetTransactionsResponse): Unit = {
-                value.transactions.foreach {
-                  tr: Transaction =>
-                    timings.get(tr.workflowId) match {
-                      case Some(Left(started)) =>
-                        val finished = Instant.now()
-                        val inf = inflight.decrementAndGet()
-                        val obs = observed.incrementAndGet()
-                        // start next ping
-                        Option(queue.poll()).foreach(_.success(()))
-                        logger.info(
-                          s"Observed ping ${tr.workflowId} (observed=$obs, inflight=$inf)")
-                        timings.update(tr.workflowId, Right(Duration.between(started, finished)))
-                        // signal via future that we are done
-                        if (observed.get() == numPings && !observedAll.isCompleted)
-                          observedAll.trySuccess(Right(()))
-                      // there shouldn't be running anything concurrently
-                      case None =>
-                        logger.error(
-                          s"Observed transaction with un-expected workflowId ${tr.workflowId}")
-                      case Some(Right(_)) =>
-                        logger.error(
-                          s"Observed transaction with workflowId ${tr.workflowId} twice!")
-                    }
+          ),
+          new StreamObserver[GetTransactionsResponse] {
+            // find workflow ids and signal if we observed all expected
+            @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
+            override def onNext(value: GetTransactionsResponse): Unit = {
+              value.transactions.foreach { tr: Transaction =>
+                timings.get(tr.workflowId) match {
+                  case Some(Left(started)) =>
+                    val finished = Instant.now()
+                    val inf = inflight.decrementAndGet()
+                    val obs = observed.incrementAndGet()
+                    // start next ping
+                    Option(queue.poll()).foreach(_.success(()))
+                    logger.info(s"Observed ping ${tr.workflowId} (observed=$obs, inflight=$inf)")
+                    timings.update(tr.workflowId, Right(Duration.between(started, finished)))
+                    // signal via future that we are done
+                    if (observed.get() == numPings && !observedAll.isCompleted)
+                      observedAll.trySuccess(Right(()))
+                  // there shouldn't be running anything concurrently
+                  case None =>
+                    logger.error(
+                      s"Observed transaction with un-expected workflowId ${tr.workflowId}"
+                    )
+                  case Some(Right(_)) =>
+                    logger.error(s"Observed transaction with workflowId ${tr.workflowId} twice!")
                 }
-              }
-
-              override def onError(t: Throwable): Unit = t match {
-                case ex: io.grpc.StatusRuntimeException
-                    if ex.getStatus.getCode == io.grpc.Status.CANCELLED.getCode =>
-                case _ => logger.error("GetTransactionResponse stopped due to an error", t)
-              }
-
-              override def onCompleted(): Unit = {
-                if (observed.get() != numPings) {
-                  logger.error(
-                    s"Transaction stream closed before I've observed all transactions. Missing are ${numPings - observed
-                      .get()}.")
-                }
-
               }
             }
+
+            override def onError(t: Throwable): Unit = t match {
+              case ex: io.grpc.StatusRuntimeException
+                  if ex.getStatus.getCode == io.grpc.Status.CANCELLED.getCode =>
+              case _ => logger.error("GetTransactionResponse stopped due to an error", t)
+            }
+
+            override def onCompleted(): Unit = {
+              if (observed.get() != numPings) {
+                logger.error(
+                  s"Transaction stream closed before I've observed all transactions. Missing are ${numPings - observed
+                    .get()}."
+                )
+              }
+
+            }
+          },
         )
       )
     }
@@ -243,46 +247,45 @@ sealed trait PerformanceEnvelope[E <: Envelope] {
       tracker: Promise[Either[String, Unit]],
       sender: ParticipantTestContext,
       party: P.Party,
-      offset: Option[LedgerOffset])(implicit ec: ExecutionContext): Unit = {
+      offset: Option[LedgerOffset],
+  )(implicit ec: ExecutionContext): Unit = {
     val context = Context.ROOT.withCancellation()
 
-    context.run(
-      () =>
-        sender.completionStream(
-          CompletionStreamRequest(
-            ledgerId = sender.ledgerId,
-            applicationId = sender.applicationId,
-            parties = Seq(party.unwrap),
-            offset = offset
-          ),
-          new StreamObserver[CompletionStreamResponse] {
-            @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
-            override def onNext(value: CompletionStreamResponse): Unit = {
-              value.completions.foreach {
-                completion =>
-                  completion.status.foreach {
-                    status =>
-                      // TODO(rv) maybe, add re-submission logic once systems are smart enough to back-pressure
-                      if (status.code != 0) {
-                        if (status.code == io.grpc.Status.DEADLINE_EXCEEDED.getCode.value()) {
-                          logger.error(
-                            s"Command ${completion.commandId} timed-out. You might want to reduce the number of in-flight commands. $status")
-                        } else {
-                          logger.error(s"Command ${completion.commandId} failed with $status")
-                        }
-                        // for now, we kill the test if we hit an error
-                        tracker.trySuccess(
-                          Left(s"Command ${completion.commandId} failed with $status"))
-                      } else {
-                        logger.debug(s"Command ${completion.commandId} succeeded")
-                      }
+    context.run(() =>
+      sender.completionStream(
+        CompletionStreamRequest(
+          ledgerId = sender.ledgerId,
+          applicationId = sender.applicationId,
+          parties = Seq(party.unwrap),
+          offset = offset,
+        ),
+        new StreamObserver[CompletionStreamResponse] {
+          @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
+          override def onNext(value: CompletionStreamResponse): Unit = {
+            value.completions.foreach { completion =>
+              completion.status.foreach { status =>
+                // TODO(rv) maybe, add re-submission logic once systems are smart enough to back-pressure
+                if (status.code != 0) {
+                  if (status.code == io.grpc.Status.DEADLINE_EXCEEDED.getCode.value()) {
+                    logger.error(
+                      s"Command ${completion.commandId} timed-out. You might want to reduce the number of in-flight commands. $status"
+                    )
+                  } else {
+                    logger.error(s"Command ${completion.commandId} failed with $status")
                   }
+                  // for now, we kill the test if we hit an error
+                  tracker.trySuccess(Left(s"Command ${completion.commandId} failed with $status"))
+                } else {
+                  logger.debug(s"Command ${completion.commandId} succeeded")
+                }
               }
             }
-            override def onError(t: Throwable): Unit = {}
-            override def onCompleted(): Unit = {}
           }
-      ))
+          override def onError(t: Throwable): Unit = {}
+          override def onCompleted(): Unit = {}
+        },
+      )
+    )
     tracker.future.map(_ => Try(context.cancel(Status.CANCELLED.asException())))
     ()
   }
@@ -299,13 +302,15 @@ object PerformanceEnvelope {
       case e: Envelope.Latency =>
         new LatencyTest(e, numPings = e.numPings, numWarmupPings = e.numPings, reporter = reporter)
       case e: Envelope.Throughput =>
-        val numPings = Math.max(20, e.operationsPerSecond * 15) // test should run at least 15 seconds
+        val numPings =
+          Math.max(20, e.operationsPerSecond * 15) // test should run at least 15 seconds
         new ThroughputTest(
           envelope = e,
           maxInflight = e.operationsPerSecond * 5, // aiming for a latency of 5 seconds
           numPings = numPings,
           numWarmupPings = numPings,
-          reporter = reporter)
+          reporter = reporter,
+        )
       case e: Envelope.TransactionSize => new TransactionSizeScaleTest(e)
     }
 
@@ -338,7 +343,8 @@ object PerformanceEnvelope {
           from = participants.participants.head,
           to = participants.participants(1),
           workflowIds = (1 to num).map(x => s"$description-$x").toList,
-          payload = description)
+          payload = description,
+        )
       for {
         _ <- runTest(numWarmupPings, "throughput-warmup")
         timings <- runTest(numPings, "throughput-test")
@@ -346,13 +352,15 @@ object PerformanceEnvelope {
         val (elapsed, latencies) = timings
         val throughput = numPings / elapsed.toMillis.toDouble * 1000.0
         logger.info(
-          s"Sending of $numPings succeeded after $elapsed, yielding a throughput of ${"%.2f" format throughput}.")
+          s"Sending of $numPings succeeded after $elapsed, yielding a throughput of ${"%.2f" format throughput}."
+        )
         reporter("rate", throughput)
         logger.info(
-          s"Throughput latency stats: ${genStats(latencies.map(_.toMillis), (_, _) => ())}")
+          s"Throughput latency stats: ${genStats(latencies.map(_.toMillis), (_, _) => ())}"
+        )
         assert(
           throughput >= envelope.operationsPerSecond,
-          s"Observed throughput of ${"%.2f" format throughput} is below the necessary envelope level ${envelope.operationsPerSecond}"
+          s"Observed throughput of ${"%.2f" format throughput} is below the necessary envelope level ${envelope.operationsPerSecond}",
         )
       }
     })
@@ -382,17 +390,17 @@ object PerformanceEnvelope {
         from = participants.participants.head,
         to = participants.participants(1),
         workflowIds = (1 to (numPings + numWarmupPings)).map(x => s"latency-$x").toList,
-        payload = "latency"
-      ).map {
-        case (_, latencies) =>
-          val sample = latencies.drop(numWarmupPings).map(_.toMillis).sorted
-          require(sample.length == numPings)
-          val tailCount = sample.count(_ > envelope.latency.toMillis)
-          val stats = genStats(sample, reporter)
-          logger.info(s"Latency test finished: $stats")
-          assert(
-            tailCount <= numPings * 0.1,
-            s"$tailCount out of $numPings are above the latency threshold. Stats are $stats")
+        payload = "latency",
+      ).map { case (_, latencies) =>
+        val sample = latencies.drop(numWarmupPings).map(_.toMillis).sorted
+        require(sample.length == numPings)
+        val tailCount = sample.count(_ > envelope.latency.toMillis)
+        val stats = genStats(sample, reporter)
+        logger.info(s"Latency test finished: $stats")
+        assert(
+          tailCount <= numPings * 0.1,
+          s"$tailCount out of $numPings are above the latency threshold. Stats are $stats",
+        )
       }
     })
   }
@@ -409,7 +417,7 @@ object PerformanceEnvelope {
   }
 
   private final class TransactionSizeScaleTest(
-      override protected val envelope: Envelope.TransactionSize,
+      override protected val envelope: Envelope.TransactionSize
   ) extends LedgerTestSuite
       with PerformanceEnvelope[Envelope.TransactionSize] {
 
@@ -427,7 +435,7 @@ object PerformanceEnvelope {
         from = participants.participants.head,
         to = participants.participants(1),
         workflowIds = List("transaction-size"),
-        payload = Random.alphanumeric.take(envelope.kilobytes * 1024).mkString("")
+        payload = Random.alphanumeric.take(envelope.kilobytes * 1024).mkString(""),
       ).map(_ => ())
     })
   }

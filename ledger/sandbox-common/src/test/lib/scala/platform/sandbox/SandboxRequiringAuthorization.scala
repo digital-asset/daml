@@ -12,7 +12,7 @@ import com.daml.ledger.api.auth.{
   AuthService,
   AuthServiceJWT,
   AuthServiceJWTCodec,
-  AuthServiceJWTPayload
+  AuthServiceJWTPayload,
 }
 import com.daml.ledger.api.domain.LedgerId
 import org.scalatest.Suite

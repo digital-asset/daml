@@ -44,8 +44,8 @@ object TemplateSpec {
         template: P.Int64,
         create: P.Int64,
         namedArguments: P.Int64,
-        archive: P.Int64)
-        extends Template[CNA] {
+        archive: P.Int64,
+    ) extends Template[CNA] {
       protected[this] override def templateCompanion(implicit d: DummyImplicit) = CNA
     }
     // We've already passed the first test, by scalac checking that

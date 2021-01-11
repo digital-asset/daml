@@ -22,7 +22,8 @@ object Config {
           new ProposeAccept(proposer, accepter, note)
         case _ =>
           throw new IllegalArgumentException(s"Illegal test name or parameters '$s'")
-    })
+      }
+    )
 
   val parser: OptionParser[Config] = new scopt.OptionParser[Config]("migration-step") {
     opt[Path]("dar")

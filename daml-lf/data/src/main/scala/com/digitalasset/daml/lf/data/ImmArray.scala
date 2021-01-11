@@ -25,7 +25,7 @@ import scala.reflect.ClassTag
 final class ImmArray[+A] private (
     private val start: Int,
     val length: Int,
-    array: ArraySeq[A]
+    array: ArraySeq[A],
 ) {
   self =>
 
@@ -120,7 +120,8 @@ final class ImmArray[+A] private (
   def strictSlice(from: Int, until: Int): ImmArray[A] = {
     if (from < 0 || from >= length || until < 0 || until > length) {
       throw new IndexOutOfBoundsException(
-        s"strictSlice arguments out of bounds for ImmArray. length: $length, from: $from, until: $until")
+        s"strictSlice arguments out of bounds for ImmArray. length: $length, from: $from, until: $until"
+      )
     }
 
     relaxedSlice(from, until)
@@ -384,8 +385,9 @@ object ImmArray extends ImmArrayInstances {
     new ImmArray(0, arr.length, arr)
 
   implicit val immArrayInstance: Traverse[ImmArray] = new Traverse[ImmArray] {
-    override def traverseImpl[F[_]: Applicative, A, B](immArr: ImmArray[A])(
-        f: A => F[B]): F[ImmArray[B]] = {
+    override def traverseImpl[F[_]: Applicative, A, B](
+        immArr: ImmArray[A]
+    )(f: A => F[B]): F[ImmArray[B]] = {
       immArr
         .foldLeft(BackStack.empty[B].point[F]) { (ys, x) =>
           ^(ys, f(x))(_ :+ _)
@@ -427,16 +429,17 @@ object ImmArray extends ImmArrayInstances {
 
   object ImmArraySeq extends ImmArraySeqCompanion {
     implicit val `immArraySeq Traverse instance`: Traverse[ImmArraySeq] = new Traverse[ImmArraySeq]
-    with Foldable.FromFoldr[ImmArraySeq] {
+      with Foldable.FromFoldr[ImmArraySeq] {
       override def map[A, B](fa: ImmArraySeq[A])(f: A => B) = fa.toImmArray.map(f).toSeq
       override def foldLeft[A, B](fa: ImmArraySeq[A], z: B)(f: (B, A) => B) =
         fa.foldLeft(z)(f)
       override def foldRight[A, B](fa: ImmArraySeq[A], z: => B)(f: (A, => B) => B) =
         fa.foldRight(z)(f(_, _))
-      override def traverseImpl[F[_], A, B](immArr: ImmArraySeq[A])(f: A => F[B])(
-          implicit F: Applicative[F]): F[ImmArraySeq[B]] = {
-        F.map(immArr.foldLeft[F[BackStack[B]]](F.point(BackStack.empty)) {
-          case (ys, x) => F.apply2(ys, f(x))(_ :+ _)
+      override def traverseImpl[F[_], A, B](
+          immArr: ImmArraySeq[A]
+      )(f: A => F[B])(implicit F: Applicative[F]): F[ImmArraySeq[B]] = {
+        F.map(immArr.foldLeft[F[BackStack[B]]](F.point(BackStack.empty)) { case (ys, x) =>
+          F.apply2(ys, f(x))(_ :+ _)
         })(_.toImmArray.toSeq)
       }
     }

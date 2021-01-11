@@ -10,5 +10,6 @@ object DelayedReleaseResourceOwner {
   def apply[T](value: T, releaseDelay: FiniteDuration): TestResourceOwner[T] =
     new TestResourceOwner(
       Future.successful(value),
-      _ => Future(Thread.sleep(releaseDelay.toMillis))(ExecutionContext.global))
+      _ => Future(Thread.sleep(releaseDelay.toMillis))(ExecutionContext.global),
+    )
 }

@@ -84,7 +84,8 @@ class StaticTimeIT
 
       "fail during initialization" in {
         whenReady(StaticTime.updatedVia(clientStub, notLedgerId.unwrap).failed)(
-          IsStatusException(Status.NOT_FOUND))
+          IsStatusException(Status.NOT_FOUND)
+        )
       }
     }
   }

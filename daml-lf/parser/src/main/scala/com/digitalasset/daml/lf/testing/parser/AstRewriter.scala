@@ -12,7 +12,7 @@ import scala.{PartialFunction => PF}
 private[daml] class AstRewriter(
     typeRule: PF[Type, Type] = PF.empty[Type, Type],
     exprRule: PF[Expr, Expr] = PF.empty[Expr, Expr],
-    identifierRule: PF[Identifier, Identifier] = PF.empty[Identifier, Identifier]
+    identifierRule: PF[Identifier, Identifier] = PF.empty[Identifier, Identifier],
 ) {
 
   import AstRewriter._
@@ -67,9 +67,12 @@ private[daml] class AstRewriter(
         case ELocation(loc, expr) =>
           ELocation(loc, apply(expr))
         case ERecCon(tycon, fields) =>
-          ERecCon(apply(tycon), fields.transform { (_, x) =>
-            apply(x)
-          })
+          ERecCon(
+            apply(tycon),
+            fields.transform { (_, x) =>
+              apply(x)
+            },
+          )
         case ERecProj(tycon, field, record) =>
           ERecProj(apply(tycon), field, apply(record))
         case ERecUpd(tycon, field, record, update) =>
@@ -220,21 +223,22 @@ private[daml] class AstRewriter(
             apply(x)
           },
           apply(observers),
-          key.map(apply)
+          key.map(apply),
         )
     }
 
   def apply(x: TemplateChoice): TemplateChoice =
     x match {
       case TemplateChoice(
-          name,
-          consuming,
-          controllers,
-          observers,
-          selfBinder,
-          (argBinderVar, argBinderType),
-          returnType,
-          update) =>
+            name,
+            consuming,
+            controllers,
+            observers,
+            selfBinder,
+            (argBinderVar, argBinderType),
+            returnType,
+            update,
+          ) =>
         TemplateChoice(
           name,
           consuming,
@@ -243,7 +247,8 @@ private[daml] class AstRewriter(
           selfBinder,
           (argBinderVar, apply(argBinderType)),
           apply(returnType),
-          apply(update))
+          apply(update),
+        )
     }
 
   def apply(x: TemplateKey): TemplateKey =

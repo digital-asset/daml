@@ -14,7 +14,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
   GetLedgerEndRequest,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.daml.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
 import com.daml.ledger.javaapi.data
@@ -43,8 +43,9 @@ object TestUtil {
 
   val LedgerID = "ledger-test"
 
-  def withClient(testCode: Channel => Assertion)(
-      implicit resourceContext: ResourceContext): Future[Assertion] = {
+  def withClient(
+      testCode: Channel => Assertion
+  )(implicit resourceContext: ResourceContext): Future[Assertion] = {
     val config = sandbox.DefaultConfig.copy(
       port = Port.Dynamic,
       seeding = None,
@@ -86,15 +87,19 @@ object TestUtil {
               Optional.empty[Instant],
               Optional.empty[Duration],
               Optional.empty[Duration],
-              cmds.asJava))
-          .build)
+              cmds.asJava,
+            )
+          )
+          .build
+      )
   }
 
   def sendCmd(
       channel: Channel,
       actAs: java.util.List[String],
       readAs: java.util.List[String],
-      cmds: Command*): Empty = {
+      cmds: Command*
+  ): Empty = {
     CommandServiceGrpc
       .newBlockingStub(channel)
       .withDeadlineAfter(40, TimeUnit.SECONDS)
@@ -112,8 +117,11 @@ object TestUtil {
               Optional.empty[Instant],
               Optional.empty[Duration],
               Optional.empty[Duration],
-              cmds.asJava))
-          .build)
+              cmds.asJava,
+            )
+          )
+          .build
+      )
   }
 
   def sendCmd(channel: Channel, party: String, cmds: Command*): Empty =
@@ -130,16 +138,18 @@ object TestUtil {
         LedgerOffset.LedgerBegin.getInstance(),
         LedgerOffset.fromProto(end.getOffset),
         allTemplates,
-        true).toProto)
+        true,
+      ).toProto
+    )
     val iterable: java.lang.Iterable[GetTransactionsResponse] = () => txs
     StreamSupport
       .stream(iterable.spliterator(), false)
-      .flatMap[Transaction](
-        (r: GetTransactionsResponse) =>
-          data.GetTransactionsResponse
-            .fromProto(r)
-            .getTransactions
-            .stream())
+      .flatMap[Transaction]((r: GetTransactionsResponse) =>
+        data.GetTransactionsResponse
+          .fromProto(r)
+          .getTransactions
+          .stream()
+      )
       .flatMap[Event]((t: Transaction) => t.getEvents.stream)
       .collect(Collectors.toList[Event])
       .asScala
@@ -148,7 +158,8 @@ object TestUtil {
           case e: CreatedEvent =>
             acc + (e.getContractId -> fromCreatedEvent(e))
           case a: ArchivedEvent => acc - a.getContractId
-      })
+        }
+      )
       .toList
       .sortBy(_._1)
       .map(_._2)

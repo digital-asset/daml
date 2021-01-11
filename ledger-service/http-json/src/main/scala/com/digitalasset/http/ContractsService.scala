@@ -60,7 +60,7 @@ class ContractsService(
           getCreatesAndArchivesSince,
           getTermination,
         )(
-          dao.logHandler,
+          dao.logHandler
         ),
       )
   }
@@ -122,7 +122,8 @@ class ContractsService(
       import ctx.{jwt, parties, templateIds => templateId}
       for {
         resolvedTemplateId <- toFuture(resolveTemplateId(templateId)): Future[
-          TemplateId.RequiredPkg]
+          TemplateId.RequiredPkg
+        ]
 
         predicate = domain.ActiveContract.matchesKey(contractKey) _
 
@@ -150,7 +151,8 @@ class ContractsService(
           jwt,
           parties,
           resolvedTemplateIds,
-          InMemoryQuery.Filter(isContractId(contractId)))
+          InMemoryQuery.Filter(isContractId(contractId)),
+        )
           .runWith(Sink.headOption): Future[Option[Error \/ domain.ActiveContract[LfValue]]]
 
         result <- lookupResult(errorOrAc)
@@ -165,7 +167,7 @@ class ContractsService(
   }
 
   private def lookupResult(
-      errorOrAc: Option[Error \/ domain.ActiveContract[LfValue]],
+      errorOrAc: Option[Error \/ domain.ActiveContract[LfValue]]
   ): Future[Option[domain.ActiveContract[LfValue]]] = {
     errorOrAc.cata(x => toFuture(x).map(Some(_)), Future.successful(None))
   }
@@ -211,7 +213,7 @@ class ContractsService(
       domain.ErrorResponse(
         errors = List(ErrorMessages.cannotResolveAnyTemplateId),
         warnings = warnings,
-        status = StatusCodes.BadRequest
+        status = StatusCodes.BadRequest,
       )
     } else {
       val searchCtx = SearchContext[Set, Id](jwt, parties, resolvedTemplateIds)
@@ -235,13 +237,12 @@ class ContractsService(
           val dbQueried = for {
             templateId <- otemplateId
             resolved <- resolveTemplateId(templateId)
-          } yield
-            unsafeRunAsync {
-              import dao.logHandler
-              import doobie.implicits._, cats.syntax.apply._
-              fetch.fetchAndPersist(jwt, parties, List(resolved)) *>
-                ContractDao.fetchById(parties, resolved, contractId)
-            }
+          } yield unsafeRunAsync {
+            import dao.logHandler
+            import doobie.implicits._, cats.syntax.apply._
+            fetch.fetchAndPersist(jwt, parties, List(resolved)) *>
+              ContractDao.fetchById(parties, resolved, contractId)
+          }
           dbQueried getOrElse {
             // we need a template ID to update the database
             SearchInMemory.toFinal.findByContractId(ctx, contractId)
@@ -332,13 +333,11 @@ class ContractsService(
         }
         (errors, converted.copy(inserts = convertedInserts))
       }
-      .fold(empty) {
-        case ((errL, stepL), (errR, stepR)) =>
-          (errL ++ errR, appendForgettingDeletes(stepL, stepR))
+      .fold(empty) { case ((errL, stepL), (errR, stepR)) =>
+        (errL ++ errR, appendForgettingDeletes(stepL, stepR))
       }
-      .mapConcat {
-        case (err, inserts) =>
-          inserts.map(\/-(_)) ++ err.map(-\/(_))
+      .mapConcat { case (err, inserts) =>
+        inserts.map(\/-(_)) ++ err.map(-\/(_))
       }
   }
 
@@ -356,8 +355,7 @@ class ContractsService(
       this match {
         case Params(q) =>
           val vp = valuePredicate(tid, q).toFunPredicate
-          ac =>
-            vp(ac.payload)
+          ac => vp(ac.payload)
         case Filter(p) => p
       }
   }
@@ -383,7 +381,7 @@ class ContractsService(
     def source = getActiveContracts(jwt, txnFilter, true)
 
     val transactionsSince
-      : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
+        : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
       getCreatesAndArchivesSince(jwt, txnFilter, _: api.ledger_offset.LedgerOffset, terminates)
 
     import ContractsFetch.{acsFollowingAndBoundary, transactionsFollowingBoundary},
@@ -393,7 +391,7 @@ class ContractsService(
         Source
           .single(Tag unsubst util.AbsoluteBookmark(so.offset))
           .viaMat(transactionsFollowingBoundary(transactionsSince).divertToHead)(Keep.right),
-      source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right)
+      source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right),
     )
     contractsAndBoundary mapMaterializedValue { fob =>
       fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
@@ -402,7 +400,7 @@ class ContractsService(
   }
 
   private def apiAcToLfAc(
-      ac: domain.ActiveContract[ApiValue],
+      ac: domain.ActiveContract[ApiValue]
   ): Error \/ domain.ActiveContract[LfValue] =
     ac.traverse(ApiValueToLfValueConverter.apiValueToLfValue)
       .leftMap(e => Error('apiAcToLfAc, e.shows))
@@ -415,7 +413,8 @@ class ContractsService(
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
-      Error('lfValueToJsValue, e.description))
+      Error('lfValueToJsValue, e.description)
+    )
 
   private[http] def resolveTemplateIds[Tid <: domain.TemplateId.OptionalPkg](
       xs: OneAnd[Set, Tid]

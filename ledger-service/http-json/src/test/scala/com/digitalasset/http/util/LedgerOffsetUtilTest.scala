@@ -31,7 +31,8 @@ object LedgerOffsetUtilTest {
   import org.scalacheck.Arbitrary
 
   implicit val arbAbsoluteOffset: Arbitrary[LedgerOffset.Value.Absolute] = Arbitrary(
-    Generators.absoluteLedgerOffsetVal)
+    Generators.absoluteLedgerOffsetVal
+  )
 
   implicit val scalazOrder: scalaz.Order[LedgerOffset.Value.Absolute] =
     scalaz.Order.fromScalaOrdering(LedgerOffsetUtil.AbsoluteOffsetOrdering)

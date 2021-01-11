@@ -72,14 +72,20 @@ object Consume {
           }, v =>
             if (listened) Future successful (Free point v)
             else
-              Future.failed(new IllegalStateException(
-                s"unexpected element $t, script already terminated with $v")))
+              Future.failed(
+                new IllegalStateException(
+                  s"unexpected element $t, script already terminated with $v"
+                )
+              ))
         go(steps, false)
       }
       .mapMaterializedValue(_.flatMap(_.foldMap(Lambda[Consume[T, *] ~> Future] {
         case Listen(_, desc) =>
-          Future.failed(new IllegalStateException(
-            s"${describe(desc)}: script terminated early, expected another value"))
+          Future.failed(
+            new IllegalStateException(
+              s"${describe(desc)}: script terminated early, expected another value"
+            )
+          )
         case Drain(init, _, out) => Future(out(init))
         case Emit(run) => run
       })))
@@ -102,7 +108,9 @@ object Consume {
         else
           Free liftF Emit(
             Future failed new IllegalStateException(
-              s"${describe(pos)}: script cancelled by match error on $v"))
+              s"${describe(pos)}: script cancelled by match error on $v"
+            )
+          )
       }
   }
 

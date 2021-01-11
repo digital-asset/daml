@@ -9,8 +9,7 @@ import scala.concurrent.Future
 
 trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
 
-  /**
-    * Allows to override what is regarded as a successful response, e.g. lookup queries for
+  /** Allows to override what is regarded as a successful response, e.g. lookup queries for
     * commands can return a NOT_FOUND, which is fine because the result is not PERMISSION_DENIED
     */
   def successfulBehavior: Future[Any] => Future[Assertion] = expectSuccess(_: Future[Any])

@@ -22,7 +22,7 @@ object WebsocketEndpoints {
   private[http] val wsProtocol: String = "daml.ws.auth"
 
   private def findJwtFromSubProtocol(
-      upgradeToWebSocket: WebSocketUpgrade,
+      upgradeToWebSocket: WebSocketUpgrade
   ): Unauthorized \/ Jwt = {
     upgradeToWebSocket.requestedProtocols
       .collectFirst {
@@ -38,7 +38,7 @@ object WebsocketEndpoints {
   ) =
     for {
       _ <- req.requestedProtocols.contains(subprotocol) either (()) or Unauthorized(
-        s"Missing required $tokenPrefix.[token] or $wsProtocol subprotocol",
+        s"Missing required $tokenPrefix.[token] or $wsProtocol subprotocol"
       )
       jwt0 <- findJwtFromSubProtocol(req)
       payload <- decodeAndParsePayload[JwtPayload](jwt0, decodeJwt)
@@ -57,36 +57,36 @@ class WebsocketEndpoints(
       Future.successful(
         (for {
           upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> InvalidUserInput(
-            s"Cannot upgrade client's connection to websocket",
+            s"Cannot upgrade client's connection to websocket"
           )
           _ = logger.info(s"GOT $wsProtocol")
 
           payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
           (jwt, jwtPayload) = payload
-        } yield
-          handleWebsocketRequest[domain.SearchForeverRequest](
-            jwt,
-            jwtPayload,
-            upgradeReq,
-            wsProtocol))
-          .valueOr(httpResponseError),
+        } yield handleWebsocketRequest[domain.SearchForeverRequest](
+          jwt,
+          jwtPayload,
+          upgradeReq,
+          wsProtocol,
+        ))
+          .valueOr(httpResponseError)
       )
 
     case req @ HttpRequest(GET, Uri.Path("/v1/stream/fetch"), _, _, _) =>
       Future.successful(
         (for {
           upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> InvalidUserInput(
-            s"Cannot upgrade client's connection to websocket",
+            s"Cannot upgrade client's connection to websocket"
           )
           payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
           (jwt, jwtPayload) = payload
-        } yield
-          handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
-            jwt,
-            jwtPayload,
-            upgradeReq,
-            wsProtocol))
-          .valueOr(httpResponseError),
+        } yield handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
+          jwt,
+          jwtPayload,
+          upgradeReq,
+          wsProtocol,
+        ))
+          .valueOr(httpResponseError)
       )
   }
 

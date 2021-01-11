@@ -103,8 +103,9 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             party1 -> "acs:mod:Template1",
             party2 -> "acs:mod:Template3",
             party1 -> "acs:mod:Template3",
-          )
-        ))
+          ),
+        )
+      )
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       result <- activeContractsOf(
         ledgerDao.transactionsReader
@@ -112,7 +113,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd,
             filter = Map(party1 -> Set(Identifier.assertFromString("acs:mod:Template3"))),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       val create = result.loneElement
       create.witnessParties.loneElement shouldBe party1
@@ -134,8 +136,9 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             party1 -> "acs:mod:Template1",
             party2 -> "acs:mod:Template3",
             party1 -> "acs:mod:Template3",
-          )
-        ))
+          ),
+        )
+      )
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       result <- activeContractsOf(
         ledgerDao.transactionsReader
@@ -143,14 +146,15 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd,
             filter = Map(
               party1 -> Set(
-                Identifier.assertFromString("acs:mod:Template3"),
+                Identifier.assertFromString("acs:mod:Template3")
               ),
               party2 -> Set(
-                Identifier.assertFromString("acs:mod:Template3"),
-              )
+                Identifier.assertFromString("acs:mod:Template3")
+              ),
             ),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       val activeContracts = result.toArray
       activeContracts should have length 2
@@ -182,8 +186,9 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             party1 -> "acs:mod:Template1",
             party2 -> "acs:mod:Template3",
             party1 -> "acs:mod:Template3",
-          )
-        ))
+          ),
+        )
+      )
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       result <- activeContractsOf(
         ledgerDao.transactionsReader
@@ -191,14 +196,15 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd,
             filter = Map(
               party1 -> Set(
-                Identifier.assertFromString("acs:mod:Template1"),
+                Identifier.assertFromString("acs:mod:Template1")
               ),
               party2 -> Set(
-                Identifier.assertFromString("acs:mod:Template3"),
-              )
+                Identifier.assertFromString("acs:mod:Template3")
+              ),
             ),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       val activeContracts = result.toArray
       activeContracts should have length 2
@@ -230,8 +236,9 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             party1 -> "acs:mod:Template1",
             party2 -> "acs:mod:Template3",
             party1 -> "acs:mod:Template3",
-          )
-        ))
+          ),
+        )
+      )
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       result <- activeContractsOf(
         ledgerDao.transactionsReader
@@ -239,12 +246,13 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd,
             filter = Map(
               party1 -> Set(
-                Identifier.assertFromString("acs:mod:Template1"),
+                Identifier.assertFromString("acs:mod:Template1")
               ),
-              party2 -> Set.empty
+              party2 -> Set.empty,
             ),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       val activeContracts = result.toArray
       activeContracts should have length 2
@@ -287,7 +295,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
   }
 
   private def activeContractsOf(
-      source: Source[GetActiveContractsResponse, NotUsed],
+      source: Source[GetActiveContractsResponse, NotUsed]
   ): Future[Seq[CreatedEvent]] =
     source.runWith(Sink.seq).map(_.flatMap(_.activeContracts))
 

@@ -8,7 +8,8 @@ import com.squareup.javapoet.{ClassName, ParameterSpec, ParameterizedTypeName, T
 
 private[inner] abstract case class FromValueExtractorParameters(
     typeVariables: IndexedSeq[TypeVariableName],
-    parameterSpecs: IndexedSeq[ParameterSpec])
+    parameterSpecs: IndexedSeq[ParameterSpec],
+)
 
 private[inner] object FromValueExtractorParameters {
 

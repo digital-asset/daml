@@ -26,7 +26,8 @@ private[data] abstract class ImmArrayInstances {
 
   /** Enables 2.13-style `to` calls. */
   implicit def `IS companion to CBF`[A](
-      self: ImmArray.type): CanBuildFrom[ImmArray[_], A, ImmArray[A]] =
+      self: ImmArray.type
+  ): CanBuildFrom[ImmArray[_], A, ImmArray[A]] =
     self.`ImmArray canBuildFrom`
 }
 

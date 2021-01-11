@@ -10,7 +10,7 @@ import com.daml.lf.speedy.SValue
 package object engine {
 
   private[engine] def assertTranslate(translator: ValueTranslator)(
-      value: DecodedValueWithType,
+      value: DecodedValueWithType
   ): SValue =
     translator.translateValue(value.valueType, value.value).fold(e => sys.error(e.msg), identity)
 

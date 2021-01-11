@@ -12,4 +12,5 @@ final case class GetTransactionsRequest(
     endInclusive: Option[LedgerOffset],
     filter: TransactionFilter,
     verbose: Boolean,
-    traceContext: Option[TraceContext])
+    traceContext: Option[TraceContext],
+)

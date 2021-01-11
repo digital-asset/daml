@@ -42,7 +42,8 @@ private[validation] class World(packages: PartialFunction[PackageId, Ast.GenPack
   def lookupChoice(
       ctx: => Context,
       tmpName: TypeConName,
-      chName: ChoiceName): Ast.GenTemplateChoice[_] =
+      chName: ChoiceName,
+  ): Ast.GenTemplateChoice[_] =
     lookupTemplate(ctx, tmpName).choices
       .getOrElse(chName, throw EUnknownDefinition(ctx, LEChoice(tmpName, chName)))
 

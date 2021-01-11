@@ -15,7 +15,7 @@ import com.daml.ledger.api.auth.{
   ClaimAdmin,
   ClaimPublic,
   ClaimReadAsParty,
-  Claims
+  Claims,
 }
 
 package object rxjava {
@@ -49,7 +49,8 @@ package object rxjava {
         Claims(Seq[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(someParty))))
       case `someOtherPartyReadToken` =>
         Claims(
-          Seq[Claim](ClaimPublic, ClaimReadAsParty(Ref.Party.assertFromString(someOtherParty))))
+          Seq[Claim](ClaimPublic, ClaimReadAsParty(Ref.Party.assertFromString(someOtherParty)))
+        )
       case `someOtherPartyReadWriteToken` =>
         Claims(Seq[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(someOtherParty))))
     }

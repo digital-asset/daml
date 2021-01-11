@@ -33,6 +33,6 @@ private[trigger] object DbFlywayMigrations {
     Flyway
       .configure()
       .locations(
-        "classpath:com/daml/lf/engine/trigger/db/migration/postgres",
+        "classpath:com/daml/lf/engine/trigger/db/migration/postgres"
       )
 }

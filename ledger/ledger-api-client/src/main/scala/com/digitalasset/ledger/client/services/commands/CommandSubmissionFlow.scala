@@ -17,19 +17,20 @@ object CommandSubmissionFlow {
 
   def apply[Context](
       submit: SubmitRequest => Future[Empty],
-      maxInFlight: Int): Flow[Ctx[Context, SubmitRequest], Ctx[Context, Try[Empty]], NotUsed] = {
+      maxInFlight: Int,
+  ): Flow[Ctx[Context, SubmitRequest], Ctx[Context, Try[Empty]], NotUsed] = {
     Flow[Ctx[Context, SubmitRequest]]
       .log("submission at client", _.value.commands.fold("")(_.commandId))
-      .mapAsyncUnordered(maxInFlight) {
-        case Ctx(context, request) =>
-          submit(request)
-            .transform { tryResponse =>
-              Success(
-                Ctx(
-                  context,
-                  tryResponse
-                ))
-            }(DirectExecutionContext)
+      .mapAsyncUnordered(maxInFlight) { case Ctx(context, request) =>
+        submit(request)
+          .transform { tryResponse =>
+            Success(
+              Ctx(
+                context,
+                tryResponse,
+              )
+            )
+          }(DirectExecutionContext)
       }
   }
 

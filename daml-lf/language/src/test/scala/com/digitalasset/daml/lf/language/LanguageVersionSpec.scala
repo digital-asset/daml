@@ -23,13 +23,13 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
 
     val versions = Table("version", versionInOrder: _*)
 
-    forEvery(versions)(
-      v1 =>
-        forEvery(versions)(
-          v2 =>
-            LV.Ordering
-              .compare(v1, v2)
-              .signum shouldBe (versionRank(v1) compareTo versionRank(v2)).signum))
+    forEvery(versions)(v1 =>
+      forEvery(versions)(v2 =>
+        LV.Ordering
+          .compare(v1, v2)
+          .signum shouldBe (versionRank(v1) compareTo versionRank(v2)).signum
+      )
+    )
 
   }
 

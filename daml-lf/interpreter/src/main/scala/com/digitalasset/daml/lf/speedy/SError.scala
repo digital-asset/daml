@@ -37,7 +37,8 @@ object SError {
 
   /** DAML exceptions that can be caught. These include
     * arithmetic errors, call to error builtin or update
-    * errors. */
+    * errors.
+    */
   sealed abstract class SErrorDamlException extends SError
 
   /** Arithmetic error such as division by zero */
@@ -52,7 +53,8 @@ object SError {
   final case class DamlEMatchError(reason: String) extends SErrorDamlException
 
   /** Template pre-condition (ensure) evaluated to false and the transaction
-    * was aborted. */
+    * was aborted.
+    */
   final case class DamlETemplatePreconditionViolated(
       templateId: TypeConName,
       optLocation: Option[Location],
@@ -60,7 +62,8 @@ object SError {
   ) extends SErrorDamlException
 
   /** A fetch or an exercise on a transaction-local contract that has already
-    * been consumed. */
+    * been consumed.
+    */
   final case class DamlELocalContractNotActive(
       coid: ContractId,
       templateId: TypeConName,
@@ -69,7 +72,7 @@ object SError {
 
   /** Error during an operation on the update transaction. */
   final case class DamlETransactionError(
-      reason: String,
+      reason: String
   ) extends SErrorDamlException
 
   /** A create a contract key without maintainers */
@@ -116,7 +119,8 @@ object SError {
   ) extends SErrorDamlException
 
   /** A fetch or exercise was being made against a contract that has not
-    * been disclosed to 'committer'. */
+    * been disclosed to 'committer'.
+    */
   final case class ScenarioErrorContractNotVisible(
       coid: ContractId,
       templateId: Identifier,
@@ -127,7 +131,8 @@ object SError {
 
   /** A fetchByKey or lookupByKey was being made against a key
     * for which the contract exists but has not
-    * been disclosed to 'committer'. */
+    * been disclosed to 'committer'.
+    */
   final case class ScenarioErrorContractKeyNotVisible(
       coid: ContractId,
       key: GlobalKey,

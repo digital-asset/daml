@@ -11,8 +11,9 @@ import scala.util.{Failure, Success}
 
 trait InfiniteRetries {
 
-  protected def retry[T](action: => Future[T], delay: FiniteDuration = 10.millis)(
-      implicit system: ActorSystem): Future[T] = {
+  protected def retry[T](action: => Future[T], delay: FiniteDuration = 10.millis)(implicit
+      system: ActorSystem
+  ): Future[T] = {
     implicit val ec: ExecutionContext = system.dispatcher
     action.transformWith {
       case Success(v) =>
@@ -25,7 +26,7 @@ trait InfiniteRetries {
             retry[T](action, delay).onComplete {
               case Success(s) => p.success(s)
               case Failure(throwable) => p.failure(throwable)
-          }
+            },
         )
         p.future
     }

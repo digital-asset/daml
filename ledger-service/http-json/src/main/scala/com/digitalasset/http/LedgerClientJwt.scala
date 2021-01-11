@@ -12,7 +12,7 @@ import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsRespons
 import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitRequest
+  SubmitAndWaitRequest,
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
@@ -76,7 +76,7 @@ object LedgerClientJwt {
             case LedgerOffset.Value.Boundary(_) | LedgerOffset.Value.Empty => None // at beginning
           }
         }
-    }
+      }
 
   def getActiveContracts(client: LedgerClient): GetActiveContracts =
     (jwt, filter, verbose) =>
@@ -133,7 +133,8 @@ object LedgerClientJwt {
       client.partyManagementClient.allocateParty(
         hint = identifierHint,
         displayName = displayName,
-        token = bearer(jwt))
+        token = bearer(jwt),
+      )
 
   def listPackages(client: LedgerClient): ListPackages =
     jwt => client.packageClient.listPackages(bearer(jwt))

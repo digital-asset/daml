@@ -11,7 +11,7 @@ object Implicits {
 
   implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
     defaultPackageId,
-    defaultLanguageVersion
+    defaultLanguageVersion,
   )
 
   implicit class SyntaxHelper(val sc: StringContext) extends AnyVal {

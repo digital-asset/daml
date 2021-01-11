@@ -18,7 +18,7 @@ import com.daml.ledger.participant.state.v1.{
   Configuration,
   SubmissionId,
   SubmissionResult,
-  WriteConfigService
+  WriteConfigService,
 }
 import com.daml.lf.data.Time
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -39,8 +39,8 @@ private[apiserver] final class ApiConfigManagementService private (
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
     ledgerConfiguration: LedgerConfiguration,
-)(
-    implicit materializer: Materializer,
+)(implicit
+    materializer: Materializer,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends ConfigManagementService
@@ -49,7 +49,8 @@ private[apiserver] final class ApiConfigManagementService private (
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val defaultConfigResponse = configToResponse(
-    ledgerConfiguration.initialConfiguration.copy(generation = LedgerConfiguration.NoGeneration))
+    ledgerConfiguration.initialConfiguration.copy(generation = LedgerConfiguration.NoGeneration)
+  )
 
   override def close(): Unit = ()
 
@@ -70,8 +71,9 @@ private[apiserver] final class ApiConfigManagementService private (
         TimeModel(
           avgTransactionLatency = Some(DurationConversion.toProto(tm.avgTransactionLatency)),
           minSkew = Some(DurationConversion.toProto(tm.minSkew)),
-          maxSkew = Some(DurationConversion.toProto(tm.maxSkew))
-        ))
+          maxSkew = Some(DurationConversion.toProto(tm.maxSkew)),
+        )
+      ),
     )
   }
 
@@ -89,12 +91,16 @@ private[apiserver] final class ApiConfigManagementService private (
       expectedGeneration = currentConfig
         .map(_.generation)
         .getOrElse(LedgerConfiguration.NoGeneration)
-      _ <- if (request.configurationGeneration != expectedGeneration) {
-        Future.failed(ErrorFactories.invalidArgument(
-          s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"))
-      } else {
-        Future.unit
-      }
+      _ <-
+        if (request.configurationGeneration != expectedGeneration) {
+          Future.failed(
+            ErrorFactories.invalidArgument(
+              s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
+            )
+          )
+        } else {
+          Future.unit
+        }
 
       // Create the new extended configuration.
       newConfig = currentConfig
@@ -114,7 +120,8 @@ private[apiserver] final class ApiConfigManagementService private (
       )
       entry <- synchronousResponse.submitAndWait(
         submissionId,
-        (params.maximumRecordTime, newConfig))(executionContext, materializer)
+        (params.maximumRecordTime, newConfig),
+      )(executionContext, materializer)
     } yield SetTimeModelResponse(entry.configuration.generation)
 
     response.andThen(logger.logErrorsOnCall[SetTimeModelResponse])
@@ -123,18 +130,19 @@ private[apiserver] final class ApiConfigManagementService private (
   private case class SetTimeModelParameters(
       newTimeModel: v1.TimeModel,
       maximumRecordTime: Time.Timestamp,
-      timeToLive: FiniteDuration
+      timeToLive: FiniteDuration,
   )
 
   private def validateParameters(
-      request: SetTimeModelRequest,
+      request: SetTimeModelRequest
   ): Either[StatusRuntimeException, SetTimeModelParameters] = {
     import validation.FieldValidations._
     for {
       pTimeModel <- requirePresence(request.newTimeModel, "new_time_model")
       pAvgTransactionLatency <- requirePresence(
         pTimeModel.avgTransactionLatency,
-        "avg_transaction_latency")
+        "avg_transaction_latency",
+      )
       pMinSkew <- requirePresence(pTimeModel.minSkew, "min_skew")
       pMaxSkew <- requirePresence(pTimeModel.maxSkew, "max_skew")
       newTimeModel <- v1.TimeModel(
@@ -168,8 +176,8 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
       ledgerConfiguration: LedgerConfiguration,
-  )(
-      implicit materializer: Materializer,
+  )(implicit
+      materializer: Materializer,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ConfigManagementServiceGrpc.ConfigManagementService with GrpcApiService =
@@ -208,14 +216,14 @@ private[apiserver] object ApiConfigManagementService {
       configManagementService.configurationEntries(offset).map(_._2)
 
     override def accept(
-        submissionId: SubmissionId,
+        submissionId: SubmissionId
     ): PartialFunction[ConfigurationEntry, ConfigurationEntry.Accepted] = {
       case entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _) =>
         entry
     }
 
     override def reject(
-        submissionId: SubmissionId,
+        submissionId: SubmissionId
     ): PartialFunction[ConfigurationEntry, StatusRuntimeException] = {
       case domain.ConfigurationEntry.Rejected(`submissionId`, reason, _) =>
         ErrorFactories.aborted(reason)

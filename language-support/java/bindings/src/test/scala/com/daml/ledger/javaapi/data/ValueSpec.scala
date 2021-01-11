@@ -25,7 +25,8 @@ class ValueSpec
     PropertyCheckConfiguration(minSize = 1, sizeRange = 3)
 
   "Value.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
-    valueGen) { value =>
+    valueGen
+  ) { value =>
     Value.fromProto(value).toProto shouldEqual value
   }
 
@@ -88,19 +89,19 @@ class ValueSpec
 
   "Timestamp" should
     "be constructed from Instant" in forAll(Gen.posNum[Long]) { micros =>
-    val expected = new Timestamp(micros)
+      val expected = new Timestamp(micros)
 
-    val instant =
-      Instant.ofEpochSecond(TimeUnit.MICROSECONDS.toSeconds(micros), micros % 1000 * 1000)
-    val timestampFromInstant = Timestamp.fromInstant(instant)
-    expected shouldEqual timestampFromInstant
-  }
+      val instant =
+        Instant.ofEpochSecond(TimeUnit.MICROSECONDS.toSeconds(micros), micros % 1000 * 1000)
+      val timestampFromInstant = Timestamp.fromInstant(instant)
+      expected shouldEqual timestampFromInstant
+    }
   "Timestamp" should
     "be constructed from millis" in forAll(Gen.posNum[Long]) { millis =>
-    val expected = new Timestamp(millis * 1000)
+      val expected = new Timestamp(millis * 1000)
 
-    val timestampFromMillis = Timestamp.fromMillis(millis)
-    expected shouldEqual timestampFromMillis
-  }
+      val timestampFromMillis = Timestamp.fromMillis(millis)
+      expected shouldEqual timestampFromMillis
+    }
 
 }

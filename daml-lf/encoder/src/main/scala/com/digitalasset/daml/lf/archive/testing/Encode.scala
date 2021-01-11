@@ -15,7 +15,7 @@ object Encode {
 
   private def encodePayloadOfVersion(
       idAndPkg: (PackageId, Package),
-      version: LanguageVersion
+      version: LanguageVersion,
   ): PLF.ArchivePayload = {
 
     val (pkgId, pkg) = idAndPkg

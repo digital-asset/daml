@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.validator.caching.{
   CacheUpdatePolicy,
   CachingCommitStrategy,
-  CachingStateReader
+  CachingStateReader,
 }
 import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
 import com.daml.ledger.validator.{
@@ -18,7 +18,7 @@ import com.daml.ledger.validator.{
   DefaultStateKeySerializationStrategy,
   LedgerStateOperations,
   LogAppendingCommitStrategy,
-  StateKeySerializationStrategy
+  StateKeySerializationStrategy,
 }
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -45,8 +45,9 @@ object BatchedSubmissionValidatorFactory {
   def readerAndCommitStrategyFrom[LogResult](
       ledgerStateOperations: LedgerStateOperations[LogResult],
       keySerializationStrategy: StateKeySerializationStrategy = DefaultStateKeySerializationStrategy,
-  )(implicit executionContext: ExecutionContext)
-    : (DamlLedgerStateReader, CommitStrategy[LogResult]) = {
+  )(implicit
+      executionContext: ExecutionContext
+  ): (DamlLedgerStateReader, CommitStrategy[LogResult]) = {
     val ledgerStateReader = DamlLedgerStateReader.from(
       new LedgerStateReaderAdapter[LogResult](ledgerStateOperations),
       keySerializationStrategy,
@@ -63,8 +64,9 @@ object BatchedSubmissionValidatorFactory {
       stateCache: Cache[DamlStateKey, DamlStateValue],
       cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
       keySerializationStrategy: StateKeySerializationStrategy = DefaultStateKeySerializationStrategy,
-  )(implicit executionContext: ExecutionContext)
-    : (DamlLedgerStateReader, CommitStrategy[LogResult]) = {
+  )(implicit
+      executionContext: ExecutionContext
+  ): (DamlLedgerStateReader, CommitStrategy[LogResult]) = {
     val ledgerStateReader = CachingStateReader(
       stateCache,
       cacheUpdatePolicy,

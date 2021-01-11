@@ -52,8 +52,8 @@ object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
       val mapNode = GenNode.map2(f1, f2)
       VersionedTransaction(
         version,
-        versionedNodes.map {
-          case (nid, node) => f1(nid) -> mapNode(node)
+        versionedNodes.map { case (nid, node) =>
+          f1(nid) -> mapNode(node)
         },
         roots.map(f1),
       )
@@ -62,14 +62,12 @@ object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
   override private[lf] def foreach2[A, B](
       f1: A => Unit,
       f2: B => Unit,
-  ): VersionedTransaction[A, B] => Unit = {
-    case VersionedTransaction(_, versionedNodes, _) =>
-      val foreachNode = GenNode.foreach2(f1, f2)
-      versionedNodes.foreach {
-        case (nid, node) =>
-          f1(nid)
-          foreachNode(node)
-      }
+  ): VersionedTransaction[A, B] => Unit = { case VersionedTransaction(_, versionedNodes, _) =>
+    val foreachNode = GenNode.foreach2(f1, f2)
+    versionedNodes.foreach { case (nid, node) =>
+      f1(nid)
+      foreachNode(node)
+    }
   }
 
 }
@@ -138,11 +136,15 @@ final case class GenTransaction[Nid, +Cid](
               node match {
                 case _: Node.LeafOnlyNode[Cid] => go(newErrors, newVisited, nids)
                 case ne: Node.NodeExercises[Nid, Cid] =>
-                  go(newErrors, newVisited, if (alreadyVisited) {
-                    nids
-                  } else {
-                    ne.children ++: nids
-                  })
+                  go(
+                    newErrors,
+                    newVisited,
+                    if (alreadyVisited) {
+                      nids
+                    } else {
+                      ne.children ++: nids
+                    },
+                  )
               }
           }
       }
@@ -151,19 +153,17 @@ final case class GenTransaction[Nid, +Cid](
     errors ++ orphaned
   }
 
-  /**
-    * Compares two Transactions up to renaming of Nids. You most likely want to use this rather than ==, since the
+  /** Compares two Transactions up to renaming of Nids. You most likely want to use this rather than ==, since the
     * Nid is irrelevant to the content of the transaction.
     */
   def equalForest[Cid2 >: Cid](other: GenTransaction[_, Cid2]): Boolean =
     compareForest(other)(_ == _)
 
-  /**
-    * Compares two Transactions up to renaming of Nids. with the specified comparision of nodes
+  /** Compares two Transactions up to renaming of Nids. with the specified comparision of nodes
     * Nid is irrelevant to the content of the transaction.
     */
   def compareForest[Nid2, Cid2](other: GenTransaction[Nid2, Cid2])(
-      compare: (Node.GenNode[Nothing, Cid], Node.GenNode[Nothing, Cid2]) => Boolean,
+      compare: (Node.GenNode[Nothing, Cid], Node.GenNode[Nothing, Cid2]) => Boolean
   ): Boolean = {
     @tailrec
     def go(toCompare: FrontStack[(Nid, Nid2)]): Boolean =
@@ -214,37 +214,35 @@ final case class GenTransaction[Nid, +Cid](
 
   /** checks that all the values contained are serializable */
   def serializable(f: Value[Cid] => ImmArray[String]): ImmArray[String] = {
-    fold(BackStack.empty[String]) {
-      case (errs, (_, node)) =>
-        node match {
-          case _: Node.NodeFetch[Cid] => errs
-          case nc: Node.NodeCreate[Cid] =>
-            errs :++ f(nc.coinst.arg) :++ (nc.key match {
-              case None => ImmArray.empty
-              case Some(key) => f(key.key)
-            })
-          case ne: Node.NodeExercises[Nid, Cid] => errs :++ f(ne.chosenValue)
-          case nlbk: Node.NodeLookupByKey[Cid] => errs :++ f(nlbk.key.key)
-        }
+    fold(BackStack.empty[String]) { case (errs, (_, node)) =>
+      node match {
+        case _: Node.NodeFetch[Cid] => errs
+        case nc: Node.NodeCreate[Cid] =>
+          errs :++ f(nc.coinst.arg) :++ (nc.key match {
+            case None => ImmArray.empty
+            case Some(key) => f(key.key)
+          })
+        case ne: Node.NodeExercises[Nid, Cid] => errs :++ f(ne.chosenValue)
+        case nlbk: Node.NodeLookupByKey[Cid] => errs :++ f(nlbk.key.key)
+      }
     }.toImmArray
   }
 
   /** Visit every `Val`. */
   def foldValues[Z](z: Z)(f: (Z, Value[Cid]) => Z): Z =
-    fold(z) {
-      case (z, (_, n)) =>
-        n match {
-          case c: Node.NodeCreate[_] =>
-            val z1 = f(z, c.coinst.arg)
-            val z2 = c.key match {
-              case None => z1
-              case Some(k) => f(z1, k.key)
-            }
-            z2
-          case nf: Node.NodeFetch[_] => nf.key.fold(z)(k => f(z, k.key))
-          case e: Node.NodeExercises[_, _] => f(z, e.chosenValue)
-          case lk: Node.NodeLookupByKey[_] => f(z, lk.key.key)
-        }
+    fold(z) { case (z, (_, n)) =>
+      n match {
+        case c: Node.NodeCreate[_] =>
+          val z1 = f(z, c.coinst.arg)
+          val z2 = c.key match {
+            case None => z1
+            case Some(k) => f(z1, k.key)
+          }
+          z2
+        case nf: Node.NodeFetch[_] => nf.key.fold(z)(k => f(z, k.key))
+        case e: Node.NodeExercises[_, _] => f(z, e.chosenValue)
+        case lk: Node.NodeLookupByKey[_] => f(z, lk.key.key)
+      }
     }
 
   private[lf] def foreach2(fNid: Nid => Unit, fCid: Cid => Unit): Unit =
@@ -257,8 +255,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
 
   def roots: ImmArray[Nid]
 
-  /**
-    * This function traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children).
+  /** This function traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children).
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
     */
@@ -279,8 +276,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
     go(FrontStack(roots))
   }
 
-  /**
-    * Traverses the transaction tree in pre-order traversal (i.e. exercise nodes are traversed before their children)
+  /** Traverses the transaction tree in pre-order traversal (i.e. exercise nodes are traversed before their children)
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
     */
@@ -294,15 +290,14 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
     acc
   }
 
-  /**
-    * A fold over the transaction that maintains global and path-specific state.
+  /** A fold over the transaction that maintains global and path-specific state.
     * Takes constant stack space. Returns the global state.
     *
     * Used to for example compute the roots of per-party projections from the
     * transaction.
     */
   final def foldWithPathState[A, B](globalState0: A, pathState0: B)(
-      op: (A, B, Nid, Node.GenNode[Nid, Cid]) => (A, B),
+      op: (A, B, Nid, Node.GenNode[Nid, Cid]) => (A, B)
   ): A = {
     var globalState = globalState0
 
@@ -331,8 +326,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
       case (acc, _) => acc
     }
 
-  /**
-    * Returns the IDs of all input contracts that are used by this transaction.
+  /** Returns the IDs of all input contracts that are used by this transaction.
     */
   final def inputContracts[Cid2 >: Cid]: Set[Cid2] =
     fold(Set.empty[Cid2]) {
@@ -426,27 +420,23 @@ object GenTransaction extends value.CidContainer2[GenTransaction] {
   override private[lf] def map2[A1, A2, B1, B2](
       f1: A1 => B1,
       f2: A2 => B2,
-  ): GenTransaction[A1, A2] => GenTransaction[B1, B2] = {
-    case GenTransaction(nodes, roots) =>
-      GenTransaction(
-        nodes = nodes.map {
-          case (nodeId, node) =>
-            f1(nodeId) -> Node.GenNode.map2(f1, f2)(node)
-        },
-        roots = roots.map(f1)
-      )
+  ): GenTransaction[A1, A2] => GenTransaction[B1, B2] = { case GenTransaction(nodes, roots) =>
+    GenTransaction(
+      nodes = nodes.map { case (nodeId, node) =>
+        f1(nodeId) -> Node.GenNode.map2(f1, f2)(node)
+      },
+      roots = roots.map(f1),
+    )
   }
 
   override private[lf] def foreach2[A, B](
       f1: A => Unit,
       f2: B => Unit,
-  ): GenTransaction[A, B] => Unit = {
-    case GenTransaction(nodes, _) =>
-      nodes.foreach {
-        case (nodeId, node) =>
-          f1(nodeId)
-          Node.GenNode.foreach2(f1, f2)(node)
-      }
+  ): GenTransaction[A, B] => Unit = { case GenTransaction(nodes, _) =>
+    nodes.foreach { case (nodeId, node) =>
+      f1(nodeId)
+      Node.GenNode.foreach2(f1, f2)(node)
+    }
   }
 
   // crashes if transaction's keys contain contract Ids.
@@ -464,24 +454,22 @@ object GenTransaction extends value.CidContainer2[GenTransaction] {
         copy(active = active + key)
     }
 
-    tx.fold(State(Set.empty, Set.empty)) {
-        case (state, (_, node)) =>
-          node match {
-            case Node.NodeCreate(_, c, _, _, _, Some(key), _) =>
-              state.created(globalKey(c.template, key.key))
-            case Node.NodeExercises(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key), _, _) =>
-              state.consumed(globalKey(tmplId, key.key))
-            case Node.NodeExercises(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key), _, _) =>
-              state.referenced(globalKey(tmplId, key.key))
-            case Node.NodeFetch(_, tmplId, _, _, _, _, Some(key), _, _) =>
-              state.referenced(globalKey(tmplId, key.key))
-            case Node.NodeLookupByKey(tmplId, _, key, Some(_), _) =>
-              state.referenced(globalKey(tmplId, key.key))
-            case _ =>
-              state
-          }
+    tx.fold(State(Set.empty, Set.empty)) { case (state, (_, node)) =>
+      node match {
+        case Node.NodeCreate(_, c, _, _, _, Some(key), _) =>
+          state.created(globalKey(c.template, key.key))
+        case Node.NodeExercises(_, tmplId, _, _, true, _, _, _, _, _, _, _, Some(key), _, _) =>
+          state.consumed(globalKey(tmplId, key.key))
+        case Node.NodeExercises(_, tmplId, _, _, false, _, _, _, _, _, _, _, Some(key), _, _) =>
+          state.referenced(globalKey(tmplId, key.key))
+        case Node.NodeFetch(_, tmplId, _, _, _, _, Some(key), _, _) =>
+          state.referenced(globalKey(tmplId, key.key))
+        case Node.NodeLookupByKey(tmplId, _, key, Some(_), _) =>
+          state.referenced(globalKey(tmplId, key.key))
+        case _ =>
+          state
       }
-      .duplicates
+    }.duplicates
   }
 
 }
@@ -502,7 +490,6 @@ object Transaction {
     * code-paths share the computations for segregating the
     * transaction into party-specific ledgers and for computing
     * divulgence of contracts.
-    *
     */
   type Transaction = VersionedTransaction[NodeId, Value.ContractId]
   val Transaction: VersionedTransaction.type = VersionedTransaction
@@ -589,24 +576,25 @@ object Transaction {
         case (LazyList.cons(nid1, rest1), LazyList.cons(nid2, rest2)) =>
           (recorded.nodes(nid1), replayed.nodes(nid2)) match {
             case (
-                Node.NodeCreate(
-                  coid1,
-                  coinst1,
-                  optLocation1 @ _,
-                  signatories1,
-                  stakeholders1,
-                  key1,
-                  version1,
-                ),
-                Node.NodeCreate(
-                  coid2,
-                  coinst2,
-                  optLocation2 @ _,
-                  signatories2,
-                  stakeholders2,
-                  key2,
-                  version2,
-                ))
+                  Node.NodeCreate(
+                    coid1,
+                    coinst1,
+                    optLocation1 @ _,
+                    signatories1,
+                    stakeholders1,
+                    key1,
+                    version1,
+                  ),
+                  Node.NodeCreate(
+                    coid2,
+                    coinst2,
+                    optLocation2 @ _,
+                    signatories2,
+                    stakeholders2,
+                    key2,
+                    version2,
+                  ),
+                )
                 if version1 == version2 &&
                   coid1 === coid2 &&
                   coinst1 === coinst2 &&
@@ -615,28 +603,29 @@ object Transaction {
                   key1 === key2 =>
               loop(rest1, rest2, stack)
             case (
-                Node.NodeFetch(
-                  coid1,
-                  templateId1,
-                  optLocation1 @ _,
-                  actingParties1,
-                  signatories1,
-                  stakeholders1,
-                  key1,
-                  byKey1 @ _,
-                  version1,
-                ),
-                Node.NodeFetch(
-                  coid2,
-                  templateId2,
-                  optLocation2 @ _,
-                  actingParties2,
-                  signatories2,
-                  stakeholders2,
-                  key2,
-                  byKey2 @ _,
-                  version2,
-                ))
+                  Node.NodeFetch(
+                    coid1,
+                    templateId1,
+                    optLocation1 @ _,
+                    actingParties1,
+                    signatories1,
+                    stakeholders1,
+                    key1,
+                    byKey1 @ _,
+                    version1,
+                  ),
+                  Node.NodeFetch(
+                    coid2,
+                    templateId2,
+                    optLocation2 @ _,
+                    actingParties2,
+                    signatories2,
+                    stakeholders2,
+                    key2,
+                    byKey2 @ _,
+                    version2,
+                  ),
+                )
                 if version1 == version2 &&
                   coid1 === coid2 &&
                   templateId1 == templateId2 &&
@@ -646,40 +635,41 @@ object Transaction {
                   (key1.isEmpty || key1 === key2) =>
               loop(rest1, rest2, stack)
             case (
-                exe1 @ Node.NodeExercises(
-                  targetCoid1,
-                  templateId1,
-                  choiceId1,
-                  optLocation1 @ _,
-                  consuming1,
-                  actingParties1,
-                  chosenValue1,
-                  stakeholders1,
-                  signatories1,
-                  choiceObservers1,
-                  children1 @ _,
-                  exerciseResult1 @ _,
-                  key1,
-                  byKey1 @ _,
-                  version1,
-                ),
-                exe2 @ Node.NodeExercises(
-                  targetCoid2,
-                  templateId2,
-                  choiceId2,
-                  optLocation2 @ _,
-                  consuming2,
-                  actingParties2,
-                  chosenValue2,
-                  stakeholders2,
-                  signatories2,
-                  choiceObservers2,
-                  children2 @ _,
-                  exerciseResult2 @ _,
-                  key2,
-                  byKey2 @ _,
-                  version2,
-                ))
+                  exe1 @ Node.NodeExercises(
+                    targetCoid1,
+                    templateId1,
+                    choiceId1,
+                    optLocation1 @ _,
+                    consuming1,
+                    actingParties1,
+                    chosenValue1,
+                    stakeholders1,
+                    signatories1,
+                    choiceObservers1,
+                    children1 @ _,
+                    exerciseResult1 @ _,
+                    key1,
+                    byKey1 @ _,
+                    version1,
+                  ),
+                  exe2 @ Node.NodeExercises(
+                    targetCoid2,
+                    templateId2,
+                    choiceId2,
+                    optLocation2 @ _,
+                    consuming2,
+                    actingParties2,
+                    chosenValue2,
+                    stakeholders2,
+                    signatories2,
+                    choiceObservers2,
+                    children2 @ _,
+                    exerciseResult2 @ _,
+                    key2,
+                    byKey2 @ _,
+                    version2,
+                  ),
+                )
                 // results are checked after the children
                 if version1 == version2 &&
                   targetCoid1 === targetCoid2 &&
@@ -695,11 +685,11 @@ object Transaction {
               loop(
                 children1.iterator.to(LazyList),
                 children2.iterator.to(LazyList),
-                (nid1, exe1, rest1, nid2, exe2, rest2) :: stack
+                (nid1, exe1, rest1, nid2, exe2, rest2) :: stack,
               )
             case (
-                Node.NodeLookupByKey(templateId1, optLocation1 @ _, key1, result1, version1),
-                Node.NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2, version2)
+                  Node.NodeLookupByKey(templateId1, optLocation1 @ _, key1, result1, version1),
+                  Node.NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2, version2),
                 )
                 if version1 == version2 &&
                   templateId1 == templateId2 &&

@@ -14,7 +14,8 @@ trait BazelRunfiles {
 
   private val inBazelEnvironment =
     Set("RUNFILES_DIR", "JAVA_RUNFILES", "RUNFILES_MANIFEST_FILE", "RUNFILES_MANIFEST_ONLY").exists(
-      sys.env.contains)
+      sys.env.contains
+    )
 
   def rlocation(path: String): String =
     if (inBazelEnvironment)

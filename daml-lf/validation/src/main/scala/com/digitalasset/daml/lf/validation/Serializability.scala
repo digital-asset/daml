@@ -100,7 +100,8 @@ private[validation] object Serializability {
       world: World,
       tyCon: TTyCon,
       params: ImmArray[(TypeVarName, Kind)],
-      dataCons: DataCons): Unit = {
+      dataCons: DataCons,
+  ): Unit = {
     val context = ContextDefDataType(tyCon.tycon)
     val env =
       (params.iterator foldLeft Env(version, world, context, SRDataType, tyCon))(_.introVar(_))
@@ -151,10 +152,9 @@ private[validation] object Serializability {
         if (serializable) checkDataType(version, world, tyCon, params, dataCons)
       case _ =>
     }
-    module.templates.foreach {
-      case (defName, template) =>
-        val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-        checkTemplate(version, world, tyCon, template)
+    module.templates.foreach { case (defName, template) =>
+      val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
+      checkTemplate(version, world, tyCon, template)
     }
     module.exceptions.keys.foreach { defName =>
       val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))

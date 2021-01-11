@@ -8,7 +8,7 @@ import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrp
 import com.daml.ledger.api.v1.active_contracts_service.{
   ActiveContractsServiceGrpc,
   GetActiveContractsRequest,
-  GetActiveContractsResponse
+  GetActiveContractsResponse,
 }
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
@@ -27,10 +27,12 @@ private[daml] final class ActiveContractsServiceAuthorization(
 
   override def getActiveContracts(
       request: GetActiveContractsRequest,
-      responseObserver: StreamObserver[GetActiveContractsResponse]): Unit =
+      responseObserver: StreamObserver[GetActiveContractsResponse],
+  ): Unit =
     authorizer.requireReadClaimsForTransactionFilterOnStream(
       request.filter,
-      service.getActiveContracts)(request, responseObserver)
+      service.getActiveContracts,
+    )(request, responseObserver)
 
   override def bindService(): ServerServiceDefinition =
     ActiveContractsServiceGrpc.bindService(this, executionContext)

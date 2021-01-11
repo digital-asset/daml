@@ -20,8 +20,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object IndexMetadata {
 
-  def read(jdbcUrl: String)(
-      implicit resourceContext: ResourceContext,
+  def read(jdbcUrl: String)(implicit
+      resourceContext: ResourceContext,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[IndexMetadata] =

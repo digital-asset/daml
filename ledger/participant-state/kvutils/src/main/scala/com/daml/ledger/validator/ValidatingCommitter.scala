@@ -14,8 +14,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
-  * Orchestrates committing to a ledger after validating the submission.
+/** Orchestrates committing to a ledger after validating the submission.
   * Example usage, assuming a [[com.daml.ledger.participant.state.kvutils.api.LedgerWriter]] sends the submission over
   * the wire:
   * {{{
@@ -64,7 +63,8 @@ class ValidatingCommitter[LogResult](
             SubmissionResult.Acknowledged
           case Left(MissingInputState(keys)) =>
             SubmissionResult.InternalError(
-              s"Missing input state: ${keys.map(_.bytes.asScala.map("%02x".format(_)).mkString).mkString(", ")}")
+              s"Missing input state: ${keys.map(_.bytes.asScala.map("%02x".format(_)).mkString).mkString(", ")}"
+            )
           case Left(ValidationError(reason)) =>
             SubmissionResult.InternalError(reason)
         }

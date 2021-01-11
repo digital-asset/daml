@@ -14,8 +14,8 @@ private[apiserver] trait CommandExecutor {
   def execute(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
-  )(
-      implicit ec: ExecutionContext,
+  )(implicit
+      ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]]
 }

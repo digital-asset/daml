@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   SubmissionExecutor,
   PackageCommitter,
   PartyAllocationCommitter,
-  TransactionCommitter
+  TransactionCommitter,
 }
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time.Timestamp
@@ -34,7 +34,8 @@ import scala.collection.JavaConverters._
 class KeyValueCommitting private[daml] (
     engine: Engine,
     metrics: Metrics,
-    inStaticTimeMode: Boolean) {
+    inStaticTimeMode: Boolean,
+) {
   import KeyValueCommitting.submissionOutputs
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -97,7 +98,7 @@ class KeyValueCommitting private[daml] (
         logger.warn(s"Exception while processing submission, error='$e'")
         metrics.daml.kvutils.committer.last.lastExceptionGauge.updateValue(
           Pretty
-            .prettyEntryId(entryId) + s"[${submission.getPayloadCase}]: " + e.toString,
+            .prettyEntryId(entryId) + s"[${submission.getPayloadCase}]: " + e.toString
         )
         throw e
     } finally {
@@ -133,7 +134,8 @@ class KeyValueCommitting private[daml] (
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
         val maximumRecordTime = parseTimestamp(
-          submission.getConfigurationSubmission.getMaximumRecordTime)
+          submission.getConfigurationSubmission.getMaximumRecordTime
+        )
         new ConfigCommitter(defaultConfig, maximumRecordTime, metrics)
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
@@ -151,7 +153,7 @@ class KeyValueCommitting private[daml] (
     if (!(actualStateUpdates.keySet subsetOf expectedStateUpdates)) {
       val unaccountedKeys = actualStateUpdates.keySet diff expectedStateUpdates
       sys.error(
-        s"State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!",
+        s"State updates not a subset of expected updates! Keys [$unaccountedKeys] are unaccounted for!"
       )
     }
   }
@@ -164,7 +166,7 @@ object KeyValueCommitting {
       stateUpdates: Map[DamlStateKey, DamlStateValue],
       outOfTimeBoundsLogEntry: DamlLogEntry,
       minimumRecordTime: Option[Timestamp],
-      maximumRecordTime: Option[Timestamp]
+      maximumRecordTime: Option[Timestamp],
   )
 
   /** Compute the submission outputs, that is the DAML State Keys created or updated by
@@ -191,7 +193,7 @@ object KeyValueCommitting {
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         val transactionEntry = submission.getTransactionEntry
         transactionOutputs(transactionEntry) + commandDedupKey(
-          transactionEntry.getSubmitterInfo,
+          transactionEntry.getSubmitterInfo
         )
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
@@ -223,7 +225,7 @@ object KeyValueCommitting {
 
           Conversions
             .contractIdStructOrStringToStateKey(
-              create.getContractIdStruct,
+              create.getContractIdStruct
             ) :: contractKeyStateKeyOrEmpty
 
         case TransactionOuterClass.Node.NodeTypeCase.EXERCISE =>
@@ -236,7 +238,7 @@ object KeyValueCommitting {
 
           Conversions
             .contractIdStructOrStringToStateKey(
-              exe.getContractIdStruct,
+              exe.getContractIdStruct
             ) :: contractKeyStateKeyOrEmpty
 
         case TransactionOuterClass.Node.NodeTypeCase.FETCH =>
@@ -244,8 +246,8 @@ object KeyValueCommitting {
           List(
             Conversions
               .contractIdStructOrStringToStateKey(
-                node.getFetch.getContractIdStruct,
-              ),
+                node.getFetch.getContractIdStruct
+              )
           )
         case TransactionOuterClass.Node.NodeTypeCase.LOOKUP_BY_KEY =>
           // Contract state only modified on divulgence, in which case we'll have a fetch node,
@@ -260,7 +262,8 @@ object KeyValueCommitting {
 
   private def contractKeyToStateKey(
       templateId: ValueOuterClass.Identifier,
-      key: ValueOuterClass.VersionedValue): DamlStateKey = {
+      key: ValueOuterClass.VersionedValue,
+  ): DamlStateKey = {
     // NOTE(JM): The deserialization of the values is meant to be temporary. With the removal of relative
     // contract ids from kvutils submissions we will be able to up-front compute the outputs without having
     // to allocate a log entry id and we can directly place the output keys into the submission and do not need
@@ -269,13 +272,14 @@ object KeyValueCommitting {
       GlobalKey(
         decodeIdentifier(templateId),
         decodeVersionedValue(key).value.ensureNoCid
-          .getOrElse(throw Err.DecodeError("ContractKey", "Contract key contained contract id"))
+          .getOrElse(throw Err.DecodeError("ContractKey", "Contract key contained contract id")),
       )
     DamlStateKey.newBuilder
       .setContractKey(
         DamlContractKey.newBuilder
           .setTemplateId(templateId)
-          .setHash(contractKey.hash.bytes.toByteString))
+          .setHash(contractKey.hash.bytes.toByteString)
+      )
       .build
   }
 }

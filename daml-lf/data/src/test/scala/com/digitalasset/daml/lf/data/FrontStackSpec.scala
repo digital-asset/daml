@@ -36,7 +36,8 @@ class FrontStackSpec
     "more than 2 elements are provided" should {
       "behave the same as prepend" in forAll { (x: Int, y: Int, z: Int, rest: Seq[Int]) =>
         FrontStack(x, y, z, rest: _*) should ===(
-          ImmArray(Seq(x, y, z) ++ rest) ++: FrontStack.empty)
+          ImmArray(Seq(x, y, z) ++ rest) ++: FrontStack.empty
+        )
       }
     }
 

@@ -48,8 +48,8 @@ final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extend
 
 object SortedLookupList extends SortedLookupListInstances {
 
-  private[this] val EntryOrdering: Ordering[(String, _)] = {
-    case ((key1, _), (key2, _)) => Utf8.Ordering.compare(key1, key2)
+  private[this] val EntryOrdering: Ordering[(String, _)] = { case ((key1, _), (key2, _)) =>
+    Utf8.Ordering.compare(key1, key2)
   }
 
   private[this] def nonOrderedEntry[X](entries: ImmArray[(String, X)]): Option[(String, X)] =
@@ -83,7 +83,8 @@ object SortedLookupList extends SortedLookupListInstances {
   implicit val `SLL covariant instance`: Traverse[SortedLookupList] =
     new Traverse[SortedLookupList] {
       override def traverseImpl[G[_]: Applicative, A, B](fa: SortedLookupList[A])(
-          f: A => G[B]): G[SortedLookupList[B]] =
+          f: A => G[B]
+      ): G[SortedLookupList[B]] =
         fa.toImmArray traverse (_ traverse f) map (new SortedLookupList(_))
     }
 

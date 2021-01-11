@@ -19,7 +19,7 @@ final case class CreatedEvent(
     contractId: String,
     templateId: Identifier,
     createArguments: OfCid[V.ValueRecord],
-    stakeholders: Set[String]
+    stakeholders: Set[String],
 ) extends Event
 
 final case class ExercisedEvent(
@@ -31,7 +31,7 @@ final case class ExercisedEvent(
     actingParties: Set[String],
     consuming: Boolean,
     witnessParties: Set[String],
-    childEventIds: Seq[String]
+    childEventIds: Seq[String],
 ) extends Event
 
 object Event {
@@ -60,14 +60,13 @@ object Event {
         templateId = apiTemplateId.convert
         apiRecord <- createdArgumentsLens(apiEvent)
         createArguments <- apiRecord.convert
-      } yield
-        CreatedEvent(
-          apiEvent.eventId,
-          apiEvent.contractId,
-          templateId,
-          createArguments,
-          (apiEvent.observers ++ apiEvent.signatories).toSet
-        )
+      } yield CreatedEvent(
+        apiEvent.eventId,
+        apiEvent.contractId,
+        templateId,
+        createArguments,
+        (apiEvent.observers ++ apiEvent.signatories).toSet,
+      )
     }
   }
 
@@ -78,18 +77,17 @@ object Event {
         templateId = apiTemplateId.convert
         apiChoiceArg <- exercisedChoiceArgLens(apiEvent)
         choiceArg <- apiChoiceArg.convert
-      } yield
-        ExercisedEvent(
-          apiEvent.eventId,
-          apiEvent.contractId,
-          templateId,
-          apiEvent.choice,
-          choiceArg,
-          apiEvent.actingParties.toSet,
-          apiEvent.consuming,
-          apiEvent.witnessParties.toSet,
-          apiEvent.childEventIds
-        )
+      } yield ExercisedEvent(
+        apiEvent.eventId,
+        apiEvent.contractId,
+        templateId,
+        apiEvent.choice,
+        choiceArg,
+        apiEvent.actingParties.toSet,
+        apiEvent.consuming,
+        apiEvent.witnessParties.toSet,
+        apiEvent.childEventIds,
+      )
     }
   }
 }

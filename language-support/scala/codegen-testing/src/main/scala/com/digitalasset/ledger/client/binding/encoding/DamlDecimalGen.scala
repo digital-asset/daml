@@ -29,8 +29,10 @@ object DamlDecimalGen {
       MinDamlDecimal,
       BigDecimal(0).setScale(scale),
       BigDecimal(1).setScale(scale),
-      BigDecimal(-1).setScale(scale))
+      BigDecimal(-1).setScale(scale),
+    )
 
   lazy val arbDamlDecimal: Arbitrary[P.Numeric] = Arbitrary(
-    Gen.frequency((10, genDamlDecimal), (5, genSpecificDamlDecimal)))
+    Gen.frequency((10, genDamlDecimal), (5, genSpecificDamlDecimal))
+  )
 }

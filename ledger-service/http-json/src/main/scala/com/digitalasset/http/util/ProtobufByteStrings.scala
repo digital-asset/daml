@@ -12,14 +12,16 @@ import scala.collection.JavaConverters._
 
 object ProtobufByteStrings {
 
-  def readFrom(source: Source[akka.util.ByteString, NotUsed])(
-      implicit mat: Materializer): protobuf.ByteString = {
+  def readFrom(
+      source: Source[akka.util.ByteString, NotUsed]
+  )(implicit mat: Materializer): protobuf.ByteString = {
     val inputStream = source.runWith(StreamConverters.asInputStream())
     protobuf.ByteString.readFrom(inputStream)
   }
 
   def toSource(a: protobuf.ByteString): Source[akka.util.ByteString, NotUsed] = {
     Source.fromIterator(() =>
-      a.asReadOnlyByteBufferList().iterator.asScala.map(x => akka.util.ByteString(x)))
+      a.asReadOnlyByteBufferList().iterator.asScala.map(x => akka.util.ByteString(x))
+    )
   }
 }

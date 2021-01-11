@@ -8,8 +8,7 @@ import spray.json._
 
 import scala.util.Try
 
-/**
-  * Custom marshallers and unmarshallers for dealing with raw JSON values.
+/** Custom marshallers and unmarshallers for dealing with raw JSON values.
   *
   * The declared implicit objects replace the ones you would usually import from `sangria.marshalling.sprayJson`.
   * In fact they are largely identical to those except for the additional support for non-scalar JSON values.
@@ -29,7 +28,8 @@ object SprayMarshallers {
         builder: MapBuilder,
         key: String,
         value: Node,
-        optional: Boolean): ArrayMapBuilder[JsValue] = builder.add(key, value)
+        optional: Boolean,
+    ): ArrayMapBuilder[JsValue] = builder.add(key, value)
 
     def mapNode(builder: MapBuilder) = JsObject(builder.toMap)
     def mapNode(keyValues: Seq[(String, JsValue)]) = JsObject(keyValues: _*)

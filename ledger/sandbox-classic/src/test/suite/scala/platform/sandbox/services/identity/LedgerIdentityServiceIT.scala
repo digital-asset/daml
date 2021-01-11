@@ -27,7 +27,8 @@ sealed trait LedgerIdentityServiceITBaseGiven
 
   override protected def config: SandboxConfig =
     super.config.copy(ledgerIdMode =
-      LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(givenLedgerId))))
+      LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(givenLedgerId)))
+    )
 
   // This test relies on inheriting from SuiteResourceManagementAroundEach to restart the ledger across test cases
 
@@ -100,7 +101,8 @@ final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
       .copy(
         jdbcUrl = Some(postgresDatabase.url),
         ledgerIdMode = Option(firstRunLedgerId).fold[LedgerIdMode](LedgerIdMode.Dynamic)(id =>
-          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id))))
+          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))
+        ),
       )
 
   @volatile private var firstRunLedgerId: String = _

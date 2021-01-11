@@ -169,11 +169,12 @@ object FrontStack extends FrontStackInstances {
   def unapply[T](xs: FrontStack[T]): Boolean = xs.isEmpty
 
   implicit val `FrontStack covariant`: Traverse[FrontStack] = new Traverse[FrontStack] {
-    override def traverseImpl[G[_]: Applicative, A, B](fa: FrontStack[A])(
-        f: A => G[B]): G[FrontStack[B]] =
+    override def traverseImpl[G[_]: Applicative, A, B](
+        fa: FrontStack[A]
+    )(f: A => G[B]): G[FrontStack[B]] =
       fa.toBackStack.bqFoldRight(FrontStack.empty[B].pure[G])(
         (a, z) => ^(f(a), z)(_ +: _),
-        (iaa, z) => ^(iaa traverse f, z)(_ ++: _)
+        (iaa, z) => ^(iaa traverse f, z)(_ ++: _),
       )
   }
 

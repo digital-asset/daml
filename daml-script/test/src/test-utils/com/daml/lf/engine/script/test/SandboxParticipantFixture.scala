@@ -23,7 +23,8 @@ trait SandboxParticipantFixture
   private implicit val ec: ExecutionContext = system.dispatcher
   def participantClients(
       maxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize,
-      tlsConfiguration: TlsConfiguration = TlsConfiguration.Empty.copy(enabled = false)) =
+      tlsConfiguration: TlsConfiguration = TlsConfiguration.Empty.copy(enabled = false),
+  ) =
     Runner.connect(
       Participants(
         default_participant = Some(
@@ -31,9 +32,11 @@ trait SandboxParticipantFixture
             host = "localhost",
             port = serverPort.value,
             access_token = None,
-            application_id = None)),
+            application_id = None,
+          )
+        ),
         party_participants = Map.empty,
-        participants = Map.empty
+        participants = Map.empty,
       ),
       tlsConfig = tlsConfiguration,
       maxInboundMessageSize = maxInboundMessageSize,

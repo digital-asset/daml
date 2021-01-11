@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.rawHexString
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}

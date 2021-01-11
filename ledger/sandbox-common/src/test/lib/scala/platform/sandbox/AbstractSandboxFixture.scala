@@ -17,7 +17,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
-  LedgerIdentityServiceGrpc
+  LedgerIdentityServiceGrpc,
 }
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.client.services.testing.time.StaticTime
@@ -47,11 +47,12 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
         .blockingStub(channel)
         .withCallCredentials(token.map(new LedgerCallCredentials(_)).orNull)
         .getLedgerIdentity(GetLedgerIdentityRequest())
-        .ledgerId)
+        .ledgerId
+    )
 
-  protected def getTimeProviderForClient(
-      implicit mat: Materializer,
-      esf: ExecutionSequencerFactory
+  protected def getTimeProviderForClient(implicit
+      mat: Materializer,
+      esf: ExecutionSequencerFactory,
   ): TimeProvider = {
     Try(TimeServiceGrpc.stub(channel))
       .map(StaticTime.updatedVia(_, ledgerId().unwrap)(mat, esf))

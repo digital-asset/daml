@@ -10,7 +10,7 @@ private[codegen] class UnknownBackend(backendName: String)
       UnknownBackend.message(backendName, backend.backends.keys),
       null,
       true,
-      false
+      false,
     )
 
 private[codegen] object UnknownBackend {

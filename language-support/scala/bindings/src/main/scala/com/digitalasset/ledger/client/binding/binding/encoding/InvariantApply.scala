@@ -34,8 +34,9 @@ trait InvariantApply[F[_]] extends InvariantFunctor[F] {
       (a, (b, c))
     }
 
-  def xmapN[A, B, C, D, Z](fa: F[A], fb: F[B], fc: F[C], fd: F[D])(f: (A, B, C, D) => Z)(
-      g: Z => (A, B, C, D)): F[Z] =
+  def xmapN[A, B, C, D, Z](fa: F[A], fb: F[B], fc: F[C], fd: F[D])(
+      f: (A, B, C, D) => Z
+  )(g: Z => (A, B, C, D)): F[Z] =
     xmapN(tupleN(fa, fb), tupleN(fc, fd)) { (ab, cd) =>
       val (a, b) = ab
       val (c, d) = cd
@@ -46,7 +47,8 @@ trait InvariantApply[F[_]] extends InvariantFunctor[F] {
     }
 
   def xmapN[A, B, C, D, E, Z](fa: F[A], fb: F[B], fc: F[C], fd: F[D], fe: F[E])(
-      f: (A, B, C, D, E) => Z)(g: Z => (A, B, C, D, E)): F[Z] =
+      f: (A, B, C, D, E) => Z
+  )(g: Z => (A, B, C, D, E)): F[Z] =
     xmapN(fa, tupleN(fb, fc), tupleN(fd, fe)) { (a, bc, de) =>
       val (b, c) = bc
       val (d, e) = de

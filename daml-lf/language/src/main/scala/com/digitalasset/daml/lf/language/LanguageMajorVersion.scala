@@ -10,7 +10,8 @@ import scalaz.NonEmptyList
 // an ADT version of the DAML-LF version
 sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: NonEmptyList[String])
     extends LfVersions(minorAscending.map[LanguageMinorVersion](LanguageMinorVersion))(
-      _.toProtoIdentifier)
+      _.toProtoIdentifier
+    )
     with Product
     with Serializable {
 
@@ -31,7 +32,7 @@ object LanguageMajorVersion {
   case object V1
       extends LanguageMajorVersion(
         pretty = "1",
-        minorAscending = NonEmptyList("6", "7", "8", "11", "dev")
+        minorAscending = NonEmptyList("6", "7", "8", "11", "dev"),
       )
 
   val All: List[LanguageMajorVersion] = List(V1)

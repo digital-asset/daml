@@ -61,7 +61,7 @@ class DataTypeIT extends AnyWordSpec with Matchers {
       P.GenMap(
         pair1 -> VariantMod.Either.Left(1L),
         pair2 -> VariantMod.Either.Right(BigDecimal("-2.222")),
-        pair3 -> VariantMod.Either.Left(3L)
+        pair3 -> VariantMod.Either.Left(3L),
       )
 
     "idempotent on genMap" in {

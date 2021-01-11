@@ -24,13 +24,15 @@ private[extractor] object CustomScoptReaders {
         TemplateConfig(moduleName, entityName)
       case _ =>
         throw new IllegalArgumentException(
-          s"Expected TemplateConfig string: '<moduleName>:<entityName>', got: '$s'")
+          s"Expected TemplateConfig string: '<moduleName>:<entityName>', got: '$s'"
+        )
     }
   }
 
-  implicit def nonEmptySeqRead[F[_], A](
-      implicit ev: Read[A],
-      target: CanBuildFrom[Nothing, A, F[A]]): Read[OneAnd[F, A]] = reads { s =>
+  implicit def nonEmptySeqRead[F[_], A](implicit
+      ev: Read[A],
+      target: CanBuildFrom[Nothing, A, F[A]],
+  ): Read[OneAnd[F, A]] = reads { s =>
     val Array(hd, tl @ _*) = s split Read.sep
     OneAnd(ev reads hd, tl.map(ev.reads)(breakOut))
   }

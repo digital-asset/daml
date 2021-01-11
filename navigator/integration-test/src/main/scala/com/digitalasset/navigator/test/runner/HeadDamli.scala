@@ -9,8 +9,7 @@ import java.nio.file.Files
 import scala.sys.error
 import scala.sys.process.Process
 
-/**
-  * Run the HEAD version of damlc from source, to create a DAR file from a DAML file.
+/** Run the HEAD version of damlc from source, to create a DAR file from a DAML file.
   */
 object HeadDamlc {
   private val packageName = "Test"
@@ -25,7 +24,8 @@ object HeadDamlc {
 
     // DAML -> DAR
     val exitCode = Process(
-      s"bazel run damlc -- package $damlPath $packageName --output ${darFile.getAbsolutePath}").!
+      s"bazel run damlc -- package $damlPath $packageName --output ${darFile.getAbsolutePath}"
+    ).!
     if (exitCode != 0) {
       shutdown(())
       error(s"Dar packager: error while running damlc package for $damlPath: exit code $exitCode")

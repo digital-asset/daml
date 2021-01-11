@@ -12,8 +12,7 @@ import value.{Value => V}
   */
 trait NavigatorModelAliases[Cid] {
 
-  /**
-    * An absolute reference of a DAML-LF entity.
+  /** An absolute reference of a DAML-LF entity.
     * Contains a DAML-LF package ID and a qualified name.
     * Currently, such identifiers can point to:
     * - Templates
@@ -23,8 +22,7 @@ trait NavigatorModelAliases[Cid] {
   type DamlLfIdentifier = DamlLfRef.Identifier
   val DamlLfIdentifier = DamlLfRef.Identifier
 
-  /**
-    * A simple DAML-LF type
+  /** A simple DAML-LF type
     * Currently, these can be:
     * - Primitive types
     * - Type constructor applications (i.e., dereferencing a DamlLfIdentifier)

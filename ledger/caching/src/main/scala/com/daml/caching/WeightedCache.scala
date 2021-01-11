@@ -9,7 +9,7 @@ import com.github.benmanes.caffeine.{cache => caffeine}
 object WeightedCache {
 
   def from[Key <: AnyRef: Weight, Value <: AnyRef: Weight](
-      configuration: Configuration,
+      configuration: Configuration
   ): ConcurrentCache[Key, Value] =
     from(configuration, None)
 

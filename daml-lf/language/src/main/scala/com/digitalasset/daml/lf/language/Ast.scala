@@ -11,7 +11,7 @@ object Ast {
   // Identifiers
   //
 
-  /**  Fully applied type constructor. */
+  /** Fully applied type constructor. */
   case class TypeConApp(tycon: TypeConName, args: ImmArray[Type]) {
     def pretty: String =
       args.foldLeft(TTyCon(tycon): Type) { case (arg, acc) => TApp(acc, arg) }.pretty
@@ -106,7 +106,7 @@ object Ast {
   final case class EAbs(
       binder: (ExprVarName, Type),
       body: Expr,
-      ref: Option[DefinitionRef] // The definition in which this abstraction is defined.
+      ref: Option[DefinitionRef], // The definition in which this abstraction is defined.
   ) extends Expr
 
   /** Type abstraction. */
@@ -137,13 +137,13 @@ object Ast {
 
   final case class ESome(typ: Type, body: Expr) extends Expr
 
-  /** Any constructor **/
+  /** Any constructor * */
   final case class EToAny(ty: Type, body: Expr) extends Expr
 
-  /** Extract the underlying value if it matches the ty **/
+  /** Extract the underlying value if it matches the ty * */
   final case class EFromAny(ty: Type, body: Expr) extends Expr
 
-  /** Unique textual representation of template Id **/
+  /** Unique textual representation of template Id * */
   final case class ETypeRep(typ: Type) extends Expr
 
   /** Throw an exception */
@@ -218,7 +218,7 @@ object Ast {
                   prettyType(t, precTApp + 1)
                 }
                 .toSeq
-                .mkString(" ")
+                .mkString(" "),
           )
         case TTyCon(con) => con.qualifiedName.name.toString
         case TBuiltin(BTArrow) => "(->)"
@@ -226,11 +226,13 @@ object Ast {
         case TApp(TApp(TBuiltin(BTArrow), param), result) =>
           maybeParens(
             prec > precTFun,
-            prettyType(param, precTFun + 1) + " → " + prettyType(result, precTFun))
+            prettyType(param, precTFun + 1) + " → " + prettyType(result, precTFun),
+          )
         case TApp(fun, arg) =>
           maybeParens(
             prec > precTApp,
-            prettyType(fun, precTApp) + " " + prettyType(arg, precTApp + 1))
+            prettyType(fun, precTApp) + " " + prettyType(arg, precTApp + 1),
+          )
         case TForall((v, _), body) =>
           maybeParens(prec > precTForall, "∀" + v + prettyForAll(body))
         case TStruct(fields) =>
@@ -341,11 +343,16 @@ object Ast {
   final case object BTrace extends BuiltinFunction(2) // : ∀a. Text -> a -> a
 
   // Numeric arithmetic
-  final case object BAddNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
-  final case object BSubNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
-  final case object BMulNumeric extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
-  final case object BDivNumeric extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
-  final case object BRoundNumeric extends BuiltinFunction(2) // :  ∀s. Integer → Numeric s → Numeric s
+  final case object BAddNumeric
+      extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BSubNumeric
+      extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BMulNumeric
+      extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
+  final case object BDivNumeric
+      extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
+  final case object BRoundNumeric
+      extends BuiltinFunction(2) // :  ∀s. Integer → Numeric s → Numeric s
   final case object BCastNumeric extends BuiltinFunction(1) // : ∀s1 s2. Numeric s1 → Numeric s2
   final case object BShiftNumeric extends BuiltinFunction(1) // : ∀s1 s2. Numeric s1 → Numeric s2
 
@@ -371,17 +378,24 @@ object Ast {
 
   // Maps
   final case object BTextMapEmpty extends BuiltinFunction(0) // : ∀ a. TextMap a
-  final case object BTextMapInsert extends BuiltinFunction(3) // : ∀ a. Text -> a -> TextMap a -> TextMap a
-  final case object BTextMapLookup extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> Optional a
-  final case object BTextMapDelete extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> TextMap a
-  final case object BTextMapToList extends BuiltinFunction(1) // : ∀ a. TextMap a -> [Struct("key":Text, "value":a)]
+  final case object BTextMapInsert
+      extends BuiltinFunction(3) // : ∀ a. Text -> a -> TextMap a -> TextMap a
+  final case object BTextMapLookup
+      extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> Optional a
+  final case object BTextMapDelete
+      extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> TextMap a
+  final case object BTextMapToList
+      extends BuiltinFunction(1) // : ∀ a. TextMap a -> [Struct("key":Text, "value":a)]
   final case object BTextMapSize extends BuiltinFunction(1) // : ∀ a. TextMap a -> Int64
 
   // Generic Maps
   final case object BGenMapEmpty extends BuiltinFunction(0) // : ∀ a b. GenMap a b
-  final case object BGenMapInsert extends BuiltinFunction(3) // : ∀ a b. a -> b -> GenMap a b -> GenMap a b
-  final case object BGenMapLookup extends BuiltinFunction(2) // : ∀ a b. a -> GenMap a b -> Optional b
-  final case object BGenMapDelete extends BuiltinFunction(2) // : ∀ a b. a -> GenMap a b -> GenMap a b
+  final case object BGenMapInsert
+      extends BuiltinFunction(3) // : ∀ a b. a -> b -> GenMap a b -> GenMap a b
+  final case object BGenMapLookup
+      extends BuiltinFunction(2) // : ∀ a b. a -> GenMap a b -> Optional b
+  final case object BGenMapDelete
+      extends BuiltinFunction(2) // : ∀ a b. a -> GenMap a b -> GenMap a b
   final case object BGenMapKeys extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> [a]
   final case object BGenMapValues extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> [b]
   final case object BGenMapSize extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> Int64
@@ -397,12 +411,14 @@ object Ast {
   final case object BToTextTimestamp extends BuiltinFunction(1) // : Timestamp → Text
   final case object BToTextParty extends BuiltinFunction(1) // : Party → Text
   final case object BToTextDate extends BuiltinFunction(1) // : Date -> Text
-  final case object BToTextContractId extends BuiltinFunction(1) // : forall t. ContractId t -> Optional Text
+  final case object BToTextContractId
+      extends BuiltinFunction(1) // : forall t. ContractId t -> Optional Text
   final case object BToQuotedTextParty extends BuiltinFunction(1) // : Party -> Text
   final case object BToTextCodePoints extends BuiltinFunction(1) // : [Int64] -> Text
   final case object BFromTextParty extends BuiltinFunction(1) // : Text -> Optional Party
   final case object BFromTextInt64 extends BuiltinFunction(1) // : Text -> Optional Int64
-  final case object BFromTextNumeric extends BuiltinFunction(1) // :  ∀s. Text -> Optional (Numeric s)
+  final case object BFromTextNumeric
+      extends BuiltinFunction(1) // :  ∀s. Text -> Optional (Numeric s)
   final case object BFromTextCodePoints extends BuiltinFunction(1) // : Text -> List Int64
 
   final case object BSHA256Text extends BuiltinFunction(arity = 1) // : Text -> Text
@@ -412,20 +428,27 @@ object Ast {
 
   // Comparisons
   final case object BLessNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Bool
-  final case object BLessEqNumeric extends BuiltinFunction(2) // :  ∀s. Numeric →  ∀s. Numeric → Bool
-  final case object BGreaterNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Bool
-  final case object BGreaterEqNumeric extends BuiltinFunction(2) // : ∀s. Numeric s → Numeric s → Bool
-  final case object BEqualNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s ->  ∀s. Numeric s -> Bool
+  final case object BLessEqNumeric
+      extends BuiltinFunction(2) // :  ∀s. Numeric →  ∀s. Numeric → Bool
+  final case object BGreaterNumeric
+      extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Bool
+  final case object BGreaterEqNumeric
+      extends BuiltinFunction(2) // : ∀s. Numeric s → Numeric s → Bool
+  final case object BEqualNumeric
+      extends BuiltinFunction(2) // :  ∀s. Numeric s ->  ∀s. Numeric s -> Bool
 
-  final case object BEqualList extends BuiltinFunction(3) // : ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
-  final case object BEqualContractId extends BuiltinFunction(2) // : ∀a. ContractId a -> ContractId a -> Bool
+  final case object BEqualList
+      extends BuiltinFunction(3) // : ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
+  final case object BEqualContractId
+      extends BuiltinFunction(2) // : ∀a. ContractId a -> ContractId a -> Bool
   final case object BEqual extends BuiltinFunction(2) // ∀a. a -> a -> Bool
   final case object BLess extends BuiltinFunction(2) // ∀a. a -> a -> Bool
   final case object BLessEq extends BuiltinFunction(2) // ∀a. a -> a -> Bool
   final case object BGreater extends BuiltinFunction(2) // ∀a. a -> a -> Bool
   final case object BGreaterEq extends BuiltinFunction(2) // ∀a. a -> a -> Bool
 
-  final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
+  final case object BCoerceContractId
+      extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
 
   // Exceptions
   final case object BMakeGeneralError extends BuiltinFunction(1) // Text → GeneralError
@@ -534,13 +557,13 @@ object Ast {
   final case class DDataType(
       serializable: Boolean,
       params: ImmArray[(TypeVarName, Kind)],
-      cons: DataCons)
-      extends GenDefinition[Nothing]
+      cons: DataCons,
+  ) extends GenDefinition[Nothing]
   final case class GenDValue[E](
       typ: Type,
       noPartyLiterals: Boolean,
       body: E,
-      isTest: Boolean
+      isTest: Boolean,
   ) extends GenDefinition[E]
 
   class GenDValueCompanion[E] {
@@ -597,7 +620,7 @@ object Ast {
       agreementText: E, // Text the parties agree to.
       choices: Map[ChoiceName, GenTemplateChoice[E]], // Choices available in the template.
       observers: E, // Observers of the contract.
-      key: Option[GenTemplateKey[E]]
+      key: Option[GenTemplateKey[E]],
   ) extends NoCopy
 
   sealed class GenTemplateCompanion[E] {
@@ -609,13 +632,13 @@ object Ast {
         agreementText: E,
         choices: Iterable[(ChoiceName, GenTemplateChoice[E])],
         observers: E,
-        key: Option[GenTemplateKey[E]]
+        key: Option[GenTemplateKey[E]],
     ): GenTemplate[E] = {
 
       val choiceMap = toMapWithoutDuplicate(
         choices,
         (choiceName: ChoiceName) =>
-          throw PackageError(s"collision on choice name ${choiceName.toString}")
+          throw PackageError(s"collision on choice name ${choiceName.toString}"),
       )
 
       new GenTemplate[E](
@@ -629,15 +652,17 @@ object Ast {
       )
     }
 
-    def apply(arg: GenTemplate[E]): Option[(
-        ExprVarName,
-        E,
-        E,
-        E,
-        Map[ChoiceName, GenTemplateChoice[E]],
-        E,
-        Option[GenTemplateKey[E]],
-    )] = GenTemplate.unapply(arg)
+    def apply(arg: GenTemplate[E]): Option[
+      (
+          ExprVarName,
+          E,
+          E,
+          E,
+          Map[ChoiceName, GenTemplateChoice[E]],
+          E,
+          Option[GenTemplateKey[E]],
+      )
+    ] = GenTemplate.unapply(arg)
 
     def unapply(arg: GenTemplate[E]): Option[
       (
@@ -647,7 +672,7 @@ object Ast {
           E,
           Map[ChoiceName, GenTemplateChoice[E]],
           E,
-          Option[GenTemplateKey[E]]
+          Option[GenTemplateKey[E]],
       )
     ] =
       GenTemplate.unapply(arg)
@@ -667,7 +692,7 @@ object Ast {
       selfBinder: ExprVarName, // Self ContractId binder.
       argBinder: (ExprVarName, Type), // Choice argument binder.
       returnType: Type, // Return type of the choice follow-up.
-      update: E // The choice follow-up.
+      update: E, // The choice follow-up.
   )
 
   sealed class GenTemplateChoiceCompanion[E] {
@@ -679,7 +704,7 @@ object Ast {
         selfBinder: ExprVarName,
         argBinder: (ExprVarName, Type),
         returnType: Type,
-        update: E
+        update: E,
     ): GenTemplateChoice[E] =
       GenTemplateChoice(
         name,
@@ -689,10 +714,12 @@ object Ast {
         selfBinder,
         argBinder,
         returnType,
-        update)
+        update,
+      )
 
-    def unapply(arg: GenTemplateChoice[E])
-      : Option[(ChoiceName, Boolean, E, Option[E], ExprVarName, (ExprVarName, Type), Type, E)] =
+    def unapply(
+        arg: GenTemplateChoice[E]
+    ): Option[(ChoiceName, Boolean, E, Option[E], ExprVarName, (ExprVarName, Type), Type, E)] =
       GenTemplateChoice.unapply(arg)
   }
 
@@ -730,12 +757,12 @@ object Ast {
       // disclosed to the signatories and
       // controllers of the target contract/choice
       // and not to the observers of the target contract.
-   */
+       */
   )
 
   object FeatureFlags {
     val default = FeatureFlags(
-      forbidPartyLiterals = false,
+      forbidPartyLiterals = false
     )
   }
 
@@ -748,20 +775,19 @@ object Ast {
       definitions: Map[DottedName, GenDefinition[E]],
       templates: Map[DottedName, GenTemplate[E]],
       exceptions: Map[DottedName, GenDefException[E]],
-      featureFlags: FeatureFlags
+      featureFlags: FeatureFlags,
   ) extends NoCopy
 
   private[this] def toMapWithoutDuplicate[Key, Value](
       xs: Iterable[(Key, Value)],
       error: Key => Nothing,
   ): Map[Key, Value] =
-    xs.foldLeft[Map[Key, Value]](Map.empty[Key, Value]) {
-      case (acc, (key, value)) =>
-        if (acc.contains(key)) {
-          error(key)
-        } else {
-          acc.updated(key, value)
-        }
+    xs.foldLeft[Map[Key, Value]](Map.empty[Key, Value]) { case (acc, (key, value)) =>
+      if (acc.contains(key)) {
+        error(key)
+      } else {
+        acc.updated(key, value)
+      }
     }
 
   sealed class GenModuleCompanion[E] {
@@ -771,14 +797,13 @@ object Ast {
         definitions: Iterable[(DottedName, GenDefinition[E])],
         templates: Iterable[(DottedName, GenTemplate[E])],
         exceptions: Iterable[(DottedName, GenDefException[E])],
-        featureFlags: FeatureFlags
+        featureFlags: FeatureFlags,
     ): GenModule[E] = {
 
       val definitionMap =
         toMapWithoutDuplicate(
           definitions,
-          (name: DottedName) =>
-            throw PackageError(s"Collision on definition name ${name.toString}"),
+          (name: DottedName) => throw PackageError(s"Collision on definition name ${name.toString}"),
         )
 
       val templateMap =
@@ -800,12 +825,15 @@ object Ast {
       GenModule(name, definitionMap, templateMap, exceptionMap, featureFlags)
     }
 
-    def unapply(arg: GenModule[E]): Option[(
-        ModuleName,
-        Map[DottedName, GenDefinition[E]],
-        Map[DottedName, GenTemplate[E]],
-        Map[DottedName, GenDefException[E]],
-        FeatureFlags)] =
+    def unapply(arg: GenModule[E]): Option[
+      (
+          ModuleName,
+          Map[DottedName, GenDefinition[E]],
+          Map[DottedName, GenTemplate[E]],
+          Map[DottedName, GenDefException[E]],
+          FeatureFlags,
+      )
+    ] =
       GenModule.unapply(arg)
   }
 
@@ -826,15 +854,21 @@ object Ast {
     def lookupModule(modName: ModuleName): Either[String, GenModule[E]] =
       modules.get(modName).toRight(s"Could not find module ${modName.toString}")
     def lookupDefinition(identifier: QualifiedName): Either[String, GenDefinition[E]] =
-      lookupModule(identifier.module).flatMap(_.definitions
-        .get(identifier.name)
-        .toRight(
-          s"Could not find name ${identifier.name.toString} in module ${identifier.module.toString}"))
+      lookupModule(identifier.module).flatMap(
+        _.definitions
+          .get(identifier.name)
+          .toRight(
+            s"Could not find name ${identifier.name.toString} in module ${identifier.module.toString}"
+          )
+      )
     def lookupTemplate(identifier: QualifiedName): Either[String, GenTemplate[E]] =
-      lookupModule(identifier.module).flatMap(_.templates
-        .get(identifier.name)
-        .toRight(
-          s"Could not find name ${identifier.name.toString} in module ${identifier.module.toString}"))
+      lookupModule(identifier.module).flatMap(
+        _.templates
+          .get(identifier.name)
+          .toRight(
+            s"Could not find name ${identifier.name.toString} in module ${identifier.module.toString}"
+          )
+      )
   }
 
   sealed class GenPackageCompanion[E] {
@@ -868,12 +902,14 @@ object Ast {
         metadata: Option[PackageMetadata],
       )
 
-    def unapply(arg: GenPackage[E]): Option[(
-        Map[ModuleName, GenModule[E]],
-        Set[PackageId],
-        LanguageVersion,
-        Option[PackageMetadata]
-    )] =
+    def unapply(arg: GenPackage[E]): Option[
+      (
+          Map[ModuleName, GenModule[E]],
+          Set[PackageId],
+          LanguageVersion,
+          Option[PackageMetadata],
+      )
+    ] =
       GenPackage.unapply(arg)
   }
 

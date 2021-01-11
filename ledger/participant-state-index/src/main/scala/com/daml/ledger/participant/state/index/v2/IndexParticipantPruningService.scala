@@ -8,8 +8,7 @@ import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
 
-/**
-  * Serves as a backend to implement
+/** Serves as a backend to implement
   * ParticipantPruningService.
   */
 trait IndexParticipantPruningService {

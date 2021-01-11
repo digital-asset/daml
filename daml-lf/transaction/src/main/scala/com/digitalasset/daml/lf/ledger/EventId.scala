@@ -12,7 +12,7 @@ import scala.util.Try
 // transactionId should be small so the concatenation in toLedgerString does not exceed 255 chars
 case class EventId(
     transactionId: LedgerString,
-    nodeId: NodeId
+    nodeId: NodeId,
 ) {
   lazy val toLedgerString: LedgerString = {
     val builder = new StringBuilder()

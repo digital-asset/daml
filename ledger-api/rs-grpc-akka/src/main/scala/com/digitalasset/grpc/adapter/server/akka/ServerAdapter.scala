@@ -12,12 +12,14 @@ import scala.concurrent.{Future, Promise}
 
 object ServerAdapter {
 
-  def toSink[Resp](streamObserver: StreamObserver[Resp])(
-      implicit executionSequencerFactory: ExecutionSequencerFactory): Sink[Resp, Future[Unit]] = {
+  def toSink[Resp](
+      streamObserver: StreamObserver[Resp]
+  )(implicit executionSequencerFactory: ExecutionSequencerFactory): Sink[Resp, Future[Unit]] = {
     val subscriber =
       new ServerSubscriber[Resp](
         streamObserver.asInstanceOf[ServerCallStreamObserver[Resp]],
-        executionSequencerFactory.getExecutionSequencer)
+        executionSequencerFactory.getExecutionSequencer,
+      )
     Sink
       .fromSubscriber(subscriber)
       .mapMaterializedValue(_ => {

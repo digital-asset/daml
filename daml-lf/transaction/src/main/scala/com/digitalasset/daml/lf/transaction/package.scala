@@ -15,8 +15,8 @@ package object transaction {
   private[transaction] def sequence[A, B, That](
       seq: Iterable[Either[A, B]]
   )(implicit cbf: BuildFrom[seq.type, B, That]): Either[A, That] =
-    seq collectFirst {
-      case Left(e) => Left(e)
+    seq collectFirst { case Left(e) =>
+      Left(e)
     } getOrElse {
       val b = cbf.newBuilder(seq)
       seq.foreach {

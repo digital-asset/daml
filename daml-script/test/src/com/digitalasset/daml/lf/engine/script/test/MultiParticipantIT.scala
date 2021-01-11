@@ -38,10 +38,12 @@ final class MultiParticipantIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("MultiTest:partyIdHintTest"),
-            dar = dar)
+            dar = dar,
+          )
         } yield {
           vals should contain theSameElementsInOrderAs Seq("alice", "bob").map(p =>
-            SParty(Party.assertFromString(p)))
+            SParty(Party.assertFromString(p))
+          )
         }
       }
     }
@@ -52,18 +54,23 @@ final class MultiParticipantIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("MultiTest:listKnownPartiesTest"),
-            dar = dar)
+            dar = dar,
+          )
         } yield {
           assert(vals.size == 2)
           val first = SList(
             FrontStack(
               tuple(SOptional(Some(SText("p1"))), SBool(true)),
-              tuple(SOptional(Some(SText("p2"))), SBool(false))))
+              tuple(SOptional(Some(SText("p2"))), SBool(false)),
+            )
+          )
           assert(vals.get(0) == first)
           val second = SList(
             FrontStack(
               tuple(SOptional(Some(SText("p1"))), SBool(false)),
-              tuple(SOptional(Some(SText("p2"))), SBool(true))))
+              tuple(SOptional(Some(SText("p2"))), SBool(true)),
+            )
+          )
           assert(vals.get(1) == second)
         }
 

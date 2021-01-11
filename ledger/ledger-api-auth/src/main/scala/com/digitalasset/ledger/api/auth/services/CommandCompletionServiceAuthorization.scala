@@ -26,7 +26,8 @@ private[daml] final class CommandCompletionServiceAuthorization(
 
   override def completionStream(
       request: CompletionStreamRequest,
-      responseObserver: StreamObserver[CompletionStreamResponse]): Unit =
+      responseObserver: StreamObserver[CompletionStreamResponse],
+  ): Unit =
     authorizer.requireReadClaimsForAllPartiesOnStream(
       parties = request.parties,
       applicationId = Some(request.applicationId),

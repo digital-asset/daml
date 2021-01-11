@@ -18,8 +18,8 @@ import scala.util.control.NonFatal
 object MigrationStep {
 
   trait Test {
-    def execute(packageId: String, config: Config.Test)(
-        implicit ec: ExecutionContext,
+    def execute(packageId: String, config: Config.Test)(implicit
+        ec: ExecutionContext,
         esf: ExecutionSequencerFactory,
         mat: Materializer,
     ): Future[Unit]

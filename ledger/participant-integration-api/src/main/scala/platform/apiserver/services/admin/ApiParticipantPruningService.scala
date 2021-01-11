@@ -8,14 +8,14 @@ import java.util.UUID
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{
   ParticipantPruningServiceGrpc,
   PruneRequest,
-  PruneResponse
+  PruneResponse,
 }
 import com.daml.ledger.participant.state.index.v2.{IndexParticipantPruningService, LedgerEndService}
 import com.daml.ledger.participant.state.v1.{
   Offset,
   PruningResult,
   SubmissionId,
-  WriteParticipantPruningService
+  WriteParticipantPruningService,
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.ApiOffset
@@ -29,9 +29,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class ApiParticipantPruningService private (
     readBackend: IndexParticipantPruningService with LedgerEndService,
-    writeBackend: WriteParticipantPruningService)(
-    implicit executionContext: ExecutionContext,
-    logCtx: LoggingContext)
+    writeBackend: WriteParticipantPruningService,
+)(implicit executionContext: ExecutionContext, logCtx: LoggingContext)
     extends ParticipantPruningServiceGrpc.ParticipantPruningService
     with GrpcApiService {
 
@@ -43,7 +42,8 @@ final class ApiParticipantPruningService private (
   override def prune(request: PruneRequest): Future[PruneResponse] = {
     val submissionIdOrErr = SubmissionId
       .fromString(
-        if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString)
+        if (request.submissionId.nonEmpty) request.submissionId else UUID.randomUUID().toString
+      )
       .left
       .map(err => ErrorFactories.invalidArgument(s"submission_id $err"))
 
@@ -63,12 +63,13 @@ final class ApiParticipantPruningService private (
               pruneResponse <- pruneLedgerApiServerIndex(pruneUpTo)
 
             } yield pruneResponse).andThen(logger.logErrorsOnCall[PruneResponse])
-      }
+        },
     )
   }
 
-  private def validateRequest(request: PruneRequest)(
-      implicit logCtx: LoggingContext): Future[Offset] = {
+  private def validateRequest(
+      request: PruneRequest
+  )(implicit logCtx: LoggingContext): Future[Offset] = {
     (for {
       pruneUpToString <- checkOffsetIsSpecified(request.pruneUpTo)
       pruneUpTo <- checkOffsetIsHexadecimal(pruneUpToString)
@@ -76,10 +77,12 @@ final class ApiParticipantPruningService private (
       .fold(Future.failed, o => checkOffsetIsBeforeLedgerEnd(o._1, o._2))
   }
 
-  private def pruneWriteService(pruneUpTo: Offset, submissionId: SubmissionId)(
-      implicit logCtx: LoggingContext): Future[Unit] = {
+  private def pruneWriteService(pruneUpTo: Offset, submissionId: SubmissionId)(implicit
+      logCtx: LoggingContext
+  ): Future[Unit] = {
     logger.info(
-      s"About to prune participant ledger up to ${pruneUpTo.toApiString} inclusively starting with the write service")
+      s"About to prune participant ledger up to ${pruneUpTo.toApiString} inclusively starting with the write service"
+    )
     FutureConverters
       .toScala(writeBackend.prune(pruneUpTo, submissionId))
       .flatMap {
@@ -90,8 +93,9 @@ final class ApiParticipantPruningService private (
       }
   }
 
-  private def pruneLedgerApiServerIndex(pruneUpTo: Offset)(
-      implicit logCtx: LoggingContext): Future[PruneResponse] = {
+  private def pruneLedgerApiServerIndex(
+      pruneUpTo: Offset
+  )(implicit logCtx: LoggingContext): Future[PruneResponse] = {
     logger.info(s"About to prune ledger api server index to ${pruneUpTo.toApiString} inclusively")
     readBackend
       .prune(pruneUpTo)
@@ -105,27 +109,35 @@ final class ApiParticipantPruningService private (
     Either.cond(
       !offset.isEmpty,
       offset,
-      ErrorFactories.invalidArgument("prune_up_to not specified"))
+      ErrorFactories.invalidArgument("prune_up_to not specified"),
+    )
 
   private def checkOffsetIsHexadecimal(
-      pruneUpToString: String): Either[StatusRuntimeException, Offset] =
+      pruneUpToString: String
+  ): Either[StatusRuntimeException, Offset] =
     ApiOffset
       .fromString(pruneUpToString)
       .toEither
       .left
       .map(t =>
         ErrorFactories.invalidArgument(
-          s"prune_up_to needs to be a hexadecimal string and not ${pruneUpToString}: ${t.getMessage}"))
+          s"prune_up_to needs to be a hexadecimal string and not ${pruneUpToString}: ${t.getMessage}"
+        )
+      )
 
-  private def checkOffsetIsBeforeLedgerEnd(pruneUpToProto: Offset, pruneUpToString: String)(
-      implicit logCtx: LoggingContext): Future[Offset] =
+  private def checkOffsetIsBeforeLedgerEnd(pruneUpToProto: Offset, pruneUpToString: String)(implicit
+      logCtx: LoggingContext
+  ): Future[Offset] =
     for {
       ledgerEnd <- readBackend.currentLedgerEnd()
-      _ <- if (pruneUpToString < ledgerEnd.value) Future.successful(())
-      else
-        Future.failed(
-          ErrorFactories.invalidArgument(
-            s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"))
+      _ <-
+        if (pruneUpToString < ledgerEnd.value) Future.successful(())
+        else
+          Future.failed(
+            ErrorFactories.invalidArgument(
+              s"prune_up_to needs to be before ledger end ${ledgerEnd.value}"
+            )
+          )
     } yield pruneUpToProto
 
   override def close(): Unit = ()
@@ -135,9 +147,11 @@ final class ApiParticipantPruningService private (
 object ApiParticipantPruningService {
   def createApiService(
       readBackend: IndexParticipantPruningService with LedgerEndService,
-      writeBackend: WriteParticipantPruningService
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext)
-    : ParticipantPruningServiceGrpc.ParticipantPruningService with GrpcApiService =
+      writeBackend: WriteParticipantPruningService,
+  )(implicit
+      executionContext: ExecutionContext,
+      logCtx: LoggingContext,
+  ): ParticipantPruningServiceGrpc.ParticipantPruningService with GrpcApiService =
     new ApiParticipantPruningService(readBackend, writeBackend)
 
 }

@@ -7,7 +7,7 @@ import java.util.UUID
 
 import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
-  SubmitRequest
+  SubmitRequest,
 }
 import com.daml.platform.sandbox.auth.ServiceCallAuthTests
 import com.google.protobuf.empty.Empty
@@ -27,9 +27,11 @@ trait SubmitMultiPartyDummyCommand extends TestCommands { self: ServiceCallAuthT
         s"$serviceCallName-${UUID.randomUUID}",
         party,
         actAs,
-        readAs)
+        readAs,
+      )
         .update(_.commands.applicationId := serviceCallName)
-        .commands)
+        .commands
+    )
   }
 
   protected def submit(

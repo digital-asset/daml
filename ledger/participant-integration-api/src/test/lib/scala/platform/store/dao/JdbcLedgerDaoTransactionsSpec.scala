@@ -59,28 +59,27 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       result <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.transactionId, tx.actAs.toSet)
     } yield {
-      inside(result.value.transaction) {
-        case Some(transaction) =>
-          transaction.commandId shouldBe tx.commandId.get
-          transaction.offset shouldBe ApiOffset.toApiString(offset)
-          transaction.effectiveAt.value.seconds shouldBe tx.ledgerEffectiveTime.getEpochSecond
-          transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
-          transaction.transactionId shouldBe tx.transactionId
-          transaction.workflowId shouldBe tx.workflowId.getOrElse("")
-          inside(transaction.events.loneElement.event.created) {
-            case Some(created) =>
-              val (nodeId, createNode: NodeCreate[ContractId]) =
-                tx.transaction.nodes.head
-              created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
-              created.witnessParties should contain only (tx.actAs: _*)
-              created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
-              created.contractKey shouldBe None
-              created.createArguments shouldNot be(None)
-              created.signatories should contain theSameElementsAs createNode.signatories
-              created.observers should contain theSameElementsAs createNode.stakeholders.diff(
-                createNode.signatories)
-              created.templateId shouldNot be(None)
-          }
+      inside(result.value.transaction) { case Some(transaction) =>
+        transaction.commandId shouldBe tx.commandId.get
+        transaction.offset shouldBe ApiOffset.toApiString(offset)
+        transaction.effectiveAt.value.seconds shouldBe tx.ledgerEffectiveTime.getEpochSecond
+        transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
+        transaction.transactionId shouldBe tx.transactionId
+        transaction.workflowId shouldBe tx.workflowId.getOrElse("")
+        inside(transaction.events.loneElement.event.created) { case Some(created) =>
+          val (nodeId, createNode: NodeCreate[ContractId]) =
+            tx.transaction.nodes.head
+          created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
+          created.witnessParties should contain only (tx.actAs: _*)
+          created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
+          created.contractKey shouldBe None
+          created.createArguments shouldNot be(None)
+          created.signatories should contain theSameElementsAs createNode.signatories
+          created.observers should contain theSameElementsAs createNode.stakeholders.diff(
+            createNode.signatories
+          )
+          created.templateId shouldNot be(None)
+        }
       }
     }
   }
@@ -92,23 +91,21 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       result <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(exercise.transactionId, exercise.actAs.toSet)
     } yield {
-      inside(result.value.transaction) {
-        case Some(transaction) =>
-          transaction.commandId shouldBe exercise.commandId.get
-          transaction.offset shouldBe ApiOffset.toApiString(offset)
-          transaction.transactionId shouldBe exercise.transactionId
-          transaction.effectiveAt.value.seconds shouldBe exercise.ledgerEffectiveTime.getEpochSecond
-          transaction.effectiveAt.value.nanos shouldBe exercise.ledgerEffectiveTime.getNano
-          transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
-          inside(transaction.events.loneElement.event.archived) {
-            case Some(archived) =>
-              val (nodeId, exerciseNode: NodeExercises[NodeId, ContractId]) =
-                exercise.transaction.nodes.head
-              archived.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
-              archived.witnessParties should contain only (exercise.actAs: _*)
-              archived.contractId shouldBe exerciseNode.targetCoid.coid
-              archived.templateId shouldNot be(None)
-          }
+      inside(result.value.transaction) { case Some(transaction) =>
+        transaction.commandId shouldBe exercise.commandId.get
+        transaction.offset shouldBe ApiOffset.toApiString(offset)
+        transaction.transactionId shouldBe exercise.transactionId
+        transaction.effectiveAt.value.seconds shouldBe exercise.ledgerEffectiveTime.getEpochSecond
+        transaction.effectiveAt.value.nanos shouldBe exercise.ledgerEffectiveTime.getNano
+        transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
+        inside(transaction.events.loneElement.event.archived) { case Some(archived) =>
+          val (nodeId, exerciseNode: NodeExercises[NodeId, ContractId]) =
+            exercise.transaction.nodes.head
+          archived.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
+          archived.witnessParties should contain only (exercise.actAs: _*)
+          archived.contractId shouldBe exerciseNode.targetCoid.coid
+          archived.templateId shouldNot be(None)
+        }
       }
     }
   }
@@ -154,15 +151,14 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       result <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.transactionId, tx.actAs.toSet)
     } yield {
-      inside(result.value.transaction) {
-        case Some(transaction) =>
-          transaction.commandId shouldBe tx.commandId.get
-          transaction.offset shouldBe ApiOffset.toApiString(offset)
-          transaction.transactionId shouldBe tx.transactionId
-          transaction.effectiveAt.value.seconds shouldBe tx.ledgerEffectiveTime.getEpochSecond
-          transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
-          transaction.workflowId shouldBe tx.workflowId.getOrElse("")
-          transaction.events shouldBe Seq.empty
+      inside(result.value.transaction) { case Some(transaction) =>
+        transaction.commandId shouldBe tx.commandId.get
+        transaction.offset shouldBe ApiOffset.toApiString(offset)
+        transaction.transactionId shouldBe tx.transactionId
+        transaction.effectiveAt.value.seconds shouldBe tx.ledgerEffectiveTime.getEpochSecond
+        transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
+        transaction.workflowId shouldBe tx.workflowId.getOrElse("")
+        transaction.events shouldBe Seq.empty
       }
     }
   }
@@ -180,7 +176,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to,
             filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       comparable(result) should contain theSameElementsInOrderAs comparable(lookups)
     }
@@ -201,7 +198,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to,
             filter = Map(alice -> Set.empty),
             verbose = true,
-          ))
+          )
+      )
       resultForBob <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
@@ -209,7 +207,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to,
             filter = Map(bob -> Set.empty),
             verbose = true,
-          ))
+          )
+      )
       resultForCharlie <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
@@ -217,7 +216,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to,
             filter = Map(charlie -> Set.empty),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       individualLookupForAlice should contain theSameElementsInOrderAs resultForAlice
       individualLookupForBob should contain theSameElementsInOrderAs resultForBob
@@ -235,8 +235,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             alice -> "pkg:mod:Template1",
             bob -> "pkg:mod:Template3",
             alice -> "pkg:mod:Template3",
-          )
-        ))
+          ),
+        )
+      )
       to <- ledgerDao.lookupLedgerEnd()
       result <- transactionsOf(
         ledgerDao.transactionsReader
@@ -245,15 +246,15 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to,
             filter = Map(alice -> Set(Identifier.assertFromString("pkg:mod:Template3"))),
             verbose = true,
-          ))
+          )
+      )
     } yield {
-      inside(result.loneElement.events.loneElement.event.created) {
-        case Some(create) =>
-          create.witnessParties.loneElement shouldBe alice
-          val identifier = create.templateId.value
-          identifier.packageId shouldBe "pkg"
-          identifier.moduleName shouldBe "mod"
-          identifier.entityName shouldBe "Template3"
+      inside(result.loneElement.events.loneElement.event.created) { case Some(create) =>
+        create.witnessParties.loneElement shouldBe alice
+        val identifier = create.templateId.value
+        identifier.packageId shouldBe "pkg"
+        identifier.moduleName shouldBe "mod"
+        identifier.entityName shouldBe "Template3"
       }
     }
   }
@@ -268,8 +269,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             alice -> "pkg:mod:Template1",
             bob -> "pkg:mod:Template3",
             alice -> "pkg:mod:Template3",
-          )
-        ))
+          ),
+        )
+      )
       to <- ledgerDao.lookupLedgerEnd()
       result <- transactionsOf(
         ledgerDao.transactionsReader
@@ -278,32 +280,31 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to,
             filter = Map(
               alice -> Set(
-                Identifier.assertFromString("pkg:mod:Template3"),
+                Identifier.assertFromString("pkg:mod:Template3")
               ),
               bob -> Set(
-                Identifier.assertFromString("pkg:mod:Template3"),
-              )
+                Identifier.assertFromString("pkg:mod:Template3")
+              ),
             ),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       val events = result.loneElement.events.toArray
       events should have length 2
-      inside(events(0).event.created) {
-        case Some(create) =>
-          create.witnessParties.loneElement shouldBe bob
-          val identifier = create.templateId.value
-          identifier.packageId shouldBe "pkg"
-          identifier.moduleName shouldBe "mod"
-          identifier.entityName shouldBe "Template3"
+      inside(events(0).event.created) { case Some(create) =>
+        create.witnessParties.loneElement shouldBe bob
+        val identifier = create.templateId.value
+        identifier.packageId shouldBe "pkg"
+        identifier.moduleName shouldBe "mod"
+        identifier.entityName shouldBe "Template3"
       }
-      inside(events(1).event.created) {
-        case Some(create) =>
-          create.witnessParties.loneElement shouldBe alice
-          val identifier = create.templateId.value
-          identifier.packageId shouldBe "pkg"
-          identifier.moduleName shouldBe "mod"
-          identifier.entityName shouldBe "Template3"
+      inside(events(1).event.created) { case Some(create) =>
+        create.witnessParties.loneElement shouldBe alice
+        val identifier = create.templateId.value
+        identifier.packageId shouldBe "pkg"
+        identifier.moduleName shouldBe "mod"
+        identifier.entityName shouldBe "Template3"
       }
     }
   }
@@ -318,8 +319,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             alice -> "pkg:mod:Template1",
             bob -> "pkg:mod:Template3",
             alice -> "pkg:mod:Template3",
-          )
-        ))
+          ),
+        )
+      )
       to <- ledgerDao.lookupLedgerEnd()
       result <- transactionsOf(
         ledgerDao.transactionsReader
@@ -328,32 +330,31 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to,
             filter = Map(
               alice -> Set(
-                Identifier.assertFromString("pkg:mod:Template1"),
+                Identifier.assertFromString("pkg:mod:Template1")
               ),
               bob -> Set(
-                Identifier.assertFromString("pkg:mod:Template3"),
-              )
+                Identifier.assertFromString("pkg:mod:Template3")
+              ),
             ),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       val events = result.loneElement.events.toArray
       events should have length 2
-      inside(events(0).event.created) {
-        case Some(create) =>
-          create.witnessParties.loneElement shouldBe alice
-          val identifier = create.templateId.value
-          identifier.packageId shouldBe "pkg"
-          identifier.moduleName shouldBe "mod"
-          identifier.entityName shouldBe "Template1"
+      inside(events(0).event.created) { case Some(create) =>
+        create.witnessParties.loneElement shouldBe alice
+        val identifier = create.templateId.value
+        identifier.packageId shouldBe "pkg"
+        identifier.moduleName shouldBe "mod"
+        identifier.entityName shouldBe "Template1"
       }
-      inside(events(1).event.created) {
-        case Some(create) =>
-          create.witnessParties.loneElement shouldBe bob
-          val identifier = create.templateId.value
-          identifier.packageId shouldBe "pkg"
-          identifier.moduleName shouldBe "mod"
-          identifier.entityName shouldBe "Template3"
+      inside(events(1).event.created) { case Some(create) =>
+        create.witnessParties.loneElement shouldBe bob
+        val identifier = create.templateId.value
+        identifier.packageId shouldBe "pkg"
+        identifier.moduleName shouldBe "mod"
+        identifier.entityName shouldBe "Template3"
       }
     }
   }
@@ -368,8 +369,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             alice -> "pkg:mod:Template1",
             bob -> "pkg:mod:Template3",
             alice -> "pkg:mod:Template3",
-          )
-        ))
+          ),
+        )
+      )
       to <- ledgerDao.lookupLedgerEnd()
       result <- transactionsOf(
         ledgerDao.transactionsReader
@@ -378,30 +380,29 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to,
             filter = Map(
               alice -> Set(
-                Identifier.assertFromString("pkg:mod:Template3"),
+                Identifier.assertFromString("pkg:mod:Template3")
               ),
-              bob -> Set.empty
+              bob -> Set.empty,
             ),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       val events = result.loneElement.events.toArray
       events should have length 2
-      inside(events(0).event.created) {
-        case Some(create) =>
-          create.witnessParties.loneElement shouldBe bob
-          val identifier = create.templateId.value
-          identifier.packageId shouldBe "pkg"
-          identifier.moduleName shouldBe "mod"
-          identifier.entityName shouldBe "Template3"
+      inside(events(0).event.created) { case Some(create) =>
+        create.witnessParties.loneElement shouldBe bob
+        val identifier = create.templateId.value
+        identifier.packageId shouldBe "pkg"
+        identifier.moduleName shouldBe "mod"
+        identifier.entityName shouldBe "Template3"
       }
-      inside(events(1).event.created) {
-        case Some(create) =>
-          create.witnessParties.loneElement shouldBe alice
-          val identifier = create.templateId.value
-          identifier.packageId shouldBe "pkg"
-          identifier.moduleName shouldBe "mod"
-          identifier.entityName shouldBe "Template3"
+      inside(events(1).event.created) { case Some(create) =>
+        create.witnessParties.loneElement shouldBe alice
+        val identifier = create.templateId.value
+        identifier.packageId shouldBe "pkg"
+        identifier.moduleName shouldBe "mod"
+        identifier.entityName shouldBe "Template3"
       }
     }
   }
@@ -417,7 +418,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           from,
           offset,
           exercise.actAs.map(submitter => submitter -> Set.empty[Identifier]).toMap,
-          verbose = true)
+          verbose = true,
+        )
         .runWith(Sink.seq)
     } yield {
       import com.daml.ledger.api.v1.event.Event
@@ -425,18 +427,15 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
       val txs = extractAllTransactions(result)
 
-      inside(txs) {
-        case Vector(tx1, tx2) =>
-          tx1.transactionId shouldBe create.transactionId
-          tx2.transactionId shouldBe exercise.transactionId
-          inside(tx1.events) {
-            case Seq(Event(Created(createdEvent))) =>
-              createdEvent.contractId shouldBe firstContractId.coid
-          }
-          inside(tx2.events) {
-            case Seq(Event(Archived(archivedEvent)), Event(Created(_))) =>
-              archivedEvent.contractId shouldBe firstContractId.coid
-          }
+      inside(txs) { case Vector(tx1, tx2) =>
+        tx1.transactionId shouldBe create.transactionId
+        tx2.transactionId shouldBe exercise.transactionId
+        inside(tx1.events) { case Seq(Event(Created(createdEvent))) =>
+          createdEvent.contractId shouldBe firstContractId.coid
+        }
+        inside(tx2.events) { case Seq(Event(Archived(archivedEvent)), Event(Created(_))) =>
+          archivedEvent.contractId shouldBe firstContractId.coid
+        }
       }
     }
   }
@@ -451,20 +450,19 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           offset1,
           offset2,
           exercise.actAs.map(submitter => submitter -> Set.empty[Identifier]).toMap,
-          verbose = true)
+          verbose = true,
+        )
         .runWith(Sink.seq)
 
     } yield {
       import com.daml.ledger.api.v1.event.Event
       import com.daml.ledger.api.v1.event.Event.Event.Created
 
-      inside(extractAllTransactions(result)) {
-        case Vector(tx) =>
-          tx.transactionId shouldBe create2.transactionId
-          inside(tx.events) {
-            case Seq(Event(Created(createdEvent))) =>
-              createdEvent.contractId shouldBe nonTransient(create2).loneElement.coid
-          }
+      inside(extractAllTransactions(result)) { case Vector(tx) =>
+        tx.transactionId shouldBe create2.transactionId
+        inside(tx.events) { case Seq(Event(Created(createdEvent))) =>
+          createdEvent.contractId shouldBe nonTransient(create2).loneElement.coid
+        }
       }
     }
   }
@@ -482,7 +480,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           beginOffsetFromTheFuture,
           endOffsetFromTheFuture,
           Map(alice -> Set.empty[Identifier]),
-          verbose = true)
+          verbose = true,
+        )
         .runWith(Sink.seq)
 
     } yield {
@@ -525,7 +524,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           beginOffset,
           endOffset,
           Map(alice -> Set.empty[Identifier]),
-          verbose = true)
+          verbose = true,
+        )
         .runWith(Sink.seq)
 
       readTxs = extractAllTransactions(response)
@@ -541,13 +541,15 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     txSeqTrial(
       trials = 10,
       txSeq = unfilteredTxSeq(length = txSeqLength),
-      codePath = Gen oneOf getFlatTransactionCodePaths)
+      codePath = Gen oneOf getFlatTransactionCodePaths,
+    )
   }
 
   private[this] def txSeqTrial(
       trials: Int,
       txSeq: Gen[Vector[Boolean]],
-      codePath: Gen[FlatTransactionCodePath]) = {
+      codePath: Gen[FlatTransactionCodePath],
+  ) = {
     import JdbcLedgerDaoSuite._
     import scalaz.std.list._
     import scalaz.std.scalaFuture._
@@ -557,38 +559,36 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       .sample getOrElse sys.error("impossible Gen failure")
 
     trialData
-      .traverseFM {
-        case (boolSeq, cp) =>
-          for {
-            from <- ledgerDao.lookupLedgerEnd()
-            commands <- storeSync(boolSeq map (if (_) cp.makeMatching() else cp.makeNonMatching()))
-            matchingOffsets = commands zip boolSeq collect {
-              case ((off, _), true) => off.toHexString
-            }
-            to <- ledgerDao.lookupLedgerEnd()
-            response <- ledgerDao.transactionsReader
-              .getFlatTransactions(from, to, cp.filter, verbose = false)
-              .runWith(Sink.seq)
-            readOffsets = response flatMap { case (_, gtr) => gtr.transactions map (_.offset) }
-            readCreates = extractAllTransactions(response) flatMap (_.events)
-          } yield
-            try {
-              readCreates.size should ===(boolSeq count identity)
-              // we check that the offsets from the DB match the ones we had before
-              // submission as a substitute for actually inspecting the events (indeed,
-              // so many of the events are = as written that this would not be useful)
-              readOffsets should ===(matchingOffsets)
-            } catch {
-              case ae: org.scalatest.exceptions.TestFailedException =>
-                throw ae modifyMessage (_ map { msg: String =>
-                  msg +
-                    "\n  Random parameters:" +
-                    s"\n    actual frequency: ${boolSeq.count(identity)}/${boolSeq.size}" +
-                    s"\n    code path: ${cp.label}" +
-                    s"\n  Please copy the above 4 lines to https://github.com/digital-asset/daml/issues/7521" +
-                    s"\n  along with which of (JdbcLedgerDaoPostgresqlSpec, JdbcLedgerDaoH2DatabaseSpec) failed"
-                })
-            }
+      .traverseFM { case (boolSeq, cp) =>
+        for {
+          from <- ledgerDao.lookupLedgerEnd()
+          commands <- storeSync(boolSeq map (if (_) cp.makeMatching() else cp.makeNonMatching()))
+          matchingOffsets = commands zip boolSeq collect { case ((off, _), true) =>
+            off.toHexString
+          }
+          to <- ledgerDao.lookupLedgerEnd()
+          response <- ledgerDao.transactionsReader
+            .getFlatTransactions(from, to, cp.filter, verbose = false)
+            .runWith(Sink.seq)
+          readOffsets = response flatMap { case (_, gtr) => gtr.transactions map (_.offset) }
+          readCreates = extractAllTransactions(response) flatMap (_.events)
+        } yield try {
+          readCreates.size should ===(boolSeq count identity)
+          // we check that the offsets from the DB match the ones we had before
+          // submission as a substitute for actually inspecting the events (indeed,
+          // so many of the events are = as written that this would not be useful)
+          readOffsets should ===(matchingOffsets)
+        } catch {
+          case ae: org.scalatest.exceptions.TestFailedException =>
+            throw ae modifyMessage (_ map { msg: String =>
+              msg +
+                "\n  Random parameters:" +
+                s"\n    actual frequency: ${boolSeq.count(identity)}/${boolSeq.size}" +
+                s"\n    code path: ${cp.label}" +
+                s"\n  Please copy the above 4 lines to https://github.com/digital-asset/daml/issues/7521" +
+                s"\n  along with which of (JdbcLedgerDaoPostgresqlSpec, JdbcLedgerDaoH2DatabaseSpec) failed"
+            })
+        }
       }
       .map(_.foldLeft(succeed)((_, r) => r))
   }
@@ -623,11 +623,13 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       .sequence(
         transactions.map(tx =>
           ledgerDao.transactionsReader
-            .lookupFlatTransactionById(tx.transactionId, as)))
+            .lookupFlatTransactionById(tx.transactionId, as)
+        )
+      )
       .map(_.flatMap(_.toList.flatMap(_.transaction.toList)))
 
   private def transactionsOf(
-      source: Source[(Offset, GetTransactionsResponse), NotUsed],
+      source: Source[(Offset, GetTransactionsResponse), NotUsed]
   ): Future[Seq[Transaction]] =
     source
       .map(_._2)
@@ -640,7 +642,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     txs.map(tx => tx.copy(events = tx.events.map(_.modifyWitnessParties(_.sorted))))
 
   private def extractAllTransactions(
-      responses: Seq[(Offset, GetTransactionsResponse)]): Vector[Transaction] =
+      responses: Seq[(Offset, GetTransactionsResponse)]
+  ): Vector[Transaction] =
     responses.foldLeft(Vector.empty[Transaction])((b, a) => b ++ a._2.transactions.toVector)
 
   private def createLedgerDao(pageSize: Int) =
@@ -663,7 +666,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         Map(alice -> Set.empty),
         () => singleCreate(create(_, signatories = Set(alice))),
         () => singleCreate(create(_, signatories = Set(bob))),
-        ce => (ce.signatories ++ ce.observers) contains alice
+        ce => (ce.signatories ++ ce.observers) contains alice,
       ),
       Mk(
         "singlePartyWithTemplates",
@@ -671,35 +674,35 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
         () => singleCreate(create(_, signatories = Set(alice))),
         () => singleCreate(create(_, signatories = Set(bob))),
         ce =>
-          ((ce.signatories ++ ce.observers) contains alice) /*TODO && ce.templateId == Some(someTemplateId.toString)*/
+          ((ce.signatories ++ ce.observers) contains alice), /*TODO && ce.templateId == Some(someTemplateId.toString)*/
       ),
       Mk(
         "onlyWildcardParties",
         Map(alice -> Set.empty, bob -> Set.empty),
         () => singleCreate(create(_, signatories = Set(alice))),
         () => singleCreate(create(_, signatories = Set(charlie))),
-        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
+        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob),
       ),
       Mk(
         "sameTemplates",
         Map(alice -> Set(someTemplateId), bob -> Set(someTemplateId)),
         () => singleCreate(create(_, signatories = Set(alice))),
         () => singleCreate(create(_, signatories = Set(charlie))),
-        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
+        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob),
       ),
       Mk(
         "mixedTemplates",
         Map(alice -> Set(someTemplateId), bob -> Set(someRecordId)),
         () => singleCreate(create(_, signatories = Set(alice))),
         () => singleCreate(create(_, signatories = Set(charlie))),
-        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
+        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob),
       ),
       Mk(
         "mixedTemplatesWithWildcardParties",
         Map(alice -> Set(someTemplateId), bob -> Set.empty),
         () => singleCreate(create(_, signatories = Set(alice))),
         () => singleCreate(create(_, signatories = Set(charlie))),
-        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob)
+        ce => (ce.signatories ++ ce.observers) exists Set(alice, bob),
       ),
     )
   }
@@ -713,7 +716,8 @@ private[dao] object JdbcLedgerDaoTransactionsSpec {
       makeNonMatching: () => (Offset, LedgerEntry.Transaction),
       // XXX SC we don't need discriminate unless we test the event contents
       // instead of just the offsets
-      discriminate: lav1.event.CreatedEvent => Boolean = _ => false)
+      discriminate: lav1.event.CreatedEvent => Boolean = _ => false,
+  )
 
   private def unfilteredTxSeq(length: Int): Gen[Vector[Boolean]] =
     Gen.oneOf(1, 2, 5, 10, 20, 50, 100) flatMap { invFreq =>
@@ -723,5 +727,6 @@ private[dao] object JdbcLedgerDaoTransactionsSpec {
   private def unfilteredTxFrequencySeq(length: Int, frequencyPct: Int): Gen[Vector[Boolean]] =
     Gen.containerOfN[Vector, Boolean](
       length,
-      Gen.frequency((frequencyPct, true), (100 - frequencyPct, false)))
+      Gen.frequency((frequencyPct, true), (100 - frequencyPct, false)),
+    )
 }

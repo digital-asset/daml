@@ -99,7 +99,9 @@ object TimestampConversionSpec {
     Gen
       .zip(
         Gen.choose(min.getEpochSecond, max.getEpochSecond),
-        if (microsOnly) Gen.choose(0L, 999999).map(_ * 1000) else Gen.choose(0L, 999999999))
+        if (microsOnly) Gen.choose(0L, 999999).map(_ * 1000)
+        else Gen.choose(0L, 999999999),
+      )
       .map { case (s, n) => Instant.ofEpochSecond(s, n) }
 
   val anyMicroTime: Gen[Instant] = timeGen(Instant.MIN, Instant.MAX, microsOnly = true)

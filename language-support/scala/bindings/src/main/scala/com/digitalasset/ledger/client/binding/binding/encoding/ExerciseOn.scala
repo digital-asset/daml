@@ -10,7 +10,8 @@ import Template.CreateForExercise
 import scala.annotation.implicitNotFound
 
 @implicitNotFound(
-  """Cannot decide how to exercise a choice on ${Self}; only well-typed contract IDs, Templates (.createAnd), and keys (TemplateType key k) are candidates for choice exercise""")
+  """Cannot decide how to exercise a choice on ${Self}; only well-typed contract IDs, Templates (.createAnd), and keys (TemplateType key k) are candidates for choice exercise"""
+)
 sealed abstract class ExerciseOn[-Self, Tpl]
 
 object ExerciseOn {

@@ -9,7 +9,7 @@ import com.daml.lf.transaction.GenTransaction.{
   AliasedNode,
   DanglingNodeId,
   NotWellFormedError,
-  OrphanedNode
+  OrphanedNode,
 }
 import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.daml.lf.value.Value.ContractId
@@ -36,14 +36,16 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
     "detects dangling references in children" in {
       val tx = mkTransaction(
         HashMap(NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2)))),
-        ImmArray(NodeId(1)))
+        ImmArray(NodeId(1)),
+      )
       tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(2), DanglingNodeId))
     }
 
     "detects cycles" in {
       val tx = mkTransaction(
         HashMap(NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(1)))),
-        ImmArray(NodeId(1)))
+        ImmArray(NodeId(1)),
+      )
       tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(1), AliasedNode))
     }
 
