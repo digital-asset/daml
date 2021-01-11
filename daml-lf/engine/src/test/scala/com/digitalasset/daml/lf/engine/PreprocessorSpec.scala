@@ -77,8 +77,8 @@ class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropert
         ValueVariant(None, "variant1", ValueText("some test")),
       TTyCon(enumCon) ->
         ValueEnum(None, "value1"),
-      TApp(TTyCon(tricky), TBuiltin(BTList))  ->
-        ValueRecord(None, ImmArray(None -> ValueNil))
+      TApp(TTyCon(tricky), TBuiltin(BTList)) ->
+        ValueRecord(None, ImmArray(None -> ValueNil)),
     )
 
     val compiledPackage = ConcurrentCompiledPackages()

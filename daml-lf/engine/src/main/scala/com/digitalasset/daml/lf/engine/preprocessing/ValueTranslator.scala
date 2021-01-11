@@ -79,12 +79,11 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
     compiledPackages.getSignature(pkgId).getOrElse(throw PreprocessorMissingPackage(pkgId))
 
   @tailrec
-  private[this] def destructApp(typ: Type, args: List[Type] = List.empty):  (Type,  List[Type]) =
+  private[this] def destructApp(typ: Type, args: List[Type] = List.empty): (Type, List[Type]) =
     typ match {
-      case TApp(tyfun, arg) => destructApp(tyfun, arg:: args)
+      case TApp(tyfun, arg) => destructApp(tyfun, arg :: args)
       case otherwise => otherwise -> args
     }
-
 
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
@@ -154,25 +153,25 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                     } else {
                       SValue.SGenMap(
                         isTextMap = true,
-                        entries = entries.iterator.map {
-                          case (k, v) =>
-                            SValue.SText(k) -> go(typeArg0, v, newNesting)
-                        }
+                        entries = entries.iterator.map { case (k, v) =>
+                          SValue.SText(k) -> go(typeArg0, v, newNesting)
+                        },
                       )
                     }
                   case _ =>
                     typeMismatch
                 }
-              case typeArg0 :: typeArg1 :: Nil if bt == BTGenMap && value.isInstanceOf[ValueGenMap[_]] =>
+              case typeArg0 :: typeArg1 :: Nil
+                  if bt == BTGenMap && value.isInstanceOf[ValueGenMap[_]] =>
                 val ValueGenMap(entries) = value
                 if (entries.isEmpty) {
                   SValue.SValue.EmptyTextMap
                 } else {
                   SValue.SGenMap(
                     isTextMap = true,
-                    entries = entries.iterator.map {
-                      case (k, v) => go(typeArg0, k, newNesting) -> go(typeArg1, v, newNesting)
-                    }
+                    entries = entries.iterator.map { case (k, v) =>
+                      go(typeArg0, k, newNesting) -> go(typeArg1, v, newNesting)
+                    },
                   )
                 }
               case _ =>
@@ -185,16 +184,22 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
               case ValueVariant(mbId, constructorName, val0) =>
                 mbId.foreach(id =>
                   if (id != tyCon)
-                    fail(s"Mismatching variant id, the type tells us $tyCon, but the value tells us $id")
+                    fail(
+                      s"Mismatching variant id, the type tells us $tyCon, but the value tells us $id"
+                    )
                 )
                 val (dataTypParams, variantDef) = assertRight(
-                  SignatureLookup.lookupVariant(pkg, tyCon.qualifiedName))
+                  SignatureLookup.lookupVariant(pkg, tyCon.qualifiedName)
+                )
                 variantDef.constructorRank.get(constructorName) match {
                   case None =>
-                    fail(s"Couldn't find provided variant constructor $constructorName in variant $tyCon")
+                    fail(
+                      s"Couldn't find provided variant constructor $constructorName in variant $tyCon"
+                    )
                   case Some(rank) =>
                     val (_, argTyp) = variantDef.variants(rank)
-                    val replacedTyp = replaceParameters(dataTypParams.toSeq.view.map(_._1).zip(tyArgs), argTyp)
+                    val replacedTyp =
+                      replaceParameters(dataTypParams.toSeq.view.map(_._1).zip(tyArgs), argTyp)
                     SValue.SVariant(
                       tyCon,
                       constructorName,
@@ -207,7 +212,9 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 mbId.foreach(id =>
                   if (id != tyCon)
                     fail(
-                      s"Mismatching record id, the type tells us $tyCon, but the value tells us $id"))
+                      s"Mismatching record id, the type tells us $tyCon, but the value tells us $id"
+                    )
+                )
                 val (dataTypParams, DataRecord(recordFlds)) =
                   assertRight(SignatureLookup.lookupRecord(pkg, tyCon.qualifiedName))
                 // note that we check the number of fields _before_ checking if we can do
@@ -217,29 +224,28 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 // it's ok to do `{"a": 1, "a": 2}`, where the second occurrence would just win.
                 if (recordFlds.length != flds.length) {
                   fail(
-                    s"Expecting ${recordFlds.length} field for record $tyCon, but got ${flds.length}")
+                    s"Expecting ${recordFlds.length} field for record $tyCon, but got ${flds.length}"
+                  )
                 }
                 val params = dataTypParams.toSeq.view.map(_._1).zip(tyArgs)
                 val fields = labeledRecordToMap(flds) match {
                   case None =>
-                    (recordFlds zip flds).map {
-                      case ((lbl, typ), (mbLbl, v)) =>
-                        mbLbl.foreach(lbl_ =>
-                          if (lbl_ != lbl)
-                            fail(
-                              s"Mismatching record label $lbl_ (expecting $lbl) for record $tyCon"))
-                        val replacedTyp = replaceParameters(params, typ)
-                        lbl -> go(replacedTyp, v,newNesting)
+                    (recordFlds zip flds).map { case ((lbl, typ), (mbLbl, v)) =>
+                      mbLbl.foreach(lbl_ =>
+                        if (lbl_ != lbl)
+                          fail(s"Mismatching record label $lbl_ (expecting $lbl) for record $tyCon")
+                      )
+                      val replacedTyp = replaceParameters(params, typ)
+                      lbl -> go(replacedTyp, v, newNesting)
                     }
                   case Some(labeledRecords) =>
-                    recordFlds.map {
-                      case (lbl, typ) =>
-                        labeledRecords
-                          .get(lbl)
-                          .fold(fail(s"Missing record label $lbl for record $tyCon")) { v =>
-                            val replacedTyp = replaceParameters(params, typ)
-                            lbl -> go(replacedTyp, v, newNesting)
-                          }
+                    recordFlds.map { case (lbl, typ) =>
+                      labeledRecords
+                        .get(lbl)
+                        .fold(fail(s"Missing record label $lbl for record $tyCon")) { v =>
+                          val replacedTyp = replaceParameters(params, typ)
+                          lbl -> go(replacedTyp, v, newNesting)
+                        }
                     }
                 }
                 SValue.SRecord(
@@ -252,7 +258,9 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 mbId.foreach(id =>
                   if (id != tyCon)
                     fail(
-                      s"Mismatching enum id, the type tells us $tyCon, but the value tells us $id"))
+                      s"Mismatching enum id, the type tells us $tyCon, but the value tells us $id"
+                    )
+                )
                 val dataDef = assertRight(SignatureLookup.lookupEnum(pkg, tyCon.qualifiedName))
                 dataDef.constructorRank.get(constructor) match {
                   case Some(rank) =>
