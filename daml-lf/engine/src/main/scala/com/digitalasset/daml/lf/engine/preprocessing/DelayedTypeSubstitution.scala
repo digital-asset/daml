@@ -25,22 +25,18 @@ private[preprocessing] class DelayedTypeSubstitution private(
 
   // variables that appear in `typ` must be in the domain of `mapping`
   def introVar(name: Ref.Name, typ: Type) =
-    new DelayedTypeSubstitution(mapping.updated(name, this -> apply(typ)))
+    new DelayedTypeSubstitution(mapping.updated(name, apply(typ)))
 
   // variables that appear in `typ` in the domain of `mapping`
   // requirement: names.size == xs.size
-  def introVars(names: Iterable[Ref.Name], typs: Iterable[Type]): DelayedTypeSubstitution = {
-    if (names.isEmpty && typs.isEmpty) {
+  def introVars(newMapping: Iterable[(Ref.Name, Type)]): DelayedTypeSubstitution = {
+    if (newMapping.isEmpty) {
       this
     } else {
-      val namesIter = names.iterator
-      val typsIter = typs.iterator
-      var acc = mapping
-      while (namesIter.hasNext && typsIter.hasNext) {
-        acc = acc.updated(namesIter.next(), this -> apply(typsIter.next))
+      val updatedMapping = newMapping.foldLeft(mapping){
+        case (acc, (name, typ)) => acc.updated(name, apply(typ))
       }
-      require(namesIter.isEmpty && namesIter.isEmpty)
-      new DelayedTypeSubstitution(acc)
+      new DelayedTypeSubstitution(updatedMapping)
     }
   }
 }

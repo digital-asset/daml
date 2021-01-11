@@ -135,7 +135,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
               case Some(rank) =>
                 val (_, argTyp) = variantDef.variants(rank)
                 val newSubst =
-                  subst1.introVars(dataTypParams.toSeq.view.map(_._1), tyConArgs.toSeq)
+                  subst1.introVars(dataTypParams.toSeq.view.map(_._1) zip tyConArgs.toSeq)
                 SValue.SVariant(
                   typeVariantId,
                   constructorName,
@@ -164,7 +164,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 s"Expecting ${recordFlds.length} field for record $typeRecordId, but got ${flds.length}"
               )
             }
-            val newSubst = subst1.introVars(dataTypParams.toSeq.view.map(_._1), tyConArgs.toSeq)
+            val newSubst = subst1.introVars(dataTypParams.toSeq.view.map(_._1) zip tyConArgs.toSeq)
             val fields = labeledRecordToMap(flds) match {
               case None =>
                 (recordFlds zip flds).map { case ((lbl, typ), (mbLbl, v)) =>
