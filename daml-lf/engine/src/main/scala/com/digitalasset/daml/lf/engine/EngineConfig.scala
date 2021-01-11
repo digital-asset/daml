@@ -70,7 +70,7 @@ object EngineConfig {
   )
 
   /** Development configuration, should not be used in PROD.
-    * Allows all language version
+    * Allows all language versions
     */
   @deprecated("use LanguageVersion.DevVersions directly", since = "1.9.0")
   def Dev: EngineConfig = new EngineConfig(
