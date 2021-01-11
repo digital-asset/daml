@@ -20,21 +20,22 @@ private[oauth2] class RequestTemplates(
     clientSecret: String,
     authTemplate: Option[Path],
     tokenTemplate: Option[Path],
-    refreshTemplate: Option[Path]) {
+    refreshTemplate: Option[Path],
+) {
 
   private val authResourcePath: String = "auth0_request_authorization.jsonnet"
   private val tokenResourcePath: String = "auth0_request_token.jsonnet"
   private val refreshResourcePath: String = "auth0_request_refresh.jsonnet"
 
-  /**
-    * Load a Jsonnet source file.
+  /** Load a Jsonnet source file.
     * @param optFilePath Load from this file path, if provided.
     * @param resourcePath Load from this JAR resource, if no file is provided.
     * @return Content and file path (for error reporting) of the loaded Jsonnet file.
     */
   private def jsonnetSource(
       optFilePath: Option[Path],
-      resourcePath: String): (String, sjsonnet.Path) = {
+      resourcePath: String,
+  ): (String, sjsonnet.Path) = {
     optFilePath match {
       case Some(filePath) =>
         val content: String = Source.fromFile(filePath.toString).mkString
@@ -53,10 +54,9 @@ private[oauth2] class RequestTemplates(
   }
 
   private val jsonnetParseCache
-    : TrieMap[String, fastparse.Parsed[(sjsonnet.Expr, Map[String, Int])]] = TrieMap.empty
+      : TrieMap[String, fastparse.Parsed[(sjsonnet.Expr, Map[String, Int])]] = TrieMap.empty
 
-  /**
-    * Interpret the given Jsonnet code.
+  /** Interpret the given Jsonnet code.
     * @param source The Jsonnet source code.
     * @param sourcePath The Jsonnet source file path (for error reporting).
     * @param arguments Top-level arguments to pass to the Jsonnet code.
@@ -65,7 +65,8 @@ private[oauth2] class RequestTemplates(
   private def interpretJsonnet(
       source: String,
       sourcePath: sjsonnet.Path,
-      arguments: Map[String, ujson.Value]): Try[ujson.Value] = {
+      arguments: Map[String, ujson.Value],
+  ): Try[ujson.Value] = {
     val interp = new sjsonnet.Interpreter(
       jsonnetParseCache,
       Map(),
@@ -83,7 +84,8 @@ private[oauth2] class RequestTemplates(
   def createAuthRequest(
       claims: Request.Claims,
       requestId: UUID,
-      redirectUri: Uri): Try[Map[String, String]] = {
+      redirectUri: Uri,
+  ): Try[Map[String, String]] = {
     val (jsonnet_src, jsonnet_path) = jsonnetSource(authTemplate, authResourcePath)
     for {
       value <- interpretJsonnet(
@@ -98,7 +100,8 @@ private[oauth2] class RequestTemplates(
             "claims" -> ujson.Obj(
               "admin" -> claims.admin,
               "applicationId" -> ujson.Str(
-                ApplicationId.unsubst(claims.applicationId).getOrElse("")),
+                ApplicationId.unsubst(claims.applicationId).getOrElse("")
+              ),
               "actAs" -> Party.unsubst(claims.actAs),
               "readAs" -> Party.unsubst(claims.readAs),
             ),
@@ -144,7 +147,7 @@ private[oauth2] class RequestTemplates(
             "clientSecret" -> clientSecret,
           ),
           "request" -> ujson.Obj(
-            "refreshToken" -> RefreshToken.unwrap(refreshToken),
+            "refreshToken" -> RefreshToken.unwrap(refreshToken)
           ),
         ),
       )
@@ -161,6 +164,7 @@ object RequestTemplates {
       clientSecret: String,
       authTemplate: Option[Path],
       tokenTemplate: Option[Path],
-      refreshTemplate: Option[Path]): RequestTemplates =
+      refreshTemplate: Option[Path],
+  ): RequestTemplates =
     new RequestTemplates(clientId, clientSecret, authTemplate, tokenTemplate, refreshTemplate)
 }

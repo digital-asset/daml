@@ -27,13 +27,15 @@ class TestRequestTemplates
   private def getTemplates(
       authTemplate: Option[Path] = None,
       tokenTemplate: Option[Path] = None,
-      refreshTemplate: Option[Path] = None): RequestTemplates =
+      refreshTemplate: Option[Path] = None,
+  ): RequestTemplates =
     RequestTemplates(
       clientId = clientId,
       clientSecret = clientSecret,
       authTemplate = authTemplate,
       tokenTemplate = tokenTemplate,
-      refreshTemplate = refreshTemplate)
+      refreshTemplate = refreshTemplate,
+    )
 
   private def withJsonnetFile(content: String)(testCode: Path => Any): Unit = {
     val file = File.createTempFile("test-request-template", ".jsonnet")
@@ -85,7 +87,8 @@ class TestRequestTemplates
         admin = false,
         actAs = Party.subst(List("Alice", "Bob")),
         readAs = Nil,
-        applicationId = None)
+        applicationId = None,
+      )
       val requestId = UUID.randomUUID()
       val redirectUri = Uri("https://localhost/cb")
       val params = templates.createAuthRequest(claims, requestId, redirectUri).success.value
@@ -106,7 +109,8 @@ class TestRequestTemplates
         admin = false,
         actAs = Nil,
         readAs = Party.subst(List("Alice", "Bob")),
-        applicationId = None)
+        applicationId = None,
+      )
       val requestId = UUID.randomUUID()
       val redirectUri = Uri("https://localhost/cb")
       val params = templates.createAuthRequest(claims, requestId, redirectUri).success.value
@@ -127,7 +131,8 @@ class TestRequestTemplates
         admin = false,
         actAs = Nil,
         readAs = Nil,
-        applicationId = ApplicationId.subst(Some("application-id")))
+        applicationId = ApplicationId.subst(Some("application-id")),
+      )
       val requestId = UUID.randomUUID()
       val redirectUri = Uri("https://localhost/cb")
       val params = templates.createAuthRequest(claims, requestId, redirectUri).success.value

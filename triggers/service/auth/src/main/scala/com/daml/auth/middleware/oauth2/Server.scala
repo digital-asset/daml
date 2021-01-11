@@ -79,7 +79,8 @@ class Server(config: Config) extends StrictLogging {
     config.clientSecret,
     config.oauthAuthTemplate,
     config.oauthTokenTemplate,
-    config.oauthRefreshTemplate)
+    config.oauthRefreshTemplate,
+  )
 
   private val auth: Route =
     parameters('claims.as[Request.Claims])
@@ -119,11 +120,13 @@ class Server(config: Config) extends StrictLogging {
             val authParams = requestTemplates.createAuthRequest(
               login.claims,
               requestId,
-              toRedirectUri(request.uri))
+              toRedirectUri(request.uri),
+            )
             authParams match {
               case Failure(exception) =>
                 logger.error(
-                  s"Failed to interpret authorization request template: ${exception.getMessage}")
+                  s"Failed to interpret authorization request template: ${exception.getMessage}"
+                )
                 complete(StatusCodes.InternalServerError, "Failed to construct authorization URL")
               case Success(params) =>
                 val query = Uri.Query(params)
@@ -154,44 +157,46 @@ class Server(config: Config) extends StrictLogging {
         concat(
           parameters('code, 'state ?)
             .as[OAuthResponse.Authorize](OAuthResponse.Authorize) { authorize =>
-              popRequest(authorize.state) {
-                redirectUri =>
-                  extractRequest {
-                    request =>
-                      val tokenParams = requestTemplates
-                        .createTokenRequest(authorize.code, toRedirectUri(request.uri))
-                      tokenParams match {
-                        case Failure(exception) =>
-                          logger.error(
-                            s"Failed to interpret token request template: ${exception.getMessage}")
-                          complete(
-                            StatusCodes.InternalServerError,
-                            "Failed to construct token request")
-                        case Success(params) =>
-                          val entity = FormData(params).toEntity
-                          val req = HttpRequest(
-                            uri = config.oauthToken,
-                            entity = entity,
-                            method = HttpMethods.POST)
-                          val tokenRequest =
-                            for {
-                              resp <- Http().singleRequest(req)
-                              tokenResp <- if (resp.status != StatusCodes.OK) {
-                                Unmarshal(resp).to[String].flatMap { msg =>
-                                  Future.failed(new RuntimeException(
-                                    s"Failed to retrieve token at ${req.uri} (${resp.status}): $msg"))
-                                }
-                              } else {
-                                Unmarshal(resp).to[OAuthResponse.Token]
+              popRequest(authorize.state) { redirectUri =>
+                extractRequest { request =>
+                  val tokenParams = requestTemplates
+                    .createTokenRequest(authorize.code, toRedirectUri(request.uri))
+                  tokenParams match {
+                    case Failure(exception) =>
+                      logger.error(
+                        s"Failed to interpret token request template: ${exception.getMessage}"
+                      )
+                      complete(StatusCodes.InternalServerError, "Failed to construct token request")
+                    case Success(params) =>
+                      val entity = FormData(params).toEntity
+                      val req = HttpRequest(
+                        uri = config.oauthToken,
+                        entity = entity,
+                        method = HttpMethods.POST,
+                      )
+                      val tokenRequest =
+                        for {
+                          resp <- Http().singleRequest(req)
+                          tokenResp <-
+                            if (resp.status != StatusCodes.OK) {
+                              Unmarshal(resp).to[String].flatMap { msg =>
+                                Future.failed(
+                                  new RuntimeException(
+                                    s"Failed to retrieve token at ${req.uri} (${resp.status}): $msg"
+                                  )
+                                )
                               }
-                            } yield tokenResp
-                          onSuccess(tokenRequest) { token =>
-                            setCookie(HttpCookie(cookieName, token.toCookieValue)) {
-                              redirect(redirectUri, StatusCodes.Found)
+                            } else {
+                              Unmarshal(resp).to[OAuthResponse.Token]
                             }
-                          }
+                        } yield tokenResp
+                      onSuccess(tokenRequest) { token =>
+                        setCookie(HttpCookie(cookieName, token.toCookieValue)) {
+                          redirect(redirectUri, StatusCodes.Found)
+                        }
                       }
                   }
+                }
               }
             },
           parameters('error, 'error_description ?, 'error_uri.as[Uri] ?, 'state ?)
@@ -205,7 +210,7 @@ class Server(config: Config) extends StrictLogging {
                 }
                 redirect(uri, StatusCodes.Found)
               }
-            }
+            },
         )
       }
     }
@@ -232,7 +237,8 @@ class Server(config: Config) extends StrictLogging {
                     val authResponse = Unmarshal(resp).to[OAuthResponse.Token].map { token =>
                       Response.Authorize(
                         accessToken = AccessToken(token.accessToken),
-                        refreshToken = RefreshToken.subst(token.refreshToken))
+                        refreshToken = RefreshToken.subst(token.refreshToken),
+                      )
                     }
                     complete(authResponse)
                   // Forward client errors.
@@ -243,7 +249,9 @@ class Server(config: Config) extends StrictLogging {
                     onSuccess(Unmarshal(resp).to[String]) { msg =>
                       failWith(
                         new RuntimeException(
-                          s"Failed to retrieve refresh token (${resp.status}): $msg"))
+                          s"Failed to retrieve refresh token (${resp.status}): $msg"
+                        )
+                      )
                     }
                 }
               }
