@@ -41,12 +41,12 @@ The below lists with which Daml Connect version a new Ledger API version was int
 .. list-table::   
    :header-rows: 1
 
-   * - Daml Connect Version
-     - Ledger API Version
-   * - 1.9
-     - 1.8
+   * - Ledger API Version
+     - Daml Connect Version
+   * - 1.8
+     - 1.9
    * - <= 1.7
-     - Equal to Daml Connect / SDK version
+     - Introduced with the same Daml Connect / SDK version
 
 
 Driver and Participant Compatibility: Network Upgradeability
