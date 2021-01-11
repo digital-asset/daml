@@ -28,19 +28,19 @@ NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
 
 # Runtime
 /daml-lf/governance.rst @hurryabit @S11001001
-/daml-lf/archive/da/    @remyhaemmerle-da @hurryabit
-/daml-lf/engine/ @hurryabit @remyhaemmerle-da
-/daml-lf/interpreter/ @hurryabit @remyhaemmerle-da
-/daml-lf/repl/ @hurryabit @remyhaemmerle-da
-/daml-lf/scenario-interpreter/ @hurryabit @remyhaemmerle-da
-/daml-lf/spec/value.rst @S11001001 @hurryabit
-/daml-lf/spec/transaction.rst @S11001001 @hurryabit
-/daml-lf/spec/daml-lf-1.rst @remyhaemmerle-da @hurryabit
-/daml-lf/data-scalacheck/  @S11001001
-/daml-lf/transaction-test-lib/  @S11001001
-/daml-lf/validation/    @remyhaemmerle-da
-/daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @S11001001
-/daml-lf/transaction/src/main/scala/com/daml/lf/value/       @S11001001
+/daml-lf/archive/da/    @remyhaemmerle-da @hurryabit @cocreature
+/daml-lf/engine/ @hurryabit @remyhaemmerle-da @cocreature
+/daml-lf/interpreter/ @hurryabit @remyhaemmerle-da @cocreature
+/daml-lf/repl/ @hurryabit @remyhaemmerle-da @cocreature
+/daml-lf/scenario-interpreter/ @hurryabit @remyhaemmerle-da @cocreature
+/daml-lf/spec/value.rst @S11001001 @hurryabit @cocreature
+/daml-lf/spec/transaction.rst @S11001001 @hurryabit @cocreature
+/daml-lf/spec/daml-lf-1.rst @remyhaemmerle-da @hurryabit @cocreature
+/daml-lf/data-scalacheck/  @S11001001 @cocreature
+/daml-lf/transaction-test-lib/  @S11001001 @cocreature
+/daml-lf/validation/    @remyhaemmerle-da @cocreature
+/daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @S11001001 @cocreature
+/daml-lf/transaction/src/main/scala/com/daml/lf/value/       @S11001001 @cocreature
 
 /ledger-service/    @S11001001 @cocreature @stefanobaghino-da
 

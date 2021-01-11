@@ -49,7 +49,7 @@ class CommonCli(name: LedgerName) {
 
       opt[Unit]("dev-mode-unsafe")
         .optional()
-        .action((_, config) => config.copy(devMode = true))
+        .action((_, config) => config.copy(engineMode = SandboxConfig.EngineMode.Dev))
         .text(
           "Turns on development mode. Development mode allows development versions of Daml-LF language."
         )
@@ -350,6 +350,23 @@ class CommonCli(name: LedgerName) {
         )
       )
       .action((text, config) => config.copy(seeding = seedingModesMap(text)))
+    this
+  }
+
+  def withEarlyAccess: CommonCli = {
+    parser
+      .opt[Unit]("early-access-unsafe")
+      .optional()
+      .action((_, c) =>
+        if (c.engineMode == SandboxConfig.EngineMode.Stable) {
+          c.copy(engineMode = SandboxConfig.EngineMode.EarlyAccess)
+        } else {
+          c
+        }
+      )
+      .text(
+        "Enable preview version of the next Daml-LF language. Should not be used in production."
+      )
     this
   }
 

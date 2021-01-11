@@ -54,30 +54,26 @@ final case class EngineConfig(
 
 object EngineConfig {
 
-  /** Most lenient production engine configuration. This allows the
-    * engine to load and produce all non-deprecated stable versions of
-    * language and transaction.
+  /** Recommended production configuration.
+    * Allows the all stable versions of language.
     */
-  val Lenient: EngineConfig = new EngineConfig(
+  @deprecated("use LanguageVersion.StableVersions directly", since = "1.9.0")
+  def Stable: EngineConfig = new EngineConfig(
     allowedLanguageVersions = LanguageVersion.StableVersions
   )
 
-  /** Recommended production configuration.
+  /** Only allows language versions compatible with the legacy contract ID scheme.
     */
-  def Stable: EngineConfig = Lenient
+  @deprecated("use LanguageVersion.LegacyVersions directly", since = "1.9.0")
+  def Legacy: EngineConfig = new EngineConfig(
+    allowedLanguageVersions = LanguageVersion.LegacyVersions
+  )
 
-  /** Configuration if legacy contract ID is used.
+  /** Development configuration, should not be used in PROD.
+    * Allows all language versions
     */
-  def Legacy: EngineConfig =
-    Lenient.copy(
-      allowedLanguageVersions = LanguageVersion.StableVersions.copy(max = LanguageVersion.v1_8)
-    )
-
-  /** Development configuration, should not be used in PROD.  Allowed
-    * the same input and output versions as [[Lenient]] plus the
-    * development versions.
-    */
-  val Dev: EngineConfig = new EngineConfig(
+  @deprecated("use LanguageVersion.DevVersions directly", since = "1.9.0")
+  def Dev: EngineConfig = new EngineConfig(
     allowedLanguageVersions = LanguageVersion.DevVersions
   )
 
