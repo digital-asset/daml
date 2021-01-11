@@ -168,12 +168,15 @@ jobs:
           //libs-scala/... \
           //daml-lf/... \
           //language-support/scala/... \
+          //ledger-api/... \
           -//language-support/scala/examples/... \
           -//language-support/scala/codegen-sample-app/...
           # gatling-utils tests fail with a ClassNotFoundException for scala.collection.SeqLike
         bazel test --config scala_2_13 -- \
           //libs-scala/... \
           //daml-lf/... \
+          //language-support/scala/... \
+          //ledger-api/... \
           -//libs-scala/gatling-utils/... \
           -//language-support/scala/examples/... \
           -//language-support/scala/codegen-sample-app/...

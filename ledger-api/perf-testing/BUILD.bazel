@@ -4,20 +4,30 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "silencer_plugin",
 )
 
 da_scala_library(
     name = "perf-testing",
     srcs = glob(["src/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_storm_enroute_scalameter",
+        "@maven//:com_storm_enroute_scalameter_core",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import scala.collection.compat",
+    ],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         "//ledger-api/testing-utils",
-        "@maven//:com_storm_enroute_scalameter_2_12",
-        "@maven//:com_storm_enroute_scalameter_core_2_12",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

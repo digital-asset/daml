@@ -12,7 +12,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class MockServerCallStreamObserver[T] extends ServerCallStreamObserver[T] {
 
-  private val completionPromise = Promise[Unit]
+  private val completionPromise = Promise[Unit]()
   val demandForRequests = new AtomicInteger(0)
   private val onReadyHandler = new AtomicReference[Runnable](() => ())
   private val onCancelHandler = new AtomicReference[Runnable](() => ())
