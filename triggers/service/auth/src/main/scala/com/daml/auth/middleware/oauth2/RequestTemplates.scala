@@ -85,86 +85,81 @@ private[oauth2] class RequestTemplates(
       .toTry
   }
 
+  /** Convert a JSON value to a string mapping representing request parameters.
+    */
+  private def toRequestParams(value: ujson.Value): Try[Map[String, String]] =
+    Try(value.obj.mapValues(_.str).toMap)
+
+  private def createRequest(
+      template: (String, sjsonnet.Path),
+      args: Map[String, ujson.Value],
+  ): Try[Map[String, String]] = {
+    val (jsonnet_src, jsonnet_path) = template
+    interpretJsonnet(jsonnet_src, jsonnet_path, args).flatMap(toRequestParams)
+  }
+
   private lazy val authJsonnetSource: (String, sjsonnet.Path) =
     jsonnetSource(authTemplate, authResourcePath)
+  private def authArguments(
+      claims: Request.Claims,
+      requestId: UUID,
+      redirectUri: Uri,
+  ): Map[String, ujson.Value] =
+    Map(
+      "config" -> ujson.Obj(
+        "clientId" -> clientId,
+        "clientSecret" -> clientSecret,
+      ),
+      "request" -> ujson.Obj(
+        "claims" -> ujson.Obj(
+          "admin" -> claims.admin,
+          "applicationId" -> (claims.applicationId match {
+            case Some(ApplicationId(appId)) => appId
+            case None => ujson.Null
+          }),
+          "actAs" -> Party.unsubst(claims.actAs),
+          "readAs" -> Party.unsubst(claims.readAs),
+        ),
+        "redirectUri" -> redirectUri.toString,
+        "state" -> requestId.toString,
+      ),
+    )
   def createAuthRequest(
       claims: Request.Claims,
       requestId: UUID,
       redirectUri: Uri,
   ): Try[Map[String, String]] = {
-    val (jsonnet_src, jsonnet_path) = authJsonnetSource
-    for {
-      value <- interpretJsonnet(
-        jsonnet_src,
-        jsonnet_path,
-        Map(
-          "config" -> ujson.Obj(
-            "clientId" -> clientId,
-            "clientSecret" -> clientSecret,
-          ),
-          "request" -> ujson.Obj(
-            "claims" -> ujson.Obj(
-              "admin" -> claims.admin,
-              "applicationId" -> (claims.applicationId match {
-                case Some(ApplicationId(appId)) => appId
-                case None => ujson.Null
-              }),
-              "actAs" -> Party.unsubst(claims.actAs),
-              "readAs" -> Party.unsubst(claims.readAs),
-            ),
-            "redirectUri" -> redirectUri.toString,
-            "state" -> requestId.toString,
-          ),
-        ),
-      )
-      params <- Try(value.obj.mapValues(_.str).toMap)
-    } yield params
+    createRequest(authJsonnetSource, authArguments(claims, requestId, redirectUri))
   }
 
   private lazy val tokenJsonnetSource: (String, sjsonnet.Path) =
     jsonnetSource(tokenTemplate, tokenResourcePath)
-  def createTokenRequest(code: String, redirectUri: Uri): Try[Map[String, String]] = {
-    val (jsonnet_src, jsonnet_path) = tokenJsonnetSource
-    for {
-      value <- interpretJsonnet(
-        jsonnet_src,
-        jsonnet_path,
-        Map(
-          "config" -> ujson.Obj(
-            "clientId" -> clientId,
-            "clientSecret" -> clientSecret,
-          ),
-          "request" -> ujson.Obj(
-            "code" -> code,
-            "redirectUri" -> redirectUri.toString,
-          ),
-        ),
-      )
-      params <- Try(value.obj.mapValues(_.str).toMap)
-    } yield params
-  }
+  private def tokenArguments(code: String, redirectUri: Uri): Map[String, ujson.Value] = Map(
+    "config" -> ujson.Obj(
+      "clientId" -> clientId,
+      "clientSecret" -> clientSecret,
+    ),
+    "request" -> ujson.Obj(
+      "code" -> code,
+      "redirectUri" -> redirectUri.toString,
+    ),
+  )
+  def createTokenRequest(code: String, redirectUri: Uri): Try[Map[String, String]] =
+    createRequest(tokenJsonnetSource, tokenArguments(code, redirectUri))
 
   private lazy val refreshJsonnetSource: (String, sjsonnet.Path) =
     jsonnetSource(refreshTemplate, refreshResourcePath)
-  def createRefreshRequest(refreshToken: RefreshToken): Try[Map[String, String]] = {
-    val (jsonnet_src, jsonnet_path) = refreshJsonnetSource
-    for {
-      value <- interpretJsonnet(
-        jsonnet_src,
-        jsonnet_path,
-        Map(
-          "config" -> ujson.Obj(
-            "clientId" -> clientId,
-            "clientSecret" -> clientSecret,
-          ),
-          "request" -> ujson.Obj(
-            "refreshToken" -> RefreshToken.unwrap(refreshToken)
-          ),
-        ),
-      )
-      params <- Try(value.obj.mapValues(_.str).toMap)
-    } yield params
-  }
+  private def refreshArguments(refreshToken: RefreshToken): Map[String, ujson.Value] = Map(
+    "config" -> ujson.Obj(
+      "clientId" -> clientId,
+      "clientSecret" -> clientSecret,
+    ),
+    "request" -> ujson.Obj(
+      "refreshToken" -> RefreshToken.unwrap(refreshToken)
+    ),
+  )
+  def createRefreshRequest(refreshToken: RefreshToken): Try[Map[String, String]] =
+    createRequest(refreshJsonnetSource, refreshArguments(refreshToken))
 }
 
 object RequestTemplates {
