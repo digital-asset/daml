@@ -239,7 +239,7 @@ patches we backport to the 1.0 release branch).
     1. Kill all processes.
 
     1. Run `daml studio --replace=always`. This should open VSCode and trigger
-       the DAML extension that's bundled with the new SDK version. (The new
+       the Daml extension that's bundled with the new SDK version. (The new
        VSCode extension will not be in the marketplace at this point.)
 
     1. Open `daml/Main.daml`.
@@ -300,7 +300,7 @@ patches we backport to the 1.0 release branch).
    for this release will be added to docs.daml.com on the next hour.
 
 1. **[STABLE]** Coordinate with product (& marketing) for the relevant public
-   announcements (DAML Forum, Twitter, etc.).
+   announcements (Daml Forum, Twitter, etc.).
 
 1. **[STABLE]** Documentation is published automatically once the release is
    public on GitHub, though this runs on an hourly cron.

@@ -1,7 +1,7 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- Check that `exercise` is compiled to the DAML-LF `exercise` instruction
+-- Check that `exercise` is compiled to the Daml-LF `exercise` instruction
 -- without actors. Also check that `internalExerciseWithActors` actually
 -- uses actors as a sanity check.
 

@@ -3,7 +3,8 @@
 
 package com.daml.platform.apiserver
 
-import akka.actor.ActorSystem
+import java.util.concurrent.Executor
+
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -20,8 +21,9 @@ private[daml] final class LedgerApiServer(
     address: Option[String],
     tlsConfiguration: Option[TlsConfiguration] = None,
     interceptors: List[ServerInterceptor] = List.empty,
+    servicesExecutor: Executor,
     metrics: Metrics,
-)(implicit actorSystem: ActorSystem, loggingContext: LoggingContext)
+)(implicit loggingContext: LoggingContext)
     extends ResourceOwner[ApiServer] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -29,13 +31,8 @@ private[daml] final class LedgerApiServer(
   override def acquire()(implicit context: ResourceContext): Resource[ApiServer] = {
     val servicesClosedPromise = Promise[Unit]()
 
+    val apiServicesResource = apiServicesOwner.acquire()
     for {
-      eventLoopGroups <- new ServerEventLoopGroups.Owner(
-        actorSystem.name,
-        workerParallelism = sys.runtime.availableProcessors(),
-        bossParallelism = 1,
-      ).acquire()
-      apiServicesResource = apiServicesOwner.acquire()
       apiServices <- apiServicesResource
       sslContext = tlsConfiguration.flatMap(_.server)
       _ = tlsConfiguration.map(_.setJvmTlsProperties())
@@ -46,7 +43,7 @@ private[daml] final class LedgerApiServer(
         sslContext,
         interceptors,
         metrics,
-        eventLoopGroups,
+        servicesExecutor,
         apiServices.services,
       ).acquire()
       // Notify the caller that the services have been closed, so a reset request can complete

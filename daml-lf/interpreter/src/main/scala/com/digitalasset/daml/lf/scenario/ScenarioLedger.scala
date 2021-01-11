@@ -20,7 +20,7 @@ import com.daml.lf.value.Value
 import Value.{NodeId => _, _}
 
 import scala.annotation.tailrec
-import scala.collection.generic.CanBuildFrom
+import scala.collection.compat._
 import scala.collection.immutable
 
 /** An in-memory representation of a ledger for scenarios */
@@ -313,7 +313,7 @@ object ScenarioLedger {
     */
   def collectCoids(value: Value[ContractId]): Set[ContractId] = {
     val coids =
-      implicitly[CanBuildFrom[Nothing, ContractId, Set[ContractId]]].apply()
+      implicitly[Factory[ContractId, Set[ContractId]]].newBuilder
     def collect(v: Value[ContractId]): Unit =
       v match {
         case ValueRecord(tycon @ _, fs) =>

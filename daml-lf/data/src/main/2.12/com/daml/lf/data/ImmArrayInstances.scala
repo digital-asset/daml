@@ -21,6 +21,13 @@ private[data] abstract class ImmArrayInstances {
       .newBuilder[Any]
       .asInstanceOf[mutable.Builder[A, ArraySeq[A]]]
       .mapResult(ImmArray.fromArraySeq(_))
+
+  import scala.language.implicitConversions
+
+  /** Enables 2.13-style `to` calls. */
+  implicit def `IS companion to CBF`[A](
+      self: ImmArray.type): CanBuildFrom[ImmArray[_], A, ImmArray[A]] =
+    self.`ImmArray canBuildFrom`
 }
 
 private[data] object ImmArrayInstances {

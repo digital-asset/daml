@@ -9,23 +9,22 @@ import java.util.concurrent.Executors
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimeProvider
-import com.daml.caching.{Cache, ConcurrentCache}
+import com.daml.caching.Cache
 import com.daml.concurrent.{ExecutionContext, Future}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntryId, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.api.{
   CommitMetadata,
   LedgerReader,
   LedgerRecord,
   LedgerWriter
 }
-import com.daml.ledger.participant.state.kvutils.{Bytes, OffsetBuilder}
+import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
@@ -72,7 +71,7 @@ final class SqlLedgerReaderWriter(
 
   override def commit(
       correlationId: String,
-      envelope: Bytes,
+      envelope: Raw.Value,
       metadata: CommitMetadata,
   ): sc.Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)(committerExecutionContext)
@@ -90,7 +89,7 @@ object SqlLedgerReaderWriter {
       engine: Engine,
       jdbcUrl: String,
       resetOnStartup: Boolean,
-      stateValueCache: ConcurrentCache[Bytes, DamlStateValue] = Cache.none,
+      stateValueCache: StateValueCache = Cache.none,
       timeProvider: TimeProvider = DefaultTimeProvider,
       seedService: SeedService,
   )(implicit loggingContext: LoggingContext)
@@ -199,18 +198,18 @@ object SqlLedgerReaderWriter {
   private final class SqlLedgerStateOperations(queries: Queries)
       extends BatchingLedgerStateOperations[Index] {
     override def readState(
-        keys: Iterable[Key],
-    )(implicit executionContext: sc.ExecutionContext): sc.Future[Seq[Option[Value]]] =
+        keys: Iterable[Raw.Key],
+    )(implicit executionContext: sc.ExecutionContext): sc.Future[Seq[Option[Raw.Value]]] =
       Future.fromTry(queries.selectStateValuesByKeys(keys)).removeExecutionContext
 
     override def writeState(
-        keyValuePairs: Iterable[(Key, Value)],
+        keyValuePairs: Iterable[Raw.KeyValuePair],
     )(implicit executionContext: sc.ExecutionContext): sc.Future[Unit] =
       Future.fromTry(queries.updateState(keyValuePairs)).removeExecutionContext
 
     override def appendToLog(
-        key: Key,
-        value: Value,
+        key: Raw.Key,
+        value: Raw.Value,
     )(implicit executionContext: sc.ExecutionContext): sc.Future[Index] =
       Future.fromTry(queries.insertRecordIntoLog(key, value)).removeExecutionContext
   }

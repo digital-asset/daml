@@ -19,13 +19,12 @@ import com.daml.auth.oauth2.api.{Request => OAuthRequest, Response => OAuthRespo
 import com.typesafe.scalalogging.StrictLogging
 import java.util.UUID
 
-import com.daml.auth.middleware.api.{Request, Response}
+import com.daml.auth.middleware.api.{Request, RequestStore, Response}
 import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 
-import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.Try
@@ -47,8 +46,8 @@ object Server extends StrictLogging {
 
   def start(
       config: Config)(implicit system: ActorSystem, ec: ExecutionContext): Future[ServerBinding] = {
-    // TODO[AH] Make sure this is bounded in size - or avoid state altogether.
-    val requests: TrieMap[UUID, Uri] = TrieMap()
+    val requests: RequestStore[UUID, Uri] =
+      new RequestStore(config.maxLoginRequests, config.loginTimeout)
     val route = concat(
       path("auth") {
         get {
@@ -126,38 +125,42 @@ object Server extends StrictLogging {
         }
       }
 
-  private def login(config: Config, requests: TrieMap[UUID, Uri]) =
+  private def login(config: Config, requests: RequestStore[UUID, Uri]) =
     parameters('redirect_uri.as[Uri], 'claims.as[Request.Claims], 'state ?)
       .as[Request.Login](Request.Login) { login =>
         extractRequest { request =>
           val requestId = UUID.randomUUID
-          requests += (requestId -> {
+          val stored = requests.put(requestId, {
             var query = login.redirectUri.query().to[Seq]
             login.state.foreach(x => query ++= Seq("state" -> x))
             login.redirectUri.withQuery(Uri.Query(query: _*))
           })
-          val authorize = OAuthRequest.Authorize(
-            responseType = "code",
-            clientId = config.clientId,
-            redirectUri = toRedirectUri(config, request.uri),
-            // Auth0 will only issue a refresh token if the offline_access claim is present.
-            // TODO[AH] Make the request configurable, see https://github.com/digital-asset/daml/issues/7957
-            scope = Some("offline_access " + login.claims.toQueryString),
-            state = Some(requestId.toString),
-            audience = Some("https://daml.com/ledger-api")
-          )
-          redirect(config.oauthAuth.withQuery(authorize.toQuery), StatusCodes.Found)
+          if (stored) {
+            val authorize = OAuthRequest.Authorize(
+              responseType = "code",
+              clientId = config.clientId,
+              redirectUri = toRedirectUri(config, request.uri),
+              // Auth0 will only issue a refresh token if the offline_access claim is present.
+              // TODO[AH] Make the request configurable, see https://github.com/digital-asset/daml/issues/7957
+              scope = Some("offline_access " + login.claims.toQueryString),
+              state = Some(requestId.toString),
+              audience = Some("https://daml.com/ledger-api")
+            )
+            redirect(config.oauthAuth.withQuery(authorize.toQuery), StatusCodes.Found)
+          } else {
+            complete(StatusCodes.ServiceUnavailable)
+          }
         }
       }
 
-  private def loginCallback(config: Config, requests: TrieMap[UUID, Uri])(
+  private def loginCallback(config: Config, requests: RequestStore[UUID, Uri])(
       implicit system: ActorSystem,
       ec: ExecutionContext) = {
     def popRequest(optState: Option[String]): Directive1[Uri] = {
       val redirectUri = for {
         state <- optState
         requestId <- Try(UUID.fromString(state)).toOption
-        redirectUri <- requests.remove(requestId)
+        redirectUri <- requests.pop(requestId)
       } yield redirectUri
       redirectUri match {
         case Some(redirectUri) => provide(redirectUri)

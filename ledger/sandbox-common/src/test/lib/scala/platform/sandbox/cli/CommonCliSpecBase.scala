@@ -21,7 +21,7 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 abstract class CommonCliSpecBase(
     protected val cli: SandboxCli,

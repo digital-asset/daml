@@ -463,6 +463,39 @@ damlStartTests getDamlStart =
                               -- waitForProcess' will block on Windows so we explicitly kill the
                               -- process.
                               terminateProcess navigatorPh
+        , testCase "Navigator startup via daml ledger outside project directory" $ do
+              DamlStartResource {sandboxPort} <- getDamlStart
+              withTempDir $ \tmpDir -> do
+              withCurrentDirectory tmpDir $
+               do
+                  withDevNull $ \devNull -> do
+                      navigatorPort :: Int <- fromIntegral <$> getFreePort
+                      let navigatorProc =
+                              (shell $
+                               unwords
+                                   [ "daml"
+                                   , "ledger"
+                                   , "navigator"
+                                   , "--host"
+                                   , "localhost"
+                                   , "--port"
+                                   , show sandboxPort
+                                   , "--port"
+                                   , show navigatorPort
+                                   ])
+                                  {std_out = UseHandle devNull, std_in = CreatePipe}
+                      withCreateProcess navigatorProc $ \_ _ _ navigatorPh ->
+                          race_ (waitForProcess' navigatorProc navigatorPh) $
+                          -- waitForHttpServer will only return once we get a 200 response so we
+                          -- don’t need to do anything else.
+                           do
+                              waitForHttpServer
+                                  (threadDelay 100000)
+                                  ("http://localhost:" <> show navigatorPort)
+                                  []
+                              -- waitForProcess' will block on Windows so we explicitly kill the
+                              -- process.
+                              terminateProcess navigatorPh
         , testCase "hot-reload" $ do
               DamlStartResource {projDir, jsonApiPort, startStdin} <- getDamlStart
               withCurrentDirectory projDir $ do
@@ -657,6 +690,13 @@ quickstartTests quickstartDir mvnDir getSandbox =
                                   "{\"0\":{\"issuer\":\"EUR_Bank\",\"owner\":\"Alice\",\"currency\":\"EUR\",\"amount\":100.0000000000,\"observers\":[]}}"
                   -- waitForProcess' will block on Windows so we explicitly kill the process.
                               terminateProcess mavenPh
+        , testCase "daml codegen java with DAML_PROJECT" $
+              withTempDir $ \dir -> do
+                callCommandSilent $ unwords ["daml", "new", dir </> "quickstart", "--template=quickstart-java"]
+                withEnv [ ("DAML_PROJECT", Just $ dir </> "quickstart") ] $ do
+                    callCommandSilent $ unwords ["daml", "build"]
+                    callCommandSilent $ unwords ["daml", "codegen", "java"]
+                pure ()
         ]
   where
     mvnRepoFlag = "-Dmaven.repo.local=" <> mvnDir

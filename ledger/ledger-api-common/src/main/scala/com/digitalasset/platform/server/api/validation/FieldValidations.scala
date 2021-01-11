@@ -13,7 +13,6 @@ import com.daml.lf.data.Ref.Party
 import com.daml.platform.server.api.validation.ErrorFactories._
 import io.grpc.StatusRuntimeException
 
-import scala.language.higherKinds
 import scala.util.Try
 
 trait FieldValidations {

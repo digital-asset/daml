@@ -164,9 +164,19 @@ jobs:
     - bash: |
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
-        bazel build --config scala_2_13 //libs-scala/... //daml-lf/data/... //daml-lf/language/... //daml-lf/transaction/... //daml-lf/validation/... //daml-lf/parser/...
-        # gatling-utils tests fail with a ClassNotFoundException for scala.collection.SeqLike
-        bazel test --config scala_2_13 -- //libs-scala/... //daml-lf/data/... //daml-lf/language/... //daml-lf/transaction/... //daml-lf/validation/... //daml-lf/parser/... -//libs-scala/gatling-utils/...
+        bazel build --config scala_2_13 -- \
+          //libs-scala/... \
+          //daml-lf/... \
+          //language-support/scala/... \
+          -//language-support/scala/examples/... \
+          -//language-support/scala/codegen-sample-app/...
+          # gatling-utils tests fail with a ClassNotFoundException for scala.collection.SeqLike
+        bazel test --config scala_2_13 -- \
+          //libs-scala/... \
+          //daml-lf/... \
+          -//libs-scala/gatling-utils/... \
+          -//language-support/scala/examples/... \
+          -//language-support/scala/codegen-sample-app/...
       displayName: 'Build'
     - template: tell-slack-failed.yml
       parameters:

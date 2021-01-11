@@ -41,7 +41,7 @@ The following instructions tested on Linux but should also work on macOs.
 - the website: https://gatling.io/open-source
 - direct URL: https://repo1.maven.org/maven2/io/gatling/highcharts/gatling-charts-highcharts-bundle/3.3.1/gatling-charts-highcharts-bundle-3.3.1-bundle.zip
 
-## 3.2. Create quickstart DAML project
+## 3.2. Create quickstart Daml project
 ```
 $ daml new quickstart-java --template quickstart-java
 $ cd quickstart-java/
@@ -65,5 +65,5 @@ $ <GATLING_HOME>/bin/gatling.sh --simulations-folder=<DAML_PROJECT_HOME>/ledger-
 ```
 Where:
 - `<GATLING_HOME>` -- path to the Gatling directory
-- `<DAML_PROJECT_HOME>` -- path to the DAML Repository on the local disk
+- `<DAML_PROJECT_HOME>` -- path to the Daml Repository on the local disk
 - `--simulation=com.daml.http.perf.scenario.CreateCommand` -- full class name of the scenario from the `--simulations-folder`

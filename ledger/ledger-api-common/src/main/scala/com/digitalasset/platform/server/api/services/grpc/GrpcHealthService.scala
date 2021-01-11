@@ -7,7 +7,6 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.DropRepeated
@@ -21,7 +20,7 @@ import io.grpc.health.v1.health.{
 import io.grpc.{ServerServiceDefinition, Status, StatusException}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 class GrpcHealthService(
@@ -30,10 +29,11 @@ class GrpcHealthService(
 )(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
+    executionContext: ExecutionContext,
 ) extends HealthAkkaGrpc
     with GrpcApiService {
   override def bindService(): ServerServiceDefinition =
-    HealthGrpc.bindService(this, DirectExecutionContext)
+    HealthGrpc.bindService(this, executionContext)
 
   override def check(request: HealthCheckRequest): Future[HealthCheckResponse] =
     Future.fromTry(matchResponse(serviceFrom(request)))

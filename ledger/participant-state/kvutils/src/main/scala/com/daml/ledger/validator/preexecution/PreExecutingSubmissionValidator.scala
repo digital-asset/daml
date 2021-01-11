@@ -5,7 +5,7 @@ package com.daml.ledger.validator.preexecution
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlSubmission}
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.batch.BatchedSubmissionValidator
 import com.daml.ledger.validator.reading.StateReader
@@ -40,7 +40,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
   private val logger = ContextualizedLogger.get(getClass)
 
   def validate(
-      submissionEnvelope: Bytes,
+      submissionEnvelope: Raw.Value,
       submittingParticipantId: ParticipantId,
       ledgerStateReader: StateReader[DamlStateKey, StateValue],
   )(
@@ -60,7 +60,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
           submittingParticipantId,
           inputState,
         )
-        logEntryId = BatchedSubmissionValidator.bytesToLogEntryId(submissionEnvelope)
+        logEntryId = BatchedSubmissionValidator.rawToLogEntryId(submissionEnvelope)
         generatedWriteSets <- Timed.future(
           metrics.daml.kvutils.submission.validator.generateWriteSets,
           commitStrategy.generateWriteSets(
@@ -82,7 +82,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
       }
     )
 
-  private def decodeSubmission(submissionEnvelope: Bytes)(
+  private def decodeSubmission(submissionEnvelope: Raw.Value)(
       implicit executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[DamlSubmission] =
@@ -121,19 +121,10 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
       metrics.daml.kvutils.submission.validator.fetchInputsRunning,
       for {
         inputValues <- ledgerStateReader.read(inputKeys)
-
-        nestedInputKeys = inputValues.collect {
-          case HasDamlStateValue(value) if value.hasContractKeyState =>
-            val contractId = value.getContractKeyState.getContractId
-            DamlStateKey.newBuilder.setContractId(contractId).build
-        }
-        nestedInputValues <- ledgerStateReader.read(nestedInputKeys)
       } yield {
         assert(inputKeys.size == inputValues.size)
-        assert(nestedInputKeys.size == nestedInputValues.size)
         val inputPairs = inputKeys.toIterator zip inputValues.toIterator
-        val nestedInputPairs = nestedInputKeys.toIterator zip nestedInputValues.toIterator
-        (inputPairs ++ nestedInputPairs).toMap
+        inputPairs.toMap
       }
     )
   }

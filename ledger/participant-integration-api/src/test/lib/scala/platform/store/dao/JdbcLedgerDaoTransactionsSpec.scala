@@ -504,9 +504,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     val beginOffset = nextOffset()
 
     val commandsWithOffsetGaps: Vector[(Offset, LedgerEntry.Transaction)] =
-      Vector(singleCreate) ++ offsetGap ++
-        Vector.fill(2)(singleCreate) ++ offsetGap ++
-        Vector.fill(3)(singleCreate) ++ offsetGap ++ offsetGap ++
+      Vector(singleCreate) ++ offsetGap() ++
+        Vector.fill(2)(singleCreate) ++ offsetGap() ++
+        Vector.fill(3)(singleCreate) ++ offsetGap() ++ offsetGap() ++
         Vector.fill(5)(singleCreate)
 
     val endOffset = nextOffset()

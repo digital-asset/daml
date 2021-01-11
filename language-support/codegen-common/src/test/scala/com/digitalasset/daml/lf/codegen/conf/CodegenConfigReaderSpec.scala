@@ -3,8 +3,7 @@
 
 package com.daml.lf.codegen.conf
 
-import java.io.File
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
 import com.daml.assistant.config.{ConfigMissing, ConfigParseError, ProjectConfig}
@@ -18,7 +17,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
 
   private def codegenConf(sdkConfig: String, mode: CodegenDest): Result[Conf] =
     for {
-      projectConfig <- ProjectConfig.loadFromString(sdkConfig)
+      projectConfig <- ProjectConfig.loadFromString(projectRoot, sdkConfig)
       codegenConfig <- CodegenConfigReader.codegenConf(projectConfig, mode)
     } yield codegenConfig
 
@@ -45,7 +44,8 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
 
   it should "load full java config" in {
     val expected = Conf(
-      darFiles = Map(path(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")),
+      darFiles = Map(
+        projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")),
       outputDirectory = path("path/to/output/java/directory"),
       decoderPkgAndClass = Some(("my.company.java", "DecoderClass")),
       verbosity = Level.WARN,
@@ -57,7 +57,8 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
 
   it should "load full scala config" in {
     val expected = Conf(
-      darFiles = Map(path(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.scala.package")),
+      darFiles = Map(
+        projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.scala.package")),
       outputDirectory = path("path/to/output/scala/directory"),
       decoderPkgAndClass = Some(("my.company.scala", "DecoderClass")),
       verbosity = Level.INFO,
@@ -81,7 +82,8 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
 
   it should "load required fields only java config" in {
     val expected = Conf(
-      darFiles = Map(path(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")),
+      darFiles = Map(
+        projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.java.package")),
       outputDirectory = path("path/to/output/java/directory"),
     )
 
@@ -90,7 +92,8 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
 
   it should "load required fields only scala config" in {
     val expected = Conf(
-      darFiles = Map(path(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.scala.package")),
+      darFiles = Map(
+        projectRoot.resolve(".daml/dist/quickstart-1.2.3.dar") -> Some("my.company.scala.package")),
       outputDirectory = path("path/to/output/scala/directory"),
     )
 
@@ -142,5 +145,7 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers {
         "Attempt to decode value on failed cursor: DownField(scala),DownField(codegen)"))
   }
 
-  private def path(s: String): Path = new File(s).toPath
+  private def path(s: String): Path = Paths.get(s)
+
+  private val projectRoot = Paths.get("/project/root")
 }

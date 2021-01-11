@@ -21,11 +21,11 @@ object ScalaUtil {
         implicit ec: ExecutionContext,
         scheduler: ScheduledExecutorService): Future[T] = {
 
-      val promise = Promise[T]
+      val promise = Promise[T]()
 
       @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
       val warningTask = schedule(warnTimeout) {
-        logger.warn("Function {} takes more than {}", name, warnTimeout)
+        logger.warn("Function {} takes more than {}", name, warnTimeout: Any)
       }
 
       val errorTask = schedule(failTimeout) {

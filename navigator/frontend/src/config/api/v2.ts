@@ -252,7 +252,7 @@ export interface TemplatesRowData {
     __typename: 'Template';
     /** template ID */
     id: string;
-    /** template name (as it appears in the DAML source) */
+    /** template name (as it appears in the Daml source) */
     topLevelDecl: string;
     contracts: {
         /** number of contracts for this template */

@@ -6,7 +6,6 @@ package com.daml.platform.server.api.services.grpc
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.dec.DirectExecutionContext
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -22,15 +21,17 @@ import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcTransactionService(
+final class GrpcTransactionService(
     protected val service: TransactionService,
     val ledgerId: LedgerId,
-    partyNameChecker: PartyNameChecker)(
+    partyNameChecker: PartyNameChecker,
+)(
     implicit protected val esf: ExecutionSequencerFactory,
-    protected val mat: Materializer)
-    extends TransactionServiceAkkaGrpc
+    protected val mat: Materializer,
+    executionContext: ExecutionContext,
+) extends TransactionServiceAkkaGrpc
     with GrpcApiService
     with ErrorFactories
     with FieldValidations {
@@ -128,12 +129,11 @@ class GrpcTransactionService(
         service
           .getLedgerEnd(request.ledgerId)
           .map(abs =>
-            GetLedgerEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value)))))(
-            DirectExecutionContext)
+            GetLedgerEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value)))))
     )
   }
 
   override def bindService(): ServerServiceDefinition =
-    TransactionServiceGrpc.bindService(this, DirectExecutionContext)
+    TransactionServiceGrpc.bindService(this, executionContext)
 
 }

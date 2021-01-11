@@ -27,6 +27,8 @@ private[trigger] final case class ServiceConfig(
     maxInboundMessageSize: Int,
     minRestartInterval: FiniteDuration,
     maxRestartInterval: FiniteDuration,
+    maxAuthCallbacks: Int,
+    authCallbackTimeout: FiniteDuration,
     maxHttpEntityUploadSize: Long,
     httpEntityUploadTimeout: FiniteDuration,
     timeProviderType: TimeProviderType,
@@ -84,6 +86,9 @@ private[trigger] object ServiceConfig {
   val DefaultMaxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
   private val DefaultMinRestartInterval: FiniteDuration = FiniteDuration(5, duration.SECONDS)
   val DefaultMaxRestartInterval: FiniteDuration = FiniteDuration(60, duration.SECONDS)
+  // Adds up to ~1GB with DefaultMaxInboundMessagesSize
+  val DefaultMaxAuthCallbacks: Int = 250
+  val DefaultAuthCallbackTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
   val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxInboundMessageSize.toLong
   val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
 
@@ -124,7 +129,6 @@ private[trigger] object ServiceConfig {
     opt[String]("auth-callback")
       .optional()
       .action((t, c) => c.copy(authCallbackUri = Some(Uri(t))))
-      .text("Auth middleware URI.")
       .text("URI to the auth login flow callback endpoint `/cb`. By default constructed from the incoming login request.")
       // TODO[AH] Expose once the auth feature is fully implemented.
       .hidden()
@@ -147,6 +151,21 @@ private[trigger] object ServiceConfig {
       .text(
         s"Maximum time interval between restarting a failed trigger. Defaults to ${DefaultMaxRestartInterval.toSeconds} seconds.")
 
+    opt[Int]("max-pending-authorizations")
+      .action((x, c) => c.copy(maxAuthCallbacks = x))
+      .optional()
+      .text(
+        s"Optional max number of pending authorization requests. Defaults to ${DefaultMaxAuthCallbacks}.")
+      // TODO[AH] Expose once the auth feature is fully implemented.
+      .hidden()
+
+    opt[Long]("authorization-timeout")
+      .action((x, c) => c.copy(authCallbackTimeout = FiniteDuration(x, duration.SECONDS)))
+      .optional()
+      .text(s"Optional authorization timeout. Defaults to ${DefaultAuthCallbackTimeout.toSeconds} seconds.")
+      // TODO[AH] Expose once the auth feature is fully implemented.
+      .hidden()
+
     opt[Long]("max-http-entity-upload-size")
       .action((x, c) => c.copy(maxHttpEntityUploadSize = x))
       .optional()
@@ -155,7 +174,7 @@ private[trigger] object ServiceConfig {
       .hidden()
 
     opt[Long]("http-entity-upload-timeout")
-      .action((x, c) => c.copy(httpEntityUploadTimeout = FiniteDuration(x, duration.MINUTES)))
+      .action((x, c) => c.copy(httpEntityUploadTimeout = FiniteDuration(x, duration.SECONDS)))
       .optional()
       .text(
         s"Optional HTTP entity upload timeout. Defaults to ${DefaultHttpEntityUploadTimeout.toSeconds} seconds.")
@@ -201,6 +220,8 @@ private[trigger] object ServiceConfig {
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         minRestartInterval = DefaultMinRestartInterval,
         maxRestartInterval = DefaultMaxRestartInterval,
+        maxAuthCallbacks = DefaultMaxAuthCallbacks,
+        authCallbackTimeout = DefaultAuthCallbackTimeout,
         maxHttpEntityUploadSize = DefaultMaxHttpEntityUploadSize,
         httpEntityUploadTimeout = DefaultHttpEntityUploadTimeout,
         timeProviderType = TimeProviderType.Static,

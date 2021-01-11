@@ -12,8 +12,6 @@ import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory}
 import scalaz.Cord
 
-import scala.collection.breakOut
-
 object Main extends StrictLogging {
 
   private val codegenId = "Scala Codegen"
@@ -54,8 +52,8 @@ object Main extends StrictLogging {
     }
 
   private def darsAndOnePackageName(darMap: Map[Path, Option[String]]): (List[File], String) = {
-    val dars: List[File] = darMap.keys.map(_.toFile)(breakOut)
-    val uniquePackageNames: Set[String] = darMap.values.collect { case Some(x) => x }(breakOut)
+    val dars: List[File] = darMap.keys.view.map(_.toFile).toList
+    val uniquePackageNames: Set[String] = darMap.values.view.collect { case Some(x) => x }.toSet
     uniquePackageNames.toSeq match {
       case Seq(packageName) =>
         (dars, packageName)

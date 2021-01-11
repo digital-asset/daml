@@ -15,7 +15,7 @@ class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
 
   "ScenarioRunner" can {
     "mangle party names correctly" in {
-      val compiledPackages = PureCompiledPackages(Map.empty).right.get
+      val compiledPackages = PureCompiledPackages(Map.empty).toOption.get
       val e = Ast.EScenario(Ast.ScenarioGetParty(Ast.EPrimLit(Ast.PLText("foo-bar"))))
       val txSeed = crypto.Hash.hashPrivateKey("ScenarioRunnerTest")
       val m = Speedy.Machine.fromScenarioExpr(

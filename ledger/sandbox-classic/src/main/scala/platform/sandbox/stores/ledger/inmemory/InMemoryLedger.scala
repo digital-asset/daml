@@ -183,7 +183,7 @@ private[sandbox] final class InMemoryLedger(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext)
     : (Source[GetActiveContractsResponse, NotUsed], Offset) = {
-    val (acsNow, ledgerEndNow) = this.synchronized { (acs, ledgerEnd) }
+    val (acsNow, ledgerEndNow) = this.synchronized { (acs, ledgerEnd()) }
     (
       Source
         .fromIterator[ActiveContract](

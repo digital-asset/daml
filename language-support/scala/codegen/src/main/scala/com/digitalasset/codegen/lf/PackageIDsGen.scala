@@ -8,7 +8,6 @@ import java.io.File
 import com.daml.codegen.Util
 import com.daml.lf.data.Ref._
 
-import scala.collection.breakOut
 import scala.reflect.runtime.universe._
 
 /** Record and variant source files all refer to this file so that
@@ -21,7 +20,7 @@ object PackageIDsGen {
     val imports: Seq[Tree] = Seq()
 
     val packageIdsByModule: Map[ModuleName, PackageId] =
-      util.iface.typeDecls.keys.map(id => (id.qualifiedName.module, id.packageId))(breakOut)
+      util.iface.typeDecls.keys.view.map(id => (id.qualifiedName.module, id.packageId)).toMap
     val packageIdBindings = packageIdsByModule.toSeq.sortBy(_._1.dottedName) map {
       case (mn, pid) =>
         q"val ${TermName(mn.dottedName)}: _root_.scala.Predef.String = $pid"

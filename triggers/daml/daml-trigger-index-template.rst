@@ -3,9 +3,9 @@
 
 .. _daml-trigger-api-docs:
 
-DAML Trigger Library
+Daml Trigger Library
 ====================
 
-The DAML Trigger library defines the API used to declare a DAML trigger. See :doc:`/triggers/index`:: for more information on DAML triggers.
+The Daml Trigger library defines the API used to declare a Daml trigger. See :doc:`/triggers/index`:: for more information on Daml triggers.
 
 {{{body}}}

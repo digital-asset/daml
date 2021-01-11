@@ -8,7 +8,7 @@ authentication/authorization specification in
 
 Apart from the automated tests defined in this repository, the middleware can
 be tested manually against an auth0 OAuth2 setup. The necessary steps are
-extracted and adapted from the [Secure DAML Infrastructure
+extracted and adapted from the [Secure Daml Infrastructure
 repository](https://github.com/digital-asset/ex-secure-daml-infra).
 
 ### Setup

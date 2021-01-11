@@ -10,7 +10,7 @@ import com.daml.navigator.model.{Contract, Template}
 import com.daml.ledger.api.refinements.ApiTypes
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import com.daml.navigator.DamlConstants.singletonRecord
+import com.daml.navigator.DamlConstants.record
 import com.daml.navigator.model._
 import scalaz.syntax.tag._
 
@@ -78,7 +78,7 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
   val contract1 = Contract(
     ApiTypes.ContractId("id1"),
     template1,
-    singletonRecord("foo", ValueText("bar")),
+    record("foo" -> ValueText("bar")),
     None,
     List(alice),
     List(bob, charlie),
@@ -86,16 +86,16 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
   val contract2 = Contract(
     ApiTypes.ContractId("id2"),
     template2,
-    singletonRecord("int", ValueInt64(12)),
+    record("int" -> ValueInt64(12)),
     Some(""),
     List(alice),
     List(bob, charlie),
-    Some(singletonRecord("foo", ValueText("bar")))
+    Some(record("foo" -> ValueText("bar")))
   )
   val contract3 = Contract(
     ApiTypes.ContractId("id3"),
     template1,
-    singletonRecord("foo", ValueText("bar")),
+    record("foo" -> ValueText("bar")),
     Some("agreement"),
     List(alice),
     List(bob, charlie),

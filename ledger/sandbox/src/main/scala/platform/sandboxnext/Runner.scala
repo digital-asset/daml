@@ -6,6 +6,7 @@ package com.daml.platform.sandboxnext
 import java.io.File
 import java.time.{Clock, Instant}
 import java.util.UUID
+import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -200,6 +201,9 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     authorizer
                   )
                 }
+                servicesExecutionContext <- ResourceOwner
+                  .forExecutorService(() => Executors.newWorkStealingPool())
+                  .map(ExecutionContext.fromExecutorService)
                 apiServer <- new StandaloneApiServer(
                   ledgerId = ledgerId,
                   config = ApiServerConfig(
@@ -229,6 +233,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   timeServiceBackend = timeServiceBackend,
                   otherServices = List(resetService),
                   otherInterceptors = List(resetService),
+                  servicesExecutionContext = servicesExecutionContext,
                   lfValueTranslationCache = lfValueTranslationCache,
                 )
                 _ = promise.completeWith(apiServer.servicesClosed())

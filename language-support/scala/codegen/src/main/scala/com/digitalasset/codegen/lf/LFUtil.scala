@@ -317,11 +317,11 @@ object LFUtil {
       extends Product
       with Serializable {
     def map[B](f: A => B): TupleNesting[B] =
-      TupleNesting(run map (_ bimap (f, _ map f)))
+      TupleNesting(run map (_.bimap(f, _ map f)))
 
     // not tail recursive
     def fold[Z](pure: A => Z)(roll: NonEmptyList[Z] => Z): Z =
-      roll(run map (_ fold (pure, _.fold(pure)(roll))))
+      roll(run map (_.fold(pure, _.fold(pure)(roll))))
   }
 
   /** Group `flat` into the shallowest permissible tree, given that a maximum of

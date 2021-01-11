@@ -3,8 +3,6 @@
 
 package com.daml.ledger.client.binding
 
-import scala.language.higherKinds
-
 import com.daml.ledger.api.refinements.ApiTypes.{Choice, TemplateId}
 import com.daml.ledger.api.v1.{event => rpcevent, value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}

@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-The latest released version of DAML is supported with security updates.
+The latest released version of Daml is supported with security updates.
 You can find the latest version at:
 https://docs.daml.com/support/release-notes.html
 
@@ -15,5 +15,5 @@ https://www.digitalasset.com/responsible-disclosure
 To report an issue that does not have a security impact, open an issue on GitHub:
 https://github.com/digital-asset/daml/issues/new
 
-For general questions about DAML and/or support requests, please ask in our forum:
+For general questions about Daml and/or support requests, please ask in our forum:
 https://discuss.daml.com/

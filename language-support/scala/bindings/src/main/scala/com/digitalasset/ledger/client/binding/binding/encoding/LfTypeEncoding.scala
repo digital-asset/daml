@@ -4,7 +4,6 @@
 package com.daml.ledger.client.binding
 package encoding
 
-import scala.language.higherKinds
 import scalaz.{OneAnd, Plus}
 import scalaz.syntax.foldable1._
 import com.daml.ledger.api.v1.{value => rpcvalue}

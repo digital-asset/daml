@@ -15,7 +15,7 @@ import com.codahale.metrics.jvm.{
 import com.codahale.metrics.{Metric, MetricSet}
 import com.daml.metrics.JvmMetricSet._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class JvmMetricSet extends MetricSet {
   private val metricSets = Map(

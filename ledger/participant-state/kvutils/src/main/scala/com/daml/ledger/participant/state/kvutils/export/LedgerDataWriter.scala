@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils.export
 
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-
 trait LedgerDataWriter {
-  def write(submissionInfo: SubmissionInfo, writeSet: Seq[(Key, Value)]): Unit
+  def write(submissionInfo: SubmissionInfo, writeSet: WriteSet): Unit
 }

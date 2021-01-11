@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Please refer to the transaction spec (in daml-foundations/daml-lf/spec/transaction.rst)
-// which describes the semantics of DAML-LF transactions in more detail.
+// which describes the semantics of Daml-LF transactions in more detail.
 //
 // [one-line] version summary
 // * 10:  new field key_with_maintainers in NodeFetch
@@ -15,7 +15,7 @@ option java_package = "com.daml.lf.transaction";
 
 import "com/daml/lf/value.proto";
 
-// data structure represent an update to the ledger. executing a DAML-LF action of type
+// data structure represent an update to the ledger. executing a Daml-LF action of type
 // Update A produces produces one of these.
 // architecture-handbook-entry-begin: Transaction
 message Transaction {

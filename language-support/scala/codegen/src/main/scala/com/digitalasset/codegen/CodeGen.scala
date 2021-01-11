@@ -28,7 +28,7 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.bind._
 import scalaz.syntax.traverse1._
 
-import scala.collection.breakOut
+import scala.collection.compat._
 import scala.util.{Failure, Success}
 import scala.util.matching.Regex
 
@@ -44,7 +44,7 @@ object CodeGen {
   val universe: scala.reflect.runtime.universe.type = scala.reflect.runtime.universe
   import universe._
 
-  import Util.{FilePlan, WriteParams, partitionEithers}
+  import Util.{FilePlan, WriteParams}
 
   /*
    * Given a DAML package (in DAR or DALF format), a package name and an output
@@ -180,12 +180,12 @@ object CodeGen {
         : List[(Identifier, util.TemplateInterface) Either ScopedDataType.FWT] =
         orderedDependencies.deps.toList.flatMap {
           case (templateId, Node(TypeDeclWrapper(typeDecl), _, _)) =>
-            Seq(Right(ScopedDataType fromDefDataType (templateId, typeDecl)))
+            Seq(Right(ScopedDataType.fromDefDataType(templateId, typeDecl)))
           case (templateId, Node(TemplateWrapper(templateInterface), _, _)) =>
             Seq(Left((templateId, templateInterface)))
         }
 
-      partitionEithers(templateIdOrTypeDecls).leftMap(_.toMap)
+      templateIdOrTypeDecls.partitionMap(identity).leftMap(_.toMap)
     }
 
     // Each record/variant has Scala code generated for it individually, unless their names are related
@@ -202,7 +202,7 @@ object CodeGen {
 
   private[codegen] def produceTemplateAndTypeFilesLF(
       wp: WriteParams[DefTemplateWithRecord.FWT],
-      util: lf.LFUtil): TraversableOnce[FilePlan] = {
+      util: lf.LFUtil): IterableOnce[FilePlan] = {
     import wp._
 
     // New prep steps for LF codegen
@@ -244,7 +244,7 @@ object CodeGen {
       List[ScopedDataType[Enum]]
   ) = {
 
-    val (recordAndVariants, enums) = partitionEithers(definitions map {
+    val (recordAndVariants, enums) = definitions.partitionMap {
       case sdt @ ScopedDataType(_, _, ddt) =>
         ddt match {
           case r: Record[RT] =>
@@ -254,9 +254,9 @@ object CodeGen {
           case e: Enum =>
             Right(sdt copy (dataType = e))
         }
-    })
+    }
 
-    val (records, variants) = partitionEithers(recordAndVariants)
+    val (records, variants) = recordAndVariants.partitionMap(identity)
 
     (records, variants, enums)
   }
@@ -279,9 +279,9 @@ object CodeGen {
     val (records, variants, enums) = splitNTDs(definitions)
 
     val recordMap: Map[(ScopedDataType.Name, List[Ref.Name]), ScopedDataType[Record[RT]]] =
-      records.map {
+      records.view.map {
         case ddt @ ScopedDataType(name, vars, _) => (name -> vars.toList) -> ddt
-      }(breakOut)
+      }.toMap
 
     val noDeletion = Set.empty[(Identifier, List[Ref.Name])]
     val (deletedRecords, newVariants) =
@@ -310,7 +310,7 @@ object CodeGen {
 
   private[this] def writeTemplatesAndTypes(util: Util)(
       wp: WriteParams[util.TemplateInterface]): Unit = {
-    util.templateAndTypeFiles(wp) foreach {
+    util.templateAndTypeFiles(wp).iterator.foreach {
       case -\/(msg) => logger.debug(msg)
       case \/-((msg, filePath, trees)) =>
         msg foreach (m => logger.debug(m))

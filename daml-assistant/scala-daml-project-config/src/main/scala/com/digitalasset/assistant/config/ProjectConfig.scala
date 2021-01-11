@@ -4,7 +4,7 @@
 package com.daml.assistant.config
 
 import java.io.File
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 
 import io.circe.{Json, yaml}
 
@@ -36,7 +36,8 @@ final case class ConfigParseError(reason: String) extends ConfigLoadingError
   * - Right(Some(_)) if the property is present and valid
   */
 case class ProjectConfig(
-    content: Json
+    content: Json,
+    projectPath: Path
 ) {
   type Result[A] = Either[ConfigParseError, A]
   type OptionalResult[A] = Either[ConfigParseError, Option[A]]
@@ -113,14 +114,16 @@ object ProjectConfig {
   /** Returns the path of the current daml project config file, if any.
     * The path is given by environment variables set by the SDK Assistant. */
   def projectConfigPath(): Either[ConfigLoadingError, File] =
-    projectPath.flatMap(path =>
+    projectPath().flatMap(path =>
       Try(new File(path, projectConfigName)).toEither.left.map(t => ConfigMissing(t.getMessage)))
 
   /** Loads a project configuration from a string */
-  def loadFromString(content: String): Either[ConfigLoadingError, ProjectConfig] = {
+  def loadFromString(
+      projectPath: Path,
+      content: String): Either[ConfigLoadingError, ProjectConfig] = {
     for {
       json <- yaml.parser.parse(content).left.map(e => ConfigParseError(e.getMessage))
-    } yield ProjectConfig(json)
+    } yield ProjectConfig(json, projectPath)
   }
 
   /** Loads a project configuration from a file */
@@ -135,7 +138,7 @@ object ProjectConfig {
       content <- Try(
         try source.mkString
         finally source.close()).toEither.left.map(e => ConfigLoadError(e.getMessage))
-      result <- loadFromString(content)
+      result <- loadFromString(file.getParentFile.toPath, content)
     } yield result
   }
 
@@ -144,7 +147,7 @@ object ProjectConfig {
     * This is the preferred way of loading the SDK project configuration. */
   def loadFromEnv(): Either[ConfigLoadingError, ProjectConfig] = {
     for {
-      path <- projectConfigPath
+      path <- projectConfigPath()
       result <- loadFromFile(path)
     } yield result
   }

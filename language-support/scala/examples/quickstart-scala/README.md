@@ -6,7 +6,7 @@ This example demonstrates how to:
 - how to exercise a choice and send a corresponding exercise command
 - subscribe to receive ledger events and decode them into generated Scala ADTs
 
-All instructions below assume that you have the DAML Connect SDK installed. If you have not installed it yet, please follow these instructions: https://docs.daml.com/getting-started/installation.html
+All instructions below assume that you have the Daml Connect SDK installed. If you have not installed it yet, please follow these instructions: https://docs.daml.com/getting-started/installation.html
 
 ## Create a quickstart-scala project
 ```
@@ -20,8 +20,8 @@ Where:
 - `./quickstart-scala` is a project directory name
 - `quickstart-scala` is a project template name, to see the entire list of available templates, run: `daml new --list`
 
-## Compile the DAML project
-The DAML code for the IOU example is located in the `./daml` folder. Run the following command to build it:
+## Compile the Daml project
+The Daml code for the IOU example is located in the `./daml` folder. Run the following command to build it:
 ```
 $ cd ./quickstart-scala
 $ daml build
@@ -32,7 +32,7 @@ Compiling quickstart to a DAR.
 Created .daml/dist/quickstart-0.0.1.dar.
 ```
 
-## Generate Scala classes representing DAML contract templates
+## Generate Scala classes representing Daml contract templates
 ```
 $ daml codegen scala
 ```
@@ -67,7 +67,7 @@ If example completes successfully, the above process should terminate and the ou
 [success] Total time: 7 s, completed Sep 12, 2019, 11:54:04 AM
 ```
 
-To run the quickstart-scala as a standalone project (not part of the DAML project), you can specify `da.sdk.version` JVM system properties:
+To run the quickstart-scala as a standalone project (not part of the Daml project), you can specify `da.sdk.version` JVM system properties:
 ```
 $ sbt -Dda.sdk.version=<DA_SDK_VERSION> "application/runMain com.daml.quickstart.iou.IouMain localhost 6865"
 ```

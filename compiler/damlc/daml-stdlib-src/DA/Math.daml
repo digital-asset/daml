@@ -4,7 +4,7 @@
 -- | Math - Utility Math functions for `Decimal`
 -- The this library is designed to give good precision, typically giving 9 correct decimal places.
 -- The numerical algorithms run with many iterations to achieve that precision and are interpreted
--- by the DAML runtime so they are not performant. Their use is not advised in performance critical
+-- by the Daml runtime so they are not performant. Their use is not advised in performance critical
 -- contexts.
 module DA.Math
 ( (**)
@@ -90,7 +90,7 @@ type Sci = (Decimal, Int)
 
 -- | `to36dig` tries to put a number in scientific notation in a form
 -- where the `x` has order of magnitude 10^26. Given the fixed point
--- NUMBER(38,10) format of `Decimal` in DAML, this gives good
+-- NUMBER(38,10) format of `Decimal` in Daml, this gives good
 -- precision with a little bit of room to multiply with numbers less
 -- than 100.
 to36dig: Sci -> Sci

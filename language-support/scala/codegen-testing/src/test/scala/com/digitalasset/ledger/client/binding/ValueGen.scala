@@ -6,8 +6,6 @@ package com.daml.ledger.client.binding
 import encoding.{ValuePrimitiveEncoding, GenEncoding}
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 
-import scala.language.higherKinds
-
 private[binding] object ValueGen {
 
   private[binding] sealed abstract class Exists[F[_]] {

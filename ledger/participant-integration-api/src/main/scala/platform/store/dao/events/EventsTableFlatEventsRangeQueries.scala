@@ -61,7 +61,7 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
 
     // Route the request to the correct underlying query
     val frqK = if (filter.size == 1) {
-      val (party, templateIds) = filter.toIterator.next
+      val (party, templateIds) = filter.iterator.next()
       if (templateIds.isEmpty) {
         // Single-party request, no specific template identifier
         singleWildcardParty(offset, party, pageSize)

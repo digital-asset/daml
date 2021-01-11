@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntryId,
   DamlPartyAllocationEntry
 }
-import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -76,7 +76,6 @@ final class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matche
   private val AnEntryId = "AnEntryId"
   private lazy val aLogEntryId =
     DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8(AnEntryId)).build()
-  private lazy val aSerializedLogEntryId = aLogEntryId.toByteString
 
   private lazy val APartyName = "aParty"
   private lazy val AParticipantId = "aParticipant"
@@ -96,5 +95,6 @@ final class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matche
     None,
   )
 
+  private lazy val aSerializedLogEntryId = Raw.Key(aLogEntryId.toByteString)
   private lazy val aWrappedLogEntry = Envelope.enclose(aLogEntry)
 }

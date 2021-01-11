@@ -24,7 +24,7 @@ Submit
 - Submits an action (a create or an exercise) to the ledger.
 - Takes two arguments, the party submitting followed by the expression, for example: ``submit bankOfEngland do create ...``
 
-.. Changes in DAML 1.2.
+.. Changes in Daml 1.2.
 
 .. _daml-ref-fails:
 

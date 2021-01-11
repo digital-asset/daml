@@ -16,13 +16,13 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
 
 /**

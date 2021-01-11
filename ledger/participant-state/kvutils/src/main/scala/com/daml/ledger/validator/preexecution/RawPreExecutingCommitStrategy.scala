@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.preexecution.RawPreExecutingCommitStrategy.{InputState, ReadSet}
 import com.daml.ledger.validator.{
@@ -17,7 +17,6 @@ import com.daml.ledger.validator.{
   StateSerializationStrategy,
   inParallel
 }
-import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -54,7 +53,7 @@ final class RawPreExecutingCommitStrategy(
         (serializedSuccessLogEntryPair, serializedOutOfTimeBoundsLogEntryPair),
       ) <- inParallel(
         Future(stateSerializationStrategy.serializeStateUpdates(preExecutionResult.stateUpdates)),
-        Future(logEntryId.toByteString).flatMap(
+        Future(Raw.Key(logEntryId.toByteString)).flatMap(
           serializedId =>
             inParallel(
               logEntryToKeyValuePairs(serializedId, preExecutionResult.successfulLogEntry),
@@ -80,9 +79,9 @@ final class RawPreExecutingCommitStrategy(
   }
 
   private def logEntryToKeyValuePairs(
-      logEntryId: ByteString,
+      logEntryId: Raw.Key,
       logEntry: DamlLogEntry,
-  )(implicit executionContext: ExecutionContext): Future[(Bytes, Bytes)] =
+  )(implicit executionContext: ExecutionContext): Future[Raw.KeyValuePair] =
     Future(logEntryId -> Envelope.enclose(logEntry))
 }
 

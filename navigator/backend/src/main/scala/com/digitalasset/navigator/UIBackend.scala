@@ -29,6 +29,7 @@ import com.daml.navigator.model.{Ledger, PackageRegistry, PartyState}
 import com.daml.navigator.store.Store
 import com.daml.navigator.store.Store._
 import com.daml.navigator.store.platform.PlatformStore
+import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.LazyLogging
 import org.slf4j.LoggerFactory
 import sangria.schema._
@@ -276,7 +277,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
 
     implicit val system: ActorSystem = ActorSystem("da-ui-backend")
 
-    val (graphQL, info, store, getAppState, partyRefresh) = setup(arguments, config)
+    val (graphQL, info, store @ _, getAppState, partyRefresh) = setup(arguments, config)
 
     val stopServer = if (arguments.startWebServer) {
       val binding = Http()
@@ -293,13 +294,14 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
 
     val stopAkka = () => Try(Await.result(system.terminate(), 10.seconds))
 
-    if (arguments.startConsole) {
-      console.Console.run(arguments, config, store, graphQL, applicationInfo)
-      // Stop the web server, then the Akka system consuming the ledger API
-      stopServer()
-      partyRefresh.foreach(_.cancel)
-      stopAkka()
-      ()
+    discard {
+      sys.addShutdownHook {
+        // Stop the web server, then the Akka system consuming the ledger API
+        stopServer()
+        partyRefresh.foreach(_.cancel)
+        stopAkka()
+        ()
+      }
     }
   }
 

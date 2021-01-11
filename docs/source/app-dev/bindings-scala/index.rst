@@ -8,30 +8,30 @@ Scala bindings
 
 The Scala bindings are deprecated as of 2020-10-14.
 
-This page provides a basic Scala programmer's introduction to working with DAML Ledgers,
+This page provides a basic Scala programmer's introduction to working with Daml Ledgers,
 using the Scala programming language and the **Ledger API**.
 
 Introduction
 ============
 
-The Scala bindings is a client implementation of the **Ledger API**. The Scala bindings library lets you write applications that connect to a DAML Ledger using the Scala programming language.
+The Scala bindings is a client implementation of the **Ledger API**. The Scala bindings library lets you write applications that connect to a Daml Ledger using the Scala programming language.
 
 There are two main components:
 
 - Scala codegen
-    DAML to Scala code generator. Use this to generate Scala classes from DAML models. The generated Scala code provides a type safe way of creating contracts (:ref:`com.daml.ledger.api.v1.CreateCommand`) and exercising contract choices (:ref:`com.daml.ledger.api.v1.ExerciseCommand`).
+    Daml to Scala code generator. Use this to generate Scala classes from Daml models. The generated Scala code provides a type safe way of creating contracts (:ref:`com.daml.ledger.api.v1.CreateCommand`) and exercising contract choices (:ref:`com.daml.ledger.api.v1.ExerciseCommand`).
 
 - Akka Streams-based API
     The API that you use to send commands to the ledger and receive transactions back.
 
 In order to use the Scala bindings, you should be familiar with:
 
-- :doc:`DAML language </daml/reference/index>`
+- :doc:`Daml language </daml/reference/index>`
 - :doc:`Ledger API </app-dev/grpc/index>`
 - `Akka Streams API <https://doc.akka.io/docs/akka/current/stream/index.html>`_
 - `Scala programming language <https://www.scala-lang.org>`_
 - :ref:`assistant-manual-building-dars`
-- :doc:`DAML codegen </tools/codegen>`
+- :doc:`Daml codegen </tools/codegen>`
 
 Getting started
 ===============
@@ -61,9 +61,9 @@ Generating Scala code
 
 1) Install :doc:`the latest version of the SDK </getting-started/installation>`.
 
-2) Build a **DAR** file from a **DAML** model. Refer to :ref:`assistant-manual-building-dars` for more instructions.
+2) Build a **DAR** file from a **Daml** model. Refer to :ref:`assistant-manual-building-dars` for more instructions.
 
-3) Configure ``codegen`` in the ``daml.yaml`` (for more details see :doc:`DAML codegen </tools/codegen>` documentation).
+3) Configure ``codegen`` in the ``daml.yaml`` (for more details see :doc:`Daml codegen </tools/codegen>` documentation).
 
 .. literalinclude:: ./code-snippets/quickstart-scala/daml.yaml
    :start-after: # <doc-ref:codegen-scala>
@@ -93,7 +93,7 @@ Example code
 
 In this section we will demonstrate how to use the Scala bindings library.
 
-This section refers to the IOU DAML example from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>` and
+This section refers to the IOU Daml example from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>` and
 `quickstart-scala example <https://github.com/digital-asset/daml/tree/main/language-support/scala/examples/quickstart-scala>`_ that we already mentioned above.
 
 Please keep in mind that **quickstart-scala example** compiles with ``-Xsource:2.13`` **scalac** option, this is to activate the fix for a Scala bug that forced users to add extra imports for implicits that should not be needed.

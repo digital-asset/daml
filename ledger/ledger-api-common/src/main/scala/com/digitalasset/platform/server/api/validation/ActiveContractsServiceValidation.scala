@@ -3,7 +3,6 @@
 
 package com.daml.platform.server.api.validation
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.daml.ledger.api.v1.active_contracts_service.{
@@ -17,9 +16,12 @@ import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 import org.slf4j.{Logger, LoggerFactory}
 
+import scala.concurrent.ExecutionContext
+
 class ActiveContractsServiceValidation(
     protected val service: ActiveContractsService with AutoCloseable,
-    val ledgerId: LedgerId)
+    val ledgerId: LedgerId,
+)(implicit executionContext: ExecutionContext)
     extends ActiveContractsService
     with ProxyCloseable
     with GrpcApiService
@@ -34,5 +36,5 @@ class ActiveContractsServiceValidation(
       .fold(responseObserver.onError, _ => service.getActiveContracts(request, responseObserver))
   }
   override def bindService(): ServerServiceDefinition =
-    ActiveContractsServiceGrpc.bindService(this, DirectExecutionContext)
+    ActiveContractsServiceGrpc.bindService(this, executionContext)
 }

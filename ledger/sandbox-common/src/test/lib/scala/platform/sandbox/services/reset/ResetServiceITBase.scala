@@ -144,7 +144,7 @@ abstract class ResetServiceITBase
         .stub(channel)
         .getActiveContracts(GetActiveContractsRequest(ledgerId.unwrap, Some(f)), _))
       .all()
-      .map(_.flatMap(_.activeContracts)(collection.breakOut))
+      .map(_.view.flatMap(_.activeContracts).toSet)
 
   protected def listPackages(ledgerId: LedgerId): Future[Seq[String]] =
     PackageServiceGrpc

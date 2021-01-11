@@ -3,11 +3,10 @@
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.reading.StateReader
+import com.daml.ledger.validator.reading.{LedgerStateReader, StateReader}
 import com.daml.ledger.validator.{LedgerStateAccess, LedgerStateOperationsReaderAdapter}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.timer.RetryStrategy
@@ -27,15 +26,8 @@ import scala.util.{Failure, Success}
   * @param postExecutionFinalizer        The post-execution finalizer.
   */
 class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
-    transformStateReader: StateReader[Key, Option[Value]] => StateReader[
-      DamlStateKey,
-      StateValue,
-    ],
-    validator: PreExecutingSubmissionValidator[
-      StateValue,
-      ReadSet,
-      WriteSet,
-    ],
+    transformStateReader: LedgerStateReader => StateReader[DamlStateKey, StateValue],
+    validator: PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet],
     postExecutionConflictDetector: PostExecutionConflictDetector[
       DamlStateKey,
       StateValue,
@@ -52,7 +44,7 @@ class PreExecutingValidatingCommitter[StateValue, ReadSet, WriteSet](
     */
   def commit(
       correlationId: String,
-      submissionEnvelope: Bytes,
+      submissionEnvelope: Raw.Value,
       submittingParticipantId: ParticipantId,
       ledgerStateAccess: LedgerStateAccess[Any],
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =

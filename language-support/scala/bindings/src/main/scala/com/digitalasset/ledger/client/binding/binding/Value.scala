@@ -12,7 +12,7 @@ import scalaz.std.option._
 import scalaz.syntax.traverse._
 
 import scala.annotation.tailrec
-import scala.collection.generic.CanBuildFrom
+import scala.collection.compat._
 import scala.{specialized => sp}
 
 sealed trait DamlCodecs // always include `object DamlCodecs` in implicit search
@@ -111,16 +111,16 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
     fromArgumentValueFuns(_.bool, VSum.Bool)
 
   private[this] def seqAlterTraverse[A, B, That](xs: Iterable[A])(f: A => Option[B])(
-      implicit cbf: CanBuildFrom[Nothing, B, That]): Option[That] = {
-    val bs = cbf()
+      implicit factory: Factory[B, That]): Option[That] = {
+    val bs = factory.newBuilder
     val i = xs.iterator
     @tailrec def go(): Option[That] =
-      if (i.hasNext) f(i.next) match {
+      if (i.hasNext) f(i.next()) match {
         case Some(b) =>
           bs += b
           go()
         case None => None
-      } else Some(bs.result)
+      } else Some(bs.result())
     go()
   }
 

@@ -10,6 +10,8 @@ import java.sql.{Connection, ResultSet}
 import anorm.{BatchSql, NamedParameter}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
+import scala.collection.compat.immutable.LazyList
+
 private[migration] final class V38__Update_value_versions extends BaseJavaMigration {
 
   import com.daml.lf
@@ -103,19 +105,19 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
       rowType: String,
       rowKeyLabel: String,
       valueLabels: List[String],
-  )(implicit connection: Connection): Stream[List[NamedParameter]] = {
+  )(implicit connection: Connection): LazyList[List[NamedParameter]] = {
     val rows: ResultSet = connection.createStatement().executeQuery(sqlQuery)
-    def updates: Stream[List[NamedParameter]] =
+    def updates: LazyList[List[NamedParameter]] =
       if (rows.next())
         readAndUpdate(rows, rowType, rowKeyLabel, valueLabels) #:: updates
       else
-        Stream.empty
+        LazyList.empty
     updates.filter(_.nonEmpty)
   }
 
   private[this] def save(
       sqlUpdate: String,
-      statements: Stream[List[NamedParameter]]
+      statements: LazyList[List[NamedParameter]]
   )(implicit connection: Connection): Unit =
     statements.grouped(batchSize).foreach { batch =>
       BatchSql(

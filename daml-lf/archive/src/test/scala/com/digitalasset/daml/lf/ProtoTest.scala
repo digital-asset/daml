@@ -8,14 +8,14 @@ import java.util.zip.ZipFile
 
 import com.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.{daml_lf_1_6, daml_lf_1_7, daml_lf_1_8}
-import com.daml.daml_lf_dev
+import com.daml.{daml_lf_1_11, daml_lf_dev}
 import com.google.protobuf.CodedInputStream
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
@@ -53,9 +53,9 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
     }
   }
 
-  "daml_lf_1_6 file" should {
+  "daml_lf_1_6 files" should {
 
-    // Do not change thiss test.
+    // Do not change this test.
     // The test checks the snapshot of the proto definition are not modified.
 
     val rootDir = "daml-lf/archive/src/main/protobuf/com/digitalasset/daml_lf_1_6"
@@ -100,9 +100,9 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
     }
   }
 
-  "daml_lf_1_7 file" should {
+  "daml_lf_1_7 files" should {
 
-    // Do not change thiss test.
+    // Do not change this test.
     // The test checks the snapshot of the proto definition are not modified.
 
     val rootDir = "daml-lf/archive/src/main/protobuf/com/digitalasset/daml_lf_1_7"
@@ -147,9 +147,9 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
     }
   }
 
-  "daml_lf_1_8 file" should {
+  "daml_lf_1_8 files" should {
 
-    // Do not change thiss test.
+    // Do not change this test.
     // The test checks the snapshot of the proto definition are not modified.
 
     val rootDir = "daml-lf/archive/src/main/protobuf/com/digitalasset/daml_lf_1_8"
@@ -173,6 +173,51 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
           "daml_lf.proto",
           "27dd2169bc20c02ca496daa7fc9b06103edbc143e3097373917f6f4b566255b2",
           "ffbf3d5911bc57ff3a9ea2812f93596ba8cefb16d06dcf8bdeb0c32e910520dc")
+      )
+
+      forEvery(files) {
+        case (fileName, linuxHash, windowsHash) =>
+          List(linuxHash, windowsHash) should contain(hashFile(resolve(fileName)))
+      }
+    }
+  }
+
+  "daml_lf_1_11.DamlLf" should {
+    "read dalf" in {
+      decodeTestWrapper(
+        darFile, { cis =>
+          val archive = daml_lf_1_11.DamlLf.Archive.parseFrom(cis)
+          val payload = daml_lf_1_11.DamlLf.ArchivePayload.parseFrom(archive.getPayload)
+          payload.hasDamlLf1 shouldBe true
+        }
+      )
+    }
+  }
+
+  "daml_lf_1_11 files" should {
+
+    // Do not change this test.
+    // The test checks the snapshot of the proto definition are not modified.
+
+    val rootDir = "daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_11"
+
+    def resolve(file: String) =
+      resource(rlocation(s"$rootDir/$file"))
+
+    "not be modified" in {
+
+      val files = Table(
+        ("file", "Linux hash", "windows hash"),
+        (
+          "daml_lf_1.proto",
+          "da0c65d03cf8dcbbaec99f2e203d7c44a0f9bfb8a31b129138e343b2bd9ac35b",
+          "f7bcc05e5c3752318876fb836d6f566217984e3f0cc75387b32b326430a1072d",
+        ),
+        (
+          "daml_lf.proto",
+          "05eb95f6bb15042624d2ca89d366e3bcd8618934471c6093efeecc09bb9d7df4",
+          "be0a1530cfe0727f2078c0db6bd27d15004549d3778beac235ad976d07b507f4",
+        )
       )
 
       forEvery(files) {

@@ -9,7 +9,6 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion._
-import com.daml.dec.DirectExecutionContext
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
@@ -30,9 +29,9 @@ private[apiserver] final class ApiTimeService private (
     val ledgerId: LedgerId,
     backend: TimeServiceBackend,
 )(
-    implicit grpcExecutionContext: ExecutionContext,
-    protected val mat: Materializer,
+    implicit protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
+    executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends TimeServiceAkkaGrpc
     with FieldValidations
@@ -79,7 +78,7 @@ private[apiserver] final class ApiTimeService private (
                 .withDescription(
                   s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"))
               with NoStackTrace
-          ))(DirectExecutionContext)
+          ))
 
     val result = for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
@@ -111,7 +110,7 @@ private[apiserver] final class ApiTimeService private (
   }
 
   override def bindService(): ServerServiceDefinition =
-    TimeServiceGrpc.bindService(this, DirectExecutionContext)
+    TimeServiceGrpc.bindService(this, executionContext)
 
   def getCurrentTime: Instant = backend.getCurrentTime
 
@@ -123,9 +122,9 @@ private[apiserver] final class ApiTimeService private (
 
 private[apiserver] object ApiTimeService {
   def create(ledgerId: LedgerId, backend: TimeServiceBackend)(
-      implicit grpcExecutionContext: ExecutionContext,
-      mat: Materializer,
+      implicit mat: Materializer,
       esf: ExecutionSequencerFactory,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): TimeService with GrpcApiService =
     new ApiTimeService(ledgerId, backend)

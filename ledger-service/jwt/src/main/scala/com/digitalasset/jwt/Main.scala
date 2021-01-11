@@ -54,7 +54,7 @@ object Main {
       publicKey = new File(s"./$name.pub").getAbsoluteFile,
       privateKey = new File(s"./$name.pvt").getAbsoluteFile)
 
-  private def parseConfig(args: Seq[String]): Option[Config] = {
+  private def parseConfig(args: collection.Seq[String]): Option[Config] = {
     configParser.parse(args, Config())
   }
 

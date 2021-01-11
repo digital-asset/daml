@@ -6,14 +6,14 @@ Overview: template structure
 
 This page covers what a template looks like: what parts of a template there are, and where they go.
 
-For the structure of a DAML file *outside* a template, see :doc:`file-structure`.
+For the structure of a Daml file *outside* a template, see :doc:`file-structure`.
 
 .. _daml-ref-template-structure:
 
 Template outline structure
 **************************
 
-Here’s the structure of a DAML template:
+Here’s the structure of a Daml template:
 
 .. literalinclude:: ../code-snippets/Structure.daml
    :start-after: -- start of template outline snippet

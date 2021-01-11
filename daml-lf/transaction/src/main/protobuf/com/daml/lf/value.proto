@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Please refer to the value spec (in daml-foundations/daml-lf/spec/value.rst)
-// which describes the semantics of DAML-LF values in more detail.
+// which describes the semantics of Daml-LF values in more detail.
 //
 // [one-line] version summary
 // * 6: initial version
@@ -20,7 +20,7 @@ message VersionedValue {
     Value value = 2;
 }
 
-// The universe of serializable DAML-LF values.
+// The universe of serializable Daml-LF values.
 // architecture-handbook-entry-begin: Value
 message Value {
     oneof sum {

@@ -33,7 +33,6 @@ object Configuration {
   def decode(bytes: Array[Byte]): Either[String, Configuration] =
     Try(protobuf.LedgerConfiguration.parseFrom(bytes)).toEither.left
       .map(_.getMessage)
-      .right
       .flatMap(decode)
 
   def decode(config: protobuf.LedgerConfiguration): Either[String, Configuration] =

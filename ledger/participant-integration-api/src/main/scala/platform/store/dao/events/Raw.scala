@@ -14,6 +14,8 @@ import com.daml.ledger.api.v1.event.{
 import com.daml.ledger.api.v1.transaction.{TreeEvent => PbTreeEvent}
 import com.daml.platform.participant.util.LfEngineToApi
 
+import scala.collection.compat.immutable.ArraySeq
+
 /**
   * An event as it's fetched from the participant index, before
   * the deserialization the values contained therein. Allows to
@@ -58,10 +60,10 @@ private[events] object Raw {
         eventId: String,
         contractId: String,
         templateId: Identifier,
-        createSignatories: Array[String],
-        createObservers: Array[String],
+        createSignatories: ArraySeq[String],
+        createObservers: ArraySeq[String],
         createAgreementText: Option[String],
-        eventWitnesses: Array[String],
+        eventWitnesses: ArraySeq[String],
     ): PbCreatedEvent =
       PbCreatedEvent(
         eventId = eventId,
@@ -96,11 +98,11 @@ private[events] object Raw {
           contractId: String,
           templateId: Identifier,
           createArgument: InputStream,
-          createSignatories: Array[String],
-          createObservers: Array[String],
+          createSignatories: ArraySeq[String],
+          createObservers: ArraySeq[String],
           createAgreementText: Option[String],
           createKeyValue: Option[InputStream],
-          eventWitnesses: Array[String],
+          eventWitnesses: ArraySeq[String],
       ): Raw.FlatEvent.Created =
         new Raw.FlatEvent.Created(
           raw = Raw.Created(
@@ -135,7 +137,7 @@ private[events] object Raw {
           eventId: String,
           contractId: String,
           templateId: Identifier,
-          eventWitnesses: Array[String],
+          eventWitnesses: ArraySeq[String],
       ): Raw.FlatEvent.Archived =
         new Raw.FlatEvent.Archived(
           raw = PbArchivedEvent(
@@ -170,11 +172,11 @@ private[events] object Raw {
           contractId: String,
           templateId: Identifier,
           createArgument: InputStream,
-          createSignatories: Array[String],
-          createObservers: Array[String],
+          createSignatories: ArraySeq[String],
+          createObservers: ArraySeq[String],
           createAgreementText: Option[String],
           createKeyValue: Option[InputStream],
-          eventWitnesses: Array[String],
+          eventWitnesses: ArraySeq[String],
       ): Raw.TreeEvent.Created =
         new Raw.TreeEvent.Created(
           raw = Raw.Created(
@@ -212,9 +214,9 @@ private[events] object Raw {
           exerciseChoice: String,
           exerciseArgument: InputStream,
           exerciseResult: Option[InputStream],
-          exerciseActors: Array[String],
-          exerciseChildEventIds: Array[String],
-          eventWitnesses: Array[String],
+          exerciseActors: ArraySeq[String],
+          exerciseChildEventIds: ArraySeq[String],
+          eventWitnesses: ArraySeq[String],
       ): Raw.TreeEvent.Exercised =
         new Raw.TreeEvent.Exercised(
           partial = PbExercisedEvent(

@@ -10,14 +10,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
 import scalaz.{@@, Tag}
-import spray.json.{
-  DefaultJsonProtocol,
-  JsString,
-  JsValue,
-  JsonFormat,
-  RootJsonFormat,
-  deserializationError
-}
+import spray.json._
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent._
@@ -174,4 +167,21 @@ object JsonProtocol extends DefaultJsonProtocol {
     jsonFormat(Request.Refresh, "refresh_token")
   implicit val responseAuthorizeFormat: RootJsonFormat[Response.Authorize] =
     jsonFormat(Response.Authorize, "access_token", "refresh_token")
+
+  implicit object ResponseLoginFormat extends RootJsonFormat[Response.Login] {
+    implicit private val errorFormat: RootJsonFormat[Response.LoginError] = jsonFormat2(
+      Response.LoginError)
+    def write(login: Response.Login) = login match {
+      case error: Response.LoginError => error.toJson
+      case Response.LoginSuccess => JsNull
+    }
+    def read(value: JsValue) = value.convertTo(safeReader[Response.LoginError]) match {
+      case Right(error) => error
+      case Left(_) =>
+        value match {
+          case JsNull => Response.LoginSuccess
+          case _ => deserializationError(s"Expected null or error object but got $value")
+        }
+    }
+  }
 }

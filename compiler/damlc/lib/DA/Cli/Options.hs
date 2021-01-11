@@ -93,12 +93,12 @@ targetFileNameOpt = option (Just <$> str) $
 packageNameOpt :: Parser GHC.UnitId
 packageNameOpt = fmap GHC.stringToUnitId $ argument str $
        metavar "PACKAGE-NAME"
-    <> help "Name of the DAML package"
+    <> help "Name of the Daml package"
 
 lfVersionOpt :: Parser LF.Version
 lfVersionOpt = option (str >>= select) $
        metavar "DAML-LF-VERSION"
-    <> help ("DAML-LF version to output: " ++ versionsStr)
+    <> help ("Daml-LF version to output: " ++ versionsStr)
     <> long "target"
     <> value LF.versionDefault
     <> internal
@@ -113,7 +113,7 @@ lfVersionOpt = option (str >>= select) $
         , version `elem` LF.supportedOutputVersions
         -> return version
         | otherwise
-        -> readerError $ "Unknown DAML-LF version: " ++ versionsStr
+        -> readerError $ "Unknown Daml-LF version: " ++ versionsStr
 
 dotFileOpt :: Parser (Maybe FilePath)
 dotFileOpt = option (Just <$> str) $
@@ -200,7 +200,7 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
                      , "If you use the assistant, you should set the DAML_PROJECT environment variable instead."
                      ])
         projectCheckOpt cmdName = fmap (ProjectCheck cmdName) . switch $
-               help "Check if running in DAML project."
+               help "Check if running in Daml project."
             <> long "project-check"
 
 enableScenarioOpt :: Parser EnableScenarioService
@@ -209,7 +209,7 @@ enableScenarioOpt = EnableScenarioService <$>
 
 enableScriptsOpt :: Parser EnableScripts
 enableScriptsOpt = EnableScripts <$>
-    flagYesNoAuto "daml-script" True "Enable/disable support for running DAML Scripts" internal
+    flagYesNoAuto "daml-script" True "Enable/disable support for running Daml Scripts" internal
 
 dlintEnabledOpt :: Parser DlintUsage
 dlintEnabledOpt = DlintEnabled

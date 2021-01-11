@@ -34,6 +34,7 @@ import com.daml.ports.Port
 import io.grpc.{BindableService, ServerInterceptor}
 
 import scala.collection.immutable
+import scala.concurrent.ExecutionContextExecutor
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
@@ -51,6 +52,7 @@ final class StandaloneApiServer(
     otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
     otherInterceptors: List[ServerInterceptor] = List.empty,
     engine: Engine,
+    servicesExecutionContext: ExecutionContextExecutor,
     lfValueTranslationCache: LfValueTranslation.Cache,
 )(implicit actorSystem: ActorSystem, materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ApiServer] {
@@ -93,6 +95,7 @@ final class StandaloneApiServer(
         commandConfig = commandConfig,
         partyConfig = partyConfig,
         optTimeServiceBackend = timeServiceBackend,
+        servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         healthChecks = healthChecksWithIndexService,
         seedService = SeedService(config.seeding),
@@ -106,7 +109,8 @@ final class StandaloneApiServer(
         config.address,
         config.tlsConfig,
         AuthorizationInterceptor(authService, executionContext) :: otherInterceptors,
-        metrics
+        servicesExecutionContext,
+        metrics,
       )
     } yield {
       writePortFile(apiServer.port)

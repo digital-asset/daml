@@ -50,7 +50,7 @@ class CommonCli(name: LedgerName) {
       opt[Unit]("dev-mode-unsafe")
         .optional()
         .action((_, config) => config.copy(devMode = true))
-        .text("Turns on development mode. Development mode allows development versions of DAML-LF language.")
+        .text("Turns on development mode. Development mode allows development versions of Daml-LF language.")
         .hidden()
 
       arg[File]("<archive>...")
@@ -58,7 +58,7 @@ class CommonCli(name: LedgerName) {
         .unbounded()
         .validate(f => Either.cond(checkIfZip(f), (), s"Invalid dar file: ${f.getName}"))
         .action((f, c) => c.copy(damlPackages = f :: c.damlPackages))
-        .text("DAML archives to load in .dar format. Only DAML-LF v1 Archives are currently supported. Can be mixed in with optional arguments.")
+        .text("Daml archives to load in .dar format. Only Daml-LF v1 Archives are currently supported. Can be mixed in with optional arguments.")
 
       opt[String]('a', "address")
         .optional()
@@ -224,7 +224,7 @@ class CommonCli(name: LedgerName) {
       opt[Long]("max-lf-value-translation-cache-entries")
         .optional()
         .text(
-          s"The maximum size of the cache used to deserialize DAML-LF values, in number of allowed entries. By default, nothing is cached.")
+          s"The maximum size of the cache used to deserialize Daml-LF values, in number of allowed entries. By default, nothing is cached.")
         .action(
           (maximumLfValueTranslationCacheEntries, config) =>
             config.copy(

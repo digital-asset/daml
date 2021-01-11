@@ -24,7 +24,6 @@ import qualified "ghc-lib-parser" FastString as GHC
 import qualified "ghc-lib-parser" GHC.LanguageExtensions.Type as GHC
 import Outputable
 
-import           Control.Monad.Extra
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import           Data.List.Extra
@@ -47,29 +46,37 @@ isInternal (GHC.moduleNameString -> x)
       , "DA.Time.Types"
       ]
 
-mayImportInternal :: [GHC.ModuleName]
-mayImportInternal =
-    map GHC.mkModuleName
-        [ "Prelude"
-        , "DA.Time"
-        , "DA.Date"
-        , "DA.Record"
-        , "DA.TextMap"
-        , "DA.Map"
-        , "DA.Generics"
-        , "DA.Text"
-        , "DA.Numeric"
-        , "DA.Stack"
+preprocessorExceptions :: Set.Set GHC.ModuleName
+preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
+    -- These modules need to import internal modules.
+    [ "Prelude"
+    , "DA.Time"
+    , "DA.Date"
+    , "DA.Record"
+    , "DA.TextMap"
+    , "DA.Map"
+    , "DA.Generics"
+    , "DA.Text"
+    , "DA.Numeric"
+    , "DA.Stack"
 
-        -- These modules are just listed to disable the record preprocessor.
-        , "DA.NonEmpty.Types"
-        , "DA.Monoid.Types"
-        ]
+    -- These modules need to have the record preprocessor disabled.
+    , "DA.NonEmpty.Types"
+    , "DA.Monoid.Types"
+
+    -- This module needs to use the PatternSynonyms extension.
+    , "DA.Maybe"
+    ]
+
+shouldSkipPreprocessor :: GHC.ModuleName -> Bool
+shouldSkipPreprocessor name =
+    isInternal name
+    || Set.member name preprocessorExceptions
 
 -- | Apply all necessary preprocessors
 damlPreprocessor :: ES.EnumSet GHC.Extension -> Maybe GHC.UnitId -> GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
 damlPreprocessor dataDependableExtensions mbUnitId dflags x
-    | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor dflags x
+    | maybe False shouldSkipPreprocessor name = noPreprocessor dflags x
     | otherwise = IdePreprocessedSource
         { preprocWarnings = concat
             [ checkDamlHeader x
@@ -78,8 +85,19 @@ damlPreprocessor dataDependableExtensions mbUnitId dflags x
             , checkImportsWrtDataDependencies x
             , checkKinds x
             ]
-        , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x ++ checkRecordConstructor x ++ checkModuleName x
-        , preprocSource = rewriteLets $ recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbUnitId $ enumTypePreprocessor "GHC.Types" x
+        , preprocErrors = concat
+            [ checkImports x
+            , checkDataTypes x
+            , checkModuleDefinition x
+            , checkRecordConstructor x
+            , checkModuleName x
+            ]
+        , preprocSource =
+            rewriteLets
+            . recordDotPreprocessor
+            . importDamlPreprocessor
+            . genericsPreprocessor mbUnitId
+            $ enumTypePreprocessor "GHC.Types" x
         }
     where
       name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x

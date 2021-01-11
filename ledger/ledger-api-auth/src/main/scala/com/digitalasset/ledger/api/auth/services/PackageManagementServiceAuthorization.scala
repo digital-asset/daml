@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.auth.services
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v1.admin.package_management_service._
@@ -11,11 +10,12 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 private[daml] final class PackageManagementServiceAuthorization(
     protected val service: PackageManagementService with AutoCloseable,
-    private val authorizer: Authorizer)
+    private val authorizer: Authorizer,
+)(implicit executionContext: ExecutionContext)
     extends PackageManagementService
     with ProxyCloseable
     with GrpcApiService {
@@ -28,7 +28,7 @@ private[daml] final class PackageManagementServiceAuthorization(
     authorizer.requireAdminClaims(service.uploadDarFile)(request)
 
   override def bindService(): ServerServiceDefinition =
-    PackageManagementServiceGrpc.bindService(this, DirectExecutionContext)
+    PackageManagementServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
 }

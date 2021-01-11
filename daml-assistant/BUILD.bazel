@@ -44,6 +44,7 @@ da_haskell_library(
         "http-client",
         "http-client-tls",
         "http-conduit",
+        "http-types",
         "lens",
         "optparse-applicative",
         "process",

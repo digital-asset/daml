@@ -7,6 +7,7 @@ import java.time.Instant
 
 import akka.stream.Materializer
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.TestHelper.aParticipantId
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
@@ -36,9 +37,10 @@ class BatchedValidatingCommitterSpec
       instance
         .commit(
           correlationId = "",
-          submissionEnvelope = ByteString.EMPTY,
+          submissionEnvelope = Raw.Value(ByteString.EMPTY),
           submittingParticipantId = aParticipantId,
-          ledgerStateOperations = mock[LedgerStateOperations[Unit]])
+          ledgerStateOperations = mock[LedgerStateOperations[Unit]]
+        )
         .map { actual =>
           actual shouldBe SubmissionResult.Acknowledged
         }
@@ -53,9 +55,10 @@ class BatchedValidatingCommitterSpec
       instance
         .commit(
           correlationId = "",
-          submissionEnvelope = ByteString.EMPTY,
+          submissionEnvelope = Raw.Value(ByteString.EMPTY),
           submittingParticipantId = aParticipantId,
-          ledgerStateOperations = mock[LedgerStateOperations[Unit]])
+          ledgerStateOperations = mock[LedgerStateOperations[Unit]]
+        )
         .map { actual =>
           actual shouldBe SubmissionResult.InternalError("Validation failure")
         }
@@ -66,7 +69,7 @@ class BatchedValidatingCommitterSpec
       mockValidator: BatchedSubmissionValidator[Unit]): ScalaFirstStubbing[Future[Unit]] =
     when(
       mockValidator.validateAndCommit(
-        any[ByteString](),
+        any[Raw.Value](),
         anyString(),
         any[Instant](),
         any[ParticipantId](),

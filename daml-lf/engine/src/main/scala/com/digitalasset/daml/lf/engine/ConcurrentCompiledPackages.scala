@@ -13,7 +13,7 @@ import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.speedy.Compiler
 import com.daml.lf.speedy.Compiler.CompilationError
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.concurrent.{Map => ConcurrentMap}
 
 /** Thread-safe class that can be used when you need to maintain a shared, mutable collection of

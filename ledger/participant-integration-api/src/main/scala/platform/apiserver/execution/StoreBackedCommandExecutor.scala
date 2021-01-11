@@ -81,7 +81,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
               Some(
                 updateTx.nodes
                   .collect { case (nodeId, node) if node.byKey => nodeId }
-                  .to[ImmArray]),
+                  .to(ImmArray)),
             ),
             transaction = updateTx,
             dependsOnLedgerTime = meta.dependsOnTime,

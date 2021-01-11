@@ -58,7 +58,7 @@ private[apiserver] object ApiSubmissionService {
       configuration: ApiSubmissionService.Configuration,
       metrics: Metrics,
   )(
-      implicit ec: ExecutionContext,
+      implicit executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): GrpcCommandSubmissionService with GrpcApiService =
     new GrpcCommandSubmissionService(
@@ -99,7 +99,7 @@ private[apiserver] final class ApiSubmissionService private (
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
     metrics: Metrics,
-)(implicit ec: ExecutionContext, loggingContext: LoggingContext)
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandSubmissionService
     with ErrorFactories
     with AutoCloseable {

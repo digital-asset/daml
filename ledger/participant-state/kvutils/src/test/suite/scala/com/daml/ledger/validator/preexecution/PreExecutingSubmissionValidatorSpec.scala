@@ -10,10 +10,10 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils.{
-  Bytes,
   DamlStateMap,
   Envelope,
   KeyValueCommitting,
+  Raw,
   TestHelpers
 }
 import com.daml.ledger.participant.state.v1.Configuration
@@ -82,40 +82,13 @@ class PreExecutingSubmissionValidatorSpec extends AsyncWordSpec with Matchers wi
         .map(verifyReadSet(_, expectedReadSet))
     }
 
-    "return a read set when the contract keys are inconsistent" in {
-      val contractKeyStateKey = makeContractKeyStateKey("id")
-
-      // At the time of pre-execution, the key points to contract A.
-      val contractIdAStateKey = makeContractIdStateKey("contract ID A")
-      val contractIdAStateValue = makeContractIdStateValue()
-
-      // However, at the time of validation, it points to contract B.
-      val contractKeyBStateValue = makeContractKeyStateValue("contract ID B")
-      val contractIdBStateKey = makeContractIdStateKey("contract ID B")
-      val contractIdBStateValue = makeContractIdStateValue()
-
-      val preExecutedInputKeys = Set(contractKeyStateKey, contractIdAStateKey)
-      val expectedReadSet = Set(contractKeyStateKey, contractIdBStateKey)
-      val actualInputState = Map(
-        contractKeyStateKey -> Some(contractKeyBStateValue),
-        contractIdAStateKey -> Some(contractIdAStateValue),
-        contractIdBStateKey -> Some(contractIdBStateValue),
-      )
-      val instance = createInstance(expectedReadSet = expectedReadSet)
-      val ledgerStateReader = createLedgerStateReader(actualInputState)
-
-      instance
-        .validate(anEnvelope(preExecutedInputKeys), aParticipantId, ledgerStateReader)
-        .map(verifyReadSet(_, expectedReadSet))
-    }
-
     "fail in case a batched submission is input" in {
       val instance = createInstance()
       val aBatchedSubmission = DamlSubmissionBatch.newBuilder
         .addSubmissions(
           CorrelatedSubmission.newBuilder
             .setCorrelationId("correlated submission")
-            .setSubmission(anEnvelope()))
+            .setSubmission(anEnvelope().bytes))
         .build()
 
       instance
@@ -183,7 +156,7 @@ object PreExecutingSubmissionValidatorSpec {
 
   private final case class TestWriteSet(value: String)
 
-  private def anEnvelope(expectedReadSet: Set[DamlStateKey] = Set.empty): Bytes = {
+  private def anEnvelope(expectedReadSet: Set[DamlStateKey] = Set.empty): Raw.Value = {
     val submission = DamlSubmission
       .newBuilder()
       .setConfigurationSubmission(DamlConfigurationSubmission.getDefaultInstance)

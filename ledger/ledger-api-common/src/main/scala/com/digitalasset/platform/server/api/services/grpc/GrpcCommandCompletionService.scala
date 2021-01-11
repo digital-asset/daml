@@ -5,7 +5,6 @@ package com.daml.platform.server.api.services.grpc
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.dec.DirectExecutionContext
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerId
@@ -17,7 +16,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.{CompletionServiceRequestValidator, PartyNameChecker}
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object GrpcCommandCompletionService {
 
@@ -37,8 +36,11 @@ class GrpcCommandCompletionService(
     ledgerId: LedgerId,
     service: CommandCompletionService,
     partyNameChecker: PartyNameChecker
-)(implicit protected val esf: ExecutionSequencerFactory, protected val mat: Materializer)
-    extends CommandCompletionServiceAkkaGrpc {
+)(
+    implicit protected val mat: Materializer,
+    protected val esf: ExecutionSequencerFactory,
+    executionContext: ExecutionContext,
+) extends CommandCompletionServiceAkkaGrpc {
 
   private val validator = new CompletionServiceRequestValidator(ledgerId, partyNameChecker)
 
@@ -63,8 +65,7 @@ class GrpcCommandCompletionService(
           service
             .getLedgerEnd(req.ledgerId)
             .map(abs =>
-              CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value)))))(
-              DirectExecutionContext)
+              CompletionEndResponse(Some(LedgerOffset(LedgerOffset.Value.Absolute(abs.value)))))
       )
 
 }

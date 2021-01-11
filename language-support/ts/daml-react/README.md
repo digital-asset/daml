@@ -1,6 +1,6 @@
 # @daml/react
 
-> React framework for DAML applications
+> React framework for Daml applications
 
 ## Documentation
 
@@ -8,12 +8,12 @@ Comprehensive documentation for `@daml/react` can be found [here](https://docs.d
 
 ## Usage
 
-The best way to get you started quickly is to look at [Create DAMLApp](https://github.com/digital-asset/create-daml-app)
+The best way to get you started quickly is to look at [Create Daml App](https://github.com/digital-asset/create-daml-app)
 and to read the [QuickstartGuide](https://docs.daml.com/getting-started/quickstart.html).
 
-To get an overview on how to build a DAML application, please read the [application architecture overview](https://docs.daml.com/app-dev/app-arch.html).
+To get an overview on how to build a Daml application, please read the [application architecture overview](https://docs.daml.com/app-dev/app-arch.html).
 
-To use `@daml/react` your application needs to be connected to the JSON API of a DAML ledger. If
+To use `@daml/react` your application needs to be connected to the JSON API of a Daml ledger. If
 your JSON API server for the ledger runs on the local host on port 7575, set
 
 ``` json
@@ -38,7 +38,7 @@ const App: React.FC = () => {
 };
 ```
 
-Now you can use the following React hooks to interact with a DAML ledger:
+Now you can use the following React hooks to interact with a Daml ledger:
 
 `useParty`
 ----------
@@ -50,7 +50,7 @@ const party = useParty();
 
 `useLedger`
 -------------
-`useLedger` returns an instance of the `Ledger` class of [@daml/ledger](https://docs.daml.com/app-dev/bindings-ts/daml-ledger/index.html) to interact with the DAML
+`useLedger` returns an instance of the `Ledger` class of [@daml/ledger](https://docs.daml.com/app-dev/bindings-ts/daml-ledger/index.html) to interact with the Daml
 ledger.
 
 ```typescript

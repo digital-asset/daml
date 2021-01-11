@@ -4,7 +4,6 @@
 package com.daml.ledger.client.binding
 package encoding
 
-import scala.language.higherKinds
 import scala.collection.immutable.Seq
 import scalaz.Isomorphism.<~>
 

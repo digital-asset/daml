@@ -4,7 +4,7 @@ The following list is ordered topologicaly based on the dependency graph.
 
 ### daml-preprocessor
 
-`daml-preprocessor` contains the DAML preprocessor which runs our version of the
+`daml-preprocessor` contains the Daml preprocessor which runs our version of the
 `record-dot-preprocessor` and the preprocessor for generating
 `Generic` instances. The preprocessor also performs a few additional
 checks, e.g., that you do not import internal modules.
@@ -23,12 +23,12 @@ making everything depend on `daml-preprocessor`.
 
 ### daml-lf-conversion
 
-`daml-lf-conversion` handles the conversion from GHC’s Core to DAML-LF.
+`daml-lf-conversion` handles the conversion from GHC’s Core to Daml-LF.
 
 ### daml-ide-core
 
-`daml-ide-core` is a wrapper around `ghcide` that adds DAML-specific
-rules such as rules for producing `DAML-LF`.
+`daml-ide-core` is a wrapper around `ghcide` that adds Daml-specific
+rules such as rules for producing `Daml-LF`.
 
 
 ### daml-doc
@@ -125,10 +125,10 @@ bazel build //compiler/damlc:daml-base-docs
 
 This creates a tarball containing RST (ReStructured Text) docs, and a hoogle database.
 
-## DAML Packages and Database
+## Daml Packages and Database
 
-A DAML project is compiled to a DAML package and can be distributed as a DAML archive (DAR). This is
-essentially a zip archive containing the DAML source code of the library together with the compiled
+A Daml project is compiled to a Daml package and can be distributed as a Daml archive (DAR). This is
+essentially a zip archive containing the Daml source code of the library together with the compiled
 .dalf file. The damlc package loading mechanism is based on GHC's package database
 and uses the same .conf file format. GHC's package
 database is documented at
@@ -137,8 +137,8 @@ https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/packages.html.
 ### Loading packages
 
 `damlc` loads packages from a package database given by the option `--package-db`. It creates a
-map from package name to DAML-LF file from all the contained .dalf files in this directory and links
-the created DAML-LF against these packages. It uses the .hi interface files created upon
+map from package name to Daml-LF file from all the contained .dalf files in this directory and links
+the created Daml-LF against these packages. It uses the .hi interface files created upon
 installation of the packages for type checking.
 
 ### Base packages

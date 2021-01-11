@@ -5,8 +5,6 @@ package com.daml.ledger.client
 package binding
 package encoding
 
-import scala.language.higherKinds
-
 import binding.{Primitive => P}
 
 @annotation.implicitNotFound(msg = "Cannot find LfEncodable type class for ${A}")

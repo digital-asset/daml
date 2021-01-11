@@ -2,9 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
--- SPDX-License-Identifier: Apache-2.0
-
 {-# LANGUAGE GADTs #-}
 
 module DA.Ledger.GrpcWrapUtils (

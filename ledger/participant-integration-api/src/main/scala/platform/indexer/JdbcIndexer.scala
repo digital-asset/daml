@@ -69,7 +69,7 @@ object JdbcIndexer {
           jdbcAsyncCommits = true,
         )
         _ <- ResourceOwner.forFuture(() => ledgerDao.reset())
-        initialLedgerEnd <- initializeLedger(ledgerDao)
+        initialLedgerEnd <- initializeLedger(ledgerDao)()
       } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics))
 
     private def initialized(): ResourceOwner[JdbcIndexer] =
@@ -82,7 +82,7 @@ object JdbcIndexer {
           lfValueTranslationCache,
           jdbcAsyncCommits = true,
         )
-        initialLedgerEnd <- initializeLedger(ledgerDao)
+        initialLedgerEnd <- initializeLedger(ledgerDao)()
       } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics)
 
     private def initializeLedger(dao: LedgerDao)(): ResourceOwner[Option[Offset]] =

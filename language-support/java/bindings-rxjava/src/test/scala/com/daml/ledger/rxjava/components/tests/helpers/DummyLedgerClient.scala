@@ -203,19 +203,55 @@ class DummyLedgerClient(
         workflowId: String,
         applicationId: String,
         commandId: String,
+        actAs: java.util.List[String],
+        readAs: java.util.List[String],
+        minLedgerTimeAbs: Optional[Instant],
+        minLedgerTimeRel: Optional[Duration],
+        deduplicationTime: Optional[Duration],
+        commands: util.List[Command]): Single[Empty] =
+      untestedEndpoint
+
+    override def submit(
+        workflowId: String,
+        applicationId: String,
+        commandId: String,
         party: String,
         minLedgerTimeAbs: Optional[Instant],
         minLedgerTimeRel: Optional[Duration],
         deduplicationTime: Optional[Duration],
         commands: util.List[Command],
-        accessToken: String): Single[Empty] = untestedEndpoint
+        accessToken: String): Single[Empty] =
+      untestedEndpoint
+
+    override def submit(
+        workflowId: String,
+        applicationId: String,
+        commandId: String,
+        actAs: java.util.List[String],
+        readAs: java.util.List[String],
+        minLedgerTimeAbs: Optional[Instant],
+        minLedgerTimeRel: Optional[Duration],
+        deduplicationTime: Optional[Duration],
+        commands: util.List[Command],
+        accessToken: String): Single[Empty] =
+      untestedEndpoint
 
     override def submit(
         workflowId: String,
         applicationId: String,
         commandId: String,
         party: String,
-        commands: util.List[Command]): Single[Empty] = untestedEndpoint
+        commands: util.List[Command]): Single[Empty] =
+      untestedEndpoint
+
+    override def submit(
+        workflowId: String,
+        applicationId: String,
+        commandId: String,
+        actAs: java.util.List[String],
+        readAs: java.util.List[String],
+        commands: util.List[Command]): Single[Empty] =
+      untestedEndpoint
 
     override def submit(
         workflowId: String,
@@ -223,7 +259,18 @@ class DummyLedgerClient(
         commandId: String,
         party: String,
         commands: util.List[Command],
-        accessToken: String): Single[Empty] = untestedEndpoint
+        accessToken: String): Single[Empty] =
+      untestedEndpoint
+
+    override def submit(
+        workflowId: String,
+        applicationId: String,
+        commandId: String,
+        actAs: java.util.List[String],
+        readAs: java.util.List[String],
+        commands: util.List[Command],
+        accessToken: String): Single[Empty] =
+      untestedEndpoint
   }
 
   override def getLedgerIdentityClient: LedgerIdentityClient = new LedgerIdentityClient {

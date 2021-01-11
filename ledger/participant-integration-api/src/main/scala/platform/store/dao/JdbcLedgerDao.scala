@@ -905,7 +905,7 @@ private class JdbcLedgerDao(
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {
     require(params.nonEmpty, "batch sql statement must have at least one set of name parameters")
-    BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
+    BatchSql(query, params.head, params.drop(1).toSeq: _*).execute()
   }
 }
 

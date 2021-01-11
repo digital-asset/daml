@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 #
-# DAML is an open-source privacy-aware smart contract language.
+# Daml is an open-source privacy-aware smart contract language.
 # This script downloads and installs the SDK on Linux and macOS.
 # This will overwrite any existing installation in ~/.daml
 # For more information please visit https://daml.com/ and https://docs.daml.com/
@@ -31,7 +31,7 @@ rmTmpDir() {
   if [ -z $TEMPDIR ]; then
     rm -rf $TMPDIR
   else
-    echo "You may now remove the DAML installation files from $TEMPDIR"
+    echo "You may now remove the Daml installation files from $TEMPDIR"
   fi
 }
 
@@ -47,7 +47,7 @@ trap cleanup EXIT
 # Check that the temporary directory has enough space for the installation
 #
 if [ "$(df $TMPDIR | tail -1 | awk '{print $4}')" -lt $INSTALL_MINSIZE ]; then
-    echo "Not enough disk space available to extract DAML SDK in $TMPDIR."
+    echo "Not enough disk space available to extract Daml SDK in $TMPDIR."
     echo ""
     echo "You can specify an alternative extraction directory by"
     echo "setting the TEMPDIR environment variable."
@@ -71,7 +71,7 @@ else
   MISSING="tar"
 fi
 if [ -n "$MISSING" ]; then
-  echo "Missing tools required for DAML installation: $MISSING"
+  echo "Missing tools required for Daml installation: $MISSING"
   exit 1
 fi
 
@@ -80,7 +80,7 @@ fi
 #
 if [ -z "${1:-}" ] ; then
   echo "Determining latest SDK version..."
-  readonly VERSION="$(curl -sS https://github.com/digital-asset/daml/releases/latest | sed 's/^.*github.com\/digital-asset\/daml\/releases\/tag\/v//' | sed 's/".*$//')"
+  readonly VERSION="$(curl -sS https://docs.daml.com/latest)"
   if [ -z "$VERSION" ] ; then
     echo "Failed to determine latest SDK version."
     exit 1
@@ -142,6 +142,6 @@ fi
 # Done.
 #
 trap - EXIT
-echo "$(tput setaf 3)Successfully installed DAML.$(tput sgr 0)"
+echo "$(tput setaf 3)Successfully installed Daml.$(tput sgr 0)"
 cd $SWD
 rmTmpDir

@@ -3,10 +3,7 @@
 
 package com.daml.platform.apiserver.services
 
-import com.daml.ledger.participant.state.index.v2.IndexPackagesService
-import com.daml.lf.data.Ref
 import com.daml.daml_lf_dev.DamlLf.{Archive, HashFunction}
-import com.daml.dec.{DirectExecutionContext => DEC}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.package_service.HashFunction.{
   SHA256 => APISHA256,
@@ -14,31 +11,34 @@ import com.daml.ledger.api.v1.package_service.HashFunction.{
 }
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.ledger.participant.state.index.v2.IndexPackagesService
+import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.PackageServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-private[apiserver] final class ApiPackageService private (backend: IndexPackagesService)(
-    implicit loggingContext: LoggingContext,
-) extends PackageService
+private[apiserver] final class ApiPackageService private (
+    backend: IndexPackagesService,
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
+    extends PackageService
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override def bindService(): ServerServiceDefinition =
-    PackageServiceGrpc.bindService(this, DEC)
+    PackageServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = ()
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
     backend
       .listLfPackages()
-      .map(p => ListPackagesResponse(p.keys.toSeq))(DEC)
-      .andThen(logger.logErrorsOnCall[ListPackagesResponse])(DEC)
+      .map(p => ListPackagesResponse(p.keys.toSeq))
+      .andThen(logger.logErrorsOnCall[ListPackagesResponse])
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
     withEnrichedLoggingContext("packageId" -> request.packageId) { implicit loggingContext =>
@@ -46,8 +46,8 @@ private[apiserver] final class ApiPackageService private (backend: IndexPackages
         backend
           .getLfArchive(packageId)
           .flatMap(_.fold(Future.failed[GetPackageResponse](Status.NOT_FOUND.asRuntimeException()))(
-            archive => Future.successful(toGetPackageResponse(archive))))(DEC)
-          .andThen(logger.logErrorsOnCall[GetPackageResponse])(DEC)
+            archive => Future.successful(toGetPackageResponse(archive))))
+          .andThen(logger.logErrorsOnCall[GetPackageResponse])
       }
     }
 
@@ -65,8 +65,8 @@ private[apiserver] final class ApiPackageService private (backend: IndexPackages
               PackageStatus.UNKNOWN
             }
             GetPackageStatusResponse(result)
-          }(DEC)
-          .andThen(logger.logErrorsOnCall[GetPackageStatusResponse])(DEC)
+          }
+          .andThen(logger.logErrorsOnCall[GetPackageStatusResponse])
       }
     }
 
@@ -93,11 +93,15 @@ private[apiserver] final class ApiPackageService private (backend: IndexPackages
 }
 
 private[platform] object ApiPackageService {
-  def create(ledgerId: LedgerId, backend: IndexPackagesService)(
-      implicit loggingContext: LoggingContext,
+  def create(
+      ledgerId: LedgerId,
+      backend: IndexPackagesService,
+  )(
+      implicit executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
   ): PackageService with GrpcApiService =
     new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService {
       override def bindService(): ServerServiceDefinition =
-        PackageServiceGrpc.bindService(this, DEC)
+        PackageServiceGrpc.bindService(this, executionContext)
     }
 }

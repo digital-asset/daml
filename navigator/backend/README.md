@@ -241,6 +241,6 @@ This section contains short notes for anyone that wishes to make changes to the 
 - The backend communicates with the frontend via a JSON-based "frontend API"
 - These are the relevant source files:
   - `model/Model`: Defines the internal representations of ledger objects
-  - `model/Util`: (SDAML package) -> (internal model)
+  - `model/Util`: (SDaml package) -> (internal model)
   - `graphql/JsonType`: (internal model) <-> (frontend API JSON format)
   - `store/platform/PlatformSubscriber`: (ledger API JSON format) <-> (internal model)

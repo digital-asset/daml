@@ -34,6 +34,8 @@ import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
+import java.util.Arrays.asList
+
 object TestUtil {
 
   def testDalf =
@@ -45,6 +47,7 @@ object TestUtil {
       implicit resourceContext: ResourceContext): Future[Assertion] = {
     val config = sandbox.DefaultConfig.copy(
       port = Port.Dynamic,
+      seeding = None,
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
       timeProviderType = Some(TimeProviderType.WallClock),
@@ -86,6 +89,35 @@ object TestUtil {
               cmds.asJava))
           .build)
   }
+
+  def sendCmd(
+      channel: Channel,
+      actAs: java.util.List[String],
+      readAs: java.util.List[String],
+      cmds: Command*): Empty = {
+    CommandServiceGrpc
+      .newBlockingStub(channel)
+      .withDeadlineAfter(40, TimeUnit.SECONDS)
+      .submitAndWait(
+        SubmitAndWaitRequest
+          .newBuilder()
+          .setCommands(
+            SubmitCommandsRequest.toProto(
+              LedgerID,
+              randomId,
+              randomId,
+              randomId,
+              actAs,
+              readAs,
+              Optional.empty[Instant],
+              Optional.empty[Duration],
+              Optional.empty[Duration],
+              cmds.asJava))
+          .build)
+  }
+
+  def sendCmd(channel: Channel, party: String, cmds: Command*): Empty =
+    sendCmd(channel, asList(party), asList[String](), cmds: _*)
 
   def readActiveContracts[C <: Contract](fromCreatedEvent: CreatedEvent => C)(
       channel: Channel

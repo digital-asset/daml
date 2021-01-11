@@ -3,14 +3,15 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.google.protobuf.MessageLite
+import com.daml.caching.Cache.Size
 import com.daml.caching.{Cache, Weight}
+import com.google.protobuf.MessageLite
 
 package object caching {
 
-  implicit object `Bytes Weight` extends Weight[Bytes] {
-    override def weigh(value: Bytes): Cache.Size =
-      value.size().toLong
+  implicit object `Raw.Bytes Weight` extends Weight[Raw.Bytes] {
+    override def weigh(rawBytes: Raw.Bytes): Size =
+      rawBytes.size
   }
 
   implicit object `Message Weight` extends Weight[MessageLite] {

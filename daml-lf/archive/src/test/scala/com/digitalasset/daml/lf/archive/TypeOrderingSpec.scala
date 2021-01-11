@@ -8,7 +8,7 @@ import com.daml.lf.language.{Ast, TypeOrdering}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class TypeOrderingSpec extends AnyWordSpec with Matchers {
 

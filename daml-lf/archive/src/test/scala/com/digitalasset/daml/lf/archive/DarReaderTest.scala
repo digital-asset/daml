@@ -12,7 +12,7 @@ import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class DarReaderTest
     extends AnyWordSpec
@@ -37,7 +37,7 @@ class DarReaderTest
 
     forAll(dar.all) {
       case ((packageId, archive), ver) =>
-        packageId shouldNot be('empty)
+        packageId shouldNot be(Symbol("empty"))
         archive.getDamlLf1.getModulesCount should be > 0
         ver should be(LanguageMajorVersion.V1)
     }
@@ -61,7 +61,7 @@ class DarReaderTest
                 mainArchiveInternedDotted,
                 mainArchiveInternedStrings,
                 t.getNameInternedDname))
-        actualTypes should contain allOf ("Transfer", "Call2", "CallablePayout", "PayOut")
+        actualTypes should contain.allOf("Transfer", "Call2", "CallablePayout", "PayOut")
     }
 
     forExactly(1, dar.dependencies) {
@@ -87,8 +87,8 @@ class DarReaderTest
   }
 
   private def internedName(
-      internedDotted: Seq[DamlLf1.InternedDottedName],
-      internedStrings: Seq[String],
+      internedDotted: collection.Seq[DamlLf1.InternedDottedName],
+      internedStrings: collection.Seq[String],
       n: Int): String = {
     internedDotted(n).getSegmentsInternedStrList.asScala.map(i => internedStrings(i)).mkString(".")
   }

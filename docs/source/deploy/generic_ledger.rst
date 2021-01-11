@@ -3,13 +3,13 @@
 
 .. _deploy-generic-ledger:
 
-Deploying to a generic DAML ledger
+Deploying to a generic Daml ledger
 ==================================
 
-DAML ledgers expose a unified administration API. This means that deploying to a DAML ledger is no
+Daml ledgers expose a unified administration API. This means that deploying to a Daml ledger is no
 different from deploying to your local sandbox.
 
-To deploy to a DAML ledger, run the following command from within your DAML project:
+To deploy to a Daml ledger, run the following command from within your Daml project:
 
 .. code-block:: none
 
@@ -31,7 +31,7 @@ section to the project's ``daml.yaml`` file:
 
 The ``daml deploy`` command will
 
-#. upload the project's compiled DAR file to the ledger. This will make the DAML templates defined
+#. upload the project's compiled DAR file to the ledger. This will make the Daml templates defined
    in the current project available to the API users of the sandbox.
 
 #. allocate the parties specified in the project's ``daml.yaml`` on the ledger if they are missing.
@@ -43,7 +43,7 @@ ledger --help`` to get a list of available ledger commands:
 
    $ daml ledger --help
    Usage: daml ledger COMMAND
-     Interact with a remote DAML ledger. You can specify the ledger in daml.yaml
+     Interact with a remote Daml ledger. You can specify the ledger in daml.yaml
      with the ledger.host and ledger.port options, or you can pass the --host and
      --port flags to each command below. If the ledger is authenticated, you should
      pass the name of the file containing the token using the --access-token-file

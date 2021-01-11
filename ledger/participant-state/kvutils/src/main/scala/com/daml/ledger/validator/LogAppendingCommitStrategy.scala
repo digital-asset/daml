@@ -9,8 +9,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1.ParticipantId
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,7 +30,8 @@ class LogAppendingCommitStrategy[Index](
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       outputState: Map[DamlStateKey, DamlStateValue],
       writeSetBuilder: Option[SubmissionAggregator.WriteSetBuilder] = None,
-  ): Future[Index] =
+  ): Future[Index] = {
+    val logEntryKey = Raw.Key(entryId.toByteString)
     for {
       (serializedKeyValuePairs, envelopedLogEntry) <- inParallel(
         Future(stateSerializationStrategy.serializeStateUpdates(outputState)),
@@ -45,10 +46,11 @@ class LogAppendingCommitStrategy[Index](
         Future {
           writeSetBuilder.foreach { builder =>
             builder ++= serializedKeyValuePairs
-            builder += entryId.toByteString -> envelopedLogEntry
+            builder += logEntryKey -> envelopedLogEntry
           }
         },
-        ledgerStateOperations.appendToLog(entryId.toByteString, envelopedLogEntry),
+        ledgerStateOperations.appendToLog(logEntryKey, envelopedLogEntry),
       )
     } yield index
+  }
 }
