@@ -6,7 +6,7 @@ package engine
 package preprocessing
 
 import com.daml.lf.data._
-import com.daml.lf.language.Ast.{TNat, TTyCon}
+import com.daml.lf.language.Ast.{BTList, TApp, TBuiltin, TNat, TTyCon}
 import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value._
@@ -25,14 +25,17 @@ class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropert
   val recordCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Record"))
   val variantCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Variant"))
   val enumCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Enum"))
+  val tricky = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Tricky"))
 
   val pkg =
     p"""
         module Module {
 
           record Record = { field : Int64 };
-          variant Variant = variant1 : Text | variant2 : Int64 ;
+          variant Variant = variant1 : Text | variant2 : Int64;
           enum Enum = value1 | value2;
+
+          record Tricky (b: * -> *) = { x : b Unit };
 
         }
 
@@ -74,6 +77,8 @@ class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropert
         ValueVariant(None, "variant1", ValueText("some test")),
       TTyCon(enumCon) ->
         ValueEnum(None, "value1"),
+      TApp(TTyCon(tricky), TBuiltin(BTList))  ->
+        ValueRecord(None, ImmArray(None -> ValueNil))
     )
 
     val compiledPackage = ConcurrentCompiledPackages()
