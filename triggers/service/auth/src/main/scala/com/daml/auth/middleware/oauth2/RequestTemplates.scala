@@ -48,7 +48,7 @@ private[oauth2] class RequestTemplates(
         // However, if it does it should be clear that the path refers to a builtin file.
         // Paths are reported relative to `$PWD`, we prefix `$PWD` to avoid `../../` noise.
         val path: sjsonnet.Path =
-          sjsonnet.OsPath(os.RelPath(s"<builtin>/$resourcePath").resolveFrom(os.pwd))
+          sjsonnet.OsPath(os.RelPath(s"BUILTIN/$resourcePath").resolveFrom(os.pwd))
         (content, path)
     }
   }
