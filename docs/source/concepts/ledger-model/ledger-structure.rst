@@ -44,7 +44,7 @@ records the relations between the actions during the above acceptance.
 
 Formally, an **action** is one of the following:
 
-#. a **Create** action of a contract, which records the creation of the contract
+#. a **Create** action on a contract, which records the creation of the contract
 #. an **Exercise** action on a contract, which records that one or more parties
    have exercised a right they have on the contract, and which also contains:
 
@@ -151,7 +151,7 @@ In practice, multiple IOU contracts can exist between the same `obligor` and
 in this section, each contract only appears once, allowing us to drop the notion 
 of identifiers for simplicity reasons.
 
-A **transaction** is a non-empty list of actions. Thus, the consequences of
+A **transaction** is a list of actions. Thus, the consequences of
 an exercise form a transaction. In the example, the consequences of the
 Alice's exercise form the following transaction, where actions are again
 ordered left-to-right.
@@ -180,7 +180,7 @@ Similarly, a **subtransaction** of a transaction is either the transaction
 itself, or a **proper subtransaction**: a transaction obtained by removing at
 least one action, or replacing it by a subtransaction of its consequences. For
 example, given the transaction consisting of just one action, the paint offer
-acceptance, the image below shows all its proper subtransactions on the right
+acceptance, the image below shows all its proper non-empty subtransactions on the right
 (yellow boxes).
 
 .. https://www.lucidchart.com/documents/edit/a4735a72-2d27-485c-a3ed-0c053dab0e11
