@@ -27,7 +27,7 @@ object CodegenMain {
         scalaCodegen(args.tail)
       case Some(FrontEndConfig(None)) | None =>
         println("\n")
-        cliConfigParser.showUsage()
+        cliConfigParser.displayToOut(cliConfigParser.usage)
         UsageError
     }
     sys.exit(exitCode.code)
@@ -47,7 +47,7 @@ object CodegenMain {
     configO match {
       case None =>
         println("\n")
-        Conf.parser.showUsage
+        Conf.parser.displayToOut(Conf.parser.usage)
         UsageError
       case Some(conf) =>
         Try(generate(conf)) match {
@@ -79,7 +79,7 @@ object CodegenMain {
   private val cliConfigParser = new scopt.OptionParser[FrontEndConfig]("codegen-front-end") {
     head("Codegen front end")
 
-    override def showUsageOnError = false
+    override def showUsageOnError = Some(false)
 
     help("help").text("Prints this usage text")
     note("\n")

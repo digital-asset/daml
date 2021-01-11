@@ -50,7 +50,7 @@ object ConfigParser {
   private val configParser: OptionParser[CliParams] =
     new scopt.OptionParser[CliParams]("extractor") {
 
-      override def showUsageOnError: Boolean = true
+      override def showUsageOnError: Option[Boolean] = Some(true)
 
       val colSpacer = "                           "
 
@@ -313,9 +313,6 @@ object ConfigParser {
       (config, target)
     }
   }
-
-  def showUsage(): Unit =
-    configParser.showUsage()
 
   private def validateUniqueElements[A](x: Seq[A], message: => String): Either[String, Unit] =
     Either.cond(x.size == x.toSet.size, (), message)
