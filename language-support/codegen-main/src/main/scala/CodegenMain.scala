@@ -79,7 +79,7 @@ object CodegenMain {
   private val cliConfigParser = new scopt.OptionParser[FrontEndConfig]("codegen-front-end") {
     head("Codegen front end")
 
-    override def showUsageOnError = Some(false)
+    override val showUsageOnError = Some(false)
 
     help("help").text("Prints this usage text")
     note("\n")

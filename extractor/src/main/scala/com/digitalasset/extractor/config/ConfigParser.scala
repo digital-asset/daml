@@ -50,7 +50,7 @@ object ConfigParser {
   private val configParser: OptionParser[CliParams] =
     new scopt.OptionParser[CliParams]("extractor") {
 
-      override def showUsageOnError: Option[Boolean] = Some(true)
+      override val showUsageOnError: Option[Boolean] = Some(true)
 
       val colSpacer = "                           "
 
