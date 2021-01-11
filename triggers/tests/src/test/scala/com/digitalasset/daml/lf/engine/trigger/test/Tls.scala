@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger.test
@@ -13,6 +13,8 @@ import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import java.io.File
 import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import com.daml.lf.engine.trigger.TriggerMsg
 
@@ -45,8 +47,12 @@ class Tls
     def asset(party: String): CreateCommand =
       CreateCommand(
         templateId = Some(assetId),
-        createArguments = Some(LedgerApi.Record(
-          fields = Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party)))))))
+        createArguments = Some(
+          LedgerApi.Record(
+            fields = Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party))))
+          )
+        ),
+      )
     "1 create" in {
       for {
         client <- ledgerClient()

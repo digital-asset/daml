@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 
@@ -37,7 +37,7 @@ export interface TableConfig extends ContractTableConfig {
 
 export type State = TableConfig;
 
-export const init = (id: string) => ({
+export const init = (id: string): TableConfig => ({
   search: '',
   filter: [],
   includeArchived: true,
@@ -65,7 +65,7 @@ interface ReduxProps {
 }
 
 interface ApolloProps {
-  // tslint:disable-next-line: no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: ApolloClient<any>;
 }
 

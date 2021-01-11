@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -27,7 +27,7 @@ const Wrapper = styled.div<{size: number}>`
   margin-bottom: 1rem;
 `;
 
-export default () => (
+export default (): JSX.Element => (
   <Section
     title="Truncate text"
     description={description}

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
@@ -14,7 +14,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
   CompletionStreamRequest,
-  CompletionStreamResponse
+  CompletionStreamResponse,
 }
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
@@ -22,8 +22,9 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionByIdRequest,
-  GetTransactionResponse
+  GetTransactionResponse,
 }
+import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
 import com.daml.ledger.participant.state.v1.{Configuration => LedgerConfiguration}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -50,10 +51,10 @@ private[apiserver] final class ApiCommandService private (
     configuration: ApiCommandService.Configuration,
     ledgerConfigProvider: LedgerConfigProvider,
     metrics: Metrics,
-)(
-    implicit grpcExecutionContext: ExecutionContext,
-    actorMaterializer: Materializer,
-    loggingContext: LoggingContext
+)(implicit
+    materializer: Materializer,
+    executionContext: ExecutionContext,
+    loggingContext: LoggingContext,
 ) extends CommandServiceGrpc.CommandService
     with AutoCloseable {
 
@@ -62,7 +63,7 @@ private[apiserver] final class ApiCommandService private (
   private val submissionTracker: TrackerMap = TrackerMap(configuration.retentionPeriod)
   private val staleCheckerInterval: FiniteDuration = 30.seconds
 
-  private val trackerCleanupJob: Cancellable = actorMaterializer.system.scheduler
+  private val trackerCleanupJob: Cancellable = materializer.system.scheduler
     .scheduleAtFixedRate(staleCheckerInterval, staleCheckerInterval)(submissionTracker.cleanup)
 
   @volatile private var running = true
@@ -74,17 +75,19 @@ private[apiserver] final class ApiCommandService private (
     submissionTracker.close()
   }
 
-  private def submitAndWaitInternal(request: SubmitAndWaitRequest)(
-      implicit loggingContext: LoggingContext,
+  private def submitAndWaitInternal(request: SubmitAndWaitRequest)(implicit
+      loggingContext: LoggingContext
   ): Future[Completion] =
     withEnrichedLoggingContext(
       logging.commandId(request.getCommands.commandId),
       logging.party(request.getCommands.party),
+      logging.actAs(request.getCommands.actAs),
+      logging.readAs(request.getCommands.readAs),
     ) { implicit loggingContext =>
       if (running) {
         ledgerConfigProvider.latestConfiguration.fold[Future[Completion]](
-          Future.failed(ErrorFactories.missingLedgerConfig()))(ledgerConfig =>
-          track(request, ledgerConfig))
+          Future.failed(ErrorFactories.missingLedgerConfig())
+        )(ledgerConfig => track(request, ledgerConfig))
       } else {
         Future.failed(
           new ApiException(Status.UNAVAILABLE.withDescription("Service has been shut down."))
@@ -97,7 +100,11 @@ private[apiserver] final class ApiCommandService private (
       ledgerConfig: LedgerConfiguration,
   )(implicit loggingContext: LoggingContext): Future[Completion] = {
     val appId = request.getCommands.applicationId
-    val submitter = TrackerMap.Key(application = appId, party = request.getCommands.party)
+    // Note: command completions are returned as long as at least one of the original submitters
+    // is specified in the command completion request.
+    val parties = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
+    val submitter = TrackerMap.Key(application = appId, parties = parties)
+    val metricsPrefix = parties.toList.sorted.mkString("_")
     submissionTracker.track(submitter, request) {
       for {
         ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
@@ -110,27 +117,29 @@ private[apiserver] final class ApiCommandService private (
                 CompletionStreamRequest(
                   configuration.ledgerId.unwrap,
                   appId,
-                  List(submitter.party),
-                  Some(offset)))
+                  parties.toList,
+                  Some(offset),
+                )
+              )
               .mapConcat(CommandCompletionSource.toStreamElements),
           ledgerEnd,
-          () => ledgerConfig.maxDeduplicationTime
+          () => ledgerConfig.maxDeduplicationTime,
         )
         val trackingFlow =
           if (configuration.limitMaxCommandsInFlight)
             MaxInFlight(
               configuration.maxCommandsInFlight,
-              capacityCounter = metrics.daml.commands.maxInFlightCapacity(submitter.party),
-              lengthCounter = metrics.daml.commands.maxInFlightLength(submitter.party),
+              capacityCounter = metrics.daml.commands.maxInFlightCapacity(metricsPrefix),
+              lengthCounter = metrics.daml.commands.maxInFlightLength(metricsPrefix),
             ).joinMat(tracker)(Keep.right)
           else
             tracker
         TrackerImpl(
           trackingFlow,
           configuration.inputBufferSize,
-          capacityCounter = metrics.daml.commands.inputBufferCapacity(submitter.party),
-          lengthCounter = metrics.daml.commands.inputBufferLength(submitter.party),
-          delayTimer = metrics.daml.commands.inputBufferDelay(submitter.party)
+          capacityCounter = metrics.daml.commands.inputBufferCapacity(metricsPrefix),
+          lengthCounter = metrics.daml.commands.inputBufferLength(metricsPrefix),
+          delayTimer = metrics.daml.commands.inputBufferDelay(metricsPrefix),
         )
       }
     }
@@ -140,30 +149,37 @@ private[apiserver] final class ApiCommandService private (
     submitAndWaitInternal(request).map(_ => Empty.defaultInstance)
 
   override def submitAndWaitForTransactionId(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] =
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionIdResponse] =
     submitAndWaitInternal(request).map { compl =>
       SubmitAndWaitForTransactionIdResponse(compl.transactionId)
     }
 
   override def submitAndWaitForTransaction(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] =
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionResponse] =
     submitAndWaitInternal(request).flatMap { resp =>
+      val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
       val txRequest = GetTransactionByIdRequest(
         request.getCommands.ledgerId,
         resp.transactionId,
-        List(request.getCommands.party))
+        effectiveActAs.toList,
+      )
       services
         .getFlatTransactionById(txRequest)
         .map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
     }
 
   override def submitAndWaitForTransactionTree(
-      request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] =
+      request: SubmitAndWaitRequest
+  ): Future[SubmitAndWaitForTransactionTreeResponse] =
     submitAndWaitInternal(request).flatMap { resp =>
+      val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
       val txRequest = GetTransactionByIdRequest(
         request.getCommands.ledgerId,
         resp.transactionId,
-        List(request.getCommands.party))
+        effectiveActAs.toList,
+      )
       services
         .getTransactionById(txRequest)
         .map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
@@ -180,18 +196,18 @@ private[apiserver] object ApiCommandService {
       timeProvider: TimeProvider,
       ledgerConfigProvider: LedgerConfigProvider,
       metrics: Metrics,
-  )(
-      implicit grpcExecutionContext: ExecutionContext,
-      actorMaterializer: Materializer,
-      loggingContext: LoggingContext
+  )(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
       new ApiCommandService(services, configuration, ledgerConfigProvider, metrics),
       ledgerId = configuration.ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
-      maxDeduplicationTime =
-        () => ledgerConfigProvider.latestConfiguration.map(_.maxDeduplicationTime),
+      maxDeduplicationTime = () =>
+        ledgerConfigProvider.latestConfiguration.map(_.maxDeduplicationTime),
     )
 
   final case class Configuration(
@@ -206,7 +222,8 @@ private[apiserver] object ApiCommandService {
       submissionFlow: Flow[
         Ctx[(Promise[Completion], String), SubmitRequest],
         Ctx[(Promise[Completion], String), Try[Empty]],
-        NotUsed],
+        NotUsed,
+      ],
       getCompletionSource: CompletionStreamRequest => Source[CompletionStreamResponse, NotUsed],
       getCompletionEnd: () => Future[CompletionEndResponse],
       getTransactionById: GetTransactionByIdRequest => Future[GetTransactionResponse],

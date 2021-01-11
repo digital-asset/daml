@@ -1,12 +1,13 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.model.converter
 
-import org.scalatest.{Matchers, WordSpec}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
-class ConverterSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+class ConverterSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
   import Converter._
 
   "sequence" should {

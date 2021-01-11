@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -11,7 +11,7 @@ import akka.actor.typed.{
   BehaviorInterceptor,
   PostStop,
   Signal,
-  TypedActorContext
+  TypedActorContext,
 }
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -58,8 +58,9 @@ object TriggerRunner {
   //   Remove once fixed upstream.
   private class Interceptor(parent: ActorRef[TriggerRunner.Message])
       extends BehaviorInterceptor[TriggerRunnerImpl.Message, TriggerRunnerImpl.Message] {
-    private def handleException(ctx: TypedActorContext[TriggerRunnerImpl.Message])
-      : Catcher[Behavior[TriggerRunnerImpl.Message]] = {
+    private def handleException(
+        ctx: TypedActorContext[TriggerRunnerImpl.Message]
+    ): Catcher[Behavior[TriggerRunnerImpl.Message]] = {
       case e: InitializationHalted => {
         // This should be a stop supervisor nested under the restart supervisor.
         ctx.asScala.log.info(s"Supervisor saw failure ${e.getMessage} - stopping")
@@ -76,8 +77,8 @@ object TriggerRunner {
     }
     override def aroundStart(
         ctx: TypedActorContext[TriggerRunnerImpl.Message],
-        target: BehaviorInterceptor.PreStartTarget[TriggerRunnerImpl.Message])
-      : Behavior[TriggerRunnerImpl.Message] = {
+        target: BehaviorInterceptor.PreStartTarget[TriggerRunnerImpl.Message],
+    ): Behavior[TriggerRunnerImpl.Message] = {
       try {
         target.start(ctx)
       } catch handleException(ctx)
@@ -85,8 +86,8 @@ object TriggerRunner {
     override def aroundReceive(
         ctx: TypedActorContext[TriggerRunnerImpl.Message],
         msg: TriggerRunnerImpl.Message,
-        target: BehaviorInterceptor.ReceiveTarget[TriggerRunnerImpl.Message])
-      : Behavior[TriggerRunnerImpl.Message] = {
+        target: BehaviorInterceptor.ReceiveTarget[TriggerRunnerImpl.Message],
+    ): Behavior[TriggerRunnerImpl.Message] = {
       try {
         target(ctx, msg)
       } catch handleException(ctx)
@@ -94,17 +95,18 @@ object TriggerRunner {
     override def aroundSignal(
         ctx: TypedActorContext[TriggerRunnerImpl.Message],
         signal: Signal,
-        target: BehaviorInterceptor.SignalTarget[TriggerRunnerImpl.Message])
-      : Behavior[TriggerRunnerImpl.Message] = {
+        target: BehaviorInterceptor.SignalTarget[TriggerRunnerImpl.Message],
+    ): Behavior[TriggerRunnerImpl.Message] = {
       try {
         target(ctx, signal)
       } catch handleException(ctx)
     }
   }
 
-  def apply(config: Config, name: String)(
-      implicit esf: ExecutionSequencerFactory,
-      mat: Materializer): Behavior[TriggerRunner.Message] =
+  def apply(config: Config, name: String)(implicit
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Behavior[TriggerRunner.Message] =
     newLoggingContext(label[Config with Trigger], config.loggingExtension) {
       implicit loggingContext =>
         Behaviors.setup { ctx =>
@@ -122,8 +124,10 @@ object TriggerRunner {
                   restartWithBackoff(
                     config.restartConfig.minRestartInterval,
                     config.restartConfig.maxRestartInterval,
-                    config.restartConfig.restartIntervalRandomFactor)),
-              name
+                    config.restartConfig.restartIntervalRandomFactor,
+                  )
+                ),
+              name,
             )
           Behaviors
             .receiveMessagePartial[Message] {
@@ -135,17 +139,18 @@ object TriggerRunner {
                 Behaviors.stopped // Automatically stops the child actor if running.
               case Unauthenticated(cause) =>
                 logger.warn(
-                  s"Trigger was unauthenticated - requesting token refresh: ${cause.getMessage}")
+                  s"Trigger was unauthenticated - requesting token refresh: ${cause.getMessage}"
+                )
                 config.server ! Server.TriggerTokenExpired(
                   config.triggerInstance,
                   config.trigger,
-                  config.compiledPackages)
+                  config.compiledPackages,
+                )
                 Behaviors.stopped
             }
-            .receiveSignal {
-              case (_, PostStop) =>
-                logger.info(s"Trigger $name stopped")
-                Behaviors.same
+            .receiveSignal { case (_, PostStop) =>
+              logger.info(s"Trigger $name stopped")
+              Behaviors.same
             }
         }
     }

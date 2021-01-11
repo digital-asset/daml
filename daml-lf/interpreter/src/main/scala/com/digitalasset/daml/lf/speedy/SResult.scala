@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -7,22 +7,25 @@ import com.daml.lf.CompiledPackages
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, SubmittedTransaction, Transaction => Tx}
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, SubmittedTransaction}
 import com.daml.lf.speedy.SError._
+import com.daml.lf.value.Value
 
 /** The result from small-step evaluation.
   * If the result is not Done or Continue, then the machine
-  * must be fed before it can be stepped further. */
+  * must be fed before it can be stepped further.
+  */
 sealed abstract class SResult extends Product with Serializable
 
 object SResult {
   final case class SResultError(err: SError) extends SResult
 
-  /** The speedy machine has completed evaluation to reach a final value.  */
+  /** The speedy machine has completed evaluation to reach a final value. */
   final case class SResultFinalValue(v: SValue) extends SResult
 
   /** Update or scenario interpretation requires the current
-    * ledger time. */
+    * ledger time.
+    */
   final case class SResultNeedTime(callback: Time.Timestamp => Unit) extends SResult
 
   /** Update interpretation requires access to a contract on the ledger. */
@@ -33,7 +36,7 @@ object SResult {
       // Callback to signal that the contract was not present
       // or visible. Returns true if this was recoverable.
       cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Tx.Value[ContractId]] => Unit,
+      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
   ) extends SResult
 
   /** Machine needs a definition that was not present when the machine was
@@ -47,7 +50,8 @@ object SResult {
 
   /** Commit the partial transaction to the (scenario) ledger.
     * Machine expects the value back with the contract ids rewritten
-    * to be absolute. */
+    * to be absolute.
+    */
   final case class SResultScenarioCommit(
       value: SValue,
       tx: SubmittedTransaction,
@@ -62,7 +66,8 @@ object SResult {
 
   /** A "must fail" update resulted in a partial transaction, try and
     * commit this transaction with the expectation that it fails.
-    * The callback signals success and clears the partial transaction. */
+    * The callback signals success and clears the partial transaction.
+    */
   final case class SResultScenarioMustFail(
       ptx: SubmittedTransaction,
       committers: Set[Party],

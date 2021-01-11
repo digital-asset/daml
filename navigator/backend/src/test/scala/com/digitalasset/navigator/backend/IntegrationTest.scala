@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator
@@ -13,10 +13,12 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.navigator.config.{Arguments, Config}
 import org.scalatest._
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.timer.RetryStrategy
 
@@ -44,14 +46,17 @@ class IntegrationTest
         applicationId = "foobar",
         LedgerIdRequirement.none,
         commandClient = CommandClientConfiguration.default,
-        sslContext = None))
+        sslContext = None,
+      ),
+    )
     val fa = for {
       binding <- bindingF
       client <- clientF
       uri = Uri.from(
         scheme = "http",
         host = binding.localAddress.getHostName,
-        port = binding.localAddress.getPort)
+        port = binding.localAddress.getPort,
+      )
       a <- testFn(uri, client)
     } yield a
     fa.transformWith { ta =>
@@ -59,8 +64,11 @@ class IntegrationTest
       Future
         .sequence(
           Seq[Future[Unit]](
+            clientF.map(_.close()),
             bindingF.flatMap(_.unbind()).map(_ => ()),
-            sys.terminate().map(_ => ())))
+            sys.terminate().map(_ => ()),
+          )
+        )
         .transform(_ => ta)
     }
   }
@@ -71,26 +79,23 @@ class IntegrationTest
   }
 
   "Navigator" - {
-    "picks up newly allocated parties" in withNavigator {
-      case (uri, client) =>
-        for {
-          resp <- Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))
-          respBody <- getResponseDataBytes(resp)
-          _ = respBody shouldBe """{"method":{"type":"select","users":[]},"type":"sign-in"}"""
-          _ = resp.status shouldBe StatusCodes.OK
-          _ <- client.partyManagementClient
-            .allocateParty(hint = None, displayName = Some("display-name"))
-          _ <- RetryStrategy.constant(20, 1.second) {
-            case (run @ _, duration @ _) =>
-              for {
-                resp <- Http().singleRequest(
-                  HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))
-                respBody <- getResponseDataBytes(resp)
-              } yield {
-                respBody shouldBe """{"method":{"type":"select","users":["display-name"]},"type":"sign-in"}"""
-              }
+    "picks up newly allocated parties" in withNavigator { case (uri, client) =>
+      for {
+        resp <- Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))
+        respBody <- getResponseDataBytes(resp)
+        _ = respBody shouldBe """{"method":{"type":"select","users":[]},"type":"sign-in"}"""
+        _ = resp.status shouldBe StatusCodes.OK
+        _ <- client.partyManagementClient
+          .allocateParty(hint = None, displayName = Some("display-name"))
+        _ <- RetryStrategy.constant(20, 1.second) { case (run @ _, duration @ _) =>
+          for {
+            resp <- Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/api/session/"))))
+            respBody <- getResponseDataBytes(resp)
+          } yield {
+            respBody shouldBe """{"method":{"type":"select","users":["display-name"]},"type":"sign-in"}"""
           }
-        } yield succeed
+        }
+      } yield succeed
     }
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure.participant
@@ -11,23 +11,23 @@ import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.{
   Identification,
   LedgerServices,
-  PartyAllocationConfiguration
+  PartyAllocationConfiguration,
 }
 import com.daml.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
-  GetActiveContractsResponse
+  GetActiveContractsResponse,
 }
 import com.daml.ledger.api.v1.admin.config_management_service.{
   GetTimeModelRequest,
   GetTimeModelResponse,
   SetTimeModelRequest,
   SetTimeModelResponse,
-  TimeModel
+  TimeModel,
 }
 import com.daml.ledger.api.v1.admin.package_management_service.{
   ListKnownPackagesRequest,
   PackageDetails,
-  UploadDarFileRequest
+  UploadDarFileRequest,
 }
 import com.daml.ledger.api.v1.admin.participant_pruning_service.{PruneRequest, PruneResponse}
 import com.daml.ledger.api.v1.admin.party_management_service.{
@@ -35,14 +35,14 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   GetParticipantIdRequest,
   GetPartiesRequest,
   ListKnownPartiesRequest,
-  PartyDetails
+  PartyDetails,
 }
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
   CompletionEndRequest,
   CompletionEndResponse,
   CompletionStreamRequest,
-  CompletionStreamResponse
+  CompletionStreamResponse,
 }
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
@@ -53,7 +53,7 @@ import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
 import com.daml.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   GetLedgerConfigurationResponse,
-  LedgerConfiguration
+  LedgerConfiguration,
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.package_service._
@@ -65,7 +65,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetTransactionsRequest,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.client.binding.Primitive.Party
@@ -86,7 +86,8 @@ private[testtool] object ParticipantTestContext {
   private[this] def filter(templateIds: Seq[Identifier]): Filters =
     new Filters(
       if (templateIds.isEmpty) None
-      else Some(new InclusiveFilters(templateIds)))
+      else Some(new InclusiveFilters(templateIds))
+    )
 
   private def transactionFilter(
       parties: Seq[String],
@@ -111,8 +112,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
   val begin: LedgerOffset =
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
 
-  /**
-    * A reference to the moving ledger end. If you want a fixed reference to the offset at
+  /** A reference to the moving ledger end. If you want a fixed reference to the offset at
     * a given point in time, use [[currentEnd]]
     */
   val end: LedgerOffset =
@@ -128,8 +128,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
   private[this] val nextSubmissionId: () => String = nextId("submission")
   val nextKeyId: () => String = nextId("key")
 
-  /**
-    * Gets the absolute offset of the ledger end at a point in time. Use [[end]] if you need
+  /** Gets the absolute offset of the ledger end at a point in time. Use [[end]] if you need
     * a reference to the moving end of the ledger.
     */
   def currentEnd(): Future[LedgerOffset] =
@@ -137,8 +136,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .getLedgerEnd(new GetLedgerEndRequest(ledgerId))
       .map(_.getOffset)
 
-  /**
-    * Works just like [[currentEnd]] but allows to override the ledger identifier.
+  /** Works just like [[currentEnd]] but allows to override the ledger identifier.
     *
     * Used only for low-level testing. Please use the other method unless you want to test the
     * behavior of the ledger end endpoint with a wrong ledger identifier.
@@ -148,8 +146,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .getLedgerEnd(new GetLedgerEndRequest(overrideLedgerId))
       .map(_.getOffset)
 
-  /**
-    * Returns an absolute offset that is beyond the current ledger end.
+  /** Returns an absolute offset that is beyond the current ledger end.
     *
     * Note: offsets are opaque byte strings, but they are lexicographically sortable.
     * Prepending the current absolute ledger end with non-zero bytes creates an offset that
@@ -165,8 +162,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     new StreamConsumer[GetTimeResponse](services.time.getTime(new GetTimeRequest(ledgerId), _))
       .first()
       .map(_.map(r => r.getCurrentTime.asJava).get)
-      .recover {
-        case NonFatal(_) => Clock.systemUTC().instant()
+      .recover { case NonFatal(_) =>
+        Clock.systemUTC().instant()
       }
 
   def listKnownPackages(): Future[Seq[PackageDetails]] =
@@ -197,8 +194,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .getPackageStatus(new GetPackageStatusRequest(ledgerId, packageId))
       .map(_.packageStatus)
 
-  /**
-    * Managed version of party allocation, should be used anywhere a party has
+  /** Managed version of party allocation, should be used anywhere a party has
     * to be allocated unless the party management service itself is under test
     */
   def allocateParty(): Future[Party] =
@@ -206,8 +202,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .allocateParty(new AllocatePartyRequest(partyIdHint = nextPartyHintId()))
       .map(r => Party(r.partyDetails.get.party))
 
-  /**
-    * Non managed version of party allocation. Use exclusively when testing the party management service.
+  /** Non managed version of party allocation. Use exclusively when testing the party management service.
     */
   def allocateParty(partyIdHint: Option[String], displayName: Option[String]): Future[Party] =
     services.partyManagement
@@ -215,7 +210,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
         new AllocatePartyRequest(
           partyIdHint = partyIdHint.getOrElse(""),
           displayName = displayName.getOrElse(""),
-        ),
+        )
       )
       .map(r => Party(r.partyDetails.get.party))
 
@@ -257,16 +252,15 @@ private[testtool] final class ParticipantTestContext private[participant] (
     }
 
   def activeContracts(
-      request: GetActiveContractsRequest,
+      request: GetActiveContractsRequest
   ): Future[(Option[LedgerOffset], Vector[CreatedEvent])] =
     for {
       contracts <- new StreamConsumer[GetActiveContractsResponse](
-        services.activeContracts.getActiveContracts(request, _),
+        services.activeContracts.getActiveContracts(request, _)
       ).all()
-    } yield
-      contracts.lastOption
-        .map(c => LedgerOffset(LedgerOffset.Value.Absolute(c.offset))) -> contracts
-        .flatMap(_.activeContracts)
+    } yield contracts.lastOption
+      .map(c => LedgerOffset(LedgerOffset.Value.Absolute(c.offset))) -> contracts
+      .flatMap(_.activeContracts)
 
   def activeContractsRequest(
       parties: Seq[Party],
@@ -283,12 +277,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def activeContractsByTemplateId(
       templateIds: Seq[Identifier],
-      parties: Party*,
+      parties: Party*
   ): Future[Vector[CreatedEvent]] =
     activeContracts(activeContractsRequest(parties, templateIds)).map(_._2)
 
-  /**
-    * Create a [[GetTransactionsRequest]] with a set of [[Party]] objects.
+  /** Create a [[GetTransactionsRequest]] with a set of [[Party]] objects.
     * You should use this only when you need to tweak the request of [[flatTransactions]]
     * or [[transactionTrees]], otherwise use the shortcut override that allows you to
     * directly pass a set of [[Party]]
@@ -296,7 +289,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def getTransactionsRequest(
       parties: Seq[Party],
       templateIds: Seq[TemplateId] = Seq.empty,
-      begin: LedgerOffset = referenceOffset
+      begin: LedgerOffset = referenceOffset,
   ): GetTransactionsRequest =
     new GetTransactionsRequest(
       ledgerId = ledgerId,
@@ -321,62 +314,56 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def transactionStream(
       request: GetTransactionsRequest,
-      responseObserver: StreamObserver[GetTransactionsResponse]): Unit =
+      responseObserver: StreamObserver[GetTransactionsResponse],
+  ): Unit =
     services.transaction.getTransactions(request, responseObserver)
 
   def flatTransactionsByTemplateId(
       templateId: TemplateId,
-      parties: Party*,
+      parties: Party*
   ): Future[Vector[Transaction]] =
     flatTransactions(getTransactionsRequest(parties, Seq(templateId)))
 
-  /**
-    * Non-managed version of [[flatTransactions]], use this only if you need to tweak the request (i.e. to test low-level details)
+  /** Non-managed version of [[flatTransactions]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactions(request: GetTransactionsRequest): Future[Vector[Transaction]] =
     transactions(request, services.transaction.getTransactions)
       .map(_.flatMap(_.transactions))
 
-  /**
-    * Managed version of [[flatTransactions]], use this unless you need to tweak the request (i.e. to test low-level details)
+  /** Managed version of [[flatTransactions]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactions(parties: Party*): Future[Vector[Transaction]] =
     flatTransactions(getTransactionsRequest(parties))
 
-  /**
-    * Non-managed version of [[flatTransactions]], use this only if you need to tweak the request (i.e. to test low-level details)
+  /** Non-managed version of [[flatTransactions]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactions(take: Int, request: GetTransactionsRequest): Future[Vector[Transaction]] =
     transactions(take, request, services.transaction.getTransactions)
       .map(_.flatMap(_.transactions))
 
-  /**
-    * Managed version of [[flatTransactions]], use this unless you need to tweak the request (i.e. to test low-level details)
+  /** Managed version of [[flatTransactions]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactions(take: Int, parties: Party*): Future[Vector[Transaction]] =
     flatTransactions(take, getTransactionsRequest(parties))
 
   def transactionTreesByTemplateId(
       templateId: TemplateId,
-      parties: Party*,
+      parties: Party*
   ): Future[Vector[TransactionTree]] =
     transactionTrees(getTransactionsRequest(parties, Seq(templateId)))
 
-  /**
-    * Non-managed version of [[transactionTrees]], use this only if you need to tweak the request (i.e. to test low-level details)
+  /** Non-managed version of [[transactionTrees]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def transactionTrees(request: GetTransactionsRequest): Future[Vector[TransactionTree]] =
     transactions(request, services.transaction.getTransactionTrees)
       .map(_.flatMap(_.transactions))
 
-  /**
-    * Managed version of [[transactionTrees]], use this unless you need to tweak the request (i.e. to test low-level details)
+  /** Managed version of [[transactionTrees]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
   def transactionTrees(parties: Party*): Future[Vector[TransactionTree]] =
     transactionTrees(getTransactionsRequest(parties))
 
-  /**
-    * Non-managed version of [[transactionTrees]], use this only if you need to tweak the request (i.e. to test low-level details)
+  /** Non-managed version of [[transactionTrees]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def transactionTrees(
       take: Int,
@@ -385,14 +372,12 @@ private[testtool] final class ParticipantTestContext private[participant] (
     transactions(take, request, services.transaction.getTransactionTrees)
       .map(_.flatMap(_.transactions))
 
-  /**
-    * Managed version of [[transactionTrees]], use this unless you need to tweak the request (i.e. to test low-level details)
+  /** Managed version of [[transactionTrees]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
   def transactionTrees(take: Int, parties: Party*): Future[Vector[TransactionTree]] =
     transactionTrees(take, getTransactionsRequest(parties))
 
-  /**
-    * Create a [[GetTransactionByIdRequest]] with an identifier and a set of [[Party]] objects.
+  /** Create a [[GetTransactionByIdRequest]] with an identifier and a set of [[Party]] objects.
     * You should use this only when you need to tweak the request of [[transactionTreeById]] or
     * [[flatTransactionById]], otherwise use the shortcut override that allows you to directly
     * pass the identifier and parties.
@@ -403,32 +388,27 @@ private[testtool] final class ParticipantTestContext private[participant] (
   ): GetTransactionByIdRequest =
     new GetTransactionByIdRequest(ledgerId, transactionId, Tag.unsubst(parties))
 
-  /**
-    * Non-managed version of [[transactionTreeById]], use this only if you need to tweak the request (i.e. to test low-level details)
+  /** Non-managed version of [[transactionTreeById]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def transactionTreeById(request: GetTransactionByIdRequest): Future[TransactionTree] =
     services.transaction.getTransactionById(request).map(_.getTransaction)
 
-  /**
-    * Managed version of [[transactionTrees]], use this unless you need to tweak the request (i.e. to test low-level details)
+  /** Managed version of [[transactionTrees]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
   def transactionTreeById(transactionId: String, parties: Party*): Future[TransactionTree] =
     transactionTreeById(getTransactionByIdRequest(transactionId, parties))
 
-  /**
-    * Non-managed version of [[flatTransactionById]], use this only if you need to tweak the request (i.e. to test low-level details)
+  /** Non-managed version of [[flatTransactionById]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactionById(request: GetTransactionByIdRequest): Future[Transaction] =
     services.transaction.getFlatTransactionById(request).map(_.getTransaction)
 
-  /**
-    * Managed version of [[flatTransactionById]], use this unless you need to tweak the request (i.e. to test low-level details)
+  /** Managed version of [[flatTransactionById]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactionById(transactionId: String, parties: Party*): Future[Transaction] =
     flatTransactionById(getTransactionByIdRequest(transactionId, parties))
 
-  /**
-    * Create a [[GetTransactionByEventIdRequest]] with an identifier and a set of [[Party]] objects.
+  /** Create a [[GetTransactionByEventIdRequest]] with an identifier and a set of [[Party]] objects.
     * You should use this only when you need to tweak the request of [[transactionTreeByEventId]] or
     * [[flatTransactionByEventId]], otherwise use the shortcut override that allows you to directly
     * pass the identifier and parties.
@@ -439,35 +419,31 @@ private[testtool] final class ParticipantTestContext private[participant] (
   ): GetTransactionByEventIdRequest =
     new GetTransactionByEventIdRequest(ledgerId, eventId, Tag.unsubst(parties))
 
-  /**
-    * Non-managed version of [[transactionTreeByEventId]], use this only if you need to tweak the request (i.e. to test low-level details)
+  /** Non-managed version of [[transactionTreeByEventId]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def transactionTreeByEventId(request: GetTransactionByEventIdRequest): Future[TransactionTree] =
     services.transaction.getTransactionByEventId(request).map(_.getTransaction)
 
-  /**
-    * Managed version of [[transactionTreeByEventId]], use this unless you need to tweak the request (i.e. to test low-level details)
+  /** Managed version of [[transactionTreeByEventId]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
   def transactionTreeByEventId(eventId: String, parties: Party*): Future[TransactionTree] =
     transactionTreeByEventId(getTransactionByEventIdRequest(eventId, parties))
 
-  /**
-    * Non-managed version of [[flatTransactionByEventId]], use this only if you need to tweak the request (i.e. to test low-level details)
+  /** Non-managed version of [[flatTransactionByEventId]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactionByEventId(request: GetTransactionByEventIdRequest): Future[Transaction] =
     services.transaction
       .getFlatTransactionByEventId(request)
       .map(_.getTransaction)
 
-  /**
-    * Managed version of [[flatTransactionByEventId]], use this unless you need to tweak the request (i.e. to test low-level details)
+  /** Managed version of [[flatTransactionByEventId]], use this unless you need to tweak the request (i.e. to test low-level details)
     */
   def flatTransactionByEventId(eventId: String, parties: Party*): Future[Transaction] =
     flatTransactionByEventId(getTransactionByEventIdRequest(eventId, parties))
 
   private def extractContracts[T](transaction: Transaction): Seq[Primitive.ContractId[T]] =
-    transaction.events.collect {
-      case Event(Created(e)) => Primitive.ContractId(e.contractId)
+    transaction.events.collect { case Event(Created(e)) =>
+      Primitive.ContractId(e.contractId)
     }
 
   def create[T](
@@ -478,21 +454,38 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .map(extractContracts)
       .map(_.head)
 
+  def create[T](
+      actAs: List[Party],
+      readAs: List[Party],
+      template: Template[T],
+  ): Future[Primitive.ContractId[T]] =
+    submitAndWaitForTransaction(submitAndWaitRequest(actAs, readAs, template.create.command))
+      .map(extractContracts)
+      .map(_.head)
+
   def createAndGetTransactionId[T](
       party: Party,
       template: Template[T],
   ): Future[(String, Primitive.ContractId[T])] =
     submitAndWaitForTransaction(submitAndWaitRequest(party, template.create.command))
       .map(tx =>
-        tx.transactionId -> tx.events.collect {
-          case Event(Created(e)) => Primitive.ContractId(e.contractId)
-        }.head)
+        tx.transactionId -> tx.events.collect { case Event(Created(e)) =>
+          Primitive.ContractId(e.contractId)
+        }.head
+      )
 
   def exercise[T](
       party: Party,
       exercise: Party => Primitive.Update[T],
   ): Future[TransactionTree] =
     submitAndWaitForTransactionTree(submitAndWaitRequest(party, exercise(party).command))
+
+  def exercise[T](
+      actAs: List[Party],
+      readAs: List[Party],
+      exercise: => Primitive.Update[T],
+  ): Future[TransactionTree] =
+    submitAndWaitForTransactionTree(submitAndWaitRequest(actAs, readAs, exercise.command))
 
   def exerciseForFlatTransaction[T](
       party: Party,
@@ -532,10 +525,24 @@ private[testtool] final class ParticipantTestContext private[participant] (
               Option(key),
               choice,
               Option(argument),
-            ),
-          ),
+            )
+          )
         ),
-      ),
+      )
+    )
+
+  def submitRequest(actAs: List[Party], readAs: List[Party], commands: Command*): SubmitRequest =
+    new SubmitRequest(
+      Some(
+        new Commands(
+          ledgerId = ledgerId,
+          applicationId = applicationId,
+          commandId = nextCommandId(),
+          actAs = Party.unsubst(actAs),
+          readAs = Party.unsubst(readAs),
+          commands = commands,
+        )
+      )
     )
 
   def submitRequest(party: Party, commands: Command*): SubmitRequest =
@@ -547,8 +554,26 @@ private[testtool] final class ParticipantTestContext private[participant] (
           commandId = nextCommandId(),
           party = party.unwrap,
           commands = commands,
-        ),
-      ),
+        )
+      )
+    )
+
+  def submitAndWaitRequest(
+      actAs: List[Party],
+      readAs: List[Party],
+      commands: Command*
+  ): SubmitAndWaitRequest =
+    new SubmitAndWaitRequest(
+      Some(
+        new Commands(
+          ledgerId = ledgerId,
+          applicationId = applicationId,
+          commandId = nextCommandId(),
+          actAs = Party.unsubst(actAs),
+          readAs = Party.unsubst(readAs),
+          commands = commands,
+        )
+      )
     )
 
   def submitAndWaitRequest(party: Party, commands: Command*): SubmitAndWaitRequest =
@@ -560,8 +585,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
           commandId = nextCommandId(),
           party = party.unwrap,
           commands = commands,
-        ),
-      ),
+        )
+      )
     )
 
   def submit(request: SubmitRequest): Future[Unit] =
@@ -589,12 +614,13 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def completionStream(
       request: CompletionStreamRequest,
-      streamObserver: StreamObserver[CompletionStreamResponse]): Unit =
+      streamObserver: StreamObserver[CompletionStreamResponse],
+  ): Unit =
     services.commandCompletion.completionStream(request, streamObserver)
 
   def firstCompletions(request: CompletionStreamRequest): Future[Vector[Completion]] =
     new StreamConsumer[CompletionStreamResponse](
-      services.commandCompletion.completionStream(request, _),
+      services.commandCompletion.completionStream(request, _)
     ).find(_.completions.nonEmpty)
       .map(_.fold(Seq.empty[Completion])(_.completions).toVector)
 
@@ -602,10 +628,10 @@ private[testtool] final class ParticipantTestContext private[participant] (
     firstCompletions(completionStreamRequest()(parties: _*))
 
   def findCompletion(
-      request: CompletionStreamRequest,
+      request: CompletionStreamRequest
   )(p: Completion => Boolean): Future[Option[Completion]] =
     new StreamConsumer[CompletionStreamResponse](
-      services.commandCompletion.completionStream(request, _),
+      services.commandCompletion.completionStream(request, _)
     ).find(_.completions.exists(p))
       .map(_.flatMap(_.completions.find(p)))
 
@@ -614,12 +640,12 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def checkpoints(n: Int, request: CompletionStreamRequest): Future[Vector[Checkpoint]] =
     new StreamConsumer[CompletionStreamResponse](
-      services.commandCompletion.completionStream(request, _),
+      services.commandCompletion.completionStream(request, _)
     ).filterTake(_.checkpoint.isDefined)(n)
       .map(_.map(_.getCheckpoint))
 
   def checkpoints(n: Int, from: LedgerOffset = referenceOffset)(
-      parties: Party*,
+      parties: Party*
   ): Future[Vector[Checkpoint]] =
     checkpoints(n, completionStreamRequest(from)(parties: _*))
 
@@ -641,7 +667,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
         .getLedgerConfiguration(
           new GetLedgerConfigurationRequest(overrideLedgerId.getOrElse(ledgerId)),
           _,
-        ),
+        )
     ).first()
       .map(_.fold(sys.error("No ledger configuration available."))(_.getLedgerConfiguration))
 
@@ -661,14 +687,17 @@ private[testtool] final class ParticipantTestContext private[participant] (
       newTimeModel: TimeModel,
   ): Future[SetTimeModelResponse] =
     services.configManagement.setTimeModel(
-      SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel)),
+      SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel))
     )
 
   def prune(pruneUpTo: String, attempts: Int): Future[PruneResponse] =
     // Distributed ledger participants need to reach global consensus prior to pruning. Hence the "eventually" here:
-    eventually(attempts = attempts, runAssertion = {
-      services.participantPruning.prune(PruneRequest(pruneUpTo, nextSubmissionId()))
-    })
+    eventually(
+      attempts = attempts,
+      runAssertion = {
+        services.participantPruning.prune(PruneRequest(pruneUpTo, nextSubmissionId()))
+      },
+    )
 
   def prune(pruneUpTo: LedgerOffset, attempts: Int = 10): Future[PruneResponse] =
     prune(pruneUpTo.getAbsolute, attempts)
@@ -678,11 +707,12 @@ private[testtool] final class ParticipantTestContext private[participant] (
       participants: Iterable[ParticipantTestContext],
   ): Future[Vector[Party]] =
     for {
-      parties <- if (partyAllocation.allocateParties) {
-        allocateParties(n)
-      } else {
-        reservePartyNames(n)
-      }
+      parties <-
+        if (partyAllocation.allocateParties) {
+          allocateParties(n)
+        } else {
+          reservePartyNames(n)
+        }
       _ <- waitForParties(participants, parties.toSet)
     } yield parties
 

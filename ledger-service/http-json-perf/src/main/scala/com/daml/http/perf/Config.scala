@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.perf
@@ -40,11 +40,13 @@ private[perf] object Config {
       jwt = Jwt(""),
       reportsDir = new File(""),
       maxDuration = None,
-      queryStoreIndex = false)
+      queryStoreIndex = false,
+    )
 
   implicit val configInstance: Traverse[Config] = new Traverse[Config] {
-    override def traverseImpl[G[_]: Applicative, A, B](fa: Config[A])(
-        f: A => G[B]): G[Config[B]] = {
+    override def traverseImpl[G[_]: Applicative, A, B](
+        fa: Config[A]
+    )(f: A => G[B]): G[Config[B]] = {
       import scalaz.syntax.functor._
       f(fa.scenario).map(b => Empty.copy(scenario = b))
     }
@@ -91,7 +93,9 @@ private[perf] object Config {
       opt[Duration]("max-duration")
         .action((x, c) => c.copy(maxDuration = Some(FiniteDuration(x.length, x.unit))))
         .optional()
-        .text(s"Optional maximum perf test duration. Default value infinity. Examples: 500ms, 5s, 10min, 1h, 1d.")
+        .text(
+          s"Optional maximum perf test duration. Default value infinity. Examples: 500ms, 5s, 10min, 1h, 1d."
+        )
     }
 
   private def validateJwt(s: String): Either[String, Unit] = {
@@ -101,7 +105,7 @@ private[perf] object Config {
       .decode(Jwt(s))
       .bimap(
         error => error.shows,
-        _ => ()
+        _ => (),
       )
       .toEither
   }

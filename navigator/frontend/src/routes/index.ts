@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { combineRoutes, Route } from '@da/ui-core';
@@ -26,7 +26,7 @@ const set = (a: Page.State) => toPage(Page.setPage(a));
 
 export const signIn = new Route<{}, Action, State>(
   '/sign-in(/)',
-  ({}) => undefined,
+  () => undefined,
   ({ session }: State) =>
     (session.type === 'required' ? {} : undefined),
 );

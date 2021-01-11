@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer
@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.v1.{
   Configuration,
   LedgerInitialConditions,
   ReadService,
-  TimeModel
+  TimeModel,
 }
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf.data.Time.Timestamp
@@ -25,7 +25,8 @@ import com.daml.platform.store.IndexMetadata
 import com.daml.platform.store.dao.events.LfValueTranslation
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.mockito.MockitoSugar
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 
@@ -64,14 +65,13 @@ final class JdbcIndexerSpec
     for {
       _ <- runAndShutdownIndexer(expectedExisting)
       throwable <- runAndShutdownIndexer(expectedProvided).failed
-    } yield
-      throwable match {
-        case mismatch: MismatchException.ParticipantId =>
-          mismatch.existing shouldEqual expectedExisting
-          mismatch.provided shouldEqual expectedProvided
-        case _ =>
-          fail("Did not get the expected exception type", throwable)
-      }
+    } yield throwable match {
+      case mismatch: MismatchException.ParticipantId =>
+        mismatch.existing shouldEqual expectedExisting
+        mismatch.provided shouldEqual expectedProvided
+      case _ =>
+        fail("Did not get the expected exception type", throwable)
+    }
   }
 
   private def runAndShutdown[A](owner: ResourceOwner[A]): Future[Unit] =
@@ -102,7 +102,8 @@ final class JdbcIndexerSpec
               maxDeduplicationTime = Duration.ofDays(1),
             ),
             initialRecordTime = Timestamp.Epoch,
-          ))
+          )
+        )
       )
       .getMock[ReadService]
 

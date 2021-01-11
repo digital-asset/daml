@@ -1,11 +1,11 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Copyright © 2020, `Digital Asset (Switzerland) GmbH
 <https://www.digitalasset.com/>`_ and/or its affiliates.  All rights
 reserved.
 
-DAML-LF 1 specification
+Daml-LF 1 specification
 =======================
 
 .. contents:: Contents
@@ -14,13 +14,13 @@ DAML-LF 1 specification
 Introduction
 ^^^^^^^^^^^^
 
-This document specifies version 1 of the DAML-LF language — the
-language that DAML ledgers execute. DAML compiles to DAML-LF which
-executes on DAML ledgers, similar to how Java compiles to JVM byte
-code which executes on the JVM. “LF” in DAML-LF stands for “Ledger
-Fragment”. DAML-LF is a small, strongly typed, functional language
+This document specifies version 1 of the Daml-LF language — the
+language that Daml ledgers execute. Daml compiles to Daml-LF which
+executes on Daml ledgers, similar to how Java compiles to JVM byte
+code which executes on the JVM. “LF” in Daml-LF stands for “Ledger
+Fragment”. Daml-LF is a small, strongly typed, functional language
 with strict evaluation that includes native representations for core
-DAML concepts such as templates, updates, and parties. It is primarily
+Daml concepts such as templates, updates, and parties. It is primarily
 intended as a compilation target.
 
 
@@ -69,44 +69,50 @@ symbols used in this doc::
 Version history
 ~~~~~~~~~~~~~~~
 
-The DAML-LF language is versioned using a major and minor component.
+The Daml-LF language is versioned using a major and minor component.
 Increasing the major component allows us to drop features, change
 the semantics of existing features, or update the serialization format.
 Changes to the minor component cannot break backward compatibility,
 and operate on the same major version of the serialization format in
-a backward compatible way. This document describes DAML-LF major version
+a backward compatible way. This document describes Daml-LF major version
 1, including all its minor versions.
 
-Starting from SDK 1.0 release, DAML-LF versions older than 1.6 are
+Starting from SDK 1.0 release, Daml-LF versions older than 1.6 are
 deprecated. An engine compliant with the present specification must handle
-all versions newer than or equal to DAML-LF 1.6, no requirement is made on
+all versions newer than or equal to Daml-LF 1.6, no requirement is made on
 handling older version.
 
-Each DAML-LF program is accompanied by the version identifier of the
-language it was serialized in. This number enables the DAML-LF engine
+Each Daml-LF program is accompanied by the version identifier of the
+language it was serialized in. This number enables the Daml-LF engine
 to interpret previous versions of the language in a backward
 compatibility way.
 
 In the following of this document, we will use annotations between
 square brackets such as *[Available in version < x.y]*, *[Available in
 versions >= x.y]*, and *[Changed in version x.y]* to emphasize that a
-particular feature is concerned with a change introduced in DAML x.y
+particular feature is concerned with a change introduced in Daml x.y
 version. In addition, we will mark lines within inference rules with
-annotations of the form ``[DAML-LF < x.y]`` and ``[DAML-LF ≥ x.y]`` to
-make the respective line conditional upon the DAML-LF version.
+annotations of the form ``[Daml-LF < x.y]`` and ``[Daml-LF ≥ x.y]`` to
+make the respective line conditional upon the Daml-LF version.
 
-The version 1.dev is a special staging area for the next 1.x version to
-be released. Compliant implementations are not required to implement any
-features exclusive to version 1.dev, but should take them under
-advisement as likely elements of the next 1.x version.
+A *preview* version is an snapshot of the next 1.x version to be
+released. It is provided for beta testing purpose and may only be
+changed to include bug fixes.  On the other hand, the *development*
+version is a special staging area for the development of upcoming
+version 1.x version.  It may be used for alpha testing, and can be
+changed without notice. Compliant implementations are not required to
+implement any features exclusive to development version, but should
+take them under advisement as likely elements of the next 1.x version.
 
-Below, we list the versions of DAML-LF 1.x that a DAML-LF
-engine compliant with the present specification must handle [except for
-1.dev], in ascending order.  The list comes with a brief description of
-the changes, and some links to help unfamiliar readers learn about the
-features involved in the change.  One can refer also to the
-`Serialization` section which is particularly concerned about versioning
-and backward compatibility.
+Below, we list the versions of Daml-LF 1.x that a Daml-LF engine
+compliant with the present specification must handle, in ascending
+order. The optional preview version is marked with the tag *(preview)*
+while the development version is marked with the tag *(development)*.
+Conventionally development version is call 1.dev.  The list comes with
+a brief description of the changes, and some links to help unfamiliar
+readers learn about the features involved in the change.  One can
+refer also to the `Serialization` section which is particularly
+concerned about versioning and backward compatibility.
 
 Support for language versions 1.0 to 1.5 was dropped on 2020-11-30.
 This breaking change does not impact ledgers created with SDK 1.0.0 or
@@ -165,7 +171,7 @@ Version: 1.7
   + **Add** existential ``Any`` type
 
     - add `'Any'` primitive type
-    - add `'to_an'y` and `'from_any'` expression to convert from/to an
+    - add `'to_any'` and `'from_any'` expression to convert from/to an
       arbitrary ground type (i.e. a type with no free type variables)
       to ``Any``.
 
@@ -192,8 +198,16 @@ Version: 1.8
 
   + **Rename** ``Map`` to ``TextMap``.
 
-Version: 1.dev
-..............
+Version: 1.11 (preview)
+.......................
+
+(version 1.11 is not frozen and may still change, do not use in production)
+
+* Introduction date:
+
+    2020-12-14
+
+* Description:
 
   + **Add** generic equality builtin.
 
@@ -207,12 +221,15 @@ Version: 1.dev
 
   + **Add** choice observers.
 
+Version: 1.dev (development)
+............................
+
   + **Add** exception handling.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
-This section specifies the abstract syntax tree of a DAML-LF
+This section specifies the abstract syntax tree of a Daml-LF
 package. We define identifiers, literals, types, expressions, and
 definitions.
 
@@ -273,12 +290,10 @@ strings that are part of the syntax with single quotes. We do not
 enclose symbols such as ``.`` or ``→`` in quotes for the sake of
 brevity and readability.
 
-
-Literals
-~~~~~~~~
-
-In this section, we define a bunch of literals that can be handled by
-DAML-LF programs.
+Identifiers
+~~~~~~~~~~~
+In this section, we define the sorts of strings and identifiers that appear in 
+Daml-LF programs.
 
 We first define two types of *strings*::
 
@@ -301,7 +316,7 @@ We first define two types of *strings*::
 <https://en.wikipedia.org/wiki/Unicode>`_ code points where the line
 feed character ``\n``, the carriage return character ``\r``, the
 double quote character ``\"``, and the backslash character ``\\`` must
-be escaped with backslash ``\\``. DAML-LF considers legal `Unicode
+be escaped with backslash ``\\``. Daml-LF considers legal `Unicode
 code point <https://unicode.org/glossary/#code_point>`_ that is not a
 `Surrogate Code Point
 <https://unicode.org/glossary/#surrogate_code_point>`_, in other words
@@ -337,71 +352,7 @@ and other similar pitfalls. ::
    PackageVersionString  ∈ (0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))* – PackageVersionString
 
 
-We can now define all the literals that a program can handle::
-
-  Nat type literals:                                -- LitNatType
-       n ∈  \d+
-
-  64-bit integer literals:
-        LitInt64  ∈  (-?)\d+                         -- LitInt64
-
-  Numeric literals:
-      LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*        -- LitNumeric
-
-  Date literals:
-         LitDate  ∈  \d{4}-\d{2}-\d{2}               -- LitDate
-
-  UTC timestamp literals:
-     LitTimestamp ∈  \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(.\d{1,3})?Z
-                                                     -- LitTimestamp
-  UTF8 string literals:
-               t ::= String                          -- LitText
-
-  Party literals:
-        LitParty ::= PartyIdString                   -- LitParty
-
-The literals represent actual DAML-LF values:
-
-* A ``LitNatType`` represents a natural number between ``0`` and
-  ``38``, bounds inclusive.
-* A ``LitInt64`` represents a standard signed 64-bit integer (integer
-  between ``−2⁶³`` to ``2⁶³−1``).
-* A ``LitNumeric`` represents a signed number that can be represented
-  in base-10 without loss of precision with at most 38 digits
-  (ignoring possible leading 0 and with a scale (the number of
-  significant digits on the right of the decimal point) between ``0``
-  and ``37`` (bounds inclusive). In the following, we will use
-  ``scale(LitNumeric)`` to denote the scale of the decimal number.
-* A ``LitDate`` represents the number of day since
-  ``1970-01-01`` with allowed range from ``0001-01-01`` to
-  ``9999-12-31`` and using a year-month-day format.
-* A ``LitTimestamp`` represents the number of microseconds
-  since ``1970-01-01T00:00:00.000000Z`` with allowed range
-  ``0001-01-01T00:00:00.000000Z`` to ``9999-12-31T23:59:59.999999Z``
-  using a
-  year-month-day-hour-minute-second-microsecond
-  format.
-* A ``LitText`` represents a `UTF8 string
-  <https://en.wikipedia.org/wiki/UTF-8>`_.
-* A ``LitParty`` represents a *party*.
-
-.. note:: A literal which is not backed by an actual value is not
-   valid and is implicitly rejected by the syntax presented here.
-   For instance, the literal ``9223372036854775808`` is not a valid
-   ``LitInt64`` since it cannot be encoded as a signed 64-bits
-   integer, i.e. it equals ``2⁶³``.  Similarly,``2019-13-28`` is not a
-   valid ``LitDate`` because there are only 12 months in a year.
-
-Number-like literals (``LitNatTyp``, ``LitInt64``, ``LitNumeric``,
-``LitDate``, ``LitTimestamp``) are ordered by natural
-ordering. Text-like literals (``LitText`` and ``LitParty``) are
-ordered lexicographically. In the followinng we will denote the
-corresponding (non-strict) order by ``≤ₗ``.
-
-Identifiers
-~~~~~~~~~~~
-
-We define now a generic notion of *identifier* and *name*::
+We can now define a generic notion of *identifier* and *name*::
 
   identifiers:
           Ident  ∈  [a-zA-Z_\$][a-zA-Z0-9_\$]       -- Ident
@@ -416,7 +367,7 @@ restricted to US-ASCII while names are sequences of identifiers
 intercalated with dots.
 
 The character ``%`` is reserved for external languages built on
-DAML-LF as a "not an Ident" notation, so should not be considered for
+Daml-LF as a "not an Ident" notation, so should not be considered for
 future addition to allowed identifier characters.
 
 In the following, we will use identifiers to represent *built-in
@@ -474,24 +425,89 @@ strings as *package identifiers*.  ::
   V1 Contract identifiers:
           cidV1  ∈  00([0-9a-f][0-9a-f]){32,126}    -- V1ContractId
 
-  Contract identifiers:
-          cid := cidV0 | cidV1                      -- ContractId
-
 Contract identifiers can be created dynamically through interactions
 with the underlying ledger. See the `operation semantics of update
 statements <Update Interpretation_>`_ for the formal specification of
-those interactions. Depending on its configuration, a DAML-LF engine
+those interactions. Depending on its configuration, a Daml-LF engine
 can produce V0 or V1 contract identifiers.  When configured to produce
-V0 contract identifiers, a DAML-LF compliant engine must refuse to
-load any DAML-LF >= 1.dev archives.  On the contrary, when configured
-to produce V1 contract IDs, a DAML-LF compliant engine must accept to
-load any non-deprecated DAML-LF version. V1 Contract IDs allocation
+V0 contract identifiers, a Daml-LF compliant engine must refuse to
+load any Daml-LF >= 1.11 archives.  On the contrary, when configured
+to produce V1 contract IDs, a Daml-LF compliant engine must accept to
+load any non-deprecated Daml-LF version. V1 Contract IDs allocation
 scheme is described in the `V1 Contract ID allocation
 scheme specification <./contract-id.rst>`_.
 
 Also note that package identifiers are typically `cryptographic hash
 <Package hash_>`_ of the content of the package itself.
 
+Literals
+~~~~~~~~
+
+We now define all the literals that a program can handle::
+
+  Nat type literals:                                -- LitNatType
+       n ∈  \d+
+
+  64-bit integer literals:
+        LitInt64  ∈  (-?)\d+                         -- LitInt64
+
+  Numeric literals:
+      LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*        -- LitNumeric
+
+  Date literals:
+         LitDate  ∈  \d{4}-\d{2}-\d{2}               -- LitDate
+
+  UTC timestamp literals:
+     LitTimestamp ∈  \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(.\d{1,3})?Z
+                                                     -- LitTimestamp
+  UTF8 string literals:
+               t ::= String                          -- LitText
+
+  Party literals:
+        LitParty ::= PartyIdString                   -- LitParty
+
+  Contract ID literals:
+        cid   ::= cidV0 | cidV1                      -- LitCid
+
+The literals represent actual Daml-LF values:
+
+* A ``LitNatType`` represents a natural number between ``0`` and
+  ``38``, bounds inclusive.
+* A ``LitInt64`` represents a standard signed 64-bit integer (integer
+  between ``−2⁶³`` to ``2⁶³−1``).
+* A ``LitNumeric`` represents a signed number that can be represented
+  in base-10 without loss of precision with at most 38 digits
+  (ignoring possible leading 0 and with a scale (the number of
+  significant digits on the right of the decimal point) between ``0``
+  and ``37`` (bounds inclusive). In the following, we will use
+  ``scale(LitNumeric)`` to denote the scale of the decimal number.
+* A ``LitDate`` represents the number of day since
+  ``1970-01-01`` with allowed range from ``0001-01-01`` to
+  ``9999-12-31`` and using a year-month-day format.
+* A ``LitTimestamp`` represents the number of microseconds
+  since ``1970-01-01T00:00:00.000000Z`` with allowed range
+  ``0001-01-01T00:00:00.000000Z`` to ``9999-12-31T23:59:59.999999Z``
+  using a
+  year-month-day-hour-minute-second-microsecond
+  format.
+* A ``LitText`` represents a `UTF8 string
+  <https://en.wikipedia.org/wiki/UTF-8>`_.
+* A ``LitParty`` represents a *party*.
+
+.. note:: A literal which is not backed by an actual value is not
+   valid and is implicitly rejected by the syntax presented here.
+   For instance, the literal ``9223372036854775808`` is not a valid
+   ``LitInt64`` since it cannot be encoded as a signed 64-bits
+   integer, i.e. it equals ``2⁶³``.  Similarly,``2019-13-28`` is not a
+   valid ``LitDate`` because there are only 12 months in a year.
+
+Number-like literals (``LitNatTyp``, ``LitInt64``,
+``LitNumeric``,``LitDate``, ``LitTimestamp``) are ordered by natural
+ordering. Text-like literals (``LitText``, ``LitParty``, and
+``Contract ID``) are ordered lexicographically. Note that in the ASCII
+encoding, the character ``#`` comes before digits, meaning V0 Contract
+ID are ordered before V1 Contract ID. In the following we will denote
+the corresponding (non-strict) order by ``≤ₗ``.
 
 Kinds, types, and expressions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -504,7 +520,7 @@ Then we can define our kinds, types, and expressions::
 
   Kinds
     k
-      ::= 'nat'                                     -- KindNat  [DAML-LF ≥ 1.7]
+      ::= 'nat'                                     -- KindNat  [Daml-LF ≥ 1.7]
        | ek                                         -- KindErasable
 
   Erasable Kind
@@ -531,26 +547,26 @@ Then we can define our kinds, types, and expressions::
        |  'List'                                    -- BTyList
        |  'Optional'                                -- BTyOptional
        |  'TextMap'                                 -- BTTextMap: map with string keys
-       |  'GenMap'                                  -- BTGenMap: map with general value keys [DAML-LF ≥ 1.dev]
+       |  'GenMap'                                  -- BTGenMap: map with general value keys [Daml-LF ≥ 1.11]
        |  'ContractId'                              -- BTyContractId
-       |  'Any'                                     -- BTyAny [DAML-LF ≥ 1.7]
-       |  'TypeRep'                                 -- BTTypeRep [DAML-LF ≥ 1.7]
+       |  'Any'                                     -- BTyAny [Daml-LF ≥ 1.7]
+       |  'TypeRep'                                 -- BTTypeRep [Daml-LF ≥ 1.7]
        |  'Update'                                  -- BTyUpdate
        |  'Scenario'                                -- BTyScenario
-       |  'AnyException'                            -- BTyAnyException [DAML-LF ≥ 1.dev]
-       |  'GeneralError'                            -- BTyGeneralError [DAML-LF ≥ 1.dev]
-       |  'ArithmeticError'                         -- BTyArithmeticError [DAML-LF ≥ 1.dev]
-       |  'ContractError'                           -- BTyContractError [DAML-LF ≥ 1.dev]
+       |  'AnyException'                            -- BTyAnyException [Daml-LF ≥ 1.dev]
+       |  'GeneralError'                            -- BTyGeneralError [Daml-LF ≥ 1.dev]
+       |  'ArithmeticError'                         -- BTyArithmeticError [Daml-LF ≥ 1.dev]
+       |  'ContractError'                           -- BTyContractError [Daml-LF ≥ 1.dev]
 
   Types (mnemonic: tau for type)
     τ, σ
       ::= α                                         -- TyVar: Type variable
-       |  n                                         -- TyNat: Nat Type [DAML-LF ≥ 1.7]
+       |  n                                         -- TyNat: Nat Type [Daml-LF ≥ 1.7]
        |  τ σ                                       -- TyApp: Type application
        |  ∀ α : k . τ                               -- TyForall: Universal quantification
        |  BuiltinType                               -- TyBuiltin: Builtin type
        |  Mod:T                                     -- TyCon: type constructor
-       |  |Mod:S τ₁ … τₘ|                           -- TySyn: type synonym [DAML-LF ≥ 1.8]
+       |  |Mod:S τ₁ … τₘ|                           -- TySyn: type synonym [Daml-LF ≥ 1.8]
        |  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩                     -- TyStruct: Structural record type
 
   Expressions
@@ -586,14 +602,15 @@ Then we can define our kinds, types, and expressions::
        |  'None' @τ                                 -- ExpOptionalNone: Empty Optional
        |  'Some' @τ e                               -- ExpOptionalSome: Non-empty Optional
        |  [t₁ ↦ e₁; …; tₙ ↦ eₙ]                     -- ExpTextMap
-       | 〚e₁ ↦ e₁; …; eₙ ↦ eₙ'〛                    -- ExpGenMap [DAML-LF ≥ 1.dev]
-       | 'to_any' @τ e                              -- ExpToAny: Wrap a value of the given type in Any [DAML-LF ≥ 1.7]
-       | 'from_any' @τ e                            -- ExpToAny: Extract a value of the given from Any or return None [DAML-LF ≥ 1.7]
-       | 'type_rep' @τ                              -- ExpToTypeRep: A type representation [DAML-LF ≥ 1.7]
+       | 〚e₁ ↦ e₁; …; eₙ ↦ eₙ'〛                    -- ExpGenMap [Daml-LF ≥ 1.11]
+       | 'to_any' @τ e                              -- ExpToAny: Wrap a value of the given type in Any [Daml-LF ≥ 1.7]
+       | 'from_any' @τ e                            -- ExpToAny: Extract a value of the given from Any or return None [Daml-LF ≥ 1.7]
+       | 'type_rep' @τ                              -- ExpToTypeRep: A type representation [Daml-LF ≥ 1.7]
        |  u                                         -- ExpUpdate: Update expression
        |  s                                         -- ExpScenario: Scenario expression
-       | 'make_any_exception' @τ eₘ eₚ              -- ExpMakeAnyException: Turn a concrete exception into an 'AnyException' [DAML-LF ≥ 1.dev]
-       | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException' [DAML-LF ≥ 1.dev]
+       | 'throw' @σ @τ e                            -- ExpThrow: throw exception
+       | 'make_any_exception' @τ eₘ eₚ              -- ExpMakeAnyException: Turn a concrete exception into an 'AnyException' [Daml-LF ≥ 1.dev]
+       | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException' [Daml-LF ≥ 1.dev]
 
   Patterns
     p
@@ -615,12 +632,12 @@ Then we can define our kinds, types, and expressions::
        |  'fetch' @Mod:T e                          -- UpdateFetch
        |  'exercise' @Mod:T Ch e₁ e₂ e₃             -- UpdateExercise
        |  'exercise_without_actors' @Mod:T Ch e₁ e₂ -- UpdateExerciseWithoutActors
-       |  'exercise_by_key' @Mod:T Ch e₁ e₂         -- UpdateExerciseByKey
+       |  'exercise_by_key' @Mod:T Ch e₁ e₂         -- UpdateExerciseByKey [Daml-LF ≥ 1.11]
        |  'get_time'                                -- UpdateGetTime
        |  'fetch_by_key' @τ e                       -- UpdateFecthByKey
        |  'lookup_by_key' @τ e                      -- UpdateLookUpByKey
        |  'embed_expr' @τ e                         -- UpdateEmbedExpr
-       |  'try' @τ e₁ 'catch' x. e₂                 -- UpdateTryCatch [DAML-LF ≥ 1.dev]
+       |  'try' @τ e₁ 'catch' x. e₂                 -- UpdateTryCatch [Daml-LF ≥ 1.dev]
 
   Scenario
     s ::= 'spure' @τ e                              -- ScenarioPure
@@ -691,7 +708,7 @@ available for usage::
             , 'choices' { ChDef₁, …, ChDefₘ }
             , KeyDef
             }
-       |  'exception' (x: T)                        -- DefException [DAML-LF ≥ 1.dev]
+       |  'exception' T ↦ { 'message' e }           -- DefException [Daml-LF ≥ 1.dev]
 
   Module (mnemonic: delta for definitions)
     Δ ::= ε                                         -- DefCtxEmpty
@@ -704,8 +721,8 @@ available for usage::
     PackageModules ∈ ModName ↦ Δ                           -- PackageModules
 
   Package
-    Package ::= Package PackageModules PackageMetadata – since DAML-LF 1.8
-    Package ::= Package PackageModules -- until DAML-LF 1.8
+    Package ::= Package PackageModules PackageMetadata – since Daml-LF 1.8
+    Package ::= Package PackageModules -- until Daml-LF 1.8
 
   Package collection
     Ξ ∈ pid ↦ Package                               -- Packages
@@ -721,7 +738,7 @@ module. The following feature flags are available:
  +-------------------------------------------+----------------------------------------------------------+
  | Flag                                      | Semantic meaning                                         |
  +===========================================+==========================================================+
- | ForbidPartyLiterals                       | Party literals are not allowed in a DAML-LF module.      |
+ | ForbidPartyLiterals                       | Party literals are not allowed in a Daml-LF module.      |
  |                                           | (See `Party Literal restriction`_ for more details)      |
  +-------------------------------------------+----------------------------------------------------------+
  | DontDivulgeContractIdsInCreateArguments   | contract IDs captured in ``create`` arguments are not    |
@@ -812,7 +829,7 @@ These two properties will be enforced by the notion of
 
 Note ``↠`` is undefined on type contains an undefined type synonym or
 a type synonym applied to a wrong number. Such types are assumed non
-well-formed and will be rejected by the DAML-LF type checker.
+well-formed and will be rejected by the Daml-LF type checker.
 
 
 Well-formed types
@@ -915,16 +932,16 @@ We now formally defined *well-formed types*. ::
    ————————————————————————————————————————————— TyScenario
      Γ  ⊢  'Scenario' : ⋆ → ⋆
 
-   ————————————————————————————————————————————— TyAnyException [DAML-LF ≥ 1.dev]
+   ————————————————————————————————————————————— TyAnyException [Daml-LF ≥ 1.dev]
      Γ  ⊢  'AnyException' : ⋆
 
-   ————————————————————————————————————————————— TyGeneralError [DAML-LF ≥ 1.dev]
+   ————————————————————————————————————————————— TyGeneralError [Daml-LF ≥ 1.dev]
      Γ  ⊢  'GeneralError' : ⋆
 
-   ————————————————————————————————————————————— TyArithmeticError [DAML-LF ≥ 1.dev]
+   ————————————————————————————————————————————— TyArithmeticError [Daml-LF ≥ 1.dev]
      Γ  ⊢  'ArithmeticError' : ⋆
 
-   ————————————————————————————————————————————— TyContractError [DAML-LF ≥ 1.dev]
+   ————————————————————————————————————————————— TyContractError [Daml-LF ≥ 1.dev]
      Γ  ⊢  'ContractError' : ⋆
 
 
@@ -939,7 +956,7 @@ can be thrown and caught by the exception handling mechanism. ::
   Exception types     │ ⊢ₑ  τ  │
                       └────────┘
 
-      'exception' (x : T) ↦ …  ∈  〚Ξ〛Mod
+      'exception' T ↦ …  ∈  〚Ξ〛Mod
     ———————————————————————————————————————————————————————————————— ExnTyDefException
       ⊢ₑ  Mod:T
 
@@ -1133,16 +1150,22 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpCase
       Γ  ⊢  'case' e 'of' alt₁ | … | altₙ : σ
 
-      ε  ⊢  τ  :  ⋆      ⊢ₑ  τ
+      Γ  ⊢  σ  :  ⋆
+      ⊢ₑ  τ
+      Γ  ⊢  e  :  τ
+    ——————————————————————————————————————————————————————————————— ExpThrow [Daml-LF ≥ 1.dev]
+      Γ  ⊢  'throw' @σ @τ @e  :  σ
+
+      ⊢ₑ  τ
       Γ  ⊢  eₘ  : 'Text'
       Γ  ⊢  eₚ  :  τ
-    ——————————————————————————————————————————————————————————————— ExpMakeAnyException [DAML-LF ≥ 1.dev]
+    ——————————————————————————————————————————————————————————————— ExpMakeAnyException [Daml-LF ≥ 1.dev]
       Γ  ⊢  'make_any_exception' @τ eₘ eₚ  :  'AnyException'
 
-      ε  ⊢  τ  :  ⋆      ⊢ₑ  τ
+      ⊢ₑ  τ
       Γ  ⊢  e  :  'AnyException'
-    ——————————————————————————————————————————————————————————————— ExpFromAnyException [DAML-LF ≥ 1.dev]
-      Γ  ⊢  'from_any_exception' @τ e  :  'Option' τ
+    ——————————————————————————————————————————————————————————————— ExpFromAnyException [Daml-LF ≥ 1.dev]
+      Γ  ⊢  'from_any_exception' @τ e  :  'Optional' τ
 
       Γ  ⊢  τ  :  ⋆      Γ  ⊢  e  :  τ
     ——————————————————————————————————————————————————————————————— UpdPure
@@ -1214,7 +1237,7 @@ Then we define *well-formed expressions*. ::
       τ  ↠  τ'
       Γ  ⊢  e₁  :  'Update' τ'
       x : 'AnyException' · Γ  ⊢  e₂  :  'Optional' ('Update' τ')
-    ——————————————————————————————————————————————————————————————— UpdTryCatch [DAML-LF ≥ 1.dev]
+    ——————————————————————————————————————————————————————————————— UpdTryCatch [Daml-LF ≥ 1.dev]
       Γ  ⊢  'try' @τ e₁ 'catch' x. e₂  :  'Update' τ'
 
       Γ  ⊢  τ  : ⋆      Γ  ⊢  e  :  τ
@@ -1518,9 +1541,9 @@ for the ``DefTemplate`` rule). ::
 
     'record' T ↦ { f₁ : τ₁, …, fₙ : τₙ }  ∈  〚Ξ〛Mod
     ⊢ₛ  Mod:T
-    x : Mod:T  ⊢  eₘ  :  'Text'
-  ——————————————————————————————————————————————————————————————— DefException [DAML-LF ≥ 1.dev]
-    ⊢  'exception' (x : T) ↦ { 'message' eₘ }
+    ⊢  e  :  Mod:T → 'Text'
+  ——————————————————————————————————————————————————————————————— DefException [Daml-LF ≥ 1.dev]
+    ⊢  'exception' T ↦ { 'message' e }
 
                           ┌───────────────────┐
   Well-formed choices     │ x : Mod:T ⊢ ChDef │
@@ -1554,7 +1577,7 @@ for the ``DefTemplate`` rule). ::
    Γ  ⊢  'no_key'
 
     ⊢ₛ τ      Γ  ⊢  eₖ  :  τ
-    ⊢ₖ eₖ                                                         [DAML-LF = 1.3]
+    ⊢ₖ eₖ                                                         [Daml-LF = 1.3]
     ε  ⊢  eₘ  :  τ → 'List' 'Party'
   ——————————————————————————————————————————————————————————————— KeyDefSome
     Γ  ⊢  'key' τ eₖ eₘ
@@ -1597,10 +1620,10 @@ Party literal restriction
    ``ForbidPartyLiterals`` feature flag party literals were
    allowed everywhere.
 
-The usage of party literals is restricted in DAML-LF. By default,
+The usage of party literals is restricted in Daml-LF. By default,
 party literals are neither allowed in templates nor in values used in
 templates directly or indirectly.  In practice, this restricted the
-usage of party literals to test cases written in DAML-LF. Usage of
+usage of party literals to test cases written in Daml-LF. Usage of
 party literals can be completely forbidden thanks to the `feature flag
 <Feature flags_>`_ ``ForbidPartyLiterals``. If this flag is on, any
 occurrence of a party literal anywhere in the module makes the module
@@ -1610,7 +1633,7 @@ not well-formed.
 Name collision restriction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-DAML-LF relies on `names and identifiers <Identifiers_>`_ to refer to
+Daml-LF relies on `names and identifiers <Identifiers_>`_ to refer to
 different kinds of constructs such as modules, type constructors,
 variants constructor, and fields. These are relative; type names are
 relative to modules; field names are relative to type record and so
@@ -1621,7 +1644,7 @@ for module and type is different.
 Fully resolved name
 ...................
 
-DAML-LF restricts the way names and identifiers are used within a
+Daml-LF restricts the way names and identifiers are used within a
 package. This restriction relies on the notion of *fully resolved
 name* construct as follows:
 
@@ -1669,11 +1692,11 @@ collisions. Note also that value references are not concerned with
 collisions as defined here.
 
 Also note that while the collision is case-insensitive, name resolution
-is *not* case-insensitive in DAML-LF. In other words, to refer to a
+is *not* case-insensitive in Daml-LF. In other words, to refer to a
 name, one must refer to it with the same case that it was defined with.
 
 The case-insensitivity for collisions is in place since we often generate
-files from DAML-LF packages, and we want to make sure for things to work
+files from Daml-LF packages, and we want to make sure for things to work
 smoothly when operating in case-insensitive file systems, while at the
 same time preserving case sensitivity in the language.
 
@@ -1681,7 +1704,7 @@ same time preserving case sensitivity in the language.
 Name collision condition
 ........................
 
-In DAML-LF, the only permitted name collisions are those occurring
+In Daml-LF, the only permitted name collisions are those occurring
 between variant constructors and record types defined in the same
 module. Every other collision makes the module (and thus the package)
 not well-formed. For example, a module ``Mod`` can contain the following
@@ -1737,7 +1760,7 @@ usage ``Ξ``.
 Values
 ~~~~~~
 
-To define any call-by-value semantics for DAML-LF expression, we need
+To define any call-by-value semantics for Daml-LF expression, we need
 first to define the notion of *values*, the expressions which do not
 need to be evaluated further. ::
 
@@ -2160,7 +2183,7 @@ closure of ``<ₜ``.
 Expression evaluation
 ~~~~~~~~~~~~~~~~~~~~~
 
-DAML-LF evaluation is only defined on closed, well-typed expressions.
+Daml-LF evaluation is only defined on closed, well-typed expressions.
 
 Note that the evaluation of the body of a value definition is lazy. It
 happens only when needed and cached to avoid repeated computations. We
@@ -2175,7 +2198,7 @@ preserved between different evaluations happening in the ledger. We
 only guarantee that within a single evaluation each value definition
 is evaluated at most once.
 
-The output of any DAML-LF built-in function ``F`` fully applied to
+The output of any Daml-LF built-in function ``F`` fully applied to
 types ``@τ₁ … @τₘ`` and values ``v₁ … vₙ`` is deterministic. In the
 following rules, we abstract this output with the notation ``𝕆(F @τ₁ …
 @τₘ v₁ … vₙ)``. Please refer to the `Built-in functions`_ section for the
@@ -2409,7 +2432,7 @@ exact output.
 
       e  ⇓  Ok v
     —————————————————————————————————————————————————————————————————————— EvExpThrow
-      'THROW' @τ e  ⇓  Err v
+      'throw' @σ @τ e  ⇓  Err v
 
       eₘ  ⇓  Err v
     —————————————————————————————————————————————————————————————————————— EvExpMakeAnyExceptionErr1
@@ -3158,7 +3181,7 @@ About scenario interpretation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The interpretation of scenarios is a feature an engine can provide to
-test business logic within a DAML-LF archive. Nevertheless, the
+test business logic within a Daml-LF archive. Nevertheless, the
 present specification does not define how scenarios should be actually
 interpreted. An engine compliant with this specification does not have
 to provide support for scenario interpretation. It must however accept
@@ -3175,7 +3198,7 @@ evaluated during the interpretation of an update.
 Built-in functions
 ^^^^^^^^^^^^^^^^^^
 
-This section lists the built-in functions supported by DAML LF 1.
+This section lists the built-in functions supported by Daml LF 1.
 The functions come with their types and a description of their
 behavior.
 
@@ -3194,7 +3217,7 @@ updates.
   ``'False'`` otherwise. The function raises a runtime error if the
   arguments are incomparable.
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.11*]
 
   Formally the builtin function ``LESS_EQ`` semantics is defined by
   the following rules. Note the rules assume ``LESS_EQ`` is fully
@@ -3215,7 +3238,7 @@ updates.
 
     —————————————————————————————————————————————————————————————————————— EvLessEqTimestamp
       𝕆('LESS_EQ' @σ LitTimestamp₁ LitTimestamp₂) =
-          Ok (LitTimestamp₁ ≤ LitTimestamp₂)
+          Ok (LitTimestamp₁ ≤ₗ LitTimestamp₂)
 
     —————————————————————————————————————————————————————————————————————— EvLessEqText
       𝕆('LESS_EQ' @σ LitText₁ LitText₂) = Ok (LitText₁ ≤ₗ LitText₂)
@@ -3225,7 +3248,9 @@ updates.
 
     —————————————————————————————————————————————————————————————————————— EvLessEqNumeric
       𝕆('LESS_EQ' @σ LitNumeric₁ LitNumeric₂) =
-          Ok (LitNumeric₁ ≤ LitNumeric₂)
+          Ok (LitNumeric₁ ≤ₗ LitNumeric₂)
+    —————————————————————————————————————————————————————————————————————— EvLessEqContractId
+      𝕆('LESS_EQ' @σ cid₁ cid₂) = Ok (cid₁ ≤ₗ cid₂)
 
     —————————————————————————————————————————————————————————————————————— EvLessEqStructEmpty
       𝕆('LESS_EQ' @⟨ ⟩ ⟨ ⟩ ⟨ ⟩) = Ok 'True'
@@ -3367,7 +3392,7 @@ updates.
   ``'False'`` otherwise. The function raises a runtime error if the
   arguments are incomparable.
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.11*]
 
   Formally the function is defined as a shortcut for the function::
 
@@ -3381,7 +3406,7 @@ updates.
   argument is equal to the second argument, ``'False'`` otherwise. The
   function raises a runtime error if the arguments are incomparable.
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.11*]
 
   Formally the function is defined as a shortcut for the function::
 
@@ -3391,7 +3416,7 @@ updates.
 	            'True' → 'GREATER_EQ' @α x y
 		'|' 'False' → 'False'
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.11*]
 
 * ``LESS : ∀ (α:*). α → α → 'Bool'``
 
@@ -3400,7 +3425,7 @@ updates.
   otherwise. The function raises a runtime error if the arguments are
   incomparable.
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.11*]
 
   Formally the function is defined as a shortcut for the function::
 
@@ -3417,7 +3442,7 @@ updates.
   otherwise. The function raises a runtime error if the arguments are
   incomparable.
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.11*]
 
   Formally the function is defined as a shortcut for the function::
 
@@ -3435,7 +3460,7 @@ Boolean functions
   Returns ``'True'`` if the two booleans are syntactically equal,
   ``False`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 Int64 functions
 ~~~~~~~~~~~~~~~
@@ -3497,7 +3522,7 @@ Int64 functions
   Returns ``'True'`` if the first integer is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 * ``TO_TEXT_INT64 : 'Int64' → 'Text'``
 
@@ -3585,7 +3610,7 @@ Numeric functions
   ``'False'`` otherwise.  The scale of the inputs is given by the type
   parameter `α`.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 * ``TO_TEXT_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Text'``
 
@@ -3649,7 +3674,7 @@ String functions
   Returns ``'True'`` if the first string is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 * ``TO_TEXT_TEXT : 'Text' → 'Text'``
 
@@ -3697,7 +3722,7 @@ Timestamp functions
   Returns ``'True'`` if the first timestamp is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 * ``TO_TEXT_TIMESTAMP : 'Timestamp' → 'Text'``
 
@@ -3728,7 +3753,7 @@ Timestamp functions
   * The output uses at least as many digits as necessary but may be
     padded on the right with an unspecified number of "``0``".
 
-  * The output will not change within minor version of DAML-LF 1.
+  * The output will not change within minor version of Daml-LF 1.
 
 
 Date functions
@@ -3759,7 +3784,7 @@ Date functions
   Returns ``'True'`` if the first date is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 * ``TO_TEXT_DATE : 'Date' → 'Text'``
 
@@ -3803,7 +3828,7 @@ Party functions
   Returns ``'True'`` if the first party is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in version < 1.dev*]
+  [*Available in version < 1.11*]
 
 * ``TO_QUOTED_TEXT_PARTY : 'Party' → 'Text'``
 
@@ -3834,8 +3859,6 @@ ContractId functions
   Returns ``'True'`` if the first contact id is equal to the second,
   ``'False'`` otherwise.
 
-  [*Available in versions < 1.dev*]
-
 * ``COERCE_CONTRACT_ID  : ∀ (α : ⋆) (β : ⋆) . 'ContractId' α → 'ContractId' β``
 
   Returns the given contract ID unchanged at a different type.
@@ -3845,7 +3868,7 @@ ContractId functions
   Always returns ``None`` in ledger code. This function is only useful
   for off-ledger code which is not covered by this specification.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
 List functions
 ~~~~~~~~~~~~~~
@@ -3922,7 +3945,7 @@ ordered by keys according to the comparison function ``LESS``.
 
   Returns an empty generic map.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
 * ``GENMAP_INSERT : ∀ α. ∀ β.  α → β → 'GenMap' α β → 'GenMap' α β``
 
@@ -3933,7 +3956,7 @@ ordered by keys according to the comparison function ``LESS``.
   on keys. This raises a runtime error if it tries to compare
   incomparable values.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
   Formally the builtin function ``GENMAP_INSERT`` semantics is defined
   by the following rules. ::
@@ -3974,7 +3997,7 @@ ordered by keys according to the comparison function ``LESS``.
   ``EQUAL`` to test key equality. This raises a runtime error if it
   try to compare incomparable values.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
   Formally the builtin function ``GENMAP_LOOKUP`` semantics is defined
   by the following rules. ::
@@ -4003,7 +4026,7 @@ ordered by keys according to the comparison function ``LESS``.
   map, the original map is returned.  This raises a runtime error if it
   try to compare incomparable values.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
   Formally the builtin function ``GENMAP_DELETE`` semantics is defined
   by the following rules. ::
@@ -4027,7 +4050,7 @@ ordered by keys according to the comparison function ``LESS``.
   Get the list of keys in the map. The keys are returned in the order
   they appear in the map.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
   Formally the builtin function ``GENMAP_KEYS`` semantics is defined
   by the following rules. ::
@@ -4045,7 +4068,7 @@ ordered by keys according to the comparison function ``LESS``.
   Get the list of values in the map. The values are returned in the
   order they appear in the map (i.e. sorted by key).
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
   Formally the builtin function ``GENMAP_VALUES`` semantics is defined
   by the following rules. ::
@@ -4062,7 +4085,7 @@ ordered by keys according to the comparison function ``LESS``.
 
   Return the number of elements in the map.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.11*]
 
 Type Representation function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -4117,14 +4140,7 @@ Error functions
 
     'ERROR' ≡
         Λ (α : ⋆). λ (x : 'Text').
-        'THROW' @α ('make_any_exception' @'GeneralError' x ('MAKE_GENERAL_ERROR' x))
-
-* ``THROW : ∀ (α : ⋆) . 'AnyException' → α``
-
-  [*Available in version >= 1.dev*]
-
-  Throws an ``'AnyException'``. See the evaluation rule ``EvExpThrow`` for
-  precise semantics.
+        'throw' @α @'GeneralError' ('MAKE_GENERAL_ERROR' x)
 
 * ``ANY_EXCEPTION_MESSAGE : 'AnyException' → 'Text'``
 
@@ -4182,20 +4198,20 @@ Debugging functions
 Program serialization
 ^^^^^^^^^^^^^^^^^^^^^
 
-DAML-LF programs are serialized using `Protocol Buffers
+Daml-LF programs are serialized using `Protocol Buffers
 <https://developers.google.com/protocol-buffers/>`_.  The
-machine-readable definition of the serialization for DAML-LF major
+machine-readable definition of the serialization for Daml-LF major
 version 1 can be found in the `daml_lf_1.proto
 <../archive/src/main/protobuf/com/daml/daml_lf_dev/daml_lf_1.proto>`_
 file.
 
-For the sake of brevity, we do no exhaustively describe how DAML-LF
+For the sake of brevity, we do no exhaustively describe how Daml-LF
 programs are (un)serialized into protocol buffer. In the rest of this
 section, we describe the particularities of the encoding and how
-DAML-LF version impacts it.
+Daml-LF version impacts it.
 
 
-Specificities of DAML-LF serialization
+Specificities of Daml-LF serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Required fields
@@ -4278,7 +4294,7 @@ The message is interpreted as n applications ``(e e₁ … eₙ)`` where
 ``eᵢ`` is the interpretation of the ``iᵗʰ`` elements of ``args``
 (whenever ``1 ≤ i ≤ n``) and ``e`` is the interpretation of ``fun``.
 
-Note that the DAML-LF deserialization process verifies the repeated
+Note that the Daml-LF deserialization process verifies the repeated
 fields of those compressed structures are non-empty. For instance, the
 previous message can be used only if it encodes at least one
 application.
@@ -4296,34 +4312,9 @@ Maps
 ....
 
 The program serialization format does not provide any direct way to
-encode either `TextMap` or `GenMap`. DAML-LF programs can create such
+encode either `TextMap` or `GenMap`. Daml-LF programs can create such
 objects only dynamically using the builtin functions prefixed by
 `TEXTMAP_` or `'GENMAP_'`
-
-
-Serialization changes since version 1.6
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-As explained in `Version history`_ section, DAML-LF programs are
-accompanied by a number version. This enables the DAML-LF
-deserialization process to interpret different versions of the
-language in a backward compatibility way. During deserialization, any
-encoding that does not follow the minor version provided is rejected.
-Below we list, in chronological order, all the changes that have been
-introduced to the serialization format since version 1.6
-
-
-Choice observers
-................
-
-[*Available in versions >= 1.dev*]
-
-An optional `observer` expression may be attached to a flexible
-choice. This allows the specification of additional parties to whom
-the sub-transaction is disclosed.
-
-The type checker will reject any DAML-LF < 1.dev program which
-includes choice observers.
 
 
 Validation
@@ -4363,6 +4354,18 @@ package if and only if the latter of these two validation passes.
 
 
 
+Serialization changes since version 1.6
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As explained in `Version history`_ section, Daml-LF programs are
+accompanied by a number version. This enables the Daml-LF
+deserialization process to interpret different versions of the
+language in a backward compatibility way. During deserialization, any
+encoding that does not follow the minor version provided is rejected.
+Below we list, in chronological order, all the changes that have been
+introduced to the serialization format since version 1.6
+
+
 String Interning
 ................
 
@@ -4386,14 +4389,14 @@ in ``Package.interned_strings``.
 + An `interned identifier` is an `interned string` that can be
   interpreted as a valid `identifier`
 
-Starting from DAML-LF 1.7, all ``string`` (or ``repeated string``)
+Starting from Daml-LF 1.7, all ``string`` (or ``repeated string``)
 fields with the suffix ``_str`` are forbidden. Alternative fields of
 type ``int32`` (or ``repeated int32``) with the suffix
 ``_interned_str`` must be used instead.  Except
 ``PackageRef.package_id_interned_str`` which is [*Available in
 versions >= 1.6*], all fields with suffix ``_interned_str`` are
 [*Available in versions >= 1.7*].  The deserialization process will
-reject any DAML-LF 1.7 (or later) that does not comply with this
+reject any Daml-LF 1.7 (or later) that does not comply with this
 restriction.
 
 Name Interning
@@ -4405,19 +4408,19 @@ To provide sharing of `names <Identifiers_>`_, the so-called *name
 interning* mechanism allows the *names* within messages to be stored
 in a global table and be referenced by their index.
 
-``InternedDottedName`` is a non-empty list of valid `interned
-identifiers`_. Such message is interpreted as the name built from the
+``InternedDottedName`` is a non-empty list of valid interned
+identifiers. Such message is interpreted as the name built from the
 sequence the interned identifiers it contains.  The field
 ``Package.interned_dotted_names`` is a list of such messages. A
 so-called `interned name` is a valid zero-based index of this list. An
 `interned name` is interpreted as the name built form the `name` it
 points to in ``Package.interned_dotted_names``.
 
-Starting from DAML-LF 1.7, all ``DottedName`` (or ``repeated
+Starting from Daml-LF 1.7, all ``DottedName`` (or ``repeated
 string``) fields with the suffix ``_dname`` are forbidden. Alternative
 fields of type ``int32`` with the suffix ``_interned_dname``
 [*Available in versions >= 1.7*] must be used instead. The
-deserialization process will reject any DAML-LF 1.7 (or later) that
+deserialization process will reject any Daml-LF 1.7 (or later) that
 that does not comply this restriction.
 
 Nat kind and Nat types
@@ -4425,15 +4428,15 @@ Nat kind and Nat types
 
 [*Available in versions >= 1.7*]
 
-The deserialization process will reject any DAML-LF 1.6 (or earlier)
+The deserialization process will reject any Daml-LF 1.6 (or earlier)
 that uses ``nat`` field in ``Kind`` or ``Type`` messages.
 
-Starting from DAML-LF 1.7 those messages are deserialized to ``nat``
+Starting from Daml-LF 1.7 those messages are deserialized to ``nat``
 kind and ``nat`` type respectively. The field ``nat`` of ``Type``
 message must be a positive integer.
 
 Note that despite there being no concrete way to build Nat types in a
-DAML-LF 1.6 (or earlier) program, those are implicitly generated when
+Daml-LF 1.6 (or earlier) program, those are implicitly generated when
 reading as Numeric type and Numeric builtin as described in the next
 section.
 
@@ -4442,12 +4445,12 @@ Parametric scaled Decimals
 
 [*Available in versions >= 1.7*]
 
-DAML-LF 1.7 is the first version that supports parametric scaled
+Daml-LF 1.7 is the first version that supports parametric scaled
 decimals. Prior versions have decimal number with a fixed scale of 10
 called Decimal.  Backward compatibility with the current specification
 is achieved as follows:
 
-On the one hand, in case of DAML-LF 1.6 archive:
+On the one hand, in case of Daml-LF 1.6 archive:
 
 - The ``decimal`` field of the ``PrimLit`` message must match the
   regexp::
@@ -4483,10 +4486,10 @@ On the one hand, in case of DAML-LF 1.6 archive:
   In other words ``numeric`` fields in ``PrimLit`` and ``PrimType``
   messages must remain unset and Numeric ``BuiltinFunction`` (those
   containing ``NUMERIC`` in their name) are forbidden. The
-  deserialization process will reject any DAML-LF 1.6 (or earlier)
+  deserialization process will reject any Daml-LF 1.6 (or earlier)
   that does not comply those restrictions.
 
-On the other hand, starting from DAML-LF 1.7:
+On the other hand, starting from Daml-LF 1.7:
 
 - The ``numeric`` field of the ``PrimLit`` message must match the
   regexp:
@@ -4503,34 +4506,95 @@ On the other hand, starting from DAML-LF 1.7:
   In other words ``decimal`` fields in ``PrimLit`` and ``PrimType``
   messages must remain unset and Decimal ``BuiltinFunction`` (those
   containing ``DECIMAL`` in their name are forbidden). The
-  deserialization process will reject any DAML-LF 1.7 (or later)
+  deserialization process will reject any Daml-LF 1.7 (or later)
   that does not comply those restrictions.
 
 Any type and type representation
 ................................
 
-DAML-LF 1.7 is the first version that supports any type and
+Daml-LF 1.7 is the first version that supports any type and
 type representation.
 
-The deserialization process will reject any DAML-LF 1.6 program using
+The deserialization process will reject any Daml-LF 1.6 program using
 this data structure.
+
+Generic Equality/Order
+......................
+
+[*Available in versions >= 1.11*]
+
+The deserialization process will reject any Daml-LF 1.8 (or earlier)
+program using the following builtin functions ``EQUAL``, ``LESS_EQ``,
+``LESS``, ``GREATER_EQ``, ``GREATER``
+
+The deserialization process will reject any Daml-LF 1.11 (or latter)
+program using the following builtin functions , ``EQUAL_INT64``,
+``EQUAL_NUMERIC``, ``EQUAL_TEXT``, ``EQUAL_TIMESTAMP``,
+``EQUAL_DATE``, ``EQUAL_PARTY``, ``EQUAL_BOOL``,
+``EQUAL_CONTRACT_ID``, ``EQUAL_TYPE_REP`` ``LEQ_INT64``,
+``LEQ_NUMERIC``, ``LEQ_TEXT``, ``LEQ_TIMESTAMP``, ``LEQ_DATE``,
+``LEQ_PARTY``, ``LESS_INT64``, ``LESS_NUMERIC``, ``LESS_TEXT``,
+``LESS_TIMESTAMP``, ``LESS_DATE``, ``LESS_PARTY``, ``GEQ_INT64``,
+``GEQ_NUMERIC``, ``GEQ_TEXT``, ``GEQ_TIMESTAMP``, ``GEQ_DATE``,
+``GEQ_PARTY``, ``GREATER_INT64``, ``GREATER_NUMERIC``,
+``GREATER_TEXT``, ``GREATER_TIMESTAMP``, ``GREATER_DATE``,
+``GREATER_PARTY``.
 
 Generic Map
 ............
 
-[*Available in versions >= 1.dev*]
+[*Available in versions >= 1.11*]
 
-The deserialization process will reject any DAML-LF 1.7 (or earlier)
-program using the builtin type ``GENMAP`` or the functions
+The deserialization process will reject any Daml-LF 1.8 (or earlier)
+program using the builtin type ``GENMAP`` or the builtin functions
 ``GENMAP_EMPTY``, ``GENMAP_INSERT``, ``GENMAP_LOOKUP``,
 ``GENMAP_DELETE``, ``GENMAP_KEYS``, ``GENMAP_VALUES``,
 ``GENMAP_SIZE``.
 
+exercise_by_key
+...............
+
+[*Available in versions >= 1.11*]
+
+The deserialization process will reject any Daml-LF 1.8 (or earlier)
+program using the field ``exercise_by_key`` in the ``Update`` message.
+
+TO_TEXT_CONTRACT_ID
+...................
+
+[*Available in versions >= 1.11*]
+
+The deserialization process will reject any Daml-LF 1.8 (or earlier)
+program using the builtin function ``TO_TEXT_CONTRACT_ID``.
+
+Choice observers
+................
+
+[*Available in versions >= 1.11*]
+
+An optional `observer` expression may be attached to a flexible
+choice. This allows the specification of additional parties to whom
+the sub-transaction is disclosed.
+
+The deserialization process will reject any Daml-LF 1.8 (or earlier)
+program using the field ``observers`` in the ``TemplateChoice``
+message.
 
 Exception
 .........
 
-.. FIXME: https://github.com/digital-asset/daml/issues/7788
+[*Available in versions >= 1.1dev*]
+
+The deserialization process will reject any Daml-LF 1.11 (or earlier)
+program exception using
+- the field ``throw``, ``to_any_exception``, or ``from_any_exception``
+  in the ``Expr`` message,
+- the field ``try`` in the ``Update message,
+- any of the builtin functions ``MAKE_GENERAL_ERROR``,
+  ``MAKE_ARITHMETIC_ERROR``, ``MAKE_CONTRACT_ERROR``,
+  ``ANY_EXCEPTION_MESSAGE``, ``GENERAL_ERROR_MESSAGE``, or
+  ``ARITHMETIC_ERROR_MESSAGE`.
+
 
 
 .. Local Variables:

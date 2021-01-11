@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -10,9 +10,10 @@ import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.{defaultPackageId, defaultLanguageVersion}
 import com.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   "Checker.checkKind" should {
     "reject invalid kinds" in {
@@ -61,6 +62,10 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         BTContractId -> k"* -> *",
         BTArrow -> k"* -> * -> *",
         BTAny -> k"*",
+        BTAnyException -> k"*",
+        BTGeneralError -> k"*",
+        BTArithmeticError -> k"*",
+        BTContractError -> k"*",
       )
 
       forEvery(testCases) { (bType: BuiltinType, expectedKind: Kind) =>
@@ -226,9 +231,36 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           T"TypeRep",
         E"""(( type_rep @((ContractId Mod:T) → Mod:Color) ))""" ->
           T"TypeRep",
-        // TO_TEXT_CONTRACT_ID
-        E"""Λ (σ : ⋆). λ (c : (ContractId σ)) → TO_TEXT_CONTRACT_ID @σ c""" ->
-          T"∀ (σ : ⋆). ContractId σ → Option Text"
+        // ExpThrow
+        E"Λ (σ : ⋆). λ (e : ArithmeticError) →  (( throw @σ @ArithmeticError e ))" ->
+          T"∀ (σ : ⋆). ArithmeticError → (( σ ))",
+        E"Λ (σ : ⋆). λ (e : ContractError) →  (( throw @σ @ContractError e ))" ->
+          T"∀ (σ : ⋆). ContractError → (( σ ))",
+        E"Λ (σ : ⋆). λ (e : GeneralError) →  (( throw @σ @GeneralError e ))" ->
+          T"∀ (σ : ⋆). GeneralError → (( σ ))",
+        E"Λ (σ : ⋆). λ (e : Mod:E) →  (( throw @σ @Mod:E e ))" ->
+          T"∀ (σ : ⋆). Mod:E → (( σ ))",
+        // ExpToAnyException
+        E"λ (e : ArithmeticError ) → (( to_any_exception @ArithmeticError e ))" ->
+          T"ArithmeticError → (( AnyException ))",
+        E"λ (e : ContractError ) → (( to_any_exception @ContractError e ))" ->
+          T"ContractError → (( AnyException ))",
+        E"λ (e : GeneralError ) → (( to_any_exception @GeneralError e ))" ->
+          T"GeneralError → (( AnyException ))",
+        E"λ (e : Mod:E) → (( to_any_exception @Mod:E e ))" ->
+          T"Mod:E → (( AnyException ))",
+        // ExpFromAnyException
+        E"λ (e : AnyException) → (( from_any_exception @ArithmeticError e ))" ->
+          T"AnyException → (( Option ArithmeticError ))",
+        E"λ (e : AnyException) → (( from_any_exception @ContractError e ))" ->
+          T"AnyException → (( Option ContractError ))",
+        E"λ (e : AnyException) → (( from_any_exception @GeneralError e ))" ->
+          T"AnyException → (( Option GeneralError ))",
+        E"λ (e : AnyException) → (( from_any_exception @Mod:E e ))" ->
+          T"AnyException → (( Option Mod:E ))",
+        // UpdTryCatch
+        E"Λ (σ : ⋆). λ (e₁ : Update σ) (e₂: AnyException → Option (Update σ)) → (( try @σ e₁ catch x → e₂ x ))" ->
+          T"∀ (σ : ⋆). Update σ → (AnyException → Option (Update σ)) → Update σ",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -325,7 +357,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"(( uget_time ))" ->
           T"(( Update Timestamp ))",
         E"Λ (τ : ⋆). λ (e: Update τ) →(( uembed_expr @τ e ))" ->
-          T"∀ (τ : ⋆). Update τ -> (( Update τ ))"
+          T"∀ (τ : ⋆). Update τ -> (( Update τ ))",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -547,7 +579,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           { case _: EExpectedAnyType => },
         E"λ (t: Mod:T) → ⸨ from_any @Mod:T t ⸩" -> //
           { case _: ETypeMismatch => },
-        E"Λ (τ :⋆). λ (t: Any) → ⸨ from_any @(∀ (α: ⋆). Int64) t ⸩" -> //
+        E"λ (t: Any) → ⸨ from_any @(∀ (α: ⋆). Int64) t ⸩" -> //
           { case _: EExpectedAnyType => },
         E"Λ (τ :⋆). λ (t: Any) → ⸨ from_any @(List (Option (∀ (α: ⋆). Int64))) t ⸩" -> //
           { case _: EExpectedAnyType => },
@@ -564,6 +596,41 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           { case _: EExpectedAnyType => },
         E"⸨ type_rep @|Mod:S| ⸩" -> //
           { case _: EExpectedAnyType => },
+        // ExpToAnyException
+        E"λ (r: Mod:T) → ⸨ to_any_exception @(Mod:T) r ⸩" -> //
+          { case EUnknownDefinition(_, LEException(_)) => },
+        E"λ (t: Bool) → ⸨ to_any_exception @Bool t ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"Λ (τ :⋆). λ (t: ∀ (α : ⋆). Int64) → ⸨ to_any_exception @(∀ (α : ⋆). Int64) t ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"λ (e: |Mod:S|) → ⸨ to_any_exception  @|Mod:S| e ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"λ (e: ArithmeticError) → ⸨ to_any_exception @GeneralError e ⸩" -> //
+          { case _: ETypeMismatch => },
+        // ExpFromAnyException
+        E"λ (t: AnyException) → ⸨ from_any_exception @Mod:T t ⸩" -> //
+          { case EUnknownDefinition(_, LEException(_)) => },
+        E"λ (t: Any) → ⸨ from_any_exception @Bool t ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"λ (t: ∀ (α : ⋆). Int64) → ⸨ from_any_exception @(∀ (α : ⋆). Int64) t ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"λ (e: Any) → ⸨ from_any_exception  @|Mod:S| e ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        // ExpThrow
+        E"⸨ throw @Mod:R @Mod:E nothing ⸩" -> //
+          { case _: EKindMismatch => },
+        E"Λ (τ :⋆). λ (e : Mod:U) →  ⸨ throw @τ @Mod:U e ⸩" -> //
+          { case EUnknownDefinition(_, LEException(_)) => },
+        E"Λ (τ :⋆). λ (e : Mod:U) →  ⸨ throw @τ @Mod:U e ⸩" -> //
+          { case EUnknownDefinition(_, LEException(_)) => },
+        E"Λ (τ :⋆). λ (e : Bool) →  ⸨ throw @τ @Bool e ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"Λ (τ :⋆). λ (e: ∀ (α : ⋆). Int64) →  ⸨ throw @τ @(∀ (α : ⋆). Int64) e ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"Λ (τ :⋆). λ (e: |Mod:S|) →  ⸨ throw @τ @(∀ (α : ⋆). Int64) e ⸩" -> //
+          { case _: EExpectedExceptionType => },
+        E"Λ (τ: ⋆) (σ: ⋆). λ (e: σ) →  ⸨ throw @τ @Mod:E e ⸩" -> //
+          { case _: ETypeMismatch => },
         // ScnPure
         E"Λ (τ : ⋆ → ⋆). ⸨ spure @τ nothing ⸩" -> //
           { case _: EKindMismatch => },
@@ -914,7 +981,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         "PositiveTestCase_ChoiceObserversMustBeListParty",
         "PositiveTestCase3",
         "PositiveTestCase6",
-        "PositiveTestCase7"
+        "PositiveTestCase7",
       )
 
       val kindMismatchCases = Table(
@@ -926,19 +993,84 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       def checkModule(pkg: Package, modName: String) = Typing.checkModule(
         new World(Map(defaultPackageId -> pkg)),
         defaultPackageId,
-        pkg.modules(DottedName.assertFromString(modName))
+        pkg.modules(DottedName.assertFromString(modName)),
       )
 
       checkModule(pkg, "NegativeTestCase")
       forAll(typeMismatchCases)(module =>
-        an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))) // and
+        an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, module))
+      ) // and
       forAll(kindMismatchCases)(module =>
-        an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module)))
+        an[EKindMismatch] shouldBe thrownBy(checkModule(pkg, module))
+      )
       an[EUnknownExprVar] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase8"))
       an[EExpectedTemplatableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase9"))
       an[EUnknownDefinition] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase10"))
     }
 
+  }
+
+  "reject ill formed exception definitions" in {
+
+    val pkg =
+      p"""
+
+          module Mod {
+            record @serializable Exception = { message: Text };
+          }
+
+          module NegativeTestCase {
+            record @serializable Exception = { message: Text } ;
+
+            exception Exception = {
+              message \(e: NegativeTestCase:Exception) -> NegativeTestCase:Exception {message} e
+            } ;
+          }
+
+          module PositiveTestCase1 {
+            record @serializable Exception (a: *) = { message: Text } ; // should not have parameter
+            
+            exception Exception = {
+              message \(e: PositiveTestCase1:Exception) -> PositiveTestCase1:Exception {message} e
+            } ;
+          }
+
+         module PositiveTestCase2 {
+            variant @serializable Exception = Message : Text  ; // should be a record
+            
+            exception Exception = {
+              message \(e: PositiveTestCase2:Exception) -> PositiveTestCase2:Exception {message} e
+            } ;
+          }
+          
+         module PositiveTestCase3 {    
+           exception Exception = {         // should match a existing record in the same module
+             message \(e: Mod:Exception) -> PositiveTestCase3:Exception {message} e
+           } ;
+         }
+         
+         module PositiveTestCase4 {    
+           record @serializable Exception = { message: Text } ;
+                   
+           exception Exception = {         
+             message "some error message"   // should be of type PositiveTestCase4:Exception -> Text
+           } ;
+         }
+
+
+      """
+
+    def checkModule(pkg: Package, modName: String) = Typing.checkModule(
+      new World(Map(defaultPackageId -> pkg)),
+      defaultPackageId,
+      pkg.modules(DottedName.assertFromString(modName)),
+    )
+
+    checkModule(pkg, "NegativeTestCase")
+    an[EExpectedExceptionableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase1"))
+    an[EExpectedExceptionableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase2"))
+    an[EUnknownDefinition] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase3"))
+    an[ETypeMismatch] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase4"))
   }
 
   "accepts regression test #3777" in {
@@ -1134,6 +1266,10 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
          record @serializable U = { person: Party, name: Text };
 
          val f : Int64 -> Bool = ERROR @(Bool -> Int64) "not implemented";
+         
+         record @serializable E = { message: Text };
+         exception E = { message \(e: Mod:E) -> Mod:E {message} e };
+           
        }
      """
 

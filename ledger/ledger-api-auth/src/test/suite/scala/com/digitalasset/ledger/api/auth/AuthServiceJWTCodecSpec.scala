@@ -1,21 +1,21 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth
 
 import org.scalacheck.{Arbitrary, Gen}
-import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
 import java.time.Instant
 import scala.util.{Success, Try}
 
 class AuthServiceJWTCodecSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
-    with GeneratorDrivenPropertyChecks
-    with TableDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
 
   /** Serializes a [[AuthServiceJWTPayload]] to JSON, then parses it back to a AuthServiceJWTPayload */
   private def serializeAndParse(value: AuthServiceJWTPayload): Try[AuthServiceJWTPayload] = {
@@ -54,9 +54,8 @@ class AuthServiceJWTCodecSpec
 
       "work for arbitrary values" in forAll(
         Gen.resultOf(AuthServiceJWTPayload),
-        minSuccessful(100))(
-        value => serializeAndParse(value) shouldBe Success(value)
-      )
+        minSuccessful(100),
+      )(value => serializeAndParse(value) shouldBe Success(value))
 
       "support OIDC compliant sandbox format" in {
         val serialized =
@@ -79,7 +78,7 @@ class AuthServiceJWTCodecSpec
           exp = Some(Instant.EPOCH),
           admin = true,
           actAs = List("Alice"),
-          readAs = List("Alice", "Bob")
+          readAs = List("Alice", "Bob"),
         )
         val result = parse(serialized)
         result shouldBe Success(expected)
@@ -105,7 +104,7 @@ class AuthServiceJWTCodecSpec
           exp = Some(Instant.EPOCH),
           admin = true,
           actAs = List("Alice"),
-          readAs = List("Alice", "Bob")
+          readAs = List("Alice", "Bob"),
         )
         val result = parse(serialized)
         result shouldBe Success(expected)
@@ -127,7 +126,7 @@ class AuthServiceJWTCodecSpec
           exp = None,
           admin = false,
           actAs = List("Alice"),
-          readAs = List.empty
+          readAs = List.empty,
         )
         val result = parse(serialized)
         result shouldBe Success(expected)
@@ -143,7 +142,7 @@ class AuthServiceJWTCodecSpec
           exp = None,
           admin = false,
           actAs = List.empty,
-          readAs = List.empty
+          readAs = List.empty,
         )
         val result = parse(serialized)
         result shouldBe Success(expected)

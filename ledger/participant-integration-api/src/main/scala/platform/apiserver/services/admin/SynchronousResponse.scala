@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.admin
@@ -17,8 +17,7 @@ import io.grpc.StatusRuntimeException
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 
-/**
-  * Submits a request and waits for a corresponding entry to emerge on the corresponding stream.
+/** Submits a request and waits for a corresponding entry to emerge on the corresponding stream.
   *
   * The strategy governs how the request is submitted, how to open a stream, and how to filter for
   * the appropriate entry.
@@ -28,8 +27,8 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
     timeToLive: Duration,
 ) {
 
-  def submitAndWait(submissionId: SubmissionId, input: Input)(
-      implicit executionContext: ExecutionContext,
+  def submitAndWait(submissionId: SubmissionId, input: Input)(implicit
+      executionContext: ExecutionContext,
       materializer: Materializer,
   ): Future[AcceptedEntry] = {
     for {
@@ -47,9 +46,8 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
             }
             .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
             .runWith(Sink.head)
-            .recoverWith {
-              case _: TimeoutException =>
-                Future.failed(ErrorFactories.aborted("Request timed out"))
+            .recoverWith { case _: TimeoutException =>
+              Future.failed(ErrorFactories.aborted("Request timed out"))
             }
             .flatten
         case r @ SubmissionResult.Overloaded =>
@@ -88,7 +86,7 @@ object SynchronousResponse {
   }
 
   private final class Accepted[Entry, AcceptedEntry](
-      accept: PartialFunction[Entry, AcceptedEntry],
+      accept: PartialFunction[Entry, AcceptedEntry]
   ) {
     private val liftedAccept = accept.lift
 

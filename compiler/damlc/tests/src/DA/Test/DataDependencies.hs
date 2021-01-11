@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.DataDependencies (main) where
 
@@ -11,6 +11,7 @@ import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 import DA.Test.Process
 import DA.Test.Util
 import qualified Data.ByteString.Lazy as BSL
+import Data.List (sort)
 import qualified Data.NameMap as NM
 import Module (unitIdString)
 import System.Directory.Extra
@@ -55,8 +56,15 @@ numStablePackages ver
   | ver == LF.version1_6 = 15
   | ver == LF.version1_7 = 16
   | ver == LF.version1_8 = 16
+  | ver == LF.version1_11 = 16
   | ver == LF.versionDev = 16
   | otherwise = error $ "Unsupported LF version: " <> show ver
+
+-- | Sequential LF version pairs, with an additional (1.dev, 1.dev) pair at the end.
+sequentialVersionPairs :: [(LF.Version, LF.Version)]
+sequentialVersionPairs =
+    let versions = sort LF.supportedOutputVersions ++ [LF.versionDev]
+    in zip versions (tail versions)
 
 tests :: Tools -> TestTree
 tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependencies" $
@@ -135,9 +143,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               (numStablePackages targetLfVer - numStablePackages depLfVer) + -- new stable packages
               1 + -- projb
               (if targetLfVer /= depLfVer then 2 else 0) -- different daml-stdlib/daml-prim
-    | depLfVer <- LF.supportedOutputVersions
-    , targetLfVer <- LF.supportedOutputVersions
-    , targetLfVer >= depLfVer
+    | (depLfVer, targetLfVer) <- sequentialVersionPairs
     ] <>
     [ testCaseSteps "Cross-SDK dependency on DAVL" $ \step -> withTempDir $ \tmpDir -> do
           step "Building DAR"
@@ -608,9 +614,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             ]
           validate $ projb </> "projb.dar"
 
-    | depLfVer <- LF.supportedOutputVersions
-    , targetLfVer <- LF.supportedOutputVersions
-    , targetLfVer >= depLfVer
+    | (depLfVer, targetLfVer) <- sequentialVersionPairs
     , LF.supports depLfVer LF.featureTypeSynonyms -- only test for new-style typeclasses
     ] <>
     [ testCase "Cross-SDK typeclasses" $ withTempDir $ \tmpDir -> do
@@ -884,13 +888,13 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
     , simpleImportTest "Using TypeOperators extension"
         -- This test checks that we reconstruct type operators properly.
         [ "{-# LANGUAGE TypeOperators #-}"
-        , "module Lib where"
+        , "module Lib (type (:+:) (..), type (+)) where"
         , "data a :+: b = (:+:){left: a, right:  b}"
         , "type a + b = a :+: b"
         ]
         [ "{-# LANGUAGE TypeOperators #-}"
         , "module Main where"
-        , "import Lib"
+        , "import Lib (type (:+:) (..), type (+))"
         , "colonPlus: Bool :+: Int"
         , "colonPlus = True :+: 1"
         , "onlyPlus: Int + Bool"

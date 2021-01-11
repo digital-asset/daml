@@ -16,8 +16,7 @@
     "start": "webpack-dev-server",
     "start-ui-core": "webpack-dev-server --config webpack.ui-core.js",
     "build": "webpack --env prod",
-    "test": "echo 'No frontend tests exist yet.'",
-    "lint": "tslint --project tslint.json"
+    "test": "echo 'No frontend tests exist yet.'"
   },
   "devDependencies": {
     "@bazel/hide-bazel-files": "^1.7.0",
@@ -36,9 +35,16 @@
     "@types/react-virtualized": "^9.21.10",
     "@types/route-parser": "^0.1.3",
     "@types/styled-components": "^5.1.0",
+    "@typescript-eslint/eslint-plugin": "^4.9.0",
+    "@typescript-eslint/parser": "^4.9.0",
     "case-sensitive-paths-webpack-plugin": "^2.3.0",
     "classnames": "^2.2.5",
     "css-loader": "^5.0.1",
+    "eslint": "^7.0.0",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-jsdoc": "^30.7.8",
+    "eslint-plugin-react": "^7.21.5",
+    "eslint-webpack-plugin": "^2.4.1",
     "file-loader": "^6.2.0",
     "html-webpack-plugin": "^4.5.0",
     "json-loader": "^0.5.7",
@@ -48,9 +54,6 @@
     "style-loader": "^2.0.0",
     "ts-loader": "8.0.11",
     "tsconfig-paths-webpack-plugin": "^3.3.0",
-    "tslint": "^6.1.3",
-    "tslint-loader": "3.5.4",
-    "tslint-react": "^5.0.0",
     "typescript": "4.1.2",
     "url-loader": "^4.1.1",
     "webpack": "^4.44.2",
@@ -89,7 +92,6 @@
   },
   "resolutions": {
     "**/elliptic": "^6.5.3",
-    "**/resize-img": "^2.0.0",
     "**/jpeg-js": "^0.4.1",
     "**/selfsigned": "^1.10.8"
   }

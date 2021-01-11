@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.adapter.server.rs
@@ -8,7 +8,9 @@ import org.reactivestreams.tck.flow.support.HelperPublisher
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
-import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach, Matchers}
+import org.scalatest.{Assertion, BeforeAndAfterEach}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.Future

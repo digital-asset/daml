@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -39,7 +39,7 @@ const Right = styled.div`
  * - A left-aligned logo, the height of a default button
  * - A right-aligned list of custom controls
  */
-const NavBar = ({
+const NavBar: React.FC<Props> = ({
   logo,
   children,
 }: Props) => (

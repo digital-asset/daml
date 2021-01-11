@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -13,7 +13,7 @@ import Tests.VariantTest()
 
 import Tests.Import()
 import Tests.Escape()
-import Tests.MapTest()
+import Tests.TextMapTest()
 import Tests.Serializable()
 import Tests.ContractKeys()
 import Tests.ParametersOrder()

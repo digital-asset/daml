@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandboxnext
@@ -13,7 +13,7 @@ private[sandboxnext] object Cli extends SandboxCli {
   override def defaultConfig: SandboxConfig = SandboxConfig.defaultConfig
 
   override protected val parser: OptionParser[SandboxConfig] = {
-    val parser = new CommonCli(Name)
+    val parser = new CommonCli(Name).withEarlyAccess
       .withContractIdSeeding(
         defaultConfig,
         Some(Seeding.Strong),
@@ -29,6 +29,13 @@ private[sandboxnext] object Cli extends SandboxCli {
         s"When referring to a party that doesn't yet exist on the ledger, $Name will implicitly allocate that party."
           + s" You can optionally disable this behavior to bring $Name into line with other ledgers."
       )
+    parser
+      .opt[String]("sql-backend-jdbcurl")
+      .optional()
+      .text(
+        s"Deprecated: Use the Daml Driver for PostgreSQL if you need persistence.\nThe JDBC connection URL to a Postgres database containing the username and password as well. If present, $Name will use the database to persist its data."
+      )
+      .action((url, config) => config.copy(jdbcUrl = Some(url)))
     parser
   }
 

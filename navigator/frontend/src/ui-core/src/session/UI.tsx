@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -80,7 +80,7 @@ export default class Component<A extends Action>
     this.signIn = this.signIn.bind(this);
   }
 
-  signIn(userId: Session.UserId) {
+  signIn(userId: Session.UserId): void {
     const { dispatch, toSelf } = this.props;
     if (!dispatch) { throw new Error('dispatch not available'); }
     if (userId) {
@@ -88,14 +88,14 @@ export default class Component<A extends Action>
     }
   }
 
-  render() {
+  render(): JSX.Element {
     const { isAuthenticating, method, failure } = this.props;
     let loginEl = null;
     let errorEl = null;
     if (failure === 'invalid-credentials') {
       errorEl = (
         <ErrorMessage>
-          <div>You don't have the necessary authorization to access the ledger</div>
+          <div>You don&apos;t have the necessary authorization to access the ledger</div>
           <div>Make sure to start the Navigator server with a valid access token</div>
         </ErrorMessage>
       );
@@ -141,11 +141,12 @@ export default class Component<A extends Action>
         );
         break;
 
-      default:
+      default: {
         const { dispatch } = this.props;
         if (!dispatch) { throw new Error('dispatch not available'); }
         const to = this.props.toSelf;
         dispatch(sessionError(to, 'Invalid sign-in method.'));
+      }
     }
 
     const logoEl =

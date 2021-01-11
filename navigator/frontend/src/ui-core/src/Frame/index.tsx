@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -61,11 +61,11 @@ const Content = styled.div`
  * - A side bar box, left of the content box
  * - Content box, right of the sidebar box
  */
-const Frame = ({
+const Frame: React.FC<FrameProps> = ({
   top,
   left,
   content,
-}: FrameProps) => (
+}) => (
   <Wrapper>
     <Bar>{top}</Bar>
     <Main>

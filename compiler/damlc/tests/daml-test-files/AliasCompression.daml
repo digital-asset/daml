@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- Check that alias compresion during the conversion to DAML-LF works properly
+-- Check that alias compresion during the conversion to Daml-LF works properly
 -- with chains of aliases.
 
 module AliasCompression where

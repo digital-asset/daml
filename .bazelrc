@@ -16,6 +16,11 @@ build:darwin --repository_cache=.bazel-cache/repo
 fetch:darwin --repository_cache=.bazel-cache/repo
 sync:darwin --repository_cache=.bazel-cache/repo
 
+build:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.3
+fetch:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.3
+query:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.3
+sync:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.3
+
 # Improve remote cache hit rate by exluding environment variables from the
 # sandbox that are not whitelisted using --action_env.
 # This will become the default in a future Bazel release.

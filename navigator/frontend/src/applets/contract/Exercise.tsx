@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { ApolloClient } from '@apollo/client';
@@ -23,7 +23,7 @@ interface Props {
   error?: string;
   onSubmit(e: React.MouseEvent<HTMLButtonElement>, argument?: DamlLfValue): void;
   className?: string;
-  // tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: ApolloClient<any>;
 }
 
@@ -41,7 +41,7 @@ class Component extends React.Component<Props, Local> {
     this.state = { argument: DamlLfValueF.initialValue(props.parameter) };
   }
 
-  componentWillReceiveProps(nextProps: Props) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props) {
     // If the choice changes, re-initialize the argument
     // (trying to reuse as much argument values as possible).
     if (this.props.choice !== nextProps.choice) {

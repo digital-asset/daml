@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -6,20 +6,22 @@ package com.daml.http
 import com.daml.http.Generators.{
   genDomainTemplateId,
   genDuplicateModuleEntityTemplateIds,
-  nonEmptySetOf
+  nonEmptySetOf,
 }
 import com.daml.http.PackageService.TemplateIdMap
 import com.daml.ledger.api.{v1 => lav1}
 import org.scalacheck.Shrink
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FreeSpec, Inside, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.Inside
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class PackageServiceTest
-    extends FreeSpec
+    extends AnyFreeSpec
     with Matchers
     with Inside
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
 
   import Shrink.shrinkAny
 
@@ -96,7 +98,8 @@ class PackageServiceTest
   "PackageService.resolveTemplateId" - {
 
     "should resolve unique Template ID by (moduleName, entityName)" in forAll(
-      nonEmptySetOf(genDomainTemplateId)) { ids =>
+      nonEmptySetOf(genDomainTemplateId)
+    ) { ids =>
       val map = PackageService.buildTemplateIdMap(ids)
       val uniqueIds: Set[domain.TemplateId.RequiredPkg] = map.unique.values.toSet
       uniqueIds.foreach { id =>
@@ -115,10 +118,10 @@ class PackageServiceTest
     }
 
     "should return None for unknown Template ID" in forAll(
-      Generators.genDomainTemplateIdO[Option[String]]) {
-      templateId: domain.TemplateId.OptionalPkg =>
-        val map = TemplateIdMap(Set.empty, Map.empty)
-        PackageService.resolveTemplateId(map)(templateId) shouldBe None
+      Generators.genDomainTemplateIdO[Option[String]]
+    ) { templateId: domain.TemplateId.OptionalPkg =>
+      val map = TemplateIdMap(Set.empty, Map.empty)
+      PackageService.resolveTemplateId(map)(templateId) shouldBe None
     }
   }
 
@@ -130,7 +133,8 @@ class PackageServiceTest
 
   private def noModuleEntityIntersection(
       as: Set[domain.TemplateId.RequiredPkg],
-      bs: Set[domain.TemplateId.RequiredPkg]): Boolean =
+      bs: Set[domain.TemplateId.RequiredPkg],
+  ): Boolean =
     !(toNoPkgSet(as) exists toNoPkgSet(bs))
 
   private def toNoPkgSet(xs: Set[domain.TemplateId.RequiredPkg]): Set[domain.TemplateId.NoPkg] =

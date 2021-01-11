@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth
@@ -28,14 +28,15 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
         logger.warn("Authorization error: " + error.message)
         CompletableFuture.completedFuture(Claims.empty)
       },
-      token => CompletableFuture.completedFuture(payloadToClaims(token))
+      token => CompletableFuture.completedFuture(payloadToClaims(token)),
     )
   }
 
   private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] = {
     import AuthServiceJWTCodec.JsonImplicits._
     Try(JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]).toEither.left.map(t =>
-      Error("Could not parse JWT token: " + t.getMessage))
+      Error("Could not parse JWT token: " + t.getMessage)
+    )
   }
 
   private[this] def decodeAndParse(headers: Metadata): Either[Error, AuthServiceJWTPayload] = {

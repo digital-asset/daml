@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.json
@@ -14,24 +14,26 @@ import com.daml.http.Generators.{
   genServiceWarning,
   genUnknownParties,
   genUnknownTemplateIds,
-  genWarningsWrapper
+  genWarningsWrapper,
 }
 import com.daml.scalautil.Statement.discard
 import com.daml.http.domain
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen.{identifier, listOf}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FreeSpec, Inside, Matchers, Succeeded}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.{Inside, Succeeded}
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.{\/, \/-}
 
 class JsonProtocolTest
-    extends FreeSpec
+    extends AnyFreeSpec
     with Matchers
     with Inside
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
 
   import JsonProtocol._
   import spray.json._
@@ -41,9 +43,8 @@ class JsonProtocolTest
 
   "domain.TemplateId.RequiredPkg" - {
     "can be serialized to JSON" in forAll(genDomainTemplateId) { a: domain.TemplateId.RequiredPkg =>
-      inside(a.toJson) {
-        case JsString(str) =>
-          str should ===(s"${a.packageId}:${a.moduleName}:${a.entityName}")
+      inside(a.toJson) { case JsString(str) =>
+        str should ===(s"${a.packageId}:${a.moduleName}:${a.entityName}")
       }
     }
     "roundtrips" in forAll(genDomainTemplateId) { a: domain.TemplateId.RequiredPkg =>
@@ -57,11 +58,11 @@ class JsonProtocolTest
       a: domain.TemplateId.OptionalPkg =>
         val expectedStr: String = a.packageId.cata(
           p => s"${p: String}:${a.moduleName}:${a.entityName}",
-          s"${a.moduleName}:${a.entityName}")
+          s"${a.moduleName}:${a.entityName}",
+        )
 
-        inside(a.toJson) {
-          case JsString(str) =>
-            str should ===(expectedStr)
+        inside(a.toJson) { case JsString(str) =>
+          str should ===(expectedStr)
         }
     }
     "roundtrips" in forAll(genDomainTemplateIdO) { a: domain.TemplateId.OptionalPkg =>
@@ -72,12 +73,11 @@ class JsonProtocolTest
 
   "domain.Contract" - {
     "can be serialized to JSON" in forAll(contractGen) { contract =>
-      inside(SprayJson.encode(contract)) {
-        case \/-(JsObject(fields)) =>
-          inside(fields.toList) {
-            case List(("archived", JsObject(_))) =>
-            case List(("created", JsObject(_))) =>
-          }
+      inside(SprayJson.encode(contract)) { case \/-(JsObject(fields)) =>
+        inside(fields.toList) {
+          case List(("archived", JsObject(_))) =>
+          case List(("created", JsObject(_))) =>
+        }
       }
     }
     "can be serialized and deserialized back to the same object" in forAll(contractGen) {
@@ -87,8 +87,8 @@ class JsonProtocolTest
           contract <- SprayJson.decode[domain.Contract[JsValue]](jsValue)
         } yield contract
 
-        inside(actual) {
-          case \/-(contract1) => contract1 shouldBe contract0
+        inside(actual) { case \/-(contract1) =>
+          contract1 shouldBe contract0
         }
     }
   }
@@ -171,7 +171,8 @@ class JsonProtocolTest
       inside(decode1[domain.SyncResponse, List[JsValue]](str)) {
         case \/-(domain.OkResponse(List(), Some(warning), StatusCodes.OK)) =>
           warning shouldBe domain.UnknownTemplateIds(
-            List(domain.TemplateId(Option.empty[String], "AAA", "BBB")))
+            List(domain.TemplateId(Option.empty[String], "AAA", "BBB"))
+          )
       }
     }
   }
@@ -183,7 +184,8 @@ class JsonProtocolTest
         val referenceFields: Map[String, JsValue] = cmd.reference.toJson.asJsObject.fields
         val expectedFields: Map[String, JsValue] = referenceFields ++ Map[String, JsValue](
           "choice" -> JsString(cmd.choice.unwrap),
-          "argument" -> cmd.argument) ++ cmd.meta.cata(x => Map("meta" -> x.toJson), Map.empty)
+          "argument" -> cmd.argument,
+        ) ++ cmd.meta.cata(x => Map("meta" -> x.toJson), Map.empty)
 
         actual shouldBe JsObject(expectedFields)
     }

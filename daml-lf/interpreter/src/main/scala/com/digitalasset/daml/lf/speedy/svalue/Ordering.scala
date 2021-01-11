@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -9,7 +9,7 @@ import data.{Bytes, Utf8}
 import language.TypeOrdering
 import value.Value.ContractId
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object Ordering extends scala.math.Ordering[SValue] {
 
@@ -116,7 +116,8 @@ object Ordering extends scala.math.Ordering[SValue] {
           Bytes.ordering.compare(suffix1, suffix2)
         else
           throw SError.SErrorCrash(
-            "Conflicting discriminators between a local and global contract id")
+            "Conflicting discriminators between a local and global contract id"
+          )
     }
 
 }

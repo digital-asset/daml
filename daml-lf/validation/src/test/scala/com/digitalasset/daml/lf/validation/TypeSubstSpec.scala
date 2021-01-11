@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -7,9 +7,10 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TypeSubstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class TypeSubstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   "A TypeSubst" should {
     "should be idempotent on terms that do not contain variable from its domain." in {
@@ -25,7 +26,7 @@ class TypeSubstSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
         t"beta1 beta2",
         t"beta1 -> beta2",
         t"< field1 : beta1, field2: beta2 >",
-        t"M:C (beta1 beta2) ((beta2 -> beta1) beta2)"
+        t"M:C (beta1 beta2) ((beta2 -> beta1) beta2)",
       )
 
       forEvery(testCases) { typ: Type =>
@@ -58,7 +59,7 @@ class TypeSubstSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
         t"<a: alpha, b: beta, c: alpha, d: beta>" ->
           t"<a: gamma, b: beta, c: gamma, d: beta>",
         t"M:C (alpha beta) ((beta -> alpha) beta)" ->
-          t"M:C (gamma beta) ((beta -> gamma) beta)"
+          t"M:C (gamma beta) ((beta -> gamma) beta)",
       )
 
       forEvery(testCases) { (input: Type, expectedOutput: Type) =>

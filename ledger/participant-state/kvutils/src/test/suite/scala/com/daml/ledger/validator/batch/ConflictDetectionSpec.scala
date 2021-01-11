@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.batch
@@ -9,8 +9,10 @@ import com.daml.lf.value.ValueOuterClass
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Inside, Matchers}
+import org.mockito.MockitoSugar
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with MockitoSugar {
   "detectConflictsAndRecover" should {
@@ -28,7 +30,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
             invalidatedKeys = Set.empty,
             inputState = Map(aliceKey -> None),
             logEntry = logEntry,
-            outputState = outputState
+            outputState = outputState,
           )
       }
 
@@ -48,7 +50,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
             invalidatedKeys = Set.empty,
             inputState = Map.empty,
             logEntry = aPartyLogEntry("Alice"),
-            outputState = outputState
+            outputState = outputState,
           )
       }
 
@@ -65,7 +67,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
           invalidatedKeys = Set(aliceKey),
           inputState = Map.empty,
           logEntry = aPartyLogEntry("Alice"),
-          outputState = outputState
+          outputState = outputState,
         )
       }
 
@@ -86,7 +88,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
           invalidatedKeys = invalidatedKeys,
           inputState = Map(aliceKey -> None),
           logEntry = logEntry,
-          outputState = outputState
+          outputState = outputState,
         )
       }
 
@@ -112,7 +114,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
           invalidatedKeys = invalidatedKeys,
           inputState = invalidatedKeys.map(_ -> None).toMap,
           logEntry = logEntry,
-          outputState = Map.empty
+          outputState = Map.empty,
         )
       }
 
@@ -137,12 +139,14 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
                 ValueOuterClass.Identifier.newBuilder
                   .addName("Foo")
                   .addModuleName("Bar")
-                  .setPackageId("Baz"))
+                  .setPackageId("Baz")
+              )
           )
           .build
       )
       txRejectionEntry.getInconsistent.getDetails should be(
-        "Contract key conflicts in contract template Baz:Bar:Foo")
+        "Contract key conflicts in contract template Baz:Bar:Foo"
+      )
     }
 
     "recover transaction conflicting on configuration" in {
@@ -167,7 +171,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
             invalidatedKeys = Set.empty,
             inputState = Map(aliceKey -> Some(aStateValue)),
             logEntry = logEntry,
-            outputState = outputState
+            outputState = outputState,
           )
       }
 
@@ -198,7 +202,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
             invalidatedKeys = Set.empty,
             inputState = Map(aliceKey -> Some(inputStateValue)),
             logEntry = logEntry,
-            outputState = outputState
+            outputState = outputState,
           )
       }
 
@@ -220,7 +224,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
           invalidatedKeys = invalidatedKeys,
           inputState = Map(key -> None),
           logEntry = aTransactionLogEntry,
-          outputState = outputState
+          outputState = outputState,
         )
     }
 

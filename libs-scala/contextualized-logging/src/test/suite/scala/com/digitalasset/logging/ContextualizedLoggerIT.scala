@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.logging
@@ -13,7 +13,8 @@ import ch.qos.logback.core.OutputStreamAppender
 import ch.qos.logback.core.encoder.Encoder
 import com.daml.logging.LoggingContext.{newLoggingContext, withEnrichedLoggingContext}
 import net.logstash.logback.encoder.LogstashEncoder
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration.DurationInt
@@ -24,9 +25,10 @@ private final case class Entry(
     level: String,
     a: Option[String],
     b: Option[String],
-    c: Option[String])
+    c: Option[String],
+)
 
-final class ContextualizedLoggerIT extends FlatSpec with Matchers {
+final class ContextualizedLoggerIT extends AnyFlatSpec with Matchers {
 
   behavior of "ContextualizedLogger"
 
@@ -37,9 +39,12 @@ final class ContextualizedLoggerIT extends FlatSpec with Matchers {
         logger.error("2")
         withEnrichedLoggingContext("b" -> "2") { implicit loggingContext =>
           logger.error("3")
-          Await.result(withEnrichedLoggingContext("c" -> "3") { implicit loggingContext =>
-            Future(logger.error("4"))(concurrent.ExecutionContext.global)
-          }, 10.seconds)
+          Await.result(
+            withEnrichedLoggingContext("c" -> "3") { implicit loggingContext =>
+              Future(logger.error("4"))(concurrent.ExecutionContext.global)
+            },
+            10.seconds,
+          )
           logger.info("3")
         }
         logger.info("2")
@@ -81,7 +86,7 @@ final class ContextualizedLoggerIT extends FlatSpec with Matchers {
       "4 (context: {a=1, b=2, c=3})",
       "3 (context: {a=1, b=2})",
       "2 (context: {a=1})",
-      "1"
+      "1",
     )
 
   }
@@ -95,7 +100,7 @@ object ContextualizedLoggerIT {
     val contextualizedLogger = ContextualizedLogger.createFor(logger)
     t(contextualizedLogger)
     output.close()
-    output.toString.split(System.lineSeparator())
+    output.toString.split(System.lineSeparator()).toIndexedSeq
   }
 
   private[this] def setupLogger(encoder: Encoder[ILoggingEvent]): (Logger, OutputStream) = {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -9,18 +9,19 @@ import com.daml.lf.data.{FrontStack, Ref}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SExpr.{SEApp, SEMakeClo, SEImportValue, SELocA}
-import com.daml.lf.value.{Value}
+import com.daml.lf.value.Value
 import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.test.ValueGenerators.{cidV0Gen, comparableCoidsGen}
 import com.daml.lf.PureCompiledPackages
 import org.scalacheck.{Arbitrary, Gen}
-import org.scalatest.prop.{
+import org.scalatest.prop.TableFor2
+import org.scalatestplus.scalacheck.{
   Checkers,
-  GeneratorDrivenPropertyChecks,
-  TableDrivenPropertyChecks,
-  TableFor2
+  ScalaCheckDrivenPropertyChecks,
+  ScalaCheckPropertyChecks,
 }
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.{Order, Tag}
 import scalaz.syntax.order._
 import scalaz.scalacheck.{ScalazProperties => SzP}
@@ -28,11 +29,11 @@ import scalaz.scalacheck.{ScalazProperties => SzP}
 import scala.language.implicitConversions
 
 class OrderingSpec
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with Checkers
-    with GeneratorDrivenPropertyChecks
-    with TableDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks
+    with ScalaCheckPropertyChecks {
 
   private val pkgId = Ref.PackageId.assertFromString("pkgId")
 
@@ -44,8 +45,8 @@ class OrderingSpec
 
   private val randomComparableValues: TableFor2[String, Gen[SValue]] = {
     import com.daml.lf.value.test.TypedValueGenerators.{ValueAddend => VA}
-    implicit val ordNo
-      : Order[Nothing] = Order order [Nothing]((_: Any, _: Any) => sys.error("impossible"))
+    implicit val ordNo: Order[Nothing] =
+      Order order [Nothing] ((_: Any, _: Any) => sys.error("impossible"))
     def r(name: String, va: VA)(sv: va.Inj[Nothing] => SValue) =
       (name, va.injarb[Nothing].arbitrary map sv)
     Table(
@@ -54,11 +55,11 @@ class OrderingSpec
         r("Int64", VA.int64)(SInt64),
         r("Text", VA.text)(SText),
         r("Int64 Option List", VA.list(VA.optional(VA.int64))) { loi =>
-          SList(loi.map(oi => SOptional(oi map SInt64)).to[FrontStack])
+          SList(loi.map(oi => SOptional(oi map SInt64)).to(FrontStack))
         },
       ) ++
-        comparableCoidsGen.zipWithIndex.map {
-          case (g, ix) => (s"ContractId $ix", g map SContractId)
+        comparableCoidsGen.zipWithIndex.map { case (g, ix) =>
+          (s"ContractId $ix", g map SContractId)
         }: _*
     )
   }
@@ -67,7 +68,7 @@ class OrderingSpec
     "be lawful on each subset" in forEvery(randomComparableValues) { (_, svGen) =>
       implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
       implicit val svalueArb: Arbitrary[SValue] = Arbitrary(svGen)
-      forEvery(Table(("law", "prop"), SzP.order.laws[SValue].properties: _*)) { (_, p) =>
+      forEvery(Table(("law", "prop"), SzP.order.laws[SValue].properties.toSeq: _*)) { (_, p) =>
         check(p, minSuccessful(50))
       }
     }

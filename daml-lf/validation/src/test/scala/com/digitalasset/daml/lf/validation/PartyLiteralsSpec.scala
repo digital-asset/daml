@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -7,9 +7,10 @@ import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+class PartyLiteralsSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   import PartyLiterals._
 
@@ -148,7 +149,8 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
       checkModule(
         world,
         defaultPackageId,
-        pkg.modules(DottedName.assertFromString("NegativeTestCase")))
+        pkg.modules(DottedName.assertFromString("NegativeTestCase")),
+      )
       forEvery(positiveTestCases) { modName =>
         an[EForbiddenPartyLiterals] should be thrownBy
           checkModule(world, defaultPackageId, pkg.modules(DottedName.assertFromString(modName)))

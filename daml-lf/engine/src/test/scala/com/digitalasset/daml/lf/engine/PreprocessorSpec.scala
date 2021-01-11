@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -11,11 +11,12 @@ import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class PreprocessorSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   import defaultParserParameters.{defaultPackageId => pkgId}
 

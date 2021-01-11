@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client
@@ -8,14 +8,16 @@ import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceMa
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandboxnext.SandboxNextFixture
 import io.grpc.ManagedChannel
-import org.scalatest.{AsyncWordSpec, Inside, Matchers}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.OneAnd
 
 final class LedgerClientIT
@@ -38,7 +40,7 @@ final class LedgerClientIT
   )
 
   override protected def config: SandboxConfig = super.config.copy(
-    ledgerIdMode = LedgerIdMode.Static(LedgerId),
+    ledgerIdMode = LedgerIdMode.Static(LedgerId)
   )
 
   "the ledger client" should {
@@ -80,15 +82,14 @@ final class LedgerClientIT
       for {
         client <- LedgerClient(channel, ClientConfiguration)
       } yield {
-        inside(channel) {
-          case channel: ManagedChannel =>
-            channel.isShutdown should be(false)
-            channel.isTerminated should be(false)
+        inside(channel) { case channel: ManagedChannel =>
+          channel.isShutdown should be(false)
+          channel.isTerminated should be(false)
 
-            client.close()
+          client.close()
 
-            channel.isShutdown should be(true)
-            channel.isTerminated should be(true)
+          channel.isShutdown should be(true)
+          channel.isTerminated should be(true)
         }
       }
     }

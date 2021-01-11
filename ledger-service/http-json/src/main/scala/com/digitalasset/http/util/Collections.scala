@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.util
@@ -14,9 +14,9 @@ object Collections {
 
     import collection.generic.CanBuildFrom
 
-    def partitionMap[E, B, Es, That](f: A => E \/ B)(
-        implicit es: CanBuildFrom[Self, E, Es],
-        that: CanBuildFrom[Self, B, That]): (Es, That) = {
+    def partitionMap[E, B, Es, That](
+        f: A => E \/ B
+    )(implicit es: CanBuildFrom[Self, E, Es], that: CanBuildFrom[Self, B, That]): (Es, That) = {
       val esb = es(self.repr)
       val thatb = that(self.repr)
       self foreach { a =>

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -10,6 +10,8 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue._
 import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import spray.json.{JsObject, JsString}
 
 final class AuthIT
@@ -29,9 +31,11 @@ final class AuthIT
             clients,
             QualifiedName.assertFromString("ScriptTest:auth"),
             inputValue = Some(JsObject(("_1", JsString("Alice")), ("_2", JsString("Bob")))),
-            dar = dar)
-        } yield
-          assert(r == SUnit) // Boring assertion, we just want to see that we do not get an authorization error
+            dar = dar,
+          )
+        } yield assert(
+          r == SUnit
+        ) // Boring assertion, we just want to see that we do not get an authorization error
       }
     }
   }

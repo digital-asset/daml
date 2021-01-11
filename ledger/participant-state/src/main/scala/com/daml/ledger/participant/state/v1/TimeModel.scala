@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
@@ -7,8 +7,7 @@ import java.time.{Duration, Instant}
 
 import scala.util.Try
 
-/**
-  * The ledger time model and associated validations. Some values are given by constructor args; others are derived.
+/** The ledger time model and associated validations. Some values are given by constructor args; others are derived.
   * @param avgTransactionLatency The expected average latency of a transaction, i.e., the average time
   *                              from submitting the transaction to a [[WriteService]] and the transaction
   *                              being assigned a record time.
@@ -23,13 +22,12 @@ case class TimeModel private (
     maxSkew: Duration,
 ) {
 
-  /**
-    * Verifies whether the given ledger time and record time are valid under the ledger time model.
+  /** Verifies whether the given ledger time and record time are valid under the ledger time model.
     * In particular, checks the skew condition: rt_TX - s_min <= lt_TX <= rt_TX + s_max.
     */
   def checkTime(
       ledgerTime: Instant,
-      recordTime: Instant
+      recordTime: Instant,
   ): Either[String, Unit] = {
     val lowerBound = minLedgerTime(recordTime)
     val upperBound = maxLedgerTime(recordTime)
@@ -54,8 +52,7 @@ case class TimeModel private (
 
 object TimeModel {
 
-  /**
-    * A default TimeModel that's reasonable for a test or sandbox ledger application.
+  /** A default TimeModel that's reasonable for a test or sandbox ledger application.
     * Serious applications (viz. ledger) should probably specify their own TimeModel.
     */
   val reasonableDefault: TimeModel =

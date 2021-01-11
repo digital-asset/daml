@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator
@@ -10,7 +10,7 @@ import com.codahale.metrics.Timer
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.kvutils.{Bytes, DamlStateMap, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
@@ -27,8 +27,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Orchestrates validating, transforming or committing submissions for key-value ledgers.
+/** Orchestrates validating, transforming or committing submissions for key-value ledgers.
   *
   * @param ledgerStateAccess     defines how the validator retrieves/writes back state to the ledger
   * @param processSubmission     defines how a log entry and state updates are generated
@@ -43,7 +42,7 @@ class SubmissionValidator[LogResult] private[validator] (
     processSubmission: SubmissionValidator.ProcessSubmission,
     allocateLogEntryId: () => DamlLogEntryId,
     checkForMissingInputs: Boolean,
-    stateValueCache: Cache[Bytes, DamlStateValue],
+    stateValueCache: StateValueCache,
     metrics: Metrics,
 ) {
 
@@ -52,7 +51,7 @@ class SubmissionValidator[LogResult] private[validator] (
   private val timedLedgerStateAccess = new TimedLedgerStateAccess(ledgerStateAccess)
 
   def validate(
-      envelope: Bytes,
+      envelope: Raw.Value,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -69,7 +68,7 @@ class SubmissionValidator[LogResult] private[validator] (
     }
 
   def validateAndCommit(
-      envelope: Bytes,
+      envelope: Raw.Value,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -79,12 +78,12 @@ class SubmissionValidator[LogResult] private[validator] (
     }
 
   private[validator] def validateAndCommitWithContext(
-      envelope: Bytes,
+      envelope: Raw.Value,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
-  )(
-      implicit executionContext: ExecutionContext,
+  )(implicit
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[ValidationFailed, LogResult]] =
     runValidation(
@@ -97,7 +96,7 @@ class SubmissionValidator[LogResult] private[validator] (
     )
 
   def validateAndTransform[U](
-      envelope: Bytes,
+      envelope: Raw.Value,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -105,7 +104,8 @@ class SubmissionValidator[LogResult] private[validator] (
           DamlLogEntryId,
           StateMap,
           LogEntryAndState,
-          LedgerStateOperations[LogResult]) => Future[U]
+          LedgerStateOperations[LogResult],
+      ) => Future[U],
   )(implicit executionContext: ExecutionContext): Future[Either[ValidationFailed, U]] =
     newLoggingContext { implicit loggingContext =>
       runValidation(
@@ -126,7 +126,8 @@ class SubmissionValidator[LogResult] private[validator] (
       stateOperations: LedgerStateOperations[LogResult],
   )(implicit executionContext: ExecutionContext): Future[LogResult] = {
     val (rawLogEntry, rawStateUpdates) = serializeProcessedSubmission(logEntryAndState)
-    val eventualLogResult = stateOperations.appendToLog(logEntryId.toByteString, rawLogEntry)
+    val eventualLogResult =
+      stateOperations.appendToLog(Raw.Key(logEntryId.toByteString), rawLogEntry)
     val eventualStateResult =
       if (rawStateUpdates.nonEmpty)
         stateOperations.writeState(rawStateUpdates)
@@ -140,7 +141,7 @@ class SubmissionValidator[LogResult] private[validator] (
 
   @tailrec
   private def runValidation[T](
-      envelope: Bytes,
+      envelope: Raw.Value,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -151,8 +152,8 @@ class SubmissionValidator[LogResult] private[validator] (
           LedgerStateOperations[LogResult],
       ) => Future[T],
       postProcessResultTimer: Option[Timer],
-  )(
-      implicit executionContext: ExecutionContext,
+  )(implicit
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[ValidationFailed, T]] =
     metrics.daml.kvutils.submission.validator.openEnvelope
@@ -165,22 +166,26 @@ class SubmissionValidator[LogResult] private[validator] (
         batch.getSubmissionsList.asScala.toList match {
           case correlatedSubmission :: Nil =>
             runValidation(
-              correlatedSubmission.getSubmission,
+              Raw.Value(correlatedSubmission.getSubmission),
               correlatedSubmission.getCorrelationId,
               recordTime,
               participantId,
               postProcessResult,
-              postProcessResultTimer)
+              postProcessResultTimer,
+            )
           case submissions =>
             logger.error(s"Unsupported batch size of ${submissions.length}, rejecting submission.")
-            Future.successful(Left(
-              ValidationFailed.ValidationError(s"Unsupported batch size of ${submissions.length}")))
+            Future.successful(
+              Left(
+                ValidationFailed.ValidationError(s"Unsupported batch size of ${submissions.length}")
+              )
+            )
         }
 
       case Right(Envelope.SubmissionMessage(submission)) =>
         val damlLogEntryId = allocateLogEntryId()
         val declaredInputs = submission.getInputDamlStateList.asScala
-        val inputKeysAsBytes = declaredInputs.map(keyToBytes)
+        val inputKeysAsBytes = declaredInputs.map(rawKey)
         timedLedgerStateAccess
           .inTransaction { stateOperations =>
             for {
@@ -190,13 +195,12 @@ class SubmissionValidator[LogResult] private[validator] (
                   readStateValues <- stateOperations.readState(inputKeysAsBytes)
                   readInputs = readStateValues.view
                     .zip(declaredInputs)
-                    .map {
-                      case (valueBytes, key) =>
-                        (key, valueBytes.map(stateValueCache.get(_, bytesToStateValue)))
+                    .map { case (valueBytes, key) =>
+                      (key, valueBytes.map(stateValueCache.getOrAcquire(_, stateValueFromRaw)))
                     }
                     .toMap
                   _ <- verifyAllInputsArePresent(declaredInputs, readInputs)
-                } yield readInputs
+                } yield readInputs,
               )
               logEntryAndState <- Timed.future(
                 metrics.daml.kvutils.submission.validator.validate,
@@ -207,7 +211,10 @@ class SubmissionValidator[LogResult] private[validator] (
                       recordTime,
                       submission,
                       participantId,
-                      readInputs)))
+                      readInputs,
+                    )
+                  )
+                ),
               )
               processResult = () =>
                 postProcessResult(
@@ -215,9 +222,10 @@ class SubmissionValidator[LogResult] private[validator] (
                   flattenInputStates(readInputs),
                   logEntryAndState,
                   stateOperations,
-              )
+                )
               result <- postProcessResultTimer.fold(processResult())(
-                Timed.future(_, processResult()))
+                Timed.future(_, processResult())
+              )
             } yield result
           }
           .transform {
@@ -231,7 +239,8 @@ class SubmissionValidator[LogResult] private[validator] (
           }
       case _ =>
         Future.successful(
-          Left(ValidationError(s"Failed to parse submission, correlationId=$correlationId")))
+          Left(ValidationError(s"Failed to parse submission, correlationId=$correlationId"))
+        )
     }
 
   private def verifyAllInputsArePresent[T](
@@ -241,7 +250,7 @@ class SubmissionValidator[LogResult] private[validator] (
     if (checkForMissingInputs) {
       val missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
       if (missingInputs.nonEmpty) {
-        Future.failed(MissingInputState(missingInputs.map(keyToBytes).toSeq))
+        Future.failed(MissingInputState(missingInputs.map(rawKey).toSeq))
       } else {
         Future.unit
       }
@@ -253,8 +262,8 @@ class SubmissionValidator[LogResult] private[validator] (
   private def flattenInputStates(
       inputs: DamlStateMap
   ): Map[DamlStateKey, DamlStateValue] =
-    inputs.collect {
-      case (key, Some(value)) => key -> value
+    inputs.collect { case (key, Some(value)) =>
+      key -> value
     }
 
   private final class TimedLedgerStateAccess(delegate: LedgerStateAccess[LogResult])
@@ -277,7 +286,9 @@ class SubmissionValidator[LogResult] private[validator] (
           body(operations)
             .transform(result =>
               Success(
-                (result, metrics.daml.kvutils.submission.validator.releaseTransactionLock.time())))
+                (result, metrics.daml.kvutils.submission.validator.releaseTransactionLock.time())
+              )
+            )
         }
         .transform {
           case Success((result, releaseTimer)) =>
@@ -295,7 +306,7 @@ class SubmissionValidator[LogResult] private[validator] (
 
 object SubmissionValidator {
 
-  type RawKeyValuePairs = Seq[(Bytes, Bytes)]
+  type RawKeyValuePairs = Seq[Raw.KeyValuePair]
 
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
@@ -315,7 +326,7 @@ object SubmissionValidator {
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
-      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
+      stateValueCache: StateValueCache = Cache.none,
       engine: Engine,
       metrics: Metrics,
   ): SubmissionValidator[LogResult] = {
@@ -335,7 +346,7 @@ object SubmissionValidator {
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
-      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
+      stateValueCache: StateValueCache = Cache.none,
       engine: Engine,
       metrics: Metrics,
       inStaticTimeMode: Boolean,
@@ -367,29 +378,30 @@ object SubmissionValidator {
       LedgerReader.DefaultConfiguration,
       damlSubmission,
       participantId,
-      inputState
+      inputState,
     )
 
   private[validator] def serializeProcessedSubmission(
-      logEntryAndState: LogEntryAndState): (Bytes, RawKeyValuePairs) = {
+      logEntryAndState: LogEntryAndState
+  ): (Raw.Value, RawKeyValuePairs) = {
     val (logEntry, damlStateUpdates) = logEntryAndState
     val rawStateUpdates =
       damlStateUpdates
-        .map {
-          case (key, value) => keyToBytes(key) -> valueToBytes(value)
+        .map { case (key, value) =>
+          rawKey(key) -> rawValue(value)
         }
         .toSeq
-        .sortBy(_._1.asReadOnlyByteBuffer())
+        .sortBy(_._1)
     (Envelope.enclose(logEntry), rawStateUpdates)
   }
 
-  private[validator] def keyToBytes(damlStateKey: DamlStateKey): Bytes =
-    damlStateKey.toByteString
+  private[validator] def rawKey(damlStateKey: DamlStateKey): Raw.Key =
+    Raw.Key(damlStateKey.toByteString)
 
-  private[validator] def valueToBytes(value: DamlStateValue): Bytes =
+  private[validator] def rawValue(value: DamlStateValue): Raw.Value =
     Envelope.enclose(value)
 
-  private[validator] def bytesToStateValue(value: Bytes): DamlStateValue =
+  private[validator] def stateValueFromRaw(value: Raw.Value): DamlStateValue =
     Envelope
       .openStateValue(value)
       .fold(message => throw new IllegalStateException(message), identity)

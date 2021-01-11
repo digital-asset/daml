@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.util
@@ -43,9 +43,10 @@ object TestUtil extends LazyLogging {
       case Failure(ex) => throw ex
     }
 
-  def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false)(
-      implicit mat: Materializer,
-      ec: ExecutionContext): Future[String] = {
+  def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false)(implicit
+      mat: Materializer,
+      ec: ExecutionContext,
+  ): Future[String] = {
     val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
     if (debug) fb.foreach(x => logger.info(s"---- response data: $x"))
     fb

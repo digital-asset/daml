@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator
@@ -13,8 +13,7 @@ import com.daml.ledger.api.refinements.ApiTypes
 
 package object model extends NavigatorModelAliases[String] {
 
-  /**
-    * An opaque identifier used for templates.
+  /** An opaque identifier used for templates.
     * Templates are usually identified using a composite type (see [[DamlLfIdentifier]]).
     */
   type TemplateStringId = String @@ TemplateStringIdTag
@@ -62,7 +61,8 @@ package object model extends NavigatorModelAliases[String] {
         DamlLfRef.PackageId.assertFromString(id.packageId),
         DamlLfRef.QualifiedName(
           DamlLfRef.DottedName.assertFromString(id.moduleName),
-          DamlLfRef.DottedName.assertFromString(id.entityName))
+          DamlLfRef.DottedName.assertFromString(id.entityName),
+        ),
       )
 
     /** An opaque unique string for this identifier */
@@ -74,7 +74,8 @@ package object model extends NavigatorModelAliases[String] {
       ApiV1.value.Identifier(
         id.packageId,
         id.qualifiedName.module.toString(),
-        id.qualifiedName.name.toString())
+        id.qualifiedName.name.toString(),
+      )
 
     /** An opaque unique string for this identifier */
     def asOpaqueString: String =
@@ -91,7 +92,9 @@ package object model extends NavigatorModelAliases[String] {
         Some(
           DamlLfRef.Identifier(
             DamlLfRef.PackageId.assertFromString(packageId),
-            DamlLfRef.QualifiedName.assertFromString(qualifiedName)))
+            DamlLfRef.QualifiedName.assertFromString(qualifiedName),
+          )
+        )
       case _ =>
         None
     }

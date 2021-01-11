@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: templates
@@ -66,7 +66,7 @@ Signatory parties
 - ``signatory`` keyword. After ``where``. Followed by at least one ``Party``.
 - Signatories are the parties (see the ``Party`` type) who must consent to the creation of this contract. They are the parties who would be put into an *obligable position* when this contract is created.
 
-  DAML won't let you put someone into an obligable position without their consent. So if the contract will cause obligations for a party, they *must* be a signatory. **If they haven't authorized it, you won't be able to create the contract.** In this situation, you may see errors like:
+  Daml won't let you put someone into an obligable position without their consent. So if the contract will cause obligations for a party, they *must* be a signatory. **If they haven't authorized it, you won't be able to create the contract.** In this situation, you may see errors like:
 
   ``NameOfTemplate requires authorizers Party1,Party2,Party, but only Party1 were given.``
 - When a signatory consents to the contract creation, this means they also authorize the consequences of :ref:`choices <daml-ref-choices>` that can be exercised on this contract.

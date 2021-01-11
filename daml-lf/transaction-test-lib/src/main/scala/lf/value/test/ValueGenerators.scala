@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,27 +8,26 @@ package test
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.transaction.Node.{
+  GenNode,
   KeyWithMaintainers,
   NodeCreate,
   NodeExercises,
   NodeFetch,
-  VersionedNode
 }
-import com.daml.lf.transaction.VersionTimeline.Implicits._
 import com.daml.lf.transaction.{
   BlindingInfo,
   GenTransaction,
   NodeId,
   TransactionVersion,
-  TransactionVersions,
-  VersionTimeline,
   VersionedTransaction,
-  Transaction => Tx
+  Transaction => Tx,
 }
+import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{NodeId => _, _}
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.HashMap
 import scalaz.syntax.apply._
 import scalaz.scalacheck.ScalaCheckBinding._
@@ -47,7 +46,7 @@ object ValueGenerators {
         (1, Gen.const(Numeric.assertFromBigDecimal(scale, 0))),
         (1, Gen.const(Numeric.maxValue(scale))),
         (1, Gen.const(Numeric.minValue(scale))),
-        (5, num)
+        (5, num),
       )
   }
 
@@ -113,10 +112,10 @@ object ValueGenerators {
       variantName <- nameGen
       toOption <- Gen
         .oneOf(true, false)
-        .map(
-          withoutLabels =>
-            if (withoutLabels) (_: Identifier) => None
-            else (variantId: Identifier) => Some(variantId))
+        .map(withoutLabels =>
+          if (withoutLabels) (_: Identifier) => None
+          else (variantId: Identifier) => Some(variantId)
+        )
       value <- Gen.lzy(valueGen(nesting))
     } yield ValueVariant(toOption(id), variantName, value)
 
@@ -127,12 +126,15 @@ object ValueGenerators {
       id <- idGen
       toOption <- Gen
         .oneOf(true, false)
-        .map(
-          a =>
-            if (a) (_: Identifier) => None
-            else (x: Identifier) => Some(x))
-      labelledValues <- Gen.listOf(nameGen.flatMap(label =>
-        Gen.lzy(valueGen(nesting)).map(x => if (label.isEmpty) (None, x) else (Some(label), x))))
+        .map(a =>
+          if (a) (_: Identifier) => None
+          else (x: Identifier) => Some(x)
+        )
+      labelledValues <- Gen.listOf(
+        nameGen.flatMap(label =>
+          Gen.lzy(valueGen(nesting)).map(x => if (label.isEmpty) (None, x) else (Some(label), x))
+        )
+      )
     } yield ValueRecord[ContractId](toOption(id), ImmArray(labelledValues))
 
   def recordGen: Gen[ValueRecord[ContractId]] = recordGen(0)
@@ -167,7 +169,10 @@ object ValueGenerators {
 
   private val genHash: Gen[crypto.Hash] =
     Gen
-      .containerOfN[Array, Byte](crypto.Hash.underlyingHashLength, arbitrary[Byte]) map crypto.Hash.assertFromByteArray
+      .containerOfN[Array, Byte](
+        crypto.Hash.underlyingHashLength,
+        arbitrary[Byte],
+      ) map crypto.Hash.assertFromByteArray
   private val genSuffixes: Gen[Bytes] = for {
     sz <- Gen.chooseNum(0, ContractId.V1.MaxSuffixLength)
     ab <- Gen.containerOfN[Array, Byte](sz, arbitrary[Byte])
@@ -176,8 +181,8 @@ object ValueGenerators {
   val cidV0Gen: Gen[ContractId.V0] =
     Gen.alphaStr.map(t => Value.ContractId.V0.assertFromString('#' +: t.take(254)))
   private val cidV1Gen: Gen[ContractId.V1] =
-    Gen.zip(genHash, genSuffixes) map {
-      case (h, b) => ContractId.V1.assertBuild(h, b)
+    Gen.zip(genHash, genSuffixes) map { case (h, b) =>
+      ContractId.V1.assertBuild(h, b)
     }
 
   /** Universes of totally-ordered ContractIds. */
@@ -185,14 +190,13 @@ object ValueGenerators {
     Seq(
       Gen.oneOf(
         cidV0Gen,
-        Gen.zip(cidV1Gen, arbitrary[Byte]) map {
-          case (b1, b) =>
-            ContractId.V1
-              .assertBuild(
-                b1.discriminator,
-                if (b1.suffix.nonEmpty) b1.suffix else Bytes fromByteArray Array(b)
-              )
-        }
+        Gen.zip(cidV1Gen, arbitrary[Byte]) map { case (b1, b) =>
+          ContractId.V1
+            .assertBuild(
+              b1.discriminator,
+              if (b1.suffix.nonEmpty) b1.suffix else Bytes fromByteArray Array(b),
+            )
+        },
       ),
       Gen.oneOf(cidV0Gen, cidV1Gen map (cid => ContractId.V1(cid.discriminator))),
     )
@@ -225,7 +229,8 @@ object ValueGenerators {
         (sz + 1, Gen.oneOf(ValueTrue, ValueFalse)),
       )
       val all =
-        if (nesting >= MAXIMUM_NESTING) { List() } else { nested } ++
+        if (nesting >= MAXIMUM_NESTING) { List() }
+        else { nested } ++
           flat
       Gen.frequency(all: _*)
     })
@@ -251,8 +256,8 @@ object ValueGenerators {
   def versionedValueGen: Gen[VersionedValue[ContractId]] =
     for {
       value <- valueGen
-      minVersion = ValueVersions.assertAssignVersion(value)
-      version <- valueVersionGen(minVersion)
+      minVersion = TransactionBuilder.assertAssignVersion(value)
+      version <- transactionVersionGen(minVersion)
     } yield VersionedValue(version, value)
 
   private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
@@ -262,17 +267,24 @@ object ValueGenerators {
   @deprecated("use genNonEmptyParties instead", since = "100.11.17")
   private[lf] def genParties = genNonEmptyParties
 
-  val contractInstanceGen: Gen[ContractInst[Tx.Value[Value.ContractId]]] = {
+  val contractInstanceGen: Gen[ContractInst[Value[Value.ContractId]]] = {
+    for {
+      template <- idGen
+      arg <- valueGen
+      agreement <- Arbitrary.arbitrary[String]
+    } yield ContractInst(template, arg, agreement)
+  }
+
+  val versionedContractInstanceGen: Gen[ContractInst[Value.VersionedValue[Value.ContractId]]] =
     for {
       template <- idGen
       arg <- versionedValueGen
       agreement <- Arbitrary.arbitrary[String]
     } yield ContractInst(template, arg, agreement)
-  }
 
-  val keyWithMaintainersGen: Gen[KeyWithMaintainers[Tx.Value[Value.ContractId]]] = {
+  val keyWithMaintainersGen: Gen[KeyWithMaintainers[Value[Value.ContractId]]] = {
     for {
-      key <- versionedValueGen
+      key <- valueGen
       maintainers <- genNonEmptyParties
     } yield KeyWithMaintainers(key, maintainers)
   }
@@ -282,18 +294,20 @@ object ValueGenerators {
     * 1. stakeholders may not be a superset of signatories
     * 2. key's maintainers may not be a subset of signatories
     */
-  val malformedCreateNodeGen: Gen[NodeCreate.WithTxValue[Value.ContractId]] = {
+  val malformedCreateNodeGen: Gen[NodeCreate[Value.ContractId]] = {
     for {
+      version <- transactionVersionGen()
       coid <- coidGen
       coinst <- contractInstanceGen
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
-    } yield NodeCreate(coid, coinst, None, signatories, stakeholders, key)
+    } yield NodeCreate(coid, coinst, None, signatories, stakeholders, key, version)
   }
 
-  val fetchNodeGen: Gen[NodeFetch.WithTxValue[ContractId]] = {
+  val fetchNodeGen: Gen[NodeFetch[ContractId]] = {
     for {
+      version <- transactionVersionGen()
       coid <- coidGen
       templateId <- idGen
       actingParties <- genNonEmptyParties
@@ -301,19 +315,29 @@ object ValueGenerators {
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
-    } yield NodeFetch(coid, templateId, None, actingParties, signatories, stakeholders, key, byKey)
+    } yield NodeFetch(
+      coid,
+      templateId,
+      None,
+      actingParties,
+      signatories,
+      stakeholders,
+      key,
+      byKey,
+      version,
+    )
   }
 
   /** Makes exercise nodes with some random child IDs. */
-  val danglingRefExerciseNodeGen
-    : Gen[NodeExercises[NodeId, Value.ContractId, Tx.Value[Value.ContractId]]] = {
+  val danglingRefExerciseNodeGen: Gen[NodeExercises[NodeId, Value.ContractId]] = {
     for {
+      version <- transactionVersionGen()
       targetCoid <- coidGen
       templateId <- idGen
       choiceId <- nameGen
       consume <- Gen.oneOf(true, false)
       actingParties <- genNonEmptyParties
-      chosenValue <- versionedValueGen
+      chosenValue <- valueGen
       stakeholders <- genNonEmptyParties
       signatories <- genNonEmptyParties
       choiceObservers <- genMaybeEmptyParties
@@ -321,27 +345,27 @@ object ValueGenerators {
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
         .map(ImmArray(_))
-      exerciseResultValue <- versionedValueGen
-      key <- versionedValueGen
+      exerciseResultValue <- valueGen
+      key <- valueGen
       maintainers <- genNonEmptyParties
       byKey <- Gen.oneOf(true, false)
-    } yield
-      NodeExercises(
-        targetCoid,
-        templateId,
-        choiceId,
-        None,
-        consume,
-        actingParties,
-        chosenValue,
-        stakeholders,
-        signatories,
-        choiceObservers = choiceObservers,
-        children,
-        Some(exerciseResultValue),
-        Some(KeyWithMaintainers(key, maintainers)),
-        byKey = byKey,
-      )
+    } yield NodeExercises(
+      targetCoid,
+      templateId,
+      choiceId,
+      None,
+      consume,
+      actingParties,
+      chosenValue,
+      stakeholders,
+      signatories,
+      choiceObservers = choiceObservers,
+      children,
+      Some(exerciseResultValue),
+      Some(KeyWithMaintainers(key, maintainers)),
+      byKey,
+      version,
+    )
   }
 
   @deprecated("use danglingRefExerciseNodeGen instead", since = "100.11.17")
@@ -374,7 +398,7 @@ object ValueGenerators {
     *
     * This list is complete as of transaction version 5. -SC
     */
-  val malformedGenTransaction: Gen[GenTransaction.WithTxValue[NodeId, ContractId]] = {
+  val malformedGenTransaction: Gen[GenTransaction[NodeId, ContractId]] = {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
       roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId(_)))
@@ -392,11 +416,11 @@ object ValueGenerators {
    *
    */
 
-  val noDanglingRefGenTransaction: Gen[GenTransaction.WithTxValue[NodeId, ContractId]] = {
+  val noDanglingRefGenTransaction: Gen[GenTransaction[NodeId, ContractId]] = {
 
     def nonDanglingRefNodeGen(
         maxDepth: Int,
-        nodeId: NodeId
+        nodeId: NodeId,
     ): Gen[(ImmArray[NodeId], HashMap[NodeId, Tx.Node])] = {
 
       val exerciseFreq = if (maxDepth <= 0) 0 else 1
@@ -406,10 +430,10 @@ object ValueGenerators {
           node <- Gen.frequency(
             exerciseFreq -> danglingRefExerciseNodeGen,
             1 -> malformedCreateNodeGen,
-            2 -> fetchNodeGen
+            2 -> fetchNodeGen,
           )
           nodeWithChildren <- node match {
-            case node: NodeExercises.WithTxValue[NodeId, Value.ContractId] =>
+            case node: NodeExercises[NodeId, Value.ContractId] =>
               for {
                 depth <- Gen.choose(0, maxDepth - 1)
                 nodeWithChildren <- nonDanglingRefNodeGen(depth, nodeId)
@@ -425,37 +449,34 @@ object ValueGenerators {
           parentNodeId: NodeId,
           size: Int,
           nodeIds: BackStack[NodeId] = BackStack.empty,
-          nodes: HashMap[NodeId, Tx.Node] = HashMap.empty
+          nodes: HashMap[NodeId, Tx.Node] = HashMap.empty,
       ): Gen[(ImmArray[NodeId], HashMap[NodeId, Tx.Node])] =
         if (size <= 0)
           Gen.const(nodeIds.toImmArray -> nodes)
         else
-          nodeGen(NodeId(parentNodeId.index * 10 + size)).flatMap {
-            case (nodeId, children) =>
-              nodesGen(parentNodeId, size - 1, nodeIds :+ nodeId, nodes ++ children)
+          nodeGen(NodeId(parentNodeId.index * 10 + size)).flatMap { case (nodeId, children) =>
+            nodesGen(parentNodeId, size - 1, nodeIds :+ nodeId, nodes ++ children)
           }
 
       Gen.choose(0, 6).flatMap(nodesGen(nodeId, _))
     }
 
-    nonDanglingRefNodeGen(3, NodeId(0)).map {
-      case (nodeIds, nodes) =>
-        GenTransaction(nodes, nodeIds)
+    nonDanglingRefNodeGen(3, NodeId(0)).map { case (nodeIds, nodes) =>
+      GenTransaction(nodes, nodeIds)
     }
   }
 
   def noDanglingRefGenVersionedTransaction: Gen[VersionedTransaction[NodeId, ContractId]] = {
-    import VersionTimeline.Implicits._
     for {
       tx <- noDanglingRefGenTransaction
-      txVer <- transactionVersionGen
-      nodeVersionGen = transactionVersionGen.filter(v => !(txVer precedes v))
-      nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, VersionedNode[NodeId, ContractId]])) {
+      txVer <- transactionVersionGen()
+      nodeVersionGen = transactionVersionGen().filterNot(_ < txVer)
+      nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, GenNode[NodeId, ContractId]])) {
         case (acc, (nodeId, node)) =>
           for {
             hashMap <- acc
             version <- nodeVersionGen
-          } yield hashMap.updated(nodeId, VersionedNode(version, node))
+          } yield hashMap.updated(nodeId, node.updateVersion(version))
       }
     } yield VersionedTransaction(txVer, nodes, tx.roots)
 
@@ -465,11 +486,13 @@ object ValueGenerators {
     val nodePartiesGen = Gen.mapOf(
       arbitrary[Int]
         .map(NodeId(_))
-        .flatMap(n => genMaybeEmptyParties.map(ps => (n, ps))))
+        .flatMap(n => genMaybeEmptyParties.map(ps => (n, ps)))
+    )
     for {
       disclosed <- nodePartiesGen
       divulged <- Gen.mapOf(
-        cidV0Gen.flatMap(c => genMaybeEmptyParties.map(ps => (c: ContractId) -> ps)))
+        cidV0Gen.flatMap(c => genMaybeEmptyParties.map(ps => (c: ContractId) -> ps))
+      )
     } yield BlindingInfo(disclosed, divulged)
   }
 
@@ -483,19 +506,10 @@ object ValueGenerators {
     Gen.frequency((1, Gen.const("")), (10, g))
   }
 
-  def valueVersionGen(minVersion: ValueVersion = ValueVersions.minVersion): Gen[ValueVersion] =
-    Gen.oneOf(ValueVersions.acceptedVersions.filterNot(_ precedes minVersion).toSeq)
-
-  def unsupportedValueVersionGen: Gen[ValueVersion] =
-    stringVersionGen.map(ValueVersion).filter(x => !ValueVersions.acceptedVersions.contains(x))
-
-  def transactionVersionGen: Gen[TransactionVersion] =
-    Gen.oneOf(TransactionVersions.acceptedVersions)
-
-  def unsupportedTransactionVersionGen: Gen[TransactionVersion] =
-    stringVersionGen
-      .map(TransactionVersion)
-      .filter(x => !TransactionVersions.acceptedVersions.contains(x))
+  def transactionVersionGen(
+      minVersion: TransactionVersion = TransactionVersion.minVersion
+  ): Gen[TransactionVersion] =
+    Gen.oneOf(TransactionVersion.All.filterNot(_ < minVersion))
 
   object Implicits {
     implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)

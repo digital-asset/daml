@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.json
@@ -6,8 +6,7 @@ package com.daml.navigator.json
 import com.daml.lf.data.Ref
 import spray.json._
 
-/**
-  * JSON encoding utils
+/** JSON encoding utils
   */
 object Util {
   def strField(obj: JsValue, name: String, as: String): String =
@@ -25,7 +24,7 @@ object Util {
       .fromString(strField(obj, name, as))
       .fold(
         err => deserializationError(s"Can't read ${obj.prettyPrint} as $as, $err"),
-        identity
+        identity,
       )
 
   def intField(obj: JsValue, name: String, as: String): Long =
@@ -33,7 +32,8 @@ object Util {
       case Some(JsNumber(v)) => v.toLongExact
       case Some(_) =>
         deserializationError(
-          s"Can't read ${obj.prettyPrint} as $as, field '$name' is not an integer")
+          s"Can't read ${obj.prettyPrint} as $as, field '$name' is not an integer"
+        )
       case None =>
         deserializationError(s"Can't read ${obj.prettyPrint} as $as, missing field '$name'")
     }
@@ -43,7 +43,8 @@ object Util {
       case Some(JsBoolean(v)) => v
       case Some(_) =>
         deserializationError(
-          s"Can't read ${obj.prettyPrint} as $as, field '$name' is not a boolean")
+          s"Can't read ${obj.prettyPrint} as $as, field '$name' is not a boolean"
+        )
       case None =>
         deserializationError(s"Can't read ${obj.prettyPrint} as $as, missing field '$name'")
     }
@@ -89,7 +90,7 @@ object Util {
         .fromString(v)
         .fold(
           err => deserializationError(s"Can't read ${value.prettyPrint} as $as, $err"),
-          identity
+          identity,
         )
     case _ => deserializationError(s"Can't read ${value.prettyPrint} as $as, value is not a string")
   }

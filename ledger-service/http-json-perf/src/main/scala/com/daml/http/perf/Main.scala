@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.perf
@@ -86,11 +86,11 @@ object Main extends StrictLogging {
         ExitCode.TimedOutScenario
     }
 
-  private def main1(config: Config[String])(
-      implicit asys: ActorSystem,
+  private def main1(config: Config[String])(implicit
+      asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
-      ec: ExecutionContext
+      ec: ExecutionContext,
   ): Future[Throwable \/ ExitCode] = {
     import scalaz.syntax.traverse._
 
@@ -99,7 +99,8 @@ object Main extends StrictLogging {
     val et: ET[ExitCode] = for {
       ledgerId <- either(
         getLedgerId(config.jwt).leftMap(_ =>
-          new IllegalArgumentException("Cannot infer Ledger ID from JWT"))
+          new IllegalArgumentException("Cannot infer Ledger ID from JWT")
+        )
       ): ET[LedgerId]
 
       _ <- either(
@@ -115,23 +116,22 @@ object Main extends StrictLogging {
     et.run
   }
 
-  private def main2(ledgerId: LedgerId, config: Config[String])(
-      implicit asys: ActorSystem,
+  private def main2(ledgerId: LedgerId, config: Config[String])(implicit
+      asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
-      ec: ExecutionContext
+      ec: ExecutionContext,
   ): Future[ExitCode] =
     withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, _) =>
       withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
         withHttpService(ledgerId.unwrap, ledgerPort, jsonApiJdbcConfig, None) { (uri, _, _, _) =>
           runGatlingScenario(config, uri.authority.host.address, uri.authority.port)
-            .flatMap {
-              case (exitCode, dir) =>
-                toFuture(generateReport(dir))
-                  .map { _ =>
-                    logger.info(s"Report directory: ${dir.getAbsolutePath}")
-                    exitCode
-                  }
+            .flatMap { case (exitCode, dir) =>
+              toFuture(generateReport(dir))
+                .map { _ =>
+                  logger.info(s"Report directory: ${dir.getAbsolutePath}")
+                  exitCode
+                }
             }: Future[ExitCode]
         }
       }
@@ -139,8 +139,8 @@ object Main extends StrictLogging {
 
   private def withJsonApiJdbcConfig[A](jsonApiQueryStoreEnabled: Boolean)(
       fn: Option[JdbcConfig] => Future[A]
-  )(
-      implicit ec: ExecutionContext
+  )(implicit
+      ec: ExecutionContext
   ): Future[A] =
     if (jsonApiQueryStoreEnabled) {
       for {
@@ -148,7 +148,9 @@ object Main extends StrictLogging {
         dbConfig <- toFuture(dbInstance.start())
         jsonApiDbConfig <- Future.successful(jsonApiJdbcConfig(dbConfig))
         a <- fn(Some(jsonApiDbConfig))
-        _ <- Future.successful(dbInstance.stop()) // TODO: use something like `lf.data.TryOps.Bracket.bracket`
+        _ <- Future.successful(
+          dbInstance.stop()
+        ) // TODO: use something like `lf.data.TryOps.Bracket.bracket`
       } yield a
     } else {
       fn(None)
@@ -160,7 +162,8 @@ object Main extends StrictLogging {
       url = c.url,
       user = "test",
       password = "",
-      createSchema = true)
+      createSchema = true,
+    )
 
   private def resolveSimulationClass(str: String): Throwable \/ Class[_ <: Simulation] = {
     try {
@@ -180,9 +183,11 @@ object Main extends StrictLogging {
       .map { case (_, payload) => payload.ledgerId }
   }
 
-  private def runGatlingScenario(config: Config[String], jsonApiHost: String, jsonApiPort: Int)(
-      implicit sys: ActorSystem,
-      ec: ExecutionContext): Future[(ExitCode, File)] = {
+  private def runGatlingScenario(
+      config: Config[String],
+      jsonApiHost: String,
+      jsonApiPort: Int,
+  )(implicit sys: ActorSystem, ec: ExecutionContext): Future[(ExitCode, File)] = {
 
     import io.gatling.app
     import io.gatling.core.config.GatlingPropertiesBuilder
@@ -200,9 +205,8 @@ object Main extends StrictLogging {
       .fromTry {
         app.CustomRunner.runWith(sys, configBuilder.build, None)
       }
-      .map {
-        case (a, f) =>
-          if (a == app.cli.StatusCode.Success.code) (ExitCode.Ok, f) else (ExitCode.GatlingError, f)
+      .map { case (a, f) =>
+        if (a == app.cli.StatusCode.Success.code) (ExitCode.Ok, f) else (ExitCode.GatlingError, f)
       }
   }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.memory
@@ -6,7 +6,7 @@ package com.daml.ledger.on.memory
 import java.util.concurrent.locks.StampedLock
 
 import com.daml.ledger.on.memory.InMemoryState._
-import com.daml.ledger.participant.state.kvutils.Bytes
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.v1.Offset
 import com.google.protobuf.ByteString
@@ -23,8 +23,8 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
 
   def newHeadSinceLastWrite(): Int = lastLogEntryIndex
 
-  def write[A](action: (MutableLog, MutableState) => Future[A])(
-      implicit executionContext: ExecutionContext
+  def write[A](action: (MutableLog, MutableState) => Future[A])(implicit
+      executionContext: ExecutionContext
   ): Future[A] =
     for {
       stamp <- Future {
@@ -33,26 +33,23 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
         }
       }
       result <- action(log, state)
-        .andThen {
-          case _ =>
-            lastLogEntryIndex = log.size - 1
-            lockCurrentState.unlock(stamp)
+        .andThen { case _ =>
+          lastLogEntryIndex = log.size - 1
+          lockCurrentState.unlock(stamp)
         }
     } yield result
 }
 
 object InMemoryState {
   type ImmutableLog = IndexedSeq[LedgerRecord]
-  type ImmutableState = collection.Map[StateKey, StateValue]
+  type ImmutableState = collection.Map[Raw.Key, Raw.Value]
 
   type MutableLog = mutable.Buffer[LedgerRecord] with ImmutableLog
-  type MutableState = mutable.Map[StateKey, StateValue] with ImmutableState
-
-  type StateKey = Bytes
-  type StateValue = Bytes
+  type MutableState = mutable.Map[Raw.Key, Raw.Value] with ImmutableState
 
   // The first element will never be read because begin offsets are exclusive.
-  private val Beginning = LedgerRecord(Offset.beforeBegin, ByteString.EMPTY, ByteString.EMPTY)
+  private val Beginning =
+    LedgerRecord(Offset.beforeBegin, Raw.Key(ByteString.EMPTY), Raw.Value(ByteString.EMPTY))
 
   def empty =
     new InMemoryState(

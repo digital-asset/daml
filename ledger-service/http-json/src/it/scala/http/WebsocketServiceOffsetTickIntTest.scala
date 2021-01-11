@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -6,6 +6,8 @@ package com.daml.http
 import com.daml.http.HttpServiceTestFixture.UseTls
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.\/-
 
 import scala.concurrent.duration._
@@ -37,10 +39,9 @@ class WebsocketServiceOffsetTickIntTest
         .take(10)
         .runWith(collectResultsAsTextMessage)
     } yield {
-      inside(eventsBlockVector(msgs.toVector)) {
-        case \/-(offsetTicks) =>
-          offsetTicks.forall(isOffsetTick) shouldBe true
-          offsetTicks should have length 10
+      inside(eventsBlockVector(msgs.toVector)) { case \/-(offsetTicks) =>
+        offsetTicks.forall(isOffsetTick) shouldBe true
+        offsetTicks should have length 10
       }
     }
   }
@@ -54,12 +55,11 @@ class WebsocketServiceOffsetTickIntTest
           .take(10)
           .runWith(collectResultsAsTextMessage)
       } yield {
-        inside(eventsBlockVector(msgs.toVector)) {
-          case \/-(acs +: offsetTicks) =>
-            isAcs(acs) shouldBe true
-            acs.events should have length 1
-            offsetTicks.forall(isAbsoluteOffsetTick) shouldBe true
-            offsetTicks should have length 9
+        inside(eventsBlockVector(msgs.toVector)) { case \/-(acs +: offsetTicks) =>
+          isAcs(acs) shouldBe true
+          acs.events should have length 1
+          offsetTicks.forall(isAbsoluteOffsetTick) shouldBe true
+          offsetTicks should have length 9
         }
       }
   }

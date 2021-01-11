@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
@@ -7,9 +7,11 @@ import java.io.FileInputStream
 import java.util.zip.ZipInputStream
 
 import com.daml.bazeltools.BazelRunfiles
-import org.scalatest.{FlatSpec, Matchers, TryValues}
+import org.scalatest.TryValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-final class ZipBombDetectionSpec extends FlatSpec with Matchers with TryValues {
+final class ZipBombDetectionSpec extends AnyFlatSpec with Matchers with TryValues {
 
   private def bomb: ZipInputStream =
     new ZipInputStream(

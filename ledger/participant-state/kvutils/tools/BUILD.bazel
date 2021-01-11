@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -9,6 +9,7 @@ load(
     "da_scala_test",
     "lf_scalacopts",
 )
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_library(
     name = "tools",
@@ -50,9 +51,9 @@ da_scala_test(
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_mockito_mockito_scala_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
@@ -121,6 +122,34 @@ da_scala_benchmark_jmh(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+da_scala_benchmark_jmh(
+    name = "benchmark-codec",
+    srcs = glob(["codec-benchmark/src/benchmark/scala/**/*.scala"]),
+    data = [
+        "//ledger/participant-state/kvutils:reference-ledger-export.out",
+    ] if not is_windows else [],
+    max_heap_size = "4g",
+    scalacopts = lf_scalacopts,
+    tags = [
+        "manual",
+    ],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction:transaction_proto_java",
+        "//daml-lf/transaction:value_proto_java",
+        "//ledger/participant-state/kvutils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],

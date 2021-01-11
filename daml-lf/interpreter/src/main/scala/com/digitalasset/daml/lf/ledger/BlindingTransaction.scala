@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.ledger
@@ -40,7 +40,7 @@ object BlindingTransaction {
     def divulgeCoidTo(witnesses: Set[Party], acoid: ContractId): BlindState = {
       copy(
         divulgences = divulgences
-          .updated(acoid, witnesses union divulgences.getOrElse(acoid, Set.empty)),
+          .updated(acoid, witnesses union divulgences.getOrElse(acoid, Set.empty))
       )
     }
 
@@ -48,7 +48,7 @@ object BlindingTransaction {
 
   /** Calculate blinding information for a transaction. */
   def calculateBlindingInfo(
-      tx: Tx.Transaction,
+      tx: Tx.Transaction
   ): BlindingInfo = {
 
     val initialParentExerciseWitnesses: Set[Party] = Set.empty
@@ -63,27 +63,30 @@ object BlindingTransaction {
           .getOrElse(
             nodeId,
             throw new IllegalArgumentException(
-              s"processNode - precondition violated: node $nodeId not present"))
+              s"processNode - precondition violated: node $nodeId not present"
+            ),
+          )
       val witnesses = parentExerciseWitnesses union node.informeesOfNode
 
       // nodes of every type are disclosed to their witnesses
       val state = state0.discloseNode(witnesses, nodeId)
 
       node match {
-        case _: NodeCreate.WithTxValue[ContractId] => state
-        case _: NodeLookupByKey.WithTxValue[ContractId] => state
+        case _: NodeCreate[ContractId] => state
+        case _: NodeLookupByKey[ContractId] => state
 
         // fetch & exercise nodes cause divulgence
 
-        case fetch: NodeFetch.WithTxValue[ContractId] =>
+        case fetch: NodeFetch[ContractId] =>
           state
             .divulgeCoidTo(parentExerciseWitnesses -- fetch.stakeholders, fetch.coid)
 
-        case ex: NodeExercises.WithTxValue[NodeId, ContractId] =>
+        case ex: NodeExercises[NodeId, ContractId] =>
           val state1 =
             state.divulgeCoidTo(
               (parentExerciseWitnesses union ex.choiceObservers) -- ex.stakeholders,
-              ex.targetCoid)
+              ex.targetCoid,
+            )
 
           ex.children.foldLeft(state1) { (s, childNodeId) =>
             processNode(

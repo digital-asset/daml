@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -16,7 +16,7 @@ import com.daml.ledger.{TransactionId, WorkflowId}
   * Depending on where the contract came from, other metadata may be available.
   */
 private[platform] sealed abstract class Contract {
-  def id: Value.ContractId
+  def id: ContractId
 
   def contract: ContractInst[VersionedValue[ContractId]]
 
@@ -26,15 +26,14 @@ private[platform] sealed abstract class Contract {
   /** Returns the new divulgences after the contract has been divulged to the given parties at the given transaction */
   def divulgeTo(
       parties: Set[Party],
-      transactionId: TransactionId
+      transactionId: TransactionId,
   ): Map[Party, TransactionId] =
     parties.foldLeft(divulgences)((m, e) => if (m.contains(e)) m else m + (e -> transactionId))
 }
 
 private[platform] object Contract {
 
-  /**
-    * For divulged contracts, we only know their contract argument, but no other metadata.
+  /** For divulged contracts, we only know their contract argument, but no other metadata.
     * Note also that a ledger node may not be notified when a divulged contract gets archived.
     *
     * These contracts are only used for transaction validation, they are not part of the active contract set.
@@ -45,8 +44,7 @@ private[platform] object Contract {
       divulgences: Map[Party, TransactionId],
   ) extends Contract
 
-  /**
-    * For active contracts, we know all metadata.
+  /** For active contracts, we know all metadata.
     */
   final case class ActiveContract(
       id: Value.ContractId,
@@ -56,11 +54,14 @@ private[platform] object Contract {
       workflowId: Option[WorkflowId], // workflow id from where the contract originates
       contract: ContractInst[VersionedValue[ContractId]],
       witnesses: Set[Party],
-      divulgences: Map[Party, TransactionId], // for each party, the transaction id at which the contract was divulged
+      divulgences: Map[
+        Party,
+        TransactionId,
+      ], // for each party, the transaction id at which the contract was divulged
       key: Option[KeyWithMaintainers[VersionedValue[Nothing]]],
       signatories: Set[Party],
       observers: Set[Party],
-      agreementText: String
+      agreementText: String,
   ) extends Contract
 
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -57,7 +57,7 @@ export default class Modal extends React.Component<Props, {}> {
     super(props);
   }
 
-  render() {
+  render(): JSX.Element {
     const {
       content,
       isOpen,

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -8,11 +8,12 @@ import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.{Node, TransactionVersion}
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ProjectionsSpec extends WordSpec with Matchers {
+class ProjectionsSpec extends AnyWordSpec with Matchers {
 
   def makeCreateNode(cid: ContractId, signatories: Set[Party], stakeholders: Set[Party]) =
     Node.NodeCreate(
@@ -20,14 +21,16 @@ class ProjectionsSpec extends WordSpec with Matchers {
       coinst = ContractInst(
         Identifier(
           PackageId.assertFromString("some-package"),
-          QualifiedName.assertFromString("Foo:Bar")),
+          QualifiedName.assertFromString("Foo:Bar"),
+        ),
         ValueText("foo"),
-        "agreement"
+        "agreement",
       ),
       optLocation = None,
       signatories = signatories,
       stakeholders = stakeholders,
-      key = None
+      key = None,
+      version = TransactionVersion.minVersion,
     )
 
   def makeExeNode(
@@ -40,7 +43,8 @@ class ProjectionsSpec extends WordSpec with Matchers {
       targetCoid = target,
       templateId = Identifier(
         PackageId.assertFromString("some-package"),
-        QualifiedName.assertFromString("Foo:Bar")),
+        QualifiedName.assertFromString("Foo:Bar"),
+      ),
       choiceId = Name.assertFromString("someChoice"),
       optLocation = None,
       consuming = true,
@@ -53,6 +57,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
       exerciseResult = None,
       key = None,
       byKey = false,
+      version = TransactionVersion.minVersion,
     )
 
   def project(tx: Transaction) = {
@@ -72,13 +77,14 @@ class ProjectionsSpec extends WordSpec with Matchers {
         makeCreateNode(
           builder.newCid,
           Set(Party.assertFromString("Alice")),
-          Set(Party.assertFromString("Alice"), Party.assertFromString("Bob")))
+          Set(Party.assertFromString("Alice"), Party.assertFromString("Bob")),
+        )
       )
       val tx = builder.build()
 
       project(tx) shouldBe List(
         ProjectionRoots(Party.assertFromString("Alice"), BackStack(nid)),
-        ProjectionRoots(Party.assertFromString("Bob"), BackStack(nid))
+        ProjectionRoots(Party.assertFromString("Bob"), BackStack(nid)),
       )
     }
 
@@ -91,7 +97,8 @@ class ProjectionsSpec extends WordSpec with Matchers {
       val create = makeCreateNode(
         builder.newCid,
         Set(Party.assertFromString("Alice")),
-        Set(Party.assertFromString("Bob")))
+        Set(Party.assertFromString("Bob")),
+      )
       val exe = makeExeNode(
         builder.newCid,
         Set(Party.assertFromString("Alice")),
@@ -101,12 +108,14 @@ class ProjectionsSpec extends WordSpec with Matchers {
       val bobCreate = makeCreateNode(
         builder.newCid,
         Set(Party.assertFromString("Bob")),
-        Set(Party.assertFromString("Bob")))
+        Set(Party.assertFromString("Bob")),
+      )
 
       val charlieCreate = makeCreateNode(
         builder.newCid,
         Set(Party.assertFromString("Charlie")),
-        Set(Party.assertFromString("Charlie")))
+        Set(Party.assertFromString("Charlie")),
+      )
 
       val nid1 = builder.add(exe)
       val nid2 = builder.add(create, nid1)
@@ -121,7 +130,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
         // Bob only sees the create that followed the exercise, and his own create.
         ProjectionRoots(Party.assertFromString("Bob"), BackStack(nid2, nid3)),
         // Charlie sees just his create.
-        ProjectionRoots(Party.assertFromString("Charlie"), BackStack(nid4))
+        ProjectionRoots(Party.assertFromString("Charlie"), BackStack(nid4)),
       )
 
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.query
@@ -7,14 +7,15 @@ import java.time.Instant
 
 import com.daml.navigator.dotnot.PropertyCursor
 import com.daml.navigator.model._
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import com.daml.navigator.query.filter._
 import com.daml.ledger.api.refinements.ApiTypes
 import scalaz.std.function._
 import scalaz.syntax.arrow._
 import scalaz.syntax.tag._
 
-class FilterSpec extends FlatSpec with Matchers {
+class FilterSpec extends AnyFlatSpec with Matchers {
   import com.daml.navigator.{DamlConstants => C}
 
   val choices = List(
@@ -22,7 +23,8 @@ class FilterSpec extends FlatSpec with Matchers {
       ApiTypes.Choice("call"),
       DamlLfTypeCon(DamlLfTypeConName(C.complexRecordId), DamlLfImmArraySeq()),
       C.simpleUnitT,
-      false)
+      false,
+    )
   )
   val template = Template(C.complexRecordId, choices, None)
   val contractId = ApiTypes.ContractId("ContractIou")
@@ -39,7 +41,7 @@ class FilterSpec extends FlatSpec with Matchers {
     "parameter.fRecord.fA" -> "text",
     "parameter.fText" -> "text",
     "choices.call.parameter.fInt64" -> "int64",
-    "choices.call.parameter.fOptionalText" -> "optional"
+    "choices.call.parameter.fOptionalText" -> "optional",
   ).map((PropertyCursor.fromString _).first)
 
   for ((cursor, expectedValue) <- templateTests) {
@@ -59,7 +61,7 @@ class FilterSpec extends FlatSpec with Matchers {
     "argument.fOptionalUnit.Some" -> "",
     "argument.fOptOptText" -> "Some",
     "argument.fOptOptText.Some" -> "Some",
-    "argument.fOptOptText.Some.Some" -> "foo"
+    "argument.fOptOptText.Some.Some" -> "foo",
   ).map((PropertyCursor.fromString _).first)
 
   for ((cursor, expectedValue) <- contractTests) {
@@ -72,7 +74,7 @@ class FilterSpec extends FlatSpec with Matchers {
     "id" -> command.id.unwrap,
     "workflowId" -> command.workflowId.unwrap,
     "platformTime" -> command.platformTime.toString,
-    "index" -> command.index.toString
+    "index" -> command.index.toString,
   ).map((PropertyCursor.fromString _).first)
 
   for ((cursor, expectedValue) <- commandTests) {

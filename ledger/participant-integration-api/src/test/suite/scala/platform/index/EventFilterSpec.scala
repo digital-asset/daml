@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
@@ -10,9 +10,11 @@ import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.daml.ledger.api.v1.value.{Identifier, Record}
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, OptionValues, WordSpec}
+import org.scalatest.OptionValues
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-final class EventFilterSpec extends WordSpec with Matchers with ScalaFutures with OptionValues {
+final class EventFilterSpec extends AnyWordSpec with Matchers with ScalaFutures with OptionValues {
 
   private val otherPartyWhoSeesEvents = Ref.Party.assertFromString("otherParty")
   private val packageId = "myPackage"
@@ -31,24 +33,25 @@ final class EventFilterSpec extends WordSpec with Matchers with ScalaFutures wit
     Identifier(
       Ref.PackageId.assertFromString(pkgId),
       mod,
-      ent
+      ent,
     )
 
   private def mkIdent(mod: String, ent: String, pkgId: String = packageId) =
     Ref.Identifier(
       Ref.PackageId.assertFromString(pkgId),
-      Ref.QualifiedName(Ref.ModuleName.assertFromString(mod), Ref.DottedName.assertFromString(ent)))
+      Ref.QualifiedName(Ref.ModuleName.assertFromString(mod), Ref.DottedName.assertFromString(ent)),
+    )
 
   private val mapping = Map(
     party1 -> getFilter(Seq(module1 -> template1)),
-    party2 -> getFilter(Seq(module1 -> template1, module2 -> template2))
+    party2 -> getFilter(Seq(module1 -> template1, module2 -> template2)),
   )
 
   private val filter = (event: Event) => EventFilter(event)(TransactionFilter(mapping))
 
   def getFilter(templateIds: Seq[(String, String)]) =
-    Filters(InclusiveFilters(templateIds.map {
-      case (mod, ent) => mkIdent(mod, ent)
+    Filters(InclusiveFilters(templateIds.map { case (mod, ent) =>
+      mkIdent(mod, ent)
     }.toSet))
 
   "EventFilter" when {
@@ -68,8 +71,9 @@ final class EventFilterSpec extends WordSpec with Matchers with ScalaFutures wit
 
   }
 
-  private def runTemplateFilterAssertions(eventType: String)(
-      createEvent: (Ref.Party, Identifier) => Event): Unit = {
+  private def runTemplateFilterAssertions(
+      eventType: String
+  )(createEvent: (Ref.Party, Identifier) => Event): Unit = {
     val isExercised = eventType == "ExercisedEvent"
     val negateIfRequired = if (isExercised) "not " else ""
 
@@ -87,9 +91,12 @@ final class EventFilterSpec extends WordSpec with Matchers with ScalaFutures wit
     }
 
     s"not let $eventType through when packageId does not match" in {
-      filter(createEvent(
-        party1,
-        mkApiIdent(pkgId = "someOtherPackageId", mod = module1, ent = template1))) shouldEqual None
+      filter(
+        createEvent(
+          party1,
+          mkApiIdent(pkgId = "someOtherPackageId", mod = module1, ent = template1),
+        )
+      ) shouldEqual None
     }
 
     s"not let $eventType through when templateId is not listened to" in {
@@ -109,8 +116,10 @@ final class EventFilterSpec extends WordSpec with Matchers with ScalaFutures wit
           Seq(party, otherPartyWhoSeesEvents),
           Seq.empty,
           Seq.empty,
-          None
-        )))
+          None,
+        )
+      )
+    )
 
   private def archivedEvent(party: Ref.Party, templateId: Identifier): Event =
     Event(
@@ -119,6 +128,8 @@ final class EventFilterSpec extends WordSpec with Matchers with ScalaFutures wit
           eventId,
           contractId.coid,
           Some(templateId),
-          Seq(party, otherPartyWhoSeesEvents)
-        )))
+          Seq(party, otherPartyWhoSeesEvents),
+        )
+      )
+    )
 }

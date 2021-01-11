@@ -1,16 +1,17 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator
 
 import com.daml.navigator.model.PartyState
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import SessionJsonProtocol.userWriter
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.config.UserConfig
 import spray.json.{JsBoolean, JsObject, JsString}
 
-class SessionJsonProtocolTest extends FlatSpec with Matchers {
+class SessionJsonProtocolTest extends AnyFlatSpec with Matchers {
 
   val userClassName = User.getClass.getSimpleName
   val party = ApiTypes.Party("party")
@@ -23,7 +24,8 @@ class SessionJsonProtocolTest extends FlatSpec with Matchers {
     val userJson = JsObject(
       "id" -> JsString("id"),
       "party" -> JsString("party"),
-      "canAdvanceTime" -> JsBoolean(true))
+      "canAdvanceTime" -> JsBoolean(true),
+    )
     userWriter.write(user) shouldEqual userJson
   }
 
@@ -32,12 +34,14 @@ class SessionJsonProtocolTest extends FlatSpec with Matchers {
       id = "id",
       party = new PartyState(UserConfig(party, Some("role"), false)),
       role = Some("role"),
-      canAdvanceTime = false)
+      canAdvanceTime = false,
+    )
     val userJson = JsObject(
       "id" -> JsString("id"),
       "role" -> JsString("role"),
       "party" -> JsString("party"),
-      "canAdvanceTime" -> JsBoolean(false))
+      "canAdvanceTime" -> JsBoolean(false),
+    )
     userWriter.write(user) shouldEqual userJson
   }
 }

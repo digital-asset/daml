@@ -13,7 +13,7 @@ Notes on the format of this file:
     $ bazel build language-support/hs/bindings/examples/nim/...
     $ daml install latest --activate
 
-## 1. Look at [Nim.daml](https://github.com/digital-asset/daml/blob/master/language-support/hs/bindings/examples/nim/daml/Nim.daml)
+## 1. Look at [Nim.daml](https://github.com/digital-asset/daml/blob/main/language-support/hs/bindings/examples/nim/daml/Nim.daml)
 
 `Nim.daml` models the operation of the game room and the rules of Nim:
 
@@ -148,7 +148,7 @@ Both Alice and Charlie are informed and can see the updated game state.
     Alice> move 1 2 1
     command rejected by ledger:... requires controllers: Charlie, but only Alice were given...
 
-Important to note: The ledger app has blindly submitted the move from the player. The check and rejection is performed entirely by the ledger, not the ledger app: the game logic is contained solely in the DAML model.
+Important to note: The ledger app has blindly submitted the move from the player. The check and rejection is performed entirely by the ledger, not the ledger app: the game logic is contained solely in the Daml model.
 
 We also see the rejection in the terminal where we are running the sandbox.
 
@@ -192,7 +192,7 @@ Seen in everyone's console:
 
     Bob> accept 2
 
-This event is seen in everyone's console, but not everyone sees all information! In particular, Alice sees only that the offer has been accepted (by someone), but not that the game has been started. This is the sub-transaction privacy semantics of DAML in action.
+This event is seen in everyone's console, but not everyone sees all information! In particular, Alice sees only that the offer has been accepted (by someone), but not that the game has been started. This is the sub-transaction privacy semantics of Daml in action.
 
 
 ## 17. Bob goes on holiday, so replace him with Robot Bob

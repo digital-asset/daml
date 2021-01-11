@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -14,6 +14,7 @@ module DA.Daml.Assistant.Version
     , getLatestSdkVersionCached
     , getAvailableSdkSnapshotVersions
     , getLatestSdkSnapshotVersion
+    , getLatestReleaseVersion
     ) where
 
 import DA.Daml.Assistant.Types
@@ -30,9 +31,18 @@ import Data.Maybe
 import Data.List
 import Data.Either.Extra
 import Data.Aeson (eitherDecodeStrict')
+import Data.Text.Encoding
 import Safe
 import Network.HTTP.Simple
-import Network.HTTP.Client (Request(responseTimeout), responseTimeoutMicro)
+import Network.HTTP.Client
+    ( Request(responseTimeout)
+    , responseBody
+    , responseStatus
+    , responseTimeoutMicro
+    )
+import qualified Network.HTTP.Client as Http
+import Network.HTTP.Types (ok200)
+import Network.HTTP.Client.TLS (newTlsManager)
 
 import qualified Data.HashMap.Strict as M
 
@@ -181,3 +191,28 @@ getLatestSdkSnapshotVersion = do
     pure $ do
         versions <- eitherToMaybe versionsE
         maximumMay versions
+
+latestReleaseVersionUrl :: String
+latestReleaseVersionUrl = "https://docs.daml.com/latest"
+
+getLatestReleaseVersion :: IO SdkVersion
+getLatestReleaseVersion = do
+    manager <- newTlsManager
+    request <- parseRequest latestReleaseVersionUrl
+    Http.withResponse request manager $ \resp -> do
+        case responseStatus resp of
+            s | s == ok200 -> do
+                    body <- responseBody resp
+                    case parseVersion $ decodeUtf8 body of
+                        Right v -> pure v
+                        Left invalidVersion ->
+                            throwIO $
+                            assistantErrorBecause
+                                (pack $
+                                 "Failed to parse SDK version from " <> latestReleaseVersionUrl)
+                                (pack $ ivMessage invalidVersion)
+            otherStatus ->
+                throwIO $
+                assistantErrorBecause
+                    (pack $ "Bad response status code when requesting " <> latestReleaseVersionUrl)
+                    (pack $ show otherStatus)

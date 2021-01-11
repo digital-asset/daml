@@ -4,7 +4,7 @@
 /** Iso8601 encoded string */
 export type Time = string
 
-export type TimeType = 'static' | 'wallclock' | 'simulated';
+export type TimeType = 'static' | 'wallclock' | 'simulated';
 
 export type CommandId = string
 

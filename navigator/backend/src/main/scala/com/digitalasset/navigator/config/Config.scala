@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.config
@@ -7,16 +7,17 @@ import java.nio.file.{Files, Path}
 import java.nio.file.StandardOpenOption._
 
 import com.daml.assistant.config.{
-  ConfigMissing => SdkConfigMissing,
+  ProjectConfig,
   ConfigLoadError => SdkConfigLoadError,
+  ConfigMissing => SdkConfigMissing,
   ConfigParseError => SdkConfigParseError,
-  ProjectConfig
 }
 import com.daml.ledger.api.refinements.ApiTypes
 import com.github.ghik.silencer.silent
 import com.typesafe.config.{ConfigFactory, ConfigRenderOptions}
 import org.slf4j.LoggerFactory
-import pureconfig.{ConfigConvert, ConfigWriter}
+import pureconfig.{ConfigConvert, ConfigSource, ConfigWriter}
+import pureconfig.generic.auto._
 import scalaz.Tag
 
 final case class UserConfig(party: ApiTypes.Party, role: Option[String], useDatabase: Boolean)
@@ -68,15 +69,18 @@ object Config {
 
   def loadNavigatorConfig(
       configFile: Path,
-      useDatabase: Boolean): Either[ConfigReadError, Config] = {
+      useDatabase: Boolean,
+  ): Either[ConfigReadError, Config] = {
     @silent(" userConfigConvert .* is never used") // false positive; macro uses aren't seen
     implicit val userConfigConvert: ConfigConvert[UserConfig] = mkUserConfigConvert(
-      useDatabase = useDatabase)
+      useDatabase = useDatabase
+    )
     if (Files.exists(configFile)) {
       logger.info(s"Loading Navigator config file from $configFile")
       val config = ConfigFactory.parseFileAnySyntax(configFile.toAbsolutePath.toFile)
-      pureconfig
-        .loadConfig[Config](config)
+      ConfigSource
+        .fromConfig(config)
+        .load[Config]
         .left
         .map(e => ConfigParseFailed(e.toList.mkString(", ")))
     } else {
@@ -99,7 +103,9 @@ object Config {
           Config(
             parties
               .map(p => p -> UserConfig(ApiTypes.Party(p), None, useDatabase))
-              .toMap))
+              .toMap
+          )
+        )
       case Right(None) =>
         // Pick up parties from party management service
         Right(Config())
@@ -118,12 +124,14 @@ object Config {
     Config(
       Map(
         "OPERATOR" -> UserConfig(ApiTypes.Party("party"), None, useDatabase)
-      ))
+      )
+    )
 
   def writeTemplateToPath(configFile: Path, useDatabase: Boolean): Unit = {
     @silent(" userConfigConvert .* is never used") // false positive; macro uses aren't seen
     implicit val userConfigConvert: ConfigConvert[UserConfig] = mkUserConfigConvert(
-      useDatabase = useDatabase)
+      useDatabase = useDatabase
+    )
     val config = ConfigWriter[Config].to(template(useDatabase))
     val cro = ConfigRenderOptions
       .defaults()
@@ -145,6 +153,6 @@ object Config {
         }
         UserConfig(ApiTypes.Party(helper.party), helper.role, useDatabase)
       },
-      conf => UserConfigHelper(None, Tag.unwrap(conf.party), conf.role)
+      conf => UserConfigHelper(None, Tag.unwrap(conf.party), conf.role),
     )
 }

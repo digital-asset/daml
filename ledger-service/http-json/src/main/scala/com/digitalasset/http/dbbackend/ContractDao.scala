@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.dbbackend
@@ -30,8 +30,9 @@ class ContractDao(xa: Connection.T) {
 }
 
 object ContractDao {
-  def apply(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(
-      implicit ec: ExecutionContext): ContractDao = {
+  def apply(jdbcDriver: String, jdbcUrl: String, username: String, password: String)(implicit
+      ec: ExecutionContext
+  ): ContractDao = {
     val cs: ContextShift[IO] = IO.contextShift(ec)
     new ContractDao(Connection.connect(jdbcDriver, jdbcUrl, username, password)(cs))
   }
@@ -40,7 +41,8 @@ object ContractDao {
     Queries.dropAllTablesIfExist *> Queries.initDatabase
 
   def lastOffset(parties: OneAnd[Set, domain.Party], templateId: domain.TemplateId.RequiredPkg)(
-      implicit log: LogHandler): ConnectionIO[Map[domain.Party, domain.Offset]] = {
+      implicit log: LogHandler
+  ): ConnectionIO[Map[domain.Party, domain.Offset]] = {
     import doobie.postgres.implicits._
     for {
       tpId <- surrogateTemplateId(templateId)
@@ -56,8 +58,8 @@ object ContractDao {
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
-      lastOffsets: Map[domain.Party, domain.Offset])(
-      implicit log: LogHandler): ConnectionIO[Unit] = {
+      lastOffsets: Map[domain.Party, domain.Offset],
+  )(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.implicits._
     import doobie.postgres.implicits._
     import scalaz.OneAnd._
@@ -65,17 +67,19 @@ object ContractDao {
     import scalaz.syntax.foldable._
     val partyVector = domain.Party.unsubst(parties.toVector)
     val lastOffsetsStr: Map[String, String] =
-      domain.Party.unsubst[Map[?, String], String](domain.Offset.tag.unsubst(lastOffsets))
+      domain.Party.unsubst[Map[*, String], String](domain.Offset.tag.unsubst(lastOffsets))
     for {
       tpId <- Queries.surrogateTemplateId(
         templateId.packageId,
         templateId.moduleName,
-        templateId.entityName)
+        templateId.entityName,
+      )
       rowCount <- Queries.updateOffset(partyVector, tpId, newOffset.unwrap, lastOffsetsStr)
-      _ <- if (rowCount == partyVector.size)
-        fconn.pure(())
-      else
-        fconn.raiseError(StaleOffsetException(parties, templateId, newOffset, lastOffsets))
+      _ <-
+        if (rowCount == partyVector.size)
+          fconn.pure(())
+        else
+          fconn.raiseError(StaleOffsetException(parties, templateId, newOffset, lastOffsets))
     } yield ()
   }
 
@@ -83,8 +87,8 @@ object ContractDao {
   def selectContracts(
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
-      predicate: doobie.Fragment)(
-      implicit log: LogHandler): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
+      predicate: doobie.Fragment,
+  )(implicit log: LogHandler): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
     import doobie.postgres.implicits._
     for {
       tpId <- surrogateTemplateId(templateId)
@@ -99,23 +103,24 @@ object ContractDao {
   private[http] def fetchById(
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
-      contractId: domain.ContractId)(
-      implicit log: LogHandler): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
+      contractId: domain.ContractId,
+  )(implicit log: LogHandler): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
     import doobie.postgres.implicits._
     for {
       tpId <- surrogateTemplateId(templateId)
       dbContracts <- Queries.fetchById(
         domain.Party unsubst parties,
         tpId,
-        domain.ContractId unwrap contractId)
+        domain.ContractId unwrap contractId,
+      )
     } yield dbContracts.map(toDomain(templateId))
   }
 
   private[http] def fetchByKey(
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
-      key: JsValue)(
-      implicit log: LogHandler): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
+      key: JsValue,
+  )(implicit log: LogHandler): ConnectionIO[Option[domain.ActiveContract[JsValue]]] = {
     import doobie.postgres.implicits._
     for {
       tpId <- surrogateTemplateId(templateId)
@@ -123,13 +128,14 @@ object ContractDao {
     } yield dbContracts.map(toDomain(templateId))
   }
 
-  private[this] def surrogateTemplateId(templateId: domain.TemplateId.RequiredPkg)(
-      implicit log: LogHandler) =
+  private[this] def surrogateTemplateId(templateId: domain.TemplateId.RequiredPkg)(implicit
+      log: LogHandler
+  ) =
     Queries.surrogateTemplateId(templateId.packageId, templateId.moduleName, templateId.entityName)
 
   private def toDomain(templateId: domain.TemplateId.RequiredPkg)(
-      a: Queries.DBContract[Unit, JsValue, JsValue, Vector[String]])
-    : domain.ActiveContract[JsValue] =
+      a: Queries.DBContract[Unit, JsValue, JsValue, Vector[String]]
+  ): domain.ActiveContract[JsValue] =
     domain.ActiveContract(
       contractId = domain.ContractId(a.contractId),
       templateId = templateId,
@@ -137,7 +143,7 @@ object ContractDao {
       payload = LfValueDatabaseCodec.asLfValueCodec(a.payload),
       signatories = domain.Party.subst(a.signatories),
       observers = domain.Party.subst(a.observers),
-      agreementText = a.agreementText
+      agreementText = a.agreementText,
     )
 
   private def decodeOption(a: JsValue): Option[JsValue] = a match {
@@ -149,10 +155,10 @@ object ContractDao {
       parties: OneAnd[Set, domain.Party],
       templateId: domain.TemplateId.RequiredPkg,
       newOffset: domain.Offset,
-      lastOffset: Map[domain.Party, domain.Offset])
-      extends java.sql.SQLException(
+      lastOffset: Map[domain.Party, domain.Offset],
+  ) extends java.sql.SQLException(
         s"parties: $parties, templateId: $templateId, newOffset: $newOffset, lastOffset: $lastOffset",
-        StaleOffsetException.SqlState
+        StaleOffsetException.SqlState,
       )
 
   object StaleOffsetException {

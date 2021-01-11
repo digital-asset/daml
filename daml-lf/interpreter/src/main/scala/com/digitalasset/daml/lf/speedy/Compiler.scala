@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -13,7 +13,6 @@ import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
-import com.daml.lf.transaction.VersionTimeline
 import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
 import org.slf4j.LoggerFactory
 
@@ -62,13 +61,13 @@ private[lf] object Compiler {
 
   object Config {
     val Default = Config(
-      allowedLanguageVersions = VersionTimeline.stableLanguageVersions,
+      allowedLanguageVersions = LanguageVersion.StableVersions,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
     )
     val Dev = Config(
-      allowedLanguageVersions = VersionTimeline.devLanguageVersions,
+      allowedLanguageVersions = LanguageVersion.DevVersions,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
@@ -100,8 +99,8 @@ private[lf] object Compiler {
   ): Either[String, Map[SDefinitionRef, SDefinition]] = {
     val compiler = new Compiler(signatures, compilerConfig)
     try {
-      Right(packages.foldLeft(Map.empty[SDefinitionRef, SDefinition]) {
-        case (acc, (pkgId, pkg)) => acc ++ compiler.unsafeCompilePackage(pkgId, pkg)
+      Right(packages.foldLeft(Map.empty[SDefinitionRef, SDefinition]) { case (acc, (pkgId, pkg)) =>
+        acc ++ compiler.unsafeCompilePackage(pkgId, pkg)
       })
     } catch {
       case CompilationError(msg) => Left(s"Compilation Error: $msg")
@@ -114,7 +113,7 @@ private[lf] object Compiler {
 
 private[lf] final class Compiler(
     signatures: PackageId PartialFunction PackageSignature,
-    config: Compiler.Config
+    config: Compiler.Config,
 ) {
 
   import Compiler._
@@ -222,14 +221,16 @@ private[lf] final class Compiler(
 
   private[this] def topLevelFunction[SDefRef <: SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef,
-      arity: Int)(
+      arity: Int,
+  )(
       body: List[Position] => SExpr
   ): (SDefRef, SDefinition) =
     ref ->
       SDefinition(
         unsafeClosureConvert(
           SEAbs(arity, withLabel(ref, body(List.fill(arity)(nextPosition()))))
-        ))
+        )
+      )
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -267,21 +268,21 @@ private[lf] final class Compiler(
       case _ =>
     }
 
-    module.templates.foreach {
-      case (tmplName, tmpl) =>
-        val identifier = Identifier(pkgId, QualifiedName(module.name, tmplName))
-        builder += compileCreate(identifier, tmpl)
-        builder += compileFetch(identifier, tmpl)
+    module.templates.foreach { case (tmplName, tmpl) =>
+      val identifier = Identifier(pkgId, QualifiedName(module.name, tmplName))
+      builder += compileCreate(identifier, tmpl)
+      builder += compileFetch(identifier, tmpl)
 
-        tmpl.choices.values.foreach(builder += compileChoice(identifier, tmpl, _))
+      tmpl.choices.values.foreach(builder += compileChoice(identifier, tmpl, _))
 
-        tmpl.key.foreach { tmplKey =>
-          builder += compileFetchByKey(identifier, tmpl, tmplKey)
-          builder += compileLookupByKey(identifier, tmplKey)
-          tmpl.choices.values.foreach(
-            builder +=
-              compileChoiceByKey(identifier, tmpl, tmplKey, _))
-        }
+      tmpl.key.foreach { tmplKey =>
+        builder += compileFetchByKey(identifier, tmpl, tmplKey)
+        builder += compileLookupByKey(identifier, tmplKey)
+        tmpl.choices.values.foreach(
+          builder +=
+            compileChoiceByKey(identifier, tmpl, tmplKey, _)
+        )
+      }
     }
 
     builder.result()
@@ -332,7 +333,7 @@ private[lf] final class Compiler(
 
     val t2 = Time.Timestamp.now()
     logger.trace(
-      s"compilePackage: $pkgId ready, typecheck=${(t1.micros - t0.micros) / 1000}ms, compile=${(t2.micros - t1.micros) / 1000}ms",
+      s"compilePackage: $pkgId ready, typecheck=${(t1.micros - t0.micros) / 1000}ms, compile=${(t2.micros - t1.micros) / 1000}ms"
     )
 
     result
@@ -366,7 +367,7 @@ private[lf] final class Compiler(
         compileERecCon(tApp, fields)
       case ERecProj(tapp, field, record) =>
         SBRecProj(tapp.tycon, lookupRecordIndex(tapp, field))(
-          compile(record),
+          compile(record)
         )
       case erecupd: ERecUpd =>
         compileERecUpd(erecupd)
@@ -375,7 +376,7 @@ private[lf] final class Compiler(
           Struct.assertFromSeq(fields.iterator.map(_._1).zipWithIndex.toSeq)
         SEApp(
           SEBuiltin(SBStructCon(fieldsInputOrder)),
-          fields.iterator.map { case (_, e) => compile(e) }.toArray
+          fields.iterator.map { case (_, e) => compile(e) }.toArray,
         )
       case structProj: EStructProj =>
         structProj.fieldIndex match {
@@ -396,10 +397,12 @@ private[lf] final class Compiler(
       case ECons(_, front, tail) =>
         // TODO(JM): Consider emitting SEValue(SList(...)) for
         // constant lists?
-        SEApp(
-          SEBuiltin(SBConsMany(front.length)),
-          front.iterator.map(compile).toArray :+ compile(tail),
-        )
+        val args = (front.iterator.map(compile) ++ Seq(compile(tail))).toArray
+        if (front.length == 1) {
+          SEApp(SEBuiltin(SBCons), args)
+        } else {
+          SEApp(SEBuiltin(SBConsMany(front.length)), args)
+        }
       case ENone(_) =>
         SEValue.None
       case ESome(_, body) =>
@@ -428,6 +431,9 @@ private[lf] final class Compiler(
         SBFromAny(ty)(compile(e))
       case ETypeRep(typ) =>
         SEValue(STypeRep(typ))
+      case EThrow(_, _, _) | EFromAnyException(_, _) | EToAnyException(_, _) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("exceptions not supported")
     }
 
   @inline
@@ -539,10 +545,15 @@ private[lf] final class Compiler(
           case BTextIntercalate => SBTextIntercalate
 
           // Implemented using normal SExpr
-          case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq | BLess |
-              BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
+          case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq |
+              BLess | BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
               BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
+          case BMakeGeneralError | BMakeArithmeticError | BMakeContractError |
+              BAnyExceptionMessage | BGeneralErrorMessage | BArithmeticErrorMessage |
+              BContractErrorMessage =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            sys.error("exception not supported")
         })
     }
 
@@ -603,7 +614,7 @@ private[lf] final class Compiler(
       )
     } else {
       SBRecUpdMulti(tapp.tycon, fields.map(lookupRecordIndex(tapp, _)).toArray)(
-        (record :: updates).map(compile): _*,
+        (record :: updates).map(compile): _*
       )
     }
   }
@@ -612,49 +623,48 @@ private[lf] final class Compiler(
   private[this] def compileECase(scrut: Expr, alts: ImmArray[CaseAlt]): SExpr =
     SECase(
       compile(scrut),
-      alts.iterator.map {
-        case CaseAlt(pat, expr) =>
-          pat match {
-            case CPVariant(tycon, variant, binder) =>
-              val variantDef =
-                lookupVariant(tycon).getOrElse(throw CompilationError(s"variant $tycon not found"))
-              withBinders(binder) { _ =>
-                SCaseAlt(
-                  SCPVariant(tycon, variant, variantDef.constructorRank(variant)),
-                  compile(expr),
-                )
-              }
-
-            case CPEnum(tycon, constructor) =>
-              val enumDef =
-                lookupEnum(tycon).getOrElse(throw CompilationError(s"enum $tycon not found"))
+      alts.iterator.map { case CaseAlt(pat, expr) =>
+        pat match {
+          case CPVariant(tycon, variant, binder) =>
+            val variantDef =
+              lookupVariant(tycon).getOrElse(throw CompilationError(s"variant $tycon not found"))
+            withBinders(binder) { _ =>
               SCaseAlt(
-                SCPEnum(tycon, constructor, enumDef.constructorRank(constructor)),
+                SCPVariant(tycon, variant, variantDef.constructorRank(variant)),
                 compile(expr),
               )
+            }
 
-            case CPNil =>
-              SCaseAlt(SCPNil, compile(expr))
+          case CPEnum(tycon, constructor) =>
+            val enumDef =
+              lookupEnum(tycon).getOrElse(throw CompilationError(s"enum $tycon not found"))
+            SCaseAlt(
+              SCPEnum(tycon, constructor, enumDef.constructorRank(constructor)),
+              compile(expr),
+            )
 
-            case CPCons(head, tail) =>
-              withBinders(head, tail) { _ =>
-                SCaseAlt(SCPCons, compile(expr))
-              }
+          case CPNil =>
+            SCaseAlt(SCPNil, compile(expr))
 
-            case CPPrimCon(pc) =>
-              SCaseAlt(SCPPrimCon(pc), compile(expr))
+          case CPCons(head, tail) =>
+            withBinders(head, tail) { _ =>
+              SCaseAlt(SCPCons, compile(expr))
+            }
 
-            case CPNone =>
-              SCaseAlt(SCPNone, compile(expr))
+          case CPPrimCon(pc) =>
+            SCaseAlt(SCPPrimCon(pc), compile(expr))
 
-            case CPSome(body) =>
-              withBinders(body) { _ =>
-                SCaseAlt(SCPSome, compile(expr))
-              }
+          case CPNone =>
+            SCaseAlt(SCPNone, compile(expr))
 
-            case CPDefault =>
-              SCaseAlt(SCPDefault, compile(expr))
-          }
+          case CPSome(body) =>
+            withBinders(body) { _ =>
+              SCaseAlt(SCPSome, compile(expr))
+            }
+
+          case CPDefault =>
+            SCaseAlt(SCPDefault, compile(expr))
+        }
       }.toArray,
     )
   @inline
@@ -697,6 +707,9 @@ private[lf] final class Compiler(
         LookupByKeyDefRef(templateId)(compile(key))
       case UpdateFetchByKey(RetrieveByKey(templateId, key)) =>
         FetchByKeyDefRef(templateId)(compile(key))
+      case UpdateTryCatch(_, _, _, _) =>
+        // TODO https://github.com/digital-asset/daml/issues/8020
+        sys.error("exceptions not supported")
     }
 
   @tailrec
@@ -882,7 +895,7 @@ private[lf] final class Compiler(
       choiceArgPos: Position,
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
-      tokenPos: Position
+      tokenPos: Position,
   ) =
     let(SBUFetch(tmplId)(svar(cidPos))) { tmplArgPos =>
       addExprVar(tmpl.param, tmplArgPos)
@@ -1066,13 +1079,11 @@ private[lf] final class Compiler(
 
       case SEAbs(arity, body) =>
         val fvs = freeVars(body, arity).toList.sorted
-        val newRemapsF: Map[Int, SELoc] = fvs.zipWithIndex.map {
-          case (orig, i) =>
-            (orig + arity) -> SELocF(i)
+        val newRemapsF: Map[Int, SELoc] = fvs.zipWithIndex.map { case (orig, i) =>
+          (orig + arity) -> SELocF(i)
         }.toMap
-        val newRemapsA = (1 to arity).map {
-          case i =>
-            i -> SELocA(arity - i)
+        val newRemapsA = (1 to arity).map { case i =>
+          i -> SELocA(arity - i)
         }
         // The keys in newRemapsF and newRemapsA are disjoint
         val newBody = closureConvert(newRemapsF ++ newRemapsA, body)
@@ -1097,21 +1108,22 @@ private[lf] final class Compiler(
       case SECase(scrut, alts) =>
         SECase(
           closureConvert(remaps, scrut),
-          alts.map {
-            case SCaseAlt(pat, body) =>
-              val n = patternNArgs(pat)
-              SCaseAlt(
-                pat,
-                closureConvert(shift(remaps, n), body),
-              )
+          alts.map { case SCaseAlt(pat, body) =>
+            val n = patternNArgs(pat)
+            SCaseAlt(
+              pat,
+              closureConvert(shift(remaps, n), body),
+            )
           },
         )
 
       case SELet(bounds, body) =>
-        SELet(bounds.zipWithIndex.map {
-          case (b, i) =>
+        SELet(
+          bounds.zipWithIndex.map { case (b, i) =>
             closureConvert(shift(remaps, i), b)
-        }, closureConvert(shift(remaps, bounds.length), body))
+          },
+          closureConvert(shift(remaps, bounds.length), body),
+        )
 
       case SECatch(body, handler, fin) =>
         SECatch(
@@ -1171,7 +1183,8 @@ private[lf] final class Compiler(
 
   /** Compute the free variables in a speedy expression.
     * The returned free variables are de bruijn indices
-    * adjusted to the stack of the caller. */
+    * adjusted to the stack of the caller.
+    */
   private[this] def freeVars(expr: SExpr, initiallyBound: Int): Set[Int] = {
     def go(expr: SExpr, bound: Int, free: Set[Int]): Set[Int] =
       expr match {
@@ -1194,8 +1207,8 @@ private[lf] final class Compiler(
         case x: SEMakeClo =>
           throw CompilationError(s"freeVars: unexpected SEMakeClo: $x")
         case SECase(scrut, alts) =>
-          alts.foldLeft(go(scrut, bound, free)) {
-            case (acc, SCaseAlt(pat, body)) => go(body, bound + patternNArgs(pat), acc)
+          alts.foldLeft(go(scrut, bound, free)) { case (acc, SCaseAlt(pat, body)) =>
+            go(body, bound + patternNArgs(pat), acc)
           }
         case SELet(bounds, body) =>
           bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
@@ -1231,10 +1244,9 @@ private[lf] final class Compiler(
         case SList(a) => a.iterator.foreach(goV)
         case SOptional(x) => x.foreach(goV)
         case SGenMap(_, entries) =>
-          entries.foreach {
-            case (k, v) =>
-              goV(k)
-              goV(v)
+          entries.foreach { case (k, v) =>
+            goV(k)
+            goV(v)
           }
         case SRecord(_, _, args) => args.forEach(goV)
         case SVariant(_, _, _, value) => goV(value)
@@ -1285,15 +1297,13 @@ private[lf] final class Compiler(
         case SECaseAtomic(scrut, alts) => go(SECase(scrut, alts))
         case SECase(scrut, alts) =>
           go(scrut)
-          alts.foreach {
-            case SCaseAlt(pat, body) =>
-              val n = patternNArgs(pat)
-              goBody(maxS + n, maxA, maxF)(body)
+          alts.foreach { case SCaseAlt(pat, body) =>
+            val n = patternNArgs(pat)
+            goBody(maxS + n, maxA, maxF)(body)
           }
         case SELet(bounds, body) =>
-          bounds.zipWithIndex.foreach {
-            case (rhs, i) =>
-              goBody(maxS + i, maxA, maxF)(rhs)
+          bounds.zipWithIndex.foreach { case (rhs, i) =>
+            goBody(maxS + i, maxA, maxF)(rhs)
           }
           goBody(maxS + bounds.length, maxA, maxF)(body)
         case _: SELet1General => goLets(maxS)(expr)
@@ -1346,7 +1356,8 @@ private[lf] final class Compiler(
             compile(tmpl.signatories),
             compile(tmpl.observers),
             mbKey.fold(compileKeyWithMaintainers(tmpl.key))(p => SBSome(svar(p))),
-          )) { _ =>
+          )
+        ) { _ =>
           svar(tmplArgPos)
         }
       }
@@ -1354,39 +1365,39 @@ private[lf] final class Compiler(
 
   private[this] def compileFetch(
       tmplId: Identifier,
-      tmpl: Template): (SDefinitionRef, SDefinition) =
+      tmpl: Template,
+  ): (SDefinitionRef, SDefinition) =
     // compile a template to
     // FetchDefRef(tmplId) = \ <coid> <token> ->
     //   let <tmplArg> = $fetch(tmplId) <coid>
     //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key]
     //   in <tmplArg>
-    topLevelFunction(FetchDefRef(tmplId), 2) {
-      case List(cidPos, tokenPos) =>
-        compileFetchBody(tmplId, tmpl)(cidPos, None, tokenPos)
+    topLevelFunction(FetchDefRef(tmplId), 2) { case List(cidPos, tokenPos) =>
+      compileFetchBody(tmplId, tmpl)(cidPos, None, tokenPos)
     }
 
   private[this] def compileCreate(
       tmplId: Identifier,
-      tmpl: Template): (SDefinitionRef, SDefinition) =
+      tmpl: Template,
+  ): (SDefinitionRef, SDefinition) =
     // Translates 'create Foo with <params>' into:
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
     //   let _ = $checkPreconf(tmplId)(<tmplArg> [tmpl.precond]
     //   in $create <tmplArg> [tmpl.agreementText] [tmpl.signatories] [tmpl.observers] [tmpl.key]
-    topLevelFunction(CreateDefRef(tmplId), 2) {
-      case List(tmplArgPos, tokenPos @ _) =>
-        addExprVar(tmpl.param, tmplArgPos)
-        // We check precondition in a separated builtin to prevent
-        // further evaluation of agreement, signatories, observers and key
-        // in case of failed precondition.
-        let(SBCheckPrecond(tmplId)(svar(tmplArgPos), compile(tmpl.precond))) { _ =>
-          SBUCreate(tmplId)(
-            svar(tmplArgPos),
-            compile(tmpl.agreementText),
-            compile(tmpl.signatories),
-            compile(tmpl.observers),
-            compileKeyWithMaintainers(tmpl.key),
-          )
-        }
+    topLevelFunction(CreateDefRef(tmplId), 2) { case List(tmplArgPos, tokenPos @ _) =>
+      addExprVar(tmpl.param, tmplArgPos)
+      // We check precondition in a separated builtin to prevent
+      // further evaluation of agreement, signatories, observers and key
+      // in case of failed precondition.
+      let(SBCheckPrecond(tmplId)(svar(tmplArgPos), compile(tmpl.precond))) { _ =>
+        SBUCreate(tmplId)(
+          svar(tmplArgPos),
+          compile(tmpl.agreementText),
+          compile(tmpl.signatories),
+          compile(tmpl.observers),
+          compileKeyWithMaintainers(tmpl.key),
+        )
+      }
     }
 
   private[this] def compileExercise(
@@ -1432,7 +1443,7 @@ private[lf] final class Compiler(
             choiceId = choiceId,
             argument = SEValue(choiceArg),
           ),
-          svar(tokenPos)
+          svar(tokenPos),
         )
       }
     }
@@ -1447,15 +1458,14 @@ private[lf] final class Compiler(
     //        <mbCid> = $lookupKey(tmplId) <keyWithM>
     //        _ = $insertLookup(tmplId> <keyWithM> <mbCid>
     //    in <mbCid>
-    topLevelFunction(LookupByKeyDefRef(tmplId), 2) {
-      case List(keyPos, tokenPos @ _) =>
-        let(encodeKeyWithMaintainers(keyPos, tmplKey)) { keyWithMPos =>
-          let(SBULookupKey(tmplId)(svar(keyWithMPos))) { maybeCidPos =>
-            let(SBUInsertLookupNode(tmplId)(svar(keyWithMPos), svar(maybeCidPos))) { _ =>
-              svar(maybeCidPos)
-            }
+    topLevelFunction(LookupByKeyDefRef(tmplId), 2) { case List(keyPos, tokenPos @ _) =>
+      let(encodeKeyWithMaintainers(keyPos, tmplKey)) { keyWithMPos =>
+        let(SBULookupKey(tmplId)(svar(keyWithMPos))) { maybeCidPos =>
+          let(SBUInsertLookupNode(tmplId)(svar(keyWithMPos), svar(maybeCidPos))) { _ =>
+            svar(maybeCidPos)
           }
         }
+      }
     }
 
   private[this] val FetchByKeyResult =
@@ -1474,16 +1484,14 @@ private[lf] final class Compiler(
     //        <contract> = $fetch(tmplId) <coid>
     //        _ = $insertFetch <coid> <signatories> <observers> (Some <keyWithM> )
     //    in { contractId: ContractId Foo, contract: Foo }
-    topLevelFunction(FetchByKeyDefRef(tmplId), 2) {
-      case List(keyPos, tokenPos) =>
-        let(encodeKeyWithMaintainers(keyPos, tmplKey)) { keyWithMPos =>
-          let(SBUFetchKey(tmplId)(svar(keyWithMPos))) { cidPos =>
-            let(compileFetchBody(tmplId, tmpl)(cidPos, Some(keyWithMPos), tokenPos)) {
-              contractPos =>
-                FetchByKeyResult(svar(cidPos), svar(contractPos))
-            }
+    topLevelFunction(FetchByKeyDefRef(tmplId), 2) { case List(keyPos, tokenPos) =>
+      let(encodeKeyWithMaintainers(keyPos, tmplKey)) { keyWithMPos =>
+        let(SBUFetchKey(tmplId)(svar(keyWithMPos))) { cidPos =>
+          let(compileFetchBody(tmplId, tmpl)(cidPos, Some(keyWithMPos), tokenPos)) { contractPos =>
+            FetchByKeyResult(svar(cidPos), svar(contractPos))
           }
         }
+      }
     }
 
   private[this] def compileCommand(cmd: Command): SExpr = cmd match {

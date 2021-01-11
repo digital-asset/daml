@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -6,18 +6,16 @@ package speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
-import com.daml.lf.language.LanguageVersion
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization
-
 import com.daml.lf.transaction.{
   GenTransaction,
   GlobalKey,
   Node,
   NodeId,
   SubmittedTransaction,
-  TransactionVersions,
-  Transaction => Tx
+  TransactionVersion => TxVersion,
+  Transaction => Tx,
 }
 import com.daml.lf.value.Value
 
@@ -26,8 +24,8 @@ import scala.collection.immutable.HashMap
 private[lf] object PartialTransaction {
 
   type NodeIdx = Value.NodeIdx
-  type Node = Node.GenNode[NodeId, Value.ContractId, Value[Value.ContractId]]
-  type LeafNode = Node.LeafOnlyNode[Value.ContractId, Value[Value.ContractId]]
+  type Node = Node.GenNode[NodeId, Value.ContractId]
+  type LeafNode = Node.LeafOnlyNode[Value.ContractId]
 
   /** Contexts of the transaction graph builder, which we use to record
     * the sub-transaction structure due to 'exercises' statements.
@@ -35,7 +33,7 @@ private[lf] object PartialTransaction {
   final class Context private (
       val exeContext: Option[ExercisesContext], // empty if root context
       val children: BackStack[NodeId],
-      protected val childrenSeeds: Int => crypto.Hash
+      protected val childrenSeeds: Int => crypto.Hash,
   ) {
     def addChild(child: NodeId): Context =
       new Context(exeContext, children :+ child, childrenSeeds)
@@ -55,13 +53,14 @@ private[lf] object PartialTransaction {
             BackStack.empty,
             i =>
               (if (0 <= i && i < seeds.length) seeds(i) else None)
-                .getOrElse(throw new RuntimeException(s"seed for ${i}th root node not provided"))
+                .getOrElse(throw new RuntimeException(s"seed for ${i}th root node not provided")),
           )
         case InitialSeeding.NoSeed =>
           new Context(
             None,
             BackStack.empty,
-            _ => throw new RuntimeException(s"the machine is not configure to create transaction"))
+            _ => throw new RuntimeException(s"the machine is not configure to create transaction"),
+          )
       }
 
     private[PartialTransaction] def apply(exeContext: ExercisesContext) =
@@ -111,13 +110,15 @@ private[lf] object PartialTransaction {
       choiceObservers: Set[Party],
       nodeId: NodeId,
       parent: Context,
-      byKey: Boolean
+      byKey: Boolean,
   )
 
   def initial(
+      pkg2TxVersion: Ref.PackageId => TxVersion,
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
   ) = PartialTransaction(
+    pkg2TxVersion,
     submissionTime = submissionTime,
     nextNodeIdx = 0,
     nodes = HashMap.empty,
@@ -160,6 +161,7 @@ private[lf] object PartialTransaction {
   *              locally archived contract ids will succeed wrongly.
   */
 private[lf] case class PartialTransaction(
+    packageToTransactionVersion: Ref.PackageId => TxVersion,
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
     nodes: HashMap[NodeId, PartialTransaction.Node],
@@ -199,8 +201,8 @@ private[lf] case class PartialTransaction(
       // so we need to compute them.
       val rootNodes = {
         val allChildNodeIds: Set[NodeId] = nodes.values.iterator.flatMap {
-          case _: Node.LeafOnlyNode[_, _] => Nil
-          case ex: Node.NodeExercises[NodeId, _, _] => ex.children.toSeq
+          case _: Node.LeafOnlyNode[_] => Nil
+          case ex: Node.NodeExercises[NodeId, _] => ex.children.toSeq
         }.toSet
 
         nodes.keySet diff allChildNodeIds
@@ -224,21 +226,14 @@ private[lf] case class PartialTransaction(
     * - an error in case the transaction cannot be serialized using
     *   the `outputTransactionVersions`.
     */
-  def finish(
-      packageLanguageVersion: Ref.PackageId => LanguageVersion,
-  ): PartialTransaction.Result =
-    if (context.exeContext.isEmpty && aborted.isEmpty)
+  def finish: PartialTransaction.Result =
+    if (context.exeContext.isEmpty && aborted.isEmpty) {
       CompleteTransaction(
         SubmittedTransaction(
-          TransactionVersions
-            .asVersionedTransaction(
-              packageLanguageVersion,
-              context.children.toImmArray,
-              nodes
-            )
+          TxVersion.asVersionedTransaction(context.children.toImmArray, nodes)
         )
       )
-    else
+    } else
       IncompleteTransaction(this)
 
   /** Extend the 'PartialTransaction' with a node for creating a
@@ -256,7 +251,7 @@ private[lf] case class PartialTransaction(
     if (serializableErrs.nonEmpty) {
       Left(
         s"""Trying to create a contract with a non-serializable value: ${serializableErrs.iterator
-          .mkString(",")}""",
+          .mkString(",")}"""
       )
     } else {
       val nodeSeed = context.nextChildrenSeed
@@ -270,6 +265,7 @@ private[lf] case class PartialTransaction(
         signatories,
         stakeholders,
         key,
+        packageToTransactionVersion(coinst.template.packageId),
       )
       val nid = NodeId(nextNodeIdx)
       val ptx = copy(
@@ -312,12 +308,13 @@ private[lf] case class PartialTransaction(
       signatories,
       stakeholders,
       key,
-      byKey
+      byKey,
+      packageToTransactionVersion(templateId.packageId),
     )
     mustBeActive(
       coid,
       templateId,
-      insertLeafNode(node)
+      insertLeafNode(node),
     ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(node), auth)
   }
 
@@ -329,7 +326,13 @@ private[lf] case class PartialTransaction(
       result: Option[Value.ContractId],
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
-    val node = Node.NodeLookupByKey(templateId, optLocation, key, result)
+    val node = Node.NodeLookupByKey(
+      templateId,
+      optLocation,
+      key,
+      result,
+      packageToTransactionVersion(templateId.packageId),
+    )
     insertLeafNode(node)
       .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(node), auth)
   }
@@ -353,7 +356,7 @@ private[lf] case class PartialTransaction(
     if (serializableErrs.nonEmpty) {
       Left(
         s"""Trying to exercise a choice with a non-serializable value: ${serializableErrs.iterator
-          .mkString(",")}""",
+          .mkString(",")}"""
       )
     } else {
       val nid = NodeId(nextNodeIdx)
@@ -372,7 +375,7 @@ private[lf] case class PartialTransaction(
           choiceObservers = choiceObservers,
           nodeId = nid,
           parent = context,
-          byKey = byKey
+          byKey = byKey,
         )
 
       Right(
@@ -414,6 +417,7 @@ private[lf] case class PartialTransaction(
           exerciseResult = Some(value),
           key = ec.contractKey,
           byKey = ec.byKey,
+          version = packageToTransactionVersion(ec.templateId.packageId),
         )
         val nodeId = ec.nodeId
         val nodeSeed = ec.parent.nextChildrenSeed

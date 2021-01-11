@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -68,14 +68,12 @@ final case class CreateAndExerciseCommand(
 
 /** Commands input adapted from ledger-api
   *
-  *  @param submitters parties that authorizes all commands
   *  @param commands a batch of commands to be interpreted/executed
   *  @param ledgerEffectiveTime approximate time the commands to be effective,
   *    interpretation will take this instant
   *  @param commandsReference id passed only for error reporting
   */
 case class Commands(
-    submitters: Set[Party],
     commands: ImmArray[Command],
     ledgerEffectiveTime: Time.Timestamp,
     commandsReference: String,

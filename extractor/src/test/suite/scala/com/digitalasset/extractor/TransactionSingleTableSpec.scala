@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor
@@ -14,11 +14,13 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import io.circe.syntax._
 import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
 class TransactionSingleTableSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Suite
     with PostgresAroundAll
     with SuiteResourceManagementAroundAll
@@ -40,12 +42,12 @@ class TransactionSingleTableSpec
     forAll(getTransactions) { transaction =>
       inside(transaction) {
         case TransactionResult(
-            transaction_id,
-            seq,
-            workflow_id,
-            effective_at,
-            extracted_at,
-            ledger_offset
+              transaction_id,
+              seq,
+              workflow_id,
+              effective_at,
+              extracted_at,
+              ledger_offset,
             ) =>
           transaction_id should not be empty
           seq should be >= 1
@@ -94,7 +96,8 @@ class TransactionSingleTableSpec
 
     // ... while it resulted in `contract2`
     exercise1.child_event_ids.asArray.toList.toVector.flatten should contain(
-      contract2.event_id.asJson)
+      contract2.event_id.asJson
+    )
     contract2.transaction_id shouldEqual transaction2.transaction_id
     // which is not archived
     contract2.archived_by_transaction_id shouldEqual None

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.tools.engine.benchmark
@@ -14,41 +14,40 @@ import scala.collection.mutable
 
 private[benchmark] final class Adapter(
     packages: Map[Ref.PackageId, Ast.Package],
-    pkgLangVersion: Ref.PackageId => LanguageVersion
+    pkgLangVersion: Ref.PackageId => LanguageVersion,
 ) {
 
   def adapt(tx: Tx.Transaction): SubmittedTransaction =
     tx.foldWithPathState(TxBuilder(pkgLangVersion), Option.empty[NodeId])(
-        (builder, parent, _, node) =>
-          (builder, Some(parent.fold(builder.add(adapt(node)))(builder.add(adapt(node), _))))
-      )
-      .buildSubmitted()
+      (builder, parent, _, node) =>
+        (builder, Some(parent.fold(builder.add(adapt(node)))(builder.add(adapt(node), _))))
+    ).buildSubmitted()
 
   // drop value version and children
-  private[this] def adapt(node: Tx.Node): Node.GenNode[NodeId, ContractId, Value[ContractId]] =
+  private[this] def adapt(node: Tx.Node): Node.GenNode[NodeId, ContractId] =
     node match {
-      case create: Node.NodeCreate.WithTxValue[ContractId] =>
+      case create: Node.NodeCreate[ContractId] =>
         create.copy(
-          coinst = create.coinst.copy(adapt(create.coinst.template), adapt(create.coinst.arg.value)),
+          coinst = create.coinst.copy(adapt(create.coinst.template), adapt(create.coinst.arg)),
           optLocation = None,
-          key = create.key.map(adapt)
+          key = create.key.map(adapt),
         )
-      case exe: Node.NodeExercises.WithTxValue[NodeId, ContractId] =>
+      case exe: Node.NodeExercises[NodeId, ContractId] =>
         exe.copy(
           templateId = adapt(exe.templateId),
           optLocation = None,
-          chosenValue = adapt(exe.chosenValue.value),
+          chosenValue = adapt(exe.chosenValue),
           children = ImmArray.empty,
-          exerciseResult = exe.exerciseResult.map(v => adapt(v.value)),
+          exerciseResult = exe.exerciseResult.map(adapt),
           key = exe.key.map(adapt),
         )
-      case fetch: Node.NodeFetch.WithTxValue[ContractId] =>
+      case fetch: Node.NodeFetch[ContractId] =>
         fetch.copy(
           templateId = adapt(fetch.templateId),
           optLocation = None,
           key = fetch.key.map(adapt),
         )
-      case lookup: Node.NodeLookupByKey.WithTxValue[ContractId] =>
+      case lookup: Node.NodeLookupByKey[ContractId] =>
         lookup.copy(
           templateId = adapt(lookup.templateId),
           optLocation = None,
@@ -58,9 +57,9 @@ private[benchmark] final class Adapter(
 
   // drop value version
   private[this] def adapt(
-      k: Node.KeyWithMaintainers[Tx.Value[ContractId]],
+      k: Node.KeyWithMaintainers[Value[ContractId]]
   ): Node.KeyWithMaintainers[Value[ContractId]] =
-    k.copy(adapt(k.key.value))
+    k.copy(adapt(k.key))
 
   def adapt(coinst: Tx.ContractInst[ContractId]): Tx.ContractInst[ContractId] =
     coinst.copy(
@@ -102,7 +101,7 @@ private[benchmark] final class Adapter(
     }
     pkgIds.toSeq match {
       case Seq(pkgId) => Right(id.copy(packageId = pkgId))
-      case Seq() => Left(s"no package foud for ${id.qualifiedName}")
+      case Seq() => Left(s"no package found for ${id.qualifiedName}")
       case _ => Left(s"2 or more packages found for ${id.qualifiedName}")
     }
   }

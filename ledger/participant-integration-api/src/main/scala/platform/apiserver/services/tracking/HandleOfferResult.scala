@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.tracking
@@ -19,23 +19,27 @@ private[tracking] object HandleOfferResult {
             if i.getMessage == "You have to wait for previous offer to be resolved to send another request" =>
           Some(
             GrpcStatus.RESOURCE_EXHAUSTED
-              .withDescription("Ingress buffer is full"))
+              .withDescription("Ingress buffer is full")
+          )
         case _ =>
           Some(
             GrpcStatus.ABORTED
               .withDescription(s"Failure: ${t.getClass.getSimpleName}: ${t.getMessage}")
-              .withCause(t))
+              .withCause(t)
+          )
 
       }
     case Success(QueueOfferResult.Failure(t)) =>
       Some(
         GrpcStatus.ABORTED
           .withDescription(s"Failed to enqueue: ${t.getClass.getSimpleName}: ${t.getMessage}")
-          .withCause(t))
+          .withCause(t)
+      )
     case Success(QueueOfferResult.Dropped) =>
       Some(
         GrpcStatus.RESOURCE_EXHAUSTED
-          .withDescription("Ingress buffer is full"))
+          .withDescription("Ingress buffer is full")
+      )
     case Success(QueueOfferResult.QueueClosed) =>
       Some(GrpcStatus.ABORTED.withDescription("Queue closed"))
     case Success(QueueOfferResult.Enqueued) => None // Promise will be completed downstream.

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth
@@ -9,8 +9,8 @@ private[auth] final class OngoingAuthorizationObserver[A](
     observer: ServerCallStreamObserver[A],
     claims: Claims,
     authorized: Claims => Either[AuthorizationError, Unit],
-    throwOnFailure: AuthorizationError => Throwable)
-    extends ServerCallStreamObserver[A] {
+    throwOnFailure: AuthorizationError => Throwable,
+) extends ServerCallStreamObserver[A] {
 
   override def isCancelled: Boolean = observer.isCancelled
 

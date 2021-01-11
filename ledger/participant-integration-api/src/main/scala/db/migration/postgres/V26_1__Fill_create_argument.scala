@@ -1,12 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.db.migration.postgres
 
 import java.io.ByteArrayInputStream
 
-import com.daml.platform.store.serialization.ValueSerializer
-import com.daml.platform.db.migration.translation.ContractSerializer
+import com.daml.platform.db.migration.translation.{ContractSerializer, ValueSerializer}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 private[migration] class V26_1__Fill_create_argument extends BaseJavaMigration {
@@ -45,7 +44,9 @@ private[migration] class V26_1__Fill_create_argument extends BaseJavaMigration {
           new ByteArrayInputStream(
             ValueSerializer.serializeValue(
               createArgument,
-              s"failed to serialize create argument for contract $contractId"))
+              s"failed to serialize create argument for contract $contractId",
+            )
+          )
         updateParticipantContracts.setBinaryStream(1, createArgumentBytes)
         updateParticipantContracts.setString(2, templateId.toString)
         updateParticipantContracts.setString(3, contractId)

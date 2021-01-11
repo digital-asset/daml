@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main (main) where
@@ -9,7 +9,7 @@ import System.FilePath.Posix ((</>))
 
 import qualified Control.Concurrent.Async
 import qualified Control.Concurrent.QSem
-import qualified Control.Exception
+import Control.Exception.Safe
 import qualified Control.Monad as Control
 import qualified Control.Monad.Extra
 import qualified Control.Monad.Loops
@@ -22,6 +22,7 @@ import qualified Data.Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List
 import qualified Data.List.Split as Split
+import Data.Maybe (fromMaybe)
 import qualified Data.Ord
 import qualified Data.SemVer
 import qualified Data.Set as Set
@@ -31,41 +32,44 @@ import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
 import qualified Network.URI
 import qualified Options.Applicative as Opt
+import Safe (headMay)
 import qualified System.Directory as Directory
+import qualified System.Environment
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as IO
 import qualified System.Process as System
 import qualified Text.Regex.TDFA as Regex
 
-shell_exit_code :: String -> IO (Exit.ExitCode, String, String)
-shell_exit_code cmd = do
-    System.readCreateProcessWithExitCode (System.shell cmd) ""
-
-die :: String -> Exit.ExitCode -> String -> String -> IO a
-die cmd (Exit.ExitFailure exit) out err =
-    Exit.die $ unlines ["Subprocess:",
-                         cmd,
-                        "failed with exit code " <> show exit <> "; output:",
-                        "---",
-                        out,
-                        "---",
-                        "err:",
-                        "---",
-                        err,
-                        "---"]
-die _ _ _ _ = Exit.die "Type system too weak."
-
+die :: String -> Int -> String -> String -> IO a
+die cmd exit out err =
+    fail $ unlines ["Subprocess:",
+                    cmd,
+                    "failed with exit code " <> show exit <> "; output:",
+                    "---",
+                    out,
+                    "---",
+                    "err:",
+                    "---",
+                    err,
+                    "---"]
 
 shell :: String -> IO String
-shell cmd = do
-    (exit, out, err) <- shell_exit_code cmd
-    if exit == Exit.ExitSuccess
-    then return out
-    else die cmd exit out err
+shell cmd = System.readCreateProcess (System.shell cmd) ""
+
+proc :: [String] -> IO String
+proc args = System.readCreateProcess (System.proc (head args) (tail args)) ""
 
 shell_ :: String -> IO ()
 shell_ cmd = do
     Control.void $ shell cmd
+
+proc_ :: [String] -> IO ()
+proc_ args = Control.void $ proc args
+
+shell_env_ :: [(String, String)] -> String -> IO ()
+shell_env_ env cmd = do
+    parent_env <- System.Environment.getEnvironment
+    Control.void $ System.readCreateProcess ((System.shell cmd) {System.env = Just (parent_env ++ env)}) ""
 
 robustly_download_nix_packages :: IO ()
 robustly_download_nix_packages = do
@@ -73,12 +77,12 @@ robustly_download_nix_packages = do
     where
         cmd = "nix-build nix -A tools -A ci-cached"
         h n = do
-            (exit, out, err) <- shell_exit_code cmd
+            (exit, out, err) <- System.readCreateProcessWithExitCode (System.shell cmd) ""
             case (exit, n) of
               (Exit.ExitSuccess, _) -> return ()
-              (_, 0) -> die cmd exit out err
+              (Exit.ExitFailure exit, 0) -> die cmd exit out err
               _ | "unexpected end-of-file" `Data.List.isInfixOf` err -> h (n - 1)
-              _ -> die cmd exit out err
+              (Exit.ExitFailure exit, _) -> die cmd exit out err
 
 add_github_contact_header :: HTTP.Request -> HTTP.Request
 add_github_contact_header req =
@@ -96,49 +100,52 @@ http_get url = do
       _ -> Exit.die $ unlines ["GET \"" <> url <> "\" returned status code " <> show status <> ".",
                                show $ HTTP.responseBody response]
 
-build_and_push :: FilePath -> [Version] -> IO ()
-build_and_push temp versions = do
+s3Path :: DocOptions -> FilePath -> String
+s3Path DocOptions{s3Subdir} file =
+    "s3://docs-daml-com" </> fromMaybe "" s3Subdir </> file
+
+build_and_push :: DocOptions -> FilePath -> [Version] -> IO ()
+build_and_push opts@DocOptions{build} temp versions = do
     restore_sha $ do
         Data.Foldable.for_ versions (\version -> do
             putStrLn $ "Building " <> show version <> "..."
-            build version
+            build temp version
             putStrLn $ "Pushing " <> show version <> " to S3 (as subfolder)..."
             push version
             putStrLn "Done.")
     where
         restore_sha io =
-            Control.Exception.bracket (init <$> shell "git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD")
-                                      (\cur_sha -> shell_ $ "git checkout " <> cur_sha)
-                                      (const io)
-        build version = do
-            shell_ $ "git checkout v" <> show version
-            robustly_download_nix_packages
-            shell_ $ "DAML_SDK_RELEASE_VERSION=" <> show version <> " bazel build //docs:docs"
-            shell_ $ "mkdir -p  " <> temp </> show version
-            shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> temp </> show version
+            bracket (init <$> shell "git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD")
+                    (\cur_sha -> proc_ ["git", "checkout", cur_sha])
+                    (const io)
         push version =
-            shell_ $ "aws s3 cp " <> (temp </> show version) </> " " <> "s3://docs-daml-com" </> show version </> " --recursive --acl public-read"
+            proc_ ["aws", "s3", "cp",
+                   temp </> show version,
+                   s3Path opts (show version),
+                   "--recursive", "--acl", "public-read"]
 
-fetch_if_missing :: FilePath -> Version -> IO ()
-fetch_if_missing temp v = do
+fetch_if_missing :: DocOptions -> FilePath -> Version -> IO ()
+fetch_if_missing opts temp v = do
     missing <- not <$> Directory.doesDirectoryExist (temp </> show v)
     if missing then do
         putStrLn $ "Downloading " <> show v <> "..."
-        shell_ $ "aws s3 cp s3://docs-daml-com" </> show v <> " " <> temp </> show v <> " --recursive"
+        proc_ ["aws", "s3", "cp", s3Path opts (show v), temp </> show v, "--recursive"]
         putStrLn "Done."
     else do
         putStrLn $ show v <> " already present."
 
-update_s3 :: FilePath -> Versions -> IO ()
-update_s3 temp vs = do
-    putStrLn "Updating versions.json & hidden.json..."
+update_s3 :: DocOptions -> FilePath -> Versions -> IO ()
+update_s3 opts temp vs = do
+    putStrLn "Updating versions.json, hidden.json, latest..."
     create_versions_json (dropdown vs) (temp </> "versions.json")
     let hidden = Data.List.sortOn Data.Ord.Down $ Set.toList $ all_versions vs `Set.difference` (Set.fromList $ dropdown vs)
     create_versions_json hidden (temp </> "hidden.json")
-    shell_ $ "aws s3 cp " <> temp </> "versions.json s3://docs-daml-com/versions.json --acl public-read"
-    shell_ $ "aws s3 cp " <> temp </> "hidden.json s3://docs-daml-com/hidden.json --acl public-read"
-    -- FIXME: remove after running once (and updating the reading bit in this file)
-    shell_ $ "aws s3 cp " <> temp </> "hidden.json s3://docs-daml-com/snapshots.json --acl public-read"
+    let push f = proc_ ["aws", "s3", "cp", temp </> f, s3Path opts f, "--acl", "public-read"]
+    push "versions.json"
+    push "hidden.json"
+    Control.Monad.Extra.whenJust (top vs) $ \latest -> do
+        writeFile (temp </> "latest") (show latest)
+        push "latest"
     putStrLn "Done."
     where
         create_versions_json versions file = do
@@ -151,26 +158,27 @@ update_s3 temp vs = do
                                 & \s -> "{" <> s <> "}"
             writeFile file versions_json
 
-update_top_level :: FilePath -> Version -> Version -> IO ()
-update_top_level temp new old = do
+update_top_level :: DocOptions -> FilePath -> Version -> Maybe Version -> IO ()
+update_top_level opts temp new mayOld = do
     new_files <- Set.fromList <$> Directory.listDirectory (temp </> show new)
-    old_files <- Set.fromList <$> Directory.listDirectory (temp </> show old)
+    old_files <- case mayOld of
+        Nothing -> pure Set.empty
+        Just old -> Set.fromList <$> Directory.listDirectory (temp </> show old)
     let to_delete = Set.toList $ old_files `Set.difference` new_files
     Control.when (not $ null to_delete) $ do
         putStrLn $ "Deleting top-level files: " <> show to_delete
         Data.Foldable.for_ to_delete (\f -> do
-            shell_ $ "aws s3 rm s3://docs-daml-com" </> f <> " --recursive")
+            proc_ ["aws", "s3", "rm", s3Path opts f, "--recursive"])
         putStrLn "Done."
     putStrLn $ "Pushing " <> show new <> " to top-level..."
-    shell_ $ "aws s3 cp " <> temp </> show new </> " s3://docs-daml-com/ --recursive --acl public-read"
+    let path = s3Path opts "" <> "/"
+    proc_ ["aws", "s3", "cp", temp </> show new, path, "--recursive", "--acl", "public-read"]
     putStrLn "Done."
 
 reset_cloudfront :: IO ()
 reset_cloudfront = do
     putStrLn "Refreshing CloudFront cache..."
-    shell_ $ "aws cloudfront create-invalidation"
-             <> " --distribution-id E1U753I56ERH55"
-             <> " --paths '/*'"
+    shell_ "aws cloudfront create-invalidation --distribution-id E1U753I56ERH55 --paths '/*'"
 
 fetch_gh_paginated :: String -> IO [GitHubRelease]
 fetch_gh_paginated url = do
@@ -213,7 +221,7 @@ instance Show Version where
 version :: Text.Text -> Version
 version t = Version $ (\case Left s -> (error s); Right v -> v) $ Data.SemVer.fromText t
 
-data Versions = Versions { top :: Version, all_versions :: Set.Set Version, dropdown :: [Version] }
+data Versions = Versions { top :: Maybe Version, all_versions :: Set.Set Version, dropdown :: [Version] }
     deriving Eq
 
 versions :: [GitHubRelease] -> Versions
@@ -224,37 +232,71 @@ versions vs =
                    & map tag
                    & filter (>= version "1.0.0")
                    & Data.List.sortOn Data.Ord.Down
-        top = head dropdown
+        top = headMay dropdown
     in Versions {..}
 
-fetch_gh_versions :: IO Versions
-fetch_gh_versions = do
+fetch_gh_versions :: (Version -> Bool) -> IO Versions
+fetch_gh_versions pred = do
     response <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
-    -- versions prior to 0.13.10 cannot be built anymore and are not present in
-    -- the repo.
-    return $ versions $ filter (\v -> tag v >= version "0.13.10") response
+    return $ versions $ filter (\v -> pred (tag v)) response
 
-fetch_s3_versions :: IO Versions
-fetch_s3_versions = do
-    dropdown <- fetch "versions.json" False
-    -- TODO: read hidden.json after this has run once
-    hidden <- fetch "snapshots.json" True
+fetch_s3_versions :: DocOptions -> IO Versions
+fetch_s3_versions opts = do
+    -- On the first run, this will fail so treat it like an empty file.
+    -- We could technically remove the catch later.
+    dropdown <- fetch "versions.json" False `catchIO`
+      (\_ -> pure [])
+    hidden <- fetch "hidden.json" True `catchIO`
+      (\_ -> pure [])
     return $ versions $ dropdown <> hidden
     where fetch file prerelease = do
               temp <- shell "mktemp"
-              shell_ $ "aws s3 cp s3://docs-daml-com/" <> file <> " " <> temp
-              s3_raw <- shell $ "cat " <> temp
+              proc_ ["aws", "s3", "cp", s3Path opts file, temp]
+              s3_raw <- proc ["cat", temp]
               let type_annotated_value :: Maybe JSON.Object
                   type_annotated_value = JSON.decode $ LBS.fromString s3_raw
               case type_annotated_value of
                   Just s3_json -> return $ map (\s -> GitHubRelease prerelease (version s) []) $ H.keys s3_json
                   Nothing -> Exit.die "Failed to get versions from s3"
 
-docs :: IO ()
-docs = do
+data DocOptions = DocOptions
+  { s3Subdir :: Maybe FilePath
+  , includedVersion :: Version -> Bool
+    -- Exclusive minimum version bound for which we build docs
+  , build :: FilePath -> Version -> IO ()
+  }
+
+sdkDocOpts :: DocOptions
+sdkDocOpts = DocOptions
+  { s3Subdir = Nothing
+    -- versions prior to 0.13.10 cannot be built anymore and are not present in
+    -- the repo.
+  , includedVersion = \v -> v >= version "0.13.10"
+  , build = \temp version -> do
+        proc_ ["git", "checkout", "v" <> show version]
+        robustly_download_nix_packages
+        shell_env_ [("DAML_SDK_RELEASE_VERSION", show version)] "bazel build //docs:docs"
+        proc_ ["mkdir", "-p", temp </> show version]
+        proc_ ["tar", "xzf", "bazel-bin/docs/html.tar.gz", "--strip-components=1", "-C", temp </> show version]
+  }
+
+damlOnSqlDocOpts :: DocOptions
+damlOnSqlDocOpts = DocOptions
+  { s3Subdir = Just "daml-driver-for-postgresql"
+  , includedVersion = \v -> v > version "1.8.0-snapshot.20201201.5776.0.4b91f2a6"
+  , build = \temp version -> do
+        proc_ ["git", "checkout", "v" <> show version]
+        robustly_download_nix_packages
+        shell_env_ [("DAML_SDK_RELEASE_VERSION", show version)] "bazel build //ledger/daml-on-sql:docs"
+        proc_ ["mkdir", "-p", temp </> show version]
+        proc_ ["tar", "xzf", "bazel-bin/ledger/daml-on-sql/html.tar.gz", "--strip-components=1", "-C", temp </> show version]
+  }
+
+docs :: DocOptions -> IO ()
+docs opts@DocOptions{includedVersion} = do
     putStrLn "Checking for new version..."
-    gh_versions <- fetch_gh_versions
-    s3_versions <- fetch_s3_versions
+    gh_versions <- fetch_gh_versions includedVersion
+    s3_versions <- fetch_s3_versions opts
     if s3_versions == gh_versions
     then do
         putStrLn "Versions match, nothing to do."
@@ -263,14 +305,16 @@ docs = do
         let added = Set.toList $ all_versions gh_versions `Set.difference` all_versions s3_versions
         IO.withTempDir $ \temp_dir -> do
             putStrLn $ "Versions to build: " <> show added
-            build_and_push temp_dir added
-            Control.when (top gh_versions /= top s3_versions) $ do
+            build_and_push opts temp_dir added
+            -- If there is no version on GH, we don’t have to do anything.
+            Control.Monad.Extra.whenJust (top gh_versions) $ \gh_top ->
+              Control.when (Just gh_top /= top s3_versions) $ do
                 putStrLn $ "Updating top-level version from " <> (show $ top s3_versions) <> " to " <> (show $ top gh_versions)
-                fetch_if_missing temp_dir (top gh_versions)
-                fetch_if_missing temp_dir (top s3_versions)
-                update_top_level temp_dir (top gh_versions) (top s3_versions)
+                fetch_if_missing opts temp_dir gh_top
+                Control.Monad.Extra.whenJust (top s3_versions) (fetch_if_missing opts temp_dir)
+                update_top_level opts temp_dir gh_top (top s3_versions)
             putStrLn "Updating versions.json & hidden.json"
-            update_s3 temp_dir gh_versions
+            update_s3 opts temp_dir gh_versions
         reset_cloudfront
 
 download_assets :: FilePath -> GitHubRelease -> IO ()
@@ -278,7 +322,7 @@ download_assets tmp release = do
     manager <- HTTP.newManager TLS.tlsManagerSettings
     tokens <- Control.Concurrent.QSem.newQSem 20
     Control.Concurrent.Async.forConcurrently_ (map uri $ assets release) (\url ->
-        Control.Exception.bracket_
+        bracket_
           (Control.Concurrent.QSem.waitQSem tokens)
           (Control.Concurrent.QSem.signalQSem tokens)
           (do
@@ -414,5 +458,7 @@ main = do
         \h -> IO.hSetBuffering h IO.LineBuffering
     opts <- Opt.execParser parser
     case opts of
-      Docs -> docs
+      Docs -> do
+          docs sdkDocOpts
+          docs damlOnSqlDocOpts
       Check { bash_lib, gcp_credentials, max_releases } -> check_releases gcp_credentials bash_lib max_releases

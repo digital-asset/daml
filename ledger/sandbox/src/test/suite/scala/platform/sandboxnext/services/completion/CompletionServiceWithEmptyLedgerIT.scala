@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandboxnext.services.completion
@@ -12,18 +12,18 @@ import com.daml.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementA
 import com.daml.ledger.api.v1.admin.package_management_service.{
   PackageManagementServiceGrpc,
   UploadDarFileRequest,
-  UploadDarFileResponse
+  UploadDarFileResponse,
 }
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   AllocatePartyResponse,
-  PartyManagementServiceGrpc
+  PartyManagementServiceGrpc,
 }
 import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
   CompletionEndRequest,
   CompletionStreamRequest,
-  CompletionStreamResponse
+  CompletionStreamResponse,
 }
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -37,7 +37,9 @@ import com.daml.platform.sandboxnext.services.completion.CompletionServiceWithEm
 import com.daml.platform.testing.StreamConsumer
 import com.google.protobuf.ByteString
 import io.grpc.Channel
-import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
+import org.scalatest.Inspectors
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -58,7 +60,7 @@ final class CompletionServiceWithEmptyLedgerIT
     super.config.copy(
       damlPackages = List.empty,
       ledgerConfig = super.config.ledgerConfig.copy(
-        initialConfigurationSubmitDelay = Duration.ofDays(5),
+        initialConfigurationSubmitDelay = Duration.ofDays(5)
       ),
       implicitPartyAllocation = false,
     )
@@ -139,7 +141,7 @@ object CompletionServiceWithEmptyLedgerIT {
     new StreamConsumer[CompletionStreamResponse](
       completionService.completionStream(
         CompletionStreamRequest(ledgerId.unwrap, MockMessages.applicationId, parties, Some(offset)),
-        _
+        _,
       )
     ).within(completionTimeout)
       .map(_.flatMap(_.completions).map(_.commandId))

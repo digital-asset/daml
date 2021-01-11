@@ -1,12 +1,13 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
 
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ValueSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+class ValueSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
   import ValueGen._
 
   "Value" should {
@@ -16,7 +17,9 @@ class ValueSpec extends WordSpec with Matchers with GeneratorDrivenPropertyCheck
       (vc.tName, Value.Decoder[wv.T].read(Value.Encoder[wv.T].write(t))) shouldBe (
         (
           vc.tName,
-          Some(t)))
+          Some(t),
+        ),
+      )
     }
 
     "be found for lists" in {
@@ -30,7 +33,8 @@ class ValueSpec extends WordSpec with Matchers with GeneratorDrivenPropertyCheck
       import com.daml.ledger.api.v1.value.Value.{Sum => VSum}
       import com.daml.ledger.api.v1.value.{Value => RpcValue}
       Value.encode(BigDecimal.exact("0.0000000000001"): P.Numeric) shouldBe RpcValue(
-        VSum.Numeric("0.0000000000001"))
+        VSum.Numeric("0.0000000000001")
+      )
     }
     "fail to decode Numeric with exponent" in {
       import com.daml.ledger.client.binding.{Primitive => P}

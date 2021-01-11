@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -30,7 +30,7 @@ export default class TimeInputGuide extends React.Component<{}, State> {
         dateValue: DamlLfValueF.undef(),
       };
     }
-    render() {
+    render(): JSX.Element {
       return (
         <Section
           title="Date and time inputs"
@@ -46,7 +46,7 @@ export default class TimeInputGuide extends React.Component<{}, State> {
             <span>Value seen by parent:</span> {this.state.timeValue}
           </p>
           <TimeInput
-            onChange={() => { ; }}
+            onChange={() => { return; }}
             parameter={timeParameter}
             disabled={true}
             argument={this.state.timeValue}

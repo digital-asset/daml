@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { defaultTheme, Dispatch, ThemeInterface, ThemeProvider } from '@da/ui-core';
@@ -7,6 +7,7 @@ import * as Session from '@da/ui-core/lib/session';
 import * as React from 'react';
 import { connect, ConnectedComponent } from 'react-redux';
 import { Action as ReduxAction } from 'redux';
+import { ThunkAction } from 'redux-thunk';
 import Frame from '../../components/Frame';
 import {
   ConfigType,
@@ -25,7 +26,7 @@ export type Action
   | { type: 'TO_PAGE', action: Page.Action }
   | { type: 'TO_WATCHER', action: LedgerWatcher.Action }
   | { type: 'TO_CONFIG', action: ConfigSource.Action }
-  | { type: 'RESET_APP' }
+  | { type: 'RESET_APP' }
 
 export const toPage = (action: Page.Action): Action =>
   ({ type: 'TO_PAGE', action });
@@ -42,8 +43,8 @@ export const toConfig = (action: ConfigSource.Action): Action =>
 export const resetApp = (): Action =>
   ({ type: 'RESET_APP' });
 
-export const initSession = () => Session.init(toSession);
-export const initConfig = () => ConfigSource.reload(toConfig);
+export const initSession = (): ThunkAction<void, void, undefined, Action> => Session.init(toSession);
+export const initConfig = (): ThunkAction<void, State, undefined, Action> => ConfigSource.reload(toConfig);
 
 export interface State {
   session: Session.State;
@@ -131,14 +132,14 @@ class Component extends React.Component<Props, ComponentState> {
     };
   }
 
-  componentWillReceiveProps(nextProps: Props) {
+  UNSAFE_componentWillReceiveProps(nextProps: Props) {
     // Fast skip if neither session nor config source have changed
     if (
       nextProps.state.session !== this.props.state.session ||
       nextProps.state.configSource !== this.props.state.configSource
     ) {
 
-      this.setState<'config' | 'theme'>(this.computeStateFromSession(nextProps));
+      this.setState<'config' | 'theme'>(this.computeStateFromSession(nextProps));
     }
   }
 
@@ -157,7 +158,7 @@ class Component extends React.Component<Props, ComponentState> {
           config: Either.left<Error, ConfigType>(new Error(configSource.result.error)),
           theme: defaultTheme,
         };
-      case 'loaded':
+      case 'loaded': {
         // Got config source, try to parse and evaluate it (caching results)
         const source = configSource.result.source;
         const {result, cache: newCache} = evalConfigCached(user, source, configCache);
@@ -166,6 +167,7 @@ class Component extends React.Component<Props, ComponentState> {
           configCache: newCache,
           theme: result.type === 'right' ? {...defaultTheme, ...result.value.theme} : defaultTheme,
         };
+      }
     }
   }
 
@@ -240,7 +242,7 @@ class Component extends React.Component<Props, ComponentState> {
       return <p>Unknown session or config type</p>;
     }
   }
-};
+}
 
 export const UI: ConnectedComponent<typeof Component, OwnProps> =
   connect((state) => ({state}), (dispatch) => ({dispatch}))(Component);

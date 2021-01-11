@@ -1,19 +1,19 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 JavaScript Code Generator
 #########################
 
-The command ``daml codegen js`` generates JavaScript (and TypeScript) that can be used in conjunction with the `JavaScript Client Libraries <../index>`_ for interacting with a DAML ledger via the `HTTP JSON API <../json-api/index.html>`_.
+The command ``daml codegen js`` generates JavaScript (and TypeScript) that can be used in conjunction with the `JavaScript Client Libraries <../index>`_ for interacting with a Daml ledger via the `HTTP JSON API <../json-api/index.html>`_.
 
-Inputs to the command are DAR files. Outputs are JavaScript packages with TypeScript typings containing metadata and types for all DAML packages included in the DAR files.
+Inputs to the command are DAR files. Outputs are JavaScript packages with TypeScript typings containing metadata and types for all Daml packages included in the DAR files.
 
-The generated packages use the library `@daml/types <https://github.com/digital-asset/daml/tree/master/language-support/ts/daml-types>`_.
+The generated packages use the library `@daml/types <https://github.com/digital-asset/daml/tree/main/language-support/ts/daml-types>`_.
 
 Usage
 -----
 
-In outline, the command to generate JavaScript and TypeScript typings from DAML is ``daml codegen js -o OUTDIR DAR`` where ``DAR`` is the path to a DAR file (generated via ``daml build``) and ``OUTDIR`` is a directory where you want the artifacts to be written.
+In outline, the command to generate JavaScript and TypeScript typings from Daml is ``daml codegen js -o OUTDIR DAR`` where ``DAR`` is the path to a DAR file (generated via ``daml build``) and ``OUTDIR`` is a directory where you want the artifacts to be written.
 
 Here's a complete example on a project built from the standard "skeleton" template.
 
@@ -22,24 +22,24 @@ Here's a complete example on a project built from the standard "skeleton" templa
 
    daml new my-proj --template skeleton # Create a new project based off the skeleton template
    cd my-proj # Enter the newly created project directory
-   daml build  # Compile the project's DAML files into a DAR
+   daml build  # Compile the project's Daml files into a DAR
    daml codegen js -o daml.js .daml/dist/my-proj-0.0.1.dar # Generate JavaScript packages in the daml.js directory
 
 - On execution of these commands:
 
   - The directory ``my-proj/daml.js`` contains generated JavaScript packages with TypeScript typings;
   - The files are arranged into directories;
-  - One of those directories will be named my-proj-0.0.1 and will contain the definitions corresponding to the DAML files in the project;
+  - One of those directories will be named my-proj-0.0.1 and will contain the definitions corresponding to the Daml files in the project;
   - For example, ``daml.js/my-proj-0.0.1/lib/index.js`` provides access to the definitions for ``daml/Main.daml``;
-  - The remaining directories correspond to modules of the DAML standard library;
-  - Those directories have numeric names (the names are hashes of the DAML-LF package they are derived from).
+  - The remaining directories correspond to modules of the Daml standard library;
+  - Those directories have numeric names (the names are hashes of the Daml-LF package they are derived from).
 
 To get a quickstart idea of how to use what has been generated, you may wish to jump to the `Templates and choices`_ section and return to the reference material that follows as needed.
 
-Primitive DAML types: @daml/types
+Primitive Daml types: @daml/types
 ---------------------------------
 
-To understand the TypeScript typings produced by the code generator, it is helpful to keep in mind this quick review of the TypeScript equivalents of the primitive DAML types provided by @daml/types.
+To understand the TypeScript typings produced by the code generator, it is helpful to keep in mind this quick review of the TypeScript equivalents of the primitive Daml types provided by @daml/types.
 
 **Interfaces**:
 
@@ -49,7 +49,7 @@ To understand the TypeScript typings produced by the code generator, it is helpf
 **Types**:
 
 +-------------------+--------------------+----------------------------------+
-| DAML              | TypeScript         | TypeScript definition            |
+| Daml              | TypeScript         | TypeScript definition            |
 +===================+====================+==================================+
 | ``()``            | ``Unit``           | ``{}``                           |
 +-------------------+--------------------+----------------------------------+
@@ -93,15 +93,15 @@ To understand the TypeScript typings produced by the code generator, it is helpf
 .. note::
    The TypeScript definition of type ``Optional<τ>`` in the above table might look complicated. It accounts for differences in the encoding of optional values when nested versus when they are not (i.e. "top-level"). For example, ``null`` and ``"foo"`` are two possible values of ``Optional<Text>`` whereas, ``[]`` and ``["foo"]`` are two possible values of type ``Optional<Optional<Text>>`` (``null`` is another possible value, ``[null]`` is **not**).
 
-DAML to TypeScript mappings
+Daml to TypeScript mappings
 ---------------------------
 
-The mappings from DAML to TypeScript are best explained by example.
+The mappings from Daml to TypeScript are best explained by example.
 
 Records
 ~~~~~~~
 
-In DAML, we might model a person like this.
+In Daml, we might model a person like this.
 
 .. code-block:: daml
    :linenos:
@@ -126,7 +126,7 @@ Given the above definition, the generated TypeScript code will be as follows.
 Variants
 ~~~~~~~~
 
-This is a DAML type for a language of additive expressions.
+This is a Daml type for a language of additive expressions.
 
 .. code-block:: daml
    :linenos:
@@ -181,7 +181,7 @@ The thing to note is how the definition of the ``Add`` case has given rise to a 
 Enums
 ~~~~~
 
-Given a DAML enumeration like this,
+Given a Daml enumeration like this,
 
 .. code-block:: daml
    :linenos:
@@ -205,7 +205,7 @@ the generated TypeScript will consist of a type declaration and the definition o
 Templates and choices
 ~~~~~~~~~~~~~~~~~~~~~
 
-Here is a DAML template of a basic 'IOU' contract.
+Here is a Daml template of a basic 'IOU' contract.
 
 .. code-block:: daml
    :linenos:
@@ -257,7 +257,7 @@ Each template results in the generation of a companion object. Here, is a schema
 
 The exact details of these companion objects are not important - think of them as representing "metadata".
 
-What **is** important is the use of the companion objects when creating contracts and exercising choices using the `@daml/ledger <https://github.com/digital-asset/daml/tree/master/language-support/ts/daml-ledger>`_ package. The following code snippet demonstrates their usage.
+What **is** important is the use of the companion objects when creating contracts and exercising choices using the `@daml/ledger <https://github.com/digital-asset/daml/tree/main/language-support/ts/daml-ledger>`_ package. The following code snippet demonstrates their usage.
 
 .. code-block:: typescript
    :linenos:

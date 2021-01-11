@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
@@ -16,7 +16,7 @@ import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
   TreeEvent,
   Transaction => ApiTransaction,
-  TransactionTree => ApiTransactionTree
+  TransactionTree => ApiTransactionTree,
 }
 import com.daml.platform.api.v1.event.EventOps.EventOps
 import com.daml.platform.participant.util.LfEngineToApi.{
@@ -24,7 +24,7 @@ import com.daml.platform.participant.util.LfEngineToApi.{
   lfNodeCreateToEvent,
   lfNodeCreateToTreeEvent,
   lfNodeExercisesToEvent,
-  lfNodeExercisesToTreeEvent
+  lfNodeExercisesToTreeEvent,
 }
 import com.daml.platform.store.entries.LedgerEntry
 
@@ -35,8 +35,8 @@ private[platform] object TransactionConversion {
   private type ContractId = lf.value.Value.ContractId
   private type Transaction = CommittedTransaction
   private type Node = Tx.Node
-  private type Create = NodeCreate.WithTxValue[ContractId]
-  private type Exercise = NodeExercises.WithTxValue[NodeId, ContractId]
+  private type Create = NodeCreate[ContractId]
+  private type Exercise = NodeExercises[NodeId, ContractId]
 
   private def collect[A](tx: Transaction)(pf: PartialFunction[(NodeId, Node), A]): Seq[A] =
     tx.fold(Vector.empty[A]) {
@@ -46,23 +46,24 @@ private[platform] object TransactionConversion {
 
   private def maskCommandId(
       commandId: Option[CommandId],
-      submittingParty: Option[Ref.Party],
+      actAs: List[Ref.Party],
       requestingParties: Set[Ref.Party],
   ): String =
-    commandId.filter(_ => submittingParty.exists(requestingParties)).getOrElse("")
+    commandId.filter(_ => actAs.exists(requestingParties)).getOrElse("")
 
   private def toFlatEvent(
       trId: TransactionId,
-      verbose: Boolean): PartialFunction[(NodeId, Node), Event] = {
+      verbose: Boolean,
+  ): PartialFunction[(NodeId, Node), Event] = {
     case (nodeId, node: Create) =>
       assertOrRuntimeEx(
         failureContext = "converting a create node to a created event",
-        lfNodeCreateToEvent(verbose, trId, nodeId, node)
+        lfNodeCreateToEvent(verbose, trId, nodeId, node),
       )
     case (nodeId, node: Exercise) if node.consuming =>
       assertOrRuntimeEx(
         failureContext = "converting a consuming exercise node to an archived event",
-        lfNodeExercisesToEvent(trId, nodeId, node)
+        lfNodeExercisesToEvent(trId, nodeId, node),
       )
   }
 
@@ -92,7 +93,7 @@ private[platform] object TransactionConversion {
     val flatEvents = removeTransient(allFlatEvents)
     val filtered = flatEvents.flatMap(EventFilter(_)(filter).toList)
     val requestingParties = filter.filtersByParty.keySet
-    val commandId = maskCommandId(entry.commandId, entry.submittingParty, requestingParties)
+    val commandId = maskCommandId(entry.commandId, entry.actAs, requestingParties)
     Some(
       ApiTransaction(
         transactionId = entry.transactionId,
@@ -101,7 +102,8 @@ private[platform] object TransactionConversion {
         effectiveAt = Some(TimestampConversion.fromInstant(entry.ledgerEffectiveTime)),
         events = filtered,
         offset = offset.value,
-      )).filter(tx => tx.events.nonEmpty || tx.commandId.nonEmpty)
+      )
+    ).filter(tx => tx.events.nonEmpty || tx.commandId.nonEmpty)
   }
 
   private def disclosureForParties(
@@ -112,11 +114,10 @@ private[platform] object TransactionConversion {
       Blinding
         .blind(transaction)
         .disclosure
-        .flatMap {
-          case (nodeId, disclosure) =>
-            List(disclosure.intersect(parties)).collect {
-              case disclosure if disclosure.nonEmpty => nodeId -> disclosure
-            }
+        .flatMap { case (nodeId, disclosure) =>
+          List(disclosure.intersect(parties)).collect {
+            case disclosure if disclosure.nonEmpty => nodeId -> disclosure
+          }
         }
     ).filter(_.nonEmpty)
 
@@ -149,7 +150,8 @@ private[platform] object TransactionConversion {
           eventId = eventId,
           witnessParties = disclosure(nodeId),
           node = node,
-          filterChildren = nid => isCreateOrExercise(nodes(nid)))
+          filterChildren = nid => isCreateOrExercise(nodes(nid)),
+        ),
       )
   }
 
@@ -187,7 +189,7 @@ private[platform] object TransactionConversion {
       case events if events.nonEmpty =>
         ApiTransactionTree(
           eventsById = events.toMap,
-          rootEventIds = newRoots(tx, disclosure.contains).map(EventId(trId, _).toLedgerString)
+          rootEventIds = newRoots(tx, disclosure.contains).map(EventId(trId, _).toLedgerString),
         )
     }
 
@@ -209,11 +211,12 @@ private[platform] object TransactionConversion {
     filteredTree.map(
       _.copy(
         transactionId = entry.transactionId,
-        commandId = maskCommandId(entry.commandId, entry.submittingParty, requestingParties),
+        commandId = maskCommandId(entry.commandId, entry.actAs, requestingParties),
         workflowId = entry.workflowId.getOrElse(""),
         effectiveAt = Some(TimestampConversion.fromInstant(entry.ledgerEffectiveTime)),
         offset = offset.value,
-      ))
+      )
+    )
   }
 
 }

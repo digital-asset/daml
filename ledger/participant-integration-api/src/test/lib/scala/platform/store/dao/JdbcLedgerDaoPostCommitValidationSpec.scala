@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -12,13 +12,15 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.events.LfValueTranslation
-import org.scalatest.{AsyncFlatSpec, LoneElement, Matchers}
+import org.scalatest.LoneElement
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
-  override protected def daoOwner(eventsPageSize: Int)(
-      implicit loggingContext: LoggingContext,
+  override protected def daoOwner(eventsPageSize: Int)(implicit
+      loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] =
     JdbcLedgerDao
       .validatingWriteOwner(
@@ -49,7 +51,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(from, to, defaultAppId, Set(alice))
     } yield {
-      completions should contain allOf (
+      completions should contain.allOf(
         originalAttempt.commandId.get -> ok,
         duplicateAttempt.commandId.get -> invalid,
       )
@@ -69,7 +71,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(from, to, defaultAppId, Set(alice))
     } yield {
-      completions should contain allOf (
+      completions should contain.allOf(
         create.commandId.get -> ok,
         lookup.commandId.get -> invalid,
       )
@@ -91,7 +93,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(from, to, defaultAppId, Set(alice))
     } yield {
-      completions should contain allOf (
+      completions should contain.allOf(
         create.commandId.get -> ok,
         archive.commandId.get -> ok,
         lookup.commandId.get -> invalid,
@@ -114,7 +116,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(from, to, defaultAppId, Set(alice))
     } yield {
-      completions should contain allOf (
+      completions should contain.allOf(
         create.commandId.get -> ok,
         archive.commandId.get -> ok,
         fetch.commandId.get -> invalid,
@@ -137,7 +139,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(from, to, defaultAppId, Set(alice))
     } yield {
-      completions should contain allOf (
+      completions should contain.allOf(
         fetch1.commandId.get -> invalid,
         divulgence.commandId.get -> ok,
         fetch2.commandId.get -> ok,

@@ -1,18 +1,17 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.services.grpc
 
 import java.time.{Duration, Instant}
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
   CommandSubmissionService => ApiCommandSubmissionService
 }
 import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
-  SubmitRequest => ApiSubmitRequest
+  SubmitRequest => ApiSubmitRequest,
 }
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
 import com.daml.metrics.{Metrics, Timed}
@@ -23,7 +22,7 @@ import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcCommandSubmissionService(
     override protected val service: CommandSubmissionService with AutoCloseable,
@@ -32,7 +31,8 @@ class GrpcCommandSubmissionService(
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
     metrics: Metrics,
-) extends ApiCommandSubmissionService
+)(implicit executionContext: ExecutionContext)
+    extends ApiCommandSubmissionService
     with ProxyCloseable
     with GrpcApiService {
 
@@ -48,13 +48,12 @@ class GrpcCommandSubmissionService(
         .value(
           metrics.daml.commands.validation,
           validator
-            .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime()))
-        .fold(
-          Future.failed,
-          service.submit(_).map(_ => Empty.defaultInstance)(DirectExecutionContext))
+            .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime()),
+        )
+        .fold(Future.failed, service.submit(_).map(_ => Empty.defaultInstance)),
     )
 
   override def bindService(): ServerServiceDefinition =
-    CommandSubmissionServiceGrpc.bindService(this, DirectExecutionContext)
+    CommandSubmissionServiceGrpc.bindService(this, executionContext)
 
 }

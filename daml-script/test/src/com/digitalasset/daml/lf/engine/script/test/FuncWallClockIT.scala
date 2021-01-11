@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -19,7 +19,8 @@ final class FuncWallClockIT extends AbstractFuncIT {
         SRecord(_, _, vals) <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:sleepTest"),
-          dar = stableDar)
+          dar = stableDar,
+        )
       } yield {
         assert(vals.size == 3)
         val t0 = assertSTimestamp(vals.get(0))

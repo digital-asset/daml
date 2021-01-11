@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
@@ -12,7 +12,7 @@ import com.daml.ledger.api.domain.{
   EventId,
   LedgerOffset,
   TransactionId,
-  WorkflowId
+  WorkflowId,
 }
 import com.daml.ledger.api.v1.transaction_filter.Filters
 import net.logstash.logback.argument.StructuredArguments
@@ -24,6 +24,10 @@ package object logging {
     "parties" -> StructuredArguments.toString(parties.toArray)
   private[services] def party(party: String): (String, String) =
     "parties" -> StructuredArguments.toString(Array(party))
+  private[services] def actAs(parties: Iterable[String]): (String, String) =
+    "actAs" -> StructuredArguments.toString(parties.toArray)
+  private[services] def readAs(parties: Iterable[String]): (String, String) =
+    "readAs" -> StructuredArguments.toString(parties.toArray)
   private[services] def startExclusive(o: LedgerOffset): (String, String) =
     "startExclusive" -> offsetValue(o)
   private[services] def endInclusive(o: Option[LedgerOffset]): (String, String) =
@@ -49,19 +53,19 @@ package object logging {
   private[services] def eventId(id: EventId): (String, String) =
     "eventId" -> id.unwrap
   private[services] def filters(filtersByParty: Map[String, Filters]): Map[String, String] =
-    filtersByParty.iterator.flatMap {
-      case (party, filters) =>
-        Iterator
-          .continually(s"party-$party")
-          .zip(filters.inclusive.fold(Iterator.single("all-templates"))(
-            _.templateIds.iterator.map(_.toString)))
+    filtersByParty.iterator.flatMap { case (party, filters) =>
+      Iterator
+        .continually(s"party-$party")
+        .zip(
+          filters.inclusive.fold(Iterator.single("all-templates"))(
+            _.templateIds.iterator.map(_.toString)
+          )
+        )
     }.toMap
   private[services] def submissionId(id: String): (String, String) =
     "submissionId" -> id
   private[services] def submittedAt(t: Instant): (String, String) =
     "submittedAt" -> t.toString
-  private[services] def submitter(party: String): (String, String) =
-    "submitter" -> party
   private[services] def transactionId(id: TransactionId): (String, String) =
     "transactionId" -> id.unwrap
   private[services] def workflowId(id: WorkflowId): (String, String) =
@@ -70,11 +74,11 @@ package object logging {
     val context =
       Map(
         commandId(cmds.commandId),
-        party(cmds.submitter),
         deduplicateUntil(cmds.deduplicateUntil),
         applicationId(cmds.applicationId),
         submittedAt(cmds.submittedAt),
-        submitter(cmds.submitter),
+        actAs(cmds.actAs),
+        readAs(cmds.readAs),
       )
     cmds.workflowId.fold(context)(context + workflowId(_))
   }

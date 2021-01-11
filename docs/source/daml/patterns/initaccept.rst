@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Initiate and Accept
@@ -16,7 +16,7 @@ Invite
 Propose
   When issuing an asset, an issuer is making a business proposal to potential buyers. The proposal lays out what is expected from buyers, and what they can expect from the issuer. Buyers need to evaluate all aspects of the offering, e.g. price, return, and tax implications, before making a decision.
 
-The Initiate and Accept pattern demonstrates how to write a DAML program to model the initiation of an inter-company contractual relationship. DAML modelers often have to follow this pattern to ensure no participants are forced into an obligation.
+The Initiate and Accept pattern demonstrates how to write a Daml program to model the initiation of an inter-company contractual relationship. Daml modelers often have to follow this pattern to ensure no participants are forced into an obligation.
 
 Implementation
 **************
@@ -24,7 +24,7 @@ Implementation
 The Initiate and Accept pattern in general involves 2 contracts:
 
 Initiate contract
-  The Initiate contract can be created from a role contract or any other point in the workflow. In this example, initiate contract is the proposal contract  *CoinIssueProposal* the issuer created from from the master contract *CoinMaster*.
+  The Initiate contract can be created from a role contract or any other point in the workflow. In this example, initiate contract is the proposal contract  *CoinIssueProposal* the issuer created from the master contract *CoinMaster*.
 
   .. literalinclude:: daml/CoinIssuance.daml
     :language: daml

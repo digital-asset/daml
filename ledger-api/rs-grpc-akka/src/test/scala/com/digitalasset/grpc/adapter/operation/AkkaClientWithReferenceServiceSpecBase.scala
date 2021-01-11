@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.adapter.operation
@@ -11,13 +11,15 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.platform.hello.HelloRequest
 import io.grpc.StatusRuntimeException
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import java.net.SocketAddress
 
 abstract class AkkaClientWithReferenceServiceSpecBase(
-    override protected val socketAddress: Option[SocketAddress])
-    extends WordSpec
+    override protected val socketAddress: Option[SocketAddress]
+) extends AnyWordSpec
     with Matchers
     with BeforeAndAfterAll
     with AkkaBeforeAndAfterAll

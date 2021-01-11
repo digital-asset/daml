@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.serialization
@@ -11,17 +11,18 @@ import com.daml.lf.data._
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class KeyHasherSpec extends WordSpec with Matchers {
+class KeyHasherSpec extends AnyWordSpec with Matchers {
   private[this] def templateId(module: String, name: String) = Identifier(
     PackageId.assertFromString("package"),
     QualifiedName(
       ModuleName.assertFromString(module),
-      DottedName.assertFromString(name)
-    )
+      DottedName.assertFromString(name),
+    ),
   )
 
   private[this] def complexValue = {
@@ -49,14 +50,17 @@ class KeyHasherSpec extends WordSpec with Matchers {
       None,
       ImmArray(
         None -> ValueText("field1"),
-        None -> ValueText("field2")
-      ))
+        None -> ValueText("field2"),
+      ),
+    )
     builder += None -> ValueTextMap(
       SortedLookupList(
         Map(
           "keyA" -> ValueText("valueA"),
-          "keyB" -> ValueText("valueB")
-        )))
+          "keyB" -> ValueText("valueB"),
+        )
+      )
+    )
     val fields = builder.result()
 
     ValueRecord(None, fields)
@@ -128,14 +132,16 @@ class KeyHasherSpec extends WordSpec with Matchers {
         ValueList(
           FrontStack(
             ValueList(FrontStack(ValueUnit)),
-            ValueList(FrontStack(ValueUnit, ValueUnit))
-          ))
+            ValueList(FrontStack(ValueUnit, ValueUnit)),
+          )
+        )
       val value2 =
         ValueList(
           FrontStack(
             ValueList(FrontStack(ValueUnit, ValueUnit)),
-            ValueList(FrontStack(ValueUnit))
-          ))
+            ValueList(FrontStack(ValueUnit)),
+          )
+        )
 
       val tid = templateId("module", "name")
 
@@ -179,15 +185,19 @@ class KeyHasherSpec extends WordSpec with Matchers {
           SortedLookupList(
             Map(
               "A" -> ValueInt64(0),
-              "B" -> ValueInt64(0)
-            )))
+              "B" -> ValueInt64(0),
+            )
+          )
+        )
       val value2 =
         ValueTextMap(
           SortedLookupList(
             Map(
               "A" -> ValueInt64(0),
-              "C" -> ValueInt64(0)
-            )))
+              "C" -> ValueInt64(0),
+            )
+          )
+        )
 
       val tid = templateId("module", "name")
 
@@ -203,15 +213,19 @@ class KeyHasherSpec extends WordSpec with Matchers {
           SortedLookupList(
             Map(
               "A" -> ValueInt64(0),
-              "B" -> ValueInt64(0)
-            )))
+              "B" -> ValueInt64(0),
+            )
+          )
+        )
       val value2 =
         ValueTextMap(
           SortedLookupList(
             Map(
               "A" -> ValueInt64(0),
-              "B" -> ValueInt64(1)
-            )))
+              "B" -> ValueInt64(1),
+            )
+          )
+        )
 
       val tid = templateId("module", "name")
 
@@ -303,15 +317,17 @@ class KeyHasherSpec extends WordSpec with Matchers {
           None,
           ImmArray(
             None -> ValueText("A"),
-            None -> ValueText("B")
-          ))
+            None -> ValueText("B"),
+          ),
+        )
       val value2 =
         ValueRecord(
           None,
           ImmArray(
             None -> ValueText("A"),
-            None -> ValueText("C")
-          ))
+            None -> ValueText("C"),
+          ),
+        )
 
       val tid = templateId("module", "name")
 
@@ -405,10 +421,14 @@ class KeyHasherSpec extends WordSpec with Matchers {
         List[Value](
           ValueContractId(
             ContractId.assertFromString(
-              "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5")),
+              "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"
+            )
+          ),
           ValueContractId(
             ContractId.assertFromString(
-              "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b"))
+              "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b"
+            )
+          ),
         )
 
       val enums =
@@ -428,16 +448,20 @@ class KeyHasherSpec extends WordSpec with Matchers {
         List[Value](
           ValueRecord(
             Some(Record2TypeCon),
-            ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueFalse)),
+            ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueFalse),
+          ),
           ValueRecord(
             Some(Record2TypeCon),
-            ImmArray(Some(fstField) -> ValueTrue, Some(sndField) -> ValueFalse)),
+            ImmArray(Some(fstField) -> ValueTrue, Some(sndField) -> ValueFalse),
+          ),
           ValueRecord(
             Some(Record2TypeCon),
-            ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueTrue)),
+            ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueTrue),
+          ),
           ValueRecord(
             Some(Record2TypeConBis),
-            ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueFalse)),
+            ImmArray(Some(fstField) -> ValueFalse, Some(sndField) -> ValueFalse),
+          ),
         )
 
       val variants = List[Value](

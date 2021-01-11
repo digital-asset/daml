@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.identity
@@ -13,11 +13,12 @@ import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.testing.postgresql.PostgresAroundAll
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
 
 sealed trait LedgerIdentityServiceITBaseGiven
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with SandboxFixture
     with SuiteResourceManagementAroundEach {
@@ -26,7 +27,8 @@ sealed trait LedgerIdentityServiceITBaseGiven
 
   override protected def config: SandboxConfig =
     super.config.copy(ledgerIdMode =
-      LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(givenLedgerId))))
+      LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(givenLedgerId)))
+    )
 
   // This test relies on inheriting from SuiteResourceManagementAroundEach to restart the ledger across test cases
 
@@ -50,7 +52,7 @@ final class LedgerIdentityServicePostgresGivenIT
     with SandboxBackend.Postgresql
 
 sealed trait LedgerIdentityServiceITBaseDynamic
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with SandboxFixture
     with SuiteResourceManagementAroundEach {
@@ -88,7 +90,7 @@ final class LedgerIdentityServicePostgresDynamicIT
     with SandboxBackend.Postgresql
 
 final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with SandboxFixture
     with SuiteResourceManagementAroundEach
@@ -99,7 +101,8 @@ final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
       .copy(
         jdbcUrl = Some(postgresDatabase.url),
         ledgerIdMode = Option(firstRunLedgerId).fold[LedgerIdMode](LedgerIdMode.Dynamic)(id =>
-          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id))))
+          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))
+        ),
       )
 
   @volatile private var firstRunLedgerId: String = _

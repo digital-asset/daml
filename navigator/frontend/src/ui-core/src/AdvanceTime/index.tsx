@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 
@@ -57,7 +57,7 @@ class AdvanceTime extends React.Component<Props, State> {
       ledgerTime.value.format(hardcodedStyle.defaultTimeFormat) : 'LOADING';
     return ledgerTime.readonly ? (
       <InlineDiv>
-        <Button type="nav-transparent" onClick={() => { ; }}>
+        <Button type="nav-transparent" onClick={() => { return; }}>
           <LeftIcon name="clock" />
           {formattedTime}
         </Button>
@@ -70,7 +70,7 @@ class AdvanceTime extends React.Component<Props, State> {
         position={'bottom'}
         target={(
           <InlineDiv>
-            <Button type="nav-transparent" onClick={() => { ; }}>
+            <Button type="nav-transparent" onClick={() => { return; }}>
               <LeftIcon name="clock" />
               {formattedTime}
               <RightIcon name="chevron-down" />

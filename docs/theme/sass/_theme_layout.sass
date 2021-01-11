@@ -712,7 +712,7 @@ body
     top: 0
     position: absolute
     right: 30px
-    font-size: 24pt
+    font-size: 20pt
     font-weight: $weight-body
     display: flex
     align-items: center
@@ -736,23 +736,22 @@ body
         padding-left: 45px
         align-items: baseline
         border-top: none
-        padding-top: 14px
-        padding-bottom: 27px
         color: $text-dark
         position: relative
         top: initial
         left: initial
         right: initial
         font-size: 20pt
+        margin-top: 0
 
         +media($desktop-wide)
-          font-size: 26pt
+          font-size: 20pt
 
         .nice-select
           font-size: 20pt
 
           +media($desktop-wide)
-            font-size: 26pt
+            font-size: 20pt
 
           &:after
             background-size: 20px
@@ -913,12 +912,12 @@ body
               content: ""
               display: block
               background: url("../images/arrowblack.svg") no-repeat
-              width: 14px
+              width: 16px
               height: 17px
-              background-size: 14px
+              background-size: 16px
               position: absolute
               right: 29px
-              top: 15px
+              top: 18px
 
             &:hover
               color: $menu-link-medium
@@ -956,12 +955,12 @@ body
             content: ""
             display: block
             background: url("../images/arrowblack.svg") no-repeat
-            width: 14px
+            width: 16px
             height: 17px
-            background-size: 14px
+            background-size: 16px
             position: absolute
             right: 28px
-            top: 9px
+            top: 12px
             z-index: 3
 
           &:hover
@@ -1382,14 +1381,14 @@ body
     .rst-content
 
       .h1-section
-        max-width: 745px
+        max-width: $nav-content-width
 
       .h2-section,
       .h3-section,
       .h4-section,
       .h5-section,
       .h6-section
-        max-width: 745px
+        max-width: $nav-content-width
         margin-top: 50px
 
       .h3-section,
@@ -1484,14 +1483,14 @@ body
       .rst-content
 
         .h1-section
-          max-width: 745px
+          max-width: $nav-content-width
 
         .h2-section,
         .h3-section,
         .h4-section,
         .h5-section,
         .h6-section
-          max-width: 745px
+          max-width: $nav-content-width
           margin-top: 35px
 
         .h3-section,
@@ -1818,7 +1817,7 @@ body
         pointer-events: none
 
     .section
-      max-width: 745px
+      max-width: $nav-content-width
 
     h1, h2, h3, h4, h5, h6
       a, a:visited
@@ -1930,7 +1929,7 @@ body
             color: $link-visited-color
 
     .rst-footer-buttons
-      padding: 1rem 0
+      padding: 1em 0
 
     
     a.da-btn
@@ -1943,8 +1942,7 @@ body
         color: $text-dark
 
       .da-btn-label, &.da-btn-label
-        font-size: 1.2rem
-        padding: 0.8rem 2rem
+        padding: 0.6em 1.6em
         font-weight: $weight-btn
         font-family: $btn-font-family
         color: $text-dark
@@ -1955,39 +1953,39 @@ body
 
         &.btn-next
           margin-left: 20px
-          padding: 0.8rem 3.4rem
+          padding: 0.6rem 2.8rem
 
         &.btn-prev
           &:hover:before
-            transform: translate(-10rem, -50%)
+            transform: translate(-9em, -50%)
 
           &:after
-            right: 8.9rem
-            top: 1.3rem
+            right: 7.7em
+            top: 1em
             transform: scaleX(-1)
 
         &:before
           content: ''
           position: absolute
-          right: -2rem
+          right: -2em
           top: 50%
-          transform: translate(-2rem, -50%)
+          transform: translate(-2em, -50%)
           width: 100%
           height: 100%
           background-color: $blue-lighter !important
           color: $text-dark
           z-index: -1
-          border-radius: 3rem
+          border-radius: 3em
           transition: all 200ms cubic-bezier(0.215, 0.61, 0.355, 1)
 
         &:after
           content: ''
           position: absolute
-          width: 0.7rem
-          height: 0.6rem
-          right: -0.1rem
+          width: 0.7em
+          height: 0.6em
+          right: -0.3em
           top: 50%
-          transform: translate(0rem, -50%)
+          transform: translate(0em, -50%)
           background-image: url("../images/arrowblack.svg")
           background-size: cover
           opacity: 0
@@ -1997,9 +1995,9 @@ body
         text-decoration: none
         .da-btn-label, &.da-btn-label
           &:before
-            width: 2.5rem
-            height: 2.5rem
-            transform: translate(-1rem, -50%)
+            width: 2em
+            height: 2em
+            transform: translate(-1em, -50%)
 
           &:after
             opacity: 1
@@ -2037,7 +2035,7 @@ div.pdf-download
   z-index: 20000
   float: right
   padding: 150px 0 30px 40px
-  margin-right: calc(100% - 745px)
+  margin-right: calc(100% - $nav-content-width)
 
   +media($mobile)
     display: none
@@ -2062,3 +2060,6 @@ div.pdf-download
   z-index: 20000
   +media($mobile)
     display: none
+
+footer
+  max-width: $nav-content-width

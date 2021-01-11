@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -116,12 +116,14 @@ private[trigger] object UnfoldState {
     * left T, then repeat until close, with a final T unless aborted.
     */
   def flatMapConcatStates[T, A, B](zero: T)(
-      f: (T, A) => UnfoldState[T, B]): Flow[A, T \/ B, NotUsed] =
+      f: (T, A) => UnfoldState[T, B]
+  ): Flow[A, T \/ B, NotUsed] =
     Flow[A].statefulMapConcat(() => mkMapConcatFun(zero, f))
 
   type UnfoldStateShape[T, -A, +B] = BidiShape[T, B, A, T]
   implicit final class flatMapConcatNodeOps[IT, B, A, OT](
-      private val self: BidiShape[IT, B, A, OT]) {
+      private val self: BidiShape[IT, B, A, OT]
+  ) {
     def initState: Inlet[IT] = self.in1
     def elemsIn: Inlet[A] = self.in2
     def elemsOut: Outlet[B] = self.out1
@@ -133,7 +135,8 @@ private[trigger] object UnfoldState {
     * on out2.
     */
   def flatMapConcatNode[T, A, B](
-      f: (T, A) => UnfoldState[T, B]): Graph[UnfoldStateShape[T, A, B], NotUsed] =
+      f: (T, A) => UnfoldState[T, B]
+  ): Graph[UnfoldStateShape[T, A, B], NotUsed] =
     GraphDSL.create() { implicit gb =>
       import GraphDSL.Implicits._
       val initialT = gb add (Flow fromFunction \/.left[T, A] take 1)
@@ -152,10 +155,15 @@ private[trigger] object UnfoldState {
   private[this] def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
-      val split = b.add(Partition[A \/ B](2, {
-        case -\/(_) => 0
-        case \/-(_) => 1
-      }))
+      val split = b.add(
+        Partition[A \/ B](
+          2,
+          {
+            case -\/(_) => 0
+            case \/-(_) => 1
+          },
+        )
+      )
       val as = b.add(Flow[A \/ B].collect { case -\/(a) => a })
       val bs = b.add(Flow[A \/ B].collect { case \/-(b) => b })
       discard { split ~> as }

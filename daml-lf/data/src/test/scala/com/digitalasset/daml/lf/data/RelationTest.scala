@@ -1,14 +1,17 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
 
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{Matchers, PropSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.propspec.AnyPropSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-final class RelationTest extends PropSpec with Matchers with PropertyChecks {
+import scala.collection.compat._
+
+final class RelationTest extends AnyPropSpec with Matchers with ScalaCheckPropertyChecks {
 
   import Relation.Relation._
 
@@ -44,7 +47,11 @@ final class RelationTest extends PropSpec with Matchers with PropertyChecks {
 
   property("flattening is the inverse of grouping for non empty relations") {
     forAll(nonEmptyRelations) { nonEmpty =>
-      flatten(nonEmpty).toSeq.groupBy(_._1).mapValues(_.map(_._2).toSet) shouldEqual nonEmpty
+      flatten(nonEmpty).toSeq
+        .groupBy(_._1)
+        .view
+        .mapValues(_.map(_._2).toSet)
+        .toMap shouldEqual nonEmpty
     }
   }
 

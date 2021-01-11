@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,9 +8,10 @@ import java.util
 
 import com.daml.lf.data._
 import com.daml.lf.testing.parser.Implicits._
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class CompilerTest extends WordSpec with Matchers {
+class CompilerTest extends AnyWordSpec with Matchers {
 
   import defaultParserParameters.{defaultPackageId => pkgId}
 
@@ -43,7 +44,7 @@ class CompilerTest extends WordSpec with Matchers {
         .fill(10 * 1000)(
           Command.Create(
             recordCon,
-            SValue.SRecord(recordCon, ImmArray.empty, new util.ArrayList())
+            SValue.SRecord(recordCon, ImmArray.empty, new util.ArrayList()),
           )
         )
         .toImmArray

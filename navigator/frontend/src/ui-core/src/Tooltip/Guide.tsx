@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -35,17 +35,17 @@ const TooltipContent = () => (
 );
 
 const TooltipTarget = () => (
-  <Button onClick={() => { ; }}>
+  <Button onClick={() => {  return; }}>
     Button
   </Button>
 )
 
-export default class PopoverGuide extends React.Component<{}, {}> {
+export default class PopoverGuide extends React.Component {
   constructor() {
     super({});
   }
 
-  render() {
+  render(): JSX.Element {
     return (
       <Section
         title="Tooltip"

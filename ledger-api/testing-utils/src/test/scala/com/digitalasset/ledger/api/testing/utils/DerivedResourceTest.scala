@@ -1,11 +1,13 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testing.utils
 
-import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpec}
+import org.scalatest.BeforeAndAfterEach
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
 
-class DerivedResourceTest extends WordSpec with BeforeAndAfterEach with Matchers {
+class DerivedResourceTest extends AnyWordSpec with BeforeAndAfterEach with Matchers {
 
   private var base: Resource[Int] = _
   private var derived: Resource[(Int, Long)] = _

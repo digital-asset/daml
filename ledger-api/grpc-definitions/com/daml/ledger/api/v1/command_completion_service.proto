@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -64,6 +64,8 @@ message CompletionStreamRequest {
   string application_id = 2;
 
   // Non-empty list of parties whose data should be included.
+  // Only completions of commands for which at least one of the ``act_as`` parties is in the given set of parties
+  // will be visible in the stream.
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   repeated string parties = 3;

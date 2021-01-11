@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
@@ -10,8 +10,7 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Configuration, LedgerId, Offset, TimeModel}
 import com.daml.ledger.api.health.ReportsHealth
 
-/**
-  * Defines how a participant's state is read from the ledger.
+/** Defines how a participant's state is read from the ledger.
   *
   * For a detailed description of the required semantics of state updates see
   * [[com.daml.ledger.participant.state.v1.ReadService]].
@@ -20,8 +19,7 @@ import com.daml.ledger.api.health.ReportsHealth
   */
 trait LedgerReader extends ReportsHealth {
 
-  /**
-    * Streams raw updates from the given offset for the participant.
+  /** Streams raw updates from the given offset for the participant.
     *
     * In case an offset is not specified, all updates must be streamed from the oldest known state.
     * Each update is defined as an opaque log entry ID and an
@@ -33,8 +31,7 @@ trait LedgerReader extends ReportsHealth {
     */
   def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed]
 
-  /**
-    * Get the ledger's ID from which this reader instance streams events.
+  /** Get the ledger's ID from which this reader instance streams events.
     * Should not be a blocking operation.
     *
     * @return ID of the ledger from which this reader streams events
@@ -44,8 +41,7 @@ trait LedgerReader extends ReportsHealth {
 
 object LedgerReader {
 
-  /**
-    * Default initial ledger configuration used by [[KeyValueParticipantStateReader]].
+  /** Default initial ledger configuration used by [[KeyValueParticipantStateReader]].
     */
   val DefaultConfiguration: Configuration = Configuration(
     generation = 0,

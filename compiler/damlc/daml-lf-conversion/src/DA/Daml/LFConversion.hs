@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
@@ -8,7 +8,7 @@
 
 -- | Useful references:
 --
--- * DAML-LF AST: https://github.com/DACH-NY/da/blob/master/compiler/daml-lf-ast/src/DA/Daml/LF/Ast/Base.hs
+-- * DAML-LF AST: https://github.com/digital-asset/daml/blob/main/compiler/daml-lf-ast/src/DA/Daml/LF/Ast/Base.hs
 -- * GHC Syntax: https://hackage.haskell.org/package/ghc-8.4.1/docs/CoreSyn.html#t:Expr
 --
 -- The conversion works element by element, in a fairly direct way, apart from the exceptions
@@ -824,7 +824,11 @@ convertBind env (name, x)
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
-internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Map", "Any", "TypeRep"]
+internalTypes = mkUniqSet
+    [ "Scenario", "Update", "ContractId", "Time", "Date", "Party"
+    , "Pair", "TextMap", "Map", "Any", "TypeRep"
+    , "AnyException", "GeneralError", "ArithmeticError", "ContractError"
+    ]
 
 consumingTypes :: UniqSet FastString
 consumingTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming"]
@@ -1674,6 +1678,10 @@ convertTyCon env t
                 pure $ if envLfVersion env `supports` featureTypeRep
                     then TTypeRep
                     else TUnit
+            "AnyException" -> pure (TBuiltin BTAnyException)
+            "GeneralError" -> pure (TBuiltin BTGeneralError)
+            "ArithmeticError" -> pure (TBuiltin BTArithmeticError)
+            "ContractError" -> pure (TBuiltin BTContractError)
             _ -> defaultTyCon
     | NameIn DA_Internal_Prelude "Optional" <- t = pure (TBuiltin BTOptional)
     | otherwise = defaultTyCon

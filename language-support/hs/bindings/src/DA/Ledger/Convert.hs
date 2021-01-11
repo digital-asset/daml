@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
@@ -70,7 +70,9 @@ lowerCommands = \case
         commandsWorkflowId = unWorkflowId (fromMaybe (WorkflowId "") wid),
         commandsApplicationId = unApplicationId aid,
         commandsCommandId = unCommandId cid,
-        commandsParty = unParty party,
+        commandsParty = "", -- deprecated in favor of actAs
+        commandsActAs = Vector.fromList $ map unParty actAs,
+        commandsReadAs = Vector.fromList $ map unParty readAs,
         commandsDeduplicationTime = dedupTime,
         commandsCommands = Vector.fromList $ map lowerCommand coms,
         commandsMinLedgerTimeAbs = fmap lowerTimestamp minLeTimeAbs,

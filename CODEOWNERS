@@ -14,48 +14,51 @@ LATEST      @hurryabit @gerolf-da @bame-da @cocreature
 azure-pipelines.yml @garyverhaegen-da
 azure-cron.yml      @garyverhaegen-da
 
+# Blackduck
+NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
+
 # Language
 /compiler/          @hurryabit @cocreature
 /libs-haskell/      @hurryabit @cocreature
 /daml-assistant/    @sofiafaro-da @hurryabit @cocreature
-/daml-script/       @cocreature @hurryabit @aherrmann-da
-/triggers/          @cocreature @hurryabit @aherrmann-da
+/daml-script/       @cocreature @hurryabit @aherrmann-da @stefanobaghino-da
+/triggers/          @cocreature @hurryabit @aherrmann-da @stefanobaghino-da
 /ghc-lib/           @cocreature
 /compatibility/     @garyverhaegen-da @aherrmann-da @cocreature
 
 # Runtime
 /daml-lf/governance.rst @hurryabit @S11001001
-/daml-lf/archive/da/    @remyhaemmerle-da @hurryabit
-/daml-lf/engine/ @hurryabit @remyhaemmerle-da
-/daml-lf/interpreter/ @hurryabit @remyhaemmerle-da
-/daml-lf/repl/ @hurryabit @remyhaemmerle-da
-/daml-lf/scenario-interpreter/ @hurryabit @remyhaemmerle-da
-/daml-lf/spec/value.rst @S11001001 @hurryabit
-/daml-lf/spec/transaction.rst @S11001001 @hurryabit
-/daml-lf/spec/daml-lf-1.rst @remyhaemmerle-da @hurryabit
-/daml-lf/data-scalacheck/  @S11001001
-/daml-lf/transaction-test-lib/  @S11001001
-/daml-lf/validation/    @remyhaemmerle-da
-/daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @S11001001
-/daml-lf/transaction/src/main/scala/com/daml/lf/value/       @S11001001
+/daml-lf/archive/da/    @remyhaemmerle-da @hurryabit @cocreature
+/daml-lf/engine/ @hurryabit @remyhaemmerle-da @cocreature
+/daml-lf/interpreter/ @hurryabit @remyhaemmerle-da @cocreature
+/daml-lf/repl/ @hurryabit @remyhaemmerle-da @cocreature
+/daml-lf/scenario-interpreter/ @hurryabit @remyhaemmerle-da @cocreature
+/daml-lf/spec/value.rst @S11001001 @hurryabit @cocreature
+/daml-lf/spec/transaction.rst @S11001001 @hurryabit @cocreature
+/daml-lf/spec/daml-lf-1.rst @remyhaemmerle-da @hurryabit @cocreature
+/daml-lf/data-scalacheck/  @S11001001 @cocreature
+/daml-lf/transaction-test-lib/  @S11001001 @cocreature
+/daml-lf/validation/    @remyhaemmerle-da @cocreature
+/daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @S11001001 @cocreature
+/daml-lf/transaction/src/main/scala/com/daml/lf/value/       @S11001001 @cocreature
 
-/ledger-service/    @S11001001 @cocreature
+/ledger-service/    @S11001001 @cocreature @stefanobaghino-da
 
-/ledger/      @gerolf-da @rautenrieth-da @SamirTalwar-DA @stefanobaghino-da
-/ledger-api/  @gerolf-da @rautenrieth-da @SamirTalwar-DA @stefanobaghino-da
+/ledger/      @gerolf-da @rautenrieth-da @SamirTalwar-DA
+/ledger-api/  @gerolf-da @rautenrieth-da @SamirTalwar-DA
 
 # DAML-on-X
-/ledger/participant-state/kvutils/  @dajmaki @dasormeter @fabiotudone-da @gerolf-da @miklos-da @mziolekda @rautenrieth-da @SamirTalwar-DA @stefanobaghino-da
+/ledger/participant-state/kvutils/  @dajmaki @dasormeter @fabiotudone-da @gerolf-da @miklos-da @mziolekda @rautenrieth-da @SamirTalwar-DA
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da
-/language-support/java/     @cocreature
-/language-support/scala/    @S11001001 @cocreature
-/language-support/ts/       @hurryabit @robin-da @cocreature @garyverhaegen-da
+/language-support/java/     @cocreature @stefanobaghino-da
+/language-support/scala/    @S11001001 @cocreature @stefanobaghino-da
+/language-support/ts/       @hurryabit @robin-da @cocreature @garyverhaegen-da @stefanobaghino-da
 
 # Tools
-/extractor/         @S11001001
-/navigator/         @cocreature
+/extractor/         @S11001001 @stefanobaghino-da
+/navigator/         @cocreature @stefanobaghino-da
 
 # Misc
 /docs/              @bame-da @nemanja-da @hurryabit

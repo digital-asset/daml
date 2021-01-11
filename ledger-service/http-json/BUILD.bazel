@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -19,7 +19,7 @@ da_scala_library(
     name = "http-json",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     scalacopts = hj_scalacopts,
     tags = ["maven_coordinates=com.daml:http-json:__VERSION__"],
@@ -120,7 +120,7 @@ da_scala_test(
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     scalacopts = hj_scalacopts,
     deps = [
@@ -142,6 +142,7 @@ da_scala_test(
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
         "@maven//:org_tpolecat_doobie_core_2_12",
@@ -164,7 +165,7 @@ da_scala_test(
         "//ledger/test-common/test-certificates",
     ],
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     resources = glob(["src/it/resources/**/*"]),
     scalacopts = hj_scalacopts,
@@ -215,7 +216,7 @@ da_scala_test(
         "@toxiproxy_dev_env//:bin/toxiproxy-cmd" if not is_windows else "@toxiproxy_dev_env//:toxiproxy-server-windows-amd64.exe",
     ],
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_2_12_12",
     ],
     resources = glob(["src/failure/resources/**/*"]),
     scalacopts = hj_scalacopts,

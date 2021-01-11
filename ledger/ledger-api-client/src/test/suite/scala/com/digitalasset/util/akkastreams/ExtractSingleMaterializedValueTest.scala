@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.util.akkastreams
@@ -6,12 +6,13 @@ package com.daml.util.akkastreams
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Random
 
 class ExtractSingleMaterializedValueTest
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with ScalaFutures
     with AkkaBeforeAndAfterAll {
@@ -41,8 +42,8 @@ class ExtractSingleMaterializedValueTest
         val elemToExtract = -1
         val otherCandidateShuffledIn = -2
 
-        val elements = elemToExtract +: Random.shuffle(
-          otherCandidateShuffledIn +: elemsThatPassThrough)
+        val elements =
+          elemToExtract +: Random.shuffle(otherCandidateShuffledIn +: elemsThatPassThrough)
         val (extractedF, restF) = processElements(elements)
 
         whenReady(extractedF)(_ shouldEqual elemToExtract)

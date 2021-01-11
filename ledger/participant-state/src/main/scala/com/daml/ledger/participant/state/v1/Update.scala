@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger
@@ -15,7 +15,6 @@ import com.daml.lf.transaction.BlindingInfo
   *
   * We describe the possible updates in the comments of
   * each of the case classes implementing [[Update]].
-  *
   */
 sealed trait Update extends Product with Serializable {
 
@@ -33,8 +32,8 @@ object Update {
       recordTime: Timestamp,
       submissionId: SubmissionId,
       participantId: ParticipantId,
-      newConfiguration: Configuration)
-      extends Update {
+      newConfiguration: Configuration,
+  ) extends Update {
     override def description: String =
       s"Configuration change '$submissionId' from participant '$participantId' accepted with configuration: $newConfiguration"
   }
@@ -46,8 +45,8 @@ object Update {
       submissionId: SubmissionId,
       participantId: ParticipantId,
       proposedConfiguration: Configuration,
-      rejectionReason: String)
-      extends Update {
+      rejectionReason: String,
+  ) extends Update {
     override def description: String = {
       s"Configuration change '$submissionId' from participant '$participantId' was rejected: $rejectionReason"
     }
@@ -69,15 +68,14 @@ object Update {
     *
     * @param submissionId
     *   The submissionId of the command which requested party to be added.
-    *
     */
   final case class PartyAddedToParticipant(
       party: Party,
       displayName: String,
       participantId: ParticipantId,
       recordTime: Timestamp,
-      submissionId: Option[SubmissionId])
-      extends Update {
+      submissionId: Option[SubmissionId],
+  ) extends Update {
     override def description: String =
       s"Add party '$party' to participant"
   }
@@ -108,8 +106,8 @@ object Update {
       submissionId: SubmissionId,
       participantId: ParticipantId,
       recordTime: Timestamp,
-      rejectionReason: String)
-      extends Update {
+      rejectionReason: String,
+  ) extends Update {
     override val description: String =
       s"Request to add party to participant with submissionId '$submissionId' failed"
   }
@@ -129,8 +127,8 @@ object Update {
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
       recordTime: Timestamp,
-      submissionId: Option[SubmissionId])
-      extends Update {
+      submissionId: Option[SubmissionId],
+  ) extends Update {
     override def description: String =
       s"Public package upload: ${archives.map(_.getHash).mkString(", ")}"
   }
@@ -147,8 +145,8 @@ object Update {
   final case class PublicPackageUploadRejected(
       submissionId: SubmissionId,
       recordTime: Timestamp,
-      rejectionReason: String)
-      extends Update {
+      rejectionReason: String,
+  ) extends Update {
     override def description: String =
       s"Public package upload rejected, correlationId=$submissionId reason='$rejectionReason'"
   }

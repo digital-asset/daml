@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.query
@@ -11,7 +11,7 @@ import com.typesafe.scalalogging.LazyLogging
 sealed abstract class FilteringPager[N <: Node[_]](
     criterion: FilterCriterionBase,
     filter: OnTreeReady[N, Boolean, DamlLfTypeLookup],
-    ps: DamlLfTypeLookup
+    ps: DamlLfTypeLookup,
 ) extends PagerDecorator[N]
     with LazyLogging {
 
@@ -40,7 +40,8 @@ sealed abstract class FilteringPager[N <: Node[_]](
       case Left(failure) =>
         logger.error(
           s"Cannot match $node and " +
-            s"criterion $criterion: $failure. Excluding it.")
+            s"criterion $criterion: $failure. Excluding it."
+        )
         false
       case Right(isMatching) =>
         isMatching
@@ -51,17 +52,17 @@ sealed abstract class FilteringPager[N <: Node[_]](
 final class ContractFilter(
     criterion: FilterCriterionBase,
     ps: DamlLfTypeLookup,
-    val delegate: Pager[Contract])
-    extends FilteringPager[Contract](criterion, contractFilter, ps)
+    val delegate: Pager[Contract],
+) extends FilteringPager[Contract](criterion, contractFilter, ps)
 
 final class TemplateFilter(
     criterion: FilterCriterionBase,
     ps: DamlLfTypeLookup,
-    val delegate: Pager[Template])
-    extends FilteringPager[Template](criterion, templateFilter, ps)
+    val delegate: Pager[Template],
+) extends FilteringPager[Template](criterion, templateFilter, ps)
 
 final class CommandFilter(
     criterion: FilterCriterionBase,
     ps: DamlLfTypeLookup,
-    val delegate: Pager[Command])
-    extends FilteringPager[Command](criterion, commandFilter, ps)
+    val delegate: Pager[Command],
+) extends FilteringPager[Command](criterion, commandFilter, ps)

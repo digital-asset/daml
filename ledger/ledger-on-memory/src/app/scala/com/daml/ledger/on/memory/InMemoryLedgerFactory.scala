@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.memory
@@ -8,19 +8,18 @@ import com.daml.caching
 import com.daml.ledger.participant.state.kvutils.api.{
   BatchingLedgerWriterConfig,
   KeyValueLedger,
-  KeyValueParticipantState
+  KeyValueParticipantState,
 }
 import com.daml.ledger.participant.state.kvutils.app.batch.BatchingLedgerWriterConfigReader
 import com.daml.ledger.participant.state.kvutils.app.batch.BatchingLedgerWriterConfigReader.optionsReader
 import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, ParticipantConfig}
 import com.daml.ledger.participant.state.kvutils.caching.`Message Weight`
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.validator.DefaultStateKeySerializationStrategy
-import com.daml.ledger.validator.caching.CachingDamlLedgerStateReaderWithFingerprints.`Message-Fingerprint Pair Weight`
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.configuration.LedgerConfiguration
-import com.daml.ledger.resources.ResourceOwner
 import scopt.OptionParser
 
 private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
@@ -30,21 +29,20 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(
-      implicit materializer: Materializer,
+  )(implicit
+      materializer: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[KeyValueParticipantState] =
     for {
       readerWriter <- owner(config, participantConfig, engine)
-    } yield
-      new KeyValueParticipantState(
-        readerWriter,
-        readerWriter,
-        createMetrics(participantConfig, config),
-      )
+    } yield new KeyValueParticipantState(
+      readerWriter,
+      readerWriter,
+      createMetrics(participantConfig, config),
+    )
 
   def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig, engine: Engine)(
-      implicit materializer: Materializer,
+      implicit materializer: Materializer
   ): ResourceOwner[KeyValueLedger] = {
     val metrics = createMetrics(participantConfig, config)
     if (config.extra.alwaysPreExecute)
@@ -53,7 +51,7 @@ private[memory] class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state
         participantId = participantConfig.participantId,
         keySerializationStrategy = DefaultStateKeySerializationStrategy,
         metrics = metrics,
-        stateValueCacheForPreExecution = caching.WeightedCache.from(
+        stateValueCache = caching.WeightedCache.from(
           configuration = config.stateValueCache,
           metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
         ),
@@ -94,25 +92,23 @@ private[memory] object InMemoryLedgerFactory {
       .opt[BatchingLedgerWriterConfig]("batching")
       .optional()
       .text(BatchingLedgerWriterConfigReader.UsageText)
-      .action {
-        case (parsedBatchingConfig, config) =>
-          config.copy(
-            extra = config.extra.copy(
-              batchingLedgerWriterConfig = parsedBatchingConfig
-            )
+      .action { case (parsedBatchingConfig, config) =>
+        config.copy(
+          extra = config.extra.copy(
+            batchingLedgerWriterConfig = parsedBatchingConfig
           )
+        )
       }
     parser
       .opt[Boolean]("force-pre-execution")
       .optional()
       .text("Force pre-execution (mutually exclusive with batching)")
-      .action {
-        case (preExecute, config) =>
-          config.copy(
-            extra = config.extra.copy(
-              alwaysPreExecute = preExecute
-            )
+      .action { case (preExecute, config) =>
+        config.copy(
+          extra = config.extra.copy(
+            alwaysPreExecute = preExecute
           )
+        )
       }
     parser.checkConfig { config =>
       if (config.extra.alwaysPreExecute && config.extra.batchingLedgerWriterConfig.enableBatching)

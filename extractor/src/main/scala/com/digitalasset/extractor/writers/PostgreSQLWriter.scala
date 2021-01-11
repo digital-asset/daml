@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.writers
@@ -41,7 +41,7 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
   private val multiTableFormat = new MultiTableDataFormat(
     schemaPerPackage = target.schemaPerPackage,
     mergeIdentical = target.mergeIdentical,
-    stripPrefix = target.stripPrefix
+    stripPrefix = target.stripPrefix,
   )
   private val singleTableFormat = new SingleTableDataFormat()
 
@@ -57,7 +57,7 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
     "org.postgresql.Driver", // driver classname
     target.connectUrl, // connect URL (driver-specific)
     target.user,
-    target.password
+    target.password,
   )
 
   def init(): Future[Unit] = {
@@ -91,12 +91,13 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
         } yield prevStatus
 
         statusOrError.fold(
-          e => connection.raiseError(DataIntegrityError(e)), { status =>
+          e => connection.raiseError(DataIntegrityError(e)),
+          { status =>
             multiTableState = status.multiTableState
             witnessedPackages = status.witnessedPackages
 
             connection.pure(())
-          }
+          },
         )
       }
     } yield io
@@ -118,7 +119,8 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
       config,
       target,
       newMultiTableState,
-      updatedWitnessedPackages)
+      updatedWitnessedPackages,
+    )
 
     (mtQueries *> saveStatus)
       .transact(xa)
@@ -133,35 +135,32 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
   }
 
   private def handlePackagesWithMultiTable(
-      newPackageStore: PackageStore): (MultiTableState, ConnectionIO[Unit]) = {
-    val newPackages: Map[String, Interface] = newPackageStore.filterNot {
-      case (key, _) =>
-        witnessedPackages.contains(key)
+      newPackageStore: PackageStore
+  ): (MultiTableState, ConnectionIO[Unit]) = {
+    val newPackages: Map[String, Interface] = newPackageStore.filterNot { case (key, _) =>
+      witnessedPackages.contains(key)
     }
 
     val (mtStateWithSchemas, mtSchemaQueries) = newPackages.keys
-      .foldLeft((multiTableState, connection.pure(()))) {
-        case ((state, queries), packageId) =>
-          val (updatedState, thisQueries) = multiTableFormat.handlePackageId(state, packageId)
+      .foldLeft((multiTableState, connection.pure(()))) { case ((state, queries), packageId) =>
+        val (updatedState, thisQueries) = multiTableFormat.handlePackageId(state, packageId)
 
-          (updatedState, queries *> thisQueries)
+        (updatedState, queries *> thisQueries)
       }
 
     val templateDecls: Map[Identifier, Record.FWT] = newPackages.flatMap {
       case (packageId, interface) =>
-        interface.typeDecls.collect {
-          case (id, InterfaceType.Template(r, _)) =>
-            Identifier(packageId, id.qualifiedName) -> r
+        interface.typeDecls.collect { case (id, InterfaceType.Template(r, _)) =>
+          Identifier(packageId, id.qualifiedName) -> r
         }
     }
 
     templateDecls
-      .foldLeft((mtStateWithSchemas, mtSchemaQueries)) {
-        case ((state, queries), params) =>
-          val (updatedState, thisQueries) =
-            multiTableFormat.handleTemplate(state, newPackageStore, params)
+      .foldLeft((mtStateWithSchemas, mtSchemaQueries)) { case ((state, queries), params) =>
+        val (updatedState, thisQueries) =
+          multiTableFormat.handleTemplate(state, newPackageStore, params)
 
-          (updatedState, queries *> thisQueries)
+        (updatedState, queries *> thisQueries)
       }
   }
 

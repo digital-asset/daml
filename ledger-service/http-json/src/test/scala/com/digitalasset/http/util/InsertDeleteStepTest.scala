@@ -1,21 +1,22 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.util
 
 import com.daml.scalatest.FlatSpecCheckLaws
 
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.semigroup._
 import scalaz.{@@, Equal, Tag}
 
 class InsertDeleteStepTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with FlatSpecCheckLaws
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
   import InsertDeleteStepTest._
 
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
@@ -58,21 +59,20 @@ object InsertDeleteStepTest {
   type Cid = String @@ Alpha
   val Cid = Tag.of[Alpha]
 
-  implicit val `Alpha arb`: Arbitrary[Cid] = Cid subst Arbitrary(
-    Gen.alphaUpperChar map (_.toString))
+  implicit val `Alpha arb`: Arbitrary[Cid] =
+    Cid subst Arbitrary(Gen.alphaUpperChar map (_.toString))
 
   private[util] implicit val `test Cid`: InsertDeleteStep.Cid[Cid] = Cid.unwrap
 
   implicit val `IDS arb`: Arbitrary[IDS] =
-    Arbitrary(arbitrary[(Vector[Cid], Map[Cid, Unit])] map {
-      case (is, ds) =>
-        InsertDeleteStep(is filterNot ds.keySet, Cid.unsubst[Map[?, Unit], String](ds))
+    Arbitrary(arbitrary[(Vector[Cid], Map[Cid, Unit])] map { case (is, ds) =>
+      InsertDeleteStep(is filterNot ds.keySet, Cid.unsubst[Map[*, Unit], String](ds))
     })
 
   implicit val `IDS shr`: Shrink[IDS] =
     Shrink.xmap[(Vector[Cid], Map[Cid, Unit]), IDS](
-      { case (is, ds) => InsertDeleteStep(is, Cid.unsubst[Map[?, Unit], String](ds)) },
-      step => (step.inserts, Cid.subst[Map[?, Unit], String](step.deletes)),
+      { case (is, ds) => InsertDeleteStep(is, Cid.unsubst[Map[*, Unit], String](ds)) },
+      step => (step.inserts, Cid.subst[Map[*, Unit], String](step.deletes)),
     )
 
   implicit val `IDS eq`: Equal[IDS] = Equal.equalA

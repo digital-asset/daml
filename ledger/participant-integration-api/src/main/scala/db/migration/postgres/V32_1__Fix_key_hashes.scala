@@ -1,11 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.db.migration.postgres
 
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.GlobalKey
-import com.daml.platform.store.serialization.ValueSerializer
+import com.daml.platform.db.migration.translation.ValueSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 private[migration] final class V32_1__Fix_key_hashes extends BaseJavaMigration {

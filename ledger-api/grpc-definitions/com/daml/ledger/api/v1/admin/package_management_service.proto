@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -14,12 +14,12 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // Status: experimental interface, will change before it is deemed production
 // ready
 //
-// Query the DAML-LF packages supported by the ledger participant and upload
+// Query the Daml-LF packages supported by the ledger participant and upload
 // DAR files. We use 'backing participant' to refer to this specific participant
 // in the methods of this API.
 service PackageManagementService {
 
-  // Returns the details of all DAML-LF packages known to the backing participant.
+  // Returns the details of all Daml-LF packages known to the backing participant.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
@@ -48,14 +48,14 @@ message ListKnownPackagesRequest {
 
 message ListKnownPackagesResponse {
 
-  // The details of all DAML-LF packages known to backing participant.
+  // The details of all Daml-LF packages known to backing participant.
   // Required
   repeated PackageDetails package_details = 1;
 }
 
 message PackageDetails {
  
-  // The identity of the DAML-LF package.
+  // The identity of the Daml-LF package.
   // Must be a valid PackageIdString (as describe in ``value.proto``).
   // Required
   string package_id = 1;
@@ -78,7 +78,7 @@ message PackageDetails {
 
 message UploadDarFileRequest {
 
-  // Contains a DAML archive DAR file, which in turn is a jar like zipped
+  // Contains a Daml archive DAR file, which in turn is a jar like zipped
   // container for ``daml_lf`` archives. See further details in
   // ``daml_lf.proto``.
   // Required

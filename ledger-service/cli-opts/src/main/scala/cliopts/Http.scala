@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.cliopts
@@ -31,7 +31,8 @@ object Http {
       .action((x, c) => address(_ => x, c))
       .optional()
       .text(
-        s"IP address that $serviceName service listens on. Defaults to ${defaultAddress: String}.")
+        s"IP address that $serviceName service listens on. Defaults to ${defaultAddress: String}."
+      )
 
     opt[Int]("http-port")
       .action((x, c) => httpPort(_ => x, c))
@@ -41,7 +42,8 @@ object Http {
           defaultHttpPort.cata(p => s"Defaults to ${p: Int}. ", "") +
           "A port number of 0 will let the system pick an ephemeral port." +
           (if (portFile.isDefined) " Consider specifying `--port-file` option with port number 0."
-           else ""))
+           else "")
+      )
 
     portFile foreach { setPortFile =>
       opt[File]("port-file")
@@ -51,7 +53,8 @@ object Http {
           "Optional unique file name where to write the allocated HTTP port number. " +
             "If process terminates gracefully, this file will be deleted automatically. " +
             s"Used to inform clients in CI about which port $serviceName listens on. " +
-            "Defaults to none, that is, no file gets created.")
+            "Defaults to none, that is, no file gets created."
+        )
     }
   }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.test.runner
@@ -19,7 +19,8 @@ object Runner extends LazyLogging {
   def execute(
       command: Seq[String],
       log: Option[ProcessLogger] = None,
-      cwd: Option[File] = None): Int = {
+      cwd: Option[File] = None,
+  ): Int = {
     logger.info(s"Executing `${command.mkString(" ")}`${cwd.map(f => s" in `$f`").getOrElse("")}")
     log.fold(Process(command, cwd).!)(l => Process(command, cwd).!(l))
   }
@@ -27,7 +28,8 @@ object Runner extends LazyLogging {
   def executeAsync(
       command: Seq[String],
       log: Option[ProcessLogger] = None,
-      cwd: Option[File] = None): Process = {
+      cwd: Option[File] = None,
+  ): Process = {
     logger.info(s"Executing `${command.mkString(" ")}`${cwd.map(f => s" in `$f`").getOrElse("")}")
     val process = log.fold(Process(command, cwd).run())(l => Process(command, cwd).run(l))
     sys addShutdownHook {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -93,7 +93,7 @@ fi
 
 commit_belongs_to_release_branch() {
     git branch --all --format='%(refname:short)' --contains="$1" \
-      | grep -q -E '^origin/(master$|release/)'
+      | grep -q -E '^origin/(main$|release/)'
 }
 
 new_snapshot () {

@@ -1,6 +1,6 @@
 # @daml/types
 
-> Primitive types of the DAML language and their serialization.
+> Primitive types of the Daml language and their serialization.
 
 ## Documentation
 
@@ -9,11 +9,11 @@ Comprehensive documentation for `@daml/types` can be found
 
 ## Description 
 
-This library contains TypeScript types corresponding to primitive DAML data types, such as
+This library contains TypeScript types corresponding to primitive Daml data types, such as
 `Template`, `ContractId`, `Int`, `Text` etc. as well as their encoders and decoders to interact with
-the [JSON API](https://docs.daml.com/json-api/index.html) of a DAML ledger.
+the [JSON API](https://docs.daml.com/json-api/index.html) of a Daml ledger.
 
-For creating a DAML distributed application, you'll most likely want to use the
+For creating a Daml distributed application, you'll most likely want to use the
 [@daml/react](https://www.npmjs.com/package/@daml/react) and
 [@daml/ledger](https://www.npmjs.com/package/@daml/ledger) packages. 
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_library")
@@ -17,6 +17,10 @@ proto_gen(
 da_scala_library(
     name = "ledger-api-akka",
     srcs = [":ledger-api-akka-srcs"],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
     tags = ["maven_coordinates=com.daml:ledger-api-akka:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -25,8 +29,6 @@ da_scala_library(
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_grpc_grpc_stub",
     ],
 )

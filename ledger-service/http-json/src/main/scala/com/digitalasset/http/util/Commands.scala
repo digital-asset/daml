@@ -1,33 +1,36 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.util
 
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
+import scalaz.NonEmptyList
+import scalaz.syntax.foldable._
 import scalaz.syntax.tag._
 
 object Commands {
   def create(
       templateId: lar.TemplateId,
-      payload: lav1.value.Record
+      payload: lav1.value.Record,
   ): lav1.commands.Command.Command.Create =
     lav1.commands.Command.Command.Create(
       lav1.commands
-        .CreateCommand(templateId = Some(templateId.unwrap), createArguments = Some(payload)))
+        .CreateCommand(templateId = Some(templateId.unwrap), createArguments = Some(payload))
+    )
 
   def exercise(
       templateId: lar.TemplateId,
       contractId: lar.ContractId,
       choice: lar.Choice,
-      argument: lav1.value.Value
+      argument: lav1.value.Value,
   ): lav1.commands.Command.Command.Exercise =
     lav1.commands.Command.Command.Exercise(
       lav1.commands.ExerciseCommand(
         templateId = Some(templateId.unwrap),
         contractId = contractId.unwrap,
         choice = choice.unwrap,
-        choiceArgument = Some(argument)
+        choiceArgument = Some(argument),
       )
     )
 
@@ -35,14 +38,14 @@ object Commands {
       templateId: lar.TemplateId,
       contractKey: lav1.value.Value,
       choice: lar.Choice,
-      argument: lav1.value.Value
+      argument: lav1.value.Value,
   ): lav1.commands.Command.Command.ExerciseByKey =
     lav1.commands.Command.Command.ExerciseByKey(
       lav1.commands.ExerciseByKeyCommand(
         templateId = Some(templateId.unwrap),
         contractKey = Some(contractKey),
         choice = choice.unwrap,
-        choiceArgument = Some(argument)
+        choiceArgument = Some(argument),
       )
     )
 
@@ -50,14 +53,14 @@ object Commands {
       templateId: lar.TemplateId,
       payload: lav1.value.Record,
       choice: lar.Choice,
-      argument: lav1.value.Value
+      argument: lav1.value.Value,
   ): lav1.commands.Command.Command.CreateAndExercise =
     lav1.commands.Command.Command.CreateAndExercise(
       lav1.commands.CreateAndExerciseCommand(
         templateId = Some(templateId.unwrap),
         createArguments = Some(payload),
         choice = choice.unwrap,
-        choiceArgument = Some(argument)
+        choiceArgument = Some(argument),
       )
     )
 
@@ -65,15 +68,25 @@ object Commands {
       ledgerId: lar.LedgerId,
       applicationId: lar.ApplicationId,
       commandId: lar.CommandId,
-      party: lar.Party,
-      command: lav1.commands.Command.Command
+      actAs: NonEmptyList[lar.Party],
+      readAs: List[lar.Party],
+      command: lav1.commands.Command.Command,
   ): lav1.command_service.SubmitAndWaitRequest = {
     val commands = lav1.commands.Commands(
       ledgerId = ledgerId.unwrap,
       applicationId = applicationId.unwrap,
       commandId = commandId.unwrap,
-      party = party.unwrap,
-      commands = Seq(lav1.commands.Command(command))
+      // We set party for backwards compatibility. The
+      // ledger takes the union of party and actAs so
+      // talking to a ledger that supports multi-party submissions does exactly what we want.
+      // When talking to an older ledger, single-party submissions
+      // will succeed just fine. Multi-party submissions will set party
+      // but you will get an authorization error if you try to use authorization
+      // from the parties in the tail.
+      party = actAs.head.unwrap,
+      actAs = lar.Party.unsubst(actAs.toList),
+      readAs = lar.Party.unsubst(readAs),
+      commands = Seq(lav1.commands.Command(command)),
     )
     lav1.command_service.SubmitAndWaitRequest(Some(commands))
   }

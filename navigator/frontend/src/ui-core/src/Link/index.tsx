@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -32,7 +32,7 @@ export default class Link extends React.Component<Props, {}> {
     this.click = this.click.bind(this);
   }
 
-  click(e: React.MouseEvent<HTMLAnchorElement>) {
+  click(e: React.MouseEvent<HTMLAnchorElement>): void {
     e.stopPropagation();
     if (e.metaKey || e.shiftKey || e.ctrlKey || e.altKey) {
       return;

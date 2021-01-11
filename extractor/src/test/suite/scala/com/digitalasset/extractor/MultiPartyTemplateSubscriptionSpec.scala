@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor
@@ -11,11 +11,13 @@ import com.daml.extractor.config.{ExtractorConfig, TemplateConfig}
 import com.daml.extractor.services.ExtractorFixtureAroundAll
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
-import org.scalatest.{FlatSpec, Inside, Matchers, Suite}
+import org.scalatest.{Inside, Suite}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.OneAnd
 
 class MultiPartyTemplateSubscriptionSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Suite
     with PostgresAroundAll
     with SuiteResourceManagementAroundAll
@@ -36,7 +38,8 @@ class MultiPartyTemplateSubscriptionSpec
       parties = OneAnd(alice, List(bob)),
       templateConfigs = Set(
         TemplateConfig("TransactionExample", "RightOfUseOffer"),
-        TemplateConfig("TransactionExample", "RightOfUseAgreement"))
+        TemplateConfig("TransactionExample", "RightOfUseAgreement"),
+      ),
     )
   }
 
@@ -45,18 +48,16 @@ class MultiPartyTemplateSubscriptionSpec
   }
 
   "Exercises" should "be extracted" in {
-    inside(getExercises) {
-      case List(e) =>
-        e.template should ===("TransactionExample:RightOfUseOffer")
-        e.choice should ===("Accept")
+    inside(getExercises) { case List(e) =>
+      e.template should ===("TransactionExample:RightOfUseOffer")
+      e.choice should ===("Accept")
     }
   }
 
   "Contracts" should "be extracted" in {
-    inside(getContracts) {
-      case List(a1, a2) =>
-        a1.template should ===("TransactionExample:RightOfUseOffer")
-        a2.template should ===("TransactionExample:RightOfUseAgreement")
+    inside(getContracts) { case List(a1, a2) =>
+      a1.template should ===("TransactionExample:RightOfUseOffer")
+      a2.template should ===("TransactionExample:RightOfUseAgreement")
     }
   }
 }

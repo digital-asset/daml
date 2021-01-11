@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.data
@@ -16,13 +16,14 @@ import com.daml.navigator.model.{
   CreateCommand,
   ExerciseCommand,
   PackageRegistry,
-  Transaction
+  Transaction,
 }
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Success
 
-class RowSpec extends WordSpec with Matchers {
+class RowSpec extends AnyWordSpec with Matchers {
   import com.daml.navigator.{DamlConstants => C}
 
   private val registry: PackageRegistry = PackageRegistry().withPackages(List(C.iface))
@@ -31,11 +32,11 @@ class RowSpec extends WordSpec with Matchers {
     "converting CreateCommand" should {
       val value = CreateCommand(
         ApiTypes.CommandId("c01"),
-        1l,
+        1L,
         ApiTypes.WorkflowId("w01"),
         Instant.EPOCH,
         C.complexRecordId,
-        C.complexRecordV
+        C.complexRecordV,
       )
 
       "not change the value" in {
@@ -46,13 +47,13 @@ class RowSpec extends WordSpec with Matchers {
     "converting ExerciseCommand" should {
       val value = ExerciseCommand(
         ApiTypes.CommandId("c01"),
-        1l,
+        1L,
         ApiTypes.WorkflowId("w01"),
         Instant.EPOCH,
         ApiTypes.ContractId("#0:0"),
         C.complexRecordId,
         ApiTypes.Choice("text"),
-        C.simpleTextV
+        C.simpleTextV,
       )
 
       "not change the value" in {
@@ -91,7 +92,7 @@ class RowSpec extends WordSpec with Matchers {
         Some(ApiTypes.CommandId("c01")),
         Instant.EPOCH,
         "1",
-        List.empty
+        List.empty,
       )
       val value = CommandStatusSuccess(tx)
 
@@ -133,7 +134,7 @@ class RowSpec extends WordSpec with Matchers {
         Some("agreement"),
         List(alice),
         List(bob, charlie),
-        None
+        None,
       )
 
       "not change the value" in {
@@ -153,7 +154,7 @@ class RowSpec extends WordSpec with Matchers {
         ApiTypes.Choice("text"),
         C.simpleTextV,
         List(ApiTypes.Party("p01")),
-        true
+        true,
       )
 
       "not change the value" in {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // This DateTimePicker code is based on the input-moment library.
@@ -86,14 +86,14 @@ export default class TimeInput extends React.Component<Props, State> {
     }
   }
 
-  filterCharacters(event: React.KeyboardEvent<HTMLInputElement>) {
+  filterCharacters(event: React.KeyboardEvent<HTMLInputElement>): void {
     // Only allow 0-9 and colon.
     if (event.charCode < 48 || event.charCode > 58) {
       event.preventDefault();
     }
   }
 
-  setSelection() {
+  setSelection(): void {
     if (!this.input || this.input.selectionStart === null) {
       return;
     }
@@ -105,23 +105,23 @@ export default class TimeInput extends React.Component<Props, State> {
     }
   }
 
-  displayMoment() {
+  displayMoment(): Moment.Moment {
     return isValid(this.props.moment) ?
       this.props.moment : this.props.defaultMoment;
   }
 
-  displayValue() {
+  displayValue(): string {
     return this.state.value ?
       this.state.value : this.displayMoment().format('HH:mm');
   }
 
-  handleChange() {
+  handleChange(): void {
     const result = setTime(this.displayValue(), this.displayMoment());
     this.setState({value: undefined});
     this.props.onChange(result);
   }
 
-  render() {
+  render(): JSX.Element {
     const displayValue = this.displayValue();
     return (
       <TimeWrapper>

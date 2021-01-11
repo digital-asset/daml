@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.bazeltools
@@ -14,7 +14,8 @@ trait BazelRunfiles {
 
   private val inBazelEnvironment =
     Set("RUNFILES_DIR", "JAVA_RUNFILES", "RUNFILES_MANIFEST_FILE", "RUNFILES_MANIFEST_ONLY").exists(
-      sys.env.contains)
+      sys.env.contains
+    )
 
   def rlocation(path: String): String =
     if (inBazelEnvironment)
@@ -27,7 +28,7 @@ trait BazelRunfiles {
       val workspacePathString = MainWorkspacePath
         .resolve(path)
         .toString
-        .replaceAllLiterally("\\", "/")
+        .replace("\\", "/")
       val runfilePath = Option(Runfiles.create.rlocation(workspacePathString))
       Paths.get(runfilePath.getOrElse(throw new IllegalArgumentException(path.toString)))
     } else

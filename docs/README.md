@@ -1,4 +1,4 @@
-# DAML Documentation
+# Daml Documentation
 
 This directory contains all of the documentation that gets published to docs.daml.com.
 
@@ -20,7 +20,7 @@ To edit documentation:
 Not all of our docs are in rst files: some get generated. They are:
 
 - the ledger API proto docs
-- the DAML standard library reference
+- the Daml standard library reference
 - the Java bindings reference
 
 To edit those docs, edit the content inside the code source.

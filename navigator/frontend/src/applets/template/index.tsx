@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { FetchResult, gql } from '@apollo/client';
@@ -59,7 +59,7 @@ type ReduxProps = {
 }
 
 interface MutationProps {
-  //tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   create?(templateId: string, argument: DamlLfValue): Promise<FetchResult<CreateContract>>;
 }
 
@@ -82,9 +82,14 @@ class Component extends React.Component<Props, {}> {
     if (create && dispatch && argument) {
       dispatch(toSelf(setLoading(true)));
       create(id, argument)
-        .then(({ data }) => {
-          dispatch(toWatcher(LedgerWatcher.registerCommand(data!.create)));
-          dispatch(pathToAction(dashboardRoute.render({})));
+        .then(({ data, errors }) => {
+          if (data) {
+            dispatch(toWatcher(LedgerWatcher.registerCommand(data.create)));
+            dispatch(pathToAction(dashboardRoute.render({})));
+          } else {
+            dispatch(toSelf(setLoading(false)));
+            dispatch(toSelf(setError(`Received no data from create: ${errors}`)));
+          }
         }).catch((error: Error) => {
           dispatch(toSelf(setLoading(false)));
           dispatch(toSelf(setError(error.message)));
@@ -113,7 +118,7 @@ class Component extends React.Component<Props, {}> {
       );
     }
   }
-};
+}
 
 const query = gql`
   query TemplateInstance($templateId: ID!) {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { Dispatch, styled } from '@da/ui-core';
@@ -28,7 +28,7 @@ export interface BackendVersionInfo {
 
 export type BackendVersionInfoResult
   = {type: 'none'}
-  | {type: 'loading'}
+  | {type: 'loading'}
   | {type: 'loaded', info: BackendVersionInfo}
   | {type: 'fetch-error', error: string}
   ;
@@ -71,7 +71,7 @@ function handleBackendInfoResponse(to: ToSelf, dispatch: Dispatch<App.Action>) {
 }
 
 function handleBackendInfoFetchError(to: ToSelf, dispatch: Dispatch<App.Action>) {
-  // tslint:disable-next-line no-any
+  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   return (reason: any) => {
     if (reason instanceof Error) {
       // Log to console to show error call stack
@@ -159,13 +159,13 @@ class Component extends React.Component<Props, {}> {
         <div>
         <p>
           Copyright Notice
-          Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates.
+          Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates.
           All rights reserved.
         </p>
         </div>
       </Wrapper>
     );
   }
-};
+}
 
 export const UI: ConnectedComponent<typeof Component, OwnProps> = connect()(Component);

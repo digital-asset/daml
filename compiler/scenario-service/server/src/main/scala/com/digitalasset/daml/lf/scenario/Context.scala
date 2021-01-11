@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -28,17 +28,16 @@ import com.daml.lf.engine.script.{
   ScriptIds,
   ScriptTimeMode,
   IdeClient,
-  Participants
+  Participants,
 }
-import com.daml.lf.transaction.VersionTimeline
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
+import scala.collection.compat._
 import scala.collection.immutable.HashMap
 import scala.util.{Failure, Success}
 
-/**
-  * Scenario interpretation context: maintains a set of modules and external packages, with which
+/** Scenario interpretation context: maintains a set of modules and external packages, with which
   * scenarios can be interpreted.
   */
 object Context {
@@ -52,7 +51,7 @@ object Context {
 
   private val compilerConfig =
     Compiler.Config(
-      allowedLanguageVersions = VersionTimeline.devLanguageVersions,
+      allowedLanguageVersions = LanguageVersion.DevVersions,
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,
@@ -63,8 +62,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
 
   import Context._
 
-  /**
-    * The package identifier to use for modules added to the context.
+  /** The package identifier to use for modules added to the context.
     * When decoding LF modules this package identifier should be used to rewrite
     * self-references. We only care that the identifier is disjunct from the package ids
     * in extSignature.
@@ -93,7 +91,8 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   private[this] val dop: Decode.OfPackage[_] = Decode.decoders
     .lift(languageVersion)
     .getOrElse(
-      throw Context.ContextException(s"No decode support for LF ${languageVersion.pretty}"))
+      throw Context.ContextException(s"No decode support for LF ${languageVersion.pretty}")
+    )
     .decoder
 
   private def decodeModule(bytes: ByteString): Ast.Module = {
@@ -104,9 +103,9 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   @throws[ParseError]
   def update(
       unloadModules: Set[ModuleName],
-      loadModules: Seq[ProtoScenarioModule],
+      loadModules: collection.Seq[ProtoScenarioModule],
       unloadPackages: Set[PackageId],
-      loadPackages: Seq[ByteString],
+      loadPackages: collection.Seq[ByteString],
       omitValidation: Boolean,
   ): Unit = synchronized {
 
@@ -123,11 +122,11 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       if (unloadPackages.nonEmpty || newPackages.nonEmpty) {
         val invalidPackages = unloadModules ++ newPackages.keys
         val newExtSignature = extSignatures -- unloadPackages ++ AstUtil.toSignatures(newPackages)
-        val newExtDefns = extDefns.filterKeys(sdef => !invalidPackages(sdef.packageId)) ++
+        val newExtDefns = extDefns.view.filterKeys(sdef => !invalidPackages(sdef.packageId)) ++
           assertRight(Compiler.compilePackages(newExtSignature, newPackages, compilerConfig))
         // we update only if we manage to compile the new packages
         extSignatures = newExtSignature
-        extDefns = newExtDefns
+        extDefns = newExtDefns.toMap
         modDefns = HashMap.empty
         modules.values
       } else {
@@ -153,7 +152,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     val extSignatures = this.extSignatures
     extSignatures.updated(
       homePackageId,
-      AstUtil.toSignature(Ast.Package(modules, extSignatures.keySet, languageVersion, None))
+      AstUtil.toSignature(Ast.Package(modules, extSignatures.keySet, languageVersion, None)),
     )
   }
 
@@ -167,12 +166,11 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       PureCompiledPackages(allSignatures, defns, compilerConfig)
     for {
       defn <- defns.get(LfDefRef(identifier))
-    } yield
-      Speedy.Machine.fromScenarioSExpr(
-        compiledPackages,
-        txSeeding,
-        defn.body,
-      )
+    } yield Speedy.Machine.fromScenarioSExpr(
+      compiledPackages,
+      txSeeding,
+      defn.body,
+    )
   }
 
   def interpretScenario(
@@ -180,7 +178,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       name: String,
   ): Option[(ScenarioLedger, Speedy.Machine, Either[SError, SValue])] = {
     buildMachine(
-      Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name)),
+      Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
     ).map { machine =>
       ScenarioRunner(machine).run() match {
         case Right((diff @ _, steps @ _, ledger, value)) =>
@@ -194,8 +192,11 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   def interpretScript(
       pkgId: String,
       name: String,
-  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory, mat: Materializer)
-    : Future[Option[(ScenarioLedger, (Speedy.Machine, Speedy.Machine), Either[SError, SValue])]] = {
+  )(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Option[(ScenarioLedger, (Speedy.Machine, Speedy.Machine), Either[SError, SValue])]] = {
     val defns = this.defns
     val compiledPackages =
       PureCompiledPackages(allSignatures, defns, compilerConfig)
@@ -204,11 +205,12 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       case (pkgId, pkg) if pkg.modules contains expectedScriptId => pkgId
     }
     val scriptExpr = SExpr.SEVal(
-      LfDefRef(Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))))
+      LfDefRef(Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name)))
+    )
     val runner = new Runner(
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
-      ScriptTimeMode.Static
+      ScriptTimeMode.Static,
     )
     val ledgerClient = new IdeClient(compiledPackages)
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
@@ -217,7 +219,9 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       case Success(v) =>
         Success(
           Some(
-            (ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Right(v))))
+            (ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Right(v))
+          )
+        )
       case Failure(e: SError) =>
         // SError are the errors that should be handled and displayed as
         // failed partial transactions.
@@ -229,8 +233,8 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
           clientMachine.traceLog.add(msg, optLoc)
         }
         Success(
-          Some(
-            (ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Left(e))))
+          Some((ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Left(e)))
+        )
       case Failure(e) => Failure(e)
     }
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { gql } from '@apollo/client';
@@ -65,7 +65,7 @@ interface QueryProps {
 }
 interface MutationProps {
   exercise?(contractId: string, choiceId: string, argument?: DamlLfValue):
-    //tslint:disable-next-line:no-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Promise<any>;
 }
 
@@ -79,7 +79,7 @@ class Component extends React.Component<Props, {}> {
     this.gotoParent = this.gotoParent.bind(this);
   }
 
-  componentWillUnmount(): void { this.gotoParent = () => { ; }; }
+  componentWillUnmount(): void { this.gotoParent = () => { return; }; }
 
   /**
    * This component deals with displaying a form for exercising a choice and
@@ -103,7 +103,7 @@ class Component extends React.Component<Props, {}> {
     // It is meant to be used in the asynchronous exercise function.
     const { toSelf, dispatch } = this.props;
     dispatch(toSelf(setChoice()));
-  };
+  }
 
   exercise(e: React.MouseEvent<HTMLButtonElement>, argument?: DamlLfValue): void {
     e.preventDefault();
@@ -144,7 +144,7 @@ class Component extends React.Component<Props, {}> {
       );
     }
   }
-};
+}
 
 const query = gql`
   query ContractDetailsById($id: ID!) {
@@ -189,7 +189,7 @@ const _withMutation =
   withMutation<OwnProps, ContractExercise, {}, MutationProps>(mutation,
     {
       props: ({mutate}): MutationProps => ({
-        exercise: mutate && ((contractId: string, choiceId: String, argument?: DamlLfValue) =>
+        exercise: mutate && ((contractId: string, choiceId: string, argument?: DamlLfValue) =>
           mutate({variables: { contractId, choiceId, argument}})
       )}),
     },

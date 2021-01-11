@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -37,8 +37,8 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
 
   protected def jdbcUrl: String
 
-  protected def daoOwner(eventsPageSize: Int)(
-      implicit loggingContext: LoggingContext
+  protected def daoOwner(eventsPageSize: Int)(implicit
+      loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] =
     JdbcLedgerDao.writeOwner(
       serverRole = ServerRole.Testing(getClass),

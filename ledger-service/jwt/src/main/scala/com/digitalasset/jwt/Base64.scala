@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.jwt
@@ -28,9 +28,13 @@ private object Base64 {
 
   private def encode(encoder: java.util.Base64.Encoder, bs: Array[Byte]): Error \/ Array[Byte] =
     \/.fromTryCatchNonFatal(encoder.encode(bs))
-      .leftMap(e => Error('encode, "Cannot base64 encode a string. Cause: " + e.getMessage))
+      .leftMap(e =>
+        Error(Symbol("encode"), "Cannot base64 encode a string. Cause: " + e.getMessage)
+      )
 
   def decode(base64str: String): Error \/ String =
     \/.fromTryCatchNonFatal(new String(defaultDecoder.decode(base64str)))
-      .leftMap(e => Error('decode, "Cannot base64 decode a string. Cause: " + e.getMessage))
+      .leftMap(e =>
+        Error(Symbol("decode"), "Cannot base64 decode a string. Cause: " + e.getMessage)
+      )
 }

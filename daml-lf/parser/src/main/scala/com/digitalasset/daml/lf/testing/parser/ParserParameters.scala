@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -8,5 +8,5 @@ import com.daml.lf.language.LanguageVersion
 
 private[daml] case class ParserParameters[P](
     defaultPackageId: PackageId,
-    languageVersion: LanguageVersion
+    languageVersion: LanguageVersion,
 )

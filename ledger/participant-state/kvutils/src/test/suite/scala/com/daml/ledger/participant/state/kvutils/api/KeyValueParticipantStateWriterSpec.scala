@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
@@ -10,30 +10,33 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateWriterSpec._
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope}
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.{
   DefaultStateKeySerializationStrategy,
-  StateKeySerializationStrategy
+  StateKeySerializationStrategy,
 }
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.metrics.Metrics
-import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito.{times, verify, when}
-import org.scalatest.mockito.MockitoSugar._
-import org.scalatest.{Assertion, Matchers, WordSpec}
+import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.Future
 
-class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
+class KeyValueParticipantStateWriterSpec
+    extends AnyWordSpec
+    with Matchers
+    with MockitoSugar
+    with ArgumentMatchersSugar {
   "participant state writer" should {
     "submit a transaction" in {
-      val transactionCaptor = captor[Bytes]
+      val transactionCaptor = captor[Raw.Value]
       val correlationIdCaptor = captor[String]
       val metadataCaptor = captor[CommitMetadata]
       val writer = createWriter(transactionCaptor, metadataCaptor, correlationIdCaptor)
@@ -45,9 +48,10 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
         submitterInfo(recordTime, aParty, expectedCorrelationId),
         transactionMeta(recordTime),
         TransactionBuilder.EmptySubmitted,
-        anInterpretationCost)
+        anInterpretationCost,
+      )
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
       verifyEnvelope(transactionCaptor.getValue)(_.hasTransactionEntry)
       correlationIdCaptor.getValue should be(expectedCorrelationId)
       val actualCommitMetadata = metadataCaptor.getValue
@@ -57,14 +61,14 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
     }
 
     "upload a package" in {
-      val packageUploadCaptor = captor[Bytes]
+      val packageUploadCaptor = captor[Raw.Value]
       val metadataCaptor = captor[CommitMetadata]
       val writer = createWriter(packageUploadCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
       verifyEnvelope(packageUploadCaptor.getValue)(_.hasPackageUploadEntry)
       val actualCommitMetadata = metadataCaptor.getValue
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -72,14 +76,14 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
     }
 
     "submit a configuration" in {
-      val configurationCaptor = captor[Bytes]
+      val configurationCaptor = captor[Raw.Value]
       val metadataCaptor = captor[CommitMetadata]
       val writer = createWriter(configurationCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
       verifyEnvelope(configurationCaptor.getValue)(_.hasConfigurationSubmission)
       val actualCommitMetadata = metadataCaptor.getValue
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -87,14 +91,14 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
     }
 
     "allocate a party without hint" in {
-      val partyAllocationCaptor = captor[Bytes]
+      val partyAllocationCaptor = captor[Raw.Value]
       val metadataCaptor = captor[CommitMetadata]
       val writer = createWriter(partyAllocationCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
+      verify(writer, times(1)).commit(any[String], any[Raw.Value], any[CommitMetadata])
       verifyEnvelope(partyAllocationCaptor.getValue)(_.hasPartyAllocationEntry)
       val actualCommitMetadata = metadataCaptor.getValue
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
@@ -102,7 +106,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
     }
   }
 
-  private def verifyEnvelope(written: Bytes)(assertion: DamlSubmission => Boolean): Assertion =
+  private def verifyEnvelope(written: Raw.Value)(assertion: DamlSubmission => Boolean): Assertion =
     Envelope.openSubmission(written) match {
       case Right(value) => assert(assertion(value) === true)
       case _ => fail()
@@ -110,6 +114,8 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with Matchers {
 }
 
 object KeyValueParticipantStateWriterSpec {
+
+  import MockitoSugar._
 
   private val aParty = Ref.Party.assertFromString("aParty")
 
@@ -128,21 +134,23 @@ object KeyValueParticipantStateWriterSpec {
     DefaultStateKeySerializationStrategy
 
   private def createWriter(
-      envelopeCaptor: ArgumentCaptor[Bytes],
+      envelopeCaptor: ArgumentCaptor[Raw.Value],
       metadataCaptor: ArgumentCaptor[CommitMetadata],
-      correlationIdCaptor: ArgumentCaptor[String] = captor[String]): LedgerWriter = {
+      correlationIdCaptor: ArgumentCaptor[String] = captor[String],
+  ): LedgerWriter = {
     val writer = mock[LedgerWriter]
     when(
       writer
-        .commit(correlationIdCaptor.capture(), envelopeCaptor.capture(), metadataCaptor.capture()))
+        .commit(correlationIdCaptor.capture(), envelopeCaptor.capture(), metadataCaptor.capture())
+    )
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     writer
   }
 
   private def submitterInfo(recordTime: Timestamp, party: Ref.Party, commandId: String) =
-    SubmitterInfo.withSingleSubmitter(
-      submitter = party,
+    SubmitterInfo(
+      actAs = List(party),
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
       deduplicateUntil = recordTime.addMicros(Duration.ofDays(1).toNanos / 1000).toInstant,
@@ -153,10 +161,11 @@ object KeyValueParticipantStateWriterSpec {
     workflowId = Some(Ref.LedgerString.assertFromString("tests")),
     submissionTime = let.addMicros(1000),
     submissionSeed = crypto.Hash.assertFromString(
-      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    ),
     optUsedPackages = Some(Set.empty),
     optNodeSeeds = None,
-    optByKeyNodes = None
+    optByKeyNodes = None,
   )
 
   private def newMetrics(): Metrics = new Metrics(new MetricRegistry)

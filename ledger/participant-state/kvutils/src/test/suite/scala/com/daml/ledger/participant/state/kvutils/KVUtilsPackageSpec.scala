@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -9,14 +9,16 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
-  DamlPackageUploadRejectionEntry
+  DamlPackageUploadRejectionEntry,
 }
 import com.daml.lf.archive.DarReader
-import org.scalatest.{Matchers, WordSpec}
+import com.daml.lf.data.Ref
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Try
 
-class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
+class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
 
   import KVTest._
   import TestHelpers._
@@ -24,9 +26,11 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
   private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
 
   private def darFile = new File(rlocation("ledger/test-common/model-tests.dar"))
+
   private val testStablePackages = darReader.readArchiveFromFile(darFile).get
 
-  private val simpleArchive = archiveWithContractData("Party")
+  private val simplePackage = new SimplePackage("Party")
+  private val simpleArchive = simplePackage.archive
 
   "packages" should {
     "be able to submit simple package" in KVTest.runTest {
@@ -34,7 +38,8 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
         // NOTE(JM): 'runTest' always uploads 'simpleArchive' by default.
         logEntry <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
         archiveState <- getDamlState(
-          Conversions.packageStateKey(packageIdWithContractData("Party")))
+          Conversions.packageStateKey(Ref.PackageId.assertFromString(simplePackage.archiveHash))
+        )
 
         // Submit again and verify that the uploaded archive didn't appear again.
         logEntry2 <- submitArchives("simple-archive-submission-2", simpleArchive)
@@ -66,7 +71,8 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
       for {
         preExecutionResult <- preExecuteArchives(
           "model-test-submission",
-          testStablePackages.all: _*)
+          testStablePackages.all: _*
+        )
           .map(_._2)
         actualLogEntry = preExecutionResult.successfulLogEntry
       } yield {
@@ -96,7 +102,7 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
       }
     }
 
-    "update metrics" in KVTest.runTestWithSimplePackage() {
+    "update metrics" in KVTest.runTest {
       for {
         //Submit archive twice to force one acceptance and one rejection on duplicate
         _ <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)

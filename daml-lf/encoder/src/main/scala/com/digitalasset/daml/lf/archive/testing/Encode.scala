@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive.testing
@@ -15,7 +15,7 @@ object Encode {
 
   private def encodePayloadOfVersion(
       idAndPkg: (PackageId, Package),
-      version: LanguageVersion
+      version: LanguageVersion,
   ): PLF.ArchivePayload = {
 
     val (pkgId, pkg) = idAndPkg

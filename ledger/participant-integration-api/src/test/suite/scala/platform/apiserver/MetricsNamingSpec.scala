@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
@@ -6,9 +6,10 @@ package com.daml.platform.apiserver
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-final class MetricsNamingSpec extends FlatSpec with Matchers {
+final class MetricsNamingSpec extends AnyFlatSpec with Matchers {
 
   behavior of "MetricsNaming.camelCaseToSnakeCase"
 
@@ -54,9 +55,15 @@ final class MetricsNamingSpec extends FlatSpec with Matchers {
   import MetricsNaming.nameFor
 
   it should "produce the expected name for a selection of service methods" in {
-    nameFor(CommandServiceGrpc.METHOD_SUBMIT_AND_WAIT.getFullMethodName).toString shouldBe "command_service.submit_and_wait"
-    nameFor(CommandSubmissionServiceGrpc.METHOD_SUBMIT.getFullMethodName).toString shouldBe "command_submission_service.submit"
-    nameFor(ActiveContractsServiceGrpc.METHOD_GET_ACTIVE_CONTRACTS.getFullMethodName).toString shouldBe "active_contracts_service.get_active_contracts"
+    nameFor(
+      CommandServiceGrpc.METHOD_SUBMIT_AND_WAIT.getFullMethodName
+    ).toString shouldBe "command_service.submit_and_wait"
+    nameFor(
+      CommandSubmissionServiceGrpc.METHOD_SUBMIT.getFullMethodName
+    ).toString shouldBe "command_submission_service.submit"
+    nameFor(
+      ActiveContractsServiceGrpc.METHOD_GET_ACTIVE_CONTRACTS.getFullMethodName
+    ).toString shouldBe "active_contracts_service.get_active_contracts"
   }
 
 }

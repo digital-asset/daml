@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -74,6 +74,7 @@ da_scala_library(
         "@maven//:io_netty_netty_common",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_transport",
+        "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
         "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -98,6 +99,7 @@ da_scala_library_suite(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_context",
         "@maven//:org_cvogt_scala_extensions_2_12",
+        "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

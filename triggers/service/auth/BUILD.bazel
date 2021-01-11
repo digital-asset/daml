@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -11,12 +11,48 @@ load(
 scalacopts = []
 
 da_scala_library(
-    name = "oauth-middleware",
-    srcs = glob(["src/main/scala/com/daml/oauth/middleware/**/*.scala"]),
+    name = "oauth2-api",
+    srcs = glob(["src/main/scala/com/daml/auth/oauth2/api/**/*.scala"]),
     scalacopts = scalacopts,
     visibility = ["//visibility:public"],
     deps = [
-        ":oauth-test-server",  # TODO[AH] Extract OAuth2 request/response types
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_http_2_12",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_akka_akka_parsing_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+    ],
+)
+
+da_scala_library(
+    name = "middleware-api",
+    srcs = glob(["src/main/scala/com/daml/auth/middleware/api/**/*.scala"]),
+    scalacopts = scalacopts,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/data",
+        "//language-support/scala/bindings",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_http_2_12",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
+        "@maven//:com_typesafe_akka_akka_parsing_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+da_scala_library(
+    name = "oauth2-middleware",
+    srcs = glob(["src/main/scala/com/daml/auth/middleware/oauth2/**/*.scala"]),
+    resources = glob(["src/main/resources/com/daml/auth/middleware/oauth2/**"]),
+    scalacopts = scalacopts,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":middleware-api",
+        ":oauth2-api",
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//ledger-service/jwt",
@@ -24,6 +60,12 @@ da_scala_library(
         "//ledger/ledger-api-auth",
         "//libs-scala/ports",
         "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_lihaoyi_fastparse_2_12",
+        "@maven//:com_lihaoyi_geny_2_12",
+        "@maven//:com_lihaoyi_os_lib_2_12",
+        "@maven//:com_lihaoyi_sjsonnet_2_12",
+        "@maven//:com_lihaoyi_ujson_2_12",
+        "@maven//:com_lihaoyi_upickle_core_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_http_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
@@ -38,23 +80,24 @@ da_scala_library(
 )
 
 da_scala_binary(
-    name = "oauth-middleware-binary",
-    main_class = "com.daml.oauth.middleware.Main",
+    name = "oauth2-middleware-binary",
+    main_class = "com.daml.auth.middleware.oauth2.Main",
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        ":oauth-middleware",
+        ":oauth2-middleware",
     ],
 )
 
 da_scala_library(
-    name = "oauth-test-server",
-    srcs = glob(["src/main/scala/com/daml/oauth/server/**/*.scala"]),
+    name = "oauth2-test-server",
+    srcs = glob(["src/main/scala/com/daml/auth/oauth2/test/server/**/*.scala"]),
     scalacopts = scalacopts,
-    visibility = ["//visibility:public"],
+    visibility = ["//triggers/service:__subpackages__"],
     deps = [
+        ":oauth2-api",
         "//language-support/scala/bindings",
         "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
@@ -73,23 +116,23 @@ da_scala_library(
 )
 
 da_scala_binary(
-    name = "oauth-test-server-binary",
+    name = "oauth2-test-server-binary",
     main_class = "com.daml.oauth.server.Main",
-    visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        ":oauth-test-server",
+        ":oauth2-test-server",
     ],
 )
 
 da_scala_test(
-    name = "server-tests",
-    srcs = glob(["src/test/scala/com/daml/oauth/server/**/*.scala"]),
+    name = "oauth2-test-server-tests",
+    srcs = glob(["src/test/scala/com/daml/auth/oauth2/test/server/**/*.scala"]),
     scalacopts = scalacopts,
     deps = [
-        ":oauth-test-server",
+        ":oauth2-api",
+        ":oauth2-test-server",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
@@ -111,12 +154,14 @@ da_scala_test(
 )
 
 da_scala_test(
-    name = "middleware-tests",
-    srcs = glob(["src/test/scala/com/daml/oauth/middleware/**/*.scala"]),
+    name = "oauth2-middleware-tests",
+    srcs = glob(["src/test/scala/com/daml/auth/middleware/oauth2/**/*.scala"]),
     scalacopts = scalacopts,
     deps = [
-        ":oauth-middleware",
-        ":oauth-test-server",
+        ":middleware-api",
+        ":oauth2-api",
+        ":oauth2-middleware",
+        ":oauth2-test-server",
         "//daml-lf/data",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
@@ -127,6 +172,7 @@ da_scala_test(
         "//libs-scala/adjustable-clock",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "//libs-scala/scala-utils",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_http_2_12",

@@ -1,15 +1,18 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 
 import org.scalatest._
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 
-final class CliSpec extends FreeSpec with Matchers {
+final class CliSpec extends AnyFreeSpec with Matchers {
 
   private def configParser(
       parameters: Seq[String],
-      getEnvVar: String => Option[String] = (_ => None)): Option[Config] =
+      getEnvVar: String => Option[String] = (_ => None),
+  ): Option[Config] =
     Cli.parseConfig(parameters, getEnvVar)
 
   val jdbcConfig = JdbcConfig(
@@ -17,7 +20,8 @@ final class CliSpec extends FreeSpec with Matchers {
     "jdbc:postgresql://localhost:5432/test?&ssl=true",
     "postgres",
     "password",
-    false)
+    false,
+  )
   val jdbcConfigString =
     "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
 
@@ -35,7 +39,7 @@ final class CliSpec extends FreeSpec with Matchers {
       val jdbcEnvVar = "JDBC_ENV_VAR"
       val config = configParser(
         Seq("--query-store-jdbc-config-env", jdbcEnvVar) ++ sharedOptions,
-        { case `jdbcEnvVar` => Some(jdbcConfigString) }
+        { case `jdbcEnvVar` => Some(jdbcConfigString) },
       ).getOrElse(fail())
       config.jdbcConfig shouldBe Some(jdbcConfig)
     }

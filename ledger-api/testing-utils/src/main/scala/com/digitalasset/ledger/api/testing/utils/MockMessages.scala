@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testing.utils
@@ -66,7 +66,7 @@ object MockMessages {
     List(party),
     true,
     Nil, // No witnesses
-    List(createdEvent.eventId)
+    List(createdEvent.eventId),
   )
   val transactionTree =
     TransactionTree(
@@ -77,10 +77,10 @@ object MockMessages {
       offset,
       Map(
         exercisedEvent.eventId -> TreeEvent(TreeEvent.Kind.Exercised(exercisedEvent)),
-        createdEvent.eventId -> TreeEvent(TreeEvent.Kind.Created(createdEvent))
+        createdEvent.eventId -> TreeEvent(TreeEvent.Kind.Created(createdEvent)),
       ),
       List(exercisedEvent.eventId),
-      None
+      None,
     )
 
   val filteredTransaction = Transaction(
@@ -90,7 +90,7 @@ object MockMessages {
     Some(ledgerEffectiveTime),
     List.empty,
     offset,
-    None
+    None,
   )
 
   private val NO_OF_TRANSACTIONS = 1000
@@ -105,7 +105,7 @@ object MockMessages {
     None,
     List(randomId("party")),
     Random.nextBoolean(),
-    Nil
+    Nil,
   )
 
   def generateMockTransactions(): List[TransactionTree] =
@@ -118,7 +118,7 @@ object MockMessages {
         Some(ledgerEffectiveTime),
         i.toString,
         Map(event.eventId -> TreeEvent(TreeEvent.Kind.Exercised(event))),
-        List(event.eventId)
+        List(event.eventId),
       )
     }.toList
 

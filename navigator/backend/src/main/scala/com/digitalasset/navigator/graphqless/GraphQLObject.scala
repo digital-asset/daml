@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.graphqless
@@ -20,18 +20,17 @@ object GraphQLObject {
 trait DerivedGraphQLObject {
 
   @silent(" generic .*is never used") // used to calculate Repr0 tparam only
-  implicit def caseClassGraphQLObject[C, Repr0 <: HList](
-      implicit
+  implicit def caseClassGraphQLObject[C, Repr0 <: HList](implicit
       classTag: ClassTag[C],
       generic: LabelledGeneric.Aux[C, Repr0],
-      graphQLFields: GraphQLFields[C, Repr0]
+      graphQLFields: GraphQLFields[C, Repr0],
   ): GraphQLObject[C] = new GraphQLObject[C] {
     override def to[Ctx]: ObjectType[Ctx, C] = {
       val objectName = classTag.runtimeClass.getSimpleName
       val reprFields = graphQLFields.fields[Ctx]
       ObjectType(
         name = objectName,
-        fields = reprFields
+        fields = reprFields,
       )
     }
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources
@@ -52,7 +52,8 @@ final class ProgramResource[Context: HasExecutionContext, T](
           case _: SuppressedStartupException =>
           case _: StartupException =>
             logger.error(
-              s"Shutting down because of an initialization error.\n${exception.getMessage}")
+              s"Shutting down because of an initialization error.\n${exception.getMessage}"
+            )
           case NonFatal(_) =>
             logger.error("Shutting down because of an initialization error.", exception)
         }

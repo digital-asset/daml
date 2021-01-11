@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -32,6 +32,7 @@ da_scala_library(
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
+        "//libs-scala/resources-akka",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
@@ -100,6 +101,7 @@ da_scala_test_suite(
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
+        "@maven//:org_mockito_mockito_scala_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
     ],
@@ -163,7 +165,6 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-pre-execution",
-    flaky = True,
     ports = [6865],
     server = ":app",
     server_args = [
@@ -226,6 +227,21 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ParticipantPruningIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-multi-party-submission",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=example,port=6865",
+        "--batching enable=true,max-batch-size-bytes=262144",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=MultiPartySubmissionIT",
     ],
 )
 

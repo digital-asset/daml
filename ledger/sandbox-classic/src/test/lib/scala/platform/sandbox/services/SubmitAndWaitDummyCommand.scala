@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services
@@ -20,7 +20,8 @@ trait SubmitAndWaitDummyCommand extends TestCommands { self: ServiceCallWithMain
     SubmitAndWaitRequest(
       dummyCommands(wrappedLedgerId, s"$serviceCallName-${UUID.randomUUID}", mainActor)
         .update(_.commands.applicationId := serviceCallName, _.commands.party := mainActor)
-        .commands)
+        .commands
+    )
 
   private def service(token: Option[String]) =
     stub(CommandServiceGrpc.stub(channel), token)
@@ -29,12 +30,12 @@ trait SubmitAndWaitDummyCommand extends TestCommands { self: ServiceCallWithMain
     service(token).submitAndWait(dummySubmitAndWaitRequest)
 
   protected def submitAndWaitForTransaction(token: Option[String]): Future[Empty] =
-    service(token).submitAndWait(dummySubmitAndWaitRequest)
+    service(token).submitAndWaitForTransaction(dummySubmitAndWaitRequest).map(_ => Empty())
 
   protected def submitAndWaitForTransactionId(token: Option[String]): Future[Empty] =
-    service(token).submitAndWait(dummySubmitAndWaitRequest)
+    service(token).submitAndWaitForTransactionId(dummySubmitAndWaitRequest).map(_ => Empty())
 
   protected def submitAndWaitForTransactionTree(token: Option[String]): Future[Empty] =
-    service(token).submitAndWait(dummySubmitAndWaitRequest)
+    service(token).submitAndWaitForTransactionTree(dummySubmitAndWaitRequest).map(_ => Empty())
 
 }

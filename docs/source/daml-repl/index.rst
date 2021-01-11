@@ -1,10 +1,10 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML REPL
+Daml REPL
 ###########
 
-The DAML REPL allows you to use the :doc:`/daml-script/index` API
+The Daml REPL allows you to use the :doc:`/daml-script/index` API
 interactively. This is useful for debugging and for interactively
 inspecting and manipulating a ledger.
 
@@ -62,7 +62,7 @@ two forms:
 2. A pure expression ``expr`` of type ``a`` for some type ``a`` where
    ``a`` is an instance of ``Show``. This will evaluate ``expr`` and
    print the result. If you are only interest in pure expressions you
-   can also use DAML REPL
+   can also use Daml REPL
    :ref:`without connecting to a ledger <repl-no-ledger>`.
 
 3. A binding of the form ``pat <- expr`` where ``pat`` is pattern, e.g.,
@@ -76,7 +76,7 @@ two forms:
    and ``y`` is a pure expression or ``let f x = y`` to define a function.
    The bound variables can be used on subsequent lines.
 
-5. Next to DAML code the REPL also understands REPL commands which are prefixed
+5. Next to Daml code the REPL also understands REPL commands which are prefixed
    by ``:``. Enter ``:help`` to see a list of supported REPL commands.
 
 First create two parties: A party with the display name ``"Alice"``
@@ -129,8 +129,8 @@ What is in scope at the prompt?
 ===============================
 
 In the prompt, all modules from DALFs specified in ``--import`` are
-imported automatically. In addition to that, the ``DAML.Script``
-module is also imported and gives you access to the DAML Script API.
+imported automatically. In addition to that, the ``Daml.Script``
+module is also imported and gives you access to the Daml Script API.
 
 You can use the commands ``:module + ModA ModB …`` to import additional modules
 and ``:module - ModA ModB …`` to remove previously added imports. Modules can
@@ -144,13 +144,13 @@ The command ``:show imports`` lists the currently active imports.
 
 .. _repl-no-ledger:
 
-Using DAML REPL without a Ledger
+Using Daml REPL without a Ledger
 ================================
 
 If you are only interested in pure expressions, e.g., because you want
 to test how some function behaves you can omit the ``--ledger-host``
-and ``-ledger-port`` parameters. DAML REPL will work as usual but any
-attempts to call DAML Script APIs that interact with the ledger, e.g.,
+and ``-ledger-port`` parameters. Daml REPL will work as usual but any
+attempts to call Daml Script APIs that interact with the ledger, e.g.,
 ``submit`` will result in the following error:
 
 .. code-block:: none
@@ -173,10 +173,10 @@ Connection to a Ledger with Authorization
 If your ledger requires an authorization token you can pass it via
 ``--access-token-file``.
 
-Using DAML REPL to convert to JSON
+Using Daml REPL to convert to JSON
 ==================================
 
-Using the ``:json`` command you can encode serializable DAML expressions as
+Using the ``:json`` command you can encode serializable Daml expressions as
 JSON. For example using the definitions and imports from above:
 
 .. code-block:: none

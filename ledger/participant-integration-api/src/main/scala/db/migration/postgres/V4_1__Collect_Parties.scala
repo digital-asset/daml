@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Note: package name must correspond exactly to the flyway 'locations' setting, which defaults to
@@ -16,6 +16,8 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.db.migration.translation.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
+import scala.collection.compat.immutable.LazyList
+
 private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
 
   // the number of contracts proceeded in a batch.
@@ -26,8 +28,8 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
     updateParties(loadTransactions)
   }
 
-  private def loadTransactions(
-      implicit connection: Connection
+  private def loadTransactions(implicit
+      connection: Connection
   ): Iterator[(Long, Tx.Transaction)] = {
 
     val SQL_SELECT_LEDGER_ENTRIES =
@@ -51,7 +53,8 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
         val transaction = TransactionSerializer
           .deserializeTransaction(transactionId, rows.getBinaryStream("transaction"))
           .getOrElse(
-            sys.error(s"failed to deserialize transaction with ledger offset $ledgerOffset"))
+            sys.error(s"failed to deserialize transaction with ledger offset $ledgerOffset")
+          )
 
         hasNext = rows.next()
 
@@ -61,8 +64,9 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
 
   }
 
-  private def updateParties(transactions: Iterator[(Long, Tx.Transaction)])(
-      implicit conn: Connection): Unit = {
+  private def updateParties(
+      transactions: Iterator[(Long, Tx.Transaction)]
+  )(implicit conn: Connection): Unit = {
 
     val SQL_INSERT_PARTY =
       """INSERT INTO
@@ -75,16 +79,14 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
         |""".stripMargin
 
     val statements = transactions
-      .flatMap {
-        case (ledgerOffset, transaction) =>
-          getParties(transaction).map(p => ledgerOffset -> p)
+      .flatMap { case (ledgerOffset, transaction) =>
+        getParties(transaction).map(p => ledgerOffset -> p)
       }
-      .map {
-        case (ledgerOffset, name) =>
-          Seq[NamedParameter]("name" -> name, "ledger_offset" -> ledgerOffset)
+      .map { case (ledgerOffset, name) =>
+        Seq[NamedParameter]("name" -> name, "ledger_offset" -> ledgerOffset)
       }
 
-    statements.toStream.grouped(batchSize).foreach { batch =>
+    statements.to(LazyList).grouped(batchSize).foreach { batch =>
       BatchSql(
         SQL_INSERT_PARTY,
         batch.head,
@@ -95,26 +97,25 @@ private[migration] class V4_1__Collect_Parties extends BaseJavaMigration {
 
   private def getParties(transaction: Tx.Transaction): Set[Ref.Party] = {
     transaction
-      .fold[Set[Ref.Party]](Set.empty) {
-        case (parties, (_, node)) =>
-          node match {
-            case nf: NodeFetch.WithTxValue[ContractId] =>
-              parties
-                .union(nf.signatories)
-                .union(nf.stakeholders)
-                .union(nf.actingParties)
-            case nc: NodeCreate.WithTxValue[ContractId] =>
-              parties
-                .union(nc.signatories)
-                .union(nc.stakeholders)
-            case ne: NodeExercises.WithTxValue[_, ContractId] =>
-              parties
-                .union(ne.signatories)
-                .union(ne.stakeholders)
-                .union(ne.actingParties)
-            case _: NodeLookupByKey.WithTxValue[ContractId] =>
-              parties
-          }
+      .fold[Set[Ref.Party]](Set.empty) { case (parties, (_, node)) =>
+        node match {
+          case nf: NodeFetch[ContractId] =>
+            parties
+              .union(nf.signatories)
+              .union(nf.stakeholders)
+              .union(nf.actingParties)
+          case nc: NodeCreate[ContractId] =>
+            parties
+              .union(nc.signatories)
+              .union(nc.stakeholders)
+          case ne: NodeExercises[_, ContractId] =>
+            parties
+              .union(ne.signatories)
+              .union(ne.stakeholders)
+              .union(ne.actingParties)
+          case _: NodeLookupByKey[ContractId] =>
+            parties
+        }
       }
   }
 }

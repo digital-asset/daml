@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Polyfills for older browsers (IE11)
@@ -42,6 +42,7 @@ const client = new ApolloClient({
 // understand them.
 declare global {
   interface Window {
+    // eslint-disable-next-line @typescript-eslint/ban-types
     __REDUX_DEVTOOLS_EXTENSION_COMPOSE__?: Function
   }
 }

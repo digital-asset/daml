@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
@@ -19,19 +19,23 @@ private[platform] object EventFilter {
       packageId = Ref.PackageId.assertFromString(id.packageId),
       qualifiedName = Ref.QualifiedName(
         module = Ref.ModuleName.assertFromString(id.moduleName),
-        name = Ref.DottedName.assertFromString(id.entityName)
-      )
+        name = Ref.DottedName.assertFromString(id.entityName),
+      ),
     )
 
   def apply(event: Event)(txf: TransactionFilter): Option[Event] =
-    Some(event.modifyWitnessParties(_.filter(party =>
-      txf(Party.assertFromString(party), toLfIdentifier(event.templateId)))))
+    Some(
+      event.modifyWitnessParties(
+        _.filter(party => txf(Party.assertFromString(party), toLfIdentifier(event.templateId)))
+      )
+    )
       .filter(_.witnessParties.nonEmpty)
 
   def apply(event: ActiveContract)(txf: TransactionFilter): Option[ActiveContract] =
     Some(event)
       .filter(ac =>
-        (ac.signatories union ac.observers).exists(party => txf(party, event.contract.template)))
+        (ac.signatories union ac.observers).exists(party => txf(party, event.contract.template))
+      )
       .map(_.copy(witnesses = event.witnesses.filter(party => txf(party, event.contract.template))))
 
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
@@ -6,9 +6,11 @@ package com.daml.lf.archive
 import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles._
-import org.scalatest.{FlatSpec, Matchers, TryValues}
+import org.scalatest.TryValues
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
-class UniversalArchiveReaderSpec extends FlatSpec with Matchers with TryValues {
+class UniversalArchiveReaderSpec extends AnyFlatSpec with Matchers with TryValues {
 
   private val darFile = new File(rlocation("daml-lf/archive/DarReaderTest.dar"))
 

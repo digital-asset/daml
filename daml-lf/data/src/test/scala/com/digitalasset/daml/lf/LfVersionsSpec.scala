@@ -1,15 +1,16 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.NonEmptyList
 import scalaz.scalacheck.ScalazArbitrary._
 
-class LfVersionsSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+class LfVersionsSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
 
   case class DummyVersion(value: Int) {
     def protoValue: String = value.toString

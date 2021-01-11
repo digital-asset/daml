@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.timer
@@ -8,7 +8,9 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.timer.RetryStrategySpec._
 import org.scalatest.matchers.{MatchResult, Matcher}
-import org.scalatest.{AsyncWordSpec, Inside, Matchers}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,8 +31,8 @@ final class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMat
     }
 
     "try forever, with no delay, to ensure we don't overflow the stack" in {
-      val retry = RetryStrategy.constant(attempts = None, waitTime = Duration.Zero) {
-        case _ => true
+      val retry = RetryStrategy.constant(attempts = None, waitTime = Duration.Zero) { case _ =>
+        true
       }
       for {
         (retryCount, result, _) <- succeedAfter(tries = 10000, retry)
@@ -45,8 +47,7 @@ final class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMat
       for {
         (retryCount, result, duration) <- succeedAfter(tries = 11, retry)
       } yield {
-        inside(result) {
-          case Failure(_: FailureDuringRetry) =>
+        inside(result) { case Failure(_: FailureDuringRetry) =>
         }
         retryCount should be(10)
         duration should beAround(100.milliseconds)
@@ -58,8 +59,7 @@ final class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMat
       for {
         (retryCount, result, _) <- succeedAfter(tries = 1, retry)
       } yield {
-        inside(result) {
-          case Failure(_: RetryStrategy.ZeroAttemptsException) =>
+        inside(result) { case Failure(_: RetryStrategy.ZeroAttemptsException) =>
         }
         retryCount should be(0)
       }
@@ -70,8 +70,7 @@ final class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMat
       for {
         (retryCount, result, _) <- succeedAfter(tries = 1, retry)
       } yield {
-        inside(result) {
-          case Failure(_: RetryStrategy.ZeroAttemptsException) =>
+        inside(result) { case Failure(_: RetryStrategy.ZeroAttemptsException) =>
         }
         retryCount should be(0)
       }
@@ -95,8 +94,7 @@ final class RetryStrategySpec extends AsyncWordSpec with Matchers with CustomMat
       for {
         (retryCount, result, duration) <- succeedAfter(tries = 6, retry)
       } yield {
-        inside(result) {
-          case Failure(_: FailureDuringRetry) =>
+        inside(result) { case Failure(_: FailureDuringRetry) =>
         }
         retryCount should be(5)
         duration should beAround(150.milliseconds)

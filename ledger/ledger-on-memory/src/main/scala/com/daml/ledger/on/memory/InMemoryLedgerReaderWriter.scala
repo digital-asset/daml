@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.memory
@@ -13,23 +13,18 @@ import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.api._
 import com.daml.ledger.participant.state.kvutils.export.LedgerDataExporter
-import com.daml.ledger.participant.state.kvutils.{
-  Bytes,
-  Fingerprint,
-  FingerprintPlaceholder,
-  KeyValueCommitting
-}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, ParticipantId, SubmissionResult}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.validator.LedgerStateOperations.Value
 import com.daml.ledger.validator.batch.{
   BatchedSubmissionValidator,
   BatchedSubmissionValidatorFactory,
   BatchedValidatingCommitter,
-  ConflictDetection
+  ConflictDetection,
 }
-import com.daml.ledger.validator.caching.ImmutablesOnlyCacheUpdatePolicy
+import com.daml.ledger.validator.caching.{CachingStateReader, ImmutablesOnlyCacheUpdatePolicy}
 import com.daml.ledger.validator.preexecution._
+import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
 import com.daml.ledger.validator.{StateKeySerializationStrategy, ValidateAndCommit}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -50,13 +45,12 @@ final class InMemoryLedgerReaderWriter private[memory] (
     with LedgerWriter {
   override def commit(
       correlationId: String,
-      envelope: Bytes,
+      envelope: Raw.Value,
       metadata: CommitMetadata,
   ): Future[SubmissionResult] =
     validateAndCommit(correlationId, envelope, participantId)
-      .andThen {
-        case Success(SubmissionResult.Acknowledged) =>
-          dispatcher.signalNewHead(state.newHeadSinceLastWrite())
+      .andThen { case Success(SubmissionResult.Acknowledged) =>
+        dispatcher.signalNewHead(state.newHeadSinceLastWrite())
       }(DirectExecutionContext)
 
   override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
@@ -70,13 +64,15 @@ final class InMemoryLedgerReaderWriter private[memory] (
 object InMemoryLedgerReaderWriter {
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
+  type StateValueCache = Cache[DamlStateKey, DamlStateValue]
+
   final class BatchingOwner(
       ledgerId: LedgerId,
       batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       participantId: ParticipantId,
       metrics: Metrics,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
+      stateValueCache: StateValueCache = Cache.none,
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
       engine: Engine,
@@ -106,8 +102,10 @@ object InMemoryLedgerReaderWriter {
         // We need to generate batched submissions for the validator in order to improve throughput.
         // Hence, we have a BatchingLedgerWriter collect and forward batched submissions to the
         // in-memory committer.
-        ledgerWriter = newLoggingContext { implicit loggingContext =>
-          BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter)
+        ledgerWriter <- newLoggingContext { implicit loggingContext =>
+          ResourceOwner
+            .forCloseable(() => BatchingLedgerWriter(batchingLedgerWriterConfig, readerWriter))
+            .acquire()
         }
       } yield createKeyValueLedger(readerWriter, ledgerWriter)
   }
@@ -117,7 +115,7 @@ object InMemoryLedgerReaderWriter {
       batchingLedgerWriterConfig: BatchingLedgerWriterConfig,
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      stateValueCache: Cache[DamlStateKey, DamlStateValue] = Cache.none,
+      stateValueCache: StateValueCache = Cache.none,
       metrics: Metrics,
       engine: Engine,
   )(implicit materializer: Materializer)
@@ -148,8 +146,7 @@ object InMemoryLedgerReaderWriter {
       keySerializationStrategy: StateKeySerializationStrategy,
       metrics: Metrics,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      stateValueCacheForPreExecution: Cache[DamlStateKey, (DamlStateValue, Fingerprint)] =
-        Cache.none,
+      stateValueCache: StateValueCache = Cache.none,
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
       engine: Engine,
@@ -165,7 +162,7 @@ object InMemoryLedgerReaderWriter {
         state,
         metrics,
         timeProvider,
-        stateValueCacheForPreExecution,
+        stateValueCache,
       )
 
       val readerWriter = new InMemoryLedgerReaderWriter(
@@ -187,12 +184,13 @@ object InMemoryLedgerReaderWriter {
       state: InMemoryState,
       metrics: Metrics,
       timeProvider: TimeProvider,
-      stateValueCache: Cache[DamlStateKey, DamlStateValue],
+      stateValueCache: StateValueCache,
       ledgerDataExporter: LedgerDataExporter,
   )(implicit materializer: Materializer): ValidateAndCommit = {
     val validator = BatchedSubmissionValidator[Index](
       BatchedSubmissionValidatorFactory.defaultParametersFor(
-        batchingLedgerWriterConfig.enableBatching),
+        batchingLedgerWriterConfig.enableBatching
+      ),
       keyValueCommitting,
       new ConflictDetection(metrics),
       metrics,
@@ -208,7 +206,7 @@ object InMemoryLedgerReaderWriter {
 
       def validateAndCommit(
           correlationId: String,
-          submissionEnvelope: Bytes,
+          submissionEnvelope: Raw.Value,
           submittingParticipantId: ParticipantId,
       ) =
         new InMemoryLedgerStateAccess(state, metrics).inTransaction { ledgerStateOperations =>
@@ -230,31 +228,28 @@ object InMemoryLedgerReaderWriter {
       state: InMemoryState,
       metrics: Metrics,
       timeProvider: TimeProvider,
-      stateValueCacheForPreExecution: Cache[DamlStateKey, (DamlStateValue, Fingerprint)],
+      stateValueCache: StateValueCache,
   )(implicit materializer: Materializer): ValidateAndCommit = {
-    val commitStrategy = new LogAppenderPreExecutingCommitStrategy(keySerializationStrategy)
-    val valueToFingerprint: Option[Value] => Fingerprint =
-      _.getOrElse(FingerprintPlaceholder)
-    val validator = new PreExecutingSubmissionValidator[RawKeyValuePairsWithLogEntry](
-      keyValueCommitting,
-      metrics,
-      keySerializationStrategy,
-      commitStrategy)
-    val committer = new PreExecutingValidatingCommitter(
-      () => timeProvider.getCurrentTime,
-      keySerializationStrategy,
-      validator,
-      valueToFingerprint,
-      new PostExecutionFinalizer[Index](valueToFingerprint),
-      stateValueCache = stateValueCacheForPreExecution,
-      ImmutablesOnlyCacheUpdatePolicy
+    val committer = new PreExecutingValidatingCommitter[
+      Option[DamlStateValue],
+      RawPreExecutingCommitStrategy.ReadSet,
+      RawKeyValuePairsWithLogEntry,
+    ](
+      transformStateReader = transformStateReader(keySerializationStrategy, stateValueCache),
+      validator = new PreExecutingSubmissionValidator(
+        keyValueCommitting,
+        new RawPreExecutingCommitStrategy(keySerializationStrategy),
+        metrics,
+      ),
+      postExecutionConflictDetector = new EqualityBasedPostExecutionConflictDetector(),
+      postExecutionFinalizer = new RawPostExecutionFinalizer(now = timeProvider.getCurrentTime _),
     )
     locally {
       implicit val executionContext: ExecutionContext = materializer.executionContext
 
       def validateAndCommit(
           correlationId: String,
-          submissionEnvelope: Bytes,
+          submissionEnvelope: Raw.Value,
           submittingParticipantId: ParticipantId,
       ) =
         committer.commit(
@@ -266,6 +261,25 @@ object InMemoryLedgerReaderWriter {
 
       validateAndCommit
     }
+  }
+
+  private def transformStateReader(
+      keySerializationStrategy: StateKeySerializationStrategy,
+      cache: Cache[DamlStateKey, DamlStateValue],
+  )(stateReader: LedgerStateReader): DamlLedgerStateReader = {
+    CachingStateReader(
+      cache,
+      ImmutablesOnlyCacheUpdatePolicy,
+      stateReader
+        .contramapKeys(keySerializationStrategy.serializeStateKey)
+        .mapValues(value =>
+          value.map(
+            Envelope
+              .openStateValue(_)
+              .getOrElse(sys.error("Opening enveloped DamlStateValue failed"))
+          )
+        ),
+    )
   }
 
   private def createKeyValueCommitting(

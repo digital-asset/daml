@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -53,13 +53,23 @@ da_scala_library(
             name = "%s-tests.scala" % test_name,
             srcs = [":%s-tests.scala-codegen" % test_name],
             visibility = ["//visibility:public"],
-            deps = ["//language-support/scala/bindings"],
+            deps = [
+                "//language-support/scala/bindings",
+            ] + extra_deps,
         ),
     ]
-    for (test_name, target) in [
-        ("model", lf_stable_version),
-        ("semantic", lf_stable_version),
-        ("performance", lf_stable_version),
+    for (test_name, target, extra_deps) in [
+        (
+            "model",
+            lf_stable_version,
+            ["@maven//:org_scala_lang_modules_scala_collection_compat_2_12"],
+        ),
+        (
+            "semantic",
+            lf_stable_version,
+            ["@maven//:org_scala_lang_modules_scala_collection_compat_2_12"],
+        ),
+        ("performance", lf_stable_version, []),
     ]
 ]
 

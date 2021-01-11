@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as LedgerWatcher from '@da/ui-core/lib/ledger-watcher';
@@ -103,7 +103,7 @@ export interface Props {
   toConfig(action: ConfigSource.Action): App.Action;
 }
 
-const Component = ({ configSource, page, user, config, toConfig, toSelf, toWatcher }: Props) => {
+const Component: React.FC<Props> = ({ configSource, page, user, config, toConfig, toSelf, toWatcher }) => {
   switch (page.type) {
     case 'about':
       return (

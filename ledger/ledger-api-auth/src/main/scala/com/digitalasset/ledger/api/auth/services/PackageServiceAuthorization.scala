@@ -1,9 +1,8 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth.services
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service._
@@ -11,11 +10,12 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 private[daml] final class PackageServiceAuthorization(
     protected val service: PackageService with AutoCloseable,
-    private val authorizer: Authorizer)
+    private val authorizer: Authorizer,
+)(implicit executionContext: ExecutionContext)
     extends PackageService
     with ProxyCloseable
     with GrpcApiService {
@@ -27,11 +27,12 @@ private[daml] final class PackageServiceAuthorization(
     authorizer.requirePublicClaims(service.getPackage)(request)
 
   override def getPackageStatus(
-      request: GetPackageStatusRequest): Future[GetPackageStatusResponse] =
+      request: GetPackageStatusRequest
+  ): Future[GetPackageStatusResponse] =
     authorizer.requirePublicClaims(service.getPackageStatus)(request)
 
   override def bindService(): ServerServiceDefinition =
-    PackageServiceGrpc.bindService(this, DirectExecutionContext)
+    PackageServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
 }

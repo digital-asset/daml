@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -13,8 +13,7 @@ import com.daml.platform.store.Conversions._
 
 object EventsTablePostgresql extends EventsTable {
 
-  /**
-    * Insertions are represented by a single statement made of nested arrays, one per column, instead of JDBC batches.
+  /** Insertions are represented by a single statement made of nested arrays, one per column, instead of JDBC batches.
     * This leverages a PostgreSQL-specific feature known as "array unnesting", which has shown to be considerable
     * faster than using JDBC batches.
     */
@@ -55,8 +54,7 @@ object EventsTablePostgresql extends EventsTable {
       Array.fill(batchSize)(tx.submitterInfo.map(_.commandId.asInstanceOf[String]).orNull)
     val applicationIds =
       Array.fill(batchSize)(tx.submitterInfo.map(_.applicationId.asInstanceOf[String]).orNull)
-    val submitters = Array.fill(batchSize)(
-      tx.submitterInfo.map(_.singleSubmitterOrThrow().asInstanceOf[String]).orNull)
+    val submitters = Array.ofDim[String](batchSize)
     val flatEventWitnesses = Array.ofDim[String](batchSize)
     val treeEventWitnesses = Array.ofDim[String](batchSize)
     val createArguments = Array.ofDim[Array[Byte]](batchSize)
@@ -72,9 +70,12 @@ object EventsTablePostgresql extends EventsTable {
     val exerciseActors = Array.ofDim[String](batchSize)
     val exerciseChildEventIds = Array.ofDim[String](batchSize)
 
+    val submittersValue = tx.submitterInfo.map(_.actAs.mkString("|")).orNull
+
     for (((nodeId, node), i) <- info.events.zipWithIndex) {
       node match {
         case create: Create =>
+          submitters(i) = submittersValue
           contractIds(i) = create.coid.coid
           templateIds(i) = create.coinst.template.toString
           eventIds(i) = EventId(tx.transactionId, nodeId).toLedgerString
@@ -89,6 +90,7 @@ object EventsTablePostgresql extends EventsTable {
           }
           createKeyValues(i) = serialized.createKeyValues.get(nodeId).orNull
         case exercise: Exercise =>
+          submitters(i) = submittersValue
           contractIds(i) = exercise.targetCoid.coid
           templateIds(i) = exercise.templateId.toString
           eventIds(i) = EventId(tx.transactionId, nodeId).toLedgerString
@@ -133,7 +135,7 @@ object EventsTablePostgresql extends EventsTable {
       exerciseArguments,
       exerciseResults,
       exerciseActors,
-      exerciseChildEventIds
+      exerciseChildEventIds,
     )
 
     val archivals =
@@ -188,12 +190,12 @@ object EventsTablePostgresql extends EventsTable {
       exerciseChildEventIds: Array[String],
   ) =
     SQL"""insert into participant_events(
-           event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitter, flat_event_witnesses, tree_event_witnesses,
+           event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitters, flat_event_witnesses, tree_event_witnesses,
            create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
            exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
          )
          select
-           event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitter, string_to_array(flat_event_witnesses, '|'), string_to_array(tree_event_witnesses, '|'),
+           event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, string_to_array(submitters,'|'), string_to_array(flat_event_witnesses, '|'), string_to_array(tree_event_witnesses, '|'),
            create_argument, string_to_array(create_signatories,'|'), string_to_array(create_observers,'|'), create_agreement_text, create_consumed_at, create_key_value,
            exercise_consuming, exercise_choice, exercise_argument, exercise_result, string_to_array(exercise_actors,'|'), string_to_array(exercise_child_event_ids,'|')
          from
@@ -204,7 +206,7 @@ object EventsTablePostgresql extends EventsTable {
            )
            as
                t(
-                 event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitter, flat_event_witnesses, tree_event_witnesses,
+                 event_id, event_offset, contract_id, transaction_id, workflow_id, ledger_effective_time, template_id, node_index, command_id, application_id, submitters, flat_event_witnesses, tree_event_witnesses,
                  create_argument, create_signatories, create_observers, create_agreement_text, create_consumed_at, create_key_value,
                  exercise_consuming, exercise_choice, exercise_argument, exercise_result, exercise_actors, exercise_child_event_ids
                )

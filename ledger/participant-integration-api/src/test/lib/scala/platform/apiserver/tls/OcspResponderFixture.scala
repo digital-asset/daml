@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.tls
@@ -47,7 +47,7 @@ trait OcspResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
     new OwnedResource[ResourceContext, Process](
       owner = responderResourceOwner,
       acquisitionTimeout = 10.seconds,
-      releaseTimeout = 5.seconds
+      releaseTimeout = 5.seconds,
     )
   }
 
@@ -91,7 +91,7 @@ trait OcspResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
     "-rkey",
     ocspKeyPath,
     "-rsigner",
-    ocspCertPath
+    ocspCertPath,
   )
 
   private def testOcspRequestCommand = List(
@@ -105,6 +105,6 @@ trait OcspResponderFixture extends AkkaBeforeAndAfterAll { this: Suite =>
     "-issuer",
     caCertPath,
     "-cert",
-    ocspTestCertificate
+    ocspTestCertificate,
   )
 }

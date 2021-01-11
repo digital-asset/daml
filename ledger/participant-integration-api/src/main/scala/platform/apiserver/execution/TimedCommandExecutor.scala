@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.execution
@@ -19,13 +19,14 @@ private[apiserver] class TimedCommandExecutor(
   override def execute(
       commands: domain.Commands,
       submissionSeed: crypto.Hash,
-  )(
-      implicit ec: ExecutionContext,
+  )(implicit
+      ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
     Timed.timedAndTrackedFuture(
       metrics.daml.execution.total,
       metrics.daml.execution.totalRunning,
-      delegate.execute(commands, submissionSeed))
+      delegate.execute(commands, submissionSeed),
+    )
 
 }

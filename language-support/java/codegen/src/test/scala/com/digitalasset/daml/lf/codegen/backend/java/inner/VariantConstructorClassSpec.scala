@@ -1,11 +1,12 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
-final class VariantConstructorClassSpec extends FlatSpec with Matchers {
+final class VariantConstructorClassSpec extends AnyFlatSpec with Matchers {
 
   behavior of "VariantConstructorClass.lowerCaseFieldName"
 

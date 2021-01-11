@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.logging
@@ -7,7 +7,7 @@ import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.marker.MapEntriesAppendingMarker
 import org.slf4j.Marker
 
-import scala.collection.JavaConverters.mapAsJavaMapConverter
+import scala.jdk.CollectionConverters._
 
 object LoggingContext {
 
@@ -18,12 +18,11 @@ object LoggingContext {
     newLoggingContext(Map.empty[String, String])(f)
 
   def newLoggingContext[A](kv: (String, String), kvs: (String, String)*)(
-      f: LoggingContext => A,
+      f: LoggingContext => A
   ): A =
     newLoggingContext(withEnrichedLoggingContext(kv, kvs: _*)(f)(_))
 
-  /**
-    * ## Principles to follow when enriching the logging context
+  /** ## Principles to follow when enriching the logging context
     *
     * ### Don't add values coming from a scope outside of the current method
     *
@@ -43,15 +42,13 @@ object LoggingContext {
     * formatting in another (likely to be JSON). This can be difficult
     * to manage and parse, so stick to simple values (strings, numbers,
     * dates, etc.).
-    *
     */
-  def withEnrichedLoggingContext[A](kvs: Map[String, String])(f: LoggingContext => A)(
-      implicit loggingContext: LoggingContext,
+  def withEnrichedLoggingContext[A](kvs: Map[String, String])(f: LoggingContext => A)(implicit
+      loggingContext: LoggingContext
   ): A =
     f(loggingContext ++ kvs)
 
-  /**
-    * ## Principles to follow when enriching the logging context
+  /** ## Principles to follow when enriching the logging context
     *
     * ### Don't add values coming from a scope outside of the current method
     *
@@ -71,10 +68,9 @@ object LoggingContext {
     * formatting in another (likely to be JSON). This can be difficult
     * to manage and parse, so stick to simple values (strings, numbers,
     * dates, etc.).
-    *
     */
   def withEnrichedLoggingContext[A](kv: (String, String), kvs: (String, String)*)(
-      f: LoggingContext => A,
+      f: LoggingContext => A
   )(implicit loggingContext: LoggingContext): A =
     f(loggingContext ++ (kv +: kvs))
 
@@ -88,7 +84,8 @@ final class LoggingContext private (ctxMap: Map[String, String]) {
     new MapEntriesAppendingMarker(ctxMap.asJava)
 
   private[logging] def ifEmpty(doThis: => Unit)(
-      ifNot: Marker with StructuredArgument => Unit): Unit =
+      ifNot: Marker with StructuredArgument => Unit
+  ): Unit =
     if (ctxMap.isEmpty) doThis else ifNot(forLogging)
 
   private def ++[V](kvs: Iterable[(String, String)]): LoggingContext =

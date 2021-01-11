@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { Button, styled } from '@da/ui-core';
@@ -77,7 +77,7 @@ function handleResponse(to: ToSelf, dispatch: ThunkDispatch<App.State, undefined
 }
 
 function handleFetchError(to: ToSelf, dispatch: ThunkDispatch<App.State, undefined, App.Action>) {
-  // tslint:disable-next-line no-any
+  // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   return (reason: any) => {
     if (reason instanceof Error) {
       // Log to console to show error call stack
@@ -182,6 +182,6 @@ class Component extends React.Component<Props, {}> {
       </Wrapper>
     );
   }
-};
+}
 
 export const UI: ConnectedComponent<typeof Component, OwnProps> = connect()(Component);

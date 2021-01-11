@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.adapter.client
@@ -7,10 +7,11 @@ import com.daml.grpc.adapter.utils.BufferingObserver
 import com.daml.platform.hello.HelloServiceGrpc.HelloServiceStub
 import com.daml.platform.hello.{HelloRequest, HelloResponse}
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 trait ReferenceClientCompatibilityCheck extends ResultAssertions with ScalaFutures with Matchers {
-  self: WordSpec =>
+  self: AnyWordSpec =>
 
   def referenceClientCompatible(helloStub: => HelloServiceStub) = {
 

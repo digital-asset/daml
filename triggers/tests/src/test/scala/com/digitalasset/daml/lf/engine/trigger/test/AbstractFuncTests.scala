@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger.test
@@ -14,6 +14,8 @@ import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.{value => LedgerApi}
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.traverse._
 
 import com.daml.lf.engine.trigger.TriggerMsg
@@ -39,12 +41,16 @@ abstract class AbstractFuncTests
           templateId = Some(assetId),
           createArguments = Some(
             LedgerApi.Record(fields =
-              Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party)))))))
+              Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party))))
+            )
+          ),
+        )
 
       final case class AssetResult(
           successfulCompletions: Long,
           failedCompletions: Long,
-          activeAssets: Set[String])
+          activeAssets: Set[String],
+      )
 
       def toResult(value: SValue): AssetResult = {
         val fields = value.asInstanceOf[SRecord].values
@@ -56,7 +62,7 @@ abstract class AbstractFuncTests
             .asInstanceOf[SList]
             .list
             .map(x => x.asInstanceOf[SContractId].value.asInstanceOf[ContractId].coid.toString)
-            .toSet
+            .toSet,
         )
       }
 
@@ -150,20 +156,29 @@ abstract class AbstractFuncTests
         CreateCommand(
           templateId = Some(originalId),
           createArguments = Some(
-            LedgerApi.Record(fields = Seq(
-              LedgerApi.RecordField("owner", Some(LedgerApi.Value().withParty(owner))),
-              LedgerApi.RecordField("name", Some(LedgerApi.Value().withText(name))),
-              LedgerApi.RecordField("textdata", Some(LedgerApi.Value().withText(""))),
-            )))
+            LedgerApi.Record(fields =
+              Seq(
+                LedgerApi.RecordField("owner", Some(LedgerApi.Value().withParty(owner))),
+                LedgerApi.RecordField("name", Some(LedgerApi.Value().withText(name))),
+                LedgerApi.RecordField("textdata", Some(LedgerApi.Value().withText(""))),
+              )
+            )
+          ),
         )
       def subscriber(subscriber: String, subscribedTo: String): CreateCommand =
         CreateCommand(
           templateId = Some(subscriberId),
           createArguments = Some(
-            LedgerApi.Record(fields = Seq(
-              LedgerApi.RecordField("subscriber", Some(LedgerApi.Value().withParty(subscriber))),
-              LedgerApi.RecordField("subscribedTo", Some(LedgerApi.Value().withParty(subscribedTo)))
-            )))
+            LedgerApi.Record(fields =
+              Seq(
+                LedgerApi.RecordField("subscriber", Some(LedgerApi.Value().withParty(subscriber))),
+                LedgerApi.RecordField(
+                  "subscribedTo",
+                  Some(LedgerApi.Value().withParty(subscribedTo)),
+                ),
+              )
+            )
+          ),
         )
       "1 original, 0 subscriber" in {
         for {
@@ -304,7 +319,8 @@ abstract class AbstractFuncTests
       "fail" in {
         for {
           client <- ledgerClient(
-            maxInboundMessageSize = 5 * RunnerConfig.DefaultMaxInboundMessageSize)
+            maxInboundMessageSize = 5 * RunnerConfig.DefaultMaxInboundMessageSize
+          )
           party <- allocateParty(client)
           runner = getRunner(client, triggerId, party)
           (acs, offset) <- runner.queryACS()
@@ -354,13 +370,12 @@ abstract class AbstractFuncTests
           // 1 for completion
           finalState <- runner.runWithACS(acs, offset, msgFlow = Flow[TriggerMsg].take(4))._2
         } yield {
-          inside(finalState) {
-            case SList(commandIds) =>
-              commandIds.toSet should have size 2
-              // ensure all are UUIDs
-              commandIds.map(inside(_) {
-                case SText(s) => SText(UUID.fromString(s).toString)
-              }) should ===(commandIds)
+          inside(finalState) { case SList(commandIds) =>
+            commandIds.toSet should have size 2
+            // ensure all are UUIDs
+            commandIds.map(inside(_) { case SText(s) =>
+              SText(UUID.fromString(s).toString)
+            }) should ===(commandIds)
           }
         }
       }
@@ -402,14 +417,20 @@ abstract class AbstractFuncTests
           templateId = Some(oneId),
           createArguments = Some(
             LedgerApi.Record(
-              fields = Seq(LedgerApi.RecordField("p", Some(LedgerApi.Value().withParty(party)))))))
+              fields = Seq(LedgerApi.RecordField("p", Some(LedgerApi.Value().withParty(party))))
+            )
+          ),
+        )
 
       def two(party: String): CreateCommand =
         CreateCommand(
           templateId = Some(twoId),
           createArguments = Some(
             LedgerApi.Record(
-              fields = Seq(LedgerApi.RecordField("p", Some(LedgerApi.Value().withParty(party)))))))
+              fields = Seq(LedgerApi.RecordField("p", Some(LedgerApi.Value().withParty(party))))
+            )
+          ),
+        )
 
       "filter to One" in {
         for {
@@ -418,7 +439,8 @@ abstract class AbstractFuncTests
           runner = getRunner(
             client,
             QualifiedName.assertFromString("TemplateIdFilter:testOne"),
-            party)
+            party,
+          )
           (acs, offset) <- runner.queryACS()
           // 2 for the creates from the test
           // 2 for the completions from the test
@@ -441,7 +463,8 @@ abstract class AbstractFuncTests
           runner = getRunner(
             client,
             QualifiedName.assertFromString("TemplateIdFilter:testTwo"),
-            party)
+            party,
+          )
           (acs, offset) <- runner.queryACS()
           // 2 for the creates from the test
           // 2 for the completions from the test

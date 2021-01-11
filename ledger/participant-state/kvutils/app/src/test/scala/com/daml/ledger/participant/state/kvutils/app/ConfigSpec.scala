@@ -1,13 +1,15 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.app
 
 import com.daml.ledger.participant.state.v1.ParticipantId
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scopt.OptionParser
 
-final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
+final class ConfigSpec extends AnyFlatSpec with Matchers with OptionValues {
 
   private val dumpIndexMetadataCommand = "dump-index-metadata"
   private val participantOption = "--participant"
@@ -27,11 +29,13 @@ final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
 
   private val minimalValidOptions = List(
     participantOption,
-    s"$fixedParticipantSubOptions,$jdbcUrlSubOption=${TestJdbcValues.jdbcFromCli}")
+    s"$fixedParticipantSubOptions,$jdbcUrlSubOption=${TestJdbcValues.jdbcFromCli}",
+  )
 
   private def configParser(
       parameters: Seq[String],
-      getEnvVar: String => Option[String] = (_ => None)): Option[Config[Unit]] =
+      getEnvVar: String => Option[String] = (_ => None),
+  ): Option[Config[Unit]] =
     Config.parse("Test", (_: OptionParser[Config[Unit]]) => (), (), parameters, getEnvVar)
 
   behavior of "Runner"
@@ -57,7 +61,9 @@ final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
     val config = configParser(
       Seq(
         participantOption,
-        s"$fixedParticipantSubOptions,$jdbcUrlSubOption=${TestJdbcValues.jdbcFromCli}"))
+        s"$fixedParticipantSubOptions,$jdbcUrlSubOption=${TestJdbcValues.jdbcFromCli}",
+      )
+    )
       .getOrElse(fail())
     config.participants.head.serverJdbcUrl should be(jdbcFromCli)
   }
@@ -65,7 +71,7 @@ final class ConfigSpec extends FlatSpec with Matchers with OptionValues {
   it should "get the jdbc string from the environment when provided" in {
     val config = configParser(
       Seq(participantOption, s"$fixedParticipantSubOptions,$jdbcUrlEnvSubOption=$jdbcEnvVar"),
-      { case `jdbcEnvVar` => Some(TestJdbcValues.jdbcFromEnv) }
+      { case `jdbcEnvVar` => Some(TestJdbcValues.jdbcFromEnv) },
     ).getOrElse(parsingFailure())
     config.participants.head.serverJdbcUrl should be(TestJdbcValues.jdbcFromEnv)
   }

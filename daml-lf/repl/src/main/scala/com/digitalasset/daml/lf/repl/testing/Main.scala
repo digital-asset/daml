@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -22,15 +22,14 @@ import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
 
-import com.daml.lf.transaction.VersionTimeline
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
 import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, StringsCompleter}
 import org.jline.reader.impl.history.DefaultHistory
 
 import scala.collection.immutable.ListMap
-import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
+import scala.jdk.CollectionConverters._
 
 object Main extends App {
   // idempotent; force stdout to output in UTF-8 -- in theory it should pick it up from
@@ -39,8 +38,7 @@ object Main extends App {
   System.setOut(out)
 
   def usage(): Unit =
-    println(
-      """
+    println("""
         |usage: daml-lf-speedy COMMAND ARGS...
         |
         |commands:
@@ -85,7 +83,7 @@ object Repl {
 
   val defaultCompilerConfig: Compiler.Config =
     Compiler.Config(
-      allowedLanguageVersions = VersionTimeline.stableLanguageVersions,
+      allowedLanguageVersions = LV.StableVersions,
       packageValidation = Compiler.FullPackageValidation,
       profiling = Compiler.NoProfile,
       stacktracing = Compiler.FullStackTrace,
@@ -93,7 +91,7 @@ object Repl {
 
   val devCompilerConfig: Compiler.Config =
     defaultCompilerConfig.copy(
-      allowedLanguageVersions = VersionTimeline.devLanguageVersions
+      allowedLanguageVersions = LV.DevVersions
     )
 
   private val nextSeed =
@@ -113,7 +111,7 @@ object Repl {
         state = dispatch(state, line)
       }
     } catch {
-      case _: org.jline.reader.EndOfFileException => Unit
+      case _: org.jline.reader.EndOfFileException => ()
     }
     state.history.save
   }
@@ -158,15 +156,14 @@ object Repl {
       cmdValidate
 
   def cmdValidate(state: State): (Boolean, State) = {
-    val (validationResults, validationTime) = time(state.packages.map {
-      case (pkgId, pkg) => Validation.checkPackage(state.packages, pkgId, pkg)
+    val (validationResults, validationTime) = time(state.packages.map { case (pkgId, pkg) =>
+      Validation.checkPackage(state.packages, pkgId, pkg)
     })
     System.err.println(s"${state.packages.size} package(s) validated in $validationTime ms.")
-    validationResults collectFirst {
-      case Left(e) =>
-        println(s"Context: ${e.context}")
-        println(s"Error: ${e.getStackTrace.mkString("\n")}")
-        false -> state
+    validationResults collectFirst { case Left(e) =>
+      println(s"Context: ${e.context}")
+      println(s"Error: ${e.getStackTrace.mkString("\n")}")
+      false -> state
     } getOrElse true -> state
   }
 
@@ -178,7 +175,7 @@ object Repl {
       scenarioRunner: ScenarioRunnerHelper,
       reader: LineReader,
       history: History,
-      quit: Boolean
+      quit: Boolean,
   ) {
     def compilerConfig: Compiler.Config = scenarioRunner.compilerConfig
   }
@@ -195,21 +192,16 @@ object Repl {
 
     private val seed = nextSeed()
 
-    val (inputValueVersion, outputTransactionVersions) =
-      if (compilerConfig.allowedLanguageVersions.contains(LV(LV.Major.V1, LV.Minor.Dev)))
-        (
-          value.ValueVersions.DevOutputVersions,
-          transaction.TransactionVersions.DevOutputVersions,
-        )
-      else
-        (
-          value.ValueVersions.StableOutputVersions,
-          transaction.TransactionVersions.StableOutputVersions,
-        )
+    val transactionVersions =
+      if (compilerConfig.allowedLanguageVersions.contains(LV.v1_dev)) {
+        transaction.TransactionVersion.DevVersions
+      } else {
+        transaction.TransactionVersion.StableVersions
+      }
 
-    def run(expr: Expr): (
-        Speedy.Machine,
-        Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)]) = {
+    def run(
+        expr: Expr
+    ): (Speedy.Machine, Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)]) = {
       val machine =
         Speedy.Machine.fromScenarioExpr(
           compiledPackages,
@@ -226,19 +218,27 @@ object Repl {
     ":help" -> Command("show this help", (s, _) => { usage(); s }),
     ":reset" -> Command("reset the REPL.", (_, _) => initialState(defaultCompilerConfig)),
     ":list" -> Command("list loaded packages.", (s, _) => { list(s); s }),
-    ":speedy" -> Command("compile given expression to speedy and print it", { (s, args) =>
-      speedyCompile(s, args); s
-    }),
+    ":speedy" -> Command(
+      "compile given expression to speedy and print it",
+      { (s, args) =>
+        speedyCompile(s, args); s
+      },
+    ),
     ":quit" -> Command("quit the REPL.", (s, _) => s.copy(quit = true)),
     ":scenario" -> Command(
       "execute the scenario expression pointed to by given identifier.",
-      (s, args) => { invokeScenario(s, args); s }),
-    ":testall" -> Command("run all loaded scenarios.", (s, _) => {
-      cmdTestAll(s); s
-    }),
+      (s, args) => { invokeScenario(s, args); s },
+    ),
+    ":testall" -> Command(
+      "run all loaded scenarios.",
+      (s, _) => {
+        cmdTestAll(s); s
+      },
+    ),
     ":devmode" -> Command(
       "switch in devMode. This reset the state of REPL.",
-      (_, _) => initialState(devCompilerConfig)),
+      (_, _) => initialState(devCompilerConfig),
+    ),
     ":validate" -> Command("validate all the packages", (s, _) => { cmdValidate(s); s }),
   )
   final val commandCompleter = new ArgumentCompleter(new StringsCompleter(commands.keys.asJava))
@@ -266,8 +266,9 @@ object Repl {
         ScenarioRunnerHelper(Map.empty, compilerCompiler),
         reader = null,
         history = new DefaultHistory(),
-        quit = false
-      ))
+        quit = false,
+      )
+    )
 
   def definitionCompleter(state: State): StringsCompleter = {
     val names =
@@ -285,10 +286,12 @@ object Repl {
       reader = LineReaderBuilder.builder
         .appName("daml-lf-repl")
         .completer(
-          new AggregateCompleter(loadCompleter, definitionCompleter(state), commandCompleter))
+          new AggregateCompleter(loadCompleter, definitionCompleter(state), commandCompleter)
+        )
         .variable(
           LineReader.HISTORY_FILE,
-          Paths.get(System.getProperty("user.home"), ".daml-lf.history"))
+          Paths.get(System.getProperty("user.home"), ".daml-lf.history"),
+        )
         .history(state.history)
         .build
     )
@@ -306,21 +309,18 @@ object Repl {
   }
 
   def list(state: State): Unit = {
-    state.packages.foreach {
-      case (pkgId, pkg) =>
-        println(pkgId)
-        pkg.modules.foreach {
-          case (mname, mod) =>
-            val maxLen =
-              if (mod.definitions.nonEmpty) mod.definitions.map(_._1.toString.length).max
-              else 0
-            mod.definitions.toList.sortBy(_._1.toString).foreach {
-              case (name, defn) =>
-                val paddedName = name.toString.padTo(maxLen, ' ')
-                val typ = prettyDefinitionType(defn, pkgId, mod.name)
-                println(s"    ${mname.toString}:$paddedName ∷ $typ")
-            }
+    state.packages.foreach { case (pkgId, pkg) =>
+      println(pkgId)
+      pkg.modules.foreach { case (mname, mod) =>
+        val maxLen =
+          if (mod.definitions.nonEmpty) mod.definitions.map(_._1.toString.length).max
+          else 0
+        mod.definitions.toList.sortBy(_._1.toString).foreach { case (name, defn) =>
+          val paddedName = name.toString.padTo(maxLen, ' ')
+          val typ = prettyDefinitionType(defn, pkgId, mod.name)
+          println(s"    ${mname.toString}:$paddedName ∷ $typ")
         }
+      }
     }
   }
 
@@ -354,7 +354,7 @@ object Repl {
         maybeParens(
           prec > precTApp,
           prettyQualified(pkgId, modId, syn)
-            + " " + args.map(t => prettyType(t, precTApp + 1)).toSeq.mkString(" ")
+            + " " + args.map(t => prettyType(t, precTApp + 1)).toSeq.mkString(" "),
         )
       case TVar(n) => n
       case TNat(n) => n.toString
@@ -364,11 +364,13 @@ object Repl {
       case TApp(TApp(TBuiltin(BTArrow), param), result) =>
         maybeParens(
           prec > precTFun,
-          prettyType(param, precTFun + 1) + " → " + prettyType(result, precTFun))
+          prettyType(param, precTFun + 1) + " → " + prettyType(result, precTFun),
+        )
       case TApp(fun, arg) =>
         maybeParens(
           prec > precTApp,
-          prettyType(fun, precTApp) + " " + prettyType(arg, precTApp + 1))
+          prettyType(fun, precTApp) + " " + prettyType(arg, precTApp + 1),
+        )
       case TForall((v, _), body) =>
         maybeParens(prec > precTForall, "∀" + v + prettyForAll(body))
       case TStruct(fields) =>
@@ -403,8 +405,8 @@ object Repl {
       val (packagesMap, loadingTime) = time {
         val packages =
           UniversalArchiveReader().readFile(new File(darFile)).get
-        Map(packages.all.map {
-          case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+        Map(packages.all.map { case (pkgId, pkgArchive) =>
+          Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
         }: _*)
       }
 
@@ -417,8 +419,9 @@ object Repl {
       true -> rebuildReader(
         state.copy(
           packages = packagesMap,
-          scenarioRunner = ScenarioRunnerHelper(packagesMap, compilerConfig)
-        ))
+          scenarioRunner = ScenarioRunnerHelper(packagesMap, compilerConfig),
+        )
+      )
     } catch {
       case ex: Throwable => {
         val sw = new StringWriter
@@ -434,10 +437,13 @@ object Repl {
       Compiler.compilePackages(
         toSignatures(state.packages),
         state.packages,
-        state.scenarioRunner.compilerConfig))
+        state.scenarioRunner.compilerConfig,
+      )
+    )
     defs.get(idToRef(state, args(0))) match {
       case None =>
-        println("Error: definition '" + args(0) + "' not found. Try :list."); usage
+        println("Error: definition '" + args(0) + "' not found. Try :list.")
+        usage()
       case Some(defn) =>
         println(Pretty.SExpr.prettySExpr(0)(defn.body).render(80))
     }
@@ -464,14 +470,14 @@ object Repl {
         lookup(state, id) match {
           case None =>
             println("Error: definition '" + id + "' not found. Try :list.")
-            usage
+            usage()
           case Some(DValue(_, _, body, _)) =>
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
-            val compiledPackages = PureCompiledPackages(state.packages).right.get
+            val compiledPackages = PureCompiledPackages(state.packages).toOption.get
             val machine = Speedy.Machine.fromPureExpr(compiledPackages, expr)
             val startTime = System.nanoTime()
-            val valueOpt = machine.run match {
+            val valueOpt = machine.run() match {
               case SResultError(err) =>
                 println(prettyError(err).render(128))
                 None
@@ -552,28 +558,29 @@ object Repl {
     val state = state0
     var totalTime = 0.0
     var totalSteps = 0
-    allScenarios.foreach {
-      case (name, body) =>
-        print(name + ": ")
-        val (machine, errOrLedger) = state.scenarioRunner.run(body)
-        machine.withOnLedger("cmdTestAll") { onLedger =>
-          errOrLedger match {
-            case Left((err, ledger @ _)) =>
-              println(
-                "failed at " +
-                  prettyLoc(machine.lastLocation).render(128) +
-                  ": " + prettyError(err, onLedger.ptx).render(128))
-              failures += 1
-            case Right((diff, steps, ledger @ _, value @ _)) =>
-              successes += 1
-              totalTime += diff
-              totalSteps += steps
-              println(s"ok in ${diff.formatted("%.2f")}ms, $steps steps")
-          }
+    allScenarios.foreach { case (name, body) =>
+      print(name + ": ")
+      val (machine, errOrLedger) = state.scenarioRunner.run(body)
+      machine.withOnLedger("cmdTestAll") { onLedger =>
+        errOrLedger match {
+          case Left((err, ledger @ _)) =>
+            println(
+              "failed at " +
+                prettyLoc(machine.lastLocation).render(128) +
+                ": " + prettyError(err, onLedger.ptx).render(128)
+            )
+            failures += 1
+          case Right((diff, steps, ledger @ _, value @ _)) =>
+            successes += 1
+            totalTime += diff
+            totalSteps += steps
+            println(s"ok in ${diff.formatted("%.2f")}ms, $steps steps")
         }
+      }
     }
     println(
-      s"\n$successes passed, $failures failed, total time ${totalTime.formatted("%.2f")}ms, total steps $totalSteps.")
+      s"\n$successes passed, $failures failed, total time ${totalTime.formatted("%.2f")}ms, total steps $totalSteps."
+    )
     (failures == 0, state)
   }
 
@@ -648,7 +655,8 @@ object Repl {
             for {
               module <- pkg.modules.get(qualName.module).toList
               defn <- module.definitions.get(qualName.name).toList
-            } yield defn)
+            } yield defn
+          )
           .headOption
 
     }
@@ -656,10 +664,9 @@ object Repl {
 
   def usage(): Unit = {
     val cmds = commands
-      .map {
-        case (name: String, cmd: Command) =>
-          val help: String = cmd.help
-          f"| $name%-25s $help"
+      .map { case (name: String, cmd: Command) =>
+        val help: String = cmd.help
+        f"| $name%-25s $help"
       }
       .mkString("\n")
     println(s"""

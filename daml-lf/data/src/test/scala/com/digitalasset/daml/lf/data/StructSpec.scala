@@ -1,12 +1,13 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
 
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class StructSpec extends WordSpec with Matchers with PropertyChecks {
+class StructSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks {
 
   private[this] val List(f1, f2, f3) = List("f1", "f2", "f3").map(Ref.Name.assertFromString)
 
@@ -26,8 +27,8 @@ class StructSpec extends WordSpec with Matchers with PropertyChecks {
 
       forEvery(testCases) { list =>
         val struct = Struct.assertFromSeq(list)
-        (struct.names zip struct.names.drop(1)).foreach {
-          case (x, y) => (x: String) shouldBe <(y: String)
+        (struct.names zip struct.names.drop(1)).foreach { case (x, y) =>
+          (x: String) shouldBe <(y: String)
         }
       }
 
@@ -45,7 +46,7 @@ class StructSpec extends WordSpec with Matchers with PropertyChecks {
         )
 
       forEvery(testCases) { list =>
-        Struct.fromSeq(list) shouldBe 'left
+        Struct.fromSeq(list) shouldBe a[Left[_, _]]
       }
 
     }
@@ -83,8 +84,8 @@ class StructSpec extends WordSpec with Matchers with PropertyChecks {
             List(f1 -> 1, f2 -> 2, f3 -> 3),
             List(f2 -> 2),
             List(f2 -> 2, f3 -> 3),
-            List(f3 -> 3)
-          ).map(Struct.assertFromSeq).zipWithIndex: _*,
+            List(f3 -> 3),
+          ).map(Struct.assertFromSeq).zipWithIndex: _*
         )
 
       forEvery(testCases) { (x, i) =>

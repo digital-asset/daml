@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -19,8 +19,7 @@ private[daml] object TryOps {
 
   object Bracket {
 
-    /**
-      * The following description borrowed from https://hackage.haskell.org/package/exceptions-0.10.1/docs/Control-Monad-Catch.html#v:bracket
+    /** The following description borrowed from https://hackage.haskell.org/package/exceptions-0.10.1/docs/Control-Monad-Catch.html#v:bracket
       * {{{
       * Generalized abstracted pattern of safe resource acquisition and release in the face of errors.
       * The first action "acquires" some value, which is "released" by the second action at the end.

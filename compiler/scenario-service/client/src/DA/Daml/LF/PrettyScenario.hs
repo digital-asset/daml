@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
 
@@ -301,12 +301,13 @@ prettyScenarioErrorError (Just err) =  do
       pure $ "Tried to allocate a party that already exists: " <-> ltext name
     ScenarioErrorErrorScenarioContractNotVisible ScenarioError_ContractNotVisible{..} ->
       pure $ vcat
-        [ "Attempt to fetch or exercise a contract not visible to the committer."
+        [ "Attempt to fetch or exercise a contract not visible to the reading parties."
         , label_ "Contract: "
             $ prettyMay "<missing contract>"
                 (prettyContractRef world)
                 scenarioError_ContractNotVisibleContractRef
-        , label_ "Committer:" $ prettyMay "<missing party>" prettyParty scenarioError_ContractNotVisibleCommitter
+        , label_ "actAs:" $ prettyParties scenarioError_ContractNotVisibleActAs
+        , label_ "readAs:" $ prettyParties scenarioError_ContractNotVisibleReadAs
         , label_ "Disclosed to:"
             $ prettyParties scenarioError_ContractNotVisibleObservers
         ]
@@ -321,7 +322,8 @@ prettyScenarioErrorError (Just err) =  do
             $ prettyMay "<missing key>"
                 (prettyValue' False 0 world)
                 scenarioError_ContractKeyNotVisibleKey
-        , label_ "Committer:" $ prettyMay "<missing party>" prettyParty scenarioError_ContractKeyNotVisibleCommitter
+        , label_ "actAs:" $ prettyParties scenarioError_ContractKeyNotVisibleActAs
+        , label_ "readAs:" $ prettyParties scenarioError_ContractKeyNotVisibleReadAs
         , label_ "Stakeholders:"
             $ prettyParties scenarioError_ContractKeyNotVisibleStakeholders
         ]
@@ -413,14 +415,15 @@ prettyScenarioStep (ScenarioStep stepId (Just step)) = do
     ScenarioStepStepCommit (ScenarioStep_Commit txId (Just tx) mbLoc) ->
       prettyCommit txId mbLoc tx
 
-    ScenarioStepStepAssertMustFail (ScenarioStep_AssertMustFail (Just actor) time txId mbLoc) ->
+    ScenarioStepStepAssertMustFail (ScenarioStep_AssertMustFail actAs readAs time txId mbLoc) ->
       pure
           $ idSC ("n" <> TE.show txId) (keyword_ "TX")
         <-> prettyTxId txId
         <-> prettyTimestamp time
          $$ (nest 3
              $   keyword_ "mustFailAt"
-             <-> prettyParty actor
+             <-> label_ "actAs:" (braces $ prettyParties actAs)
+             <-> label_ "readAs:" (braces $ prettyParties readAs)
              <-> parens (prettyMayLocation world mbLoc)
             )
 
@@ -649,7 +652,6 @@ prettyNode Node{..}
     arrowright p = text "└─>" <-> p
     meta p       = text "│  " <-> p
     archivedSC = annotateSC PredicateSC -- Magenta
-
 
 prettyPartialTransaction :: PartialTransaction -> M (Doc SyntaxClass)
 prettyPartialTransaction PartialTransaction{..} = do

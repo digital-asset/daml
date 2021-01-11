@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql
@@ -6,7 +6,9 @@ package com.daml.ledger.on.sql
 import java.nio.file.Files
 
 class SqliteFileSqlLedgerReaderWriterIntegrationSpec
-    extends SqlLedgerReaderWriterIntegrationSpecBase("SQL implementation using SQLite with a file") {
+    extends SqlLedgerReaderWriterIntegrationSpecBase(
+      "SQL implementation using SQLite with a file"
+    ) {
 
   private val root = Files.createTempDirectory(getClass.getSimpleName)
 

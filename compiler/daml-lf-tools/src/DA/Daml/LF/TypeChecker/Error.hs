@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.TypeChecker.Error(
@@ -46,6 +46,7 @@ data SerializabilityRequirement
   | SRChoiceRes
   | SRKey
   | SRDataType
+  | SRExceptionArg
 
 -- | Reason why a type is not serializable.
 data UnserializabilityReason
@@ -68,6 +69,7 @@ data UnserializabilityReason
   | URNumericOutOfRange !Natural
   | URTypeLevelNat
   | URAny -- ^ It contains a value of type Any.
+  | URAnyException -- ^ It contains a value of type AnyException.
   | URTypeRep -- ^ It contains a value of type TypeRep.
   | URTypeSyn  -- ^ It contains a type synonym.
 
@@ -170,6 +172,7 @@ instance Pretty SerializabilityRequirement where
     SRChoiceRes -> "choice result"
     SRDataType -> "serializable data type"
     SRKey -> "template key"
+    SRExceptionArg -> "exception argument"
 
 instance Pretty UnserializabilityReason where
   pPrint = \case
@@ -193,6 +196,7 @@ instance Pretty UnserializabilityReason where
     URNumericOutOfRange n -> "Numeric scale " <> integer (fromIntegral n) <> " is out of range (needs to be between 0 and 38)"
     URTypeLevelNat -> "type-level nat"
     URAny -> "Any"
+    URAnyException -> "AnyException"
     URTypeRep -> "TypeRep"
     URTypeSyn -> "type synonym"
 

@@ -1,10 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.configuration
 
-/**
-  * Configuration surrounding parties and party allocation.
+/** Configuration surrounding parties and party allocation.
   *
   * @param implicitPartyAllocation
   *     Informs the Command Submission Service that any parties mentioned in a submission that do
@@ -17,11 +16,11 @@ package com.daml.platform.configuration
   *     Enable at your own risk.
   */
 case class PartyConfiguration(
-    implicitPartyAllocation: Boolean,
+    implicitPartyAllocation: Boolean
 )
 
 object PartyConfiguration {
   val default: PartyConfiguration = PartyConfiguration(
-    implicitPartyAllocation = false,
+    implicitPartyAllocation = false
   )
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -29,8 +29,9 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.common.MismatchException
 import org.scalatest.Inside._
-import org.scalatest.Matchers._
-import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
+import org.scalatest.matchers.should.Matchers._
+import org.scalatest.{Assertion, BeforeAndAfterEach}
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.{SortedSet, mutable}
 import scala.compat.java8.FutureConverters._
@@ -39,8 +40,8 @@ import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success, Try}
 
 //noinspection DuplicatedCode
-abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
-    implicit testExecutionContext: ExecutionContext = ExecutionContext.global
+abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(implicit
+    testExecutionContext: ExecutionContext = ExecutionContext.global
 ) extends AsyncWordSpec
     with TestResourceContext
     with BeforeAndAfterEach
@@ -69,7 +70,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
     newParticipantState(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
 
   private def newParticipantState(
-      ledgerId: LedgerId,
+      ledgerId: LedgerId
   ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit loggingContext =>
       participantStateFactory(ledgerId, participantId, testId, new Metrics(new MetricRegistry))
@@ -174,9 +175,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
         } yield {
           offset should be(toOffset(1))
           update.recordTime should be >= rt
-          inside(update) {
-            case PublicPackageUploadRejected(actualSubmissionId, _, _) =>
-              actualSubmissionId should be(submissionId)
+          inside(update) { case PublicPackageUploadRejected(actualSubmissionId, _, _) =>
+            actualSubmissionId should be(submissionId)
           }
         }
       }
@@ -198,9 +198,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
         } yield {
           offset2 should be(toOffset(3))
           update2.recordTime should be >= rt
-          inside(update2) {
-            case PublicPackageUpload(_, _, _, Some(submissionId)) =>
-              submissionId should be(submissionIds._2)
+          inside(update2) { case PublicPackageUpload(_, _, _, Some(submissionId)) =>
+            submissionId should be(submissionIds._2)
           }
         }
       }
@@ -287,9 +286,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
         } yield {
           offset2 should be(toOffset(2))
           update2.recordTime should be >= rt
-          inside(update2) {
-            case PartyAllocationRejected(_, _, _, rejectionReason) =>
-              rejectionReason should be("Party already exists")
+          inside(update2) { case PartyAllocationRejected(_, _, _, rejectionReason) =>
+            rejectionReason should be("Party already exists")
           }
         }
       }
@@ -305,7 +303,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
               submitterInfo(alice),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
-              DefaultInterpretationCost)
+              DefaultInterpretationCost,
+            )
             .toScala
           (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
         } yield {
@@ -374,7 +373,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
               submitterInfo(alice, "X1"),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
-              DefaultInterpretationCost)
+              DefaultInterpretationCost,
+            )
             .toScala
           (offset2, _) <- waitForNextUpdate(ps, Some(offset1))
           result3 <- ps
@@ -382,7 +382,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
               submitterInfo(alice, "X2"),
               transactionMeta(rt),
               TransactionBuilder.EmptySubmitted,
-              DefaultInterpretationCost)
+              DefaultInterpretationCost,
+            )
             .toScala
           (offset3, update3) <- waitForNextUpdate(ps, Some(offset2))
           results = Seq(result1, result2, result3)
@@ -403,7 +404,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
               maxRecordTime = inTheFuture(10.seconds),
               submissionId = newSubmissionId(),
               config = lic.config.copy(
-                generation = lic.config.generation + 1,
+                generation = lic.config.generation + 1
               ),
             )
             .toScala
@@ -455,9 +456,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           update1 should be(a[ConfigurationChanged])
 
           offset2 should be(toOffset(2))
-          inside(update2) {
-            case CommandRejected(_, _, reason) =>
-              reason should be(a[RejectionReason.PartyNotKnownOnLedger])
+          inside(update2) { case CommandRejected(_, _, reason) =>
+            reason should be(a[RejectionReason.PartyNotKnownOnLedger])
           }
 
           offset3 should be(toOffset(3))
@@ -480,7 +480,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
               maxRecordTime = inTheFuture(10.seconds),
               submissionId = newSubmissionId(),
               config = lic.config.copy(
-                generation = lic.config.generation + 1,
+                generation = lic.config.generation + 1
               ),
             )
             .toScala
@@ -504,9 +504,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
           (_, update2) <- waitForNextUpdate(ps, Some(offset1))
         } yield {
           // The first submission should change the config.
-          inside(update1) {
-            case ConfigurationChanged(_, _, _, newConfiguration) =>
-              newConfiguration should not be lic.config
+          inside(update1) { case ConfigurationChanged(_, _, _, newConfiguration) =>
+            newConfiguration should not be lic.config
           }
 
           // The second submission should get rejected.
@@ -525,7 +524,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
               maxRecordTime = inTheFuture(10.seconds),
               submissionId = submissionIds._1,
               config = lic.config.copy(
-                generation = lic.config.generation + 1,
+                generation = lic.config.generation + 1
               ),
             )
             .toScala
@@ -536,7 +535,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
               maxRecordTime = inTheFuture(10.seconds),
               submissionId = submissionIds._1,
               config = lic.config.copy(
-                generation = lic.config.generation + 2,
+                generation = lic.config.generation + 2
               ),
             )
             .toScala
@@ -545,7 +544,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
               maxRecordTime = inTheFuture(10.seconds),
               submissionId = submissionIds._2,
               config = lic.config.copy(
-                generation = lic.config.generation + 2,
+                generation = lic.config.generation + 2
               ),
             )
             .toScala
@@ -556,9 +555,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
         } yield {
           offset2 should be(toOffset(3))
           update2.recordTime should be >= rt
-          inside(update2) {
-            case ConfigurationChanged(_, submissionId, _, _) =>
-              submissionId should be(submissionIds._2)
+          inside(update2) { case ConfigurationChanged(_, submissionId, _, _) =>
+            submissionId should be(submissionIds._2)
           }
         }
       }
@@ -588,7 +586,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
         })
       for {
         results <- Future.traverse(partyNames.toVector)(name =>
-          ps.allocateParty(Some(name), Some(name), newSubmissionId()).toScala)
+          ps.allocateParty(Some(name), Some(name), newSubmissionId()).toScala
+        )
         _ = all(results) should be(SubmissionResult.Acknowledged)
 
         _ <- stateUpdatesF.transform {
@@ -600,7 +599,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
             Failure(
               new RuntimeException(
                 s"Timed out with parties missing: ${missingPartyNames.mkString(", ")}",
-                exception))
+                exception,
+              )
+            )
           case Failure(exception) => Failure(exception)
         }
       } yield {
@@ -682,8 +683,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
   }
 
   private def submitterInfo(party: Ref.Party, commandId: String = "X") =
-    SubmitterInfo.withSingleSubmitter(
-      submitter = party,
+    SubmitterInfo(
+      actAs = List(party),
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
       deduplicateUntil = inTheFuture(10.seconds).toInstant,
@@ -694,7 +695,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
 
   private def waitForNextUpdate(
       ps: ParticipantState,
-      offset: Option[Offset]): Future[(Offset, Update)] =
+      offset: Option[Offset],
+  ): Future[(Offset, Update)] =
     ps.stateUpdates(beginAfter = offset)
       .idleTimeout(IdleTimeout)
       .runWith(Sink.head)
@@ -736,7 +738,8 @@ object ParticipantStateIntegrationSpecBase {
       workflowId = Some(Ref.LedgerString.assertFromString("tests")),
       submissionTime = let.addMicros(-1000),
       submissionSeed = crypto.Hash.assertFromString(
-        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      ),
       optUsedPackages = Some(Set.empty),
       optNodeSeeds = None,
       optByKeyNodes = None,
@@ -749,10 +752,10 @@ object ParticipantStateIntegrationSpecBase {
   ): Assertion =
     inside(update) {
       case PublicPackageUpload(
-          actualArchives,
-          actualSourceDescription,
-          _,
-          Some(actualSubmissionId),
+            actualArchives,
+            actualSourceDescription,
+            _,
+            Some(actualSubmissionId),
           ) =>
         actualArchives.map(_.getHash).toSet should be(expectedArchives.map(_.getHash).toSet)
         actualSourceDescription should be(sourceDescription)

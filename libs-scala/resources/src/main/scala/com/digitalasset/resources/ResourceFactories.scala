@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources
@@ -7,19 +7,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import com.daml.resources.HasExecutionContext.executionContext
 
-import scala.collection.generic.CanBuildFrom
-import scala.collection.mutable
+import scala.collection.compat._
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success}
 
 final class ResourceFactories[Context: HasExecutionContext] {
 
-  import scala.language.higherKinds
-
   private type R[+T] = Resource[Context, T]
 
-  /**
-    * Nests release operation for a [[Resource]]'s future.
+  /** Nests release operation for a [[Resource]]'s future.
     */
   private[resources] def nest[T](future: Future[T])(
       releaseResource: T => Future[Unit],
@@ -59,39 +55,34 @@ final class ResourceFactories[Context: HasExecutionContext] {
         releasePromise.future
   }
 
-  /**
-    * Builds a [[Resource]] from a [[Future]] and some release logic.
+  /** Builds a [[Resource]] from a [[Future]] and some release logic.
     */
-  def apply[T](future: Future[T])(releaseResource: T => Future[Unit])(
-      implicit context: Context): R[T] =
+  def apply[T](future: Future[T])(releaseResource: T => Future[Unit])(implicit
+      context: Context
+  ): R[T] =
     nest(future)(releaseResource, () => Future.unit)
 
-  /**
-    * Wraps a simple [[Future]] in a [[Resource]] that doesn't need to be released.
+  /** Wraps a simple [[Future]] in a [[Resource]] that doesn't need to be released.
     */
   def fromFuture[T](future: Future[T])(implicit context: Context): R[T] =
     apply(future)(_ => Future.unit)
 
-  /**
-    * Produces a [[Resource]] that has already succeeded with the [[Unit]] value.
+  /** Produces a [[Resource]] that has already succeeded with the [[Unit]] value.
     */
   def unit(implicit context: Context): R[Unit] =
     fromFuture(Future.unit)
 
-  /**
-    * Produces a [[Resource]] that has already succeeded with a given value.
+  /** Produces a [[Resource]] that has already succeeded with a given value.
     */
   def successful[T](value: T)(implicit context: Context): R[T] =
     fromFuture(Future.successful(value))
 
-  /**
-    * Produces a [[Resource]] that has already failed with a given exception.
+  /** Produces a [[Resource]] that has already failed with a given exception.
     */
   def failed[T](exception: Throwable)(implicit context: Context): R[T] =
     fromFuture(Future.failed(exception))
 
-  /**
-    * Sequences a [[Traversable]] of [[Resource]]s into a [[Resource]] of the [[Traversable]] of their values.
+  /** Sequences a [[Traversable]] of [[Resource]]s into a [[Resource]] of the [[Traversable]] of their values.
     *
     * @param seq     The [[Traversable]] of [[Resource]]s.
     * @param bf      The projection from a [[Traversable]] of resources into one of their values.
@@ -101,16 +92,17 @@ final class ResourceFactories[Context: HasExecutionContext] {
     * @tparam U The return type.
     * @return A [[Resource]] with a sequence of the values of the sequenced [[Resource]]s as its underlying value.
     */
-  def sequence[T, C[X] <: Traversable[X], U](seq: C[R[T]])(
-      implicit bf: CanBuildFrom[C[R[T]], T, U],
+  def sequence[T, C[X] <: Iterable[X], U](seq: C[R[T]])(implicit
+      bf: Factory[T, U],
       context: Context,
   ): R[U] = new R[U] {
     private val resource = seq
-      .foldLeft(successful(bf()))((builderResource, elementResource) =>
+      .foldLeft(successful(bf.newBuilder))((builderResource, elementResource) =>
         for {
           builder <- builderResource // Consider the builder in the accumulator resource
           element <- elementResource // Consider the value in the actual resource element
-        } yield builder += element) // Append the element to the builder
+        } yield builder += element
+      ) // Append the element to the builder
       .map(_.result()) // Yield a resource of collection resulting from the builder
 
     override def asFuture: Future[U] =
@@ -120,8 +112,7 @@ final class ResourceFactories[Context: HasExecutionContext] {
       Future.sequence(seq.map(_.release())).map(_ => ())
   }
 
-  /**
-    * Sequences a [[Traversable]] of [[Resource]]s into a [[Resource]] with no underlying value.
+  /** Sequences a [[Traversable]] of [[Resource]]s into a [[Resource]] with no underlying value.
     *
     * @param seq     The [[Traversable]] of [[Resource]]s.
     * @param context The asynchronous task execution engine.
@@ -129,23 +120,9 @@ final class ResourceFactories[Context: HasExecutionContext] {
     * @tparam C The [[Traversable]] actual type.
     * @return A [[Resource]] sequencing the [[Resource]]s and no underlying value.
     */
-  def sequenceIgnoringValues[T, C[X] <: Traversable[X]](seq: C[R[T]])(
-      implicit context: Context
+  def sequenceIgnoringValues[T, C[X] <: Iterable[X]](seq: C[R[T]])(implicit
+      context: Context
   ): R[Unit] =
-    sequence(seq)(new UnitCanBuildFrom, context)
-
-  final class UnitCanBuildFrom[T, C[X] <: Traversable[X]] extends CanBuildFrom[C[R[T]], T, Unit] {
-    override def apply(from: C[R[T]]): mutable.Builder[T, Unit] = apply()
-
-    override def apply(): mutable.Builder[T, Unit] = UnitBuilder
-  }
-
-  object UnitBuilder extends mutable.Builder[Any, Unit] {
-    override def +=(elem: Any): this.type = this
-
-    override def clear(): Unit = ()
-
-    override def result(): Unit = ()
-  }
+    sequence(seq)(new UnitCanBuildFrom[T, Nothing], context)
 
 }

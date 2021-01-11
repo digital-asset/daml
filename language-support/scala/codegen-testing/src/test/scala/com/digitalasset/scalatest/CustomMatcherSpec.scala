@@ -1,15 +1,15 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.scalatest
 
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen
-import org.scalatest.WordSpec
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz.{Equal, Show}
 
-class CustomMatcherSpec extends WordSpec with GeneratorDrivenPropertyChecks {
+class CustomMatcherSpec extends AnyWordSpec with ScalaCheckDrivenPropertyChecks {
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 10000)
@@ -48,13 +48,13 @@ class CustomMatcherSpec extends WordSpec with GeneratorDrivenPropertyChecks {
   implicit val dummyShow: Show[Dummy] = Show.showA
 
   "make sure it works comparing case classes with custom Show and Equal" in forAll(
-    genPairOfNonEqualDummies) {
-    case (a, b) =>
-      import com.daml.scalatest.CustomMatcher._
+    genPairOfNonEqualDummies
+  ) { case (a, b) =>
+    import com.daml.scalatest.CustomMatcher._
 
-      a should_=== a
-      a should_=== a.copy()
+    a should_=== a
+    a should_=== a.copy()
 
-      a should_=/= b
+    a should_=/= b
   }
 }

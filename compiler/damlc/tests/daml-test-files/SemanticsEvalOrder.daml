@@ -169,7 +169,7 @@ evExpRecUpdErr2_3 = scenario do
   pure (R1 {a=0, b=0})
     { a = error "EvExpRecUpdErr2_3 OK", a = error "EvExpRecUpdErr2_3 failed" }
 
--- Can't test LF struct evaluation order from DAML, since we purposely avoid
+-- Can't test LF struct evaluation order from Daml, since we purposely avoid
 -- evaluation of struct fields during typeclass desugaring, and we don't have
 -- a way to construct LF structs directly.
 
@@ -231,7 +231,7 @@ evExpUpFetchErr = scenario do
   let _ : Update T = fetch (error "EvExpUpFetchErr OK")
   pure ()
 
--- "exercise with actors" is not testable from DAML.
+-- "exercise with actors" is not testable from Daml.
 
 evExpUpExerciseWithoutActorsErr1 = scenario do
   let _ : Update () =

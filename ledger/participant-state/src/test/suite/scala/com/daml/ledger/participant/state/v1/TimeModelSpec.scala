@@ -1,13 +1,14 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
 
 import java.time._
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TimeModelSpec extends WordSpec with Matchers {
+class TimeModelSpec extends AnyWordSpec with Matchers {
 
   private val referenceTime = Instant.EPOCH
   private val epsilon = Duration.ofMillis(10L)
@@ -105,7 +106,8 @@ class TimeModelSpec extends WordSpec with Matchers {
 
         timeModel
           .checkTime(Instant.parse(ledgerTime), Instant.parse(recordTime)) shouldEqual Left(
-          expectedMessage)
+          expectedMessage
+        )
       }
     }
   }

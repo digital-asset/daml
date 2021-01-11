@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -20,8 +20,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object IndexMetadata {
 
-  def read(jdbcUrl: String)(
-      implicit resourceContext: ResourceContext,
+  def read(jdbcUrl: String)(implicit
+      resourceContext: ResourceContext,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[IndexMetadata] =

@@ -1,30 +1,37 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.nio.file.Paths
 
-import akka.actor.ActorSystem
-import akka.stream.Materializer
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.Builders._
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-final class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with MockitoSugar {
+final class IntegrityCheckerSpec
+    extends AsyncWordSpec
+    with Matchers
+    with MockitoSugar
+    with ArgumentMatchersSugar {
   "compareSameSizeWriteSets" should {
     "return None in case strategy cannot explain difference" in {
       val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
-      when(mockCommitStrategySupport.explainMismatchingValue(any[Key], any[Value], any[Value]))
+      when(
+        mockCommitStrategySupport
+          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value])
+      )
         .thenReturn(None)
       val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
 
-      instance.compareSameSizeWriteSets(writeSet("key" -> "a"), writeSet("key" -> "b")) shouldBe None
+      instance.compareSameSizeWriteSets(
+        writeSet("key" -> "a"),
+        writeSet("key" -> "b"),
+      ) shouldBe None
     }
 
     "return None in case of no difference" in {
@@ -36,7 +43,10 @@ final class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with Mockit
 
     "return explanation from strategy in case it can explain the difference" in {
       val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
-      when(mockCommitStrategySupport.explainMismatchingValue(any[Key], any[Value], any[Value]))
+      when(
+        mockCommitStrategySupport
+          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value])
+      )
         .thenReturn(Some("expected explanation"))
       val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
 
@@ -51,14 +61,18 @@ final class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with Mockit
 
     "return all explanations in case of multiple differences" in {
       val mockCommitStrategySupport = mock[CommitStrategySupport[Unit]]
-      when(mockCommitStrategySupport.explainMismatchingValue(any[Key], any[Value], any[Value]))
+      when(
+        mockCommitStrategySupport
+          .explainMismatchingValue(any[Raw.Key], any[Raw.Value], any[Raw.Value])
+      )
         .thenReturn(Some("first explanation"), Some("second explanation"))
       val instance = new IntegrityChecker[Unit](mockCommitStrategySupport)
 
       val actual =
         instance.compareSameSizeWriteSets(
           writeSet("key1" -> "a", "key2" -> "a"),
-          writeSet("key1" -> "b", "key2" -> "b"))
+          writeSet("key1" -> "b", "key2" -> "b"),
+        )
 
       actual match {
         case Some(explanation) =>
@@ -92,31 +106,37 @@ final class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with Mockit
 
   "compareStateUpdates" should {
     "call compare if not in index-only mode" in {
-      val mockStateUpdates = mock[StateUpdates]
+      val mockStateUpdates = mock[StateUpdateComparison]
       when(mockStateUpdates.compare()).thenReturn(Future.unit)
       val config = Config.ParseInput.copy(indexOnly = false)
       val instance = createMockIntegrityChecker()
 
       instance
         .compareStateUpdates(config, mockStateUpdates)
-        .transform(_ => {
-          verify(mockStateUpdates, times(1)).compare()
-          succeed
-        }, _ => fail())
+        .transform(
+          _ => {
+            verify(mockStateUpdates, times(1)).compare()
+            succeed
+          },
+          _ => fail(),
+        )
     }
 
     "skip compare if in index-only mode" in {
-      val mockStateUpdates = mock[StateUpdates]
+      val mockStateUpdates = mock[StateUpdateComparison]
       when(mockStateUpdates.compare()).thenReturn(Future.unit)
       val config = Config.ParseInput.copy(indexOnly = true)
       val instance = createMockIntegrityChecker()
 
       instance
         .compareStateUpdates(config, mockStateUpdates)
-        .transform(_ => {
-          verify(mockStateUpdates, times(0)).compare()
-          succeed
-        }, _ => fail())
+        .transform(
+          _ => {
+            verify(mockStateUpdates, times(0)).compare()
+            succeed
+          },
+          _ => fail(),
+        )
     }
   }
 
@@ -131,7 +151,8 @@ final class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with Mockit
       val aFilePath = "aFilePath"
       val config = Config.ParseInput.copy(exportFilePath = Paths.get(aFilePath))
       IntegrityChecker.createIndexerConfig(config).jdbcUrl should be(
-        IntegrityChecker.defaultJdbcUrl(aFilePath))
+        IntegrityChecker.defaultJdbcUrl(aFilePath)
+      )
     }
   }
 
@@ -143,7 +164,4 @@ final class IntegrityCheckerSpec extends AsyncWordSpec with Matchers with Mockit
 
   private def countOccurrences(input: String, pattern: String): Int =
     input.sliding(pattern.length).count(_ == pattern)
-
-  private lazy val actorSystem: ActorSystem = ActorSystem("IntegrityCheckerSpec")
-  private lazy implicit val materializer: Materializer = Materializer(actorSystem)
 }

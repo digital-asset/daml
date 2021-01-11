@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testing.utils
@@ -17,7 +17,8 @@ abstract class DerivedResource[Source, Target: ClassTag](source: Resource[Source
     if (res != null) res
     else
       throw new IllegalStateException(
-        s"Attempted to read non-initialized resource of class ${implicitly[ClassTag[Target]].runtimeClass.getName}")
+        s"Attempted to read non-initialized resource of class ${implicitly[ClassTag[Target]].runtimeClass.getName}"
+      )
   }
 
   override def value: (Source, Target) = {
@@ -29,7 +30,8 @@ abstract class DerivedResource[Source, Target: ClassTag](source: Resource[Source
       if (resource == null) {
         source.setup()
         construct(source.value)
-      } else throw new IllegalStateException(s"Resource $resource is already set up"))
+      } else throw new IllegalStateException(s"Resource $resource is already set up")
+    )
     ()
   }
 

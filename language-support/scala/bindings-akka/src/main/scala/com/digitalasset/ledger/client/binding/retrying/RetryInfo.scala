@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.retrying
@@ -14,7 +14,8 @@ case class RetryInfo[C](
     request: SubmitRequest,
     nrOfRetries: Int,
     firstSubmissionTime: Instant,
-    ctx: C) {
+    ctx: C,
+) {
   def newRetry: RetryInfo[C] = copy(nrOfRetries = nrOfRetries + 1)
 }
 

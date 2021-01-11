@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -10,7 +10,7 @@ prevents default in favour of an \`onClick\` handler.`;
 
 // Define type for exported IconGuide component such that clients can specialise
 // it.
-export default () => (
+export default (): JSX.Element => (
   <Section
     title="Single-page application links"
     description={description}

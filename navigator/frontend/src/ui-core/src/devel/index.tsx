@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import './styles.css';
@@ -47,7 +47,7 @@ const apolloMock = {
   }),
   query: () => mockRejectPromise,
   mutate: () => mockRejectPromise,
-// tslint:disable-next-line:no-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 } as any as ApolloClient<any>
 
 const App = (_: {}): JSX.Element => (

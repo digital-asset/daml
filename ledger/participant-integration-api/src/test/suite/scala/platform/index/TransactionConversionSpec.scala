@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
@@ -6,21 +6,25 @@ package com.daml.platform.index
 import com.daml.lf.value.Value
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.daml.platform.index.TransactionConversion.removeTransient
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-final class TransactionConversionSpec extends WordSpec with Matchers {
+final class TransactionConversionSpec extends AnyWordSpec with Matchers {
 
   private val contractId1 = Value.ContractId.assertFromString("#contractId")
   private val contractId2 = Value.ContractId.assertFromString("#contractId2")
   private def create(contractId: Value.ContractId): Event =
     Event(
       Event.Event.Created(
-        CreatedEvent("", contractId.coid, None, None, None, Seq.empty, Seq.empty, Seq.empty, None)))
+        CreatedEvent("", contractId.coid, None, None, None, Seq.empty, Seq.empty, Seq.empty, None)
+      )
+    )
 
   private val create1 = create(contractId1)
   private val create2 = create(contractId2)
   private val archive1 = Event(
-    Event.Event.Archived(ArchivedEvent("", contractId1.coid, None, Seq.empty)))
+    Event.Event.Archived(ArchivedEvent("", contractId1.coid, None, Seq.empty))
+  )
 
   "removeTransient" should {
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.time
@@ -17,13 +17,15 @@ import io.grpc.Status
 import org.awaitility.Awaitility
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Seconds, Span}
-import org.scalatest.{Assertion, Matchers, WordSpec}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
 
 import scala.concurrent.{Await, ExecutionContext}
 
 class StaticTimeIT
-    extends WordSpec
+    extends AnyWordSpec
     with SandboxFixture
     with SuiteResourceManagementAroundAll
     with ScalaFutures
@@ -82,7 +84,8 @@ class StaticTimeIT
 
       "fail during initialization" in {
         whenReady(StaticTime.updatedVia(clientStub, notLedgerId.unwrap).failed)(
-          IsStatusException(Status.NOT_FOUND))
+          IsStatusException(Status.NOT_FOUND)
+        )
       }
     }
   }

@@ -142,7 +142,7 @@ def process_file(filename, check_only):
   for line in lines:
     # looking for start comment block
     if state == 'start':
-      if (line.strip(filetypes[ext]['line']).strip(filetypes[ext]['start'])[0:19] == " Copyright (c) 2020"):
+      if (line.strip(filetypes[ext]['line']).strip(filetypes[ext]['start'])[1:14] == "Copyright (c)"):
         state='notice'
 
         if line != notice_lines[0]+"\n":

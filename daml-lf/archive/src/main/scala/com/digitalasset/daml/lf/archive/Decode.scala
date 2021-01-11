@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -25,7 +25,7 @@ sealed class Decode(onlySerializableDataDefs: Boolean)
   override protected[this] def readArchivePayloadOfVersion(
       hash: PackageId,
       lf: DamlLf.ArchivePayload,
-      version: LanguageVersion
+      version: LanguageVersion,
   ): (PackageId, Package) = {
     val decoder =
       decoders.lift(version).getOrElse(throw ParseError(s"$version unsupported"))
@@ -40,13 +40,14 @@ object Decode extends Decode(onlySerializableDataDefs = false) {
 
   def damlLfCodedInputStreamFromBytes(
       payload: Array[Byte],
-      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT
+      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT,
   ): CodedInputStream =
     Reader.damlLfCodedInputStreamFromBytes(payload, recursionLimit)
 
   def damlLfCodedInputStream(
       is: InputStream,
-      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT): CodedInputStream =
+      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT,
+  ): CodedInputStream =
     Reader.damlLfCodedInputStream(is, recursionLimit)
 
   /** inlined [[scalaz.ContravariantCoyoneda]]`[OfPackage, DamlLf.ArchivePayload]` */
@@ -72,7 +73,8 @@ object Decode extends Decode(onlySerializableDataDefs = false) {
     def decodePackage(
         packageId: PackageId,
         lfPackage: Pkg,
-        onlySerializableDataDefs: Boolean = false): Package
+        onlySerializableDataDefs: Boolean = false,
+    ): Package
     @throws[ParseError]
     def decodeScenarioModule(packageId: PackageId, lfModuleForScenario: ProtoScenarioModule): Module
   }

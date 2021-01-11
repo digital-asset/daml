@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _da-model-integrity:
@@ -302,9 +302,9 @@ Furthermore, to be conformant, the actor of a transfer action must be the same a
 
 Of course, the constraints on the relationship between the parameters can be
 arbitrarily complex, and cannot conveniently be reproduced in this
-graphical representation. This is the role of DAML -- it
+graphical representation. This is the role of Daml -- it
 provides a much more convenient way of representing contract models.
-The link between DAML and contract models is explained in more detail in a :ref:`later section <da-model-daml>`.
+The link between Daml and contract models is explained in more detail in a :ref:`later section <da-model-daml>`.
 
 To see the conformance criterion in action, assume that
 the contract model allows only the following actions on `PaintOffer`
@@ -410,7 +410,7 @@ The imposed obligation is intuitively invalid because the painter did not
 agree to this obligation. In other words, the painter did not *authorize*
 the creation of the obligation.
 
-In a DAML ledger, a party can **authorize** a subaction of a commit in
+In a Daml ledger, a party can **authorize** a subaction of a commit in
 either of the following ways:
 
 * Every top-level action of the commit is authorized by all requesters
@@ -519,7 +519,7 @@ is discussed in the next section about :ref:`privacy <da-model-privacy-authoriza
 Valid Ledgers, Obligations, Offers and Rights
 +++++++++++++++++++++++++++++++++++++++++++++
 
-DAML ledgers are designed to mimic real-world interactions between
+Daml ledgers are designed to mimic real-world interactions between
 parties, which are governed by contract law. The validity conditions
 on the ledgers, and the information contained in contract models have
 several subtle links to the concepts of the contract law that are
@@ -535,7 +535,7 @@ already modeled as permissible actions on the ledger. For example,
 `P`'s obligation to paint the house cannot be sensibly modeled on the
 ledger, and must thus be specified by the agreement text.
 
-Second, every contract on a DAML ledger can simultaneously model both:
+Second, every contract on a Daml ledger can simultaneously model both:
 
 * a real-world offer, whose consequences (both on- and off-ledger)
   are specified by the **Exercise** actions on the contract allowed
@@ -544,17 +544,17 @@ Second, every contract on a DAML ledger can simultaneously model both:
 * a real-world contract "proper", specified through the contract's
   (optional) agreement text.
 
-Third, in DAML ledgers, as in the real world, one person's rights are
+Third, in Daml ledgers, as in the real world, one person's rights are
 another person's obligations. For example, `A`'s right to accept the
 `PaintOffer` is `P`'s obligation to paint her house in case she
 accepts.
-In DAML ledgers, a party's rights according to a contract model are the exercise actions the party can perform according to the authorization and conformance rules.
+In Daml ledgers, a party's rights according to a contract model are the exercise actions the party can perform according to the authorization and conformance rules.
 
 Finally, validity conditions ensure three important properties of the DA
 ledger model, that mimic the contract law.
 
 #. **Obligations need consent**.
-   DAML ledgers follow the offer-acceptance pattern of the
+   Daml ledgers follow the offer-acceptance pattern of the
    contract law, and thus ensures that all ledger contracts are
    formed voluntarily. For example, the following
    ledger is not valid.
@@ -601,7 +601,7 @@ ledger model, that mimic the contract law.
    section, enable such scenarios.
 
 #. **On-ledger obligations cannot be unilaterally escaped**. Once an
-   obligation is recorded on a DAML ledger, it can only be removed in
+   obligation is recorded on a Daml ledger, it can only be removed in
    accordance with the contract model. For example, assuming the IOU
    contract model shown earlier, if the ledger records the creation
    of a `MustPay` contract, the bank cannot later simply record an

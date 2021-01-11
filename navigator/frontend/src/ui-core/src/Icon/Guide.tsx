@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -67,7 +67,7 @@ here. The default prefix is \`icon-\` but this can be customised by setting the
 // it.
 export type IconGuideType<T> = React.StatelessComponent<IconGuideProps<T>>;
 
-export default ({ names }: IconGuideProps<string>) => (
+export default ({ names }: IconGuideProps<string>): JSX.Element => (
   <Section
     title="Icons"
     description={description}

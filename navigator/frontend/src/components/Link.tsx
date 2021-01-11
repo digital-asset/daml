@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { Dispatch, Route } from '@da/ui-core';
@@ -13,13 +13,13 @@ import { pathToAction } from '../routes';
 // removes that property at runtime. It is therefore not a good idea to
 // allow arbitrary properties via '[key: string]: any'.
 
-//tslint:disable-next-line:no-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface OwnProps<P = any> {
   route: Route<P, App.Action, App.State>;
   params: P;
   className?: string;
   target?: HrefTarget;
-};
+}
 
 interface ReduxProps {
   dispatch: Dispatch<App.Action>;

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { ApolloClient, gql } from '@apollo/client';
@@ -59,10 +59,10 @@ query ParameterFormTypeQuery($id: ID!) {
 
 export default class ApolloDataProvider implements ContractIdProvider, TypeProvider {
 
-  // tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly client: ApolloClient<any>;
 
-  // tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(client: ApolloClient<any>) {
     this.client = client;
   }
@@ -91,7 +91,7 @@ export default class ApolloDataProvider implements ContractIdProvider, TypeProvi
     });
   }
 
-  fetchType(id: DamlLfIdentifier, onResult: (id: DamlLfIdentifier, result: DamlLfDefDataType | undefined) => void) {
+  fetchType(id: DamlLfIdentifier, onResult: (id: DamlLfIdentifier, result: DamlLfDefDataType | undefined) => void): void {
     this.client.query<ParameterFormTypeQuery>({
       query: typeQuery,
       variables: {

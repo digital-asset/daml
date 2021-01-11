@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.adapter.operation
@@ -12,13 +12,14 @@ import com.daml.grpc.adapter.client.akka.ClientAdapter
 import com.daml.platform.hello.HelloRequest
 import com.daml.platform.hello.HelloServiceGrpc.HelloServiceStub
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 trait AkkaClientCompatibilityCheck {
-  self: WordSpec with Matchers with ScalaFutures with ResultAssertions =>
+  self: AnyWordSpec with Matchers with ScalaFutures with ResultAssertions =>
 
   implicit protected def system: ActorSystem
 
@@ -45,11 +46,10 @@ trait AkkaClientCompatibilityCheck {
       whenReady(for {
         elems1 <- elemsF1
         elems2 <- elemsF2
-      } yield elems1 -> elems2)({
-        case (elems1, elems2) =>
-          val check = assertElementsAreInOrder(elemCount.toLong) _
-          check(elems1)
-          check(elems2)
+      } yield elems1 -> elems2)({ case (elems1, elems2) =>
+        val check = assertElementsAreInOrder(elemCount.toLong) _
+        check(elems1)
+        check(elems2)
       })
     }
 

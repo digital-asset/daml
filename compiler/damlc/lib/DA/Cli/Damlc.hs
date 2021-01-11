@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell     #-}
@@ -6,7 +6,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiWayIf #-}
 
--- | Main entry-point of the DAML compiler
+-- | Main entry-point of the Daml compiler
 module DA.Cli.Damlc (main) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
@@ -125,7 +125,7 @@ cmdIde :: Int -> Mod CommandFields Command
 cmdIde numProcessors =
     command "ide" $ info (helper <*> cmd) $
        progDesc
-        "Start the DAML language server on standard input/output."
+        "Start the Daml language server on standard input/output."
     <> fullDesc
   where
     cmd = execIde
@@ -138,13 +138,13 @@ cmdLicense :: Mod CommandFields Command
 cmdLicense =
     command "license" $ info (helper <*> pure execLicense) $
        progDesc
-        "Show the licensing information!"
+        "License information for open-source projects included in Daml Connect."
     <> fullDesc
 
 cmdCompile :: Int -> Mod CommandFields Command
 cmdCompile numProcessors =
     command "compile" $ info (helper <*> cmd) $
-        progDesc "Compile the DAML program into a Core/DAML-LF archive."
+        progDesc "Compile the Daml program into a Core/DAML-LF archive."
     <> fullDesc
   where
     cmd = execCompile
@@ -164,7 +164,7 @@ cmdCompile numProcessors =
 cmdLint :: Int -> Mod CommandFields Command
 cmdLint numProcessors =
     command "lint" $ info (helper <*> cmd) $
-        progDesc "Lint the DAML program."
+        progDesc "Lint the Daml program."
     <> fullDesc
   where
     cmd = execLint
@@ -178,8 +178,8 @@ cmdTest numProcessors =
     <> fullDesc
   where
     progDoc = unlines
-      [ "Test the current DAML project or the given files by running all test declarations."
-      , "Must be in DAML project if --files is not set."
+      [ "Test the current Daml project or the given files by running all test declarations."
+      , "Must be in Daml project if --files is not set."
       ]
     cmd = runTestsInProjectOrFiles
       <$> projectOpts "daml test"
@@ -240,7 +240,7 @@ cmdBuild :: Int -> Mod CommandFields Command
 cmdBuild numProcessors =
     command "build" $
     info (helper <*> cmd) $
-    progDesc "Initialize, build and package the DAML project" <> fullDesc
+    progDesc "Initialize, build and package the Daml project" <> fullDesc
   where
     cmd =
         execBuild
@@ -253,7 +253,7 @@ cmdBuild numProcessors =
 cmdRepl :: Int -> Mod CommandFields Command
 cmdRepl numProcessors =
     command "repl" $ info (helper <*> cmd) $
-    progDesc "Launch the DAML REPL." <>
+    progDesc "Launch the Daml REPL." <>
     fullDesc
   where
     cmd =
@@ -347,21 +347,21 @@ cmdClean :: Mod CommandFields Command
 cmdClean =
     command "clean" $
     info (helper <*> cmd) $
-    progDesc "Remove DAML project build artifacts" <> fullDesc
+    progDesc "Remove Daml project build artifacts" <> fullDesc
   where
     cmd = execClean <$> projectOpts "daml clean"
 
 cmdInit :: Int -> Mod CommandFields Command
 cmdInit numProcessors =
     command "init" $
-    info (helper <*> cmd) $ progDesc "Initialize a DAML project" <> fullDesc
+    info (helper <*> cmd) $ progDesc "Initialize a Daml project" <> fullDesc
   where
     cmd = execInit <$> optionsParser numProcessors (EnableScenarioService False) (pure Nothing) <*> projectOpts "daml damlc init"
 
 cmdPackage :: Int -> Mod CommandFields Command
 cmdPackage numProcessors =
     command "package" $ info (helper <*> cmd) $
-       progDesc "Compile the DAML program into a DAR (deprecated)"
+       progDesc "Compile the Daml program into a DAR (deprecated)"
     <> fullDesc
   where
     cmd = execPackage
@@ -374,7 +374,7 @@ cmdPackage numProcessors =
     optFromDalf :: Parser FromDalf
     optFromDalf = fmap FromDalf $
       switch $
-      help "package an existing dalf file rather than compiling DAML sources" <>
+      help "package an existing dalf file rather than compiling Daml sources" <>
       long "dalf" <>
       internal
 
@@ -424,7 +424,7 @@ execLicense =
   where
     effect = B.putStr licenseData
     licenseData :: B.ByteString
-    licenseData = $(embedFile "compiler/daml-licenses/licenses/licensing.md")
+    licenseData = $(embedFile "NOTICES")
 
 execIde :: Telemetry
         -> Debug
@@ -583,6 +583,8 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
             initPackageDb opts initPkgDb
             withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
                 putStrLn $ "Compiling " <> T.unpack (LF.unPackageName pName) <> " to a DAR."
+                let warnings = checkPkgConfig pkgConfig
+                unless (null warnings) $ putStrLn $ unlines warnings
                 loggerH <- getLogger opts "package"
                 withDamlIdeState
                     opts
@@ -870,7 +872,7 @@ parserInfo :: Int -> ParserInfo Command
 parserInfo numProcessors =
   info (helper <*> options numProcessors)
     (  fullDesc
-    <> progDesc "Invoke the DAML compiler. Use -h for help."
+    <> progDesc "Invoke the Daml compiler. Use -h for help."
     <> headerDoc (Just $ PP.vcat
         [ "damlc - Compiler and IDE backend for the Digital Asset Modelling Language"
         , buildInfo

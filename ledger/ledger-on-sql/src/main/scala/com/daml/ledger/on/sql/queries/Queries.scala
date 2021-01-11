@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql.queries
@@ -15,8 +15,9 @@ import anorm.{
   SqlMappingError,
   SqlParser,
   SqlRequestError,
-  ToStatement
+  ToStatement,
 }
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.google.protobuf.ByteString
 
 trait Queries extends ReadQueries with WriteQueries
@@ -40,11 +41,17 @@ object Queries {
     ()
   }
 
-  implicit val byteStringToStatement: ToStatement[ByteString] =
+  private val byteStringToStatement: ToStatement[ByteString] =
     (s: PreparedStatement, index: Int, v: ByteString) =>
       s.setBinaryStream(index, v.newInput(), v.size())
 
-  implicit val columnToByteString: Column[ByteString] =
+  implicit val rawKeyToStatement: ToStatement[Raw.Key] =
+    byteStringToStatement.contramap(_.bytes)
+
+  implicit val rawValueToStatement: ToStatement[Raw.Value] =
+    byteStringToStatement.contramap(_.bytes)
+
+  private val columnToByteString: Column[ByteString] =
     Column.nonNull { (value: Any, meta: MetaDataItem) =>
       value match {
         case blob: Blob => Right(ByteString.readFrom(blob.getBinaryStream))
@@ -52,11 +59,21 @@ object Queries {
         case inputStream: InputStream => Right(ByteString.readFrom(inputStream))
         case _ =>
           Left[SqlRequestError, ByteString](
-            SqlMappingError(s"Cannot convert value of column ${meta.column} to ByteString"))
+            SqlMappingError(s"Cannot convert value of column ${meta.column} to ByteString")
+          )
       }
     }
 
-  def getBytes(columnName: String): RowParser[ByteString] =
-    SqlParser.get(columnName)(columnToByteString)
+  implicit val columnToRawKey: Column[Raw.Key] =
+    columnToByteString.map(Raw.Key)
+
+  implicit val columnToRawValue: Column[Raw.Value] =
+    columnToByteString.map(Raw.Value)
+
+  def rawKey(columnName: String): RowParser[Raw.Key] =
+    SqlParser.get(columnName)(columnToRawKey)
+
+  def rawValue(columnName: String): RowParser[Raw.Value] =
+    SqlParser.get(columnName)(columnToRawValue)
 
 }

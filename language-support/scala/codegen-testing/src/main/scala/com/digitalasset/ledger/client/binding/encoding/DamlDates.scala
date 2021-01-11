@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.encoding
@@ -12,8 +12,7 @@ object DamlDates {
   val Min: LocalDate = TimestampConversion.MIN.atZone(ZoneOffset.UTC).toLocalDate
   val Max: LocalDate = TimestampConversion.MAX.atZone(ZoneOffset.UTC).toLocalDate
 
-  /**
-    * The dates from `1582-10-05` to `1582-10-14` do not exist and cannot be represented as [java.sql.Date].
+  /** The dates from `1582-10-05` to `1582-10-14` do not exist and cannot be represented as [java.sql.Date].
     * See [http://www.findingdulcinea.com/news/on-this-day/September-October-08/On-this-Day--In-1582--Oct--5-Did-Not-Exist-.html]
     * {{{
     * scala>  java.sql.Date.valueOf(java.time.LocalDate.parse("1582-10-05"))

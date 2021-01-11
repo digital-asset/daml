@@ -1,7 +1,7 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML Documentation
+Daml Documentation
 ##################
 
 .. toctree::
@@ -28,7 +28,7 @@ DAML Documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Writing DAML
+   :caption: Writing Daml
 
    daml/intro/0_Intro.rst
    daml/reference/index
@@ -46,8 +46,8 @@ DAML Documentation
    app-dev/app-arch
    app-dev/bindings-ts/index
    json-api/index
-   DAML Script <daml-script/index>
-   DAML REPL <daml-repl/index>
+   Daml Script <daml-script/index>
+   Daml REPL <daml-repl/index>
    upgrade/index
    app-dev/authorization
    app-dev/ledger-api
@@ -56,11 +56,19 @@ DAML Documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Deploying to DAML ledgers
+   :caption: Deploying to Daml ledgers
 
    deploy/index
    deploy/generic_ledger
    deploy/ledger-topologies
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+   :hidden:
+   :caption: Operating Daml
+
+   ops/index
 
 .. toctree::
    :titlesonly:
@@ -100,7 +108,6 @@ DAML Documentation
    :hidden:
    :caption: Early Access Features
 
-   tools/navigator/console
    tools/extractor
    daml-integration-kit/index
    triggers/index
@@ -112,7 +119,7 @@ DAML Documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: DAML Ecosystem
+   :caption: Daml Ecosystem
 
    support/overview
    support/releases

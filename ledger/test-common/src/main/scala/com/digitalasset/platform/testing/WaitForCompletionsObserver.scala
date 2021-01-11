@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.testing
@@ -15,8 +15,11 @@ object WaitForCompletionsObserver {
 
   def apply(n: Int)(attach: StreamObserver[CompletionStreamResponse] => Unit): Future[Unit] = {
     if (n < 1) {
-      Future.failed(new IllegalArgumentException(
-        s"Invalid argument $n, `WaitForCompletionsObserver` requires a strictly positive integer as an argument"))
+      Future.failed(
+        new IllegalArgumentException(
+          s"Invalid argument $n, `WaitForCompletionsObserver` requires a strictly positive integer as an argument"
+        )
+      )
     } else {
       val observer = new WaitForCompletionsObserver(n)
       attach(observer)
@@ -29,7 +32,7 @@ object WaitForCompletionsObserver {
 final class WaitForCompletionsObserver private (expectedCompletions: Int)
     extends StreamObserver[CompletionStreamResponse] {
 
-  private val promise = Promise[Unit]
+  private val promise = Promise[Unit]()
   private val counter = new AtomicInteger(0)
 
   val result: Future[Unit] = promise.future

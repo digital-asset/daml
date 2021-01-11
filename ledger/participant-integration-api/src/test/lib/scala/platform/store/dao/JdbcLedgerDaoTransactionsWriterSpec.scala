@@ -1,11 +1,15 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
 
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{BlindingInfo, NodeId}
-import org.scalatest.{AsyncFlatSpec, LoneElement, Matchers}
+import org.scalatest.LoneElement
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
+import com.daml.platform.indexer.IncrementalOffsetStep
+import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 
 private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
@@ -25,7 +29,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(from, to, defaultAppId, Set(alice))
     } yield {
-      completions should contain allOf (
+      completions should contain.allOf(
         create.commandId.get -> ok,
         lookup.commandId.get -> ok,
       )
@@ -43,7 +47,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(from, to, defaultAppId, Set(alice))
     } yield {
-      completions should contain allOf (
+      completions should contain.allOf(
         create.commandId.get -> ok,
         fetch.commandId.get -> ok,
       )
@@ -59,10 +63,20 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement {
         blindingInfo = Some(mismatchingBlindingInfo),
         divulgedContracts = Map.empty,
       )
-      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, alice)
+      result <- ledgerDao.lookupActiveOrDivulgedContract(nonTransient(tx).loneElement, Set(alice))
     } yield {
       result shouldBe None
     }
   }
 
+  it should "fail trying to store transactions with non-incremental offsets" in {
+    val (offset, tx) = singleCreate
+    recoverToSucceededIf[LedgerEndUpdateError](
+      storeOffsetStepAndTx(
+        offsetStepAndTx = IncrementalOffsetStep(nextOffset(), offset) -> tx,
+        blindingInfo = None,
+        divulgedContracts = Map.empty,
+      )
+    )
+  }
 }

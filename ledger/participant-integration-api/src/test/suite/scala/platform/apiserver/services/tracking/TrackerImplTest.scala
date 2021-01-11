@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.tracking
@@ -12,7 +12,7 @@ import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   IsStatusException,
-  TestingException
+  TestingException,
 }
 import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.daml.ledger.api.v1.commands.Commands
@@ -21,14 +21,16 @@ import com.daml.logging.LoggingContext
 import com.google.rpc.status.{Status => RpcStatus}
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{BeforeAndAfterEach, Matchers, Succeeded, WordSpec}
+import org.scalatest.{BeforeAndAfterEach, Succeeded}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
 class TrackerImplTest
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
     with BeforeAndAfterEach
     with ScalaFutures

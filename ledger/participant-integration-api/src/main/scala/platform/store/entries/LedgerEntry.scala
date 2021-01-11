@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.entries
@@ -19,19 +19,19 @@ private[platform] object LedgerEntry {
       recordTime: Instant,
       commandId: CommandId,
       applicationId: ApplicationId,
-      submitter: Party,
-      rejectionReason: RejectionReason)
-      extends LedgerEntry
+      actAs: List[Party],
+      rejectionReason: RejectionReason,
+  ) extends LedgerEntry
 
   final case class Transaction(
       commandId: Option[CommandId],
       transactionId: TransactionId,
       applicationId: Option[ApplicationId],
-      submittingParty: Option[Party],
+      actAs: List[Party],
       workflowId: Option[WorkflowId],
       ledgerEffectiveTime: Instant,
       recordedAt: Instant,
       transaction: CommittedTransaction,
-      explicitDisclosure: Relation[NodeId, Party])
-      extends LedgerEntry
+      explicitDisclosure: Relation[NodeId, Party],
+  ) extends LedgerEntry
 }

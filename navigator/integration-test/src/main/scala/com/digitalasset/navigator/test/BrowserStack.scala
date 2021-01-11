@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.test
@@ -21,7 +21,7 @@ case class AutomationBuildInfo(
     name: String,
     hashed_id: String,
     duration: Option[Int],
-    status: Option[String]
+    status: Option[String],
 )
 case class SessionInfo(
     automation_session: AutomationSessionInfo
@@ -45,7 +45,7 @@ case class AutomationSessionInfo(
     appium_logs_url: Option[String],
     video_url: Option[String],
     browser_console_logs_url: Option[String],
-    har_logs_url: Option[String]
+    har_logs_url: Option[String],
 )
 
 object HttpBasicAuth {
@@ -98,7 +98,8 @@ object BrowserStack extends LazyLogging {
       sessionsJson <- downloadWithAuth(
         s"$apiBase/builds/$buildId/sessions.json",
         username,
-        password)
+        password,
+      )
       sessions <- decode[List[SessionInfo]](sessionsJson).toTry
       session <- getSession(sessions, sessionName)
     } yield {
@@ -107,7 +108,7 @@ object BrowserStack extends LazyLogging {
 
     public_url.fold(
       e => logger.error(s"Failed to get BrowserStack log: '$e'"),
-      url => logger.info(s"BrowserStack log for this session: $url")
+      url => logger.info(s"BrowserStack log for this session: $url"),
     )
   }
 }

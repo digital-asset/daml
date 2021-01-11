@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -23,9 +23,14 @@ private[trigger] final case class ServiceConfig(
     ledgerHost: String,
     ledgerPort: Int,
     authUri: Option[Uri],
+    authCallbackUri: Option[Uri],
     maxInboundMessageSize: Int,
     minRestartInterval: FiniteDuration,
     maxRestartInterval: FiniteDuration,
+    maxAuthCallbacks: Int,
+    authCallbackTimeout: FiniteDuration,
+    maxHttpEntityUploadSize: Long,
+    httpEntityUploadTimeout: FiniteDuration,
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
     init: Boolean,
@@ -48,12 +53,11 @@ object JdbcConfig {
       url <- requiredField(x)("url")
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
-    } yield
-      JdbcConfig(
-        url = url,
-        user = user,
-        password = password,
-      )
+    } yield JdbcConfig(
+      url = url,
+      user = user,
+      password = password,
+    )
 
   private def requiredField(m: Map[String, String])(k: String): Either[String, String] =
     m.get(k).filter(_.nonEmpty).toRight(s"Invalid JDBC config, must contain '$k' field")
@@ -66,9 +70,10 @@ object JdbcConfig {
       s"${indent}user -- user name for database user with permissions to create tables,\n" +
       s"${indent}password -- password of database user,\n" +
       s"${indent}Example: " + helpString(
-      "jdbc:postgresql://localhost:5432/triggers",
-      "operator",
-      "password")
+        "jdbc:postgresql://localhost:5432/triggers",
+        "operator",
+        "password",
+      )
 
   private def helpString(url: String, user: String, password: String): String =
     s"""\"url=$url,user=$user,password=$password\""""
@@ -81,6 +86,11 @@ private[trigger] object ServiceConfig {
   val DefaultMaxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
   private val DefaultMinRestartInterval: FiniteDuration = FiniteDuration(5, duration.SECONDS)
   val DefaultMaxRestartInterval: FiniteDuration = FiniteDuration(60, duration.SECONDS)
+  // Adds up to ~1GB with DefaultMaxInboundMessagesSize
+  val DefaultMaxAuthCallbacks: Int = 250
+  val DefaultAuthCallbackTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
+  val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxInboundMessageSize.toLong
+  val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
   private val parser = new scopt.OptionParser[ServiceConfig]("trigger-service") {
@@ -113,26 +123,72 @@ private[trigger] object ServiceConfig {
       .optional()
       .action((t, c) => c.copy(authUri = Some(Uri(t))))
       .text("Auth middleware URI.")
-      // TODO[AH] Expose once the feature is fully implemented.
+      // TODO[AH] Expose once the auth feature is fully implemented.
+      .hidden()
+
+    opt[String]("auth-callback")
+      .optional()
+      .action((t, c) => c.copy(authCallbackUri = Some(Uri(t))))
+      .text(
+        "URI to the auth login flow callback endpoint `/cb`. By default constructed from the incoming login request."
+      )
+      // TODO[AH] Expose once the auth feature is fully implemented.
       .hidden()
 
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
       .optional()
       .text(
-        s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}.")
+        s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}."
+      )
 
     opt[Long]("min-restart-interval")
       .action((x, c) => c.copy(minRestartInterval = FiniteDuration(x, duration.SECONDS)))
       .optional()
       .text(
-        s"Minimum time interval before restarting a failed trigger. Defaults to ${DefaultMinRestartInterval.toSeconds} seconds.")
+        s"Minimum time interval before restarting a failed trigger. Defaults to ${DefaultMinRestartInterval.toSeconds} seconds."
+      )
 
     opt[Long]("max-restart-interval")
       .action((x, c) => c.copy(maxRestartInterval = FiniteDuration(x, duration.SECONDS)))
       .optional()
       .text(
-        s"Maximum time interval between restarting a failed trigger. Defaults to ${DefaultMaxRestartInterval.toSeconds} seconds.")
+        s"Maximum time interval between restarting a failed trigger. Defaults to ${DefaultMaxRestartInterval.toSeconds} seconds."
+      )
+
+    opt[Int]("max-pending-authorizations")
+      .action((x, c) => c.copy(maxAuthCallbacks = x))
+      .optional()
+      .text(
+        s"Optional max number of pending authorization requests. Defaults to ${DefaultMaxAuthCallbacks}."
+      )
+      // TODO[AH] Expose once the auth feature is fully implemented.
+      .hidden()
+
+    opt[Long]("authorization-timeout")
+      .action((x, c) => c.copy(authCallbackTimeout = FiniteDuration(x, duration.SECONDS)))
+      .optional()
+      .text(
+        s"Optional authorization timeout. Defaults to ${DefaultAuthCallbackTimeout.toSeconds} seconds."
+      )
+      // TODO[AH] Expose once the auth feature is fully implemented.
+      .hidden()
+
+    opt[Long]("max-http-entity-upload-size")
+      .action((x, c) => c.copy(maxHttpEntityUploadSize = x))
+      .optional()
+      .text(s"Optional max HTTP entity upload size. Defaults to ${DefaultMaxHttpEntityUploadSize}.")
+      // TODO[AH] Expose once the auth feature is fully implemented.
+      .hidden()
+
+    opt[Long]("http-entity-upload-timeout")
+      .action((x, c) => c.copy(httpEntityUploadTimeout = FiniteDuration(x, duration.SECONDS)))
+      .optional()
+      .text(
+        s"Optional HTTP entity upload timeout. Defaults to ${DefaultHttpEntityUploadTimeout.toSeconds} seconds."
+      )
+      // TODO[AH] Expose once the auth feature is fully implemented.
+      .hidden()
 
     opt[Unit]('w', "wall-clock-time")
       .action { (_, c) =>
@@ -148,7 +204,8 @@ private[trigger] object ServiceConfig {
 
     opt[Map[String, String]]("jdbc")
       .action((x, c) =>
-        c.copy(jdbcConfig = Some(JdbcConfig.create(x).fold(e => sys.error(e), identity))))
+        c.copy(jdbcConfig = Some(JdbcConfig.create(x).fold(e => sys.error(e), identity)))
+      )
       .optional()
       .valueName(JdbcConfig.usage)
       .text("JDBC configuration parameters. If omitted the service runs without a database.")
@@ -169,9 +226,14 @@ private[trigger] object ServiceConfig {
         ledgerHost = null,
         ledgerPort = 0,
         authUri = None,
+        authCallbackUri = None,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         minRestartInterval = DefaultMinRestartInterval,
         maxRestartInterval = DefaultMaxRestartInterval,
+        maxAuthCallbacks = DefaultMaxAuthCallbacks,
+        authCallbackTimeout = DefaultAuthCallbackTimeout,
+        maxHttpEntityUploadSize = DefaultMaxHttpEntityUploadSize,
+        httpEntityUploadTimeout = DefaultHttpEntityUploadTimeout,
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
         init = false,

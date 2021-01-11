@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -7,7 +7,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participant,
   Participants,
   SingleParty,
-  allocate
+  allocate,
 }
 import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -27,14 +27,13 @@ class ClosedWorldIT extends LedgerTestSuite {
     "ClosedWorldObserver",
     "Cannot execute a transaction that references unallocated observer parties",
     allocate(SingleParty),
-  )(implicit ec => {
-    case Participants(Participant(alpha, payer)) =>
-      for {
-        failure <- alpha
-          .create(payer, Iou(payer, binding.Primitive.Party("unallocated"), onePound))
-          .failed
-      } yield {
-        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Party not known on ledger")
-      }
+  )(implicit ec => { case Participants(Participant(alpha, payer)) =>
+    for {
+      failure <- alpha
+        .create(payer, Iou(payer, binding.Primitive.Party("unallocated"), onePound))
+        .failed
+    } yield {
+      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Party not known on ledger")
+    }
   })
 }

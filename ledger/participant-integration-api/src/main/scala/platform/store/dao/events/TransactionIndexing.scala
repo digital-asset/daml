@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -10,10 +10,12 @@ import com.daml.ledger.participant.state.v1.{
   CommittedTransaction,
   DivulgedContract,
   Offset,
-  SubmitterInfo
+  SubmitterInfo,
 }
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.BlindingInfo
+
+import scala.collection.compat._
 
 final case class TransactionIndexing(
     transaction: TransactionIndexing.TransactionInfo,
@@ -128,7 +130,7 @@ object TransactionIndexing {
 
     private def visibility(contracts: Iterable[DivulgedContract]): WitnessRelation[ContractId] =
       Relation.from(
-        contracts.map(c => c.contractId -> blinding.divulgence.getOrElse(c.contractId, Set.empty)),
+        contracts.map(c => c.contractId -> blinding.divulgence.getOrElse(c.contractId, Set.empty))
       )
 
     def build(
@@ -146,7 +148,8 @@ object TransactionIndexing {
       val netCreates = created.filterNot(c => archived(c.coid))
       val netArchives = archived.filterNot(allCreatedContractIds)
       val netDivulgedContracts = divulgedContracts.filterNot(c => allContractIds(c.contractId))
-      val netTransactionVisibility = Relation.from(visibility.result()).filterKeys(!archived(_))
+      val netTransactionVisibility =
+        Relation.from(visibility.result()).view.filterKeys(!archived(_)).toMap
       val netVisibility = Relation.union(netTransactionVisibility, visibility(netDivulgedContracts))
       TransactionIndexing(
         transaction = TransactionInfo(
@@ -170,7 +173,7 @@ object TransactionIndexing {
         contractWitnesses = ContractWitnessesInfo(
           netArchives = netArchives,
           netVisibility = netVisibility,
-        )
+        ),
       )
     }
   }

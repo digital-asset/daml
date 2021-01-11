@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref.Location
   * lookup.
   */
 final case class SDefinition(
-    body: SExpr,
+    body: SExpr
 ) {
   private var _cached: Option[(SValue, List[Location])] = None
   private[speedy] def cached: Option[(SValue, List[Location])] = _cached

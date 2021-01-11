@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -75,7 +75,8 @@ data Commands = Commands
     , wid          :: Maybe WorkflowId
     , aid          :: ApplicationId
     , cid          :: CommandId
-    , party        :: Party
+    , actAs        :: [Party]
+    , readAs       :: [Party]
     , dedupTime    :: Maybe LL.Duration
     , coms         :: [Command]
     , minLeTimeAbs :: Maybe Timestamp

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -11,7 +11,7 @@ import "com/daml/daml_lf_dev/daml_lf_1.proto";
 
 message ArchivePayload {
   // this is number 3 for historical reasons -- we had
-  // DAML-LF v0 and v1 before we had minor versions.
+  // Daml-LF v0 and v1 before we had minor versions.
   string minor = 3;
   reserved 9999; // for the removed "dev" major version
 
@@ -43,8 +43,8 @@ message Archive {
   //
   // Note that the hash is computed directly on the blob and not
   // on the decoded structure. This means that servers implementing
-  // a DAML ledger need to store the blob as-is somewhere to be able
-  // to always offer proof that they have a DAML package matching
+  // a Daml ledger need to store the blob as-is somewhere to be able
+  // to always offer proof that they have a Daml package matching
   // the requested hash. We decided to go for this route rather than
   // relying on a canonical encoding of the AST since such a scheme
   // would be extremely hard (for example protobuf encoding is not

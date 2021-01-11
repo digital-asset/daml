@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.iface
@@ -6,13 +6,14 @@ package com.daml.lf.iface
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.data.BackStack
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.language.{Ast => Pkg, Util => PkgUtil}
 
 import scala.language.implicitConversions
 
-class TypeSpec extends WordSpec with Matchers {
+class TypeSpec extends AnyWordSpec with Matchers {
   implicit def packageId(s: String): PackageId = PackageId.assertFromString(s)
   implicit def qualifiedName(s: String): QualifiedName = QualifiedName.assertFromString(s)
 
@@ -77,6 +78,10 @@ class TypeSpec extends WordSpec with Matchers {
           case Pkg.BTArrow => sys.error("cannot use arrow in interface type")
           case Pkg.BTAny => sys.error("cannot use any in interface type")
           case Pkg.BTTypeRep => sys.error("cannot use type representation in interface type")
+          case Pkg.BTAnyException | Pkg.BTArithmeticError | Pkg.BTContractError |
+              Pkg.BTGeneralError =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            sys.error("exception not supported")
         }
       case Pkg.TTyCon(tycon) => TypeCon(TypeConName(tycon), args.toImmArray.toSeq)
       case Pkg.TNat(_) => sys.error("cannot use nat type in interface type")
@@ -95,7 +100,7 @@ class TypeSpec extends WordSpec with Matchers {
     val inst = tyCon.instantiate(
       DefDataType(
         ImmArraySeq(n"a", n"b"),
-        Record(ImmArraySeq(n"fld1" -> t"List a", n"fld2" -> t"Mod:V b"))
+        Record(ImmArraySeq(n"fld1" -> t"List a", n"fld2" -> t"Mod:V b")),
       )
     )
     inst shouldBe Record[Type](ImmArraySeq(n"fld1" -> t"List Int64", n"fld2" -> t"Mod:V Text"))
@@ -125,7 +130,8 @@ class TypeSpec extends WordSpec with Matchers {
       Record(
         ImmArraySeq(
           n"f" -> TypeCon(id2, ImmArraySeq(t"a"))
-        ))
+        )
+      ),
     )
     val result = tc.instantiate(ddt)
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -11,7 +11,7 @@ package object ledger {
   type CommandId = LedgerString
   val CommandId: LedgerString.type = LedgerString
 
-  /** Identifiers used for correlating submission with a workflow.  */
+  /** Identifiers used for correlating submission with a workflow. */
   type WorkflowId = LedgerString
   val WorkflowId: LedgerString.type = LedgerString
 
@@ -24,5 +24,4 @@ package object ledger {
 
   val TransactionId: LedgerString.type = LedgerString
   type TransactionId = LedgerString
-
 }

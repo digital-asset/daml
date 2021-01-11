@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.cli
@@ -47,12 +47,22 @@ class CommonCli(name: LedgerName) {
     new OptionParser[SandboxConfig](name.unwrap.toLowerCase()) {
       head(s"$name version ${BuildInfo.Version}")
 
+      opt[Unit]("dev-mode-unsafe")
+        .optional()
+        .action((_, config) => config.copy(engineMode = SandboxConfig.EngineMode.Dev))
+        .text(
+          "Turns on development mode. Development mode allows development versions of Daml-LF language."
+        )
+        .hidden()
+
       arg[File]("<archive>...")
         .optional()
         .unbounded()
         .validate(f => Either.cond(checkIfZip(f), (), s"Invalid dar file: ${f.getName}"))
         .action((f, c) => c.copy(damlPackages = f :: c.damlPackages))
-        .text("DAML archives to load in .dar format. Only DAML-LF v1 Archives are currently supported. Can be mixed in with optional arguments.")
+        .text(
+          "Daml archives to load in .dar format. Only Daml-LF v1 Archives are currently supported. Can be mixed in with optional arguments."
+        )
 
       opt[String]('a', "address")
         .optional()
@@ -68,13 +78,17 @@ class CommonCli(name: LedgerName) {
       opt[File]("port-file")
         .optional()
         .action((f, c) => c.copy(portFile = Some(f.toPath)))
-        .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
+        .text(
+          "File to write the allocated port number to. Used to inform clients in CI about the allocated port."
+        )
 
       opt[String]("ledgerid")
         .optional()
         .action((id, c) =>
           c.copy(
-            ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))))
+            ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))
+          )
+        )
         .text(s"Ledger ID. If missing, a random unique ledger ID will be used.")
 
       opt[String]("participant-id")
@@ -86,7 +100,8 @@ class CommonCli(name: LedgerName) {
       opt[Unit]("dalf")
         .optional()
         .text(
-          "This argument is present for backwards compatibility. DALF and DAR archives are now identified by their extensions.")
+          "This argument is present for backwards compatibility. DALF and DAR archives are now identified by their extensions."
+        )
 
       opt[Unit]('s', "static-time")
         .optional()
@@ -110,52 +125,74 @@ class CommonCli(name: LedgerName) {
         .optional()
         .text("TLS: The pem file to be used as the private key.")
         .action((path, config) =>
-          config.copy(tlsConfig = config.tlsConfig
-            .fold(Some(TlsConfiguration(enabled = true, None, Some(new File(path)), None)))(c =>
-              Some(c.copy(keyFile = Some(new File(path)))))))
+          config.copy(tlsConfig =
+            config.tlsConfig
+              .fold(Some(TlsConfiguration(enabled = true, None, Some(new File(path)), None)))(c =>
+                Some(c.copy(keyFile = Some(new File(path))))
+              )
+          )
+        )
 
       opt[String]("crt")
         .optional()
-        .text("TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.")
+        .text(
+          "TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set."
+        )
         .action((path: String, config: SandboxConfig) =>
-          config.copy(tlsConfig = config.tlsConfig
-            .fold(Some(TlsConfiguration(enabled = true, Some(new File(path)), None, None)))(c =>
-              Some(c.copy(keyCertChainFile = Some(new File(path)))))))
+          config.copy(tlsConfig =
+            config.tlsConfig
+              .fold(Some(TlsConfiguration(enabled = true, Some(new File(path)), None, None)))(c =>
+                Some(c.copy(keyCertChainFile = Some(new File(path))))
+              )
+          )
+        )
 
       opt[String]("cacrt")
         .optional()
         .text("TLS: The crt file to be used as the trusted root CA.")
         .action((path, config) =>
-          config.copy(tlsConfig = config.tlsConfig
-            .fold(Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))))(c =>
-              Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
+          config.copy(tlsConfig =
+            config.tlsConfig
+              .fold(Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))))(c =>
+                Some(c.copy(trustCertCollectionFile = Some(new File(path))))
+              )
+          )
+        )
 
       opt[ClientAuth]("client-auth")
         .optional()
-        .text("TLS: The client authentication mode. Must be one of none, optional or require. Defaults to required.")
+        .text(
+          "TLS: The client authentication mode. Must be one of none, optional or require. Defaults to required."
+        )
         .action((clientAuth, config) =>
-          config.copy(tlsConfig = config.tlsConfig
-            .fold(Some(TlsConfiguration(enabled = true, None, None, None, clientAuth)))(c =>
-              Some(c.copy(clientAuth = clientAuth)))))
+          config.copy(tlsConfig =
+            config.tlsConfig
+              .fold(Some(TlsConfiguration(enabled = true, None, None, None, clientAuth)))(c =>
+                Some(c.copy(clientAuth = clientAuth))
+              )
+          )
+        )
 
       opt[Boolean]("cert-revocation-checking")
         .optional()
         .text(
-          "TLS: enable/disable certificate revocation checks with the OCSP. Disabled by default.")
-        .action(
-          (checksEnabled, config) =>
-            config.copy(
-              tlsConfig = config.tlsConfig
-                .fold(
-                  Some(TlsConfiguration.Empty.copy(enableCertRevocationChecking = checksEnabled)))(
-                  config => Some(config.copy(enableCertRevocationChecking = checksEnabled)))
-          ))
+          "TLS: enable/disable certificate revocation checks with the OCSP. Disabled by default."
+        )
+        .action((checksEnabled, config) =>
+          config.copy(
+            tlsConfig = config.tlsConfig
+              .fold(
+                Some(TlsConfiguration.Empty.copy(enableCertRevocationChecking = checksEnabled))
+              )(config => Some(config.copy(enableCertRevocationChecking = checksEnabled)))
+          )
+        )
 
       opt[Int]("max-inbound-message-size")
         .optional()
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .text(
-          s"Max inbound message size in bytes. Defaults to ${SandboxConfig.DefaultMaxInboundMessageSize}.")
+          s"Max inbound message size in bytes. Defaults to ${SandboxConfig.DefaultMaxInboundMessageSize}."
+        )
 
       opt[Int]("maxInboundMessageSize")
         .optional()
@@ -167,32 +204,33 @@ class CommonCli(name: LedgerName) {
         .text("This flag is deprecated -- please use --sql-backend-jdbcurl.")
         .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
-      opt[String]("sql-backend-jdbcurl")
-        .optional()
-        .text(
-          s"The JDBC connection URL to a Postgres database containing the username and password as well. If present, $name will use the database to persist its data.")
-        .action((url, config) => config.copy(jdbcUrl = Some(url)))
-
       opt[String]("log-level")
         .optional()
         .validate(l =>
           Either
-            .cond(KnownLogLevels.contains(l.toUpperCase), (), s"Unrecognized logging level $l"))
+            .cond(KnownLogLevels.contains(l.toUpperCase), (), s"Unrecognized logging level $l")
+        )
         .action((level, c) => c.copy(logLevel = Some(Level.toLevel(level.toUpperCase))))
-        .text("Default logging level to use. Available values are INFO, TRACE, DEBUG, WARN, and ERROR. Defaults to INFO.")
+        .text(
+          "Default logging level to use. Available values are INFO, TRACE, DEBUG, WARN, and ERROR. Defaults to INFO."
+        )
 
       opt[Unit]("eager-package-loading")
         .optional()
-        .text("Whether to load all the packages in the .dar files provided eagerly, rather than when needed as the commands come.")
+        .text(
+          "Whether to load all the packages in the .dar files provided eagerly, rather than when needed as the commands come."
+        )
         .action((_, config) => config.copy(eagerPackageLoading = true))
 
       JwtVerifierConfigurationCli.parse(this)((v, c) =>
-        c.copy(authService = Some(AuthServiceJWT(v))))
+        c.copy(authService = Some(AuthServiceJWT(v)))
+      )
 
       opt[Int]("events-page-size")
         .optional()
         .text(
-          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${SandboxConfig.DefaultEventsPageSize}.")
+          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${SandboxConfig.DefaultEventsPageSize}."
+        )
         .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
       opt[MetricsReporter]("metrics-reporter")
@@ -206,34 +244,43 @@ class CommonCli(name: LedgerName) {
       opt[Int]("max-commands-in-flight")
         .optional()
         .action((value, config) =>
-          config.copy(commandConfig = config.commandConfig.copy(maxCommandsInFlight = value)))
-        .text("Maximum number of submitted commands waiting for completion for each party (only applied when using the CommandService). Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 256.")
+          config.copy(commandConfig = config.commandConfig.copy(maxCommandsInFlight = value))
+        )
+        .text(
+          "Maximum number of submitted commands waiting for completion for each party (only applied when using the CommandService). Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 256."
+        )
 
       opt[Int]("max-parallel-submissions")
         .optional()
         .action((value, config) =>
-          config.copy(commandConfig = config.commandConfig.copy(maxParallelSubmissions = value)))
-        .text("Maximum number of successfully interpreted commands waiting to be sequenced (applied only when running sandbox-classic). The threshold is shared across all parties. Overflowing it will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512.")
+          config.copy(commandConfig = config.commandConfig.copy(maxParallelSubmissions = value))
+        )
+        .text(
+          "Maximum number of successfully interpreted commands waiting to be sequenced (applied only when running sandbox-classic). The threshold is shared across all parties. Overflowing it will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512."
+        )
 
       opt[Int]("input-buffer-size")
         .optional()
         .action((value, config) =>
-          config.copy(commandConfig = config.commandConfig.copy(inputBufferSize = value)))
-        .text("The maximum number of commands waiting to be submitted for each party. Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512.")
+          config.copy(commandConfig = config.commandConfig.copy(inputBufferSize = value))
+        )
+        .text(
+          "The maximum number of commands waiting to be submitted for each party. Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512."
+        )
 
       opt[Long]("max-lf-value-translation-cache-entries")
         .optional()
         .text(
-          s"The maximum size of the cache used to deserialize DAML-LF values, in number of allowed entries. By default, nothing is cached.")
-        .action(
-          (maximumLfValueTranslationCacheEntries, config) =>
-            config.copy(
-              lfValueTranslationEventCacheConfiguration =
-                config.lfValueTranslationEventCacheConfiguration
-                  .copy(maximumSize = maximumLfValueTranslationCacheEntries),
-              lfValueTranslationContractCacheConfiguration =
-                config.lfValueTranslationContractCacheConfiguration
-                  .copy(maximumSize = maximumLfValueTranslationCacheEntries)
+          s"The maximum size of the cache used to deserialize Daml-LF values, in number of allowed entries. By default, nothing is cached."
+        )
+        .action((maximumLfValueTranslationCacheEntries, config) =>
+          config.copy(
+            lfValueTranslationEventCacheConfiguration =
+              config.lfValueTranslationEventCacheConfiguration
+                .copy(maximumSize = maximumLfValueTranslationCacheEntries),
+            lfValueTranslationContractCacheConfiguration =
+              config.lfValueTranslationContractCacheConfiguration
+                .copy(maximumSize = maximumLfValueTranslationCacheEntries),
           )
         )
 
@@ -258,28 +305,31 @@ class CommonCli(name: LedgerName) {
           config.copy(ledgerConfig = config.ledgerConfig.copy(initialConfiguration = ledgerConfig))
         })
         .text(
-          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${v1.TimeModel.reasonableDefault.minSkew.getSeconds}.")
+          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${v1.TimeModel.reasonableDefault.minSkew.getSeconds}."
+        )
 
       opt[Duration]("management-service-timeout")
         .hidden()
         .optional()
         .action((value, config) => config.copy(managementServiceTimeout = value))
         .text(
-          s"The timeout used for requests by management services of the Ledger API. The default is set to ${SandboxConfig.DefaultManagementServiceTimeout.getSeconds} seconds.")
+          s"The timeout used for requests by management services of the Ledger API. The default is set to ${SandboxConfig.DefaultManagementServiceTimeout.getSeconds} seconds."
+        )
 
       help("help").text("Print the usage text")
 
       checkConfig(c => {
         if (c.scenario.isDefined && c.timeProviderType.contains(TimeProviderType.WallClock))
           failure(
-            "Wall-clock time mode (`-w`/`--wall-clock-time`) and scenario initialization (`--scenario`) may not be used together.")
+            "Wall-clock time mode (`-w`/`--wall-clock-time`) and scenario initialization (`--scenario`) may not be used together."
+          )
         else success
       })
     }
 
   def withContractIdSeeding(
       defaultConfig: SandboxConfig,
-      seedingModes: Option[Seeding]*,
+      seedingModes: Option[Seeding]*
   ): CommonCli = {
     val seedingModesMap =
       seedingModes.map(mode => (mode.map(_.name).getOrElse(Seeding.NoSeedingModeName), mode)).toMap
@@ -290,14 +340,33 @@ class CommonCli(name: LedgerName) {
       .opt[String]("contract-id-seeding")
       .optional()
       .text(
-        s"""Set the seeding mode of contract IDs. Possible values are $allSeedingModeNames. Default is "$defaultSeedingModeName".""")
-      .validate(
-        v =>
-          Either.cond(
-            seedingModesMap.contains(v.toLowerCase),
-            (),
-            s"seeding mode must be one of $allSeedingModeNames"))
+        s"""Set the seeding mode of contract IDs. Possible values are $allSeedingModeNames. "$defaultSeedingModeName" mode is not compatible with development mode. Default is "$defaultSeedingModeName"."""
+      )
+      .validate(v =>
+        Either.cond(
+          seedingModesMap.contains(v.toLowerCase),
+          (),
+          s"seeding mode must be one of $allSeedingModeNames",
+        )
+      )
       .action((text, config) => config.copy(seeding = seedingModesMap(text)))
+    this
+  }
+
+  def withEarlyAccess: CommonCli = {
+    parser
+      .opt[Unit]("early-access-unsafe")
+      .optional()
+      .action((_, c) =>
+        if (c.engineMode == SandboxConfig.EngineMode.Stable) {
+          c.copy(engineMode = SandboxConfig.EngineMode.EarlyAccess)
+        } else {
+          c
+        }
+      )
+      .text(
+        "Enable preview version of the next Daml-LF language. Should not be used in production."
+      )
     this
   }
 
@@ -311,7 +380,8 @@ object CommonCli {
   ): SandboxConfig = {
     if (config.timeProviderType.exists(_ != timeProviderType)) {
       throw new IllegalStateException(
-        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous."
+      )
     }
     config.copy(timeProviderType = Some(timeProviderType))
   }
@@ -322,7 +392,7 @@ object CommonCli {
       val raf = new RandomAccessFile(f, "r")
       val n = raf.readInt
       raf.close()
-      n == 0x504B0304 //non-empty, non-spanned ZIPs are always beginning with this
+      n == 0x504b0304 //non-empty, non-spanned ZIPs are always beginning with this
     }.getOrElse(false)
   }
 

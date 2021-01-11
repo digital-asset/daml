@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox
@@ -13,7 +13,7 @@ private[sandbox] object Cli extends SandboxCli {
   override val defaultConfig: SandboxConfig = DefaultConfig
 
   override protected val parser: OptionParser[SandboxConfig] = {
-    val parser = new CommonCli(Name)
+    val parser = new CommonCli(Name).withEarlyAccess
       .withContractIdSeeding(
         defaultConfig,
         None,
@@ -32,6 +32,13 @@ private[sandbox] object Cli extends SandboxCli {
           " Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used)." +
           s" Also note that instructing $Name to load a scenario will have the side effect of loading _all_ the .dar files provided eagerly (see --eager-package-loading)."
       )
+    parser
+      .opt[String]("sql-backend-jdbcurl")
+      .optional()
+      .text(
+        s"Deprecated: Use the Daml Driver for PostgreSQL if you need persistence.\nThe JDBC connection URL to a Postgres database containing the username and password as well. If present, $Name will use the database to persist its data."
+      )
+      .action((url, config) => config.copy(jdbcUrl = Some(url)))
     parser
   }
 

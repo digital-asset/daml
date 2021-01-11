@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -7,11 +7,15 @@ import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.TransactionId
 import com.daml.platform.store.Conversions._
 
+import scala.collection.compat.immutable.ArraySeq
+
 private[events] object EventsTableTreeEvents {
 
   private val createdTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Created]] =
     EventsTable.createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+        // ArraySeq.unsafeWrapArray is safe here
+        // since we get the Array from parsing and don't let it escape anywhere.
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -25,18 +29,20 @@ private[events] object EventsTableTreeEvents {
             contractId = contractId,
             templateId = templateId,
             createArgument = createArgument,
-            createSignatories = createSignatories,
-            createObservers = createObservers,
+            createSignatories = ArraySeq.unsafeWrapArray(createSignatories),
+            createObservers = ArraySeq.unsafeWrapArray(createObservers),
             createAgreementText = createAgreementText,
             createKeyValue = createKeyValue,
-            eventWitnesses = eventWitnesses,
-          )
+            eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
+          ),
         )
     }
 
   private val exercisedTreeEventParser: RowParser[EventsTable.Entry[Raw.TreeEvent.Exercised]] =
     EventsTable.exercisedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
+        // ArraySeq.unsafeWrapArray is safe here
+        // since we get the Array from parsing and don't let it escape anywhere.
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -53,10 +59,10 @@ private[events] object EventsTableTreeEvents {
             exerciseChoice = exerciseChoice,
             exerciseArgument = exerciseArgument,
             exerciseResult = exerciseResult,
-            exerciseActors = exerciseActors,
-            exerciseChildEventIds = exerciseChildEventIds,
-            eventWitnesses = eventWitnesses,
-          )
+            exerciseActors = ArraySeq.unsafeWrapArray(exerciseActors),
+            exerciseChildEventIds = ArraySeq.unsafeWrapArray(exerciseChildEventIds),
+            eventWitnesses = ArraySeq.unsafeWrapArray(eventWitnesses),
+          ),
         )
     }
 
@@ -102,7 +108,7 @@ private[events] object EventsTableTreeEvents {
     val witnessesWhereClause =
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
     SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
-                 case when submitter = $requestingParty then command_id else '' end as command_id
+                 case when submitters = array[$requestingParty] then command_id else '' end as command_id
           from participant_events
           join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
           where transaction_id = $transactionId and #$witnessesWhereClause
@@ -117,8 +123,10 @@ private[events] object EventsTableTreeEvents {
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParties)
     val filteredWitnesses =
       sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
+    val submittersInPartiesClause =
+      sqlFunctions.arrayIntersectionWhereClause("submitters", requestingParties)
     SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                 case when submitter in ($requestingParties) then command_id else '' end as command_id
+                 case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
           join parameters on participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive
           where transaction_id = $transactionId and #$witnessesWhereClause
@@ -145,7 +153,7 @@ private[events] object EventsTableTreeEvents {
     EventsRange.readPage(
       read = (range, limitExpr) => SQL"""
         select #$selectColumns, array[$requestingParty] as event_witnesses,
-               case when submitter = $requestingParty then command_id else '' end as command_id
+               case when submitters = array[$requestingParty] then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > ${range.startExclusive}
               and event_sequential_id <= ${range.endInclusive}
@@ -153,7 +161,7 @@ private[events] object EventsTableTreeEvents {
         order by event_sequential_id #$limitExpr""",
       rawTreeEventParser,
       range,
-      pageSize
+      pageSize,
     )
   }
 
@@ -166,10 +174,12 @@ private[events] object EventsTableTreeEvents {
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParties)
     val filteredWitnesses =
       sqlFunctions.arrayIntersectionValues("tree_event_witnesses", requestingParties)
+    val submittersInPartiesClause =
+      sqlFunctions.arrayIntersectionWhereClause("submitters", requestingParties)
     EventsRange.readPage(
       read = (range, limitExpr) => SQL"""
         select #$selectColumns, #$filteredWitnesses as event_witnesses,
-               case when submitter in ($requestingParties) then command_id else '' end as command_id
+               case when #$submittersInPartiesClause then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > ${range.startExclusive}
               and event_sequential_id <= ${range.endInclusive}
@@ -177,7 +187,7 @@ private[events] object EventsTableTreeEvents {
         order by event_sequential_id #$limitExpr""",
       rawTreeEventParser,
       range,
-      pageSize
+      pageSize,
     )
   }
 

@@ -1,29 +1,29 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Navigator
 #########
 
-The Navigator is a front-end that you can use to connect to any DAML Ledger and inspect and modify the ledger. You can use it during DAML development to explore the flow and implications of the DAML models.
+The Navigator is a front-end that you can use to connect to any Daml Ledger and inspect and modify the ledger. You can use it during Daml development to explore the flow and implications of the Daml models.
 
 The first sections of this guide cover use of the Navigator with the SDK. Refer to :ref:`navigator-manual-advanced-usage` for information on using Navigator outside the context of the SDK.
 
 Navigator functionality
 ***********************
 
-Connect Navigator to any DAML Ledger and use it to:
+Connect Navigator to any Daml Ledger and use it to:
 
 - View templates
 - View active and archived contracts
 - Exercise choices on contracts
-- Advance time (This option applies only when using Navigator with the DAML Sandbox ledger.)
+- Advance time (This option applies only when using Navigator with the Daml Sandbox ledger.)
 
 Installing and starting Navigator
 *********************************
 
 Navigator ships with the SDK. To launch it:
 
-1. Start Navigator via a terminal window running :doc:`DAML Assistant </tools/assistant>` by typing ``daml start``
+1. Start Navigator via a terminal window running :doc:`Daml Assistant </tools/assistant>` by typing ``daml start``
 
 2. The Navigator web-app is automatically started in your browser. If it fails to start,
    open a browser window and point it to the Navigator URL
@@ -86,7 +86,7 @@ To log out, click the name of the current party in the top-right corner of the s
 Viewing templates or contracts
 ******************************
 
-DAML *contract ​templates* are ​models ​that contain ​the ​agreement ​statement, ​all ​the ​applicable
+Daml *contract ​templates* are ​models ​that contain ​the ​agreement ​statement, ​all ​the ​applicable
 parameters, ​and ​the ​choices ​that ​can ​be ​made ​in ​acting ​on ​that ​data.
 They ​specify ​acceptable input ​and ​the ​resulting ​output. ​A ​contract ​template ​contains ​placeholders ​rather ​than ​actual names, ​amounts, ​dates, ​and ​so ​on. In ​a *contract*, ​the ​placeholders ​have ​been ​replaced ​with ​actual ​data.
 
@@ -233,7 +233,7 @@ You will see the loading and confirmation indicators, as pictured above in Creat
 Advancing time
 ==============
 
-It is possible to advance time against the DAML Sandbox. (This is not true of all DAML Ledgers.) This advance-time functionality can be useful when testing, for example, when entering a trade on one date and settling it on a later date.
+It is possible to advance time against the Daml Sandbox. (This is not true of all Daml Ledgers.) This advance-time functionality can be useful when testing, for example, when entering a trade on one date and settling it on a later date.
 
 To advance time:
 
@@ -254,7 +254,7 @@ Authorizing Navigator
 
 If you are running Navigator against a Ledger API server that verifies authorization, you must provide the access token when you start the Navigator server.
 
-The access token retrieval depends on the specific DAML setup you are working with: please refer to the ledger operator to learn how.
+The access token retrieval depends on the specific Daml setup you are working with: please refer to the ledger operator to learn how.
 
 Once you have retrieved your access token, you can provide it to Navigator by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
 
@@ -275,7 +275,7 @@ Customizable table views
 ========================
 
 Customizable table views is an advanced rapid-prototyping feature,
-intended for DAML developers who wish to customize the Navigator UI without
+intended for Daml developers who wish to customize the Navigator UI without
 developing a custom application.
 
 .. COMMENT: Suggest changing para below to procedure format.
@@ -347,11 +347,11 @@ To debug config file errors and learn more about the
 config file API, open the Navigator ``/config`` page in your browser
 (e.g., `<http://localhost:7500/config>`_).
 
-Using Navigator with a DAML Ledger
+Using Navigator with a Daml Ledger
 ==================================
 
 By default, Navigator is configured to use an unencrypted connection to the ledger.
-To run Navigator against a secured DAML Ledger,
+To run Navigator against a secured Daml Ledger,
 configure TLS certificates using the ``--pem``, ``--crt``, and ``--cacrt`` command line parameters.
 Details of these parameters are explained in the command line help::
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.db.migration.translation
@@ -35,7 +35,7 @@ private[migration] object TransactionSerializer extends TransactionSerializer {
       .encodeTransaction(
         TransactionCoder.EventIdEncoder(trId),
         ValueCoder.CidEncoder,
-        transaction
+        transaction,
       )
       .map(_.toByteArray())
 
@@ -43,12 +43,15 @@ private[migration] object TransactionSerializer extends TransactionSerializer {
       trId: LedgerString,
       stream: InputStream,
   ): Either[DecodeError, CommittedTransaction] =
-    TransactionCoder
-      .decodeTransaction(
-        TransactionCoder.EventIdDecoder(trId),
-        ValueCoder.CidDecoder,
-        TransactionOuterClass.Transaction.parseFrom(
-          Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT))
+    ValueSerializer
+      .handleDeprecatedValueVersions(
+        TransactionCoder
+          .decodeTransaction(
+            TransactionCoder.EventIdDecoder(trId),
+            ValueCoder.CidDecoder,
+            TransactionOuterClass.Transaction
+              .parseFrom(Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT)),
+          )
       )
       .map(CommittedTransaction(_))
 }

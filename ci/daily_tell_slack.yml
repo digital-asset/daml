@@ -1,27 +1,26 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
   success-message: '\"$(Agent.JobName) passed: $COMMIT_LINK\"'
 
 steps:
+- template: bash-lib.yml
+  parameters:
+    var_name: bash_lib
 - bash: |
     set -euo pipefail
     eval "$(dev-env/bin/dade assist)"
-    COMMIT_TITLE=$(git log --pretty=format:%s -n1)
-    COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
+    source $(bash_lib)
+    COMMIT_TITLE="$(escape_slack "$(git log --pretty=format:%s -n1 ${{ parameters.trigger_sha }})")"
+    COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${COMMIT_TITLE}>"
     if [ "$(Agent.JobStatus)" != "Succeeded" ]; then
         MESSAGE="\":fire: :fire: <!here> :fire: :fire:\n$(Agent.JobName) *FAILED*: $COMMIT_LINK\n:fire: :fire:\""
     else
         MESSAGE="${{ parameters['success-message'] }}"
     fi
     PAYLOAD="{\"text\":$MESSAGE}"
-    echo curl -XPOST \
-              -i \
-              -H 'Content-type: application/json' \
-              --data "$PAYLOAD" \
-              Slack.team-daml
-    if [ "$(Build.SourceBranchName)" = "master" ]; then
+    if [ "$(Build.SourceBranchName)" = "main" ]; then
         curl -XPOST \
              -i \
              -H 'Content-type: application/json' \

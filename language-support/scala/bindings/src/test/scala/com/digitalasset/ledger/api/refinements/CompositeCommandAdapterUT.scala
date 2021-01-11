@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.refinements
@@ -8,9 +8,10 @@ import com.daml.ledger.api.v1.commands.Command.Command.Create
 import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v1.trace_context.TraceContext
 import com.daml.ledger.api.v1.value.Identifier
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class CompositeCommandAdapterUT extends WordSpec with Matchers {
+class CompositeCommandAdapterUT extends AnyWordSpec with Matchers {
 
   CompositeCommandAdapter.getClass.getSimpleName should {
 
@@ -18,7 +19,9 @@ class CompositeCommandAdapterUT extends WordSpec with Matchers {
       val commands =
         Seq(
           Command(
-            Create(CreateCommand(Some(Identifier("packageId", "moduleName", "templateId")), None))))
+            Create(CreateCommand(Some(Identifier("packageId", "moduleName", "templateId")), None))
+          )
+        )
 
       val submittedTraceContext = Some(TraceContext(1, 2, 3, Some(4L), true))
       val compositeCommand = CompositeCommand(
@@ -26,7 +29,7 @@ class CompositeCommandAdapterUT extends WordSpec with Matchers {
         Party("party"),
         CommandId("commandId"),
         WorkflowId("workflowId"),
-        submittedTraceContext
+        submittedTraceContext,
       )
 
       val submitRequest = CompositeCommandAdapter(
@@ -35,7 +38,8 @@ class CompositeCommandAdapterUT extends WordSpec with Matchers {
       ).transform(compositeCommand)
 
       submitRequest.commands shouldBe Some(
-        Commands("ledgerId", "workflowId", "applicationId", "commandId", "party", commands))
+        Commands("ledgerId", "workflowId", "applicationId", "commandId", "party", commands)
+      )
 
       submitRequest.traceContext shouldBe submittedTraceContext
     }

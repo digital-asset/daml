@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.ledger.types
@@ -51,7 +51,6 @@ import Scalaz._
   *   scala> ageLens(Person("Bob", Some(44)))
   *   res2: String \/ Int = \/-(44)
   * }}}
-  *
   */
 class ReqFieldLens[C <: Product, V](lens: Lens[C, Option[V]], field: Symbol) {
   def apply(c: C): String \/ V =
@@ -62,8 +61,8 @@ object ReqFieldLens {
   final class Create[C <: Product, V] {
     def apply[K <: Symbol](
         s: Witness.Aux[K]
-    )(
-        implicit mkFieldLens: MkFieldLens.Aux[C, K, Option[V]]
+    )(implicit
+        mkFieldLens: MkFieldLens.Aux[C, K, Option[V]]
     ): ReqFieldLens[C, V] = {
       new ReqFieldLens[C, V](lens[C] >> s, s.value)
     }

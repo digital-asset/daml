@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.adapter.server.rs
@@ -10,7 +10,7 @@ import scala.concurrent.Promise
 class MockClientCallStreamObserver[Request](onRequest: Int => Unit)
     extends ClientCallStreamObserver[Request] {
 
-  private val cancellationPromise = Promise[(String, Throwable)]
+  private val cancellationPromise = Promise[(String, Throwable)]()
 
   override def cancel(s: String, throwable: Throwable): Unit = {
     cancellationPromise.trySuccess(s -> throwable)

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -17,19 +17,20 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.platform.store.Contract.ActiveContract
 
-/**
-  * A helper for updating an [[ActiveLedgerState]] with new transactions:
+/** A helper for updating an [[ActiveLedgerState]] with new transactions:
   * - Validates the transaction against the [[ActiveLedgerState]].
   * - Updates the [[ActiveLedgerState]].
   */
 private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
-    initialState: => ALS) {
+    initialState: => ALS
+) {
 
   private case class AddTransactionState(
       acc: Option[ALS],
       errs: Set[RejectionReason],
       parties: Set[Party],
-      archivedIds: Set[ContractId]) {
+      archivedIds: Set[ContractId],
+  ) {
 
     def mapAcs(f: ALS => ALS): AddTransactionState = copy(acc = acc map f)
 
@@ -55,20 +56,19 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
       AddTransactionState(Some(acs), Set(), Set.empty, Set.empty)
   }
 
-  /**
-    * A higher order function to update an abstract active ledger state (ALS) with the effects of the given transaction.
+  /** A higher order function to update an abstract active ledger state (ALS) with the effects of the given transaction.
     * Makes sure that there are no double spends or timing errors.
     */
   def addTransaction(
       let: Instant,
       transactionId: TransactionId,
       workflowId: Option[WorkflowId],
-      submitter: Option[Party],
+      actAs: List[Party],
       transaction: CommittedTransaction,
       disclosure: Relation[NodeId, Party],
       divulgence: Relation[ContractId, Party],
-      divulgedContracts: List[(Value.ContractId, ContractInst)])
-    : Either[Set[RejectionReason], ALS] = {
+      divulgedContracts: List[(Value.ContractId, ContractInst)],
+  ): Either[Set[RejectionReason], ALS] = {
     val st =
       transaction
         .fold[AddTransactionState](AddTransactionState(initialState)) {
@@ -81,8 +81,11 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                 case Some(Let(otherContractLet)) =>
                   // Existing active contract, check its LET
                   if (otherContractLet.isAfter(let)) {
-                    Some(InvalidLedgerTime(
-                      s"Encountered contract [$cid] with LET [$otherContractLet] greater than the LET of the transaction [$let]"))
+                    Some(
+                      InvalidLedgerTime(
+                        s"Encountered contract [$cid] with LET [$otherContractLet] greater than the LET of the transaction [$let]"
+                      )
+                    )
                   } else {
                     None
                   }
@@ -98,7 +101,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
               }
 
             node match {
-              case nf: N.NodeFetch.WithTxValue[ContractId] =>
+              case nf: N.NodeFetch[ContractId] =>
                 val nodeParties = nf.signatories
                   .union(nf.stakeholders)
                   .union(nf.actingParties)
@@ -106,9 +109,9 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                   Some(acc),
                   contractCheck(nf.coid).fold(errs)(errs + _),
                   parties.union(nodeParties),
-                  archivedIds
+                  archivedIds,
                 )
-              case nc: N.NodeCreate.WithTxValue[ContractId] =>
+              case nc: N.NodeCreate[ContractId] =>
                 val nodeParties = nc.signatories
                   .union(nc.stakeholders)
                   .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
@@ -118,21 +121,23 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                   transactionId = transactionId,
                   nodeId = nodeId,
                   workflowId = workflowId,
-                  contract = nc.coinst,
+                  contract = nc.versionedCoinst,
                   witnesses = disclosure(nodeId),
                   // A contract starts its life without being divulged at all.
                   divulgences = Map.empty,
-                  key =
-                    nc.key.map(_.assertNoCid(coid => s"Contract ID $coid found in contract key")),
+                  key = nc.versionedKey.map(
+                    _.assertNoCid(coid => s"Contract ID $coid found in contract key")
+                  ),
                   signatories = nc.signatories,
                   observers = nc.stakeholders.diff(nc.signatories),
-                  agreementText = nc.coinst.agreementText
+                  agreementText = nc.coinst.agreementText,
                 )
                 activeContract.key match {
                   case None =>
                     ats.copy(
                       acc = Some(acc.addContract(activeContract, None)),
-                      parties = parties.union(nodeParties))
+                      parties = parties.union(nodeParties),
+                    )
                   case Some(key) =>
                     val gk = GlobalKey(activeContract.contract.template, key.key.value)
                     if (acc.lookupContractByKey(gk).isDefined) {
@@ -140,15 +145,16 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                         None,
                         errs + Inconsistent("DuplicateKey: contract key is not unique"),
                         parties.union(nodeParties),
-                        archivedIds)
+                        archivedIds,
+                      )
                     } else {
                       ats.copy(
                         acc = Some(acc.addContract(activeContract, Some(gk))),
-                        parties = parties.union(nodeParties)
+                        parties = parties.union(nodeParties),
                       )
                     }
                 }
-              case ne: N.NodeExercises.WithTxValue[_, ContractId] =>
+              case ne: N.NodeExercises[_, ContractId] =>
                 val nodeParties = ne.signatories
                   .union(ne.stakeholders)
                   .union(ne.actingParties)
@@ -160,49 +166,49 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
                     acc
                   }),
                   parties = parties.union(nodeParties),
-                  archivedIds = if (ne.consuming) archivedIds + ne.targetCoid else archivedIds
+                  archivedIds = if (ne.consuming) archivedIds + ne.targetCoid else archivedIds,
                 )
-              case nlkup: N.NodeLookupByKey.WithTxValue[ContractId] =>
+              case nlkup: N.NodeLookupByKey[ContractId] =>
                 // Check that the stored lookup result matches the current result
                 val key = nlkup.key.key.ensureNoCid.fold(
                   coid =>
                     throw new IllegalStateException(s"Contract ID $coid found in contract key"),
-                  identity
+                  identity,
                 )
-                val gk = GlobalKey(nlkup.templateId, key.value)
+                val gk = GlobalKey(nlkup.templateId, key)
                 val nodeParties = nlkup.key.maintainers
 
-                submitter match {
-                  case Some(_) =>
-                    // If the submitter is known, look up the contract
-                    // Submitter being know means the transaction was submitted on this participant.
-                    val currentResult = acc.lookupContractByKey(gk)
-                    if (currentResult == nlkup.result) {
-                      ats.copy(
-                        parties = parties.union(nodeParties),
+                if (actAs.nonEmpty) {
+                  // If the submitter is known, look up the contract
+                  // Submitters being know means the transaction was submitted on this participant.
+                  val currentResult = acc.lookupContractByKey(gk)
+                  if (currentResult == nlkup.result) {
+                    ats.copy(
+                      parties = parties.union(nodeParties)
+                    )
+                  } else {
+                    ats.copy(
+                      errs = errs + Inconsistent(
+                        s"Contract key lookup with different results: expected [${nlkup.result}], actual [${currentResult}]"
                       )
-                    } else {
-                      ats.copy(
-                        errs = errs + Inconsistent(
-                          s"Contract key lookup with different results: expected [${nlkup.result}], actual [${currentResult}]")
-                      )
-                    }
+                    )
+                  }
+                } else {
                   // Otherwise, trust that the lookup was valid.
                   // The submitter being unknown means the transaction was submitted on a different participant,
                   // and (A) this participant may not know the authoritative answer to whether the key exists and
                   // (B) this code is called from a Indexer and not from the sandbox ledger.
-                  case None =>
-                    ats.copy(
-                      parties = parties.union(nodeParties),
-                    )
+                  ats.copy(
+                    parties = parties.union(nodeParties)
+                  )
                 }
             }
         }
 
     val divulgedContractIds = divulgence -- st.archivedIds
     st.mapAcs(
-        _ divulgeAlreadyCommittedContracts (transactionId, divulgedContractIds, divulgedContracts))
-      .mapAcs(_ addParties st.parties)
+      _.divulgeAlreadyCommittedContracts(transactionId, divulgedContractIds, divulgedContracts)
+    ).mapAcs(_ addParties st.parties)
       .result
   }
 

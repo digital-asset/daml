@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -9,21 +9,23 @@ import com.daml.lf.value.test.TypedValueGenerators.genAddend
 import com.daml.lf.value.{Value => V}
 import com.daml.platform.participant.util.LfEngineToApi.lfValueToApiValue
 import org.scalacheck.{Arbitrary, Gen}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.Equal
 import scalaz.syntax.bifunctor._
 import scalaz.std.option._
 import scalaz.std.tuple._
 
 class ApiValueToLfValueConverterTest
-    extends WordSpec
+    extends AnyWordSpec
     with Matchers
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
   import ApiValueToLfValueConverterTest._
 
   private[this] implicit val arbCid: Arbitrary[CidSrc] = Arbitrary(
-    Gen.alphaStr map (t => V.ContractId.V0 assertFromString ('#' +: t)))
+    Gen.alphaStr map (t => V.ContractId.V0 assertFromString ('#' +: t))
+  )
 
   "apiValueToLfValue" should {
     import ApiValueToLfValueConverter.apiValueToLfValue
@@ -34,7 +36,8 @@ class ApiValueToLfValueConverterTest
       forAll(minSuccessful(20)) { v: va.Inj[CidSrc] =>
         val vv = va.inj(v)
         val roundTrip = lfValueToApiValue(true, vv).right.toOption flatMap (x =>
-          apiValueToLfValue(x).toMaybe.toOption)
+          apiValueToLfValue(x).toMaybe.toOption
+        )
         assert(Equal[Option[V[Cid]]].equal(roundTrip, Some(vv)))
       }
     }
@@ -51,7 +54,8 @@ object ApiValueToLfValueConverterTest {
   private implicit def eqValue: Equal[V[Cid]] = { (l, r) =>
     V.`Value Equal instance`[Cid]
       .contramap[V[Cid]](
-        mapNumeric(_, n => LfNumeric assertFromUnscaledBigDecimal n.stripTrailingZeros))
+        mapNumeric(_, n => LfNumeric assertFromUnscaledBigDecimal n.stripTrailingZeros)
+      )
       .equal(l, r)
   }
 

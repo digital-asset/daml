@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -7,9 +7,11 @@ import java.util.UUID
 
 import com.daml.ledger.client.binding.{Primitive => P}
 import com.daml.sample.MyMain.PayOut
-import org.scalatest.{Assertion, Matchers, WordSpec}
+import org.scalatest.Assertion
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.matchers.should.Matchers
 
-class CodeGenExampleSpec extends WordSpec with Matchers {
+class CodeGenExampleSpec extends AnyWordSpec with Matchers {
   val alice = P.Party("Alice")
   val bob = P.Party("Bob")
   val charlie = P.Party("Charlie")

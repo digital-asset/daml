@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -7,9 +7,10 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlPartyAllocationEntry
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theRecordTime}
 import com.daml.metrics.Metrics
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class PartyAllocationCommitterSpec extends WordSpec with Matchers {
+class PartyAllocationCommitterSpec extends AnyWordSpec with Matchers {
   private val metrics = new Metrics(new MetricRegistry)
   private val aPartyAllocationEntry = DamlPartyAllocationEntry.newBuilder
     .setSubmissionId("an ID")

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { ApolloClient } from '@apollo/client';
@@ -230,7 +230,7 @@ class Watcher {
   contractsTimer: number;
   commandsTimer: number;
   constructor(
-    // tslint:disable-next-line:no-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private client: ApolloClient<any>,
     private getWatcherState: () => State,
     private dispatch: (action: Action) => void) {
@@ -306,9 +306,9 @@ class Watcher {
 }
 
 function parseCommand(node: CommandResultsQuery_nodes): WatchedCommand {
-  if (node.__typename === 'CreateCommand' || node.__typename === 'ExerciseCommand') {
+  if (node.__typename === 'CreateCommand' || node.__typename === 'ExerciseCommand') {
     return { commandId: node.id, result: parseCommandResult(node.status) };
-  } else {
+  } else {
     return { commandId: node.id, result: undefined };
   }
 }

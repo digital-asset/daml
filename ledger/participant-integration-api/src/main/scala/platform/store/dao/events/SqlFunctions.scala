@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.events.EventsTableQueries.format
 
-private[events] trait SqlFunctions {
+private[dao] trait SqlFunctions {
   def arrayIntersectionWhereClause(arrayColumn: String, party: Party): String =
     arrayIntersectionWhereClause(arrayColumn: String, Set(party))
 
@@ -15,7 +15,7 @@ private[events] trait SqlFunctions {
   def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String
 }
 
-private[events] object SqlFunctions {
+private[dao] object SqlFunctions {
   def arrayIntersection(a: Array[String], b: Array[String]): Array[String] =
     a.toSet.intersect(b.toSet).toArray
 
@@ -34,7 +34,10 @@ private[events] object SqlFunctions {
 
   object H2SqlFunctions extends SqlFunctions {
     override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String =
-      parties.view.map(p => s"array_contains($arrayColumn, '$p')").mkString("(", " or ", ")")
+      if (parties.isEmpty)
+        "false"
+      else
+        parties.view.map(p => s"array_contains($arrayColumn, '$p')").mkString("(", " or ", ")")
 
     def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
       s"array_intersection($arrayColumn, array[${format(parties)}])"

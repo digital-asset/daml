@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources.akka
@@ -8,13 +8,14 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.{Done, NotUsed}
 import com.daml.resources.{HasExecutionContext, ResourceOwnerFactories, TestContext}
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.{Future, Promise}
 
 final class AkkaResourceOwnerSpec extends AsyncWordSpec with Matchers {
   private val Factories = new ResourceOwnerFactories[TestContext]
-  with AkkaResourceOwnerFactories[TestContext] {
+    with AkkaResourceOwnerFactories[TestContext] {
     override protected implicit val hasExecutionContext: HasExecutionContext[TestContext] =
       TestContext.`TestContext has ExecutionContext`
   }

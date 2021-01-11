@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger.test
@@ -14,6 +14,8 @@ import com.daml.lf.engine.trigger.TriggerMsg
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
 import com.daml.platform.sandbox.services.SandboxFixture
 import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 class Jwt
     extends AsyncWordSpec
@@ -30,7 +32,7 @@ class Jwt
 
   override protected def ledgerClientConfiguration: LedgerClientConfiguration =
     super.ledgerClientConfiguration.copy(
-      token = Some(toHeader(forApplicationId("custom app id", readWriteToken(party)))),
+      token = Some(toHeader(forApplicationId("custom app id", readWriteToken(party))))
     )
 
   private val party = "AliceAuth"
@@ -43,8 +45,12 @@ class Jwt
     def asset(party: String): CreateCommand =
       CreateCommand(
         templateId = Some(assetId),
-        createArguments = Some(LedgerApi.Record(
-          fields = Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party)))))))
+        createArguments = Some(
+          LedgerApi.Record(
+            fields = Seq(LedgerApi.RecordField("issuer", Some(LedgerApi.Value().withParty(party))))
+          )
+        ),
+      )
     "1 create" in {
       for {
         client <- ledgerClient()

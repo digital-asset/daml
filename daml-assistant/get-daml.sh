@@ -1,10 +1,10 @@
 #!/bin/sh
 
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #
-# DAML is an open-source privacy-aware smart contract language.
+# Daml is an open-source privacy-aware smart contract language.
 # This script downloads and installs the SDK on Linux and macOS.
 # This will overwrite any existing installation in ~/.daml
 # For more information please visit https://daml.com/ and https://docs.daml.com/
@@ -18,15 +18,42 @@
 
 set -eu
 readonly SWD="$PWD"
-readonly TMPDIR="$(mktemp -d)"
+readonly INSTALL_MINSIZE=1000000
+if [ -z $TEMPDIR ]; then
+  readonly TMPDIR="$(mktemp -d)"
+else
+  readonly TMPDIR=$TEMPDIR
+fi
 cd $TMPDIR
+
+# Don't remove user specified temporary directory on cleanup.
+rmTmpDir() {
+  if [ -z $TEMPDIR ]; then
+    rm -rf $TMPDIR
+  else
+    echo "You may now remove the Daml installation files from $TEMPDIR"
+  fi
+}
 
 cleanup() {
   echo "$(tput setaf 3)FAILED TO INSTALL!$(tput sgr 0)"
   cd $SWD
-  rm -rf $TMPDIR
+  rmTmpDir
 }
 trap cleanup EXIT
+
+
+#
+# Check that the temporary directory has enough space for the installation
+#
+if [ "$(df $TMPDIR | tail -1 | awk '{print $4}')" -lt $INSTALL_MINSIZE ]; then
+    echo "Not enough disk space available to extract Daml SDK in $TMPDIR."
+    echo ""
+    echo "You can specify an alternative extraction directory by"
+    echo "setting the TEMPDIR environment variable."
+    exit 1
+fi
+
 
 #
 # Check if curl and tar are available.
@@ -44,7 +71,7 @@ else
   MISSING="tar"
 fi
 if [ -n "$MISSING" ]; then
-  echo "Missing tools required for DAML installation: $MISSING"
+  echo "Missing tools required for Daml installation: $MISSING"
   exit 1
 fi
 
@@ -53,7 +80,7 @@ fi
 #
 if [ -z "${1:-}" ] ; then
   echo "Determining latest SDK version..."
-  readonly VERSION="$(curl -sS https://github.com/digital-asset/daml/releases/latest | sed 's/^.*github.com\/digital-asset\/daml\/releases\/tag\/v//' | sed 's/".*$//')"
+  readonly VERSION="$(curl -sS https://docs.daml.com/latest)"
   if [ -z "$VERSION" ] ; then
     echo "Failed to determine latest SDK version."
     exit 1
@@ -115,6 +142,6 @@ fi
 # Done.
 #
 trap - EXIT
-echo "$(tput setaf 3)Successfully installed DAML.$(tput sgr 0)"
+echo "$(tput setaf 3)Successfully installed Daml.$(tput sgr 0)"
 cd $SWD
-rm -rf $TMPDIR
+rmTmpDir

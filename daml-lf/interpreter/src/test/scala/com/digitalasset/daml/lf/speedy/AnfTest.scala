@@ -1,9 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
 
-import org.scalatest.{Assertion, WordSpec, Matchers}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
@@ -12,7 +14,7 @@ import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Pretty.SExpr._
 import com.daml.lf.data.Ref._
 
-class AnfTest extends WordSpec with Matchers {
+class AnfTest extends AnyWordSpec with Matchers {
 
   "identity: [\\x. x]" should {
     "be transformed to ANF as expected" in {
@@ -55,7 +57,9 @@ class AnfTest extends WordSpec with Matchers {
           binop(
             SBSubInt64,
             app(arg0, binop(SBAddInt64, arg1, num1)),
-            app(arg0, binop(SBAddInt64, arg1, num2))))
+            app(arg0, binop(SBAddInt64, arg1, num2)),
+          ),
+        )
       val expected =
         lam(
           2,
@@ -69,7 +73,11 @@ class AnfTest extends WordSpec with Matchers {
                 SBAddInt64,
                 arg1,
                 num2,
-                let1(appa(arg0, stack1), binopa(SBSubInt64, stack3, stack1))))))
+                let1(appa(arg0, stack1), binopa(SBSubInt64, stack3, stack1)),
+              ),
+            ),
+          ),
+        )
       testTransform(original, expected)
     }
   }
@@ -102,14 +110,18 @@ class AnfTest extends WordSpec with Matchers {
           app2(
             arg0,
             app(arg1, binop(SBSubInt64, arg3, num1)),
-            app(arg1, binop(SBSubInt64, arg3, num2))))
+            app(arg1, binop(SBSubInt64, arg3, num2)),
+          ),
+        )
       val expected =
         lam(
           2,
           app2n(
             arg0,
             let1b2(SBSubInt64, arg3, num1, appa(arg1, stack1)),
-            let1b2(SBSubInt64, arg3, num2, appa(arg1, stack1))))
+            let1b2(SBSubInt64, arg3, num2, appa(arg1, stack1)),
+          ),
+        )
       testTransform(original, expected)
     }
   }
@@ -149,7 +161,9 @@ class AnfTest extends WordSpec with Matchers {
             SBEqual,
             arg1,
             num0,
-            itea(stack1, num1, let1b2(SBDivInt64, num1, arg1, appa(arg0, stack1)))))
+            itea(stack1, num1, let1b2(SBDivInt64, num1, arg1, appa(arg0, stack1))),
+          ),
+        )
       testTransform(original, expected)
     }
   }
@@ -161,7 +175,8 @@ class AnfTest extends WordSpec with Matchers {
       val expected =
         lam(
           2,
-          let1(clo1(arg0, 1, let1(appa(free0, arg0), appa(free0, stack1))), appa(arg1, stack1)))
+          let1(clo1(arg0, 1, let1(appa(free0, arg0), appa(free0, stack1))), appa(arg1, stack1)),
+        )
       testTransform(original, expected)
     }
   }

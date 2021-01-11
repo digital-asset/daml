@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
@@ -10,13 +10,15 @@ import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier, Record}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.google.protobuf.empty.Empty
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import org.scalatest.OptionValues
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
 class CommandSubmissionClientImplTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with AuthMatchers
     with OptionValues
@@ -43,7 +45,7 @@ class CommandSubmissionClientImplTest
             commands.getMinLedgerTimeAbsolute,
             commands.getMinLedgerTimeRelative,
             commands.getDeduplicationTime,
-            commands.getCommands
+            commands.getCommands,
           )
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
           .blockingGet()
@@ -52,13 +54,21 @@ class CommandSubmissionClientImplTest
         receivedCommands.applicationId shouldBe commands.getApplicationId
         receivedCommands.workflowId shouldBe commands.getWorkflowId
         receivedCommands.commandId shouldBe commands.getCommandId
-        receivedCommands.minLedgerTimeAbs.map(_.seconds) shouldBe commands.getMinLedgerTimeAbsolute.asScala
+        receivedCommands.minLedgerTimeAbs.map(
+          _.seconds
+        ) shouldBe commands.getMinLedgerTimeAbsolute.asScala
           .map(_.getEpochSecond)
-        receivedCommands.minLedgerTimeAbs.map(_.nanos) shouldBe commands.getMinLedgerTimeAbsolute.asScala
+        receivedCommands.minLedgerTimeAbs.map(
+          _.nanos
+        ) shouldBe commands.getMinLedgerTimeAbsolute.asScala
           .map(_.getNano)
-        receivedCommands.minLedgerTimeRel.map(_.seconds) shouldBe commands.getMinLedgerTimeRelative.asScala
+        receivedCommands.minLedgerTimeRel.map(
+          _.seconds
+        ) shouldBe commands.getMinLedgerTimeRelative.asScala
           .map(_.getSeconds)
-        receivedCommands.minLedgerTimeRel.map(_.nanos) shouldBe commands.getMinLedgerTimeRelative.asScala
+        receivedCommands.minLedgerTimeRel.map(
+          _.nanos
+        ) shouldBe commands.getMinLedgerTimeRelative.asScala
           .map(_.getNano)
         receivedCommands.party shouldBe commands.getParty
         receivedCommands.commands.size shouldBe commands.getCommands.size()
@@ -68,7 +78,8 @@ class CommandSubmissionClientImplTest
   def toAuthenticatedServer(fn: CommandSubmissionClient => Any): Any =
     ledgerServices.withCommandSubmissionClient(
       Future.successful(Empty.defaultInstance),
-      mockedAuthService) { (client, _) =>
+      mockedAuthService,
+    ) { (client, _) =>
       fn(client)
     }
 
@@ -88,8 +99,9 @@ class CommandSubmissionClientImplTest
             commands.getMinLedgerTimeAbsolute,
             commands.getMinLedgerTimeRelative,
             commands.getDeduplicationTime,
-            commands.getCommands
-          ))(
+            commands.getCommands,
+          )
+      )(
         client
           .submit(
             commands.getWorkflowId,
@@ -100,8 +112,9 @@ class CommandSubmissionClientImplTest
             commands.getMinLedgerTimeRelative,
             commands.getDeduplicationTime,
             commands.getCommands,
-            _
-          ))
+            _,
+          )
+      )
       .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
       .blockingGet()
   }

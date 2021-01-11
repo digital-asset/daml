@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql
@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
   Config,
   LedgerFactory,
   ParticipantConfig,
-  ReadWriteService
+  ReadWriteService,
 }
 import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v1.SeedService
@@ -24,7 +24,7 @@ import scopt.OptionParser
 
 object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
   override val defaultExtraConfig: ExtraConfig = ExtraConfig(
-    jdbcUrl = None,
+    jdbcUrl = None
   )
 
   override def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
@@ -46,8 +46,8 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
       engine: Engine,
-  )(
-      implicit materializer: Materializer,
+  )(implicit
+      materializer: Materializer,
       loggingContext: LoggingContext,
   ): ResourceOwner[ReadWriteService] =
     new Owner(config, participantConfig, engine)
@@ -58,8 +58,9 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       engine: Engine,
   )(implicit loggingContext: LoggingContext)
       extends ResourceOwner[KeyValueParticipantState] {
-    override def acquire()(
-        implicit context: ResourceContext): Resource[KeyValueParticipantState] = {
+    override def acquire()(implicit
+        context: ResourceContext
+    ): Resource[KeyValueParticipantState] = {
       val jdbcUrl = config.extra.jdbcUrl.getOrElse {
         throw new IllegalStateException("No JDBC URL provided.")
       }
@@ -75,7 +76,7 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
           metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
         ),
         seedService = SeedService(config.seeding),
-        resetOnStartup = false
+        resetOnStartup = false,
       ).acquire()
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
     }

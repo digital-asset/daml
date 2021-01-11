@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { gql, QueryFunctionOptions } from '@apollo/client';
@@ -60,7 +60,7 @@ export function makeQueryVariables({config}: TableProps): QueryFunctionOptions {
 }
 
 // Computing row data from raw data
-export function dataToRows(data: QueryControls & TemplatesQuery) {
+export function dataToRows(data: QueryControls & TemplatesQuery): { data : Template[], totalCount: number } {
   if (data.loading || data.error) {
     return { data: [], totalCount: 0 }
   } else {

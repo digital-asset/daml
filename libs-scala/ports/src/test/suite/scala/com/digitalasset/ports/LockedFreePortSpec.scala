@@ -1,11 +1,12 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ports
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class LockedFreePortSpec extends WordSpec with Matchers {
+class LockedFreePortSpec extends AnyWordSpec with Matchers {
   "a free port" should {
     "always be available" in {
       val lockedPort = LockedFreePort.find()

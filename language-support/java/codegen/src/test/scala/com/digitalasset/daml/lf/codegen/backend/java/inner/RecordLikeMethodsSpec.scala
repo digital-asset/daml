@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -9,11 +9,17 @@ import com.daml.lf.data.Ref
 import com.daml.lf.iface.{PrimTypeBool, TypePrim}
 import com.squareup.javapoet._
 import javax.lang.model.element.Modifier
-import org.scalatest.{FlatSpec, Matchers, OptionValues, TryValues}
+import org.scalatest.{OptionValues, TryValues}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 
-final class RecordLikeMethodsSpec extends FlatSpec with Matchers with OptionValues with TryValues {
+final class RecordLikeMethodsSpec
+    extends AnyFlatSpec
+    with Matchers
+    with OptionValues
+    with TryValues {
 
   behavior of "RecordMethods.constructor"
 
@@ -96,10 +102,12 @@ final class RecordLikeMethodsSpec extends FlatSpec with Matchers with OptionValu
   private val methods = RecordMethods(
     getFieldsWithTypes(
       ImmArraySeq(Ref.Name.assertFromString("bool") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)),
-      Map()),
+      Map(),
+    ),
     name,
     IndexedSeq.empty,
-    Map())
+    Map(),
+  )
   private val Vector(constructor, fromValue, toValue) = methods.take(3)
 
 }

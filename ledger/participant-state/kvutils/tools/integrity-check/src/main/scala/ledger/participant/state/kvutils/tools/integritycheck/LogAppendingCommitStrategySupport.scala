@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
@@ -10,17 +10,13 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.Envelope
-import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.bytesAsHexString
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.participant.state.kvutils.tools.integritycheck.IntegrityChecker.rawHexString
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.validator.batch.BatchedSubmissionValidatorFactory
-import com.daml.ledger.validator.{
-  CommitStrategy,
-  DamlLedgerStateReader,
-  StateKeySerializationStrategy
-}
+import com.daml.ledger.validator.reading.DamlLedgerStateReader
+import com.daml.ledger.validator.{CommitStrategy, StateKeySerializationStrategy}
 import com.daml.metrics.Metrics
 
 import scala.concurrent.ExecutionContext
@@ -57,29 +53,30 @@ final class LogAppendingCommitStrategySupport(implicit executionContext: Executi
     new LogAppendingReadServiceFactory(metrics)
 
   override def explainMismatchingValue(
-      logEntryId: Key,
-      expectedValue: Value,
-      actualValue: Value): Option[String] = {
+      logEntryId: Raw.Key,
+      expectedValue: Raw.Value,
+      actualValue: Raw.Value,
+  ): Option[String] = {
     val expectedLogEntry = kvutils.Envelope.openLogEntry(expectedValue)
     val actualLogEntry = kvutils.Envelope.openLogEntry(actualValue)
     Some(
-      s"Log entry ID: ${bytesAsHexString(logEntryId)}${System.lineSeparator()}" +
+      s"Log entry ID: ${rawHexString(logEntryId)}${System.lineSeparator()}" +
         s"Expected: $expectedLogEntry${System.lineSeparator()}Actual: $actualLogEntry"
     )
   }
 
-  override def checkEntryIsReadable(keyBytes: Key, valueBytes: Value): Either[String, Unit] =
-    Envelope.open(valueBytes) match {
+  override def checkEntryIsReadable(rawKey: Raw.Key, rawValue: Raw.Value): Either[String, Unit] =
+    Envelope.open(rawValue) match {
       case Left(errorMessage) =>
         Left(s"Invalid value envelope: $errorMessage")
       case Right(Envelope.LogEntryMessage(logEntry)) =>
-        val _ = DamlLogEntryId.parseFrom(keyBytes)
+        val _ = DamlLogEntryId.parseFrom(rawKey.bytes)
         if (logEntry.getPayloadCase == DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET)
           Left("Log entry payload not set.")
         else
           Right(())
       case Right(Envelope.StateValueMessage(value)) =>
-        val key = stateKeySerializationStrategy.deserializeStateKey(keyBytes)
+        val key = stateKeySerializationStrategy.deserializeStateKey(rawKey)
         if (key.getKeyCase == DamlStateKey.KeyCase.KEY_NOT_SET)
           Left("State key not set.")
         else if (value.getValueCase == DamlStateValue.ValueCase.VALUE_NOT_SET)

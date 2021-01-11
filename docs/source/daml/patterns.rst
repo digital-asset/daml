@@ -1,10 +1,10 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Good design patterns
 ####################
 
-Patterns have been useful in the programming world, as both a source of design inspiration, and a document of good design practices. This document is a catalog of DAML patterns intended to provide the same facility in the DA/DAML application world.
+Patterns have been useful in the programming world, as both a source of design inspiration, and a document of good design practices. This document is a catalog of Daml patterns intended to provide the same facility in the Daml application world.
 
 You can checkout the examples locally via ``daml new daml-patterns --template daml-patterns``.
 
@@ -17,7 +17,7 @@ You can checkout the examples locally via ``daml new daml-patterns --template da
 :doc:`patterns/authorization`
     The Authorization pattern demonstrates how to make sure a controlling party is authorized before they take certain actions.
 :doc:`patterns/locking`
-    The Locking pattern exhibits how to achieve locking safely and efficiently in DAML. Only the specified locking party can lock the asset through an active and authorized action. When a contract is locked, some or all choices specified on that contract may not be exercised.
+    The Locking pattern exhibits how to achieve locking safely and efficiently in Daml. Only the specified locking party can lock the asset through an active and authorized action. When a contract is locked, some or all choices specified on that contract may not be exercised.
 
 .. toctree::
    :hidden:

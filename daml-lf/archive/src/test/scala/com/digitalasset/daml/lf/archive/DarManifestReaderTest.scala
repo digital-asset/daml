@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
@@ -7,11 +7,13 @@ import java.io.{ByteArrayInputStream, InputStream}
 import java.nio.charset.Charset
 
 import com.daml.lf.archive.DarManifestReader.DarManifestReaderException
-import org.scalatest.{Inside, Matchers, WordSpec}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.{Failure, Success}
 
-class DarManifestReaderTest extends WordSpec with Matchers with Inside {
+class DarManifestReaderTest extends AnyWordSpec with Matchers with Inside {
 
   private val unicode = Charset.forName("UTF-8")
 
@@ -28,7 +30,8 @@ class DarManifestReaderTest extends WordSpec with Matchers with Inside {
     val actual = DarManifestReader.dalfNames(inputStream)
 
     actual shouldBe Success(
-      Dar("com.daml.lf.archive:DarReaderTest:0.1.dalf", List("daml-prim.dalf")))
+      Dar("com.daml.lf.archive:DarReaderTest:0.1.dalf", List("daml-prim.dalf"))
+    )
 
     inputStream.close()
   }
@@ -70,9 +73,8 @@ class DarManifestReaderTest extends WordSpec with Matchers with Inside {
     val inputStream: InputStream = new ByteArrayInputStream(manifest.getBytes(unicode))
     val actual = DarManifestReader.dalfNames(inputStream)
 
-    inside(actual) {
-      case Failure(DarManifestReaderException(msg)) =>
-        msg shouldBe "Unsupported format: anything-different-from-daml-lf"
+    inside(actual) { case Failure(DarManifestReaderException(msg)) =>
+      msg shouldBe "Unsupported format: anything-different-from-daml-lf"
     }
 
     inputStream.close()

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -99,10 +99,13 @@ object RunnerConfig {
       .action { (f, c) =>
         c.copy(accessTokenFile = Some(Paths.get(f)))
       }
-      .text("File from which the access token will be read, required to interact with an authenticated ledger")
+      .text(
+        "File from which the access token will be read, required to interact with an authenticated ledger"
+      )
 
     TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
-      c.copy(tlsConfig = f(c.tlsConfig)))
+      c.copy(tlsConfig = f(c.tlsConfig))
+    )
 
     opt[Unit]("json-api")
       .action { (_, c) =>
@@ -114,13 +117,15 @@ object RunnerConfig {
       .action((x, c) => c.copy(maxInboundMessageSize = x))
       .optional()
       .text(
-        s"Optional max inbound message size in bytes. Defaults to $DefaultMaxInboundMessageSize")
+        s"Optional max inbound message size in bytes. Defaults to $DefaultMaxInboundMessageSize"
+      )
 
     opt[String]("application-id")
       .action((x, c) => c.copy(applicationId = Some(ApplicationId(x))))
       .optional()
       .text(
-        s"Application ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_APPLICATION_ID}")
+        s"Application ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_APPLICATION_ID}"
+      )
 
     help("help").text("Print this usage text")
 
@@ -144,7 +149,8 @@ object RunnerConfig {
   ): RunnerConfig = {
     if (config.timeMode.exists(_ != timeMode)) {
       throw new IllegalStateException(
-        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous."
+      )
     }
     config.copy(timeMode = Some(timeMode))
   }
@@ -167,6 +173,6 @@ object RunnerConfig {
         jsonApi = false,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         applicationId = None,
-      )
+      ),
     )
 }

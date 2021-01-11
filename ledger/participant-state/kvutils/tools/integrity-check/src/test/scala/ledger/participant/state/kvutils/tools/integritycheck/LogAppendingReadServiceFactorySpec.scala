@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
@@ -12,15 +12,16 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
-  DamlPartyAllocationEntry
+  DamlPartyAllocationEntry,
 }
-import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.duration.Duration
 
@@ -75,7 +76,6 @@ final class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matche
   private val AnEntryId = "AnEntryId"
   private lazy val aLogEntryId =
     DamlLogEntryId.newBuilder().setEntryId(ByteString.copyFromUtf8(AnEntryId)).build()
-  private lazy val aSerializedLogEntryId = aLogEntryId.toByteString
 
   private lazy val APartyName = "aParty"
   private lazy val AParticipantId = "aParticipant"
@@ -83,7 +83,8 @@ final class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matche
   private lazy val aLogEntry = DamlLogEntry
     .newBuilder()
     .setPartyAllocationEntry(
-      DamlPartyAllocationEntry.newBuilder().setParty(APartyName).setParticipantId(AParticipantId))
+      DamlPartyAllocationEntry.newBuilder().setParty(APartyName).setParticipantId(AParticipantId)
+    )
     .setRecordTime(com.google.protobuf.Timestamp.newBuilder.setSeconds(ATimestampInSeconds))
     .build()
 
@@ -95,5 +96,6 @@ final class LogAppendingReadServiceFactorySpec extends AsyncWordSpec with Matche
     None,
   )
 
+  private lazy val aSerializedLogEntryId = Raw.Key(aLogEntryId.toByteString)
   private lazy val aWrappedLogEntry = Envelope.enclose(aLogEntry)
 }

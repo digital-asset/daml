@@ -1,14 +1,15 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.json
 
 import com.daml.navigator.model
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.{Success, Try}
 
-class ApiCodecVerboseSpec extends WordSpec with Matchers {
+class ApiCodecVerboseSpec extends AnyWordSpec with Matchers {
   import com.daml.navigator.{DamlConstants => C}
 
   /** Serializes the API value to JSON, then parses it back to an API value */

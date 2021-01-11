@@ -1,13 +1,14 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class OffsetBuilderSpec extends WordSpec with Matchers {
+class OffsetBuilderSpec extends AnyWordSpec with Matchers {
 
   "OffsetBuilder" should {
     val zeroBytes = data.Bytes.fromByteArray(Array.fill(16)(0: Byte))
@@ -16,7 +17,8 @@ class OffsetBuilderSpec extends WordSpec with Matchers {
       (
         OffsetBuilder.highestIndex(offset),
         OffsetBuilder.middleIndex(offset),
-        OffsetBuilder.lowestIndex(offset))
+        OffsetBuilder.lowestIndex(offset),
+      )
 
     "set 0 bytes" in {
       OffsetBuilder.fromLong(0).bytes shouldEqual zeroBytes

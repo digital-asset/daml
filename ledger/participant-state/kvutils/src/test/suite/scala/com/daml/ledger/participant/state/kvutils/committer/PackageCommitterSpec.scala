@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -14,14 +14,16 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
-import org.scalatest.{Matchers, ParallelTestExecution, WordSpec}
+import org.scalatest.ParallelTestExecution
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.JavaConverters._
 
-class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecution {
+class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestExecution {
 
   import com.daml.lf.testing.parser.Implicits._
 
@@ -90,7 +92,12 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
 
     // simulate restart of the participant node
     def restart() = this.synchronized {
-      engine = new Engine(EngineConfig.Dev.copy(packageValidation = false))
+      engine = new Engine(
+        EngineConfig(
+          allowedLanguageVersions = LanguageVersion.DevVersions,
+          packageValidation = false,
+        )
+      )
       packageCommitter = new PackageCommitter(engine, metrics, validationMode, preloadingMode)
     }
 
@@ -100,7 +107,8 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
           Some(com.daml.lf.data.Time.Timestamp.now()),
           submission,
           participantId,
-          wrapMap(state))
+          wrapMap(state),
+        )
       if (log2.hasPackageUploadRejectionEntry)
         assert(output1.isEmpty)
       else
@@ -161,7 +169,8 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
 
   private[this] def shouldSucceedWith(
       output: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]),
-      committedPackages: Set[Ref.PackageId]) = {
+      committedPackages: Set[Ref.PackageId],
+  ) = {
     shouldSucceed(output)
     val archives = output._1.getPackageUploadEntry.getArchivesList
     archives.size() shouldBe committedPackages.size
@@ -178,7 +187,8 @@ class PackageCommitterSpec extends WordSpec with Matchers with ParallelTestExecu
         Some(theRecordTime),
         submission1,
         participantId,
-        emptyState)
+        emptyState,
+      )
       shouldSucceed(output)
       output._1.hasRecordTime shouldBe true
       output._1.getRecordTime shouldBe buildTimestamp(theRecordTime)

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -6,14 +6,15 @@ package com.daml.ledger.participant.state.kvutils.committer
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlPartyAllocation,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.Err.MissingInputState
-import com.daml.ledger.participant.state.kvutils.{DamlStateMap, TestHelpers}
+import com.daml.ledger.participant.state.kvutils.committer.CommitContextSpec._
+import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err, TestHelpers}
 import com.daml.lf.data.Time
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class CommitContextSpec extends WordSpec with Matchers {
+class CommitContextSpec extends AnyWordSpec with Matchers {
   "get" should {
     "check output first" in {
       val context = newInstance(inputs = newDamlStateMap(aKey -> anotherValue))
@@ -45,7 +46,8 @@ class CommitContextSpec extends WordSpec with Matchers {
 
     "throw in case key cannot be found" in {
       val context = newInstance()
-      assertThrows[MissingInputState](context.get(aKey))
+      assertThrows[Err.MissingInputState](context.get(aKey))
+      context.getAccessedInputKeys shouldBe Set.empty
     }
   }
 
@@ -59,10 +61,16 @@ class CommitContextSpec extends WordSpec with Matchers {
     }
 
     "record key as accessed even if it is not available in the input" in {
-      val context = newInstance()
+      val context = newInstance(inputs = Map(aKey -> None))
 
       context.read(aKey) shouldBe None
       context.getAccessedInputKeys shouldBe Set(aKey)
+    }
+
+    "throw in case key cannot be found" in {
+      val context = newInstance()
+      assertThrows[Err.MissingInputState](context.read(aKey))
+      context.getAccessedInputKeys shouldBe Set.empty
     }
   }
 
@@ -72,7 +80,7 @@ class CommitContextSpec extends WordSpec with Matchers {
       val expectedKey2 = aKeyWithContractId("a2")
       val expected = Map(
         expectedKey1 -> Some(aValue),
-        expectedKey2 -> None
+        expectedKey2 -> None,
       )
       val inputs = expected ++ Map(aKeyWithContractId("b") -> Some(aValue))
       val context = newInstance(inputs = inputs)
@@ -145,7 +153,9 @@ class CommitContextSpec extends WordSpec with Matchers {
       context.preExecute shouldBe true
     }
   }
+}
 
+object CommitContextSpec {
   private def aKeyWithContractId(id: String): DamlStateKey =
     DamlStateKey.newBuilder.setContractId(id).build
 
@@ -160,7 +170,8 @@ class CommitContextSpec extends WordSpec with Matchers {
 
   private def newInstance(
       recordTime: Option[Time.Timestamp] = Some(Time.Timestamp.now()),
-      inputs: DamlStateMap = Map.empty) =
+      inputs: DamlStateMap = Map.empty,
+  ) =
     CommitContext(inputs, recordTime, TestHelpers.mkParticipantId(1))
 
   private def newDamlStateMap(keyAndValues: (DamlStateKey, DamlStateValue)*): DamlStateMap =

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -14,9 +14,10 @@ import com.daml.lf.speedy.SResult.{SResultFinalValue}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.validation.Validation
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{WordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class TailCallTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
   val pkg: Package =
     p"""
@@ -106,7 +107,8 @@ class TailCallTest extends WordSpec with Matchers with TableDrivenPropertyChecks
     val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
     Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId, pkg)
     data.assertRight(
-      PureCompiledPackages(rawPkgs, Compiler.Config.Default.copy(stacktracing = FullStackTrace)))
+      PureCompiledPackages(rawPkgs, Compiler.Config.Default.copy(stacktracing = FullStackTrace))
+    )
   }
 
   val pkgs = typeAndCompile(pkg)

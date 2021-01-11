@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Installing the SDK
@@ -7,7 +7,7 @@ Installing the SDK
 1. Install the dependencies
 ***************************
 
-The DAML Connect SDK currently runs on Windows, macOS and Linux.
+The Daml Connect SDK currently runs on Windows, macOS and Linux.
 
 You need to install:
 
@@ -22,7 +22,7 @@ You need to install:
 Windows 10
 ==========
 
-Download and run the installer_, which will install DAML and set up your PATH.
+Download and run the installer_, which will install Daml and set up your PATH.
 
 .. _mac-linux-sdk:
 
@@ -43,7 +43,7 @@ Next steps
 **********
 
 - Follow the :doc:`getting started guide </getting-started/index>`.
-- Use ``daml --help`` to see all the commands that the DAML assistant (``daml``) provides.
+- Use ``daml --help`` to see all the commands that the Daml assistant (``daml``) provides.
 - If the ``daml`` command is not available in your terminal after logging out and logging in again, you need to set the ``PATH`` environment variable
   manually. You can find instructions on how to do this :doc:`here <path-variables>`.
 - If you run into any other problems, you can use the :doc:`support page </support/support>` to get in touch with us.

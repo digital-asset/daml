@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // The tests here are identical to the ones in
@@ -106,7 +106,7 @@ const detached = process.platform != "win32";
 
 const npmExeName = process.platform == "win32" ? "npm" : "npm-cli.js";
 
-// Start the DAML and UI processes before the tests begin.
+// Start the Daml and UI processes before the tests begin.
 // To reduce test times, we reuse the same processes between all the tests.
 // This means we need to use a different set of parties and a new browser page for each test.
 beforeAll(async () => {

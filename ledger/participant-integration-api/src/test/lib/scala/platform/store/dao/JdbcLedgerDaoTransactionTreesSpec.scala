@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -17,7 +17,10 @@ import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.TreeEventOps
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest._
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 
+import scala.collection.compat._
 import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoTransactionTreesSpec
@@ -32,7 +35,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (_, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(transactionId = "WRONG", Set(tx.submittingParty.get))
+        .lookupTransactionTreeById(transactionId = "WRONG", tx.actAs.toSet)
     } yield {
       result shouldBe None
     }
@@ -52,29 +55,29 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (offset, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(tx.transactionId, Set(tx.submittingParty.get))
+        .lookupTransactionTreeById(tx.transactionId, tx.actAs.toSet)
     } yield {
-      inside(result.value.transaction) {
-        case Some(transaction) =>
-          val (nodeId, createNode: NodeCreate.WithTxValue[ContractId]) =
-            tx.transaction.nodes.head
-          transaction.commandId shouldBe tx.commandId.get
-          transaction.offset shouldBe ApiOffset.toApiString(offset)
-          transaction.effectiveAt.value.seconds shouldBe tx.ledgerEffectiveTime.getEpochSecond
-          transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
-          transaction.transactionId shouldBe tx.transactionId
-          transaction.workflowId shouldBe tx.workflowId.getOrElse("")
-          val created = transaction.eventsById.values.loneElement.getCreated
-          transaction.rootEventIds.loneElement shouldEqual created.eventId
-          created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
-          created.witnessParties should contain only tx.submittingParty.get
-          created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
-          created.contractKey shouldBe None
-          created.createArguments shouldNot be(None)
-          created.signatories should contain theSameElementsAs createNode.signatories
-          created.observers should contain theSameElementsAs createNode.stakeholders.diff(
-            createNode.signatories)
-          created.templateId shouldNot be(None)
+      inside(result.value.transaction) { case Some(transaction) =>
+        val (nodeId, createNode: NodeCreate[ContractId]) =
+          tx.transaction.nodes.head
+        transaction.commandId shouldBe tx.commandId.get
+        transaction.offset shouldBe ApiOffset.toApiString(offset)
+        transaction.effectiveAt.value.seconds shouldBe tx.ledgerEffectiveTime.getEpochSecond
+        transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
+        transaction.transactionId shouldBe tx.transactionId
+        transaction.workflowId shouldBe tx.workflowId.getOrElse("")
+        val created = transaction.eventsById.values.loneElement.getCreated
+        transaction.rootEventIds.loneElement shouldEqual created.eventId
+        created.eventId shouldBe EventId(tx.transactionId, nodeId).toLedgerString
+        created.witnessParties should contain only (tx.actAs: _*)
+        created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
+        created.contractKey shouldBe None
+        created.createArguments shouldNot be(None)
+        created.signatories should contain theSameElementsAs createNode.signatories
+        created.observers should contain theSameElementsAs createNode.stakeholders.diff(
+          createNode.signatories
+        )
+        created.templateId shouldNot be(None)
       }
     }
   }
@@ -84,30 +87,29 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       (_, create) <- store(singleCreate)
       (offset, exercise) <- store(singleExercise(nonTransient(create).loneElement))
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(exercise.transactionId, Set(exercise.submittingParty.get))
+        .lookupTransactionTreeById(exercise.transactionId, exercise.actAs.toSet)
     } yield {
-      inside(result.value.transaction) {
-        case Some(transaction) =>
-          val (nodeId, exerciseNode: NodeExercises.WithTxValue[NodeId, ContractId]) =
-            exercise.transaction.nodes.head
-          transaction.commandId shouldBe exercise.commandId.get
-          transaction.offset shouldBe ApiOffset.toApiString(offset)
-          transaction.effectiveAt.value.seconds shouldBe exercise.ledgerEffectiveTime.getEpochSecond
-          transaction.effectiveAt.value.nanos shouldBe exercise.ledgerEffectiveTime.getNano
-          transaction.transactionId shouldBe exercise.transactionId
-          transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
-          val exercised = transaction.eventsById.values.loneElement.getExercised
-          transaction.rootEventIds.loneElement shouldEqual exercised.eventId
-          exercised.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
-          exercised.witnessParties should contain only exercise.submittingParty.get
-          exercised.contractId shouldBe exerciseNode.targetCoid.coid
-          exercised.templateId shouldNot be(None)
-          exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
-          exercised.childEventIds shouldBe Seq.empty
-          exercised.choice shouldBe exerciseNode.choiceId
-          exercised.choiceArgument shouldNot be(None)
-          exercised.consuming shouldBe true
-          exercised.exerciseResult shouldNot be(None)
+      inside(result.value.transaction) { case Some(transaction) =>
+        val (nodeId, exerciseNode: NodeExercises[NodeId, ContractId]) =
+          exercise.transaction.nodes.head
+        transaction.commandId shouldBe exercise.commandId.get
+        transaction.offset shouldBe ApiOffset.toApiString(offset)
+        transaction.effectiveAt.value.seconds shouldBe exercise.ledgerEffectiveTime.getEpochSecond
+        transaction.effectiveAt.value.nanos shouldBe exercise.ledgerEffectiveTime.getNano
+        transaction.transactionId shouldBe exercise.transactionId
+        transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
+        val exercised = transaction.eventsById.values.loneElement.getExercised
+        transaction.rootEventIds.loneElement shouldEqual exercised.eventId
+        exercised.eventId shouldBe EventId(transaction.transactionId, nodeId).toLedgerString
+        exercised.witnessParties should contain only (exercise.actAs: _*)
+        exercised.contractId shouldBe exerciseNode.targetCoid.coid
+        exercised.templateId shouldNot be(None)
+        exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
+        exercised.childEventIds shouldBe Seq.empty
+        exercised.choice shouldBe exerciseNode.choiceId
+        exercised.choiceArgument shouldNot be(None)
+        exercised.consuming shouldBe true
+        exercised.exerciseResult shouldNot be(None)
       }
     }
   }
@@ -116,59 +118,64 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (offset, tx) <- store(fullyTransient)
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(tx.transactionId, Set(tx.submittingParty.get))
+        .lookupTransactionTreeById(tx.transactionId, tx.actAs.toSet)
     } yield {
-      inside(result.value.transaction) {
-        case Some(transaction) =>
-          val (createNodeId, createNode) =
-            tx.transaction.nodes.collectFirst {
-              case (nodeId, node: NodeCreate.WithTxValue[ContractId]) =>
-                nodeId -> node
-            }.get
-          val (exerciseNodeId, exerciseNode) =
-            tx.transaction.nodes.collectFirst {
-              case (nodeId, node: NodeExercises.WithTxValue[NodeId, ContractId]) =>
-                nodeId -> node
-            }.get
+      inside(result.value.transaction) { case Some(transaction) =>
+        val (createNodeId, createNode) =
+          tx.transaction.nodes.collectFirst { case (nodeId, node: NodeCreate[ContractId]) =>
+            nodeId -> node
+          }.get
+        val (exerciseNodeId, exerciseNode) =
+          tx.transaction.nodes.collectFirst {
+            case (nodeId, node: NodeExercises[NodeId, ContractId]) =>
+              nodeId -> node
+          }.get
 
-          transaction.commandId shouldBe tx.commandId.get
-          transaction.offset shouldBe ApiOffset.toApiString(offset)
-          transaction.transactionId shouldBe tx.transactionId
-          transaction.workflowId shouldBe tx.workflowId.getOrElse("")
-          transaction.effectiveAt.value.seconds shouldBe tx.ledgerEffectiveTime.getEpochSecond
-          transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
+        transaction.commandId shouldBe tx.commandId.get
+        transaction.offset shouldBe ApiOffset.toApiString(offset)
+        transaction.transactionId shouldBe tx.transactionId
+        transaction.workflowId shouldBe tx.workflowId.getOrElse("")
+        transaction.effectiveAt.value.seconds shouldBe tx.ledgerEffectiveTime.getEpochSecond
+        transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
 
-          transaction.rootEventIds should have size 2
-          transaction.rootEventIds(0) shouldBe EventId(transaction.transactionId, createNodeId).toLedgerString
-          transaction.rootEventIds(1) shouldBe EventId(transaction.transactionId, exerciseNodeId).toLedgerString
+        transaction.rootEventIds should have size 2
+        transaction.rootEventIds(0) shouldBe EventId(
+          transaction.transactionId,
+          createNodeId,
+        ).toLedgerString
+        transaction.rootEventIds(1) shouldBe EventId(
+          transaction.transactionId,
+          exerciseNodeId,
+        ).toLedgerString
 
-          val created = transaction
-            .eventsById(EventId(transaction.transactionId, createNodeId).toLedgerString)
-            .getCreated
-          val exercised = transaction
-            .eventsById(EventId(transaction.transactionId, exerciseNodeId).toLedgerString)
-            .getExercised
+        val created = transaction
+          .eventsById(EventId(transaction.transactionId, createNodeId).toLedgerString)
+          .getCreated
+        val exercised = transaction
+          .eventsById(EventId(transaction.transactionId, exerciseNodeId).toLedgerString)
+          .getExercised
 
-          created.eventId shouldBe EventId(transaction.transactionId, createNodeId).toLedgerString
-          created.witnessParties should contain only tx.submittingParty.get
-          created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
-          created.contractKey shouldBe None
-          created.createArguments shouldNot be(None)
-          created.signatories should contain theSameElementsAs createNode.signatories
-          created.observers should contain theSameElementsAs createNode.stakeholders.diff(
-            createNode.signatories)
-          created.templateId shouldNot be(None)
+        created.eventId shouldBe EventId(transaction.transactionId, createNodeId).toLedgerString
+        created.witnessParties should contain only (tx.actAs: _*)
+        created.agreementText.getOrElse("") shouldBe createNode.coinst.agreementText
+        created.contractKey shouldBe None
+        created.createArguments shouldNot be(None)
+        created.signatories should contain theSameElementsAs createNode.signatories
+        created.observers should contain theSameElementsAs createNode.stakeholders.diff(
+          createNode.signatories
+        )
+        created.templateId shouldNot be(None)
 
-          exercised.eventId shouldBe EventId(transaction.transactionId, exerciseNodeId).toLedgerString
-          exercised.witnessParties should contain only tx.submittingParty.get
-          exercised.contractId shouldBe exerciseNode.targetCoid.coid
-          exercised.templateId shouldNot be(None)
-          exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
-          exercised.childEventIds shouldBe Seq.empty
-          exercised.choice shouldBe exerciseNode.choiceId
-          exercised.choiceArgument shouldNot be(None)
-          exercised.consuming shouldBe true
-          exercised.exerciseResult shouldNot be(None)
+        exercised.eventId shouldBe EventId(transaction.transactionId, exerciseNodeId).toLedgerString
+        exercised.witnessParties should contain only (tx.actAs: _*)
+        exercised.contractId shouldBe exerciseNode.targetCoid.coid
+        exercised.templateId shouldNot be(None)
+        exercised.actingParties should contain theSameElementsAs exerciseNode.actingParties
+        exercised.childEventIds shouldBe Seq.empty
+        exercised.choice shouldBe exerciseNode.choiceId
+        exercised.choiceArgument shouldNot be(None)
+        exercised.consuming shouldBe true
+        exercised.exerciseResult shouldNot be(None)
       }
     }
   }
@@ -177,15 +184,23 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (_, tx) <- store(partiallyVisible)
       result <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(tx.transactionId, Set(alice)) // only two children are visible to Alice
+        .lookupTransactionTreeById(
+          tx.transactionId,
+          Set(alice),
+        ) // only two children are visible to Alice
     } yield {
-      inside(result.value.transaction) {
-        case Some(transaction) =>
-          transaction.eventsById should have size 2
+      inside(result.value.transaction) { case Some(transaction) =>
+        transaction.eventsById should have size 2
 
-          transaction.rootEventIds should have size 2
-          transaction.rootEventIds(0) shouldBe EventId(transaction.transactionId, NodeId(2)).toLedgerString
-          transaction.rootEventIds(1) shouldBe EventId(transaction.transactionId, NodeId(3)).toLedgerString
+        transaction.rootEventIds should have size 2
+        transaction.rootEventIds(0) shouldBe EventId(
+          transaction.transactionId,
+          NodeId(2),
+        ).toLedgerString
+        transaction.rootEventIds(1) shouldBe EventId(
+          transaction.transactionId,
+          NodeId(3),
+        ).toLedgerString
       }
     }
   }
@@ -203,7 +218,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             endInclusive = to,
             requestingParties = Set(alice, bob, charlie),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       comparable(result) should contain theSameElementsInOrderAs comparable(lookups)
     }
@@ -224,7 +240,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             endInclusive = to,
             requestingParties = Set(alice),
             verbose = true,
-          ))
+          )
+      )
       resultForBob <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
@@ -232,7 +249,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             endInclusive = to,
             requestingParties = Set(bob),
             verbose = true,
-          ))
+          )
+      )
       resultForCharlie <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
@@ -240,7 +258,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             endInclusive = to,
             requestingParties = Set(charlie),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       individualLookupForAlice should contain theSameElementsInOrderAs resultForAlice
       individualLookupForBob should contain theSameElementsInOrderAs resultForBob
@@ -266,11 +285,13 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       .sequence(
         transactions.map(tx =>
           ledgerDao.transactionsReader
-            .lookupTransactionTreeById(tx.transactionId, as)))
+            .lookupTransactionTreeById(tx.transactionId, as)
+        )
+      )
       .map(_.flatMap(_.toList.flatMap(_.transaction.toList)))
 
   private def transactionsOf(
-      source: Source[(Offset, GetTransactionTreesResponse), NotUsed],
+      source: Source[(Offset, GetTransactionTreesResponse), NotUsed]
   ): Future[Seq[TransactionTree]] =
     source
       .map(_._2)
@@ -280,6 +301,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
   // Ensure two sequences of transaction trees are comparable:
   // - witnesses do not have to appear in a specific order
   private def comparable(txs: Seq[TransactionTree]): Seq[TransactionTree] =
-    txs.map(tx => tx.copy(eventsById = tx.eventsById.mapValues(_.modifyWitnessParties(_.sorted))))
+    txs.map(tx =>
+      tx.copy(eventsById = tx.eventsById.view.mapValues(_.modifyWitnessParties(_.sorted)).toMap)
+    )
 
 }

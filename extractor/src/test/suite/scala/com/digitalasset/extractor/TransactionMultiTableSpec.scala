@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor
@@ -15,11 +15,13 @@ import com.daml.testing.postgresql.PostgresAroundAll
 import doobie.implicits._
 import io.circe.syntax._
 import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
 class TransactionMultiTableSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Suite
     with PostgresAroundAll
     with SuiteResourceManagementAroundAll
@@ -43,12 +45,12 @@ class TransactionMultiTableSpec
     forAll(getTransactions) { transaction =>
       inside(transaction) {
         case TransactionResult(
-            transaction_id,
-            seq,
-            workflow_id,
-            effective_at,
-            extracted_at,
-            ledger_offset
+              transaction_id,
+              seq,
+              workflow_id,
+              effective_at,
+              extracted_at,
+              ledger_offset,
             ) =>
           transaction_id should not be empty
           seq should be >= 1
@@ -81,17 +83,22 @@ class TransactionMultiTableSpec
     val List(exercise1, exercise2) = getExercises
     val List(
       (archived_by_event_id_offer1, transaction_id_offer1, archived_by_transaction_id_offer1),
-      (archived_by_event_id_offer2, transaction_id_offer2, archived_by_transaction_id_offer2)) =
+      (archived_by_event_id_offer2, transaction_id_offer2, archived_by_transaction_id_offer2),
+    ) =
       getResultList[(Option[String], String, Option[String])](
-        sql"SELECT _archived_by_event_id, _transaction_id, _archived_by_transaction_id FROM template.transactionexample_rightofuseoffer")
+        sql"SELECT _archived_by_event_id, _transaction_id, _archived_by_transaction_id FROM template.transactionexample_rightofuseoffer"
+      )
     val List(
       (
         event_id_accept,
         archived_by_event_id_accept,
         transaction_id_accept,
-        archived_by_transaction_id_accept)) =
+        archived_by_transaction_id_accept,
+      )
+    ) =
       getResultList[(String, Option[String], String, Option[String])](
-        sql"SELECT _event_id, _archived_by_event_id, _transaction_id, _archived_by_transaction_id FROM template.transactionexample_rightofuseagreement")
+        sql"SELECT _event_id, _archived_by_event_id, _transaction_id, _archived_by_transaction_id FROM template.transactionexample_rightofuseagreement"
+      )
 
     // `transaction1` created `contract1` (first offer), then
     transaction_id_offer1 shouldEqual transaction1.transaction_id

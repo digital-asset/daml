@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -35,6 +35,9 @@ da_scala_test_suite(
     name = "scenario-interpreter_tests",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
     deps = [
         ":scenario-interpreter",
@@ -42,7 +45,6 @@ da_scala_test_suite(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -59,6 +61,9 @@ da_scala_benchmark_jmh(
         ":CollectAuthority.dar",
         ":CollectAuthority.dar.pp",
     ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
@@ -69,7 +74,6 @@ da_scala_benchmark_jmh(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

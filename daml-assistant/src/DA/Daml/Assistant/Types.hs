@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -64,6 +64,9 @@ data BuiltinCommand
     | Install InstallOptions
     | Uninstall SdkVersion
     deriving (Eq, Show)
+
+newtype LookForProjectPath = LookForProjectPath
+    { unLookForProjectPath :: Bool }
 
 data Command
     = Builtin BuiltinCommand

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -12,33 +12,49 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
 
   type Elem = Token
 
-  case class Reader[A](l: Seq[A]) extends util.parsing.input.Reader[A] {
-    override def first: A = l.head
+  case class Reader[A](l: Seq[(Position, A)]) extends util.parsing.input.Reader[A] {
+    override def first: A = l.head._2
+
     override def rest: Reader[A] = Reader(l.tail)
-    override def pos: Position = NoPosition
+
+    override def pos: Position = l.headOption.map(_._1).getOrElse(NoPosition)
+
     override def atEnd: Boolean = l.isEmpty
+
     override def toString: String = l.mkString(" ")
   }
 
-  val id: Parser[Ref.Name] = accept("Identifier", Function unlift {
-    case Id(s) => Ref.Name.fromString(s).toOption
-    case _ => None
-  })
+  val id: Parser[Ref.Name] = accept(
+    "Identifier",
+    Function unlift {
+      case Id(s) => Ref.Name.fromString(s).toOption
+      case _ => None
+    },
+  )
   val text: Parser[String] = accept("Text", { case Text(s) => s })
-  val pkgId: Parser[Ref.PackageId] = accept("PackageId", Function unlift {
-    case SimpleString(s) => Ref.PackageId.fromString(s).toOption
-    case _ => None
-  })
+  val pkgId: Parser[Ref.PackageId] = accept(
+    "PackageId",
+    Function unlift {
+      case SimpleString(s) => Ref.PackageId.fromString(s).toOption
+      case _ => None
+    },
+  )
 
-  val pkgName: Parser[Ref.PackageName] = accept("PackageName", Function unlift {
-    case SimpleString(s) => Ref.PackageName.fromString(s).toOption
-    case _ => None
-  })
+  val pkgName: Parser[Ref.PackageName] = accept(
+    "PackageName",
+    Function unlift {
+      case SimpleString(s) => Ref.PackageName.fromString(s).toOption
+      case _ => None
+    },
+  )
 
-  val pkgVersion: Parser[Ref.PackageVersion] = accept("PackageVersion", Function unlift {
-    case SimpleString(s) => Ref.PackageVersion.fromString(s).toOption
-    case _ => None
-  })
+  val pkgVersion: Parser[Ref.PackageVersion] = accept(
+    "PackageVersion",
+    Function unlift {
+      case SimpleString(s) => Ref.PackageVersion.fromString(s).toOption
+      case _ => None
+    },
+  )
 
   val dottedName: Parser[Ref.DottedName] =
     rep1sep(id, `.`) ^^ (s => Ref.DottedName.assertFromSegments(s))
@@ -46,7 +62,7 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
   def parseAll[A](p: Parser[A], s: String): A =
     phrase(p)(Reader(Lexer.lex(s))) match {
       case Success(l, _) => l
-      case e: NoSuccess => throw ParsingError(e.msg)
+      case e: NoSuccess => throw ParsingError(e.msg, e.next.pos)
     }
 
   /* backport ~>! and <~! from parser combinator 1.1.x */

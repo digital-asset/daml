@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 import { ApolloClient } from '@apollo/client';
 import { withApollo } from '@apollo/client/react/hoc'
@@ -22,7 +22,7 @@ export const INITIAL_FETCH_SIZE = 100;
 
 export type State = ContractTableConfig;
 
-export const init = () => ({
+export const init = (): State => ({
   search: '',
   filter: [],
   includeArchived: false,
@@ -52,7 +52,7 @@ interface ReduxProps {
 }
 
 interface ApolloProps {
-  // tslint:disable-next-line:no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: ApolloClient<any>;
 }
 
@@ -94,7 +94,7 @@ class Component extends React.Component<Props, {}> {
         dataProvider={this.dataProvider}
         config={this.props.state}
         hideActionRow={false}
-        columns={this.props.columns || columns}
+        columns={this.props.columns || columns}
         onConfigChange={this.onConfigChange}
         onContractClick={this.onClick}
         rowClassName="ContractTable__row"

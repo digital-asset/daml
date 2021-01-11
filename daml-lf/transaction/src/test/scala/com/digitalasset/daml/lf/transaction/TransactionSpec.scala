@@ -1,30 +1,30 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package transaction
 
-import scala.language.higherKinds
 import com.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.daml.lf.transaction.GenTransaction.{
   AliasedNode,
   DanglingNodeId,
   NotWellFormedError,
-  OrphanedNode
+  OrphanedNode,
 }
-import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, VersionedNode}
+import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.test.ValueGenerators.{danglingRefGenNode, transactionVersionGen}
+import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FreeSpec, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.freespec.AnyFreeSpec
 
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.util.Random
 
-class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropertyChecks {
+class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks {
   import TransactionSpec._
 
   "isWellFormed" - {
@@ -36,14 +36,16 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
     "detects dangling references in children" in {
       val tx = mkTransaction(
         HashMap(NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(2)))),
-        ImmArray(NodeId(1)))
+        ImmArray(NodeId(1)),
+      )
       tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(2), DanglingNodeId))
     }
 
     "detects cycles" in {
       val tx = mkTransaction(
         HashMap(NodeId(1) -> dummyExerciseNode("cid1", ImmArray(NodeId(1)))),
-        ImmArray(NodeId(1)))
+        ImmArray(NodeId(1)),
+      )
       tx.isWellFormed shouldBe Set(NotWellFormedError(NodeId(1), AliasedNode))
     }
 
@@ -79,7 +81,7 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 
       def collectCids(tx: Transaction): Set[V.ContractId] = {
         val cids = Set.newBuilder[V.ContractId]
-        tx.foreach3(_ => (), cids += _, cids ++= _.cids)
+        tx.foreach2(_ => (), cids += _)
         cids.result()
       }
 
@@ -132,42 +134,40 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
    */
 
   "isReplayedBy" - {
-    def genTrans(node: VersionedNode[NodeId, ContractId]) = {
+    def genTrans(node: GenNode[NodeId, ContractId]) = {
       val nid = NodeId(1)
       VersionedTransaction(node.version, HashMap(nid -> node), ImmArray(nid))
     }
 
     def isReplayedBy(
-        n1: VersionedNode[NodeId, ContractId],
-        n2: VersionedNode[NodeId, ContractId],
+        n1: GenNode[NodeId, ContractId],
+        n2: GenNode[NodeId, ContractId],
     ) = Transaction.isReplayedBy(genTrans(n1), genTrans(n2))
 
     // the whole-transaction-relevant parts are handled by equalForest testing
-    type CidVal[F[_, _]] = F[V.ContractId, V.VersionedValue[V.ContractId]]
-    val genEmptyNode: Gen[VersionedNode[Nothing, V.ContractId]] =
+    val genEmptyNode: Gen[GenNode[Nothing, V.ContractId]] =
       for {
         entry <- danglingRefGenNode
         node = entry match {
-          case (_, n: CidVal[Node.LeafOnlyNode]) => n
-          case (_, ne: Node.NodeExercises.WithTxValue[_, V.ContractId]) =>
+          case (_, n: Node.LeafOnlyNode[V.ContractId]) => n
+          case (_, ne: Node.NodeExercises[_, V.ContractId]) =>
             ne.copy(children = ImmArray.empty)
         }
-        version <- transactionVersionGen
-      } yield VersionedNode(version, node)
+      } yield node
 
     "is reflexive" in forAll(genEmptyNode) { n =>
       isReplayedBy(n, n) shouldBe Right(())
     }
 
     "fail if version is different" in {
-      val versions = TransactionVersions.acceptedVersions.toIndexedSeq
+      val versions = TransactionVersion.All
       def diffVersion(v: TransactionVersion) = {
         val randomVersion = versions(Random.nextInt(versions.length - 1))
         if (randomVersion != v) randomVersion else versions.last
       }
       forAll(genEmptyNode, minSuccessful(10)) { n =>
-        val m = n.copy(version = diffVersion(n.version))
-        isReplayedBy(n, m) shouldBe 'left
+        val m = n.updateVersion(diffVersion(n.version))
+        isReplayedBy(n, m) shouldBe Symbol("left")
       }
     }
 
@@ -179,15 +179,14 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 
     "ignores location" in forAll(genEmptyNode) { n =>
       val withoutLocation = {
-        val VersionedNode(version, node) = n
-        val nodeWithoutLocation = node match {
-          case nc: CidVal[Node.NodeCreate] => nc copy (optLocation = None)
-          case nf: Node.NodeFetch.WithTxValue[V.ContractId] => nf copy (optLocation = None)
-          case ne: Node.NodeExercises.WithTxValue[Nothing, V.ContractId] =>
+        val nodeWithoutLocation = n match {
+          case nc: Node.NodeCreate[V.ContractId] => nc copy (optLocation = None)
+          case nf: Node.NodeFetch[V.ContractId] => nf copy (optLocation = None)
+          case ne: Node.NodeExercises[Nothing, V.ContractId] =>
             ne copy (optLocation = None)
-          case nl: CidVal[Node.NodeLookupByKey] => nl copy (optLocation = None)
+          case nl: Node.NodeLookupByKey[V.ContractId] => nl copy (optLocation = None)
         }
-        VersionedNode(version, nodeWithoutLocation)
+        nodeWithoutLocation
       }
       isReplayedBy(withoutLocation, n) shouldBe Right(())
       isReplayedBy(n, withoutLocation) shouldBe Right(())
@@ -229,17 +228,16 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 
       tx1 shouldNot be(tx)
       tx2 shouldBe tx1
-      tx1 shouldBe Right(tx.map3(identity, mapping2, _.map1(mapping2)))
+      tx1 shouldBe Right(tx.map2(identity, mapping2))
 
     }
   }
 }
 
 object TransactionSpec {
-  private[this] type Value = V[V.ContractId]
-  type Transaction = GenTransaction[NodeId, V.ContractId, Value]
+  type Transaction = GenTransaction[NodeId, V.ContractId]
   def mkTransaction(
-      nodes: HashMap[NodeId, GenNode[NodeId, V.ContractId, Value]],
+      nodes: HashMap[NodeId, GenNode[NodeId, V.ContractId]],
       roots: ImmArray[NodeId],
   ): Transaction = GenTransaction(nodes, roots)
 
@@ -247,7 +245,7 @@ object TransactionSpec {
       cid: V.ContractId,
       children: ImmArray[NodeId],
       hasExerciseResult: Boolean = true,
-  ): NodeExercises[NodeId, V.ContractId, Value] =
+  ): NodeExercises[NodeId, V.ContractId] =
     NodeExercises(
       targetCoid = cid,
       templateId = Ref.Identifier(
@@ -265,7 +263,8 @@ object TransactionSpec {
       children = children,
       exerciseResult = if (hasExerciseResult) Some(V.ValueUnit) else None,
       key = None,
-      byKey = false
+      byKey = false,
+      version = TransactionVersion.minVersion,
     )
 
   val dummyCid = V.ContractId.V1.assertBuild(
@@ -273,7 +272,7 @@ object TransactionSpec {
     Bytes.assertFromString("f00d"),
   )
 
-  def dummyCreateNode(cid: String): NodeCreate[V.ContractId, Value] =
+  def dummyCreateNode(cid: String): NodeCreate[V.ContractId] =
     NodeCreate(
       coid = toCid(cid),
       coinst = V.ContractInst(
@@ -288,6 +287,7 @@ object TransactionSpec {
       signatories = Set.empty,
       stakeholders = Set.empty,
       key = None,
+      version = TransactionVersion.minVersion,
     )
 
   implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)

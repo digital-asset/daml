@@ -1,17 +1,17 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.logging
 
 import org.mockito.ArgumentMatchersSugar
-import org.mockito.Mockito.{times, verify, when}
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{FlatSpec, Matchers}
+import org.mockito.MockitoSugar
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.slf4j.event.{EventConstants, Level}
 import org.slf4j.{Logger, Marker}
 
 final class ContextualizedLoggerSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with MockitoSugar
     with ArgumentMatchersSugar {
@@ -37,7 +37,8 @@ final class ContextualizedLoggerSpec
       verify(logger.withoutContext).error(
         toStringEqTo[Marker]("{id=foo}"),
         eqTo("a (context: {id=foo})"),
-        withMessage[IllegalArgumentException]("quux"))
+        withMessage[IllegalArgumentException]("quux"),
+      )
     }
 
   def thisThrows(): String = throw new RuntimeException("failed on purpose")

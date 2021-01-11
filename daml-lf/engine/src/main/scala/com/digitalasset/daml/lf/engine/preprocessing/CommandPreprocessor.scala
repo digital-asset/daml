@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -27,14 +27,16 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     assertRight(
       SignatureLookup.lookupTemplate(
         unsafeGetPackage(templateId.packageId),
-        templateId.qualifiedName
-      ))
+        templateId.qualifiedName,
+      )
+    )
 
   @throws[PreprocessorException]
   private def unsafeGetChoiceArgType(
       tmplId: Ref.Identifier,
       tmpl: Ast.TemplateSignature,
-      choiceId: Ref.ChoiceName) =
+      choiceId: Ref.ChoiceName,
+  ) =
     tmpl.choices.get(choiceId) match {
       case Some(choice) => choice.argBinder._2
       case None =>
@@ -94,7 +96,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     val (arg, argCids) = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
     val (key, keyCids) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
     keyCids.foreach { coid =>
-      fail(s"Unexpected contract id in key: $coid")
+      fail(s"Contract IDs are not supported in contract key of $templateId: $coid")
     }
     speedy.Command.ExerciseByKey(templateId, key, choiceId, arg) -> argCids
   }
@@ -113,7 +115,12 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     val (choiceArg, choiceArgCids) =
       valueTranslator.unsafeTranslateValue(choiceArgType, choiceArgument)
     speedy.Command
-      .CreateAndExercise(templateId, createArg, choiceId, choiceArg) -> (createArgCids | choiceArgCids)
+      .CreateAndExercise(
+        templateId,
+        createArg,
+        choiceId,
+        choiceArg,
+      ) -> (createArgCids | choiceArgCids)
   }
 
   @throws[PreprocessorException]
@@ -125,14 +132,14 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     val ckTtype = unsafeGetContractKeyType(templateId, template)
     val (key, keyCids) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
     keyCids.foreach { coid =>
-      fail(s"Unexpected contract id in key: $coid")
+      fail(s"Contract IDs are not supported in contract keys: $coid")
     }
     speedy.Command.LookupByKey(templateId, key)
   }
 
   @throws[PreprocessorException]
   def unsafePreprocessCommands(
-      cmds: ImmArray[command.Command],
+      cmds: ImmArray[command.Command]
   ): (ImmArray[speedy.Command], Set[Value.ContractId]) = {
 
     var cids = Set.empty[Value.ContractId]
@@ -158,18 +165,22 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
               handleNewCids(unsafePreprocessExercise(templateId, contractId, choiceId, argument))
             case command.ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
               handleNewCids(
-                unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument))
+                unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument)
+              )
             case command.CreateAndExerciseCommand(
-                templateId,
-                createArgument,
-                choiceId,
-                choiceArgument) =>
+                  templateId,
+                  createArgument,
+                  choiceId,
+                  choiceArgument,
+                ) =>
               handleNewCids(
                 unsafePreprocessCreateAndExercise(
                   templateId,
                   createArgument,
                   choiceId,
-                  choiceArgument))
+                  choiceArgument,
+                )
+              )
           }
           go(rest, processed :+ speedyCmd)
         case FrontStack() =>

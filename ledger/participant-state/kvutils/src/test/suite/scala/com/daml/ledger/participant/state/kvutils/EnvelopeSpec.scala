@@ -1,13 +1,14 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
 import com.google.protobuf.ByteString
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class EnvelopeSpec extends WordSpec with Matchers {
+class EnvelopeSpec extends AnyWordSpec with Matchers {
   "envelope" should {
 
     "be able to enclose and open" in {
@@ -30,7 +31,8 @@ class EnvelopeSpec extends WordSpec with Matchers {
         .addSubmissions(
           Proto.DamlSubmissionBatch.CorrelatedSubmission.newBuilder
             .setCorrelationId("anId")
-            .setSubmission(ByteString.copyFromUtf8("a submission")))
+            .setSubmission(ByteString.copyFromUtf8("a submission"))
+        )
         .build
       Envelope.open(Envelope.enclose(submissionBatch)) shouldEqual
         Right(Envelope.SubmissionBatchMessage(submissionBatch))

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -6,9 +6,10 @@ package util
 
 import com.daml.scalatest.FlatSpecCheckLaws
 
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.scalacheck.ScalaCheckBinding._
 import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.apply._
@@ -16,10 +17,10 @@ import scalaz.syntax.semigroup._
 import scalaz.{@@, Equal, Tag}
 
 class ContractStreamStepTest
-    extends FlatSpec
+    extends AnyFlatSpec
     with FlatSpecCheckLaws
     with Matchers
-    with GeneratorDrivenPropertyChecks
+    with ScalaCheckDrivenPropertyChecks
     with TableDrivenPropertyChecks {
 
   import ContractStreamStepTest._, ContractStreamStep._
@@ -33,9 +34,9 @@ class ContractStreamStepTest
   it should "be associative for valid streams" in forAll(validStreamGen) { csses =>
     whenever(csses.size >= 3) {
       forEvery(
-        Table(("a", "b", "c"), csses.sliding(3).map { case Seq(a, b, c) => (a, b, c) }.toSeq: _*)) {
-        case (a, b, c) =>
-          (a |+| (b |+| c)) should ===((a |+| b) |+| c)
+        Table(("a", "b", "c"), csses.sliding(3).map { case Seq(a, b, c) => (a, b, c) }.toSeq: _*)
+      ) { case (a, b, c) =>
+        (a |+| (b |+| c)) should ===((a |+| b) |+| c)
       }
     }
   }
@@ -75,7 +76,8 @@ object ContractStreamStepTest {
   private val validStreamGen: Gen[Seq[CSS]] = for {
     beforeAfter <- Gen.zip(
       Gen.containerOf[Vector, CSS](acsGen),
-      Gen.containerOf[Vector, CSS](txnGen))
+      Gen.containerOf[Vector, CSS](txnGen),
+    )
     (acsSeq, txnSeq) = beforeAfter
     liveBegin <- if (acsSeq.isEmpty) noAcsLBGen else postAcsGen
   } yield (acsSeq :+ liveBegin) ++ txnSeq

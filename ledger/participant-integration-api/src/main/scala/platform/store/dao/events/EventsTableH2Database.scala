@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -33,7 +33,7 @@ object EventsTableH2Database extends EventsTable {
       "node_index" -> "{node_index}",
       "command_id" -> "{command_id}",
       "application_id" -> "{application_id}",
-      "submitter" -> "{submitter}",
+      "submitters" -> "{submitters}",
       "flat_event_witnesses" -> "{flat_event_witnesses}",
       "tree_event_witnesses" -> "{tree_event_witnesses}",
       "create_argument" -> "{create_argument}",
@@ -47,7 +47,7 @@ object EventsTableH2Database extends EventsTable {
       "exercise_argument" -> "{exercise_argument}",
       "exercise_result" -> "{exercise_result}",
       "exercise_actors" -> "{exercise_actors}",
-      "exercise_child_event_ids" -> "{exercise_child_event_ids}"
+      "exercise_child_event_ids" -> "{exercise_child_event_ids}",
     ).unzip
     s"insert into participant_events(${columns.mkString(", ")}) values (${values.mkString(", ")})"
   }
@@ -74,21 +74,20 @@ object EventsTableH2Database extends EventsTable {
         "ledger_effective_time" -> ledgerEffectiveTime,
         "command_id" -> submitterInfo.map(_.commandId),
         "application_id" -> submitterInfo.map(_.applicationId),
-        "submitter" -> submitterInfo.map(_.singleSubmitterOrThrow()),
+        "submitters" -> Party.Array(submitterInfo.map(_.actAs).getOrElse(List.empty): _*),
       )
     for ((nodeId, node) <- events)
-      yield
-        shared ++ event(
-          transactionId,
-          nodeId,
-          stakeholders(nodeId),
-          disclosure(nodeId),
-          node,
-          createArguments.get(nodeId),
-          createKeyValues.get(nodeId),
-          exerciseArguments.get(nodeId),
-          exerciseResults.get(nodeId),
-        )
+      yield shared ++ event(
+        transactionId,
+        nodeId,
+        stakeholders(nodeId),
+        disclosure(nodeId),
+        node,
+        createArguments.get(nodeId),
+        createKeyValues.get(nodeId),
+        exerciseArguments.get(nodeId),
+        exerciseResults.get(nodeId),
+      )
   }
 
   private def event(

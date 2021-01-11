@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.adapter
@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.Done
 import akka.actor.ActorSystem
 
-import scala.collection.breakOut
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -24,7 +23,8 @@ class AkkaExecutionSequencerPool(
 
   private val pool =
     Array.fill(actorCount)(
-      AkkaExecutionSequencer(s"$poolName-${counter.getAndIncrement()}", terminationTimeout))
+      AkkaExecutionSequencer(s"$poolName-${counter.getAndIncrement()}", terminationTimeout)
+    )
 
   override def getExecutionSequencer: ExecutionSequencer =
     pool(counter.getAndIncrement() % actorCount)
@@ -34,7 +34,7 @@ class AkkaExecutionSequencerPool(
 
   def closeAsync(): Future[Unit] = {
     implicit val ec: ExecutionContext = system.dispatcher
-    val eventuallyClosed: Future[Seq[Done]] = Future.sequence(pool.map(_.closeAsync)(breakOut))
+    val eventuallyClosed: Future[Seq[Done]] = Future.sequence(pool.view.map(_.closeAsync).toSeq)
     Future.firstCompletedOf(
       Seq(
         system.whenTerminated.map(_ => ()), //  Cut it short if the ActorSystem stops.
@@ -47,6 +47,7 @@ class AkkaExecutionSequencerPool(
 object AkkaExecutionSequencerPool {
 
   /** Spread 8 actors per virtual core in order to mitigate head of line blocking.
-    * The number 8 was chosen somewhat arbitrarily, but seems to help performance. */
+    * The number 8 was chosen somewhat arbitrarily, but seems to help performance.
+    */
   private val defaultActorCount: Int = Runtime.getRuntime.availableProcessors() * 8
 }

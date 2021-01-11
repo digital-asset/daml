@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.store
@@ -45,13 +45,13 @@ object Store {
       party: PartyState,
       contractId: ApiTypes.ContractId,
       choiceId: ApiTypes.Choice,
-      argument: ApiValue)
+      argument: ApiValue,
+  )
 
   /** Request to respond with a `scala.util.Try[TimeProviderWithType]` with the current store time. */
   case object ReportCurrentTime
 
-  /**
-    * Request to advance time to the specified instant and respond with updated store time as a
+  /** Request to advance time to the specified instant and respond with updated store time as a
     * `scala.util.Try[TimeProviderWithType]`.
     */
   case class AdvanceTime(to: Instant)
@@ -75,7 +75,7 @@ object Store {
       platformHost: String,
       platformPort: Int,
       tls: Boolean,
-      applicationId: String
+      applicationId: String,
   ) extends ApplicationStateInfo
 
   /** Application is still connecting to the ledger */
@@ -86,7 +86,7 @@ object Store {
       applicationId: String,
       ledgerId: String,
       ledgerTime: TimeProviderWithType,
-      partyActors: Map[String, PartyActorResponse]
+      partyActors: Map[String, PartyActorResponse],
   ) extends ApplicationStateInfo
 
   /** Application failed to start up */
@@ -95,7 +95,7 @@ object Store {
       platformPort: Int,
       tls: Boolean,
       applicationId: String,
-      error: Throwable
+      error: Throwable,
   ) extends ApplicationStateInfo
 
   /** Request diagnostic information about a party and respond with a [[PartyActorInfo]]. */
@@ -121,6 +121,6 @@ object Store {
   /** Actor permanently failed */
   final case class PartyActorFailed(
       state: PartyState,
-      error: Throwable
+      error: Throwable,
   ) extends PartyActorInfo
 }

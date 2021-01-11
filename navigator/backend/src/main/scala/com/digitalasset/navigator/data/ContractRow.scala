@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.data
@@ -21,7 +21,7 @@ final case class ContractRow(
     agreementText: Option[String],
     signatories: String,
     observers: String,
-    key: Option[String]
+    key: Option[String],
 ) {
 
   def toContract(types: PackageRegistry): Try[Contract] = {
@@ -30,18 +30,22 @@ final case class ContractRow(
       tid <- Try(parseOpaqueIdentifier(templateId).get)
       template <- Try(types.template(tid).get)
       recArgAny <- Try(
-        ApiCodecCompressed.jsValueToApiValue(argument.parseJson, tid, types.damlLfDefDataType _))
+        ApiCodecCompressed.jsValueToApiValue(argument.parseJson, tid, types.damlLfDefDataType _)
+      )
       recArg <- Try(recArgAny.asInstanceOf[ApiRecord])
       sig <- Try(signatories.parseJson.convertTo[List[ApiTypes.Party]])
       obs <- Try(signatories.parseJson.convertTo[List[ApiTypes.Party]])
       key <- Try(
-        key.map(_.parseJson.convertTo[ApiValue](
-          ApiCodecCompressed.apiValueJsonReader(template.key.get, types.damlLfDefDataType _))))
+        key.map(
+          _.parseJson.convertTo[ApiValue](
+            ApiCodecCompressed.apiValueJsonReader(template.key.get, types.damlLfDefDataType _)
+          )
+        )
+      )
     } yield {
       Contract(id, template, recArg, agreementText, sig, obs, key)
-    }).recoverWith {
-      case e: Throwable =>
-        Failure(DeserializationFailed(s"Failed to deserialize Contract from row: $this. Error: $e"))
+    }).recoverWith { case e: Throwable =>
+      Failure(DeserializationFailed(s"Failed to deserialize Contract from row: $this. Error: $e"))
     }
   }
 }
@@ -57,7 +61,7 @@ object ContractRow {
       c.agreementText,
       c.signatories.toJson.compactPrint,
       c.observers.toJson.compactPrint,
-      c.key.map(_.toJson.compactPrint)
+      c.key.map(_.toJson.compactPrint),
     )
   }
 }

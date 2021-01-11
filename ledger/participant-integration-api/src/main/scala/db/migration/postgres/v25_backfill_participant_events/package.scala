@@ -1,12 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.db.migration.postgres
 
 // Copied here to make it safe against future refactoring
 // in production code
-/**
-  * Type aliases used throughout the package
+/** Type aliases used throughout the package
   */
 package object v25_backfill_participant_events {
 
@@ -16,8 +15,8 @@ package object v25_backfill_participant_events {
   import com.daml.lf.{transaction => lftx}
   private[migration] type NodeId = lftx.NodeId
   private[migration] type Transaction = lftx.Transaction.Transaction
-  private[migration] type Create = lftx.Node.NodeCreate.WithTxValue[ContractId]
-  private[migration] type Exercise = lftx.Node.NodeExercises.WithTxValue[NodeId, ContractId]
+  private[migration] type Create = lftx.Node.NodeCreate[ContractId]
+  private[migration] type Exercise = lftx.Node.NodeExercises[NodeId, ContractId]
 
   import com.daml.lf.{data => lfdata}
   private[migration] type Party = lfdata.Ref.Party

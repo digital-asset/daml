@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.adapter.server.rs
@@ -7,7 +7,7 @@ import com.daml.grpc.adapter.TestExecutionSequencerFactory
 import org.reactivestreams.tck.SubscriberWhiteboxVerification.SubscriberPuppet
 import org.reactivestreams.tck.{SubscriberWhiteboxVerification, TestEnvironment}
 import org.reactivestreams.{Subscriber, Subscription}
-import org.scalatest.testng.TestNGSuiteLike
+import org.scalatestplus.testng.TestNGSuiteLike
 
 // This suite uses Integer instead of Int because if we'd use Int, scala would interpret the `null` element from
 // test required_spec213_onNext_mustThrowNullPointerExceptionWhenParametersAreNull as numerical 0.
@@ -16,17 +16,18 @@ class ServerSubscriberWhiteboxTest
     with TestNGSuiteLike {
 
   override def createSubscriber(
-      probe: SubscriberWhiteboxVerification.WhiteboxSubscriberProbe[Integer])
-    : Subscriber[Integer] = {
+      probe: SubscriberWhiteboxVerification.WhiteboxSubscriberProbe[Integer]
+  ): Subscriber[Integer] = {
     val so = new MockServerCallStreamObserver[Integer]
     val sub = new ServerSubscriber[Integer](
       so,
-      TestExecutionSequencerFactory.instance.getExecutionSequencer) {
+      TestExecutionSequencerFactory.instance.getExecutionSequencer,
+    ) {
       override def onSubscribe(subscription: Subscription): Unit = {
         super.onSubscribe(subscription)
         probe.registerOnSubscribe(new SubscriberPuppet {
           override def triggerRequest(elements: Long): Unit = {
-            for (_ <- 1l to elements) so.demandResponse()
+            for (_ <- 1L to elements) so.demandResponse()
           }
 
           override def signalCancel(): Unit = {

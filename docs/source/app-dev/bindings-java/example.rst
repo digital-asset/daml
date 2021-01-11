@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Example project
@@ -8,7 +8,7 @@ To try out the Java bindings library, use the `examples on GitHub <https://githu
 
 The former example does not use the Reactive Components, and the latter example does. Both examples implement the ``PingPong`` application, which consists of:
 
-- a DAML model with two contract templates, ``Ping`` and ``Pong``
+- a Daml model with two contract templates, ``Ping`` and ``Pong``
 - two parties, ``Alice`` and ``Bob``
 
 The logic of the application goes like this:
@@ -16,7 +16,7 @@ The logic of the application goes like this:
 #. The application injects a contract of type ``Ping`` for ``Alice``.
 #. ``Alice`` sees this contract and exercises the consuming choice ``RespondPong`` to create a contract of type ``Pong`` for ``Bob``.
 #. ``Bob`` sees this contract and exercises the consuming choice ``RespondPing``  to create a contract of type ``Ping`` for ``Alice``.
-#. Points 2 and 3 are repeated until the maximum number of contracts defined in the DAML is reached.
+#. Points 2 and 3 are repeated until the maximum number of contracts defined in the Daml is reached.
 
 Setting up the example projects
 *******************************
@@ -33,7 +33,7 @@ PingPongMain.java
 
 The entry point for the Java code is the main class ``src/main/java/examples/pingpong/grpc/PingPongMain.java``. Look at this class to see:
 
-- how to connect to and interact with a DAML Ledger via the Java bindings
+- how to connect to and interact with a Daml Ledger via the Java bindings
 - how to use the Reactive layer to build an automation for both parties.
 
 At high level, the code does the following steps:

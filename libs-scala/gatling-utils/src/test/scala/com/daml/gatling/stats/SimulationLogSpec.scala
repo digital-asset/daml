@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.gatling.stats
@@ -6,15 +6,17 @@ package com.daml.gatling.stats
 import java.io.File
 
 import org.scalactic.TypeCheckedTripleEquals
+import scalaz.-\/
 import scalaz.Scalaz._
 
 import scala.util.Random
 import com.daml.gatling.stats.util.ReadFileSyntax._
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEquals {
+class SimulationLogSpec extends AnyFlatSpec with Matchers with TypeCheckedTripleEquals {
   import SimulationLog._
 
   behavior of "SimulationLog"
@@ -25,19 +27,19 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
     SimulationLog.fromFile(requiredResource(s"$simulationLog/$fileName.txt"))
 
   it should "fail if file does not exist" in {
-    SimulationLog.fromFile(new File("DOES-NOT-EXIST-OgUzdJsvKHc9TtfNiLXA")) shouldBe 'left
+    SimulationLog.fromFile(new File("DOES-NOT-EXIST-OgUzdJsvKHc9TtfNiLXA")) shouldBe a[-\/[_]]
   }
 
   it should "fail if no RUN entry" in {
-    resultFor("no-run") shouldBe 'left
+    resultFor("no-run") shouldBe a[-\/[_]]
   }
 
   it should "fail if no USER entry" in {
-    resultFor("no-user") shouldBe 'left
+    resultFor("no-user") shouldBe a[-\/[_]]
   }
 
   it should "fail if multiple RUN entries" in {
-    resultFor("multiple-run") shouldBe 'left
+    resultFor("multiple-run") shouldBe a[-\/[_]]
   }
 
   it should "return correct result for minimal log" in {
@@ -46,15 +48,15 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
       requestLabel = "two-steps-sync",
       start = 1587679987299L,
       end = 1587680007510L,
-      successful = true
+      successful = true,
     )
     val expected = SimulationLog(
       simulation = "standardtwostepssimulation",
       scenarios = ScenarioStats(
         "two-steps.standard",
         maxUsers = 1,
-        requestsByType = Map("two-steps-sync" -> RequestTypeStats.fromRequestStats(request :: Nil))
-      ) :: Nil
+        requestsByType = Map("two-steps-sync" -> RequestTypeStats.fromRequestStats(request :: Nil)),
+      ) :: Nil,
     )
 
     resultFor("minimal") should ===(expected.right)
@@ -66,15 +68,15 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
       requestLabel = "two-steps-sync",
       start = 1587679987299L,
       end = 1587680007510L,
-      successful = true
+      successful = true,
     )
     val expected = SimulationLog(
       simulation = "standardtwostepssimulation",
       scenarios = ScenarioStats(
         label = "two-steps.standard",
         maxUsers = 1,
-        requestsByType = Map("two-steps-sync" -> RequestTypeStats.fromRequestStats(request :: Nil))
-      ) :: Nil
+        requestsByType = Map("two-steps-sync" -> RequestTypeStats.fromRequestStats(request :: Nil)),
+      ) :: Nil,
     )
 
     resultFor("missing-error-message") should ===(expected.right)
@@ -89,15 +91,18 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
         requestsByType = Map(
           "sync" -> RequestTypeStats(
             DurationStatistics(Seq(99, 98), Some(1000000000001L), Some(1000000000100L)),
-            mzero[DurationStatistics].copy(start = Some(1000000000001L))),
+            mzero[DurationStatistics].copy(start = Some(1000000000001L)),
+          ),
           "desync" -> RequestTypeStats(
             DurationStatistics(Seq(95), Some(1000000000004L), Some(1000000000100L)),
-            DurationStatistics(Seq(96), Some(1000000000004L), Some(1000000000100L))),
+            DurationStatistics(Seq(96), Some(1000000000004L), Some(1000000000100L)),
+          ),
           "async" -> RequestTypeStats(
             DurationStatistics(Seq(97), Some(1000000000003L), Some(1000000000100L)),
-            mzero[DurationStatistics].copy(start = Some(1000000000003L)))
-        )
-      ) :: Nil
+            mzero[DurationStatistics].copy(start = Some(1000000000003L)),
+          ),
+        ),
+      ) :: Nil,
     )
     resultFor("multiple-requests") should ===(expected.right)
   }
@@ -112,9 +117,9 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
           requestsByType = Map(
             "dummy" -> RequestTypeStats(
               DurationStatistics(Seq(98), Some(3000000000002L), Some(3000000000100L)),
-              mzero[DurationStatistics].copy(start = Some(3000000000002L))
+              mzero[DurationStatistics].copy(start = Some(3000000000002L)),
             )
-          )
+          ),
         ),
         ScenarioStats(
           "second",
@@ -122,13 +127,13 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
           requestsByType = Map(
             "sync" -> RequestTypeStats(
               DurationStatistics(Seq(100, 99), Some(2000000000001L), Some(2000000000101L)),
-              mzero[DurationStatistics].copy(start = Some(2000000000001L))
+              mzero[DurationStatistics].copy(start = Some(2000000000001L)),
             ),
             "nosync" -> RequestTypeStats(
               DurationStatistics(Seq(98), Some(2000000000002L), Some(2000000000100L)),
-              mzero[DurationStatistics].copy(start = Some(2000000000002L))
-            )
-          )
+              mzero[DurationStatistics].copy(start = Some(2000000000002L)),
+            ),
+          ),
         ),
         ScenarioStats(
           "first",
@@ -136,19 +141,19 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
           requestsByType = Map(
             "sync" -> RequestTypeStats(
               DurationStatistics(Seq(99, 98), Some(1000000000001L), Some(1000000000100L)),
-              mzero[DurationStatistics].copy(start = Some(1000000000001L))
+              mzero[DurationStatistics].copy(start = Some(1000000000001L)),
             ),
             "desync" -> RequestTypeStats(
               DurationStatistics(Seq(95), Some(1000000000004L), Some(1000000000100L)),
-              DurationStatistics(Seq(96), Some(1000000000004L), Some(1000000000100L))
+              DurationStatistics(Seq(96), Some(1000000000004L), Some(1000000000100L)),
             ),
             "async" -> RequestTypeStats(
               DurationStatistics(Seq(97), Some(1000000000003L), Some(1000000000100L)),
-              mzero[DurationStatistics].copy(start = Some(1000000000003L))
-            )
-          )
-        )
-      )
+              mzero[DurationStatistics].copy(start = Some(1000000000003L)),
+            ),
+          ),
+        ),
+      ),
     )
     resultFor("multiple-scenarios") should ===(expected.right)
   }
@@ -163,7 +168,8 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
     resultFor("multiple-scenarios")
       .map(_.toCsvString)
       .getOrElse(throw new AssertionError()) should ===(
-      expected.getOrElse(throw new AssertionError()))
+      expected.getOrElse(throw new AssertionError())
+    )
   }
 
   behavior of "DurationStatistics"
@@ -184,7 +190,7 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
     val stats = DurationStatistics(
       start = Some(1000L),
       end = None,
-      durations = Seq()
+      durations = Seq(),
     )
     stats.duration should ===(None)
     stats.requestsPerSecond should ===(None)
@@ -199,7 +205,7 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
     val stats = DurationStatistics(
       start = Some(5000L),
       end = Some(7000L),
-      durations = Seq(2000)
+      durations = Seq(2000),
     )
     stats.duration should ===(Some(2000))
     stats.requestsPerSecond should ===(Some(0.5))
@@ -214,7 +220,7 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
     val stats = DurationStatistics(
       start = Some(1000L),
       end = Some(5000L),
-      durations = Seq(2000, 1000, 3000)
+      durations = Seq(2000, 1000, 3000),
     )
     stats.duration should ===(Some(4000))
     stats.requestsPerSecond should ===(Some(3.0 / 4.0))
@@ -231,7 +237,7 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
     val stats = DurationStatistics(
       start = Some(1000L),
       end = Some(5000L),
-      durations = Seq(2000, 1000, 3000)
+      durations = Seq(2000, 1000, 3000),
     )
     stats.duration should ===(Some(4000))
     stats.requestsPerSecond should ===(Some(3.0 / 4.0))
@@ -254,7 +260,7 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
     val stats = DurationStatistics(
       start = Some(1000),
       end = Some(4000),
-      durations = Seq(3000)
+      durations = Seq(3000),
     )
     stats.stdDev.get should ===(0.0)
     stats.percentile(0.0).get should ===(3000)
@@ -267,7 +273,7 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
     val stats = DurationStatistics(
       start = Some(1000),
       end = Some(4000),
-      durations = Seq(100, 500, 1000, 2000, 3000)
+      durations = Seq(100, 500, 1000, 2000, 3000),
     )
     stats.stdDev.get should ===(1053.38 +- 0.1)
     stats.mean.get should ===(1320.0)
@@ -286,7 +292,7 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
     val stats = DurationStatistics(
       start = Some(1000),
       end = Some(101000),
-      durations = Random.shuffle(0 to 10000)
+      durations = Random.shuffle(0 to 10000),
     )
     stats.stdDev.get should ===(2887.04 +- 0.0001)
     stats.mean.get should ===(10000.0 / 2)
@@ -301,35 +307,39 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
     RequestTypeStats.fromRequestStats(Nil) should ===(
       RequestTypeStats(
         successful = mzero[DurationStatistics],
-        failed = mzero[DurationStatistics]
-      ))
+        failed = mzero[DurationStatistics],
+      )
+    )
   }
 
   it should "compose correct stats for single failed result" in {
     val stats = RequestTypeStats.fromRequestStats(
-      RequestStats(1, "foo", 1000, 2000, successful = false) :: Nil)
+      RequestStats(1, "foo", 1000, 2000, successful = false) :: Nil
+    )
     stats should ===(
       RequestTypeStats(
         successful = mzero[DurationStatistics].copy(start = Some(1000L)),
         failed = DurationStatistics(
           start = Some(1000L),
           end = Some(2000L),
-          durations = Seq(1000)
-        )
-      ))
+          durations = Seq(1000),
+        ),
+      )
+    )
   }
 
   it should "compose correct stats for single successful result" in {
     val stats = RequestTypeStats.fromRequestStats(
-      RequestStats(1, "foo", 5000, 7000, successful = true) :: Nil)
+      RequestStats(1, "foo", 5000, 7000, successful = true) :: Nil
+    )
     stats should ===(
       RequestTypeStats(
         successful = DurationStatistics(
           start = Some(5000L),
           end = Some(7000L),
-          durations = Seq(2000)
+          durations = Seq(2000),
         ),
-        failed = mzero[DurationStatistics].copy(start = Some(5000L))
+        failed = mzero[DurationStatistics].copy(start = Some(5000L)),
       )
     )
   }
@@ -339,7 +349,7 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
       List(
         RequestStats(1, "foo", 2000, 4000, successful = true),
         RequestStats(1, "foo", 1000, 2000, successful = true),
-        RequestStats(1, "foo", 2000, 5000, successful = true)
+        RequestStats(1, "foo", 2000, 5000, successful = true),
       )
     )
     stats should ===(
@@ -347,9 +357,9 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
         successful = DurationStatistics(
           start = Some(1000L),
           end = Some(5000L),
-          durations = Seq(2000, 1000, 3000)
+          durations = Seq(2000, 1000, 3000),
         ),
-        failed = mzero[DurationStatistics].copy(start = Some(1000L))
+        failed = mzero[DurationStatistics].copy(start = Some(1000L)),
       )
     )
   }
@@ -361,7 +371,7 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
         RequestStats(1, "foo", 2000, 4000, successful = true),
         RequestStats(1, "foo", 1500, 2500, successful = true),
         RequestStats(1, "foo", 2000, 5000, successful = true),
-        RequestStats(1, "foo", 9000, 10000, successful = false)
+        RequestStats(1, "foo", 9000, 10000, successful = false),
       )
     )
     stats should ===(
@@ -369,13 +379,13 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
         successful = DurationStatistics(
           start = Some(1000L),
           end = Some(5000L),
-          durations = Seq(2000, 1000, 3000)
+          durations = Seq(2000, 1000, 3000),
         ),
         failed = DurationStatistics(
           start = Some(1000L),
           end = Some(10000L),
-          durations = Seq(3000, 1000)
-        )
+          durations = Seq(3000, 1000),
+        ),
       )
     )
   }
@@ -387,19 +397,24 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
     val stats4 = RequestStats(1, "foo", 5000, 5500, successful = true)
 
     RequestTypeStats.fromRequestStats(Nil) |+| RequestTypeStats.fromRequestStats(Nil) should be(
-      RequestTypeStats.fromRequestStats(Nil))
+      RequestTypeStats.fromRequestStats(Nil)
+    )
 
-    RequestTypeStats.fromRequestStats(Nil) |+| RequestTypeStats.fromRequestStats(stats1 :: Nil) should be(
-      RequestTypeStats.fromRequestStats(stats1 :: Nil))
-
-    RequestTypeStats.fromRequestStats(stats1 :: Nil) |+| RequestTypeStats.fromRequestStats(Nil) should be(
-      RequestTypeStats.fromRequestStats(stats1 :: Nil))
+    RequestTypeStats.fromRequestStats(Nil) |+| RequestTypeStats.fromRequestStats(
+      stats1 :: Nil
+    ) should be(RequestTypeStats.fromRequestStats(stats1 :: Nil))
 
     RequestTypeStats.fromRequestStats(stats1 :: Nil) |+| RequestTypeStats.fromRequestStats(
-      stats2 :: Nil) should be(RequestTypeStats.fromRequestStats(stats1 :: stats2 :: Nil))
+      Nil
+    ) should be(RequestTypeStats.fromRequestStats(stats1 :: Nil))
+
+    RequestTypeStats.fromRequestStats(stats1 :: Nil) |+| RequestTypeStats.fromRequestStats(
+      stats2 :: Nil
+    ) should be(RequestTypeStats.fromRequestStats(stats1 :: stats2 :: Nil))
 
     RequestTypeStats.fromRequestStats(stats3 :: Nil) |+| RequestTypeStats.fromRequestStats(
-      stats2 :: Nil) should be(RequestTypeStats.fromRequestStats(stats3 :: stats2 :: Nil))
+      stats2 :: Nil
+    ) should be(RequestTypeStats.fromRequestStats(stats3 :: stats2 :: Nil))
 
     RequestTypeStats.fromRequestStats(stats1 :: stats2 :: Nil) |+| RequestTypeStats
       .fromRequestStats(stats3 :: stats4 :: Nil) should be {
@@ -412,13 +427,13 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
       DurationStatistics(
         start = Some(1000),
         end = Some(101000),
-        durations = Random.shuffle((1000 until 191000 by 100).toVector)
+        durations = Random.shuffle((1000 until 191000 by 100).toVector),
       ),
       DurationStatistics(
         start = Some(1000),
         end = Some(201000),
-        durations = Random.shuffle((2000 until 2100).toVector)
-      )
+        durations = Random.shuffle((2000 until 2100).toVector),
+      ),
     ).formatted("foobar") should ===(
       """================================================================================
         |---- foobar --------------------------------------------------------------------
@@ -437,7 +452,8 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
         |> 5000 ms < t < 30000 ms                               250 (12.5%)
         |> 30000 ms < t                                        1610 (80.5%)
         |> failed                                               100 (  5%)
-        |================================================================================""".stripMargin)
+        |================================================================================""".stripMargin
+    )
   }
 
   it should "render correctly when not populated" in {
@@ -460,6 +476,7 @@ class SimulationLogSpec extends FlatSpec with Matchers with TypeCheckedTripleEqu
         |> 5000 ms < t < 30000 ms                                 0 (  -%)
         |> 30000 ms < t                                           0 (  -%)
         |> failed                                                 0 (  -%)
-        |================================================================================""".stripMargin)
+        |================================================================================""".stripMargin
+    )
   }
 }

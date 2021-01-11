@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth
@@ -11,7 +11,6 @@ import spray.json._
 import scala.util.Try
 
 /** The JWT token payload used in [[AuthServiceJWT]]
-  *
   *
   * @param ledgerId       If set, the token is only valid for the given ledger ID.
   *                       May also be used to fill in missing ledger ID fields in ledger API requests.
@@ -40,11 +39,10 @@ case class AuthServiceJWTPayload(
     exp: Option[Instant],
     admin: Boolean,
     actAs: List[String],
-    readAs: List[String]
+    readAs: List[String],
 ) {
 
-  /**
-    * If this token is associated with exactly one party, returns that party name.
+  /** If this token is associated with exactly one party, returns that party name.
     * Otherwise, returns None.
     */
   def party: Option[String] = {
@@ -53,8 +51,7 @@ case class AuthServiceJWTPayload(
   }
 }
 
-/**
-  * Codec for writing and reading [[AuthServiceJWTPayload]] to and from JSON.
+/** Codec for writing and reading [[AuthServiceJWTPayload]] to and from JSON.
   *
   * In general:
   * - All custom claims are placed in a namespace field according to the OpenID Connect standard.
@@ -109,7 +106,7 @@ object AuthServiceJWTCodec {
       propApplicationId -> writeOptionalString(v.applicationId),
       propAdmin -> JsBoolean(v.admin),
       propActAs -> writeStringList(v.actAs),
-      propReadAs -> writeStringList(v.readAs)
+      propReadAs -> writeStringList(v.readAs),
     ),
     propExp -> writeOptionalInstant(v.exp),
   )
@@ -147,8 +144,9 @@ object AuthServiceJWTCodec {
         applicationId = readOptionalString(propApplicationId, fields),
         exp = readInstant(propExp, fields),
         admin = readOptionalBoolean(propAdmin, fields).getOrElse(false),
-        actAs = readOptionalStringList(propActAs, fields) ++ readOptionalString(propParty, fields).toList,
-        readAs = readOptionalStringList(propReadAs, fields)
+        actAs =
+          readOptionalStringList(propActAs, fields) ++ readOptionalString(propParty, fields).toList,
+        readAs = readOptionalStringList(propReadAs, fields),
       )
     case JsObject(fields) =>
       // New format: OIDC compliant
@@ -156,9 +154,12 @@ object AuthServiceJWTCodec {
         .getOrElse(
           oidcNamespace,
           deserializationError(
-            s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace missing"))
+            s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace missing"
+          ),
+        )
         .asJsObject(
-          s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace is not an object")
+          s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: namespace is not an object"
+        )
         .fields
       AuthServiceJWTPayload(
         ledgerId = readOptionalString(propLedgerId, customClaims),
@@ -167,11 +168,12 @@ object AuthServiceJWTCodec {
         exp = readInstant(propExp, fields),
         admin = readOptionalBoolean(propAdmin, customClaims).getOrElse(false),
         actAs = readOptionalStringList(propActAs, customClaims),
-        readAs = readOptionalStringList(propReadAs, customClaims)
+        readAs = readOptionalStringList(propReadAs, customClaims),
       )
     case _ =>
       deserializationError(
-        s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object")
+        s"Can't read ${value.prettyPrint} as AuthServiceJWTPayload: value is not an object"
+      )
   }
 
   private[this] def readOptionalString(name: String, fields: Map[String, JsValue]): Option[String] =
@@ -185,7 +187,8 @@ object AuthServiceJWTCodec {
 
   private[this] def readOptionalStringList(
       name: String,
-      fields: Map[String, JsValue]): List[String] = fields.get(name) match {
+      fields: Map[String, JsValue],
+  ): List[String] = fields.get(name) match {
     case None => List.empty
     case Some(JsNull) => List.empty
     case Some(JsArray(values)) =>
@@ -200,7 +203,8 @@ object AuthServiceJWTCodec {
 
   private[this] def readOptionalBoolean(
       name: String,
-      fields: Map[String, JsValue]): Option[Boolean] = fields.get(name) match {
+      fields: Map[String, JsValue],
+  ): Option[Boolean] = fields.get(name) match {
     case None => None
     case Some(JsNull) => None
     case Some(JsBoolean(value)) => Some(value)
@@ -212,7 +216,7 @@ object AuthServiceJWTCodec {
     fields.get(name) match {
       case None => None
       case Some(JsNull) => None
-      case Some(JsNumber(epochSeconds)) => Some(Instant.ofEpochSecond(epochSeconds.longValue()))
+      case Some(JsNumber(epochSeconds)) => Some(Instant.ofEpochSecond(epochSeconds.longValue))
       case Some(value) =>
         deserializationError(s"Can't read ${value.prettyPrint} as epoch seconds for $name")
     }

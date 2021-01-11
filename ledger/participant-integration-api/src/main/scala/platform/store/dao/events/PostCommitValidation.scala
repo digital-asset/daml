@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -8,8 +8,7 @@ import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.{CommittedTransaction, RejectionReason}
 
-/**
-  * Performs post-commit validation on transactions for Sandbox Classic.
+/** Performs post-commit validation on transactions for Sandbox Classic.
   * This is intended exclusively as a temporary replacement for
   * [[com.daml.platform.store.ActiveLedgerState]] and [[com.daml.platform.store.ActiveLedgerStateManager]]
   * so that the old post-commit validation backed by the old participant schema can be
@@ -36,8 +35,7 @@ private[dao] sealed trait PostCommitValidation {
 
 private[dao] object PostCommitValidation {
 
-  /**
-    * Accept unconditionally a transaction.
+  /** Accept unconditionally a transaction.
     *
     * Designed to be used by a ledger integration that
     * already performs post-commit validation.
@@ -74,8 +72,7 @@ private[dao] object PostCommitValidation {
       unallocatedParties.orElse(invalidKeyUsage.orElse(causalMonotonicityViolation))
     }
 
-    /**
-      * Do all exercise, fetch and lookup-by-key nodes
+    /** Do all exercise, fetch and lookup-by-key nodes
       * 1. exist, and
       * 2. refer exclusively to contracts with a ledger effective time smaller than or equal to the transaction's?
       */
@@ -101,26 +98,23 @@ private[dao] object PostCommitValidation {
     ): Option[RejectionReason] =
       maximumLedgerEffectiveTime
         .filter(_.isAfter(transactionLedgerEffectiveTime))
-        .fold(Option.empty[RejectionReason])(
-          contractLedgerEffectiveTime => {
-            Some(
-              CausalMonotonicityViolation(
-                contractLedgerEffectiveTime = contractLedgerEffectiveTime,
-                transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
-              )
+        .fold(Option.empty[RejectionReason])(contractLedgerEffectiveTime => {
+          Some(
+            CausalMonotonicityViolation(
+              contractLedgerEffectiveTime = contractLedgerEffectiveTime,
+              transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
             )
-          }
-        )
+          )
+        })
 
     private def validateParties(
-        transaction: CommittedTransaction,
+        transaction: CommittedTransaction
     )(implicit connection: Connection): Option[RejectionReason] = {
       def foldInformees[T](tx: CommittedTransaction, init: T)(
           f: (T, String) => T
       ): T =
-        tx.fold(init) {
-          case (accum, (_, node)) =>
-            node.informeesOfNode.foldLeft(accum)(f)
+        tx.fold(init) { case (accum, (_, node)) =>
+          node.informeesOfNode.foldLeft(accum)(f)
         }
 
       val informees = foldInformees(transaction, Seq.empty[Party]) { (informeesSoFar, partyId) =>
@@ -152,8 +146,9 @@ private[dao] object PostCommitValidation {
       referred.diff(createdInTransaction)
     }
 
-    private def validateKeyUsages(transaction: CommittedTransaction)(
-        implicit connection: Connection): Option[RejectionReason] =
+    private def validateKeyUsages(
+        transaction: CommittedTransaction
+    )(implicit connection: Connection): Option[RejectionReason] =
       transaction
         .fold[Result](Right(State.empty(data))) {
           case (Right(state), (_, node)) => validateKeyUsages(node, state)
@@ -167,11 +162,11 @@ private[dao] object PostCommitValidation {
     )(implicit connection: Connection): Either[RejectionReason, State] =
       node match {
         case c: Create =>
-          state.validateCreate(c.key.map(convert(c.coinst.template, _)), c.coid)
+          state.validateCreate(c.versionedKey.map(convert(c.versionedCoinst.template, _)), c.coid)
         case l: LookupByKey =>
-          state.validateLookupByKey(convert(l.templateId, l.key), l.result)
+          state.validateLookupByKey(convert(l.templateId, l.versionedKey), l.result)
         case e: Exercise if e.consuming =>
-          state.removeKeyIfDefined(e.key.map(convert(e.templateId, _)))
+          state.removeKeyIfDefined(e.versionedKey.map(convert(e.templateId, _)))
         case _ =>
           // fetch and non-consuming exercise nodes don't need to validate
           // anything with regards to contract keys and do not alter the
@@ -184,8 +179,7 @@ private[dao] object PostCommitValidation {
 
   private type Result = Either[RejectionReason, State]
 
-  /**
-    * Represents the state of an ongoing validation.
+  /** Represents the state of an ongoing validation.
     * It must be carried over as the transaction is
     * validated one node at a time in pre-order
     * traversal for this to make sense.
@@ -200,8 +194,9 @@ private[dao] object PostCommitValidation {
       private val data: PostCommitValidationData,
   ) {
 
-    def validateCreate(maybeKey: Option[Key], id: ContractId)(
-        implicit connection: Connection): Either[RejectionReason, State] =
+    def validateCreate(maybeKey: Option[Key], id: ContractId)(implicit
+        connection: Connection
+    ): Either[RejectionReason, State] =
       maybeKey.fold[Result](Right(this)) { key =>
         lookup(key).fold[Result](Right(add(key, id)))(_ => Left(DuplicateKey))
       }
@@ -210,8 +205,9 @@ private[dao] object PostCommitValidation {
     def removeKeyIfDefined(maybeKey: Option[Key]): Right[RejectionReason, State] =
       Right(maybeKey.fold(this)(remove))
 
-    def validateLookupByKey(key: Key, expectation: Option[ContractId])(
-        implicit connection: Connection): Either[RejectionReason, State] = {
+    def validateLookupByKey(key: Key, expectation: Option[ContractId])(implicit
+        connection: Connection
+    ): Either[RejectionReason, State] = {
       val result = lookup(key)
       if (result == expectation) Right(this)
       else Left(MismatchingLookup(expectation, result))

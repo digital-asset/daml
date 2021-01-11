@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.batch
@@ -11,21 +11,22 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.export.{
   NoOpLedgerDataExporter,
-  SubmissionAggregator
+  SubmissionAggregator,
 }
-import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.validator.ArgumentMatchers.{anyExecutionContext, iterableOf}
 import com.daml.ledger.validator.TestHelper.{aParticipantId, anInvalidEnvelope, makePartySubmission}
-import com.daml.ledger.validator.{CommitStrategy, DamlLedgerStateReader, ValidationFailed}
+import com.daml.ledger.validator.batch.BatchedSubmissionValidatorSpec._
+import com.daml.ledger.validator.reading.DamlLedgerStateReader
+import com.daml.ledger.validator.{CommitStrategy, ValidationFailed}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.metrics.Metrics
-import com.google.protobuf.ByteString
-import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.{any, argThat}
-import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncWordSpec, Inside, Matchers}
+import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar, MockitoSugar}
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
@@ -35,7 +36,8 @@ class BatchedSubmissionValidatorSpec
     with Matchers
     with Inside
     with AkkaBeforeAndAfterAll
-    with MockitoSugar {
+    with MockitoSugar
+    with ArgumentMatchersSugar {
 
   private val engine = Engine.DevEngine()
   private val metrics = new Metrics(new MetricRegistry)
@@ -56,7 +58,7 @@ class BatchedSubmissionValidatorSpec
 
     "return validation failure for invalid envelope" in {
       val validator = newBatchedSubmissionValidator[Unit](
-        BatchedSubmissionValidatorParameters.reasonableDefault,
+        BatchedSubmissionValidatorParameters.reasonableDefault
       )
 
       validator
@@ -66,7 +68,7 @@ class BatchedSubmissionValidatorSpec
           newRecordTime().toInstant,
           aParticipantId,
           mock[DamlLedgerStateReader],
-          mock[CommitStrategy[Unit]]
+          mock[CommitStrategy[Unit]],
         )
         .failed
         .map { result =>
@@ -76,7 +78,7 @@ class BatchedSubmissionValidatorSpec
 
     "return validation failure for invalid message type in envelope" in {
       val validator = newBatchedSubmissionValidator[Unit](
-        BatchedSubmissionValidatorParameters.reasonableDefault,
+        BatchedSubmissionValidatorParameters.reasonableDefault
       )
       val notASubmission = Envelope.enclose(DamlStateValue.getDefaultInstance)
 
@@ -87,7 +89,7 @@ class BatchedSubmissionValidatorSpec
           newRecordTime().toInstant,
           aParticipantId,
           mock[DamlLedgerStateReader],
-          mock[CommitStrategy[Unit]]
+          mock[CommitStrategy[Unit]],
         )
         .failed
         .map { result =>
@@ -97,13 +99,14 @@ class BatchedSubmissionValidatorSpec
 
     "return validation failure for invalid envelope in batch" in {
       val validator = newBatchedSubmissionValidator[Unit](
-        BatchedSubmissionValidatorParameters.reasonableDefault,
+        BatchedSubmissionValidatorParameters.reasonableDefault
       )
       val batchSubmission = DamlSubmissionBatch.newBuilder
         .addSubmissions(
           CorrelatedSubmission.newBuilder
             .setCorrelationId(aCorrelationId)
-            .setSubmission(anInvalidEnvelope))
+            .setSubmission(anInvalidEnvelope.bytes)
+        )
         .build
 
       validator
@@ -113,7 +116,7 @@ class BatchedSubmissionValidatorSpec
           newRecordTime().toInstant,
           aParticipantId,
           mock[DamlLedgerStateReader],
-          mock[CommitStrategy[Unit]]
+          mock[CommitStrategy[Unit]],
         )
         .failed
         .map { result =>
@@ -126,7 +129,7 @@ class BatchedSubmissionValidatorSpec
       val mockCommit = mock[CommitStrategy[Unit]]
       val partySubmission = makePartySubmission("foo")
       // Expect two keys, i.e., to retrieve the party and submission dedup values.
-      when(mockLedgerStateReader.readState(argThat((keys: Seq[DamlStateKey]) => keys.size == 2)))
+      when(mockLedgerStateReader.read(iterableOf(size = 2))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(None, None)))
       val logEntryCaptor = ArgumentCaptor.forClass(classOf[DamlLogEntry])
       val outputStateCaptor = ArgumentCaptor.forClass(classOf[Map[DamlStateKey, DamlStateValue]])
@@ -139,10 +142,11 @@ class BatchedSubmissionValidatorSpec
           any[Map[DamlStateKey, Option[DamlStateValue]]],
           outputStateCaptor.capture(),
           any[Option[SubmissionAggregator.WriteSetBuilder]],
-        ))
+        )
+      )
         .thenReturn(Future.unit)
       val validator = newBatchedSubmissionValidator[Unit](
-        BatchedSubmissionValidatorParameters.reasonableDefault,
+        BatchedSubmissionValidatorParameters.reasonableDefault
       )
 
       validator
@@ -152,7 +156,7 @@ class BatchedSubmissionValidatorSpec
           newRecordTime().toInstant,
           aParticipantId,
           mockLedgerStateReader,
-          mockCommit
+          mockCommit,
         )
         .map { _ =>
           // Verify that the log entry is committed.
@@ -173,7 +177,7 @@ class BatchedSubmissionValidatorSpec
       val (submissions, _, batchSubmissionBytes) = createBatchSubmissionOf(1000)
       val mockLedgerStateReader = mock[DamlLedgerStateReader]
       // Expect two keys, i.e., to retrieve the party and submission dedup values.
-      when(mockLedgerStateReader.readState(argThat((keys: Seq[DamlStateKey]) => keys.size == 2)))
+      when(mockLedgerStateReader.read(iterableOf(size = 2))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(None, None)))
       val logEntryCaptor = ArgumentCaptor.forClass(classOf[DamlLogEntry])
       val outputStateCaptor = ArgumentCaptor.forClass(classOf[Map[DamlStateKey, DamlStateValue]])
@@ -187,7 +191,8 @@ class BatchedSubmissionValidatorSpec
           any[Map[DamlStateKey, Option[DamlStateValue]]],
           outputStateCaptor.capture(),
           any[Option[SubmissionAggregator.WriteSetBuilder]],
-        ))
+        )
+      )
         .thenReturn(Future.unit)
       val validator =
         newBatchedSubmissionValidator[Unit](BatchedSubmissionValidatorParameters.reasonableDefault)
@@ -199,11 +204,12 @@ class BatchedSubmissionValidatorSpec
           newRecordTime().toInstant,
           aParticipantId,
           mockLedgerStateReader,
-          mockCommit
+          mockCommit,
         )
         .map { _ =>
           // We expected two state fetches and two commits.
-          verify(mockLedgerStateReader, times(1000)).readState(any[Seq[DamlStateKey]]())
+          verify(mockLedgerStateReader, times(1000))
+            .read(any[Seq[DamlStateKey]])(anyExecutionContext)
           verify(mockCommit, times(1000)).commit(
             any[ParticipantId],
             any[String],
@@ -216,7 +222,8 @@ class BatchedSubmissionValidatorSpec
           // Verify that the log entries have been committed in the right order.
           val logEntries = logEntryCaptor.getAllValues.asScala.map(_.asInstanceOf[DamlLogEntry])
           logEntries.map(_.getPartyAllocationEntry) should be(
-            submissions.map(_.getPartyAllocationEntry))
+            submissions.map(_.getPartyAllocationEntry)
+          )
           // Verify that output state contains all the expected values.
           val outputState = outputStateCaptor.getAllValues.asScala
             .map(_.asInstanceOf[Map[DamlStateKey, DamlStateValue]])
@@ -232,14 +239,17 @@ class BatchedSubmissionValidatorSpec
         .addSubmissions(
           CorrelatedSubmission.newBuilder
             .setCorrelationId(aCorrelationId)
-            .setSubmission(Envelope.enclose(submission)))
-        .addSubmissions(CorrelatedSubmission.newBuilder
-          .setCorrelationId("anotherCorrelationId")
-          .setSubmission(Envelope.enclose(submission)))
+            .setSubmission(Envelope.enclose(submission).bytes)
+        )
+        .addSubmissions(
+          CorrelatedSubmission.newBuilder
+            .setCorrelationId("anotherCorrelationId")
+            .setSubmission(Envelope.enclose(submission).bytes)
+        )
         .build()
       val mockLedgerStateReader = mock[DamlLedgerStateReader]
       // Expect two keys, i.e., to retrieve the party and submission dedup values.
-      when(mockLedgerStateReader.readState(argThat((keys: Seq[DamlStateKey]) => keys.size == 2)))
+      when(mockLedgerStateReader.read(iterableOf(size = 2))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(None, None)))
       val mockCommit = mock[CommitStrategy[Unit]]
       when(
@@ -251,10 +261,11 @@ class BatchedSubmissionValidatorSpec
           any[Map[DamlStateKey, Option[DamlStateValue]]],
           any[Map[DamlStateKey, DamlStateValue]],
           any[Option[SubmissionAggregator.WriteSetBuilder]],
-        ))
+        )
+      )
         .thenReturn(Future.unit)
       val validator = newBatchedSubmissionValidator[Unit](
-        BatchedSubmissionValidatorParameters.reasonableDefault,
+        BatchedSubmissionValidatorParameters.reasonableDefault
       )
 
       validator
@@ -264,7 +275,7 @@ class BatchedSubmissionValidatorSpec
           newRecordTime().toInstant,
           aParticipantId,
           mockLedgerStateReader,
-          mockCommit
+          mockCommit,
         )
         .map { _ =>
           // We must have 1 commit only (for the first submission).
@@ -287,7 +298,7 @@ class BatchedSubmissionValidatorSpec
       val (submissions, batchSubmission, batchSubmissionBytes) = createBatchSubmissionOf(2)
       val mockLedgerStateReader = mock[DamlLedgerStateReader]
       // Expect two keys, i.e., to retrieve the party and submission dedup values.
-      when(mockLedgerStateReader.readState(argThat((keys: Seq[DamlStateKey]) => keys.size == 2)))
+      when(mockLedgerStateReader.read(iterableOf(size = 2))(anyExecutionContext))
         .thenReturn(Future.successful(Seq(None, None)))
       val mockCommit = mock[CommitStrategy[Unit]]
       when(
@@ -299,7 +310,8 @@ class BatchedSubmissionValidatorSpec
           any[Map[DamlStateKey, Option[DamlStateValue]]],
           any[Map[DamlStateKey, DamlStateValue]],
           any[Option[SubmissionAggregator.WriteSetBuilder]],
-        ))
+        )
+      )
         .thenReturn(Future.unit)
       val validator = newBatchedSubmissionValidator[Unit](
         BatchedSubmissionValidatorParameters.reasonableDefault,
@@ -313,7 +325,7 @@ class BatchedSubmissionValidatorSpec
           newRecordTime().toInstant,
           aParticipantId,
           mockLedgerStateReader,
-          mockCommit
+          mockCommit,
         )
         .map { _ =>
           validatorMetrics.batchSizes.getSnapshot.getValues should equal(Array(2))
@@ -326,28 +338,31 @@ class BatchedSubmissionValidatorSpec
         }
     }
   }
+}
+
+object BatchedSubmissionValidatorSpec {
 
   type DamlInputState = Map[DamlStateKey, Option[DamlStateValue]]
   type DamlOutputState = Map[DamlStateKey, DamlStateValue]
 
+  private lazy val aCorrelationId: String = "aCorrelationId"
+
   private def newRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
-  private lazy val aCorrelationId: String = "aCorrelationId"
-
   private def createBatchSubmissionOf(
-      nSubmissions: Int): (Seq[DamlSubmission], DamlSubmissionBatch, ByteString) = {
+      nSubmissions: Int
+  ): (Seq[DamlSubmission], DamlSubmissionBatch, Raw.Value) = {
     val submissions = (1 to nSubmissions).map { n =>
       makePartySubmission(s"party-$n")
     }
     val batchBuilder =
       DamlSubmissionBatch.newBuilder
-    submissions.zipWithIndex.foreach {
-      case (submission, index) =>
-        batchBuilder
-          .addSubmissionsBuilder()
-          .setCorrelationId(s"test-correlationId-$index")
-          .setSubmission(Envelope.enclose(submission))
+    submissions.zipWithIndex.foreach { case (submission, index) =>
+      batchBuilder
+        .addSubmissionsBuilder()
+        .setCorrelationId(s"test-correlationId-$index")
+        .setSubmission(Envelope.enclose(submission).bytes)
     }
     val batchSubmission = batchBuilder.build
     (submissions, batchSubmission, Envelope.enclose(batchSubmission))

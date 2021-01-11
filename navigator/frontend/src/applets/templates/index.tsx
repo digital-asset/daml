@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { ApolloClient } from '@apollo/client';
@@ -30,7 +30,7 @@ export const INITIAL_FETCH_SIZE = 100;
 
 export type State = TableConfig;
 
-export const init = () => ({
+export const init = (): State => ({
   search: '',
   filter: [],
   count: INITIAL_FETCH_SIZE,
@@ -64,7 +64,7 @@ interface ReduxProps {
 }
 
 interface ApolloProps {
-  // tslint:disable-next-line: no-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client: ApolloClient<any>;
 }
 

@@ -1,21 +1,23 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.config
 
 import com.daml.extractor.config.Generators._
 import com.daml.extractor.targets.Target
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Inside, Matchers}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.Inside
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.OneAnd
 import scalaz.Scalaz._
 import scalaz.scalacheck.ScalazArbitrary._
 
 class ConfigParserSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with Matchers
     with Inside
-    with GeneratorDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks {
 
   behavior of ConfigParser.getClass.getSimpleName
 
@@ -24,9 +26,8 @@ class ConfigParserSpec
   it should "parse template configuration" in forAll {
     templateConfigs: OneAnd[List, TemplateConfig] =>
       val args = requiredArgs ++ Vector("--templates", templateConfigUserInput(templateConfigs))
-      inside(ConfigParser.parse(args)) {
-        case Some((config, _)) =>
-          config.templateConfigs should ===(templateConfigs.toSet)
+      inside(ConfigParser.parse(args)) { case Some((config, _)) =>
+        config.templateConfigs should ===(templateConfigs.toSet)
       }
   }
 
@@ -36,7 +37,8 @@ class ConfigParserSpec
 
       val args = requiredArgs ++ Vector(
         "--templates",
-        templateConfigUserInput(duplicate :: templateConfigs.toList))
+        templateConfigUserInput(duplicate :: templateConfigs.toList),
+      )
 
       // scopt prints errors into STD Error stream
       val capturedStdErr = new java.io.ByteArrayOutputStream()

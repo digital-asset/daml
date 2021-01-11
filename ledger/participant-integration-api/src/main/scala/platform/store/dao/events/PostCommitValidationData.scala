@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -14,8 +14,9 @@ private[events] trait PostCommitValidationData {
 
   def lookupContractKeyGlobally(key: Key)(implicit connection: Connection): Option[ContractId]
 
-  def lookupMaximumLedgerTime(ids: Set[ContractId])(
-      implicit connection: Connection): Try[Option[Instant]]
+  def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
+      connection: Connection
+  ): Try[Option[Instant]]
 
   def lookupParties(parties: Seq[Party])(implicit connection: Connection): List[PartyDetails]
 }

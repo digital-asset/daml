@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.quickstart.iou
 
@@ -51,15 +51,17 @@ class ClientUtil(
     commandClient.submitSingleCommand(SubmitRequest(Some(commands), None))
   }
 
-  def nextTransaction(party: String, offset: LedgerOffset)(
-      implicit mat: Materializer): Future[Transaction] =
+  def nextTransaction(party: String, offset: LedgerOffset)(implicit
+      mat: Materializer
+  ): Future[Transaction] =
     transactionClient
       .getTransactions(offset, None, transactionFilter(party))
       .take(1L)
       .runWith(Sink.head)
 
-  def subscribe(party: String, offset: LedgerOffset, max: Option[Long])(f: Transaction => Unit)(
-      implicit mat: Materializer): Future[Done] = {
+  def subscribe(party: String, offset: LedgerOffset, max: Option[Long])(
+      f: Transaction => Unit
+  )(implicit mat: Materializer): Future[Done] = {
     val source: Source[Transaction, NotUsed] =
       transactionClient.getTransactions(offset, None, transactionFilter(party))
     max.fold(source)(n => source.take(n)) runForeach f

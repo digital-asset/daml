@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.util.akkastreams
@@ -10,11 +10,16 @@ import com.codahale.metrics.Counter
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Minute, Span}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.duration._
 
-class MaxInFlightTest extends WordSpec with Matchers with AkkaBeforeAndAfterAll with ScalaFutures {
+class MaxInFlightTest
+    extends AnyWordSpec
+    with Matchers
+    with AkkaBeforeAndAfterAll
+    with ScalaFutures {
 
   "MaxInFlight" should {
 
@@ -69,13 +74,16 @@ class MaxInFlightTest extends WordSpec with Matchers with AkkaBeforeAndAfterAll 
             }
 
             override def onUpstreamFinish(): Unit = ()
-          }
+          },
         )
 
-        setHandler(out, new OutHandler {
-          // Initial handler is noop, we keep accumulating elements until the handler is replaced.
-          override def onPull(): Unit = ()
-        })
+        setHandler(
+          out,
+          new OutHandler {
+            // Initial handler is noop, we keep accumulating elements until the handler is replaced.
+            override def onPull(): Unit = ()
+          },
+        )
 
         private def flush() = {
           accumulator match {
@@ -96,12 +104,15 @@ class MaxInFlightTest extends WordSpec with Matchers with AkkaBeforeAndAfterAll 
         override protected def onTimer(timerKey: Any): Unit = {
           timerKey match {
             case `replaceHandlerTimerKey` =>
-              setHandler(out, new OutHandler {
-                override def onPull(): Unit = {
-                  flush()
-                  if (isClosed(in)) completeStage()
-                }
-              })
+              setHandler(
+                out,
+                new OutHandler {
+                  override def onPull(): Unit = {
+                    flush()
+                    if (isClosed(in)) completeStage()
+                  }
+                },
+              )
               if (isAvailable(out)) flush()
             case `scheduledFlushTimerKey` =>
               flush()

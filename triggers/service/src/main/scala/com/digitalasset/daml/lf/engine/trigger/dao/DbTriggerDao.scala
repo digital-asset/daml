@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger.dao
@@ -23,7 +23,7 @@ import doobie.{Fragment, Put, Transactor}
 import scalaz.Tag
 import java.io.{Closeable, IOException}
 
-import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
+import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import javax.sql.DataSource
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,9 +35,10 @@ object Connection {
 
   private[dao] type T = Transactor.Aux[IO, _ <: DataSource with Closeable]
 
-  private[dao] def connect(c: JdbcConfig, poolSize: PoolSize)(
-      implicit ec: ExecutionContext,
-      cs: ContextShift[IO]): (DataSource with Closeable, T) = {
+  private[dao] def connect(c: JdbcConfig, poolSize: PoolSize)(implicit
+      ec: ExecutionContext,
+      cs: ContextShift[IO],
+  ): (DataSource with Closeable, T) = {
     val ds = dataSource(c, poolSize)
     (
       ds,
@@ -45,9 +46,9 @@ object Connection {
         .fromDataSource[IO](
           ds,
           connectEC = ec,
-          blocker = Blocker liftExecutorService newWorkStealingPool(poolSize))(
-          IO.ioConcurrentEffect(cs),
-          cs))
+          blocker = Blocker liftExecutorService newWorkStealingPool(poolSize),
+        )(IO.ioConcurrentEffect(cs), cs),
+    )
   }
 
   type PoolSize = Int
@@ -130,7 +131,8 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
   private def setRunningTriggerToken(
       triggerInstance: UUID,
       accessToken: AccessToken,
-      refreshToken: Option[RefreshToken]) = {
+      refreshToken: Option[RefreshToken],
+  ) = {
     val update: Fragment =
       sql"""
         update running_triggers
@@ -161,7 +163,8 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
   // We specify this in the `insert` since `packageId` is the primary key on the table.
   private def insertPackage(
       packageId: PackageId,
-      pkg: DamlLf.ArchivePayload): ConnectionIO[Unit] = {
+      pkg: DamlLf.ArchivePayload,
+  ): ConnectionIO[Unit] = {
     val insert: Fragment = sql"""
       insert into dalfs values (${packageId.toString}, ${pkg.toByteArray}) on conflict do nothing
     """
@@ -175,7 +178,8 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   private def parsePackage(
       pkgIdString: String,
-      pkgPayload: Array[Byte]): Either[String, (PackageId, DamlLf.ArchivePayload)] =
+      pkgPayload: Array[Byte],
+  ): Either[String, (PackageId, DamlLf.ArchivePayload)] =
     for {
       pkgId <- PackageId.fromString(pkgIdString)
       cos = Reader.damlLfCodedInputStreamFromBytes(pkgPayload)
@@ -209,40 +213,46 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
   final class DatabaseError(errorContext: String, e: Throwable)
       extends RuntimeException(errorContext + "\n" + e.toString)
 
-  private def run[T](query: ConnectionIO[T], errorContext: String = "")(
-      implicit ec: ExecutionContext): Future[T] = {
-    query.transact(xa).unsafeToFuture.recoverWith {
-      case NonFatal(e) => Future.failed(new DatabaseError(errorContext, e))
+  private def run[T](query: ConnectionIO[T], errorContext: String = "")(implicit
+      ec: ExecutionContext
+  ): Future[T] = {
+    query.transact(xa).unsafeToFuture.recoverWith { case NonFatal(e) =>
+      Future.failed(new DatabaseError(errorContext, e))
     }
   }
 
   override def addRunningTrigger(t: RunningTrigger)(implicit ec: ExecutionContext): Future[Unit] =
     run(insertRunningTrigger(t))
 
-  override def getRunningTrigger(triggerInstance: UUID)(
-      implicit ec: ExecutionContext): Future[Option[RunningTrigger]] =
+  override def getRunningTrigger(triggerInstance: UUID)(implicit
+      ec: ExecutionContext
+  ): Future[Option[RunningTrigger]] =
     run(queryRunningTrigger(triggerInstance))
 
   override def updateRunningTriggerToken(
       triggerInstance: UUID,
       accessToken: AccessToken,
-      refreshToken: Option[RefreshToken])(implicit ec: ExecutionContext): Future[Unit] =
+      refreshToken: Option[RefreshToken],
+  )(implicit ec: ExecutionContext): Future[Unit] =
     run(setRunningTriggerToken(triggerInstance, accessToken, refreshToken))
 
-  override def removeRunningTrigger(triggerInstance: UUID)(
-      implicit ec: ExecutionContext): Future[Boolean] =
+  override def removeRunningTrigger(triggerInstance: UUID)(implicit
+      ec: ExecutionContext
+  ): Future[Boolean] =
     run(deleteRunningTrigger(triggerInstance))
 
-  override def listRunningTriggers(party: Party)(
-      implicit ec: ExecutionContext): Future[Vector[UUID]] = {
+  override def listRunningTriggers(
+      party: Party
+  )(implicit ec: ExecutionContext): Future[Vector[UUID]] = {
     // Note(RJR): Postgres' ordering of UUIDs is different to Scala/Java's.
     // We sort them after the query to be consistent with the ordering when not using a database.
     run(selectRunningTriggers(party)).map(_.sorted)
   }
 
   // Write packages to the `dalfs` table so we can recover state after a shutdown.
-  override def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)])(
-      implicit ec: ExecutionContext): Future[Unit] = {
+  override def persistPackages(
+      dar: Dar[(PackageId, DamlLf.ArchivePayload)]
+  )(implicit ec: ExecutionContext): Future[Unit] = {
     import cats.implicits._ // needed for traverse
     val insertAll = dar.all.traverse_((insertPackage _).tupled)
     run(insertAll)
@@ -250,14 +260,14 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   class InvalidPackage(s: String) extends RuntimeException(s"Invalid package: $s")
 
-  def readPackages(
-      implicit ec: ExecutionContext): Future[List[(PackageId, DamlLf.ArchivePayload)]] = {
+  def readPackages(implicit
+      ec: ExecutionContext
+  ): Future[List[(PackageId, DamlLf.ArchivePayload)]] = {
     import cats.implicits._ // needed for traverse
     run(selectPackages, "Failed to read packages from database").flatMap(
-      _.traverse {
-        case (pkgId, pkg) =>
-          parsePackage(pkgId, pkg)
-            .fold(err => Future.failed(new InvalidPackage(err)), Future.successful(_))
+      _.traverse { case (pkgId, pkg) =>
+        parsePackage(pkgId, pkg)
+          .fold(err => Future.failed(new InvalidPackage(err)), Future.successful(_))
       }
     )
   }
@@ -285,8 +295,9 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 object DbTriggerDao {
   import Connection.PoolSize, PoolSize.Production
 
-  def apply(c: JdbcConfig, poolSize: PoolSize = Production)(
-      implicit ec: ExecutionContext): DbTriggerDao = {
+  def apply(c: JdbcConfig, poolSize: PoolSize = Production)(implicit
+      ec: ExecutionContext
+  ): DbTriggerDao = {
     implicit val cs: ContextShift[IO] = IO.contextShift(ec)
     val (ds, conn) = Connection.connect(c, poolSize)
     new DbTriggerDao(ds, conn)

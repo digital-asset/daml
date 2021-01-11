@@ -1,12 +1,13 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.caching
 
 import com.daml.ledger.validator.TestHelper
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class AlwaysCacheUpdatePolicySpec extends WordSpec with Matchers {
+class AlwaysCacheUpdatePolicySpec extends AnyWordSpec with Matchers {
   private val policy = AlwaysCacheUpdatePolicy
 
   "cache update policy" should {

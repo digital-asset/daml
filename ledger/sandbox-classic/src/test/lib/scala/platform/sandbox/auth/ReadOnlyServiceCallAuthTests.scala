@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -9,8 +9,7 @@ import scala.concurrent.Future
 
 trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
 
-  /**
-    * Allows to override what is regarded as a successful response, e.g. lookup queries for
+  /** Allows to override what is regarded as a successful response, e.g. lookup queries for
     * commands can return a NOT_FOUND, which is fine because the result is not PERMISSION_DENIED
     */
   def successfulBehavior: Future[Any] => Future[Assertion] = expectSuccess(_: Future[Any])

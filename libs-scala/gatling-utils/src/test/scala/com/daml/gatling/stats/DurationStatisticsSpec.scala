@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.gatling.stats
@@ -6,17 +6,16 @@ package com.daml.gatling.stats
 import com.daml.scalatest.FlatSpecCheckLaws
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalactic.TypeCheckedTripleEquals
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import scalaz.Equal
 import scalaz.scalacheck.ScalazProperties
 
 class DurationStatisticsSpec
-    extends FlatSpec
+    extends AnyFlatSpec
     with FlatSpecCheckLaws
     with Matchers
-    with TypeCheckedTripleEquals
-    with GeneratorDrivenPropertyChecks {
+    with TypeCheckedTripleEquals {
 
   import SimulationLog.DurationStatistics
   import DurationStatisticsSpec._

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
@@ -17,7 +17,7 @@ export interface Contract {
   template: {
     choices: Choice[];
   }
-  archiveEvent: { id: string } | null;
+  archiveEvent: { id: string } | null;
 }
 
 const List = styled.ul`
@@ -96,7 +96,7 @@ export default class ChoicesButton extends React.Component<Props, State> {
     };
   }
 
-  render() {
+  render(): JSX.Element {
     const target = (
       <Button
         type={'minimal'}

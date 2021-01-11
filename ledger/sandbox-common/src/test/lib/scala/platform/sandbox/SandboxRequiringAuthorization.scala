@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox
@@ -12,7 +12,7 @@ import com.daml.ledger.api.auth.{
   AuthService,
   AuthServiceJWT,
   AuthServiceJWTCodec,
-  AuthServiceJWTPayload
+  AuthServiceJWTPayload,
 }
 import com.daml.ledger.api.domain.LedgerId
 import org.scalatest.Suite
@@ -50,6 +50,9 @@ trait SandboxRequiringAuthorization {
 
   protected def readWriteToken(party: String): AuthServiceJWTPayload =
     emptyToken.copy(actAs = List(party))
+
+  protected def multiPartyToken(actAs: List[String], readAs: List[String]): AuthServiceJWTPayload =
+    emptyToken.copy(actAs = actAs, readAs = readAs)
 
   protected def expiringIn(t: Duration, p: AuthServiceJWTPayload): AuthServiceJWTPayload =
     p.copy(exp = Option(Instant.now().plusNanos(t.toNanos)))

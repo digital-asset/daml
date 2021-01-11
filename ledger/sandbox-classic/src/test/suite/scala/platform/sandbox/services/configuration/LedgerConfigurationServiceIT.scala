@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.configuration
@@ -7,15 +7,16 @@ import com.daml.ledger.api.testing.utils.{SuiteResourceManagement, SuiteResource
 import com.daml.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   LedgerConfiguration,
-  LedgerConfigurationServiceGrpc
+  LedgerConfigurationServiceGrpc,
 }
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.google.protobuf.duration.Duration
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scalaz.syntax.tag._
 
-sealed trait LedgerConfigurationServiceITBase extends WordSpec with Matchers {
+sealed trait LedgerConfigurationServiceITBase extends AnyWordSpec with Matchers {
   self: SandboxFixture with SuiteResourceManagement =>
 
   "LedgerConfigurationService" when {
@@ -29,7 +30,8 @@ sealed trait LedgerConfigurationServiceITBase extends WordSpec with Matchers {
             .getLedgerConfiguration
 
         maxDeduplicationTime shouldEqual toProto(
-          config.ledgerConfig.initialConfiguration.maxDeduplicationTime)
+          config.ledgerConfig.initialConfiguration.maxDeduplicationTime
+        )
       }
     }
   }
