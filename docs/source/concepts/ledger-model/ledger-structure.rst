@@ -48,8 +48,6 @@ Formally, an **action** is one of the following:
 #. an **Exercise** action on a contract, which records that one or more parties
    have exercised a right they have on the contract, and which also contains:
 
-   |
-
    #. An associated set of parties called **actors**. These are the
       parties who perform the action.
 
@@ -182,7 +180,7 @@ Similarly, a **subtransaction** of a transaction is either the transaction
 itself, or a **proper subtransaction**: a transaction obtained by removing at
 least one action, or replacing it by a subtransaction of its consequences. For
 example, given the transaction consisting of just one action, the paint offer
-acceptance, the image below shows all its proper subtransactions on the right
+acceptance, the image below shows all its proper non-empty subtransactions on the right
 (yellow boxes).
 
 .. https://www.lucidchart.com/documents/edit/a4735a72-2d27-485c-a3ed-0c053dab0e11
