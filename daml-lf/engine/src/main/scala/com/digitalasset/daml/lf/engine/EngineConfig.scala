@@ -8,8 +8,7 @@ import java.nio.file.Path
 
 import com.daml.lf.language.LanguageVersion
 
-/**
-  * The Engine configurations describes the versions of language and
+/** The Engine configurations describes the versions of language and
   * transaction the engine is allowed to read and write together with
   * engine debugging feature.
   *
@@ -55,8 +54,7 @@ final case class EngineConfig(
 
 object EngineConfig {
 
-  /**
-    * Recommended production configuration.
+  /** Recommended production configuration.
     * Allows the all stable versions of language.
     */
   @deprecated("use LanguageVersion.StableVersions directly", since = "1.9.0")
@@ -64,16 +62,14 @@ object EngineConfig {
     allowedLanguageVersions = LanguageVersion.StableVersions
   )
 
-  /**
-    * Only allows language versions compatible with the legacy contract ID scheme.
+  /** Only allows language versions compatible with the legacy contract ID scheme.
     */
   @deprecated("use LanguageVersion.LegacyVersions directly", since = "1.9.0")
   def Legacy: EngineConfig = new EngineConfig(
     allowedLanguageVersions = LanguageVersion.LegacyVersions
   )
 
-  /**
-    * Development configuration, should not be used in PROD.
+  /** Development configuration, should not be used in PROD.
     * Allows all language version
     */
   @deprecated("use LanguageVersion.DevVersions directly", since = "1.9.0")

@@ -18,8 +18,7 @@ import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguratio
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 
-/**
-  * Defines the basic configuration for running sandbox
+/** Defines the basic configuration for running sandbox
   */
 final case class SandboxConfig(
     address: Option[String],
@@ -48,7 +47,7 @@ final case class SandboxConfig(
     profileDir: Option[Path],
     stackTraces: Boolean,
     engineMode: SandboxConfig.EngineMode,
-    managementServiceTimeout: Duration
+    managementServiceTimeout: Duration,
 )
 
 object SandboxConfig {

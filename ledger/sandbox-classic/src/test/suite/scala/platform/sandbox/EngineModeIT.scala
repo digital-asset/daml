@@ -52,7 +52,7 @@ class EngineModeIT
       ledgerIdRequirement = ledger.client.configuration.LedgerIdRequirement.none,
       commandClient = ledger.client.configuration.CommandClientConfiguration.default,
       sslContext = None,
-      token = None
+      token = None,
     )
 
   private[this] def buildServer(mode: SandboxConfig.EngineMode) =
@@ -60,7 +60,8 @@ class EngineModeIT
       DefaultConfig.copy(
         port = Port.Dynamic,
         engineMode = mode,
-      ))
+      )
+    )
 
   private[this] def buildRequest(pkgId: String, ledgerId: LedgerId) = {
     import scalaz.syntax.tag._
@@ -74,10 +75,12 @@ class EngineModeIT
             tmplId,
             Seq(
               RecordField(value = Some(Value().withUnit(protobuf.empty.Empty()))),
-              RecordField(value = Some(Value().withParty(party)))
+              RecordField(value = Some(Value().withParty(party))),
             ),
-          ))
-      ))
+          )
+        ),
+      )
+    )
     SubmitAndWaitRequest(
       Some(
         Commands(
@@ -85,8 +88,10 @@ class EngineModeIT
           applicationId = applicationId.unwrap,
           ledgerId = ledgerId.unwrap,
           commandId = UUID.randomUUID.toString,
-          commands = Seq(cmd)
-        )))
+          commands = Seq(cmd),
+        )
+      )
+    )
   }
 
   private[this] def run(darPath: Path, server: SandboxServer) =
@@ -114,22 +119,22 @@ class EngineModeIT
 
     def load(langVersion: LanguageVersion, mode: EngineMode) =
       buildServer(mode).use(
-        run(Paths.get(rlocation(s"daml-lf/encoder/test-${langVersion.pretty}.dar")), _))
+        run(Paths.get(rlocation(s"daml-lf/encoder/test-${langVersion.pretty}.dar")), _)
+      )
 
     def accept(langVersion: LanguageVersion, mode: EngineMode) =
       s"accept LF ${langVersion.pretty} when $mode mode is used" in
         load(langVersion, mode).map {
-          inside(_) {
-            case Success(_) => succeed
+          inside(_) { case Success(_) =>
+            succeed
           }
         }
 
     def reject(langVersion: LanguageVersion, mode: EngineMode) =
       s"reject LF ${langVersion.pretty} when $mode mode is used" in
         load(langVersion, mode).map {
-          inside(_) {
-            case Failure(exception) =>
-              exception.getMessage should include("Disallowed language version")
+          inside(_) { case Failure(exception) =>
+            exception.getMessage should include("Disallowed language version")
           }
         }
 

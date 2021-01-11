@@ -96,7 +96,8 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         EngineConfig(
           allowedLanguageVersions = LanguageVersion.DevVersions,
           packageValidation = false,
-        ))
+        )
+      )
       packageCommitter = new PackageCommitter(engine, metrics, validationMode, preloadingMode)
     }
 
