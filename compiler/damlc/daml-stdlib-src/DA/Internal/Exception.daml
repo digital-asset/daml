@@ -22,7 +22,7 @@ module DA.Internal.Exception
 
 import GHC.Types
 import DA.Internal.LF
-import DA.Internal.Prelude ( Optional (..) )
+import DA.Internal.Prelude
 
 --------------------------------------------------------------
 
